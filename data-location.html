@@ -1,0 +1,1473 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Location</title>
+  <style>
+    :root {
+      --bg: #f5f6f7;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #59636e;
+      --accent: #0b5fff;
+      --ok: #1a7f37;
+      --err: #b42318;
+      --border: #d0d7de;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .card {
+      width: min(760px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.4rem;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .path {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 12px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92rem;
+      word-break: break-all;
+      margin-bottom: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: progress;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 1.2em;
+      font-size: 0.92rem;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+
+    /* ── merge modal ─────────────────────────────────────── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 100;
+      place-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .overlay.open { display: grid; }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      width: min(700px, 100%);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 12px 40px rgba(16,24,40,.18);
+    }
+
+    .modal-wide {
+      width: min(980px, 100%);
+    }
+
+    .modal h2 {
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .modal-note {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .bulk-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .bulk-row button {
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      background: #e6edf3;
+      color: var(--text);
+    }
+
+    .conflict-list {
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .conflict-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .conflict-item.new-file {
+      background: #f0fff4;
+      border-color: #2da44e;
+    }
+
+    .new-file-badge {
+      display: inline-block;
+      background: #2da44e;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      vertical-align: middle;
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+
+    .group-count-badge {
+      display: inline-block;
+      background: #e6edf3;
+      color: var(--muted);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      font-weight: 600;
+      vertical-align: middle;
+      margin-left: 8px;
+      white-space: nowrap;
+    }
+
+    .conflict-path {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.85rem;
+      word-break: break-all;
+    }
+
+    .conflict-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action-group label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .sync-filter-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 6px 0 2px;
+    }
+    .sync-filter-bar input[type="search"] {
+      flex: 1;
+      min-width: 120px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: #fff;
+      color: var(--text);
+    }
+    .sync-filter-bar select {
+      padding: 5px 6px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: #fff;
+      color: var(--text);
+    }
+    .sync-conflict-count {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── sync conflict table ─────────────────────────────────── */
+    .conflict-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    .conflict-table th,
+    .conflict-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+    }
+    .conflict-table thead th {
+      background: #f0f3f6;
+      font-weight: 600;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .conflict-table .th-sort {
+      cursor: pointer;
+      user-select: none;
+    }
+    .conflict-table .th-sort:hover { background: #e3e8ed; }
+    .conflict-table .th-arrow {
+      display: inline-block;
+      width: 1em;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--accent);
+      margin-left: 2px;
+    }
+    .conflict-table tbody tr:hover { background: #f6f8fa; }
+    .conflict-table tbody tr.new-row { background: #f0fff4; }
+    .conflict-path-cell {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.8rem;
+      word-break: break-all;
+      max-width: 300px;
+    }
+    .date-cell, .size-cell { white-space: nowrap; color: var(--muted); font-size: 0.8rem; }
+    .status-cell { white-space: nowrap; font-size: 0.8rem; }
+    .absent-cell { color: #bbb; font-style: italic; }
+    .action-cell { white-space: nowrap; }
+    .action-select {
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 0.82rem;
+      background: #fff;
+      color: var(--text);
+      width: 100%;
+      min-width: 140px;
+    }
+
+    /* Highlight the newer side (app or sync) in conflicts */
+    .newer-cell { background: #e6fff0; font-weight: 900; }
+
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .modal-footer button { font-size: 0.9rem; }
+    .btn-cancel { background: #e6edf3; color: var(--text); }
+    .btn-apply  { background: var(--accent); }
+
+    /* ── first-run banner ──────────────────────────────────── */
+    .first-run-banner {
+      display: none;
+      margin-bottom: 20px;
+      padding: 16px;
+      border: 1px solid #0b5fff;
+      border-radius: 10px;
+      background: #eaf1ff;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .first-run-banner.open { display: flex; }
+    .first-run-banner h2 { margin: 0; font-size: 1.05rem; color: #0b5fff; }
+    .first-run-banner p  { margin: 0; font-size: 0.9rem; color: #1f2328; line-height: 1.45; }
+    .first-run-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-secondary { background: #e6edf3 !important; color: var(--text) !important; }
+
+    /* ── migrate section ─────────────────────────────────── */
+    .migrate-section {
+      display: none;
+      margin-top: 20px;
+      padding: 14px 16px;
+      border: 1px solid #e3a008;
+      border-radius: 10px;
+      background: #fffbeb;
+      gap: 10px;
+      flex-direction: column;
+    }
+    .migrate-section.open { display: flex; }
+    .migrate-section h3 { margin: 0; font-size: 1rem; color: #92400e; }
+    .migrate-section p  { margin: 0; font-size: 0.87rem; color: #78350f; line-height: 1.4; }
+    .migrate-from { font-family: Consolas, "Courier New", monospace; font-size: 0.82rem; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div id="firstRunBanner" class="first-run-banner">
+      <h2>First Launch — No Data Folder Found</h2>
+      <p>This appears to be the first time the app is launched here. If you already have data from a previous installation, select that folder now. Otherwise, start fresh with the default location shown below.</p>
+      <div class="first-run-actions">
+        <button id="firstRunPickBtn" type="button">Select Existing Folder</button>
+        <button id="firstRunFreshBtn" type="button" class="btn-secondary">Start Fresh</button>
+      </div>
+      <div id="firstRunStatus" class="status"></div>
+    </div>
+
+    <h1>Choose Data Folder</h1>
+    <p>This folder is used by all app tools for saving user data, logs, and custom files.</p>
+
+    <div id="currentPath" class="path">Loading...</div>
+    <button id="pickBtn" type="button">Choose Folder</button>
+    <button id="resetBtn" type="button" style="margin-left:8px;background:#6e7781;" title="Reset to the default location (next to the app / AppImage)">Reset to Default</button>
+    <button id="checkBtn" type="button" style="margin-left:8px;background:#444d56;">Check for Updates</button>
+    <div id="status" class="status"></div>
+
+    <div id="migrateSection" class="migrate-section">
+      <h3>Migrate files from previous location?</h3>
+      <p>Your existing files (logs, settings, data) are still in the old folder. Copy them to the new location now. Other app windows have been reloaded to use the new location.</p>
+      <div class="migrate-from" id="migrateFromPath"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button id="migrateBtn" type="button">Copy Files Now</button>
+        <button id="migrateDismissBtn" type="button" style="background:#e6edf3;color:var(--text);">Dismiss</button>
+      </div>
+      <div id="migrateStatus" class="status"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px;">
+    <h2 style="margin:0 0 6px;font-size:1.1rem;">Backup Location</h2>
+    <p>When you click "Backup Now", all user data (logs and settings) is copied to this folder.</p>
+    <div id="backupPath" class="path">Not set</div>
+    <button id="pickBackupBtn" type="button" style="background:#444d56;">Choose Folder</button>
+    <button id="runBackupBtn" type="button" style="margin-left:8px;" disabled>Backup Now</button>
+    <div id="backupStatus" class="status"></div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px;">
+    <h2 style="margin:0 0 6px;font-size:1.1rem;">Sync Location</h2>
+    <p>Synchronize the current data folder with another saved location. Choose the direction each time you sync.</p>
+    <div id="syncPath" class="path">Not set</div>
+    <button id="pickSyncBtn" type="button" style="background:#444d56;">Choose Folder</button>
+    <button id="runSyncBtn" type="button" style="margin-left:8px;" disabled>Sync Now</button>
+    <div style="margin-top:10px;">
+      <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.92rem;">
+        <input type="checkbox" id="autoSyncToggle" disabled style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+        Keep target up to date automatically
+      </label>
+    </div>
+    <div id="syncStatus" class="status"></div>
+    <div id="syncLastSync" style="font-size:0.83rem;color:var(--muted);margin-top:4px;"></div>
+    <details id="syncAddedDetails" style="display:none;margin-top:8px;">
+      <summary id="syncAddedSummary" style="cursor:pointer;font-size:0.88rem;color:var(--muted);user-select:none;"></summary>
+      <ul id="syncAddedList" style="margin:6px 0 0 0;padding:0 0 0 18px;font-family:Consolas,'Courier New',monospace;font-size:0.8rem;color:var(--text);line-height:1.7;max-height:220px;overflow-y:auto;"></ul>
+    </details>
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0 16px;">
+    <button onclick="openCreditsModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.85rem;padding:0;text-decoration:underline;">ℹ️ Credits</button>
+  </main>
+
+  <!-- merge modal -->
+  <div class="overlay" id="mergeOverlay" role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
+    <div class="modal">
+      <h2 id="mergeTitle">Bundled files differ from your data folder</h2>
+      <p class="modal-note">
+        The app ships with default data files (the <em>bundled</em> version). One or more of those files differ from
+        what is already in your data folder. For each file below, choose what to do:<br><br>
+        <strong>Keep</strong> — Do nothing. Your existing file stays exactly as it is. Choose this if you have
+        customised the file and do not want to lose your changes.<br>
+        <strong>Replace</strong> — Overwrite your file with the bundled (default) version. Any changes you made to
+        that file will be permanently lost. Choose this if you want the latest default content and do not need your
+        current version.<br>
+        <strong>Rename &amp; replace</strong> — Save your current file under a new name ending in
+        <code>_bak</code> (e.g. <code>wordDb_bak.js</code>), then copy the bundled version in its place. This is
+        the safest option: you get the updated default file while keeping a backup of your previous one.
+      </p>
+      <div class="bulk-row">
+        <button type="button" id="bulkKeep">Keep all</button>
+        <button type="button" id="bulkReplace">Replace all</button>
+        <button type="button" id="bulkRename">Rename &amp; replace all</button>
+      </div>
+      <div class="conflict-list" id="conflictList"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" id="mergeCancel">Cancel</button>
+        <button type="button" class="btn-apply" id="mergeApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- sync conflict modal -->
+  <div class="overlay" id="syncConflictOverlay" role="dialog" aria-modal="true" aria-labelledby="syncConflictTitle">
+    <div class="modal modal-wide">
+      <h2 id="syncConflictTitle">Sync Conflicts</h2>
+      <p class="modal-note">
+        Both sides have a different version of each file below.<br>
+        <strong>Current</strong> = your active data folder &nbsp;|&nbsp; <strong>Sync folder</strong> = the saved sync location.<br><br>
+        <strong>Keep current</strong> — overwrite the sync folder with your data folder version.<br>
+        <strong>Keep sync folder</strong> — overwrite your data folder with the sync folder version.<br>
+        <strong>Skip</strong> — leave both files unchanged.<br><br>
+        Files marked <span style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;">New</span> only exist on one side — choose whether to copy them across or skip.
+      </p>
+      <div class="bulk-row">
+        <button type="button" id="syncBulkKeepSrc">Keep all current</button>
+        <button type="button" id="syncBulkKeepDest">Keep all sync folder</button>
+        <button type="button" id="syncBulkSkip">Skip all</button>
+      </div>
+      <div class="sync-filter-bar">
+        <input type="search" id="syncConflictSearch" placeholder="Search files…" autocomplete="off">
+        <select id="syncConflictDays" title="Filter by recency">
+          <option value="0">All time</option>
+          <option value="1">Last 24 h</option>
+          <option value="3">Last 3 days</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;white-space:nowrap;cursor:pointer;" title="Show only files where sizes differ">
+          <input type="checkbox" id="syncConflictDiffSize" style="cursor:pointer;accent-color:var(--accent);"> Different size only
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;white-space:nowrap;" title="Hide conflicts where both dates are within this many seconds of each other">
+          Hide if dates within
+          <input type="number" id="syncConflictDateTol" min="0" step="1" value="0"
+            style="width:54px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;background:#fff;color:var(--text);"> s
+        </label>
+        <label id="syncConflictSinceLastSyncLabel" style="display:none;align-items:center;gap:5px;font-size:0.85rem;white-space:nowrap;cursor:pointer;" title="Show only files changed since the last sync">
+          <input type="checkbox" id="syncConflictSinceLastSync" style="cursor:pointer;accent-color:var(--accent);"> Since last sync
+        </label>
+        <span id="syncConflictCount" class="sync-conflict-count"></span>
+      </div>
+      <div class="conflict-list" id="syncConflictList"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" id="syncConflictCancel">Cancel</button>
+        <button type="button" class="btn-apply" id="syncConflictApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const currentPathEl = document.getElementById('currentPath');
+    const pickBtn       = document.getElementById('pickBtn');
+    const resetBtn      = document.getElementById('resetBtn');
+    const checkBtn      = document.getElementById('checkBtn');
+    const statusEl      = document.getElementById('status');
+    const mergeOverlay  = document.getElementById('mergeOverlay');
+    const conflictList  = document.getElementById('conflictList');
+    const mergeApply    = document.getElementById('mergeApply');
+    const mergeCancel   = document.getElementById('mergeCancel');
+    const bulkKeep      = document.getElementById('bulkKeep');
+    const bulkReplace   = document.getElementById('bulkReplace');
+    const bulkRename    = document.getElementById('bulkRename');
+
+    const migrateSection     = document.getElementById('migrateSection');
+    const migrateFromPathEl  = document.getElementById('migrateFromPath');
+    const migrateBtn         = document.getElementById('migrateBtn');
+    const migrateDismissBtn  = document.getElementById('migrateDismissBtn');
+    const migrateStatusEl    = document.getElementById('migrateStatus');
+
+    let pendingMigrateFrom = null;
+
+    function setMigrateStatus(message, kind) {
+      migrateStatusEl.textContent = message || '';
+      migrateStatusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function showMigrateSection(fromPath) {
+      pendingMigrateFrom = fromPath;
+      migrateFromPathEl.textContent = fromPath;
+      setMigrateStatus('', '');
+      migrateSection.classList.add('open');
+    }
+
+    function hideMigrateSection() {
+      migrateSection.classList.remove('open');
+      pendingMigrateFrom = null;
+    }
+
+    migrateDismissBtn.addEventListener('click', hideMigrateSection);
+
+    migrateBtn.addEventListener('click', async () => {
+      if (!pendingMigrateFrom) return;
+      migrateBtn.disabled = true;
+      migrateDismissBtn.disabled = true;
+      setMigrateStatus('Copying files…', '');
+      try {
+        const res = await window.electronApi.migrateDataLocation({ from: pendingMigrateFrom });
+        if (!res || !res.ok) {
+          setMigrateStatus(res?.error || 'Migration failed.', 'err');
+          return;
+        }
+        if (res.skipped) {
+          setMigrateStatus('Source and destination are the same — nothing to migrate.', '');
+          hideMigrateSection();
+          return;
+        }
+        const errCount = res.errors?.length || 0;
+        if (errCount) {
+          setMigrateStatus(`Copied ${res.copied} file(s) with ${errCount} error(s).`, 'err');
+        } else {
+          setMigrateStatus(`Copied ${res.copied} file(s) successfully.`, 'ok');
+          hideMigrateSection();
+        }
+      } catch (err) {
+        setMigrateStatus(String(err?.message || err), 'err');
+      } finally {
+        migrateBtn.disabled = false;
+        migrateDismissBtn.disabled = false;
+      }
+    });
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message || '';
+      statusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function fmtDate(ms) {
+      if (!ms) return '?';
+      return new Date(ms).toLocaleString();
+    }
+
+    function fmtSize(bytes) {
+      if (bytes == null) return '?';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    async function refreshCurrentPath() {
+      if (!window.electronApi || !window.electronApi.getDataLocation) {
+        currentPathEl.textContent = 'Electron API not available.';
+        setStatus('This page only works in the Electron app.', 'err');
+        pickBtn.disabled = true;
+        resetBtn.disabled = true;
+        checkBtn.disabled = true;
+        return;
+      }
+
+      const res = await window.electronApi.getDataLocation();
+      if (!res || !res.ok) {
+        currentPathEl.textContent = 'Unable to read data location.';
+        setStatus('Could not load current data location.', 'err');
+        return;
+      }
+
+      currentPathEl.textContent = res.resolvedWritableRoot || '(not set)';
+      setStatus('', '');
+    }
+
+    // ── conflict modal ────────────────────────────────────────────────
+
+    function buildConflictModal(conflicts) {
+      conflictList.innerHTML = '';
+      for (const c of conflicts) {
+        const item = document.createElement('div');
+        item.className = 'conflict-item';
+        item.dataset.path = c.relativePath;
+
+        item.innerHTML = `
+          <div class="conflict-path">${c.relativePath}</div>
+          <div class="conflict-meta">
+            <span>Your file: ${fmtSize(c.destSize)}, modified ${fmtDate(c.destMtimeMs)}</span>
+            <span>Bundled: ${fmtSize(c.srcSize)}, modified ${fmtDate(c.srcMtimeMs)}</span>
+          </div>
+          <div class="action-group">
+            <label><input type="radio" name="action-${CSS.escape(c.relativePath)}" value="keep" checked> Keep mine</label>
+            <label><input type="radio" name="action-${CSS.escape(c.relativePath)}" value="replace"> Replace</label>
+            <label><input type="radio" name="action-${CSS.escape(c.relativePath)}" value="rename"> Rename &amp; replace</label>
+          </div>`;
+        conflictList.appendChild(item);
+      }
+    }
+
+    function setBulkAction(action) {
+      for (const radio of conflictList.querySelectorAll(`input[type="radio"][value="${action}"]`)) {
+        radio.checked = true;
+      }
+    }
+
+    function collectDecisions() {
+      const decisions = [];
+      for (const item of conflictList.querySelectorAll('.conflict-item')) {
+        const relPath = item.dataset.path;
+        const checked = item.querySelector('input[type="radio"]:checked');
+        decisions.push({ relativePath: relPath, action: checked ? checked.value : 'keep' });
+      }
+      return decisions;
+    }
+
+    function openMergeModal(conflicts) {
+      buildConflictModal(conflicts);
+      mergeOverlay.classList.add('open');
+    }
+
+    function closeMergeModal() {
+      mergeOverlay.classList.remove('open');
+    }
+
+    bulkKeep.addEventListener('click',    () => setBulkAction('keep'));
+    bulkReplace.addEventListener('click', () => setBulkAction('replace'));
+    bulkRename.addEventListener('click',  () => setBulkAction('rename'));
+    mergeCancel.addEventListener('click', closeMergeModal);
+
+    mergeApply.addEventListener('click', async () => {
+      const decisions = collectDecisions();
+      mergeApply.disabled = true;
+      setStatus('Applying changes...', '');
+      closeMergeModal();
+
+      try {
+        const res = await window.electronApi.applyMergeChoices({ decisions });
+        if (!res || !res.ok) {
+          setStatus('Failed to apply merge choices.', 'err');
+          return;
+        }
+        const errCount = res.errors?.length || 0;
+        if (errCount) {
+          setStatus(`Applied ${res.applied} change(s) — ${errCount} error(s): ${res.errors.map(e => e.relativePath).join(', ')}`, 'err');
+        } else if (res.applied === 0) {
+          setStatus('No changes applied (all kept).', '');
+        } else {
+          setStatus(`Applied ${res.applied} change(s) successfully.`, 'ok');
+        }
+      } catch (err) {
+        setStatus(String(err?.message || err), 'err');
+      } finally {
+        mergeApply.disabled = false;
+      }
+    });
+
+    // ── check for updates button ──────────────────────────────────────
+
+    checkBtn.addEventListener('click', async () => {
+      if (!window.electronApi?.getSeedConflicts) {
+        setStatus('getSeedConflicts API not available.', 'err');
+        return;
+      }
+      checkBtn.disabled = true;
+      setStatus('Checking for updated bundled files...', '');
+      try {
+        const res = await window.electronApi.getSeedConflicts();
+        if (!res || !res.ok) {
+          setStatus('Could not check for conflicts.', 'err');
+          return;
+        }
+        if (!res.conflicts.length) {
+          setStatus('Your data folder is up to date with the bundled files.', 'ok');
+          return;
+        }
+        setStatus(`${res.conflicts.length} file(s) differ from the bundled version.`, '');
+        openMergeModal(res.conflicts);
+      } catch (err) {
+        setStatus(String(err?.message || err), 'err');
+      } finally {
+        checkBtn.disabled = false;
+      }
+    });
+
+    // ── reset to default button ───────────────────────────────────────
+
+    resetBtn.addEventListener('click', async () => {
+      if (!window.electronApi?.resetDataLocation) {
+        setStatus('resetDataLocation API not available.', 'err');
+        return;
+      }
+      resetBtn.disabled = true;
+      setStatus('Resetting to default location…', '');
+      try {
+        const res = await window.electronApi.resetDataLocation();
+        if (!res || !res.ok) {
+          setStatus(res?.error || 'Could not reset data location.', 'err');
+          return;
+        }
+          setStatus('Reset to default location — other windows have been reloaded.', 'ok');
+        if (res.previousRoot && res.resolvedWritableRoot &&
+            res.previousRoot.toLowerCase().replace(/[\\/]+$/, '') !==
+            res.resolvedWritableRoot.toLowerCase().replace(/[\\/]+$/, '')) {
+          showMigrateSection(res.previousRoot);
+        }
+      } catch (err) {
+        setStatus(String(err?.message || err), 'err');
+      } finally {
+        await refreshCurrentPath();
+        resetBtn.disabled = false;
+      }
+    });
+
+    // ── choose folder button ──────────────────────────────────────────
+
+    pickBtn.addEventListener('click', async () => {
+      pickBtn.disabled = true;
+      setStatus('Opening folder picker...', '');
+
+      try {
+        const res = await window.electronApi.pickDataLocation();
+        if (!res) {
+          setStatus('No response from main process.', 'err');
+        } else if (res.canceled) {
+          setStatus('Folder selection canceled.', '');
+        } else if (!res.ok) {
+          setStatus(res.error || 'Could not set folder.', 'err');
+        } else {
+          setStatus('Data folder updated — other windows have been reloaded.', 'ok');
+
+          // Offer file migration when moving to a different location.
+          if (res.previousRoot && res.resolvedWritableRoot &&
+              res.previousRoot.toLowerCase().replace(/[\\/]+$/, '') !==
+              res.resolvedWritableRoot.toLowerCase().replace(/[\\/]+$/, '')) {
+            showMigrateSection(res.previousRoot);
+          }
+
+          // After setting a new folder, automatically check for conflicts.
+          if (window.electronApi.getSeedConflicts) {
+            try {
+              const cr = await window.electronApi.getSeedConflicts();
+              if (cr?.ok && cr.conflicts.length) {
+                setStatus(`${cr.conflicts.length} bundled file(s) differ from the new folder. Review below.`, '');
+                openMergeModal(cr.conflicts);
+              }
+            } catch {}
+          }
+        }
+      } catch (error) {
+        setStatus(String(error && error.message ? error.message : error), 'err');
+      } finally {
+        await refreshCurrentPath();
+        pickBtn.disabled = false;
+      }
+    });
+
+    refreshCurrentPath();
+
+    // ── first-run setup ───────────────────────────────────────────────
+
+    const firstRunBanner   = document.getElementById('firstRunBanner');
+    const firstRunPickBtn  = document.getElementById('firstRunPickBtn');
+    const firstRunFreshBtn = document.getElementById('firstRunFreshBtn');
+    const firstRunStatusEl = document.getElementById('firstRunStatus');
+
+    function setFirstRunStatus(message, kind) {
+      firstRunStatusEl.textContent = message || '';
+      firstRunStatusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    async function checkFirstRun() {
+      if (!window.electronApi?.getDataLocation) return;
+      const res = await window.electronApi.getDataLocation();
+      if (res?.ok && res.isFirstRun) {
+        firstRunBanner.classList.add('open');
+      }
+    }
+
+    firstRunPickBtn.addEventListener('click', async () => {
+      firstRunPickBtn.disabled = true;
+      firstRunFreshBtn.disabled = true;
+      setFirstRunStatus('Opening folder picker…', '');
+      try {
+        const res = await window.electronApi.pickDataLocation();
+        if (!res) {
+          setFirstRunStatus('No response from main process.', 'err');
+        } else if (res.canceled) {
+          setFirstRunStatus('Folder selection canceled.', '');
+        } else if (!res.ok) {
+          setFirstRunStatus(res.error || 'Could not set folder.', 'err');
+        } else {
+          setFirstRunStatus('Folder set — opening app…', 'ok');
+          await refreshCurrentPath();
+          if (window.electronApi.loadPage) {
+            await window.electronApi.loadPage({ pageFile: 'class-management.html' });
+          }
+          return;
+        }
+      } catch (err) {
+        setFirstRunStatus(String(err?.message || err), 'err');
+      } finally {
+        firstRunPickBtn.disabled = false;
+        firstRunFreshBtn.disabled = false;
+      }
+    });
+
+    firstRunFreshBtn.addEventListener('click', async () => {
+      if (window.electronApi?.loadPage) {
+        await window.electronApi.loadPage({ pageFile: 'class-management.html' });
+      }
+    });
+
+    checkFirstRun();
+
+    // ── backup location ───────────────────────────────────────────────
+
+    const backupPathEl   = document.getElementById('backupPath');
+    const pickBackupBtn  = document.getElementById('pickBackupBtn');
+    const runBackupBtn   = document.getElementById('runBackupBtn');
+    const backupStatusEl = document.getElementById('backupStatus');
+
+    function setBackupStatus(message, kind) {
+      backupStatusEl.textContent = message || '';
+      backupStatusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    async function refreshBackupPath() {
+      if (!window.electronApi?.getBackupLocation) return;
+      const res = await window.electronApi.getBackupLocation();
+      if (res?.ok && res.backupLocation) {
+        backupPathEl.textContent = res.backupLocation;
+        runBackupBtn.disabled = false;
+      } else {
+        backupPathEl.textContent = 'Not set';
+        runBackupBtn.disabled = true;
+      }
+    }
+
+    pickBackupBtn.addEventListener('click', async () => {
+      pickBackupBtn.disabled = true;
+      setBackupStatus('Opening folder picker...', '');
+      try {
+        const res = await window.electronApi.pickBackupLocation();
+        if (!res) {
+          setBackupStatus('No response from main process.', 'err');
+        } else if (res.canceled) {
+          setBackupStatus('Folder selection canceled.', '');
+        } else if (!res.ok) {
+          setBackupStatus(res.error || 'Could not set folder.', 'err');
+        } else {
+          setBackupStatus('Backup folder updated.', 'ok');
+          backupPathEl.textContent = res.backupLocation;
+          runBackupBtn.disabled = false;
+        }
+      } catch (err) {
+        setBackupStatus(String(err?.message || err), 'err');
+      } finally {
+        pickBackupBtn.disabled = false;
+      }
+    });
+
+    runBackupBtn.addEventListener('click', async () => {
+      runBackupBtn.disabled = true;
+      setBackupStatus('Backing up...', '');
+      try {
+        const res = await window.electronApi.runBackup();
+        if (!res || !res.ok) {
+          setBackupStatus(res?.error || 'Backup failed.', 'err');
+        } else {
+          const errCount = res.errors?.length || 0;
+          if (errCount) {
+            setBackupStatus(`Copied ${res.copied} file(s) with ${errCount} error(s).`, 'err');
+          } else {
+            setBackupStatus(`Backup complete — ${res.copied} file(s) copied to ${res.backupLocation}.`, 'ok');
+          }
+        }
+      } catch (err) {
+        setBackupStatus(String(err?.message || err), 'err');
+      } finally {
+        runBackupBtn.disabled = false;
+      }
+    });
+
+    refreshBackupPath();
+
+    // ── sync location ─────────────────────────────────────────────────
+
+    const syncPathEl           = document.getElementById('syncPath');
+    const pickSyncBtn          = document.getElementById('pickSyncBtn');
+    const runSyncBtn           = document.getElementById('runSyncBtn');
+    const autoSyncToggle       = document.getElementById('autoSyncToggle');
+    const syncStatusEl         = document.getElementById('syncStatus');
+    const syncAddedDetails     = document.getElementById('syncAddedDetails');
+    const syncAddedSummary     = document.getElementById('syncAddedSummary');
+    const syncAddedList        = document.getElementById('syncAddedList');
+    const syncConflictOverlay  = document.getElementById('syncConflictOverlay');
+    const syncConflictList     = document.getElementById('syncConflictList');
+    const syncConflictApply    = document.getElementById('syncConflictApply');
+    const syncConflictCancel   = document.getElementById('syncConflictCancel');
+    const syncBulkKeepSrc      = document.getElementById('syncBulkKeepSrc');
+    const syncBulkKeepDest     = document.getElementById('syncBulkKeepDest');
+    const syncBulkSkip         = document.getElementById('syncBulkSkip');
+    const syncConflictSearch         = document.getElementById('syncConflictSearch');
+    const syncConflictDays            = document.getElementById('syncConflictDays');
+    const syncConflictDiffSize        = document.getElementById('syncConflictDiffSize');
+    const syncConflictDateTol         = document.getElementById('syncConflictDateTol');
+    const syncConflictCount           = document.getElementById('syncConflictCount');
+    const syncConflictSinceLastSync   = document.getElementById('syncConflictSinceLastSync');
+    const syncConflictSinceLastSyncLbl= document.getElementById('syncConflictSinceLastSyncLabel');
+    const syncLastSyncEl              = document.getElementById('syncLastSync');
+
+    let _lastSyncTime = parseInt(localStorage.getItem('lastSyncTime') || '0', 10) || 0;
+
+    function _saveLastSyncTime() {
+      _lastSyncTime = Date.now();
+      localStorage.setItem('lastSyncTime', String(_lastSyncTime));
+      _refreshLastSyncDisplay();
+    }
+
+    function _refreshLastSyncDisplay() {
+      if (_lastSyncTime > 0) {
+        syncLastSyncEl.textContent = 'Last synced: ' + new Date(_lastSyncTime).toLocaleString();
+      } else {
+        syncLastSyncEl.textContent = '';
+      }
+    }
+
+    _refreshLastSyncDisplay();
+
+    let _syncConflictsAll  = [];
+    let _syncConflictItems = new Map(); // relativePath -> DOM element (tr)
+    let _syncConflictTbody = null;
+    let _syncSortCol       = 'name';
+    let _syncSortAsc       = true;
+
+    function setSyncStatus(message, kind) {
+      syncStatusEl.textContent = message || '';
+      syncStatusEl.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function showSyncAdded(added) {
+      if (!added || added.length === 0) {
+        syncAddedDetails.style.display = 'none';
+        return;
+      }
+      syncAddedList.innerHTML = '';
+      for (const f of added) {
+        const li = document.createElement('li');
+        li.textContent = f;
+        syncAddedList.appendChild(li);
+      }
+      syncAddedSummary.textContent = `${added.length} new file${added.length !== 1 ? 's' : ''} added — click to expand`;
+      syncAddedDetails.open = false;
+      syncAddedDetails.style.display = '';
+    }
+
+    async function refreshSyncPath() {
+      if (!window.electronApi?.getSyncLocation) return;
+      const res = await window.electronApi.getSyncLocation();
+      const hasSyncLocation = res?.ok && res.syncLocation;
+      if (hasSyncLocation) {
+        syncPathEl.textContent = res.syncLocation;
+        runSyncBtn.disabled = false;
+        autoSyncToggle.disabled = false;
+      } else {
+        syncPathEl.textContent = 'Not set';
+        runSyncBtn.disabled = true;
+        autoSyncToggle.disabled = true;
+        autoSyncToggle.checked = false;
+      }
+
+      // Load the auto-sync toggle state.
+      if (hasSyncLocation && window.electronApi?.getAutoSync) {
+        try {
+          const asr = await window.electronApi.getAutoSync();
+          autoSyncToggle.checked = asr?.autoSync === true;
+        } catch {}
+      }
+    }
+
+    autoSyncToggle.addEventListener('change', async () => {
+      if (!window.electronApi?.setAutoSync) return;
+      autoSyncToggle.disabled = true;
+      try {
+        const res = await window.electronApi.setAutoSync({ enabled: autoSyncToggle.checked });
+        if (!res?.ok) {
+          autoSyncToggle.checked = !autoSyncToggle.checked; // revert on failure
+          setSyncStatus('Could not update auto-sync setting.', 'err');
+        } else if (res.autoSync) {
+          setSyncStatus('Auto-sync enabled — changes are copied to the target automatically.', 'ok');
+        } else {
+          setSyncStatus('Auto-sync disabled.', '');
+        }
+      } catch (err) {
+        setSyncStatus(String(err?.message || err), 'err');
+      } finally {
+        autoSyncToggle.disabled = false;
+      }
+    });
+
+    pickSyncBtn.addEventListener('click', async () => {
+      pickSyncBtn.disabled = true;
+      setSyncStatus('Opening folder picker...', '');
+      try {
+        const res = await window.electronApi.pickSyncLocation();
+        if (!res) {
+          setSyncStatus('No response from main process.', 'err');
+        } else if (res.canceled) {
+          setSyncStatus('Folder selection canceled.', '');
+        } else if (!res.ok) {
+          setSyncStatus(res.error || 'Could not set folder.', 'err');
+        } else {
+          setSyncStatus('Sync folder updated.', 'ok');
+          syncPathEl.textContent = res.syncLocation;
+          runSyncBtn.disabled = false;
+          autoSyncToggle.disabled = false;
+        }
+      } catch (err) {
+        setSyncStatus(String(err?.message || err), 'err');
+      } finally {
+        pickSyncBtn.disabled = false;
+      }
+    });
+
+    runSyncBtn.addEventListener('click', doSync);
+
+    // ── sync conflict modal ───────────────────────────────────────────
+
+    // Group files inside the same constellation session folder into one row.
+    function groupConstellationItems(items) {
+      const result = [];
+      const folderMap = new Map(); // folderKey → group entry
+      for (const item of items) {
+        const m = item.relativePath.match(/^(log\/constellation\/([^/]+))\//); 
+        if (m) {
+          const key = m[1];
+          if (!folderMap.has(key)) {
+            const g = { relativePath: key, isGroup: true, groupItems: [] };
+            folderMap.set(key, g);
+            result.push(g);
+          }
+          folderMap.get(key).groupItems.push(item);
+        } else {
+          result.push(item);
+        }
+      }
+      for (const [, g] of folderMap) {
+        const gItems = g.groupItems;
+        const kinds = new Set(gItems.map(i => i.kind));
+        g.kind = kinds.size === 1 ? [...kinds][0] : 'mixed';
+        g.fileCount   = gItems.length;
+        g.srcMtimeMs  = Math.max(...gItems.map(i => i.srcMtimeMs  || 0));
+        g.destMtimeMs = Math.max(...gItems.map(i => i.destMtimeMs || 0));
+        g.srcSize     = gItems.reduce((s, i) => s + (i.srcSize  || 0), 0);
+        g.destSize    = gItems.reduce((s, i) => s + (i.destSize || 0), 0);
+        if (g.kind === 'new') {
+          const sides = new Set(gItems.map(i => i.side));
+          g.side = sides.size === 1 ? [...sides][0] : 'mixed';
+        }
+      }
+      return result;
+    }
+
+    function renderSyncRow(c) {
+      const tr = document.createElement('tr');
+      tr.dataset.path = c.relativePath;
+      const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const pathEsc = esc(c.relativePath);
+      const nameEsc = CSS.escape(c.relativePath);
+
+      let nameHtml, srcSizeHtml, srcDateHtml, destSizeHtml, destDateHtml, statusHtml, actionSelectHtml;
+
+      const srcAbsent  = c.kind === 'new' && c.side === 'dest-only'; // exists only in sync
+      const destAbsent = c.kind === 'new' && c.side === 'src-only';  // exists only in app
+
+      srcSizeHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize);
+      srcDateHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs);
+      destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize);
+      destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs);
+
+      // Determine which side is newer so we can highlight it.
+      const srcTime = c.srcMtimeMs || 0;
+      const destTime = c.destMtimeMs || 0;
+      let srcNewer = srcTime > destTime;
+      let destNewer = destTime > srcTime;
+      // For new-only rows, highlight the present side as newer
+      if (c.kind === 'new') {
+        if (c.side === 'src-only') { srcNewer = true; destNewer = false; }
+        if (c.side === 'dest-only') { destNewer = true; srcNewer = false; }
+      }
+      const srcCellClass = srcNewer ? 'newer-cell' : '';
+      const destCellClass = destNewer ? 'newer-cell' : '';
+
+      if (c.isGroup) {
+        const isSrcOnly  = c.kind === 'new' && c.side === 'src-only';
+        const isDestOnly = c.kind === 'new' && c.side === 'dest-only';
+        const isPureNew  = c.kind === 'new';
+        tr.className = isPureNew ? 'new-row' : '';
+        tr.dataset.isGroup = '1';
+
+        let kindBadge = '';
+        if      (isSrcOnly)  kindBadge = `<span class="new-file-badge">App only</span>`;
+        else if (isDestOnly) kindBadge = `<span class="new-file-badge">Sync only</span>`;
+        else if (isPureNew)  kindBadge = `<span class="new-file-badge">New</span>`;
+
+        nameHtml   = `${pathEsc}/<span class="group-count-badge">${c.fileCount} files</span>${kindBadge}`;
+        statusHtml = isPureNew
+          ? (isSrcOnly ? 'App only' : isDestOnly ? 'Sync only' : 'New')
+          : (c.kind === 'mixed' ? 'Mixed' : 'Conflict');
+
+        if (isSrcOnly) {
+          actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+            <option value="keep-source" selected>Copy to sync</option>
+            <option value="skip">Skip</option>
+            <option value="delete-source">Delete (app)</option>
+          </select>`;
+        } else if (isDestOnly) {
+          actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+            <option value="keep-target" selected>Copy to app</option>
+            <option value="skip">Skip</option>
+            <option value="delete-target">Delete (sync)</option>
+          </select>`;
+        } else {
+          actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+            <option value="keep-newer" selected>Keep newer</option>
+            <option value="keep-source">Keep app</option>
+            <option value="keep-target">Keep sync</option>
+            <option value="skip">Skip</option>
+          </select>`;
+        }
+
+      } else if (c.kind === 'new') {
+        tr.className = 'new-row';
+        const isSrcOnly = c.side === 'src-only';
+        nameHtml   = `${pathEsc}<span class="new-file-badge">${isSrcOnly ? 'App only' : 'Sync only'}</span>`;
+        statusHtml = isSrcOnly ? 'App only' : 'Sync only';
+        if (isSrcOnly) {
+          actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+            <option value="keep-source" selected>Copy to sync</option>
+            <option value="skip">Skip</option>
+            <option value="delete-source">Delete (app)</option>
+          </select>`;
+        } else {
+          actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+            <option value="keep-target" selected>Copy to app</option>
+            <option value="skip">Skip</option>
+            <option value="delete-target">Delete (sync)</option>
+          </select>`;
+        }
+
+      } else {
+        // conflict — both sides present
+        tr.className   = '';
+        nameHtml       = pathEsc;
+        statusHtml     = 'Conflict';
+        actionSelectHtml = `<select class="action-select" name="sync-action-${nameEsc}">
+          <option value="keep-newer" selected>Keep newer</option>
+          <option value="keep-source">Keep app</option>
+          <option value="keep-target">Keep sync</option>
+          <option value="skip">Skip</option>
+        </select>`;
+      }
+
+      tr.innerHTML = `
+        <td class="conflict-path-cell">${nameHtml}</td>
+        <td class="size-cell ${srcCellClass}">${srcSizeHtml}</td>
+        <td class="date-cell ${srcCellClass}">${srcDateHtml}</td>
+        <td class="size-cell ${destCellClass}">${destSizeHtml}</td>
+        <td class="date-cell ${destCellClass}">${destDateHtml}</td>
+        <td class="status-cell">${statusHtml}</td>
+        <td class="action-cell">${actionSelectHtml}</td>`;
+      return tr;
+    }
+
+    function _updateSyncSortHeaders() {
+      if (!syncConflictList) return;
+      for (const th of syncConflictList.querySelectorAll('th.th-sort')) {
+        const span = th.querySelector('.th-arrow');
+        if (!span) continue;
+        span.textContent = th.dataset.col === _syncSortCol ? (_syncSortAsc ? '↑' : '↓') : '';
+      }
+    }
+
+    function buildSyncConflictModal(conflicts, newFiles = []) {
+      const flat = [
+        ...conflicts.map(c => ({ ...c, kind: 'conflict' })),
+        ...newFiles.map(f => ({ ...f, kind: 'new' }))
+      ];
+      _syncConflictsAll = groupConstellationItems(flat);
+      _syncConflictItems.clear();
+      syncConflictSearch.value     = '';
+      syncConflictDays.value       = '0';
+      syncConflictDiffSize.checked = false;
+      syncConflictDateTol.value    = '0';
+      syncConflictSinceLastSync.checked = _lastSyncTime > 0;
+      if (_lastSyncTime > 0) {
+        syncConflictSinceLastSyncLbl.style.display = 'inline-flex';
+        syncConflictSinceLastSyncLbl.title = 'Show only files changed since last sync (' + new Date(_lastSyncTime).toLocaleString() + ')';
+      } else {
+        syncConflictSinceLastSyncLbl.style.display = 'none';
+      }
+      _syncSortCol = 'name';
+      _syncSortAsc = true;
+
+      // Build table structure
+      syncConflictList.innerHTML = `
+        <table class="conflict-table">
+          <thead>
+            <tr>
+              <th class="th-sort" data-col="name">Name <span class="th-arrow"></span></th>
+              <th class="th-sort" data-col="size-src">App size <span class="th-arrow"></span></th>
+              <th class="th-sort" data-col="date-src">App date <span class="th-arrow"></span></th>
+              <th class="th-sort" data-col="size-dest">Sync size <span class="th-arrow"></span></th>
+              <th class="th-sort" data-col="date-dest">Sync date <span class="th-arrow"></span></th>
+              <th class="th-sort" data-col="status">Status <span class="th-arrow"></span></th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="syncConflictTbody"></tbody>
+        </table>`;
+      _syncConflictTbody = syncConflictList.querySelector('#syncConflictTbody');
+
+      // Wire up column sort handlers
+      for (const th of syncConflictList.querySelectorAll('th.th-sort')) {
+        th.addEventListener('click', () => {
+          const col = th.dataset.col;
+          if (_syncSortCol === col) {
+            _syncSortAsc = !_syncSortAsc;
+          } else {
+            _syncSortCol = col;
+            _syncSortAsc = true;
+          }
+          _updateSyncSortHeaders();
+          applySyncConflictFilters();
+        });
+      }
+      _updateSyncSortHeaders();
+
+      for (const c of _syncConflictsAll) {
+        _syncConflictItems.set(c.relativePath, renderSyncRow(c));
+      }
+      applySyncConflictFilters();
+    }
+
+    function applySyncConflictFilters() {
+      const search = syncConflictSearch.value.trim().toLowerCase();
+      const days   = parseInt(syncConflictDays.value, 10);
+      let cutoff = days > 0 ? Date.now() - days * 86400000 : 0;
+      if (syncConflictSinceLastSync.checked && _lastSyncTime > 0) {
+        cutoff = Math.max(cutoff, _lastSyncTime);
+      }
+
+      const diffSizeOnly = syncConflictDiffSize.checked;
+      const dateTolMs    = Math.max(0, parseFloat(syncConflictDateTol.value) || 0) * 1000;
+
+      let filtered = _syncConflictsAll.filter(c => {
+        if (search && !c.relativePath.toLowerCase().includes(search)) return false;
+        if (cutoff > 0) {
+          const newest = Math.max(c.srcMtimeMs || 0, c.destMtimeMs || 0);
+          if (newest < cutoff) return false;
+        }
+        // Skip diffSize / dateTol filters for new-file entries (one side absent); groups still apply dateTol
+        const skipAggFilters = c.kind !== 'conflict' || c.isGroup;
+        if (diffSizeOnly && !skipAggFilters && c.srcSize === c.destSize) return false;
+        if (dateTolMs > 0 && c.kind === 'conflict' && Math.abs((c.srcMtimeMs || 0) - (c.destMtimeMs || 0)) <= dateTolMs) return false;
+        return true;
+      });
+
+      const statusOrder = { 'new': 0, 'conflict': 1, 'mixed': 2 };
+      filtered.sort((a, b) => {
+        let va, vb;
+        if      (_syncSortCol === 'name')      { va = a.relativePath;   vb = b.relativePath; }
+        else if (_syncSortCol === 'status')    { va = statusOrder[a.kind] ?? 3; vb = statusOrder[b.kind] ?? 3; }
+        else if (_syncSortCol === 'date-src')  { va = a.srcMtimeMs  || 0; vb = b.srcMtimeMs  || 0; }
+        else if (_syncSortCol === 'date-dest') { va = a.destMtimeMs || 0; vb = b.destMtimeMs || 0; }
+        else if (_syncSortCol === 'size-src')  { va = a.srcSize  || 0;   vb = b.srcSize  || 0; }
+        else if (_syncSortCol === 'size-dest') { va = a.destSize || 0;   vb = b.destSize || 0; }
+        else                                   { va = a.relativePath;   vb = b.relativePath; }
+        const cmp = typeof va === 'string' ? va.localeCompare(vb) : (va - vb);
+        return _syncSortAsc ? cmp : -cmp;
+      });
+
+      if (_syncConflictTbody) {
+        _syncConflictTbody.innerHTML = '';
+        for (const c of filtered) {
+          const row = _syncConflictItems.get(c.relativePath);
+          if (row) _syncConflictTbody.appendChild(row);
+        }
+      }
+
+      const total = _syncConflictsAll.length;
+      const shown = filtered.length;
+      const conflictCount = _syncConflictsAll.filter(c => c.kind === 'conflict').length;
+      const newCount      = _syncConflictsAll.filter(c => c.kind === 'new').length;
+      const mixedCount    = _syncConflictsAll.filter(c => c.kind === 'mixed').length;
+      const breakdown = [
+        conflictCount > 0 ? `${conflictCount} conflict${conflictCount !== 1 ? 's' : ''}` : '',
+        newCount > 0      ? `${newCount} new` : '',
+        mixedCount > 0    ? `${mixedCount} mixed` : ''
+      ].filter(Boolean).join(', ');
+      syncConflictCount.textContent = shown < total ? `${shown} of ${total} (${breakdown})` : breakdown;
+    }
+
+    function setSyncBulkAction(action) {
+      // apply to all items, not just visible ones
+      for (const [, item] of _syncConflictItems) {
+        const sel = item.querySelector('select.action-select');
+        if (!sel) continue;
+        const opt = sel.querySelector(`option[value="${action}"]`);
+        if (opt) sel.value = action;
+      }
+    }
+
+    function collectSyncDecisions() {
+      const decisions = [];
+      for (const [relPath, item] of _syncConflictItems) {
+        const isVisible = item.parentElement === _syncConflictTbody;
+        const entry = _syncConflictsAll.find(e => e.relativePath === relPath);
+
+        if (entry?.isGroup) {
+          const sel = item.querySelector('select.action-select');
+          let groupAction = (isVisible && sel) ? sel.value : 'skip';
+          if (!isVisible) groupAction = 'skip';
+          if (groupAction === 'keep-newer') {
+            groupAction = (entry.srcMtimeMs || 0) >= (entry.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
+          }
+          for (const sub of entry.groupItems) {
+            let action = groupAction;
+            // For new-only sub-items, "keep-source" on a dest-only file (or vice-versa) is meaningless — skip it
+            if (action === 'keep-source' && sub.kind === 'new' && sub.side === 'dest-only') action = 'skip';
+            if (action === 'keep-target' && sub.kind === 'new' && sub.side === 'src-only') action = 'skip';
+            decisions.push({ relativePath: sub.relativePath, action });
+          }
+        } else {
+          // Items filtered out of the visible list are skipped — only sync what's shown
+          if (!isVisible) {
+            decisions.push({ relativePath: relPath, action: 'skip' });
+            continue;
+          }
+          const sel = item.querySelector('select.action-select');
+          let action = sel ? sel.value : 'skip';
+          if (action === 'keep-newer') {
+            action = (entry.srcMtimeMs || 0) >= (entry.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
+          }
+          decisions.push({ relativePath: relPath, action });
+        }
+      }
+      return decisions;
+    }
+
+    syncBulkKeepSrc.addEventListener('click',  () => setSyncBulkAction('keep-source'));
+    syncBulkKeepDest.addEventListener('click', () => setSyncBulkAction('keep-target'));
+    syncBulkSkip.addEventListener('click',     () => setSyncBulkAction('skip'));
+
+    syncConflictSearch.addEventListener('input',         applySyncConflictFilters);
+    syncConflictDays.addEventListener('change',           applySyncConflictFilters);
+    syncConflictDiffSize.addEventListener('change',        applySyncConflictFilters);
+    syncConflictDateTol.addEventListener('input',          applySyncConflictFilters);
+    syncConflictSinceLastSync.addEventListener('change',   applySyncConflictFilters);
+
+    syncConflictCancel.addEventListener('click', () => {
+      syncConflictOverlay.classList.remove('open');
+    });
+
+    syncConflictApply.addEventListener('click', async () => {
+      const decisions = collectSyncDecisions();
+      syncConflictApply.disabled = true;
+      syncConflictOverlay.classList.remove('open');
+      setSyncStatus('Applying conflict resolutions…', '');
+      try {
+        const res = await window.electronApi.applySyncChoices({ decisions });
+        if (!res || !res.ok) {
+          setSyncStatus(res?.error || 'Failed to apply choices.', 'err');
+          return;
+        }
+        const errCount = res.errors?.length || 0;
+        if (errCount) {
+          setSyncStatus(`Applied ${res.applied} resolution(s) with ${errCount} error(s).`, 'err');
+        } else {
+          setSyncStatus(`Sync complete — ${res.applied} conflict(s) resolved.`, 'ok');
+          _saveLastSyncTime();
+        }
+      } catch (err) {
+        setSyncStatus(String(err?.message || err), 'err');
+      } finally {
+        syncConflictApply.disabled = false;
+        runSyncBtn.disabled = false;
+      }
+    });
+
+    // ── run sync ──────────────────────────────────────────────────────
+
+    async function doSync() {
+      const mode = 'both';
+      runSyncBtn.disabled = true;
+      setSyncStatus('Syncing…', '');
+      syncAddedDetails.style.display = 'none';
+
+      try {
+        const res = await window.electronApi.runSync({ mode });
+        if (!res || !res.ok) {
+          setSyncStatus(res?.error || 'Sync failed.', 'err');
+          return;
+        }
+
+        const errCount = res.errors?.length || 0;
+        const hasConflicts = res.conflicts?.length > 0;
+        const hasNewFiles  = res.newFiles?.length > 0;
+
+        if (hasConflicts || hasNewFiles) {
+          const parts = [];
+          if (hasConflicts) parts.push(`${res.conflicts.length} conflict(s)`);
+          if (hasNewFiles)  parts.push(`${res.newFiles.length} new file(s)`);
+          setSyncStatus(`${parts.join(', ')} need your review.`, '');
+          buildSyncConflictModal(res.conflicts || [], res.newFiles || []);
+          syncConflictOverlay.classList.add('open');
+          return; // runSyncBtn stays disabled until resolved
+        }
+
+        if (errCount) {
+          setSyncStatus(`Synced with ${errCount} error(s).`, 'err');
+        } else {
+          setSyncStatus('Sync complete — all files are up to date.', 'ok');
+          _saveLastSyncTime();
+        }
+      } catch (err) {
+        setSyncStatus(String(err?.message || err), 'err');
+      } finally {
+        if (!syncConflictOverlay.classList.contains('open')) {
+          runSyncBtn.disabled = false;
+        }
+      }
+    }
+
+    refreshSyncPath();
+  </script>
+<!-- Credits Modal -->
+<div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" title="Close">✕</button>
+    <iframe src="credits.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
+  </div>
+</div>
+<script>
+function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
+function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+</script>
+</body>
+</html>

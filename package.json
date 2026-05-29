@@ -1,0 +1,79 @@
+{
+  "name": "class-management-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Electron shell for the teaching tools.",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "package:win-portable": "electron-builder --win portable --x64 --config.directories.output=dist/win-portable",
+    "package:win-installer": "electron-builder --win nsis --x64",
+    "package:linux-portable": "powershell -ExecutionPolicy Bypass -File .\\package-linux-appimage-windows-exe.ps1",
+    "package:linux-appimage": "powershell -ExecutionPolicy Bypass -File .\\package-linux-appimage-windows-exe.ps1",
+    "package:linux-appimage:local": "electron-builder --linux AppImage --x64",
+    "package:linux": "npm run package:linux-appimage",
+    "package:windows": "npm run package:win-portable",
+    "package:win-portable-only": "electron-builder --win portable --x64 --config.directories.output=dist/win-portable",
+    "package:mac": "bash ./package-mac.sh",
+    "package:mac-arm": "bash ./package-mac.sh --arm64"
+  },
+  "build": {
+    "appId": "com.classmanagementtools",
+    "productName": "Class Management Tools",
+    "icon": "build/icon.png",
+    "asar": true,
+    "artifactName": "class-management-tools-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist/appimage"
+    },
+    "files": [
+      "*.html",
+      "*.js",
+      "stylesheet.css",
+      "data/**/*",
+      "modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Education"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education"
+    }
+  },
+  "devDependencies": {
+    "electron": "^41.3.0",
+    "electron-builder": "^24.13.3",
+    "pdfjs-dist": "^5.7.284"
+  },
+  "dependencies": {
+    "pdf2image": "^1.2.3",
+    "ws": "^8.18.0"
+  }
+}

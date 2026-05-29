@@ -1,0 +1,3768 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Participation Tracker</title>
+        <script src="electron-bridge.js"></script>
+        <script>
+        (function () {
+            function injectClassicScript(source, name) {
+                var s = document.createElement('script');
+                s.text = String(source || '') + '\n//# sourceURL=' + name;
+                document.head.appendChild(s);
+                if (s.parentNode) s.parentNode.removeChild(s);
+            }
+
+            function loadScriptBySrc(src) {
+                return new Promise(function (resolve, reject) {
+                    var s = document.createElement('script');
+                    s.src = src;
+                    s.onload = function () { resolve(true); };
+                    s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+                    document.head.appendChild(s);
+                });
+            }
+
+            async function loadUserScript(relPath) {
+                if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+                    var result = await Desktop.readText('user', relPath);
+                    if (!result || !result.ok) {
+                        throw new Error((result && result.error) || ('Missing user/' + relPath));
+                    }
+                    injectClassicScript(result.content || '', 'user/' + relPath);
+                    return;
+                }
+                await loadScriptBySrc('user/' + relPath);
+            }
+
+            window.__ptUserBootstrapPromise = (async function () {
+                try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
+                try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
+            })();
+        })();
+        </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+            Promise.resolve(window.__ptUserBootstrapPromise).catch(function(){}).then(function(){
+                var _cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) ? CLASS_MANAGEMENT_CONFIG : null;
+                var _t = (_cfg && _cfg.uiSettings && typeof _cfg.uiSettings.appTitle === 'string' && _cfg.uiSettings.appTitle.trim()) || '';
+                if (_t) {
+                    var el = document.querySelector('.nav-brand'); if (el) el.textContent = _t;
+                    document.title = _t + ': Participation Tracker';
+                }
+            });
+    });
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Lexend, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            padding: 12px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 6px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: #222;
+            font-size: 28px;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #444;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+
+        /* Controls Section */
+        .controls-section {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        /* Group Selector */
+        .group-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .group-meta-info {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #555;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .group-meta-chip {
+            background: #f0f4ff;
+            border: 1px solid #c8d4f0;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .group-btn {
+            padding: 8px 14px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .group-btn:hover {
+            border-color: #0066cc;
+            background: #f0f4ff;
+        }
+
+        .group-btn.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+
+        /* Date Range Controls */
+        .date-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .date-preset-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .date-preset-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+
+        .date-preset-btn.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-inputs input {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* Dashboard Section */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        #participationChart {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 12px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .legend-color.picks { background: #1f77b4; }
+        .legend-color.pluses { background: #2ca02c; }
+        .legend-color.minuses { background: #d62728; }
+
+        /* Summary Stats */
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-card.picks { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); }
+        .stat-card.pluses { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); }
+        .stat-card.minuses { background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); }
+        .stat-card.badges { background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%); }
+
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-subvalue {
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        tfoot {
+            background: #f7f7f7;
+            border-top: 2px solid #d6d6d6;
+        }
+
+        tfoot td {
+            font-weight: 700;
+            background: #f7f7f7;
+        }
+
+        tfoot tr + tr td {
+            font-weight: 600;
+            color: #555;
+            background: #fcfcfc;
+        }
+
+        thead {
+            background: #f0f0f0;
+            border-bottom: 2px solid #ddd;
+        }
+
+        th {
+            padding: 3px;
+            text-align: left;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        th:hover {
+            background: #e8e8e8;
+        }
+
+        th.sortable::after {
+            content: ' ⇅';
+            color: #999;
+            font-size: 11px;
+        }
+
+        td {
+            padding: 3px 6px;
+            border: 1px solid #f0f0f0;
+            text-align:center;
+        }
+
+        td:hover {
+            outline:3px solid rgb(51, 0, 255)!important;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .expandable-row {
+            cursor: pointer;
+        }
+
+        .expandable-row:hover {
+            background: #f0f8ff;
+        }
+
+        .notes-preview {
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #666;
+            font-style: italic;
+        }
+
+        .notes-preview.empty {
+            color: #ccc;
+        }
+
+        /* Student Selector & Detail Panel */
+        .student-section {
+            background: #fafafa;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 30px;
+        }
+
+        .btn-danger {
+            background: #c62828;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .btn-danger:hover { background: #b71c1c; }
+
+        .btn-reset-row {
+            background: none;
+            border: 1px solid #e57373;
+            color: #c62828;
+            padding: 2px 7px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .btn-reset-row:hover { background: #ffebee; }
+
+        .section-header-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0;
+        }
+        .section-header-actions h2 {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+        .section-header-actions-line {
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 15px;
+        }
+
+        .reset-warn-box {
+            background: #fff8e1;
+            border: 1px solid #f9a825;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            line-height: 1.7;
+        }
+        .reset-warn-box2 {
+            background: #ffebee;
+            border: 1px solid #c62828;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 18px;
+            line-height: 1.7;
+        }
+
+        .class-overview-table thead th {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .class-overview-table thead th:hover {
+            background: #e8e8e8;
+        }
+        .class-overview-table thead th.sort-asc::after  { content: ' ▲'; font-size: 10px; }
+        .class-overview-table thead th.sort-desc::after { content: ' ▼'; font-size: 10px; }
+
+        .selected-student {
+            background: #e8f0fe !important;
+            outline: 2px solid #0066cc;
+        }
+
+        .selected-session-row {
+            background: #e8f0fe !important;
+            outline: 2px solid #1f77b4;
+        }
+
+        .class-overview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .class-overview-header h2 {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+
+        .student-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .detail-stat {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #0066cc;
+        }
+
+        .detail-stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .detail-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Detail Panel (Modal) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        /* Notes Editor */
+        .notes-editor {
+            margin-bottom: 20px;
+        }
+
+        .notes-editor label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .notes-editor textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, monospace;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Button Styles */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn-success {
+            background: #2ca02c;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #228b22;
+        }
+
+        .btn-icon {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        /* Drag & Drop Zone */
+        .drag-drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .drag-drop-zone:hover {
+            border-color: #0066cc;
+            background: #f0f4ff;
+        }
+
+        .drag-drop-zone.active {
+            border-color: #0066cc;
+            background: #e3f2fd;
+            border-style: solid;
+        }
+
+        .drag-drop-content {
+            pointer-events: none;
+        }
+
+        .drag-drop-content p {
+            margin: 8px 0;
+            color: #666;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: #0066cc;
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: inherit;
+            padding: 0;
+        }
+
+        .link-button:hover {
+            color: #0052a3;
+        }
+
+        /* Utility Classes */
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1565c0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-section {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .control-group {
+                min-width: 100%;
+            }
+
+            .student-details {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                box-shadow: none;
+                padding: 0;
+            }
+
+            .controls-section,
+            .button-group {
+                display: none;
+            }
+
+            .modal {
+                display: none;
+            }
+
+            table {
+                page-break-inside: avoid;
+            }
+        }
+
+        /* ── Column visibility toggle ─────────────────────── */
+        .col-toggle-btn {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #444;
+            white-space: nowrap;
+        }
+
+        /* Compare groups */
+        .compare-summary-section {
+            margin-bottom: 30px;
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .compare-groups-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .compare-group-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .compare-group-item:hover {
+            border-color: #0066cc;
+            background: #f0f4ff;
+        }
+
+        .compare-group-item input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .compare-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .compare-table td:first-child,
+        .compare-table th:first-child {
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .compare-table tfoot td {
+            font-weight: 700;
+            background: #f4f7ff;
+        }
+
+        .col-toggle-btn:hover { background: #f0f0f0; border-color: #999; }
+
+        #colToggleMenu {
+            display: none;
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 500;
+            min-width: 190px;
+            max-height: 360px;
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+        #colToggleMenu.open { display: block; }
+        .col-toggle-menu-header {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 12px 6px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 4px;
+        }
+        .col-toggle-menu-actions {
+            display: flex;
+            gap: 6px;
+            padding: 4px 12px 8px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 4px;
+        }
+        .col-toggle-menu-actions button {
+            padding: 2px 8px;
+            font-size: 11px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #444;
+        }
+        .col-toggle-menu-actions button:hover { background: #e0e0e0; }
+        .col-toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #333;
+            user-select: none;
+        }
+        .col-toggle-item:hover { background: #f5f5f5; }
+        .col-toggle-item input[type="checkbox"] { cursor: pointer; width: 13px; height: 13px; flex-shrink: 0; }
+        .col-toggle-item.disabled-item { opacity: 0.5; cursor: default; }
+        .col-toggle-item.disabled-item:hover { background: none; }
+    </style>
+</head>
+<body>
+<nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
+  <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;">Collège Calvin</span>
+  <a href="class-management.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🏫 Class Mgmt</a>
+  <a href="board.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🌐 Board</a>
+  <a href="learning-tools.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🎮 Learning Tools</a>
+  <a href="manage-database.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🗄️ Database</a>
+  <a href="grade-sheet.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">📝 Grade Sheet</a>
+  <a href="participation-tracker.html" target="_blank" style="background:#fff;color:#111;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;text-decoration:none;border:2px solid #fff;" class="nav-link nav-active">📊 Tracker</a>
+  <a href="data-location.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">⚙️ Data</a>
+  <button onclick="openCreditsModal()" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;background:none;cursor:pointer;font-family:inherit;" class="nav-link">ℹ️ Credits</button>
+</nav>
+    <div class="container">
+        <h1>📊 Participation Tracker</h1>
+
+        <!-- Message Container -->
+        <div id="messageContainer"></div>
+
+        <!-- Controls Section -->
+        <div class="controls-section">
+            <div class="control-group">
+                <label>Select Group</label>
+                <div class="group-buttons" id="groupButtons"></div>
+                <div style="margin-top:4px;">
+                    <button id="toggleArchivedBtn" onclick="toggleShowArchived()" style="font-size:11px;padding:2px 8px;background:#eee;border:1px solid #bbb;border-radius:4px;cursor:pointer;color:#666;">Show archived</button>
+                    <button id="openCompareGroupsBtn" type="button" style="font-size:11px;padding:2px 8px;background:#f0f4ff;border:1px solid #9bb6e8;border-radius:4px;cursor:pointer;color:#1b4f9c;margin-left:6px;">Compare groups</button>
+                </div>
+                <div class="group-meta-info" id="groupMetaInfo"></div>
+            </div>
+
+            <div class="control-group">
+                <label>Date Range</label>
+                <div class="date-controls">
+                    <button class="date-preset-btn active" data-preset="all">All Data</button>
+                    <button class="date-preset-btn" data-preset="30days">Last 30 Days</button>
+                    <button class="date-preset-btn" data-preset="7days">Last 7 Days</button>
+                </div>
+                <div class="date-inputs">
+                    <input type="date" id="dateFrom" placeholder="From">
+                    <span>to</span>
+                    <input type="date" id="dateTo" placeholder="To">
+                </div>
+            </div>
+
+            <div class="control-group" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <button class="btn-primary btn-icon" id="importBtn">📂 Import & Merge</button>
+                <button class="btn-primary btn-icon" id="exportBtn">📥 Export CSV</button>
+                <button class="btn-secondary btn-icon" id="printBtn">🖨️ Print</button>
+                <button class="btn-danger btn-icon" id="resetAllBtn">🗑 Reset All Data</button>
+            </div>
+        </div>
+        <!-- Compare Groups Summary -->
+        <div id="compareSummarySection" class="compare-summary-section hidden">
+            <div class="section-header-actions" style="margin-bottom: 8px;">
+                <h2 style="margin:0; border:none;">Group Comparison Summary</h2>
+                <button id="clearCompareBtn" class="btn-secondary btn-icon" type="button">Clear Comparison</button>
+            </div>
+            <div id="compareSummaryMeta" class="compare-meta"></div>
+            <div class="table-container" style="margin-bottom: 0;">
+                <table id="compareSummaryTable" class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Group</th>
+                            <th>Sessions</th>
+                            <th>Students</th>
+                            <th>Picks</th>
+                            <th>Pick/s</th>
+                            <th>Positive</th>
+                            <th>Pos/s</th>
+                            <th>Pos/s/student</th>
+                            <th>Negative</th>
+                            <th>Neg/s</th>
+                            <th>Neg/s/student</th>
+                            <th>Badge +</th>
+                            <th>Badge -</th>
+                            <th>Badges</th>
+                            <th>Badges/s/student</th>
+                            <th>Net</th>
+                            <th>Net/s</th>
+                            <th>Net/s/student</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compareSummaryBody"></tbody>
+                    <tfoot id="compareSummaryFoot"></tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Drag & Drop Zone for File Import -->
+        <div id="dragDropZone" class="drag-drop-zone hidden">
+            <div class="drag-drop-content">
+                <p>📎 Drop .json, .js, or legacy .txt files here to import and merge</p>
+                <p style="font-size: 12px; color: #999;">or <button type="button" class="link-button">click to select files</button></p>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".json,.js,.txt" style="display: none;">
+        </div>
+
+        <!-- Dashboard Section -->
+        <div class="dashboard">
+            <div class="chart-container">
+                <h2>Participation Trend</h2>
+                <canvas id="participationChart"></canvas>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-color picks"></div>
+                        <span>Picks</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color pluses"></div>
+                        <span>Positive Points</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color minuses"></div>
+                        <span>Negative Points</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2>Summary Statistics</h2>
+                <div class="summary-stats">
+                    <div class="stat-card picks">
+                        <div class="stat-label">Total Picks</div>
+                        <div class="stat-value" id="statPicks">0</div>
+                    </div>
+                    <div class="stat-card pluses">
+                        <div class="stat-label">Positive Points</div>
+                        <div class="stat-value" id="statPluses">0</div>
+                        <div class="stat-subvalue" id="statPlusesPerSession">0/session</div>
+                    </div>
+                    <div class="stat-card minuses">
+                        <div class="stat-label">Negative Points</div>
+                        <div class="stat-value" id="statMinuses">0</div>
+                        <div class="stat-subvalue" id="statMinusesPerSession">0/session</div>
+                    </div>
+                    <div class="stat-card badges">
+                        <div class="stat-label">Badges Awarded</div>
+                        <div class="stat-value" id="statBadges">0</div>
+                        <div class="stat-subvalue" id="statBadgesPerSession">0/session</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Net</div>
+                        <div class="stat-value" id="statNet">0</div>
+                        <div class="stat-subvalue" id="statNetPerSession">0/session</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Data Table -->
+        <div class="section-header-actions">
+            <h2>Session History</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="col-toggle-btn" onclick="openColToggleMenu('historyTable', this)" type="button">Columns ▾</button>
+                <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px;">🗑 Reset Group</button>
+            </div>
+        </div>
+        <div class="section-header-actions-line"></div>
+        <div class="table-container">
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th class="sortable" data-sort="date">Date</th>
+                        <th class="sortable" data-sort="time">Time</th>
+                        <th class="sortable" data-sort="picks">Picks</th>
+                        <th class="sortable" data-sort="pluses">Pluses</th>
+                        <th class="sortable" data-sort="minuses">Minuses</th>
+                        <th class="sortable" data-sort="teamPluses">T+</th>
+                        <th class="sortable" data-sort="teamMinuses">T-</th>
+                        <th class="sortable" data-sort="badgePositive">Badge +</th>
+                        <th class="sortable" data-sort="badgeNegative">Badge -</th>
+                        <th class="sortable" data-sort="teamRoleEvents">Team/Role Events</th>
+                        <th class="sortable" data-sort="students">Students</th>
+                        <th class="sortable" data-sort="badges">Badges</th>
+                        <th>Objectives</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Student Drill-Down Section -->
+        <div class="student-section">
+            <div class="class-overview-header">
+                <h2 id="classOverviewTitle">Class Overview</h2>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="col-toggle-btn" onclick="openColToggleMenu('classOverviewTable', this)" type="button">Columns ▾</button>
+                    <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button">Clear Session Filter</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="classOverviewTable" class="class-overview-table">
+                    <thead>
+                        <tr>
+                            <th data-col="name">Student</th>
+                            <th data-col="sessions">Sess.</th>
+                            <th data-col="picks">Pick.</th>
+                            <th data-col="absent">Abs.</th>
+                            <th data-col="pluses">+</th>
+                            <th data-col="minuses">-</th>
+                            <th data-col="teamPluses">T+</th>
+                            <th data-col="teamMinuses">T-</th>
+                            <th data-col="badgePositive">Badge +</th>
+                            <th data-col="badgeNegative">Badge -</th>
+                            <th data-col="badges">Badges</th>
+                            <th data-col="teamRoleEvents">Team/Role Events</th>
+                            <th data-col="notes">Notes</th>
+                            <th data-col="net">Net</th>
+                            <th data-col="posRatio">+/s</th>
+                            <th data-col="negRatio">-/s</th>
+                            <th data-col="netRatio">Net/s</th>
+                            <th data-col="ratio">Good/Bad</th>
+                            <th data-col="trend">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody id="classOverviewTableBody"></tbody>
+                    <tfoot id="classOverviewTableFoot"></tfoot>
+                </table>
+            </div>
+
+            <h2 id="studentDetailTitle" class="hidden" style="margin-top: 30px;">Individual Student Analysis</h2>
+            <div id="studentDetailsArea" class="hidden">
+                <div class="student-details" id="studentDetailStats">
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:15px;">
+                    <h3>Session History</h3>
+                    <button class="col-toggle-btn" onclick="openColToggleMenu('studentTable', this)" type="button">Columns ▾</button>
+                </div>
+                <div class="table-container">
+                    <table id="studentTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Picked</th>
+                                <th>Absent</th>
+                                <th>+</th>
+                                <th>-</th>
+                                <th>T+</th>
+                                <th>T-</th>
+                                <th>Badges</th>
+                                <th>Team/Role Events</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal for Notes Editing -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="detailModalTitle"></h3>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+
+            <div id="detailModalBody">
+            </div>
+
+            <div class="notes-editor">
+                <label>Notes</label>
+                <textarea id="notesTextarea" placeholder="Add notes about this student's participation..."></textarea>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeDetailModal()">Cancel</button>
+                <button class="btn-primary" onclick="confirmSaveNotes()">Save Notes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Confirm Save</h3>
+                <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+            </div>
+
+            <div id="confirmMessage" style="margin-bottom: 20px; line-height: 1.6;">
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                <button class="btn-success" onclick="confirmAndSaveNotes()">Confirm Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Warning Modal – Step 1 -->
+    <div id="resetWarn1Modal" class="modal">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3 id="resetWarn1Title">⚠️ Warning</h3>
+                <button class="modal-close" onclick="closeResetModal1()">&times;</button>
+            </div>
+            <div class="reset-warn-box" id="resetWarn1Body"></div>
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeResetModal1()">Cancel</button>
+                <button class="btn-danger" onclick="proceedResetStep2()">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Warning Modal – Step 2 (final) -->
+    <div id="resetWarn2Modal" class="modal">
+        <div class="modal-content" style="max-width: 460px;">
+            <div class="modal-header">
+                <h3>🛑 Final Warning</h3>
+                <button class="modal-close" onclick="closeResetModal2()">&times;</button>
+            </div>
+            <div class="reset-warn-box2" id="resetWarn2Body"></div>
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeResetModal2()">Cancel</button>
+                <button class="btn-danger" onclick="executeReset()">Yes, Delete Permanently</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Preview Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📂 Import & Merge Data Preview</h3>
+                <button class="modal-close" onclick="closeImportModal()">&times;</button>
+            </div>
+
+            <div id="importPreviewContent" style="margin-bottom: 20px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px; background: #f9f9f9;">
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-weight: 600; margin-bottom: 10px;">Merge Strategy:</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                        <input type="radio" name="mergeStrategy" value="append" checked>
+                        Append (add to current data)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                        <input type="radio" name="mergeStrategy" value="replace">
+                        Replace (overwrite current data)
+                    </label>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeImportModal()">Cancel</button>
+                <button class="btn-primary" onclick="confirmImportAndMerge()">Merge Data</button>
+            </div>
+        </div>
+    </div>
+    <!-- Compare Groups Modal -->
+    <div id="compareGroupsModal" class="modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3>Compare Groups</h3>
+                <button class="modal-close" onclick="closeCompareGroupsModal()">&times;</button>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <button class="btn-secondary btn-icon" type="button" onclick="setCompareGroupsSelection(true)">Select all</button>
+                <button class="btn-secondary btn-icon" type="button" onclick="setCompareGroupsSelection(false)">Clear all</button>
+            </div>
+
+            <div id="compareGroupsList" class="compare-groups-list"></div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="closeCompareGroupsModal()">Cancel</button>
+                <button class="btn-primary" onclick="applyCompareGroupsSelection()">Show Summary</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column visibility floating menu -->
+    <div id="colToggleMenu"></div>
+
+    <!-- Import electron bridge and data files -->
+    <script src="log/group-participation/cms-db.js"></script>
+    <script>
+        function cloneDbSessions(source) {
+            try {
+                return JSON.parse(JSON.stringify(Array.isArray(source) ? source : []));
+            } catch (error) {
+                return [];
+            }
+        }
+
+        let DB_EXPORT = cloneDbSessions(
+            Array.isArray(window.CMS_DB_EXPORT) ? window.CMS_DB_EXPORT : window.DB_EXPORT
+        );
+
+        function syncGlobalDbExport() {
+            window.CMS_DB_EXPORT = DB_EXPORT;
+            window.DB_EXPORT = DB_EXPORT;
+        }
+
+        syncGlobalDbExport();
+
+        let currentSessionId = null;
+        let currentGroupId = null;
+        let currentStudentName = null;
+        let currentHalfGroup = null; // null = all, 'A' or 'B' = half group filter
+        let selectedHistorySessionId = null;
+        let editingStudentId = null;
+        let ELECTRON_AVAILABLE = false;
+        let pendingImportData = null;
+        let pendingResetAction = null;
+        let compareGroupIds = [];
+
+        function getHalfGroupMembers(groupId, half) {
+            try {
+                const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+                const hg = meta[groupId] && meta[groupId].halfGroups;
+                if (hg && half && hg[half]) return hg[half].map(s => s.toUpperCase());
+            } catch (e) {}
+            return null;
+        }
+
+        function getGroupHalfGroups(groupId) {
+            try {
+                const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+                const hg = meta[groupId] && meta[groupId].halfGroups;
+                if (hg && Object.keys(hg).length > 0) return hg;
+            } catch (e) {}
+            return null;
+        }
+
+        function isStudentInCurrentHalfGroup(studentName) {
+            if (!currentHalfGroup || !currentGroupId) return true;
+            const members = getHalfGroupMembers(currentGroupId, currentHalfGroup);
+            if (!members) return true;
+            return members.includes(String(studentName).toUpperCase());
+        }
+
+        function selectHalfGroup(half) {
+            currentHalfGroup = half;
+            // Update button active states
+            document.querySelectorAll('.half-group-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.half === (half || ''));
+            });
+            currentStudentName = null;
+            document.getElementById('studentDetailsArea').classList.add('hidden');
+            document.getElementById('studentDetailTitle').classList.add('hidden');
+            updateDashboard();
+        }
+
+        // ─── Column Visibility ───────────────────────────────────────────────
+        const TABLE_COL_CONFIGS = {
+            historyTable: [
+                { idx: 0,  label: 'Date',             fixed: true },
+                { idx: 1,  label: 'Time' },
+                { idx: 2,  label: 'Picks' },
+                { idx: 3,  label: 'Pluses' },
+                { idx: 4,  label: 'Minuses' },
+                { idx: 5,  label: 'T+' },
+                { idx: 6,  label: 'T-' },
+                { idx: 7,  label: 'Badge +' },
+                { idx: 8,  label: 'Badge -' },
+                { idx: 9,  label: 'Team/Role Events' },
+                { idx: 10, label: 'Students' },
+                { idx: 11, label: 'Badges' },
+                { idx: 12, label: 'Objectives' },
+                { idx: 13, label: 'Notes' }
+            ],
+            classOverviewTable: [
+                { idx: 0,  label: 'Student',          fixed: true },
+                { idx: 1,  label: 'Sessions' },
+                { idx: 2,  label: 'Picks' },
+                { idx: 3,  label: 'Absent' },
+                { idx: 4,  label: '+' },
+                { idx: 5,  label: '-' },
+                { idx: 6,  label: 'T+' },
+                { idx: 7,  label: 'T-' },
+                { idx: 8,  label: 'Badge +' },
+                { idx: 9,  label: 'Badge -' },
+                { idx: 10, label: 'Badges' },
+                { idx: 11, label: 'Team/Role Events' },
+                { idx: 12, label: 'Notes' },
+                { idx: 13, label: 'Net' },
+                { idx: 14, label: '+/s' },
+                { idx: 15, label: '-/s' },
+                { idx: 16, label: 'Net/s' },
+                { idx: 17, label: 'Good/Bad' },
+                { idx: 18, label: 'Trend' }
+            ],
+            studentTable: [
+                { idx: 0,  label: 'Date',             fixed: true },
+                { idx: 1,  label: 'Time' },
+                { idx: 2,  label: 'Picked' },
+                { idx: 3,  label: 'Absent' },
+                { idx: 4,  label: '+' },
+                { idx: 5,  label: '-' },
+                { idx: 6,  label: 'T+' },
+                { idx: 7,  label: 'T-' },
+                { idx: 8,  label: 'Badges' },
+                { idx: 9,  label: 'Team/Role Events' },
+                { idx: 10, label: 'Notes' }
+            ]
+        };
+
+        function _loadHiddenCols() {
+            try {
+                const stored = localStorage.getItem('cms_hidden_cols');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    const result = {};
+                    for (const [k, v] of Object.entries(parsed)) {
+                        result[k] = new Set(Array.isArray(v) ? v : []);
+                    }
+                    return result;
+                }
+            } catch (e) {}
+            return {};
+        }
+
+        const _savedHiddenCols = _loadHiddenCols();
+        const hiddenCols = {
+            historyTable:       _savedHiddenCols.historyTable       || new Set(),
+            classOverviewTable: _savedHiddenCols.classOverviewTable || new Set(),
+            studentTable:       _savedHiddenCols.studentTable       || new Set()
+        };
+
+        function _saveHiddenCols() {
+            const serializable = {};
+            for (const [k, v] of Object.entries(hiddenCols)) {
+                serializable[k] = Array.from(v);
+            }
+            try { localStorage.setItem('cms_hidden_cols', JSON.stringify(serializable)); } catch (e) {}
+        }
+
+        function applyHiddenCols(tableId) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const config = TABLE_COL_CONFIGS[tableId] || [];
+            const hidden = hiddenCols[tableId] || new Set();
+            Array.from(table.rows).forEach(row => {
+                config.forEach(col => {
+                    if (row.cells[col.idx]) {
+                        row.cells[col.idx].style.display = hidden.has(col.idx) ? 'none' : '';
+                    }
+                });
+            });
+        }
+
+        let _colToggleActiveTable = null;
+
+        function openColToggleMenu(tableId, anchorEl) {
+            const menu = document.getElementById('colToggleMenu');
+            const config = TABLE_COL_CONFIGS[tableId] || [];
+            const hidden = hiddenCols[tableId] || new Set();
+            const tableLabels = {
+                historyTable: 'Session History',
+                classOverviewTable: 'Class Overview',
+                studentTable: 'Student Details'
+            };
+            menu.innerHTML = `
+                <div class="col-toggle-menu-header">${tableLabels[tableId] || tableId}</div>
+                <div class="col-toggle-menu-actions">
+                    <button onclick="colToggleSetAll('${tableId}', true)">Show All</button>
+                    <button onclick="colToggleSetAll('${tableId}', false)">Hide Optional</button>
+                </div>
+                ${config.map(col => `
+                    <label class="col-toggle-item${col.fixed ? ' disabled-item' : ''}">
+                        <input type="checkbox" data-col-idx="${col.idx}"
+                            ${!hidden.has(col.idx) ? 'checked' : ''} ${col.fixed ? 'disabled' : ''}
+                            onchange="colToggleChange('${tableId}', ${col.idx}, this.checked)">
+                        ${col.label}
+                    </label>
+                `).join('')}
+            `;
+            _colToggleActiveTable = tableId;
+            const rect = anchorEl.getBoundingClientRect();
+            menu.style.top  = (rect.bottom + 4) + 'px';
+            if (rect.right > window.innerWidth / 2) {
+                menu.style.right = (window.innerWidth - rect.right) + 'px';
+                menu.style.left  = '';
+            } else {
+                menu.style.left  = rect.left + 'px';
+                menu.style.right = '';
+            }
+            menu.classList.add('open');
+        }
+
+        function closeColToggleMenu() {
+            const menu = document.getElementById('colToggleMenu');
+            if (menu) menu.classList.remove('open');
+            _colToggleActiveTable = null;
+        }
+
+        function colToggleChange(tableId, colIdx, visible) {
+            const hidden = hiddenCols[tableId];
+            if (visible) { hidden.delete(colIdx); } else { hidden.add(colIdx); }
+            _saveHiddenCols();
+            applyHiddenCols(tableId);
+        }
+
+        function colToggleSetAll(tableId, showAll) {
+            const config = TABLE_COL_CONFIGS[tableId] || [];
+            const hidden = hiddenCols[tableId];
+            if (showAll) {
+                hidden.clear();
+            } else {
+                config.forEach(col => { if (!col.fixed) hidden.add(col.idx); });
+            }
+            _saveHiddenCols();
+            applyHiddenCols(tableId);
+            // Update checkboxes in the open menu
+            const menu = document.getElementById('colToggleMenu');
+            if (menu && menu.classList.contains('open')) {
+                menu.querySelectorAll('input[type="checkbox"][data-col-idx]').forEach(cb => {
+                    cb.checked = !hidden.has(parseInt(cb.dataset.colIdx));
+                });
+            }
+        }
+
+        // Close col-toggle menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('colToggleMenu');
+            if (!menu || !menu.classList.contains('open')) return;
+            if (!menu.contains(e.target) && !e.target.classList.contains('col-toggle-btn')) {
+                closeColToggleMenu();
+            }
+        }, true);
+
+        const DEFAULT_BADGE_DEFINITIONS = [
+            { icon: '💎', label: 'Diamond', tone: 'positive', meaning: 'Outstanding contribution' },
+            { icon: '👍', label: 'Good Job', tone: 'positive', meaning: 'Solid work and focus' },
+            { icon: '👏', label: 'Well Tried', tone: 'positive', meaning: 'Strong effort and perseverance' },
+            { icon: 'RV', label: 'RV', tone: 'negative', meaning: 'Renvoi' },
+            { icon: 'DNF', label: 'DNF', tone: 'negative', meaning: 'Devoir non fait' },
+            { icon: 'OM', label: 'OM', tone: 'negative', meaning: 'Oubli matériel' },
+            { icon: 'AT', label: 'AT', tone: 'negative', meaning: 'Arrivée tardive' },
+            { icon: '1️⃣', label: 'Level 1', tone: 'negative', meaning: 'Progress marker' },
+            { icon: '2️⃣', label: 'Level 2', tone: 'negative', meaning: 'Progress marker' },
+            { icon: '3️⃣', label: 'Level 3', tone: 'negative', meaning: 'Progress marker' },
+            { icon: '4️⃣', label: 'Level 4', tone: 'positive', meaning: 'Progress marker' },
+            { icon: '5️⃣', label: 'Level 5', tone: 'positive', meaning: 'Progress marker' },
+            { icon: '6️⃣', label: 'Level 6', tone: 'positive', meaning: 'Progress marker' }
+        ];
+
+        function normalizeBadgeLabel(label) {
+            return String(label || '').trim().toLowerCase();
+        }
+
+        function normalizeBadgeTone(tone) {
+            const value = String(tone || '').trim().toLowerCase();
+            if (value === 'negative') return 'negative';
+            if (value === 'positive') return 'positive';
+            if (value === 'neutral') return 'neutral';
+            return '';
+        }
+
+        function normalizeBadgeDefinitions(definitions) {
+            const source = Array.isArray(definitions) ? definitions : [];
+            const seen = new Set();
+
+            return source.map(entry => ({
+                icon: String(entry?.icon || '').trim(),
+                label: String(entry?.label || '').trim(),
+                tone: normalizeBadgeTone(entry?.tone) || 'positive',
+                meaning: String(entry?.meaning || '').trim(),
+                coefficient: Number.isFinite(Number(entry?.coefficient)) ? Number(entry.coefficient) : 1,
+                isBuiltin: entry?.isBuiltin === true
+            })).filter(entry => {
+                const key = `${normalizeBadgeLabel(entry.icon)}|${normalizeBadgeLabel(entry.label)}`;
+                if (!entry.icon || !entry.label || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
+        function getConfiguredBadgeDefinitions() {
+            try {
+                const config = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG)
+                    ? CLASS_MANAGEMENT_CONFIG
+                    : null;
+                const normalized = normalizeBadgeDefinitions(config?.badgeDefinitions);
+                if (normalized.length) return normalized;
+            } catch (error) {
+                console.warn('Unable to read badge definitions from config.js:', error);
+            }
+
+            return DEFAULT_BADGE_DEFINITIONS.map(entry => ({ ...entry }));
+        }
+
+        function resolveBadgeDefinition(badge) {
+            const icon = normalizeBadgeLabel(badge && badge.icon);
+            const label = normalizeBadgeLabel(badge && badge.label);
+            const definitions = getConfiguredBadgeDefinitions();
+
+            return definitions.find(def => normalizeBadgeLabel(def.icon) === icon && normalizeBadgeLabel(def.label) === label)
+                || definitions.find(def => icon && normalizeBadgeLabel(def.icon) === icon)
+                || definitions.find(def => label && normalizeBadgeLabel(def.label) === label)
+                || null;
+        }
+
+        function resolveBadgeData(badge) {
+            const configured = resolveBadgeDefinition(badge);
+            const rawCoeff = configured?.coefficient !== undefined ? configured.coefficient : badge?.coefficient;
+            const coefficient = Number.isFinite(Number(rawCoeff)) ? Number(rawCoeff) : 1;
+            return {
+                icon: String(configured?.icon || badge?.icon || '').trim(),
+                label: String(configured?.label || badge?.label || '').trim(),
+                meaning: String(configured?.meaning || badge?.meaning || '').trim(),
+                tone: normalizeBadgeTone(configured?.tone || badge?.tone) || 'neutral',
+                coefficient
+            };
+        }
+
+        // Initialize app
+        async function initializeApp() {
+            await Promise.resolve(window.__ptUserBootstrapPromise).catch(function () {});
+            // Check if electron is available
+            ELECTRON_AVAILABLE = !!(window.electronApi && window.electronApi.isElectron);
+
+            // In a regular browser or file:// launch, cms-db.js is preloaded above.
+            // In Electron, load per-class files from class subfolders (new format),
+            // falling back to the legacy flat cms-db.js if no subfoldered files exist.
+            if (ELECTRON_AVAILABLE && window.Desktop) {
+                let loaded = false;
+                try {
+                    const listResult = await window.Desktop.listByPath('groupParticipation', '.', { extensions: ['.js'] });
+                    const subFiles = (listResult?.files || []).filter(f => f.relativePath && f.relativePath.includes('/'));
+                    if (subFiles.length > 0) {
+                        const allSessions = [];
+                        const seenIds = new Set();
+                        for (const fileInfo of subFiles) {
+                            try {
+                                const result = await window.Desktop.readByPath('groupParticipation', fileInfo.relativePath);
+                                if (result && result.ok && result.content) {
+                                    const sessions = extractSessionsFromContent(result.content);
+                                    for (const s of sessions) {
+                                        if (s && s.id && !seenIds.has(s.id)) {
+                                            seenIds.add(s.id);
+                                            allSessions.push(s);
+                                        }
+                                    }
+                                }
+                            } catch (e) { /* skip unreadable file */ }
+                        }
+                        if (allSessions.length > 0) {
+                            DB_EXPORT.splice(0, DB_EXPORT.length, ...allSessions);
+                            syncGlobalDbExport();
+                            loaded = true;
+                        }
+                    }
+                } catch (e) { /* fall through to legacy */ }
+
+                if (!loaded) {
+                    // Legacy fallback: flat cms-db.js / cms-db.json / cms-db.txt
+                    const candidates = ['cms-db.js', 'cms-db.json', 'cms-db.txt'];
+                    for (const filename of candidates) {
+                        try {
+                            const result = await window.Desktop.readText('groupParticipation', filename);
+                            if (result && result.ok && result.content) {
+                                const sessions = extractSessionsFromContent(result.content);
+                                DB_EXPORT.splice(0, DB_EXPORT.length, ...sessions);
+                                syncGlobalDbExport();
+                                break;
+                            }
+                        } catch (e) {
+                            // Try the next legacy filename.
+                        }
+                    }
+                }
+            } else {
+                syncGlobalDbExport();
+            }
+
+            applySessionNormalization('startup');
+            setupImportHandlers();
+
+            if (DB_EXPORT.length === 0) {
+                showMessage('⚠ No participation data found. Start a class session in the Class Management tool to generate data.', 'error');
+                return;
+            }
+
+            if (typeof CLASS_GROUPS === 'undefined' || !CLASS_GROUPS || Object.keys(CLASS_GROUPS).length === 0) {
+                // Try loading from user data folder (class-groups.js is not bundled in the packaged app).
+                if (window.Desktop && typeof Desktop.readJson === 'function') {
+                    try {
+                        const gr = await Desktop.readJson('user', 'class-groups.js');
+                        if (gr?.ok && gr.data) {
+                            if (gr.data.classGroups) window.CLASS_GROUPS = gr.data.classGroups;
+                            if (gr.data.classGroupsMeta) window.CLASS_GROUPS_META = gr.data.classGroupsMeta;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            }
+
+            if (typeof CLASS_GROUPS === 'undefined' || !CLASS_GROUPS || Object.keys(CLASS_GROUPS).length === 0) {
+                showMessage('⚠ No class groups found. Make sure user/class-groups.js is properly loaded.', 'error');
+                return;
+            }
+
+            setupEventListeners();
+            populateGroups();
+            selectFirstGroup();
+            showMessage('✓ Application ready', 'success');
+        }
+
+        // Import & Merge functionality - Define BEFORE setupEventListeners
+        function setupImportHandlers() {
+            const importBtn = document.getElementById('importBtn');
+            const dragDropZone = document.getElementById('dragDropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // Import button
+            importBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    processImportedFiles(e.target.files);
+                    fileInput.value = ''; // Reset input
+                }
+            });
+
+            // Drag & drop
+            dragDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dragDropZone.classList.add('active');
+            });
+
+            dragDropZone.addEventListener('dragleave', () => {
+                dragDropZone.classList.remove('active');
+            });
+
+            dragDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragDropZone.classList.remove('active');
+                processImportedFiles(e.dataTransfer.files);
+            });
+
+            // Click on drag zone to select files
+            dragDropZone.querySelector('.link-button').addEventListener('click', (e) => {
+                e.preventDefault();
+                fileInput.click();
+            });
+        }
+
+        async function processImportedFiles(files) {
+            const importedSessions = [];
+
+            for (const file of files) {
+                try {
+                    const content = await file.text();
+                    const sessions = extractSessionsFromContent(content);
+                    importedSessions.push(...sessions);
+                    showMessage(`✓ Parsed ${file.name}: ${sessions.length} sessions`, 'success');
+                } catch (error) {
+                    showMessage(`✗ Error reading ${file.name}: ${error.message}`, 'error');
+                }
+            }
+
+            if (importedSessions.length === 0) {
+                showMessage('⚠ No valid data found in imported files', 'error');
+                return;
+            }
+
+            pendingImportData = importedSessions;
+            showImportPreview(importedSessions);
+        }
+
+        function extractSessionsFromContent(content) {
+            const text = String(content || '').trim();
+
+            try {
+                const parsed = JSON.parse(text);
+                if (Array.isArray(parsed)) return parsed;
+            } catch (e) {}
+
+            const match = text.match(/(?:const|let|var)?\s*(?:window\.)?(?:CMS_)?DB_EXPORT\s*=\s*(\[[\s\S]*\]);?/);
+            if (!match) {
+                throw new Error('Could not find a valid DB export in file');
+            }
+
+            try {
+                return JSON.parse(match[1]);
+            } catch (e) {
+                throw new Error('Invalid JSON in DB export');
+            }
+        }
+
+        function getSessionDate(session) {
+            return String(session && session.id ? session.id : '').split('T')[0];
+        }
+
+        function deepSortObject(value) {
+            if (Array.isArray(value)) {
+                return value.map(deepSortObject);
+            }
+
+            if (value && typeof value === 'object') {
+                const sorted = {};
+                Object.keys(value).sort().forEach(key => {
+                    sorted[key] = deepSortObject(value[key]);
+                });
+                return sorted;
+            }
+
+            return value;
+        }
+
+        function areEqualByData(left, right) {
+            return JSON.stringify(deepSortObject(left)) === JSON.stringify(deepSortObject(right));
+        }
+
+        function hasGroups(session) {
+            return !!(session && session.groups && Object.keys(session.groups).length > 0);
+        }
+
+        function cloneSessions(sessions) {
+            return JSON.parse(JSON.stringify(sessions || []));
+        }
+
+        function getSessionTimestamp(session) {
+            const ts = Date.parse(String(session && session.id ? session.id : ''));
+            return Number.isFinite(ts) ? ts : 0;
+        }
+
+        function buildGroupDayKey(session, groupId) {
+            const date = getSessionDate(session);
+            if (!date) {
+                return `${groupId}|id:${String(session && session.id ? session.id : '')}`;
+            }
+            return `${groupId}|${date}`;
+        }
+
+        function normalizeSessionsForTracker(sessions) {
+            const source = cloneSessions(Array.isArray(sessions) ? sessions : []);
+            const byId = new Map();
+            const withoutId = [];
+
+            source.forEach(session => {
+                if (!session || !session.id) {
+                    withoutId.push(session);
+                    return;
+                }
+
+                const existing = byId.get(session.id);
+                if (!existing || getSessionTimestamp(session) >= getSessionTimestamp(existing)) {
+                    byId.set(session.id, session);
+                }
+            });
+
+            const ordered = [...byId.values(), ...withoutId]
+                .sort((a, b) => getSessionTimestamp(b) - getSessionTimestamp(a));
+
+            const seenGroupDays = new Set();
+            let removedGroups = 0;
+
+            ordered.forEach(session => {
+                const groups = (session && session.groups && typeof session.groups === 'object')
+                    ? session.groups
+                    : {};
+
+                Object.keys(groups).forEach(groupId => {
+                    const key = buildGroupDayKey(session, groupId);
+                    if (seenGroupDays.has(key)) {
+                        delete groups[groupId];
+                        removedGroups++;
+                        return;
+                    }
+                    seenGroupDays.add(key);
+                });
+
+                session.groups = groups;
+            });
+
+            const normalized = ordered.filter(hasGroups);
+            return {
+                sessions: normalized,
+                stats: {
+                    droppedById: source.length - withoutId.length - byId.size,
+                    removedGroups,
+                    removedEmptySessions: ordered.length - normalized.length
+                }
+            };
+        }
+
+        function applySessionNormalization(reason = 'runtime') {
+            const result = normalizeSessionsForTracker(DB_EXPORT);
+            DB_EXPORT.splice(0, DB_EXPORT.length, ...result.sessions);
+            syncGlobalDbExport();
+
+            if (result.stats.droppedById > 0 || result.stats.removedGroups > 0 || result.stats.removedEmptySessions > 0) {
+                console.info(
+                    `[tracker] Normalized sessions (${reason}): ` +
+                    `droppedById=${result.stats.droppedById}, ` +
+                    `removedGroups=${result.stats.removedGroups}, ` +
+                    `removedEmptySessions=${result.stats.removedEmptySessions}`
+                );
+            }
+
+            return result.stats;
+        }
+
+        function resolveAppendImportConflicts(existingSessions, importedSessions) {
+            const existing = cloneSessions(existingSessions);
+            const incoming = cloneSessions(importedSessions);
+            const stats = {
+                skippedIdentical: 0,
+                keptExisting: 0,
+                keptImported: 0,
+                prompts: 0
+            };
+
+            incoming.forEach(importedSession => {
+                if (!importedSession.groups) importedSession.groups = {};
+
+                const sessionDate = getSessionDate(importedSession);
+                Object.keys(importedSession.groups).forEach(groupId => {
+                    const importedGroupData = importedSession.groups[groupId];
+                    const conflicts = existing.filter(existingSession =>
+                        getSessionDate(existingSession) === sessionDate &&
+                        existingSession.groups &&
+                        existingSession.groups[groupId]
+                    );
+
+                    if (conflicts.length === 0) return;
+
+                    const identicalConflict = conflicts.some(existingSession =>
+                        areEqualByData(existingSession.groups[groupId], importedGroupData)
+                    );
+
+                    if (identicalConflict) {
+                        delete importedSession.groups[groupId];
+                        stats.skippedIdentical++;
+                        return;
+                    }
+
+                    stats.prompts++;
+                    const keepImported = window.confirm(
+                        `Conflict for group "${groupId}" on ${sessionDate}.\n\n` +
+                        `Existing data found in ${conflicts.length} session(s).\n` +
+                        `Click OK to keep imported data.\n` +
+                        `Click Cancel to keep existing data.`
+                    );
+
+                    if (keepImported) {
+                        conflicts.forEach(existingSession => {
+                            delete existingSession.groups[groupId];
+                        });
+                        stats.keptImported++;
+                    } else {
+                        delete importedSession.groups[groupId];
+                        stats.keptExisting++;
+                    }
+                });
+            });
+
+            const merged = [
+                ...existing.filter(hasGroups),
+                ...incoming.filter(hasGroups)
+            ];
+
+            return {
+                merged,
+                stats,
+                addedSessions: incoming.filter(hasGroups).length
+            };
+        }
+
+        function showImportPreview(sessions) {
+            const previewContent = document.getElementById('importPreviewContent');
+            
+            // Group sessions by group
+            const groupCounts = {};
+            const sessionDates = [];
+            let totalStudents = 0;
+
+            sessions.forEach(session => {
+                sessionDates.push(new Date(session.id).toLocaleDateString());
+                Object.keys(session.groups || {}).forEach(groupId => {
+                    groupCounts[groupId] = (groupCounts[groupId] || 0) + 1;
+                    totalStudents += (session.groups[groupId] || []).length;
+                });
+            });
+
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <p><strong>📊 Import Summary</strong></p>
+                    <ul style="margin-top: 8px; margin-left: 20px;">
+                        <li><strong>${sessions.length}</strong> sessions</li>
+                        <li><strong>${Object.keys(groupCounts).length}</strong> groups included</li>
+                        <li><strong>${totalStudents}</strong> total student records</li>
+                        <li>Date range: ${sessionDates[0]} to ${sessionDates[sessionDates.length - 1]}</li>
+                    </ul>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <p><strong>👥 Groups by session count:</strong></p>
+                    <ul style="margin-top: 8px; margin-left: 20px; font-size: 12px;">
+            `;
+
+            Object.entries(groupCounts)
+                .sort((a, b) => b[1] - a[1])
+                .forEach(([groupId, count]) => {
+                    html += `<li>${groupId}: ${count} session(s)</li>`;
+                });
+
+            html += `
+                    </ul>
+                </div>
+
+                <div>
+                    <p><strong>⚠️ Duplicate Note:</strong></p>
+                    <p style="font-size: 12px; color: #666;">
+                        If you choose "Append", exact duplicate group+date data is skipped automatically.
+                        For conflicting group+date data, you will be asked which one to keep.
+                        If you choose "Replace", all current data will be overwritten.
+                    </p>
+                </div>
+            `;
+
+            previewContent.innerHTML = html;
+            document.getElementById('importModal').classList.add('active');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.remove('active');
+            pendingImportData = null;
+        }
+
+        function confirmImportAndMerge() {
+            const strategy = document.querySelector('input[name="mergeStrategy"]:checked').value;
+
+            if (!pendingImportData || pendingImportData.length === 0) {
+                showMessage('No data to merge', 'error');
+                return;
+            }
+
+            if (strategy === 'replace') {
+                DB_EXPORT.splice(0, DB_EXPORT.length, ...pendingImportData);
+                const normalizationStats = applySessionNormalization('import-replace');
+                const dedupeNote = normalizationStats.removedGroups > 0
+                    ? ` (${normalizationStats.removedGroups} duplicate group/day entr${normalizationStats.removedGroups === 1 ? 'y' : 'ies'} removed)`
+                    : '';
+                showMessage(`✓ Replaced with ${pendingImportData.length} sessions${dedupeNote}`, 'success');
+            } else {
+                // Append strategy with per group/date conflict resolution
+                const mergeResult = resolveAppendImportConflicts(DB_EXPORT, pendingImportData);
+                DB_EXPORT.splice(0, DB_EXPORT.length, ...mergeResult.merged);
+                const normalizationStats = applySessionNormalization('import-append');
+
+                const summary = [];
+                if (mergeResult.stats.skippedIdentical > 0) {
+                    summary.push(`${mergeResult.stats.skippedIdentical} identical group+date entr${mergeResult.stats.skippedIdentical === 1 ? 'y' : 'ies'} skipped`);
+                }
+                if (mergeResult.stats.keptImported > 0) {
+                    summary.push(`${mergeResult.stats.keptImported} conflict${mergeResult.stats.keptImported === 1 ? '' : 's'} kept imported`);
+                }
+                if (mergeResult.stats.keptExisting > 0) {
+                    summary.push(`${mergeResult.stats.keptExisting} conflict${mergeResult.stats.keptExisting === 1 ? '' : 's'} kept existing`);
+                }
+                if (normalizationStats.removedGroups > 0) {
+                    summary.push(`${normalizationStats.removedGroups} duplicate group+date entr${normalizationStats.removedGroups === 1 ? 'y' : 'ies'} auto-removed`);
+                }
+
+                const summaryText = summary.length ? ` (${summary.join('; ')})` : '';
+                showMessage(
+                    `✓ Merged ${mergeResult.addedSessions} session(s) (total: ${DB_EXPORT.length})${summaryText}`,
+                    'success'
+                );
+            }
+
+            // Refresh UI with merged data
+            closeImportModal();
+            updateDashboard();
+            populateGroups();
+            selectFirstGroup();
+        }
+
+        function setupEventListeners() {
+            // Date preset buttons
+            document.querySelectorAll('.date-preset-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const preset = this.dataset.preset;
+                    applyDatePreset(preset);
+                    updateDashboard();
+                });
+            });
+
+            // Custom date inputs
+            document.getElementById('dateFrom').addEventListener('change', () => {
+                document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
+                updateDashboard();
+            });
+
+            document.getElementById('dateTo').addEventListener('change', () => {
+                document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
+                updateDashboard();
+            });
+
+            // Class overview table sorting
+            document.querySelectorAll('#classOverviewTable thead th').forEach(th => {
+                th.addEventListener('click', function() {
+                    sortClassOverviewTable(this.dataset.col);
+                });
+            });
+
+            // Reset buttons
+            document.getElementById('resetAllBtn').addEventListener('click', () => {
+                openResetModal('all', null);
+            });
+            document.getElementById('resetGroupBtn').addEventListener('click', () => {
+                if (!currentGroupId) { showMessage('Select a group first', 'error'); return; }
+                openResetModal('group', currentGroupId);
+            });
+
+            document.getElementById('clearSessionFilterBtn').addEventListener('click', () => {
+                if (!selectedHistorySessionId) return;
+                selectedHistorySessionId = null;
+                currentStudentName = null;
+                document.getElementById('studentDetailsArea').classList.add('hidden');
+                document.getElementById('studentDetailTitle').classList.add('hidden');
+                updateDashboard();
+            });
+
+            // Export and Print
+            document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+            document.getElementById('printBtn').addEventListener('click', () => window.print());
+            const compareBtn = document.getElementById('openCompareGroupsBtn');
+            if (compareBtn) compareBtn.addEventListener('click', openCompareGroupsModal);
+
+            const clearCompareBtn = document.getElementById('clearCompareBtn');
+            if (clearCompareBtn) {
+                clearCompareBtn.addEventListener('click', () => {
+                    compareGroupIds = [];
+                    renderCompareGroupsSummary();
+                });
+            }
+
+            // Table sorting
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.addEventListener('click', function() {
+                    sortTable(this, 'historyTable');
+                });
+            });
+        }
+
+        let showArchivedGroups = false;
+
+        function toggleShowArchived() {
+            showArchivedGroups = !showArchivedGroups;
+            const btn = document.getElementById('toggleArchivedBtn');
+            if (btn) {
+                btn.textContent = showArchivedGroups ? 'Hide archived' : 'Show archived';
+                btn.style.color = showArchivedGroups ? '#c0392b' : '#666';
+            }
+            populateGroups();
+        }
+
+        function populateGroups() {
+            const groups = extractGroupsFromData();
+            const container = document.getElementById('groupButtons');
+            container.innerHTML = '';
+
+            groups.forEach(group => {
+                const btn = document.createElement('button');
+                const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[group] : null;
+                btn.className = 'group-btn';
+                btn.textContent = group;
+                if (meta && meta.archived) btn.style.opacity = '0.55';
+                btn.addEventListener('click', function() {
+                    selectGroup(group);
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function extractGroupsFromData() {
+            const groups = new Set();
+            DB_EXPORT.forEach(session => {
+                Object.keys(session.groups || {}).forEach(groupId => {
+                    const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
+                    if (!meta || !meta.archived || showArchivedGroups) {
+                        groups.add(groupId);
+                    }
+                });
+            });
+            return Array.from(groups).sort();
+        }
+
+        function selectFirstGroup() {
+            const groups = extractGroupsFromData();
+            if (groups.length > 0) {
+                selectGroup(groups[0]);
+            }
+        }
+
+        function selectGroup(groupId) {
+            currentGroupId = groupId;
+            currentHalfGroup = null;
+            currentStudentName = null;
+            selectedHistorySessionId = null;
+            setClassOverviewTitle(null);
+            document.querySelectorAll('.group-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === groupId);
+            });
+            // Show year/semester/level metadata + half group buttons
+            const metaEl = document.getElementById('groupMetaInfo');
+            if (metaEl) {
+                const m = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[groupId]) ? CLASS_GROUPS_META[groupId] : null;
+                const chips = [];
+                if (m && m.year)     chips.push(`<span class="group-meta-chip">${m.year}</span>`);
+                if (m && m.semester) chips.push(`<span class="group-meta-chip">Semester ${m.semester}</span>`);
+                if (m && m.level)    chips.push(`<span class="group-meta-chip">Level ${m.level}</span>`);
+                const halfGroups = getGroupHalfGroups(groupId);
+                if (halfGroups) {
+                    const halves = Object.keys(halfGroups).sort();
+                    chips.push('<span style="margin-left:6px;font-weight:700;color:#666;">½:</span>');
+                    const allActive = !currentHalfGroup ? 'active' : '';
+                    chips.push(`<button class="half-group-btn group-btn ${allActive}" data-half="" onclick="selectHalfGroup(null)" style="padding:2px 10px;font-size:12px;">All</button>`);
+                    halves.forEach(h => {
+                        chips.push(`<button class="half-group-btn group-btn" data-half="${h}" onclick="selectHalfGroup('${h}')" style="padding:2px 10px;font-size:12px;">${h}</button>`);
+                    });
+                }
+                metaEl.innerHTML = chips.join('');
+            }
+            document.getElementById('studentDetailsArea').classList.add('hidden');
+            document.getElementById('studentDetailTitle').classList.add('hidden');
+            updateDashboard();
+        }
+
+        function extractStudentsForGroup(groupId) {
+            const students = new Set();
+            DB_EXPORT.forEach(session => {
+                if (session.groups && session.groups[groupId]) {
+                    session.groups[groupId].forEach(student => {
+                        students.add(student.name);
+                    });
+                }
+            });
+            return Array.from(students).sort();
+        }
+
+        function applyDatePreset(preset) {
+            const today = new Date();
+            let startDate = new Date();
+
+            switch(preset) {
+                case 'all':
+                    document.getElementById('dateFrom').value = '';
+                    document.getElementById('dateTo').value = '';
+                    break;
+                case '7days':
+                    startDate.setDate(today.getDate() - 7);
+                    document.getElementById('dateFrom').value = startDate.toISOString().split('T')[0];
+                    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+                    break;
+                case '30days':
+                    startDate.setDate(today.getDate() - 30);
+                    document.getElementById('dateFrom').value = startDate.toISOString().split('T')[0];
+                    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+                    break;
+            }
+        }
+
+        function getDateRange() {
+            const from = document.getElementById('dateFrom').value;
+            const to = document.getElementById('dateTo').value;
+            return { from, to };
+        }
+
+        function filterSessionsByDateAndGroup(groupId, dateFrom, dateTo) {
+            return DB_EXPORT.filter(session => {
+                if (!session.groups || !session.groups[groupId]) return false;
+
+                const sessionDate = session.id.split('T')[0];
+                if (dateFrom && sessionDate < dateFrom) return false;
+                if (dateTo && sessionDate > dateTo) return false;
+
+                return true;
+            });
+        }
+
+        function updateDashboard() {
+            if (!currentGroupId) return;
+
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+
+            if (sessions.length === 0) {
+                showMessage('ℹ No data found for this group and date range', 'info');
+            }
+
+            // Update chart
+            renderChart(sessions);
+
+            // Update stats
+            updateStats(sessions);
+            // Update multi-group comparison summary (uses active date range)
+            renderCompareGroupsSummary();
+
+            // Update history table
+            updateHistoryTable(sessions);
+
+            // Update class overview table (full range or selected history session)
+            const selectedSession = selectedHistorySessionId
+                ? sessions.find(s => s.id === selectedHistorySessionId)
+                : null;
+
+            if (selectedHistorySessionId && !selectedSession) {
+                selectedHistorySessionId = null;
+            }
+
+            updateClassOverviewTable(selectedSession ? [selectedSession] : sessions);
+            setClassOverviewTitle(selectedSession || null);
+        }
+        function getGroupSummary(groupId, dateFrom, dateTo) {
+            const sessions = filterSessionsByDateAndGroup(groupId, dateFrom, dateTo);
+            const students = new Set();
+            const totals = {
+                sessions: sessions.length,
+                picks: 0,
+                pluses: 0,
+                minuses: 0,
+                teamPluses: 0,
+                teamMinuses: 0,
+                badges: 0,
+                badgePositive: 0,
+                badgeNegative: 0
+            };
+
+            sessions.forEach(session => {
+                (session.groups[groupId] || []).forEach(student => {
+                    students.add(student.name);
+                    totals.picks += student.isPicked ? 1 : 0;
+                    totals.pluses += student.pluses || 0;
+                    totals.minuses += student.minuses || 0;
+                    totals.teamPluses += student.teamPluses || 0;
+                    totals.teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    totals.badges += studentBadges.length;
+                    totals.badgePositive += badgeSentiment.positive;
+                    totals.badgeNegative += badgeSentiment.negative;
+                });
+            });
+
+            const positive = totals.pluses + totals.teamPluses;
+            const negative = totals.minuses + totals.teamMinuses;
+            const net = positive + totals.badgePositive - negative - totals.badgeNegative;
+
+            return {
+                groupId,
+                sessions: totals.sessions,
+                students: students.size,
+                picks: totals.picks,
+                positive,
+                negative,
+                badgePositive: totals.badgePositive,
+                badgeNegative: totals.badgeNegative,
+                badges: totals.badges,
+                net
+            };
+        }
+
+        function openCompareGroupsModal() {
+            const modal = document.getElementById('compareGroupsModal');
+            const listEl = document.getElementById('compareGroupsList');
+            const groups = extractGroupsFromData();
+
+            if (!groups.length) {
+                showMessage('No groups available to compare', 'error');
+                return;
+            }
+
+            if (!compareGroupIds.length && currentGroupId) {
+                compareGroupIds = [currentGroupId];
+            }
+
+            listEl.innerHTML = groups.map(groupId => {
+                const checked = compareGroupIds.includes(groupId) ? 'checked' : '';
+                return `
+                    <label class="compare-group-item">
+                        <input type="checkbox" class="compare-group-checkbox" value="${groupId}" ${checked}>
+                        <span>${groupId}</span>
+                    </label>
+                `;
+            }).join('');
+
+            modal.classList.add('active');
+        }
+
+        function closeCompareGroupsModal() {
+            document.getElementById('compareGroupsModal').classList.remove('active');
+        }
+
+        function setCompareGroupsSelection(selectAll) {
+            const checkboxes = document.querySelectorAll('.compare-group-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = !!selectAll;
+            });
+        }
+
+        function applyCompareGroupsSelection() {
+            const selected = Array.from(document.querySelectorAll('.compare-group-checkbox:checked')).map(cb => cb.value);
+            compareGroupIds = selected;
+            closeCompareGroupsModal();
+            renderCompareGroupsSummary();
+
+            if (!selected.length) {
+                showMessage('Comparison cleared', 'info');
+                return;
+            }
+
+            showMessage(`Comparing ${selected.length} group(s)`, 'success');
+        }
+
+        function renderCompareGroupsSummary() {
+            const section = document.getElementById('compareSummarySection');
+            const body = document.getElementById('compareSummaryBody');
+            const foot = document.getElementById('compareSummaryFoot');
+            const meta = document.getElementById('compareSummaryMeta');
+
+            if (!section || !body || !foot || !meta) return;
+
+            const available = new Set(extractGroupsFromData());
+            compareGroupIds = compareGroupIds.filter(groupId => available.has(groupId));
+
+            if (!compareGroupIds.length) {
+                section.classList.add('hidden');
+                body.innerHTML = '';
+                foot.innerHTML = '';
+                meta.textContent = '';
+                return;
+            }
+
+            const dateRange = getDateRange();
+            const summaries = compareGroupIds.map(groupId => getGroupSummary(groupId, dateRange.from, dateRange.to));
+            const totals = summaries.reduce((acc, row) => {
+                acc.sessions += row.sessions;
+                acc.students += row.students;
+                acc.picks += row.picks;
+                acc.positive += row.positive;
+                acc.negative += row.negative;
+                acc.badgePositive += row.badgePositive;
+                acc.badgeNegative += row.badgeNegative;
+                acc.badges += row.badges;
+                acc.net += row.net;
+                return acc;
+            }, {
+                sessions: 0,
+                students: 0,
+                picks: 0,
+                positive: 0,
+                negative: 0,
+                badgePositive: 0,
+                badgeNegative: 0,
+                badges: 0,
+                net: 0
+            });
+
+            const totalSessionDivisor = totals.sessions || 1;
+            const totalSessionStudentDivisor = summaries.reduce((acc, row) => acc + ((row.sessions || 0) * (row.students || 0)), 0) || 1;
+            const totalPickPerSession = totals.picks / totalSessionDivisor;
+            const totalPosPerSession = totals.positive / totalSessionDivisor;
+            const totalPosPerSessionPerStudent = totals.positive / totalSessionStudentDivisor;
+            const totalNegPerSession = totals.negative / totalSessionDivisor;
+            const totalNegPerSessionPerStudent = totals.negative / totalSessionStudentDivisor;
+            const totalBadgesPerSessionPerStudent = totals.badges / totalSessionStudentDivisor;
+            const totalNetPerSession = totals.net / totalSessionDivisor;
+            const totalNetPerSessionPerStudent = totals.net / totalSessionStudentDivisor;
+
+            body.innerHTML = summaries.map(row => `
+                ${(() => {
+                    const sessionDivisor = row.sessions || 1;
+                    const sessionStudentDivisor = (row.sessions || 0) * (row.students || 0) || 1;
+                    const picksPerSession = row.picks / sessionDivisor;
+                    const posPerSession = row.positive / sessionDivisor;
+                    const posPerSessionPerStudent = row.positive / sessionStudentDivisor;
+                    const negPerSession = row.negative / sessionDivisor;
+                    const negPerSessionPerStudent = row.negative / sessionStudentDivisor;
+                    const badgesPerSessionPerStudent = row.badges / sessionStudentDivisor;
+                    const netPerSession = row.net / sessionDivisor;
+                    const netPerSessionPerStudent = row.net / sessionStudentDivisor;
+                    return `
+                <tr>
+                    <td>${row.groupId}</td>
+                    <td>${row.sessions}</td>
+                    <td>${row.students}</td>
+                    <td>${row.picks}</td>
+                    <td>${picksPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c; font-weight:600;">${row.positive}</td>
+                    <td style="color:#2ca02c; font-weight:600;">${posPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c; font-weight:600;">${posPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#d62728; font-weight:600;">${row.negative}</td>
+                    <td style="color:#d62728; font-weight:600;">${negPerSession.toFixed(2)}</td>
+                    <td style="color:#d62728; font-weight:600;">${negPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#2ca02c; font-weight:600;">${formatSummaryNumber(row.badgePositive)}</td>
+                    <td style="color:#d62728; font-weight:600;">${formatSummaryNumber(row.badgeNegative)}</td>
+                    <td>${row.badges}</td>
+                    <td>${badgesPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:${row.net >= 0 ? '#2ca02c' : '#d62728'}; font-weight:700;">${row.net >= 0 ? '+' : ''}${formatSummaryNumber(row.net)}</td>
+                    <td style="color:${netPerSession >= 0 ? '#2ca02c' : '#d62728'}; font-weight:700;">${netPerSession >= 0 ? '+' : ''}${netPerSession.toFixed(2)}</td>
+                    <td style="color:${netPerSessionPerStudent >= 0 ? '#2ca02c' : '#d62728'}; font-weight:700;">${netPerSessionPerStudent >= 0 ? '+' : ''}${netPerSessionPerStudent.toFixed(2)}</td>
+                </tr>
+                    `;
+                })()}
+            `).join('');
+
+            foot.innerHTML = `
+                <tr>
+                    <td>Total</td>
+                    <td>${totals.sessions}</td>
+                    <td>${totals.students}</td>
+                    <td>${totals.picks}</td>
+                    <td>${totalPickPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${totals.positive}</td>
+                    <td style="color:#2ca02c;">${totalPosPerSession.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${totalPosPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#d62728;">${totals.negative}</td>
+                    <td style="color:#d62728;">${totalNegPerSession.toFixed(2)}</td>
+                    <td style="color:#d62728;">${totalNegPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:#2ca02c;">${formatSummaryNumber(totals.badgePositive)}</td>
+                    <td style="color:#d62728;">${formatSummaryNumber(totals.badgeNegative)}</td>
+                    <td>${totals.badges}</td>
+                    <td>${totalBadgesPerSessionPerStudent.toFixed(2)}</td>
+                    <td style="color:${totals.net >= 0 ? '#2ca02c' : '#d62728'};">${totals.net >= 0 ? '+' : ''}${formatSummaryNumber(totals.net)}</td>
+                    <td style="color:${totalNetPerSession >= 0 ? '#2ca02c' : '#d62728'};">${totalNetPerSession >= 0 ? '+' : ''}${totalNetPerSession.toFixed(2)}</td>
+                    <td style="color:${totalNetPerSessionPerStudent >= 0 ? '#2ca02c' : '#d62728'};">${totalNetPerSessionPerStudent >= 0 ? '+' : ''}${totalNetPerSessionPerStudent.toFixed(2)}</td>
+                </tr>
+            `;
+
+            const fromText = dateRange.from || 'start';
+            const toText = dateRange.to || 'today';
+            meta.textContent = `Showing ${summaries.length} group(s) from ${fromText} to ${toText}.`;
+            section.classList.remove('hidden');
+        }
+
+        function setClassOverviewTitle(session) {
+            const titleEl = document.getElementById('classOverviewTitle');
+            const clearBtn = document.getElementById('clearSessionFilterBtn');
+            if (!titleEl) return;
+
+            if (!session) {
+                titleEl.textContent = 'Class Overview';
+                if (clearBtn) clearBtn.classList.add('hidden');
+                return;
+            }
+
+            const date = new Date(session.id);
+            const dateStr = date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            const timeStr = session.time ? ` ${session.time}` : '';
+            titleEl.textContent = `Class Overview - ${dateStr}${timeStr}`;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+        }
+
+        let classOverviewData = [];
+        let classOverviewSortCol = 'name';
+        let classOverviewSortDir = 1;
+
+        function updateClassOverviewTable(sessions) {
+            const tbody = document.getElementById('classOverviewTableBody');
+            tbody.innerHTML = '';
+
+            const studentMap = {};
+            sessions.forEach(session => {
+                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                    if (!studentMap[student.name]) {
+                        studentMap[student.name] = {
+                            name: student.name,
+                            sessions: 0,
+                            attendedSessions: 0,
+                            picks: 0,
+                            absent: 0,
+                            pluses: 0,
+                            minuses: 0,
+                            teamPluses: 0,
+                            teamMinuses: 0,
+                            badges: [],
+                            badgePositive: 0,
+                            badgeNegative: 0,
+                            teamRoleEvents: 0,
+                            teamRolePreview: '',
+                            notes: '',
+                            notesCount: 0,
+                            sessionNets: []
+                        };
+                    }
+                    const s = studentMap[student.name];
+                    s.sessions++;
+                    if (!student.isAbsent) s.attendedSessions++;
+                    if (student.isPicked) s.picks++;
+                    if (student.isAbsent) s.absent++;
+                    s.pluses += student.pluses || 0;
+                    s.minuses += student.minuses || 0;
+                    s.teamPluses += student.teamPluses || 0;
+                    s.teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    s.badges = s.badges.concat(studentBadges);
+                    s.badgePositive += badgeSentiment.positive;
+                    s.badgeNegative += badgeSentiment.negative;
+
+                    const studentEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
+                    s.teamRoleEvents += studentEvents.length;
+                    if (studentEvents.length) {
+                        const eventsPreview = formatTeamRoleEventsPreview(studentEvents, 80);
+                        s.teamRolePreview = s.teamRolePreview ? `${s.teamRolePreview} | ${eventsPreview}` : eventsPreview;
+                    }
+
+                    const studentNotes = getStudentNotesText(student);
+                    if (studentNotes) {
+                        s.notesCount++;
+                        s.notes = s.notes ? `${s.notes} | ${studentNotes}` : studentNotes;
+                    }
+                    if (!student.isAbsent) {
+                        s.sessionNets.push(getStudentSessionNet(student));
+                    }
+                });
+            });
+
+            classOverviewData = Object.values(studentMap);
+            renderClassOverviewRows();
+        }
+
+        function sortClassOverviewTable(col) {
+            if (classOverviewSortCol === col) {
+                classOverviewSortDir *= -1;
+            } else {
+                classOverviewSortCol = col;
+                classOverviewSortDir = 1;
+            }
+            document.querySelectorAll('#classOverviewTable thead th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.dataset.col === col) th.classList.add(classOverviewSortDir === 1 ? 'sort-asc' : 'sort-desc');
+            });
+            renderClassOverviewRows();
+        }
+
+        function getStudentSessionNet(student) {
+            const defs = getConfiguredBadgeDefinitions();
+            const plusDef = defs.find(d => d.isBuiltin && d.icon === '+');
+            const minusDef = defs.find(d => d.isBuiltin && d.icon === '-');
+            const fallbackCoeff = getConfiguredParticipationSettings().plusMinusCoefficient;
+            const plusCoeff = plusDef ? plusDef.coefficient : fallbackCoeff;
+            const minusCoeff = minusDef ? minusDef.coefficient : fallbackCoeff;
+            const badgeSentiment = countBadgeSentiment(student.badges || []);
+            const raw = ((student.pluses || 0) + (student.teamPluses || 0)) * plusCoeff
+                - ((student.minuses || 0) + (student.teamMinuses || 0)) * minusCoeff
+                + badgeSentiment.positive - badgeSentiment.negative;
+            return parseFloat(raw.toFixed(2));
+        }
+
+        function computeTrend(sessionNets) {
+            const n = sessionNets.length;
+            if (n < 2) return 'flat';
+            const mid = Math.ceil(n / 2);
+            const firstHalf = sessionNets.slice(0, mid);
+            const secondHalf = sessionNets.slice(n - mid);
+            const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+            const diff = avgSecond - avgFirst;
+            if (diff > 0.1) return 'up';
+            if (diff < -0.1) return 'down';
+            return 'flat';
+        }
+
+        function getConfiguredParticipationSettings() {
+            try {
+                const config = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) ? CLASS_MANAGEMENT_CONFIG : null;
+                const ps = config?.participationSettings;
+                if (ps && typeof ps === 'object') {
+                    const pmCoeff = Number(ps.plusMinusCoefficient);
+                    return { plusMinusCoefficient: Number.isFinite(pmCoeff) ? pmCoeff : 1 };
+                }
+            } catch (e) { /* ignore */ }
+            return { plusMinusCoefficient: 1 };
+        }
+
+        function getClassOverviewNet(data) {
+            const defs = getConfiguredBadgeDefinitions();
+            const plusDef = defs.find(d => d.isBuiltin && d.icon === '+');
+            const minusDef = defs.find(d => d.isBuiltin && d.icon === '-');
+            // Fall back to participationSettings.plusMinusCoefficient for old configs without builtin entries
+            const fallbackCoeff = getConfiguredParticipationSettings().plusMinusCoefficient;
+            const plusCoeff = plusDef ? plusDef.coefficient : fallbackCoeff;
+            const minusCoeff = minusDef ? minusDef.coefficient : fallbackCoeff;
+            const raw = (data.pluses + data.teamPluses) * plusCoeff
+                - (data.minuses + data.teamMinuses) * minusCoeff
+                + data.badgePositive - data.badgeNegative;
+            return parseFloat(raw.toFixed(2));
+        }
+
+        function formatSummaryNumber(value, decimals = 2) {
+            const num = Number(value) || 0;
+            if (Number.isInteger(num)) return String(num);
+            return num.toFixed(decimals).replace(/\.00$/, '');
+        }
+
+        function getClassOverviewSummary() {
+            const totals = classOverviewData.reduce((acc, data) => {
+                acc.students += 1;
+                acc.sessions += data.sessions;
+                acc.attendedSessions += data.attendedSessions;
+                acc.picks += data.picks;
+                acc.absent += data.absent;
+                acc.pluses += data.pluses;
+                acc.minuses += data.minuses;
+                acc.teamPluses += data.teamPluses;
+                acc.teamMinuses += data.teamMinuses;
+                acc.badgePositive += data.badgePositive;
+                acc.badgeNegative += data.badgeNegative;
+                acc.badges += data.badges.length;
+                acc.teamRoleEvents += data.teamRoleEvents;
+                acc.notesCount += data.notesCount;
+                acc.net += getClassOverviewNet(data);
+                return acc;
+            }, {
+                students: 0,
+                sessions: 0,
+                attendedSessions: 0,
+                picks: 0,
+                absent: 0,
+                pluses: 0,
+                minuses: 0,
+                teamPluses: 0,
+                teamMinuses: 0,
+                badgePositive: 0,
+                badgeNegative: 0,
+                badges: 0,
+                teamRoleEvents: 0,
+                notesCount: 0,
+                net: 0
+            });
+
+            const totalGood = totals.pluses + totals.teamPluses + totals.badgePositive;
+            const totalBad = totals.minuses + totals.teamMinuses + totals.badgeNegative;
+            const safeStudentDivisor = totals.students || 1;
+            const safeAttendanceDivisor = totals.attendedSessions || 1;
+            const ratioValue = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? Infinity : 0);
+
+            return {
+                totals,
+                averages: {
+                    sessions: totals.sessions / safeStudentDivisor,
+                    picks: totals.picks / safeStudentDivisor,
+                    absent: totals.absent / safeStudentDivisor,
+                    pluses: totals.pluses / safeStudentDivisor,
+                    minuses: totals.minuses / safeStudentDivisor,
+                    teamPluses: totals.teamPluses / safeStudentDivisor,
+                    teamMinuses: totals.teamMinuses / safeStudentDivisor,
+                    badgePositive: totals.badgePositive / safeStudentDivisor,
+                    badgeNegative: totals.badgeNegative / safeStudentDivisor,
+                    badges: totals.badges / safeStudentDivisor,
+                    teamRoleEvents: totals.teamRoleEvents / safeStudentDivisor,
+                    notesCount: totals.notesCount / safeStudentDivisor,
+                    net: totals.net / safeStudentDivisor,
+                    posRatio: totalGood / safeAttendanceDivisor,
+                    negRatio: totalBad / safeAttendanceDivisor,
+                    netRatio: totals.net / safeAttendanceDivisor,
+                    ratio: ratioValue
+                },
+                ratios: {
+                    posRatio: totalGood / safeAttendanceDivisor,
+                    negRatio: totalBad / safeAttendanceDivisor,
+                    netRatio: totals.net / safeAttendanceDivisor,
+                    ratio: ratioValue
+                }
+            };
+        }
+
+        function buildClassOverviewSummaryRows() {
+            const tfoot = document.getElementById('classOverviewTableFoot');
+            if (!tfoot) return;
+
+            if (!classOverviewData.length) {
+                tfoot.innerHTML = '';
+                return;
+            }
+
+            const summary = getClassOverviewSummary();
+            const totalRatioText = summary.ratios.ratio === Infinity ? '∞' : (summary.ratios.ratio === 0 ? '—' : summary.ratios.ratio.toFixed(2));
+            const avgRatioText = summary.averages.ratio === Infinity ? '∞' : (summary.averages.ratio === 0 ? '—' : summary.averages.ratio.toFixed(2));
+            const totalNetColor = summary.totals.net >= 0 ? '#2ca02c' : '#d62728';
+            const avgNetColor = summary.averages.net >= 0 ? '#2ca02c' : '#d62728';
+            const totalNetRatioColor = summary.ratios.netRatio >= 0 ? '#2ca02c' : '#d62728';
+            const avgNetRatioColor = summary.averages.netRatio >= 0 ? '#2ca02c' : '#d62728';
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td><strong>Class Total</strong></td>
+                    <td>${formatSummaryNumber(summary.totals.sessions)}</td>
+                    <td>${formatSummaryNumber(summary.totals.picks)}</td>
+                    <td>${formatSummaryNumber(summary.totals.absent)}</td>
+                    <td>${formatSummaryNumber(summary.totals.pluses)}</td>
+                    <td>${formatSummaryNumber(summary.totals.minuses)}</td>
+                    <td style="color: #1f5a2b;">${formatSummaryNumber(summary.totals.teamPluses)}</td>
+                    <td style="color: #8a1e1e;">${formatSummaryNumber(summary.totals.teamMinuses)}</td>
+                    <td style="color: #2ca02c;">${formatSummaryNumber(summary.totals.badgePositive)}</td>
+                    <td style="color: #d62728;">${formatSummaryNumber(summary.totals.badgeNegative)}</td>
+                    <td>${formatSummaryNumber(summary.totals.badges)}</td>
+                    <td>${formatSummaryNumber(summary.totals.teamRoleEvents)}</td>
+                    <td>${formatSummaryNumber(summary.totals.notesCount)}</td>
+                    <td style="color: ${totalNetColor};">${summary.totals.net >= 0 ? '+' : ''}${formatSummaryNumber(summary.totals.net)}</td>
+                    <td style="color: #2ca02c;">+${summary.ratios.posRatio.toFixed(2)}</td>
+                    <td style="color: #d62728;">-${summary.ratios.negRatio.toFixed(2)}</td>
+                    <td style="color: ${totalNetRatioColor};">${summary.ratios.netRatio >= 0 ? '+' : ''}${summary.ratios.netRatio.toFixed(2)}</td>
+                    <td>${totalRatioText}</td>
+                    <td>—</td>
+                </tr>
+                <tr>
+                    <td><strong>Class Avg</strong></td>
+                    <td>${summary.averages.sessions.toFixed(2)}</td>
+                    <td>${summary.averages.picks.toFixed(2)}</td>
+                    <td>${summary.averages.absent.toFixed(2)}</td>
+                    <td>${summary.averages.pluses.toFixed(2)}</td>
+                    <td>${summary.averages.minuses.toFixed(2)}</td>
+                    <td style="color: #1f5a2b;">${summary.averages.teamPluses.toFixed(2)}</td>
+                    <td style="color: #8a1e1e;">${summary.averages.teamMinuses.toFixed(2)}</td>
+                    <td style="color: #2ca02c;">${summary.averages.badgePositive.toFixed(2)}</td>
+                    <td style="color: #d62728;">${summary.averages.badgeNegative.toFixed(2)}</td>
+                    <td>${summary.averages.badges.toFixed(2)}</td>
+                    <td>${summary.averages.teamRoleEvents.toFixed(2)}</td>
+                    <td>${summary.averages.notesCount.toFixed(2)}</td>
+                    <td style="color: ${avgNetColor};">${summary.averages.net >= 0 ? '+' : ''}${summary.averages.net.toFixed(2)}</td>
+                    <td style="color: #2ca02c;">+${summary.averages.posRatio.toFixed(2)}</td>
+                    <td style="color: #d62728;">-${summary.averages.negRatio.toFixed(2)}</td>
+                    <td style="color: ${avgNetRatioColor};">${summary.averages.netRatio >= 0 ? '+' : ''}${summary.averages.netRatio.toFixed(2)}</td>
+                    <td>${avgRatioText}</td>
+                    <td>—</td>
+                </tr>
+            `;
+        }
+
+        function renderClassOverviewRows() {
+            const tbody = document.getElementById('classOverviewTableBody');
+            tbody.innerHTML = '';
+
+            const sorted = [...classOverviewData].sort((a, b) => {
+                const col = classOverviewSortCol;
+                const av = col === 'net' ? getClassOverviewNet(a)
+                    : col === 'badges' ? a.badges.length
+                    : col === 'notes' ? a.notesCount
+                    : col === 'posRatio' ? (a.attendedSessions ? (a.pluses + a.teamPluses + a.badgePositive) / a.attendedSessions : 0)
+                    : col === 'negRatio' ? (a.attendedSessions ? (a.minuses + a.teamMinuses + a.badgeNegative) / a.attendedSessions : 0)
+                    : col === 'netRatio' ? (a.attendedSessions ? getClassOverviewNet(a) / a.attendedSessions : 0)
+                    : col === 'ratio' ? (() => { const g = a.pluses + a.teamPluses + a.badgePositive; const bd = a.minuses + a.teamMinuses + a.badgeNegative; return bd > 0 ? g / bd : (g > 0 ? 999 : 0); })()
+                    : col === 'trend' ? (computeTrend(a.sessionNets) === 'up' ? 1 : computeTrend(a.sessionNets) === 'down' ? -1 : 0)
+                    : a[col];
+                const bv = col === 'net' ? getClassOverviewNet(b)
+                    : col === 'badges' ? b.badges.length
+                    : col === 'notes' ? b.notesCount
+                    : col === 'posRatio' ? (b.attendedSessions ? (b.pluses + b.teamPluses + b.badgePositive) / b.attendedSessions : 0)
+                    : col === 'negRatio' ? (b.attendedSessions ? (b.minuses + b.teamMinuses + b.badgeNegative) / b.attendedSessions : 0)
+                    : col === 'netRatio' ? (b.attendedSessions ? getClassOverviewNet(b) / b.attendedSessions : 0)
+                    : col === 'ratio' ? (() => { const g = b.pluses + b.teamPluses + b.badgePositive; const bd = b.minuses + b.teamMinuses + b.badgeNegative; return bd > 0 ? g / bd : (g > 0 ? 999 : 0); })()
+                    : col === 'trend' ? (computeTrend(b.sessionNets) === 'up' ? 1 : computeTrend(b.sessionNets) === 'down' ? -1 : 0)
+                    : b[col];
+                if (typeof av === 'string') return av.localeCompare(bv) * classOverviewSortDir;
+                return (av - bv) * classOverviewSortDir;
+            });
+
+            sorted.forEach(data => {
+                const net = getClassOverviewNet(data);
+                const posRatio = data.attendedSessions ? parseFloat(((data.pluses + data.teamPluses + data.badgePositive) / data.attendedSessions).toFixed(2)) : 0;
+                const negRatio = data.attendedSessions ? parseFloat(((data.minuses + data.teamMinuses + data.badgeNegative) / data.attendedSessions).toFixed(2)) : 0;
+                const netRatio = data.attendedSessions ? parseFloat((net / data.attendedSessions).toFixed(2)) : 0;
+                const teamRoleText = data.teamRolePreview || '(none)';
+                const teamRolePreview = teamRoleText.length > 80 ? `${teamRoleText.substring(0, 80)}...` : teamRoleText;
+                const notesText = data.notes || '(none)';
+                const notesPreview = notesText.length > 80 ? `${notesText.substring(0, 80)}...` : notesText;
+                const row = document.createElement('tr');
+                row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
+                row.innerHTML = `
+                    <td><strong>${data.name}</strong></td>
+                    <td>${data.sessions}</td>
+                    <td>${data.picks}</td>
+                    <td>${data.absent}</td>
+                    <td>${data.pluses}</td>
+                    <td>${data.minuses}</td>
+                    <td style="color: #1f5a2b; font-weight: 600;">${data.teamPluses}</td>
+                    <td style="color: #8a1e1e; font-weight: 600;">${data.teamMinuses}</td>
+                    <td style="color: #2ca02c; font-weight: 600;">${data.badgePositive}</td>
+                    <td style="color: #d62728; font-weight: 600;">${data.badgeNegative}</td>
+                    <td>${formatBadges(data.badges)}</td>
+                    <td><span title="${teamRoleText.replace(/"/g, '&quot;')}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${teamRolePreview}` : '(none)'}</span></td>
+                    <td><span title="${notesText.replace(/"/g, '&quot;')}" class="notes-preview ${data.notes ? '' : 'empty'}">${notesPreview}</span></td>
+                    <td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>
+                    <td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>
+                    <td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>
+                    <td style="color: ${netRatio >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${netRatio >= 0 ? '+' : ''}${netRatio.toFixed(2)}</td>
+                    <td style="font-weight: 600; color: ${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '#888' : (bd === 0 ? '#2ca02c' : (g / bd >= 1 ? '#2ca02c' : '#d62728')); })()};">${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '—' : (bd === 0 ? '∞' : (g / bd).toFixed(2)); })()}</td>
+                    <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? 'Improving trend' : computeTrend(data.sessionNets) === 'down' ? 'Declining trend' : 'Stable / not enough data'}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
+                `;
+                row.addEventListener('click', () => {
+                    currentStudentName = data.name;
+                    document.querySelectorAll('#classOverviewTableBody tr').forEach(r => r.classList.remove('selected-student'));
+                    row.classList.add('selected-student');
+                    document.getElementById('studentDetailTitle').classList.remove('hidden');
+                    updateStudentDetails();
+                    document.getElementById('studentDetailsArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                tbody.appendChild(row);
+            });
+            buildClassOverviewSummaryRows();
+            applyHiddenCols('classOverviewTable');
+        }
+
+        function aggregateMetrics(sessions) {
+            const metrics = {};
+
+            sessions.forEach(session => {
+                const allStudents = session.groups[currentGroupId] || [];
+                const students = allStudents.filter(s => isStudentInCurrentHalfGroup(s.name));
+                const dateStr = session.id.split('T')[0];
+
+                if (!metrics[dateStr]) {
+                    metrics[dateStr] = {
+                        date: session.id,
+                        time: session.time,
+                        picks: 0,
+                        pluses: 0,
+                        minuses: 0,
+                        teamPluses: 0,
+                        teamMinuses: 0,
+                        badges: 0,
+                        badgePositive: 0,
+                        badgeNegative: 0,
+                        teamRoleEvents: 0,
+                        students: new Set()
+                    };
+                }
+
+                metrics[dateStr].teamRoleEvents += getSessionTeamRoleEvents(session, currentGroupId).filter(e => {
+                    if (!currentHalfGroup) return true;
+                    const target = e.target ? String(e.target).toUpperCase() : '';
+                    return !target || isStudentInCurrentHalfGroup(target);
+                }).length;
+
+                students.forEach(student => {
+                    metrics[dateStr].picks += student.isPicked ? 1 : 0;
+                    metrics[dateStr].pluses += student.pluses || 0;
+                    metrics[dateStr].minuses += student.minuses || 0;
+                    metrics[dateStr].teamPluses += student.teamPluses || 0;
+                    metrics[dateStr].teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    metrics[dateStr].badges += studentBadges.length;
+                    metrics[dateStr].badgePositive += badgeSentiment.positive;
+                    metrics[dateStr].badgeNegative += badgeSentiment.negative;
+                    metrics[dateStr].students.add(student.name);
+                });
+            });
+
+            return Object.values(metrics).map(m => ({
+                ...m,
+                students: m.students.size
+            })).sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
+
+        function formatBadges(badges) {
+            if (!badges || badges.length === 0) return '-';
+            const map = {};
+            badges.forEach(badge => {
+                const resolvedBadge = resolveBadgeData(badge);
+                const key = `${resolvedBadge.icon}|${resolvedBadge.label}` || JSON.stringify(badge);
+                if (!map[key]) {
+                    map[key] = {
+                        icon: resolvedBadge.icon || '🏅',
+                        label: resolvedBadge.label || 'Badge',
+                        count: 0,
+                        sentiment: resolvedBadge.tone,
+                        meaning: resolvedBadge.meaning
+                    };
+                }
+                map[key].count++;
+            });
+            return Object.values(map).map(badge => {
+                const color = badge.sentiment === 'positive' ? '#2ca02c' : (badge.sentiment === 'negative' ? '#d62728' : 'inherit');
+                const tooltip = [badge.label, badge.meaning, badge.sentiment].filter(Boolean).join(' — ');
+                return `<span title="${tooltip}" style="font-size:1.1em; color:${color};">${badge.icon}${badge.count > 1 ? `<sup style="font-size:0.65em;">${badge.count}</sup>` : ''}</span>`;
+            }).join(' ');
+        }
+
+        function getBadgeSentiment(badge) {
+            return resolveBadgeData(badge).tone;
+        }
+
+        function countBadgeSentiment(badges) {
+            return (badges || []).reduce((acc, badge) => {
+                const data = resolveBadgeData(badge);
+                const weight = data.coefficient;
+                if (data.tone === 'positive') acc.positive += weight;
+                if (data.tone === 'negative') acc.negative += weight;
+                return acc;
+            }, { positive: 0, negative: 0 });
+        }
+
+        function getSessionTeamRoleEvents(session, groupId, studentName) {
+            if (!session || !Array.isArray(session.sessionHistory)) return [];
+            const target = studentName ? String(studentName).toUpperCase() : null;
+
+            return session.sessionHistory.filter(entry => {
+                const type = String(entry.type || '').toLowerCase();
+                const isTeamRoleType = type === 'teams' || type === 'role' || type === 'rank' || type === 'role-change' || type === 'team-plus' || type === 'team-minus';
+                if (!isTeamRoleType) return false;
+                if (entry.group && entry.group !== groupId) return false;
+                if (target && String(entry.studentName || '').toUpperCase() !== target) return false;
+                return true;
+            });
+        }
+
+        function formatTeamRoleEventsPreview(events, maxLen) {
+            if (!events || events.length === 0) return '(none)';
+            const summary = events.map(e => `${e.time || ''} ${e.detail || ''}`.trim()).join(' | ');
+            return summary.length > maxLen ? summary.substring(0, maxLen) + '...' : summary;
+        }
+
+        function renderChart(sessions) {
+            const canvas = document.getElementById('participationChart');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const metrics = aggregateMetrics(sessions);
+            if (metrics.length === 0) {
+                ctx.fillStyle = '#ccc';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data for selected period', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // Chart dimensions
+            const padding = 40;
+            const chartWidth = canvas.width - 2 * padding;
+            const chartHeight = canvas.height - 2 * padding;
+
+            // Find max values
+            const maxPicks = Math.max(...metrics.map(m => m.picks), 1);
+            const maxPluses = Math.max(...metrics.map(m => m.pluses), 1);
+            const maxMinuses = Math.max(...metrics.map(m => m.minuses), 1);
+            const maxValue = Math.max(maxPicks, maxPluses, maxMinuses);
+
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.stroke();
+
+            // Draw lines
+            const colors = { picks: '#1f77b4', pluses: '#2ca02c', minuses: '#d62728' };
+            const keys = ['picks', 'pluses', 'minuses'];
+
+            keys.forEach(key => {
+                ctx.strokeStyle = colors[key];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                metrics.forEach((m, i) => {
+                    const x = padding + (chartWidth / (metrics.length - 1 || 1)) * i;
+                    const y = canvas.height - padding - (m[key] / maxValue) * chartHeight;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+            });
+
+            // Draw points
+            keys.forEach(key => {
+                ctx.fillStyle = colors[key];
+                metrics.forEach((m, i) => {
+                    const x = padding + (chartWidth / (metrics.length - 1 || 1)) * i;
+                    const y = canvas.height - padding - (m[key] / maxValue) * chartHeight;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            });
+
+            // Draw labels
+            ctx.fillStyle = '#666';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+
+            // Y-axis labels
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const value = Math.round((maxValue / 4) * i);
+                const y = canvas.height - padding - (chartHeight / 4) * i;
+                ctx.fillText(value, padding - 10, y + 3);
+            }
+
+            // X-axis labels (sample every nth date to avoid clutter)
+            ctx.textAlign = 'center';
+            const labelStep = Math.max(1, Math.floor(metrics.length / 8));
+            metrics.forEach((m, i) => {
+                if (i % labelStep === 0) {
+                    const x = padding + (chartWidth / (metrics.length - 1 || 1)) * i;
+                    const date = new Date(m.date);
+                    ctx.fillText(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, canvas.height - padding + 15);
+                }
+            });
+        }
+
+        function updateStats(sessions) {
+            const metrics = aggregateMetrics(sessions);
+            const sessionCount = metrics.length;
+            const totals = metrics.reduce((sum, m) => ({
+                picks: sum.picks + m.picks,
+                pluses: sum.pluses + m.pluses,
+                minuses: sum.minuses + m.minuses,
+                teamPluses: sum.teamPluses + m.teamPluses,
+                teamMinuses: sum.teamMinuses + m.teamMinuses,
+                badges: sum.badges + m.badges,
+                badgePositive: sum.badgePositive + m.badgePositive,
+                badgeNegative: sum.badgeNegative + m.badgeNegative
+            }), { picks: 0, pluses: 0, minuses: 0, teamPluses: 0, teamMinuses: 0, badges: 0, badgePositive: 0, badgeNegative: 0 });
+
+            const totalPositive = totals.pluses + totals.teamPluses;
+            const totalNegative = totals.minuses + totals.teamMinuses;
+            const totalNet = totalPositive + totals.badgePositive - totalNegative - totals.badgeNegative;
+            const perSession = sessionCount > 0
+                ? {
+                    positive: totalPositive / sessionCount,
+                    negative: totalNegative / sessionCount,
+                    badges: totals.badges / sessionCount,
+                    net: totalNet / sessionCount
+                }
+                : { positive: 0, negative: 0, badges: 0, net: 0 };
+
+            document.getElementById('statPicks').textContent = totals.picks;
+            document.getElementById('statPluses').textContent = `${totalPositive} (T+${totals.teamPluses})`;
+            document.getElementById('statPlusesPerSession').textContent = `${perSession.positive.toFixed(2)}/session`;
+            document.getElementById('statMinuses').textContent = `${totalNegative} (T-${totals.teamMinuses})`;
+            document.getElementById('statMinusesPerSession').textContent = `${perSession.negative.toFixed(2)}/session`;
+            document.getElementById('statBadges').textContent = `${totals.badges} (+${totals.badgePositive} / -${totals.badgeNegative})`;
+            document.getElementById('statBadgesPerSession').textContent = `${perSession.badges.toFixed(2)}/session`;
+            document.getElementById('statNet').textContent = `${totalNet >= 0 ? '+' : ''}${formatSummaryNumber(totalNet)}`;
+            document.getElementById('statNet').style.color = totalNet >= 0 ? '#2ca02c' : '#d62728';
+            document.getElementById('statNetPerSession').textContent = `${perSession.net >= 0 ? '+' : ''}${perSession.net.toFixed(2)}/session`;
+            document.getElementById('statNetPerSession').style.color = perSession.net >= 0 ? '#2ca02c' : '#d62728';
+        }
+
+        function updateHistoryTable(sessions) {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+
+            const metrics = aggregateMetrics(sessions);
+
+            metrics.forEach((metric, index) => {
+                const row = document.createElement('tr');
+                row.className = `expandable-row${metric.date === selectedHistorySessionId ? ' selected-session-row' : ''}`;
+
+                const date = new Date(metric.date);
+                const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+
+                // Find the session for notes
+                const session = sessions.find(s => s.id === metric.date);
+                const notes = getGroupSessionNotes(session);
+                const notesPreview = notes ? notes.substring(0, 50) : '';
+                const objectives = getSessionObjectives(session);
+                const objectivesPreview = objectives ? objectives.replace(/\s+/g, ' ').substring(0, 60) : '';
+                const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
+
+                row.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${metric.time || '-'}</td>
+                    <td>${metric.picks}</td>
+                    <td>${metric.pluses}</td>
+                    <td>${metric.minuses}</td>
+                    <td style="color: #1f5a2b; font-weight: 600;">${metric.teamPluses || 0}</td>
+                    <td style="color: #8a1e1e; font-weight: 600;">${metric.teamMinuses || 0}</td>
+                    <td style="color: #2ca02c; font-weight: 600;">${metric.badgePositive || 0}</td>
+                    <td style="color: #d62728; font-weight: 600;">${metric.badgeNegative || 0}</td>
+                    <td>${sessionEvents.length}</td>
+                    <td>${metric.students}</td>
+                    <td>${metric.badges || '-'}</td>
+                    <td><span class="notes-preview ${objectives ? '' : 'empty'}">${objectives ? objectivesPreview + (objectivesPreview.length < objectives.replace(/\s+/g, ' ').length ? '...' : '') : '(none)'}</span></td>
+                    <td><span class="notes-preview ${notes ? '' : 'empty'}">${notes ? notesPreview + (notesPreview.length < notes.length ? '...' : '') : '(no notes)'}</span></td>
+                    <td></td>
+                `;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn-reset-row';
+                deleteBtn.textContent = '🗑 Delete';
+                deleteBtn.title = 'Delete this session';
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openResetModal('session', metric.date);
+                });
+                row.cells[row.cells.length - 1].appendChild(deleteBtn);
+
+                row.addEventListener('click', () => {
+                    if (!session) return;
+
+                    selectedHistorySessionId = selectedHistorySessionId === metric.date ? null : metric.date;
+                    currentStudentName = null;
+                    document.getElementById('studentDetailsArea').classList.add('hidden');
+                    document.getElementById('studentDetailTitle').classList.add('hidden');
+
+                    const selectedOnlySession = selectedHistorySessionId ? [session] : sessions;
+                    updateClassOverviewTable(selectedOnlySession);
+                    setClassOverviewTitle(selectedHistorySessionId ? session : null);
+                    updateHistoryTable(sessions);
+                });
+
+                tbody.appendChild(row);
+            });
+            applyHiddenCols('historyTable');
+        }
+
+        function getStudentNotesText(student) {
+            const parts = [];
+            if (student.notes) parts.push(student.notes);
+            if (student.comments && student.comments.length > 0) {
+                parts.push(student.comments.map(c => c.text).join('; '));
+            }
+            return parts.join(' | ');
+        }
+
+        function getSessionObjectives(session) {
+            return String((session && (session.lessonObjectives ?? session.objectives)) || '').trim();
+        }
+
+        function getGroupSessionNotes(session) {
+            if (!session || !session.groups || !session.groups[currentGroupId]) return '';
+            const students = session.groups[currentGroupId];
+            const notes = students.map(s => getStudentNotesText(s)).filter(n => n).join(' | ');
+            return notes;
+        }
+
+        function updateStudentDetails() {
+            if (!currentStudentName || !currentGroupId) return;
+
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+
+            // Calculate stats
+            let picks = 0, absent = 0, pluses = 0, minuses = 0, teamPluses = 0, teamMinuses = 0, badges = 0, badgePositive = 0, badgeNegative = 0, total = 0;
+
+            sessions.forEach(session => {
+                const students = session.groups[currentGroupId] || [];
+                const student = students.find(s => s.name === currentStudentName);
+                if (student) {
+                    total++;
+                    if (student.isPicked) picks++;
+                    if (student.isAbsent) absent++;
+                    pluses += student.pluses || 0;
+                    minuses += student.minuses || 0;
+                    teamPluses += student.teamPluses || 0;
+                    teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    badges += studentBadges.length;
+                    badgePositive += badgeSentiment.positive;
+                    badgeNegative += badgeSentiment.negative;
+                }
+            });
+
+            // Update detail stats
+            const detailStats = document.getElementById('studentDetailStats');
+            detailStats.innerHTML = `
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Sessions Recorded</div>
+                    <div class="detail-stat-value">${total}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Times Picked</div>
+                    <div class="detail-stat-value">${picks}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Absent</div>
+                    <div class="detail-stat-value">${absent}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Net Points</div>
+                    <div class="detail-stat-value" style="color: ${(pluses + teamPluses) - (minuses + teamMinuses) >= 0 ? '#2ca02c' : '#d62728'}">${(pluses + teamPluses) - (minuses + teamMinuses)}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Team Points (T+/T-)</div>
+                    <div class="detail-stat-value" style="color: #444">${teamPluses} / ${teamMinuses}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Badges Earned</div>
+                    <div class="detail-stat-value" style="color: #7a5a00">${badges}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Positive Badges</div>
+                    <div class="detail-stat-value" style="color: #2ca02c">${badgePositive}</div>
+                </div>
+                <div class="detail-stat">
+                    <div class="detail-stat-label">Negative Badges</div>
+                    <div class="detail-stat-value" style="color: #d62728">${badgeNegative}</div>
+                </div>
+            `;
+
+            // Update student table
+            const studentTbody = document.getElementById('studentTableBody');
+            studentTbody.innerHTML = '';
+
+            sessions.forEach(session => {
+                const students = session.groups[currentGroupId] || [];
+                const student = students.find(s => s.name === currentStudentName);
+
+                if (student) {
+                    const date = new Date(session.id);
+                    const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+
+                    const row = document.createElement('tr');
+                    row.className = 'expandable-row';
+                    const notesText = getStudentNotesText(student);
+                    const notesPreview = notesText ? notesText.substring(0, 50) : '';
+                    const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
+                    const teamRolePreview = formatTeamRoleEventsPreview(teamRoleEvents, 70);
+
+                    row.innerHTML = `
+                        <td>${dateStr}</td>
+                        <td>${session.time || '-'}</td>
+                        <td>${student.isPicked ? '✓' : '-'}</td>
+                        <td>${student.isAbsent ? '✓' : '-'}</td>
+                        <td>${student.pluses || 0}</td>
+                        <td>${student.minuses || 0}</td>
+                        <td style="color: #1f5a2b; font-weight: 600;">${student.teamPluses || 0}</td>
+                        <td style="color: #8a1e1e; font-weight: 600;">${student.teamMinuses || 0}</td>
+                        <td>${formatBadges(student.badges)}</td>
+                        <td><span class="notes-preview ${teamRoleEvents.length ? '' : 'empty'}">${teamRolePreview}</span></td>
+                        <td><span class="notes-preview ${notesText ? '' : 'empty'}">${notesText ? notesPreview + (notesPreview.length < notesText.length ? '...' : '') : '(no notes)'}</span></td>
+                    `;
+
+                    row.addEventListener('click', () => {
+                        currentSessionId = session.id;
+                        editingStudentId = student.id;
+                        showStudentDetailModal(student, session);
+                    });
+
+                    studentTbody.appendChild(row);
+                }
+            });
+
+            document.getElementById('studentDetailsArea').classList.remove('hidden');
+            applyHiddenCols('studentTable');
+        }
+
+        function showDetailModal(metric, session) {
+            const modal = document.getElementById('detailModal');
+            const title = document.getElementById('detailModalTitle');
+            const body = document.getElementById('detailModalBody');
+
+            title.textContent = `Session Notes - ${new Date(metric.date).toLocaleDateString()}`;
+
+            const students = session.groups[currentGroupId] || [];
+            let notes = students.map(s => `${s.name}: ${s.notes || '(no notes)'}`).join('\n\n');
+
+            document.getElementById('notesTextarea').value = notes;
+            document.getElementById('notesTextarea').disabled = true;
+
+            const objectives = getSessionObjectives(session);
+
+            body.innerHTML = `
+                <p><strong>Total Picks:</strong> ${metric.picks}</p>
+                <p><strong>Total Pluses:</strong> ${metric.pluses}</p>
+                <p><strong>Total Minuses:</strong> ${metric.minuses}</p>
+                <p><strong>Total Team Pluses (T+):</strong> ${metric.teamPluses || 0}</p>
+                <p><strong>Total Team Minuses (T-):</strong> ${metric.teamMinuses || 0}</p>
+                <p><strong>Team/Role Events:</strong> ${getSessionTeamRoleEvents(session, currentGroupId).length}</p>
+                <p><strong>Students Present:</strong> ${metric.students}</p>
+                <p><strong>Lesson Objectives:</strong><br>${objectives ? objectives.replace(/\n/g, '<br>') : '(none recorded)'}</p>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function showStudentDetailModal(student, session) {
+            const modal = document.getElementById('detailModal');
+            const title = document.getElementById('detailModalTitle');
+            const body = document.getElementById('detailModalBody');
+
+            title.textContent = `${student.name} - ${new Date(session.id).toLocaleDateString()}`;
+
+            const badgeDisplay = formatBadges(student.badges);
+            const badgeSentiment = countBadgeSentiment(student.badges || []);
+            const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
+            const teamRoleDetails = teamRoleEvents.length
+                ? teamRoleEvents.map(e => `${e.time || ''} [${e.type}] ${e.detail || ''}`).join('<br>')
+                : '(none)';
+            body.innerHTML = `
+                <p><strong>Picked:</strong> ${student.isPicked ? 'Yes' : 'No'}</p>
+                <p><strong>Absent:</strong> ${student.isAbsent ? 'Yes' : 'No'}</p>
+                <p><strong>Positive Points:</strong> ${student.pluses || 0}</p>
+                <p><strong>Negative Points:</strong> ${student.minuses || 0}</p>
+                <p><strong>Team Positive Points (T+):</strong> ${student.teamPluses || 0}</p>
+                <p><strong>Team Negative Points (T-):</strong> ${student.teamMinuses || 0}</p>
+                <p><strong>Team:</strong> ${student.teamId != null ? `Team ${student.teamId}` : '-'}</p>
+                <p><strong>Role:</strong> ${student.role || '-'}</p>
+                <p><strong>Badges:</strong> ${badgeDisplay}</p>
+                <p><strong>Badge Feedback:</strong> +${badgeSentiment.positive} / -${badgeSentiment.negative}</p>
+                <p><strong>Team/Role Event Log:</strong><br>${teamRoleDetails}</p>
+            `;
+
+            document.getElementById('notesTextarea').disabled = false;
+            document.getElementById('notesTextarea').value = student.notes || '';
+
+            if (student.comments && student.comments.length > 0) {
+                const commentsHtml = student.comments.map(c =>
+                    `<p style="margin:4px 0; font-size:13px;"><span style="color:#888; font-size:11px;">${c.datetime || ''}</span> ${c.text}</p>`
+                ).join('');
+                body.innerHTML += `<div style="margin-top:10px; padding:8px; background:#f0f4ff; border-radius:4px; border-left:3px solid #0066cc;"><strong style="font-size:12px; color:#555;">Class notes:</strong>${commentsHtml}</div>`;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.remove('active');
+            currentSessionId = null;
+            editingStudentId = null;
+        }
+
+        function saveNotes() {
+            if (!currentGroupId || !currentSessionId) {
+                showMessage('Error: Session or group not set', 'error');
+                return;
+            }
+
+            const notes = document.getElementById('notesTextarea').value;
+
+            // Find the session
+            const session = DB_EXPORT.find(s => s.id === currentSessionId);
+            if (!session || !session.groups[currentGroupId]) {
+                showMessage('Error: Session not found', 'error');
+                return;
+            }
+
+            // If editing a specific student
+            if (editingStudentId !== null && editingStudentId !== undefined) {
+                const student = session.groups[currentGroupId].find(s => s.id === editingStudentId);
+                if (student) {
+                    student.notes = notes;
+                    persistNotesToFile();
+                    return;
+                }
+            }
+
+            closeDetailModal();
+        }
+
+        function buildDbJsContent() {
+            return `window.CMS_DB_EXPORT = ${JSON.stringify(DB_EXPORT, null, 2)};\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n`;
+        }
+
+        async function persistNotesToFile() {
+            if (!ELECTRON_AVAILABLE) {
+                showMessage('✓ Notes saved (in-memory only - Electron not available)', 'success');
+                updateStudentDetails();
+                closeDetailModal();
+                return;
+            }
+
+            syncGlobalDbExport();
+            const dataString = buildDbJsContent();
+
+            try {
+                const result = await window.electronApi.saveFile({
+                    target: 'groupParticipation',
+                    filename: 'cms-db.js',
+                    content: dataString,
+                    encoding: 'utf8'
+                });
+
+                if (result && result.success) {
+                    showMessage('✓ Notes saved to file successfully', 'success');
+                    updateStudentDetails();
+                    closeDetailModal();
+                } else {
+                    showMessage('✗ Failed to save notes: ' + (result?.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showMessage('✗ Error saving notes: ' + error.message, 'error');
+            }
+        }
+
+        function confirmSaveNotes() {
+            const notes = document.getElementById('notesTextarea').value;
+            const studentName = currentStudentName || 'Session';
+            const date = new Date(currentSessionId).toLocaleDateString();
+
+            const confirmMsg = `Are you sure you want to save these notes for ${studentName} on ${date}?<br><br><strong>Notes:</strong> "${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}"`;
+
+            document.getElementById('confirmMessage').innerHTML = confirmMsg;
+            document.getElementById('confirmModal').classList.add('active');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('active');
+        }
+
+        function confirmAndSaveNotes() {
+            closeConfirmModal();
+            saveNotes();
+        }
+
+        function sortTable(header, tableId) {
+            const table = document.getElementById(tableId);
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            const column = header.dataset.sort;
+
+            rows.sort((a, b) => {
+                const aVal = a.cells[Array.from(header.parentNode.cells).indexOf(header)].textContent;
+                const bVal = b.cells[Array.from(header.parentNode.cells).indexOf(header)].textContent;
+
+                // Try numeric sort first
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return aNum - bNum;
+                }
+
+                return aVal.localeCompare(bVal);
+            });
+
+            table.querySelector('tbody').append(...rows);
+        }
+
+        function exportToCSV() {
+            if (!currentGroupId) {
+                showMessage('Please select a group first', 'error');
+                return;
+            }
+
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            const metrics = aggregateMetrics(sessions);
+
+            let csv = 'Date,Time,Picks,Pluses,Minuses,TeamPluses,TeamMinuses,TeamRoleEvents,Badge Positive,Badge Negative,Students,Badges,Objectives,Notes\n';
+
+            metrics.forEach(metric => {
+                const date = new Date(metric.date);
+                const dateStr = date.toLocaleDateString();
+                const session = sessions.find(s => s.id === metric.date);
+                const notes = getGroupSessionNotes(session) || '';
+                const objectives = getSessionObjectives(session) || '';
+                const notesEscaped = `"${notes.replace(/"/g, '""')}"`;
+                const objectivesEscaped = `"${objectives.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+                const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId).length;
+
+                csv += `${dateStr},${metric.time || '-'},${metric.picks},${metric.pluses},${metric.minuses},${metric.teamPluses || 0},${metric.teamMinuses || 0},${teamRoleEvents},${metric.badgePositive || 0},${metric.badgeNegative || 0},${metric.students},${metric.badges || 0},${objectivesEscaped},${notesEscaped}\n`;
+            });
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `participation-${currentGroupId}-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showMessage('CSV exported successfully', 'success');
+        }
+
+        // ─── Reset helpers ────────────────────────────────────────────
+        function openResetModal(type, payload) {
+            pendingResetAction = { type, payload };
+            const modal = document.getElementById('resetWarn1Modal');
+            const title = document.getElementById('resetWarn1Title');
+            const body  = document.getElementById('resetWarn1Body');
+
+            if (type === 'session') {
+                const date = new Date(payload).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                const session = DB_EXPORT.find(s => s.id === payload);
+                const count = session && session.groups && session.groups[currentGroupId] ? session.groups[currentGroupId].length : 0;
+                title.textContent = '⚠️ Delete Session';
+                body.innerHTML = `You are about to <strong>permanently delete</strong> the session recorded on <strong>${date}</strong>.<br><br>This will remove all participation data for <strong>${count} student(s)</strong> in this session.`;
+            } else if (type === 'group') {
+                const sessions = filterSessionsByDateAndGroup(payload, '', '');
+                let students = new Set();
+                sessions.forEach(s => (s.groups[payload] || []).forEach(st => students.add(st.name)));
+                title.textContent = '⚠️ Reset Group Data';
+                body.innerHTML = `You are about to <strong>permanently delete all participation data</strong> for group <strong>${payload}</strong>.<br><br>This affects <strong>${sessions.length} session(s)</strong> and <strong>${students.size} student(s)</strong>.`;
+            } else {
+                title.textContent = '⚠️ Reset All Data';
+                body.innerHTML = `You are about to <strong>permanently delete ALL participation data</strong> across every group.<br><br>This affects <strong>${DB_EXPORT.length} session(s)</strong> and cannot be reversed.`;
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeResetModal1() {
+            document.getElementById('resetWarn1Modal').classList.remove('active');
+            pendingResetAction = null;
+        }
+
+        function proceedResetStep2() {
+            document.getElementById('resetWarn1Modal').classList.remove('active');
+            const body2 = document.getElementById('resetWarn2Body');
+            const { type, payload } = pendingResetAction;
+
+            if (type === 'session') {
+                const date = new Date(payload).toLocaleDateString();
+                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>The session from <strong>${date}</strong> will be <strong>permanently deleted</strong> from the database and this action <strong>cannot be undone</strong>.`;
+            } else if (type === 'group') {
+                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>All data for group <strong>${payload}</strong> will be <strong>permanently erased</strong>. This action <strong>cannot be undone</strong>.`;
+            } else {
+                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>The <strong>entire database</strong> will be permanently erased. Every session, every student record, every badge — <strong>all gone forever</strong>. This action <strong>cannot be undone</strong>.`;
+            }
+
+            document.getElementById('resetWarn2Modal').classList.add('active');
+        }
+
+        function closeResetModal2() {
+            document.getElementById('resetWarn2Modal').classList.remove('active');
+            pendingResetAction = null;
+        }
+
+        async function executeReset() {
+            if (!pendingResetAction) return;
+            document.getElementById('resetWarn2Modal').classList.remove('active');
+            const { type, payload } = pendingResetAction;
+            pendingResetAction = null;
+
+            if (type === 'session') {
+                const idx = DB_EXPORT.findIndex(s => s.id === payload);
+                if (idx !== -1) DB_EXPORT.splice(idx, 1);
+                showMessage('✓ Session deleted', 'success');
+            } else if (type === 'group') {
+                DB_EXPORT.forEach(session => {
+                    if (session.groups) delete session.groups[payload];
+                });
+                const filtered = DB_EXPORT.filter(s => s.groups && Object.keys(s.groups).length > 0);
+                DB_EXPORT.splice(0, DB_EXPORT.length, ...filtered);
+                showMessage(`✓ All data for group "${payload}" deleted`, 'success');
+            } else {
+                DB_EXPORT.splice(0);
+                showMessage('✓ All data has been reset', 'success');
+            }
+
+            await persistResetToFile();
+            currentStudentName = null;
+            document.getElementById('studentDetailsArea').classList.add('hidden');
+            document.getElementById('studentDetailTitle').classList.add('hidden');
+            updateDashboard();
+        }
+
+        async function persistResetToFile() {
+            if (!ELECTRON_AVAILABLE) return;
+            syncGlobalDbExport();
+            const dataString = buildDbJsContent();
+            try {
+                await window.electronApi.saveFile({
+                    target: 'groupParticipation',
+                    filename: 'cms-db.js',
+                    content: dataString,
+                    encoding: 'utf8'
+                });
+            } catch (error) {
+                showMessage('✗ Error saving to file: ' + error.message, 'error');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDetailModal();
+            }
+        });
+
+        document.getElementById('confirmModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeConfirmModal();
+            }
+        });
+
+        document.getElementById('importModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeImportModal();
+            }
+        });
+
+        document.getElementById('compareGroupsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCompareGroupsModal();
+            }
+        });
+
+        document.getElementById('resetWarn1Modal').addEventListener('click', function(e) {
+            if (e.target === this) closeResetModal1();
+        });
+
+        document.getElementById('resetWarn2Modal').addEventListener('click', function(e) {
+            if (e.target === this) closeResetModal2();
+        });
+
+        // Show message helper
+        function showMessage(text, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            const messageEl = document.createElement('div');
+            messageEl.className = type;
+            messageEl.textContent = text;
+            container.appendChild(messageEl);
+
+            if (type !== 'error') {
+                setTimeout(() => messageEl.remove(), 4000);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+<!-- Credits Modal -->
+<div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" title="Close">✕</button>
+    <iframe src="credits.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
+  </div>
+</div>
+<script>
+function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
+function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+</script>
+</body>
+</html>

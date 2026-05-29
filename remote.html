@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>CMS Remote</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #111;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ── Overlay (auth / connecting) ───────────────────────── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: #1e293b;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 18px; z-index: 999; padding: 24px;
+    }
+    #overlay h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 700; text-align: center; }
+    #overlay p  { color: #94a3b8; font-size: 0.9rem; text-align: center; }
+    #overlay .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #334155;
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #token-form { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+    #token-input {
+      font-size: 2rem; font-weight: 700; letter-spacing: 0.25em; text-align: center;
+      text-transform: uppercase;
+      padding: 12px; border: 2px solid #475569; border-radius: 10px;
+      background: #0f172a; color: #f8fafc;
+      outline: none;
+    }
+    #token-input:focus { border-color: #60a5fa; }
+    #token-submit {
+      padding: 14px; border: none; border-radius: 10px;
+      background: #2563eb; color: #fff;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    #token-submit:active { background: #1d4ed8; }
+    #overlay-msg { color: #f87171; font-size: 0.85rem; text-align: center; min-height: 1.2em; }
+    #overlay-hint { color: #94a3b8; font-size: 0.78rem; text-align: center; line-height: 1.5; display: none; max-width: 320px; }
+
+    /* ── Top bar ───────────────────────────────────────────── */
+    #top-bar {
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 8px 12px;
+      display: flex; align-items: center; gap: 8px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    #top-bar .app-name { font-weight: 700; font-size: 0.95rem; flex: 1; }
+    #conn-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #6b7280; flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #conn-dot.connected    { background: #22c55e; }
+    #conn-dot.disconnected { background: #ef4444; }
+    #conn-label { font-size: 0.75rem; color: #94a3b8; }
+
+    /* ── Group tabs ─────────────────────────────────────────── */
+    #group-tabs-wrap {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #group-tabs-wrap::-webkit-scrollbar { display: none; }
+    #group-tabs {
+      display: flex; gap: 0;
+      white-space: nowrap;
+      padding: 0 8px;
+    }
+    .group-tab {
+      padding: 8px 12px;
+      font-size: 0.82rem; font-weight: 600;
+      color: #64748b; cursor: pointer;
+      border-bottom: 3px solid transparent;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .group-tab.active {
+      color: #2563eb;
+      border-bottom-color: #2563eb;
+    }
+
+    /* ── Student list ──────────────────────────────────────── */
+    #student-list {
+      padding: 6px 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    .student-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+    .student-card.absent { opacity: 0.45; }
+
+    .student-main {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 8px;
+      min-height: 38px;
+    }
+    .student-info { flex: 1; min-width: 0; }
+    .student-name {
+      font-size: 0.85rem; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      line-height: 1.2;
+    }
+    .score-pill {
+      padding: 1px 6px; border-radius: 999px; font-weight: 700; font-size: 0.68rem;
+      flex-shrink: 0;
+    }
+    .score-pill.plus  { background: #dcfce7; color: #16a34a; }
+    .score-pill.minus { background: #fee2e2; color: #dc2626; }
+
+    .btn-score {
+      width: 36px; height: 36px;
+      font-size: 1.35rem; font-weight: 700; line-height: 1;
+      border: none; border-radius: 8px;
+      cursor: pointer; user-select: none; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.08s, opacity 0.08s;
+    }
+    .btn-score:active { transform: scale(0.9); opacity: 0.8; }
+    .btn-plus  { background: #dcfce7; color: #15803d; }
+    .btn-minus { background: #fee2e2; color: #b91c1c; }
+
+    /* Badge row: tiny chips under the name */
+    .badge-row {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 3px;
+      margin-top: 2px;
+    }
+    .badge-chip {
+      display: inline-flex; align-items: center;
+      background: #f1f5f9; border-radius: 999px;
+      padding: 1px 5px; font-size: 0.62rem; font-weight: 600;
+      cursor: pointer; user-select: none; line-height: 1.5;
+    }
+    .badge-chip:active { background: #e2e8f0; }
+    .badge-chip.pos { background: #fef9c3; color: #854d0e; }
+    .badge-chip.neg { background: #fee2e2; color: #991b1b; }
+    .badge-add-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 15px; height: 15px;
+      font-size: 0.65rem; font-weight: 700; line-height: 1;
+      background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 50%;
+      color: #64748b; cursor: pointer; padding: 0; flex-shrink: 0;
+    }
+    .badge-add-btn:active { background: #e2e8f0; }
+
+    /* Badge picker (expands below card) */
+    .badge-picker { display: none; flex-wrap: wrap; gap: 5px; padding: 0 8px 8px; }
+    .badge-picker.open { display: flex; }
+    .badge-btn {
+      padding: 6px 10px; border-radius: 8px; border: 1.5px solid #e2e8f0;
+      background: #fff; font-size: 0.8rem; cursor: pointer; user-select: none;
+    }
+    .badge-btn:active { background: #f1f5f9; }
+    .badge-btn.pos { border-color: #fde68a; background: #fef9c3; }
+    .badge-btn.neg { border-color: #fca5a5; background: #fee2e2; }
+
+    /* ── Toast feedback ─────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #f8fafc;
+      padding: 10px 20px; border-radius: 20px;
+      font-size: 0.9rem; font-weight: 600;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+      z-index: 100; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+    #toast.err  { background: #dc2626; }
+
+    /* ── Empty state ────────────────────────────────────────── */
+    #empty-state {
+      display: none;
+      text-align: center; padding: 48px 24px;
+      color: #94a3b8; font-size: 0.95rem;
+    }
+
+    /* ── Reconnect banner ───────────────────────────────────── */
+    #reconnect-banner {
+      display: none;
+      background: #fef2f2;
+      border-bottom: 1px solid #fca5a5;
+      padding: 10px 16px;
+      text-align: center;
+      font-size: 0.85rem; color: #991b1b; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth / connecting overlay -->
+<div id="overlay">
+  <h1>📱 CMS Remote</h1>
+  <div id="overlay-spinner" class="spinner"></div>
+  <p id="overlay-status">Connecting…</p>
+  <div id="token-form" style="display:none">
+    <p style="color:#cbd5e1;">Enter the 6-character token shown on the desktop:</p>
+    <input id="token-input" type="text" maxlength="6" placeholder="AB3C9D" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="token-submit">Connect</button>
+    <div id="overlay-msg"></div>
+  <div id="overlay-hint">Make sure your phone and computer are on the <strong style="color:#cbd5e1;">same Wi-Fi network</strong>.<br>If it still fails, the computer's firewall may be blocking port 7823 — ask your IT admin or check the desktop app for instructions.</div>
+  </div>
+</div>
+
+<!-- Reconnect banner (shown while WS is down after auth) -->
+<div id="reconnect-banner">⚠ Connection lost — reconnecting…</div>
+
+<!-- Top bar -->
+<div id="top-bar" style="display:none">
+  <span class="app-name">CMS Remote</span>
+  <div id="conn-dot"></div>
+  <span id="conn-label">•••</span>
+</div>
+
+<!-- Group tabs -->
+<div id="group-tabs-wrap" style="display:none">
+  <div id="group-tabs"></div>
+</div>
+
+<!-- Student list -->
+<div id="student-list"></div>
+<div id="empty-state">No students found in this group.</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── State ──────────────────────────────────────────────────
+  const params      = new URLSearchParams(location.search);
+  let   token       = (params.get('t') || '').toUpperCase().trim();
+  let   ws          = null;
+  let   wsConnected = false;
+  let   authenticated = false;
+  let   reconnectTimer  = null;
+  let   reconnectDelay  = 1000;
+  let   connectTimeout  = null;
+  let   state       = { activeGroup: null, groupNames: [], groups: {}, badgeDefinitions: [] };
+  let   activeGroup = null;
+  let   pendingCmds = {}; // cmdId → {resolve, reject, timer}
+  let   cmdSeq      = 0;
+
+  // ── DOM refs ───────────────────────────────────────────────
+  const overlay        = document.getElementById('overlay');
+  const overlaySpin    = document.getElementById('overlay-spinner');
+  const overlayStatus  = document.getElementById('overlay-status');
+  const tokenForm      = document.getElementById('token-form');
+  const tokenInput     = document.getElementById('token-input');
+  const overlayMsg     = document.getElementById('overlay-msg');
+  const reconnectBanner= document.getElementById('reconnect-banner');
+  const topBar         = document.getElementById('top-bar');
+  const connDot        = document.getElementById('conn-dot');
+  const connLabel      = document.getElementById('conn-label');
+  const groupTabsWrap  = document.getElementById('group-tabs-wrap');
+  const groupTabs      = document.getElementById('group-tabs');
+  const studentList    = document.getElementById('student-list');
+  const emptyState     = document.getElementById('empty-state');
+  const toast          = document.getElementById('toast');
+
+  // ── Toast ──────────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, isErr) {
+    toast.textContent = msg;
+    toast.className   = 'show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.className = ''; }, 1800);
+  }
+
+  // ── WebSocket ──────────────────────────────────────────────
+  function wsUrl() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${location.host}/ws`;
+  }
+
+  function connect() {
+    if (ws) { try { ws.close(); } catch (_) {} }
+    clearTimeout(connectTimeout);
+    // Show timeout hint if still not connected after 8 s
+    connectTimeout = setTimeout(() => {
+      if (!wsConnected) {
+        overlaySpin.style.display    = 'none';
+        overlayStatus.textContent    = 'Cannot reach the server.';
+        document.getElementById('overlay-hint').style.display = 'block';
+        if (!token) tokenForm.style.display = 'flex';
+      }
+    }, 8000);
+    ws = new WebSocket(wsUrl());
+
+    ws.onopen = () => {
+      wsConnected  = true;
+      reconnectDelay = 1000;
+      clearTimeout(connectTimeout);
+      document.getElementById('overlay-hint').style.display = 'none';
+      reconnectBanner.style.display = 'none';
+      connDot.className = 'connected';
+      connLabel.textContent = 'Connected';
+      // Immediately send auth if we already have a token
+      if (token) {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+        overlayStatus.textContent = 'Authenticating…';
+      } else {
+        // Show token entry form
+        overlaySpin.style.display = 'none';
+        overlayStatus.style.display = 'none';
+        tokenForm.style.display = 'flex';
+      }
+    };
+
+    ws.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      handleMsg(msg);
+    };
+
+    ws.onclose = () => {
+      wsConnected = false;
+      connDot.className = 'disconnected';
+      connLabel.textContent = 'Disconnected';
+      if (authenticated) {
+        reconnectBanner.style.display = 'block';
+        scheduleReconnect();
+      } else if (token) {
+        // Auth failed or server down — show token form
+        overlaySpin.style.display = 'none';
+        overlayStatus.textContent = 'Connection lost.';
+        tokenForm.style.display = 'flex';
+        scheduleReconnect();
+      } else {
+        scheduleReconnect();
+      }
+    };
+
+    ws.onerror = () => {};
+  }
+
+  function scheduleReconnect() {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => { connect(); }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
+  }
+
+  // ── Message handler ────────────────────────────────────────
+  function handleMsg(msg) {
+    if (msg.type === 'auth_ok') {
+      authenticated = true;
+      overlay.style.display = 'none';
+      topBar.style.display   = 'flex';
+      groupTabsWrap.style.display = 'block';
+      connDot.className   = 'connected';
+      connLabel.textContent = 'Live';
+    } else if (msg.type === 'auth_fail') {
+      overlayMsg.textContent = '✗ ' + (msg.reason || 'Invalid token');
+      tokenForm.style.display = 'flex';
+      overlaySpin.style.display = 'none';
+      overlayStatus.style.display = 'none';
+      token = ''; // force re-entry
+    } else if (msg.type === 'state') {
+      applyState(msg);
+    } else if (msg.type === 'ack') {
+      const p = pendingCmds[msg.cmdId];
+      if (p) { clearTimeout(p.timer); delete pendingCmds[msg.cmdId]; p.resolve(msg); }
+    } else if (msg.type === 'error') {
+      const p = pendingCmds[msg.cmdId];
+      if (p) { clearTimeout(p.timer); delete pendingCmds[msg.cmdId]; p.reject(new Error(msg.reason)); }
+      showToast('✗ ' + (msg.reason || 'Error'), true);
+    } else if (msg.type === 'pong') {
+      // heartbeat response
+    }
+  }
+
+  // ── State / render ─────────────────────────────────────────
+  function applyState(msg) {
+    if (msg.groupNames)       state.groupNames       = msg.groupNames;
+    if (msg.groups)           state.groups           = msg.groups;
+    if (msg.badgeDefinitions) state.badgeDefinitions = msg.badgeDefinitions;
+    if (msg.activeGroup)      state.activeGroup      = msg.activeGroup;
+
+    // Switch to active group if we haven't chosen one yet, or if the desktop switched
+    if (!activeGroup || activeGroup !== state.activeGroup) {
+      activeGroup = state.activeGroup || state.groupNames[0] || null;
+    }
+
+    renderTabs();
+    renderStudents();
+  }
+
+  function renderTabs() {
+    groupTabs.innerHTML = '';
+    (state.groupNames || []).forEach(name => {
+      const tab = document.createElement('div');
+      tab.className = 'group-tab' + (name === activeGroup ? ' active' : '');
+      tab.textContent = name;
+      tab.addEventListener('click', () => {
+        activeGroup = name;
+        renderTabs();
+        renderStudents();
+      });
+      groupTabs.appendChild(tab);
+    });
+  }
+
+  function renderStudents() {
+    const students = (state.groups[activeGroup] || []);
+    studentList.innerHTML = '';
+    emptyState.style.display = students.length === 0 ? 'block' : 'none';
+
+    students.forEach(s => {
+      const card = buildStudentCard(s);
+      studentList.appendChild(card);
+    });
+  }
+
+  function buildStudentCard(s) {
+    const card = document.createElement('div');
+    card.className = 'student-card' + (s.isAbsent ? ' absent' : '');
+
+    const main = document.createElement('div');
+    main.className = 'student-main';
+
+    // Left: name + badges under
+    const info = document.createElement('div');
+    info.className = 'student-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'student-name';
+    nameEl.textContent = s.name;
+    info.appendChild(nameEl);
+
+    const availBadges = (state.badgeDefinitions || []).filter(b => !b.isBuiltin);
+    const badges = s.badges || [];
+    let picker = null;
+
+    if (badges.length > 0 || availBadges.length > 0) {
+      const bRow = document.createElement('div');
+      bRow.className = 'badge-row';
+
+      badges.forEach(b => {
+        const chip = document.createElement('span');
+        chip.className = 'badge-chip ' + (b.tone === 'negative' ? 'neg' : 'pos');
+        chip.textContent = b.icon + '\u200a' + b.label;
+        chip.title = 'Tap to remove';
+        chip.addEventListener('click', () => sendAction(s, { action: 'badge_remove', icon: b.icon }));
+        bRow.appendChild(chip);
+      });
+
+      if (availBadges.length > 0) {
+        picker = document.createElement('div');
+        picker.className = 'badge-picker';
+        availBadges.forEach(b => {
+          const btn = document.createElement('button');
+          btn.className = 'badge-btn ' + (b.tone === 'negative' ? 'neg' : 'pos');
+          btn.textContent = b.icon + ' ' + b.label;
+          btn.addEventListener('click', () => {
+            sendAction(s, { action: 'badge_add', icon: b.icon, label: b.label, tone: b.tone });
+            picker.classList.remove('open');
+          });
+          picker.appendChild(btn);
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.className = 'badge-add-btn';
+        addBtn.title = 'Add badge';
+        addBtn.textContent = '+';
+        addBtn.addEventListener('click', () => picker.classList.toggle('open'));
+        bRow.appendChild(addBtn);
+      }
+
+      info.appendChild(bRow);
+    }
+
+    main.appendChild(info);
+
+    // Score pills
+    const pp = document.createElement('span');
+    pp.className = 'score-pill plus';
+    pp.textContent = '+' + (s.pluses || 0);
+    main.appendChild(pp);
+
+    const mm = document.createElement('span');
+    mm.className = 'score-pill minus';
+    mm.textContent = '\u2212' + (s.minuses || 0);
+    main.appendChild(mm);
+
+    // Buttons (right side)
+    const btnMinus = document.createElement('button');
+    btnMinus.className = 'btn-score btn-minus';
+    btnMinus.textContent = '\u2212';
+    btnMinus.addEventListener('click', () => sendAction(s, { action: 'score', delta: -1 }));
+    main.appendChild(btnMinus);
+
+    const btnPlus = document.createElement('button');
+    btnPlus.className = 'btn-score btn-plus';
+    btnPlus.textContent = '+';
+    btnPlus.addEventListener('click', () => sendAction(s, { action: 'score', delta: 1 }));
+    main.appendChild(btnPlus);
+
+    card.appendChild(main);
+    if (picker) card.appendChild(picker);
+
+    return card;
+  }
+
+  // ── Send action ────────────────────────────────────────────
+  function sendAction(student, extra) {
+    if (!authenticated || !wsConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+      showToast('Not connected', true);
+      return;
+    }
+    const cmdId = String(Date.now()) + '-' + (++cmdSeq);
+    const msg   = {
+      type: 'action',
+      cmdId,
+      studentId: student.id,
+      groupName: activeGroup,
+      ...extra
+    };
+
+    // Optimistic local update
+    if (extra.action === 'score') {
+      if (extra.delta > 0) student.pluses  = (student.pluses  || 0) + 1;
+      else                 student.minuses = (student.minuses || 0) + 1;
+      renderStudents();
+      showToast(extra.delta > 0 ? '✓ +1 for ' + student.name : '✓ −1 for ' + student.name);
+    } else if (extra.action === 'badge_add') {
+      if (!student.badges) student.badges = [];
+      student.badges.push({ icon: extra.icon, label: extra.label, tone: extra.tone || 'positive' });
+      renderStudents();
+      showToast('✓ ' + extra.icon + ' ' + extra.label);
+    } else if (extra.action === 'badge_remove') {
+      if (student.badges) {
+        const idx = student.badges.findIndex(b => b.icon === extra.icon);
+        if (idx !== -1) { student.badges.splice(idx, 1); renderStudents(); }
+      }
+      showToast('✓ Badge removed');
+    }
+
+    try { ws.send(JSON.stringify(msg)); } catch (_) {}
+
+    // Resolve pending after timeout (server may have sent ack already)
+    pendingCmds[cmdId] = {
+      timer: setTimeout(() => { delete pendingCmds[cmdId]; }, 5000)
+    };
+  }
+
+  // ── Token form ─────────────────────────────────────────────
+  document.getElementById('token-submit').addEventListener('click', () => {
+    const val = tokenInput.value.toUpperCase().trim();
+    if (val.length !== 6) { overlayMsg.textContent = 'Token must be 6 characters'; return; }
+    token = val;
+    overlayMsg.textContent = '';
+    if (wsConnected && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'auth', token }));
+      tokenForm.style.display = 'none';
+      overlaySpin.style.display = 'block';
+      overlayStatus.style.display = 'block';
+      overlayStatus.textContent = 'Authenticating…';
+    } else {
+      connect();
+    }
+  });
+
+  tokenInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('token-submit').click();
+  });
+
+  // ── Heartbeat ──────────────────────────────────────────────
+  setInterval(() => {
+    if (wsConnected && ws && ws.readyState === WebSocket.OPEN) {
+      try { ws.send(JSON.stringify({ type: 'ping' })); } catch (_) {}
+    }
+  }, 25000);
+
+  // ── Boot ───────────────────────────────────────────────────
+  connect();
+})();
+</script>
+</body>
+</html>
