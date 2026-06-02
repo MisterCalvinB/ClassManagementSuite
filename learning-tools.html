@@ -43,16 +43,15 @@
     })();
   </script>
   <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      Promise.resolve(window.__ltUserBootstrapPromise).catch(function(){}).then(function(){
-        var _cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) ? CLASS_MANAGEMENT_CONFIG : null;
-        var _t = (_cfg && _cfg.uiSettings && typeof _cfg.uiSettings.appTitle === 'string' && _cfg.uiSettings.appTitle.trim()) || '';
-        if (_t) {
-          var el = document.querySelector('.nav-brand'); if (el) el.textContent = _t;
-          document.title = _t + ': Learning Tools';
-        }
-      });
-    });
+    function applyLearningToolsTitle() {
+      var _t = '';
+      try { var _gc = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); _t = (_gc.appTitle && _gc.appTitle.trim()) || ''; } catch {}
+      var label = _t || 'Collège Calvin';
+      var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
+      document.title = label + ': Learning Tools';
+    }
+    document.addEventListener('DOMContentLoaded', applyLearningToolsTitle);
+    window.addEventListener('storage', function(e) { if (e.key === 'cmt-general-config') applyLearningToolsTitle(); });
   </script>
   <meta name="theme-color" content="#111111">
   <script src="modules/custom-bank-utils.js"></script>

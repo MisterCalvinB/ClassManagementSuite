@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>General Config</title>
+  <script src="electron-bridge.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0f2f5;
+      --card: #fff;
+      --border: #e1e4e8;
+      --text: #1c2526;
+      --muted: #6b7280;
+      --accent: #111;
+      --ok: #1a7f37;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+    }
+
+    /* ── Back / header ──────────────────────────────────── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      margin-bottom: 28px;
+      transition: color 0.1s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    .page-title  { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
+    .page-subtitle { font-size: 0.9rem; color: var(--muted); margin-bottom: 36px; }
+
+    /* ── Section card ───────────────────────────────────── */
+    .config-section {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+    }
+    .config-section h2 {
+      font-size: 1.02rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .section-desc {
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    /* ── Generic field ──────────────────────────────────── */
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    .field-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    input[type="text"], select, textarea {
+      width: 100%;
+      border: 1.5px solid #dde1e7;
+      border-radius: 6px;
+      padding: 8px 11px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.12s;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    textarea { resize: vertical; min-height: 68px; }
+
+    /* ── Save flash ─────────────────────────────────────── */
+    .save-status {
+      display: inline-block;
+      font-size: 0.78rem;
+      color: var(--ok);
+      opacity: 0;
+      transition: opacity 0.3s;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .save-status.show { opacity: 1; }
+
+    /* ── Buttons ────────────────────────────────────────── */
+    .btn {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1.5px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .btn:hover { background: #fff; color: var(--accent); }
+    .btn-outline { background: #fff; color: var(--accent); }
+    .btn-outline:hover { background: var(--accent); color: #fff; }
+
+    /* ── Language picker row ────────────────────────────── */
+    .lang-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lang-btn {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: 1.5px solid #dde1e7;
+      background: #fff;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .lang-btn:hover { border-color: #888; }
+    .lang-btn.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* ── Startup: layout radio ──────────────────────────── */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .layout-card {
+      border: 1.5px solid #dde1e7;
+      border-radius: 8px;
+      padding: 14px 12px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.12s, background 0.12s;
+      user-select: none;
+    }
+    .layout-card:hover { border-color: #888; }
+    .layout-card.active {
+      border-color: var(--accent);
+      background: #f7f7f7;
+    }
+    .layout-card input[type="radio"] { display: none; }
+    .layout-icon { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+    .layout-label { font-size: 0.84rem; font-weight: 600; }
+    .layout-hint  { font-size: 0.74rem; color: var(--muted); margin-top: 3px; }
+
+    /* ── Startup: app checkboxes ────────────────────────── */
+    .app-check-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .app-check-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 1px solid #e8eaed;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.1s, background 0.1s;
+      user-select: none;
+    }
+    .app-check-item:hover { border-color: #aaa; background: #fafafa; }
+    .app-check-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .app-check-label { font-size: 0.88rem; font-weight: 500; }
+
+    /* ── Startup: split controls ────────────────────────── */
+    .split-controls { display: none; }
+    .split-controls.visible { display: block; }
+
+    .split-preview {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .split-preview select { flex: 1; }
+    .split-divider {
+      flex-shrink: 0;
+      font-size: 1.4rem;
+      color: #ccc;
+      line-height: 1;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      padding: 0;
+      border: none;
+      background: none;
+      height: 20px;
+    }
+    .slider-pct {
+      font-size: 0.85rem;
+      font-weight: 600;
+      min-width: 38px;
+      text-align: right;
+      color: var(--text);
+    }
+
+    /* ── Data path ──────────────────────────────────────── */
+    .path-box {
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 0.85rem;
+      background: #f8f9fa;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      padding: 10px 12px;
+      word-break: break-all;
+      color: #374151;
+      margin-bottom: 14px;
+    }
+    .path-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+
+    /* ── Per-app accordion ──────────────────────────────── */
+    .app-accordion { margin-top: 4px; }
+    .acc-item {
+      border: 1px solid #e8eaed;
+      border-radius: 7px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .acc-trigger {
+      width: 100%;
+      background: #f8f9fa;
+      border: none;
+      cursor: pointer;
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      text-align: left;
+      transition: background 0.1s;
+    }
+    .acc-trigger:hover { background: #f0f0f0; }
+    .acc-arrow { font-size: 0.75rem; color: var(--muted); transition: transform 0.18s; }
+    .acc-trigger.open .acc-arrow { transform: rotate(180deg); }
+    .acc-body { max-height: 0; overflow: hidden; transition: max-height 0.22s ease; }
+    .acc-body.open { max-height: 200px; }
+    .acc-body-inner {
+      padding: 14px 16px;
+      background: #fff;
+      border-top: 1px solid #e8eaed;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <button class="back-link" id="backBtn">← Back to Launcher</button>
+  <h1 class="page-title">General Config</h1>
+  <p class="page-subtitle">Global settings for the Class Management Tools app.</p>
+
+  <!-- ── App Identity ─────────────────────────────────── -->
+  <section class="config-section">
+    <h2>App Identity</h2>
+    <p class="section-desc">Customize the name shown in the launcher and window titles.</p>
+    <div class="field">
+      <label class="field-label" for="appTitleInput">App title</label>
+      <input type="text" id="appTitleInput" placeholder="Class Management Tools">
+      <p class="field-hint">Displayed in the launcher header and page titles.
+        <span class="save-status" id="titleSaveStatus">Saved</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Language ─────────────────────────────────────── -->
+  <section class="config-section">
+    <h2>Language</h2>
+    <p class="section-desc">Choose the interface language. The preference is saved and will be used as full translation support is added to each tool.</p>
+    <div class="field">
+      <label class="field-label">Interface language</label>
+      <div class="lang-grid" id="langGrid">
+        <button class="lang-btn" data-lang="fr">🇫🇷 Français</button>
+        <button class="lang-btn" data-lang="en">🇬🇧 English</button>
+        <button class="lang-btn" data-lang="de">🇩🇪 Deutsch</button>
+        <button class="lang-btn" data-lang="it">🇮🇹 Italiano</button>
+      </div>
+      <p class="field-hint" style="margin-top:8px;">
+        <span class="save-status" id="langSaveStatus">Saved</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Startup & Launch ──────────────────────────────── -->
+  <section class="config-section">
+    <h2>Startup &amp; Launch</h2>
+    <p class="section-desc">Configure which tools open when the app starts and how they are arranged on screen.</p>
+
+    <!-- Layout picker -->
+    <div class="field">
+      <label class="field-label">Window arrangement</label>
+      <div class="layout-grid" id="layoutGrid">
+        <label class="layout-card" data-layout="separate">
+          <input type="radio" name="layout" value="separate">
+          <span class="layout-icon">⬜⬜</span>
+          <span class="layout-label">Separate</span>
+          <span class="layout-hint">Each app in its own window</span>
+        </label>
+        <label class="layout-card" data-layout="split">
+          <input type="radio" name="layout" value="split">
+          <span class="layout-icon">▌▐</span>
+          <span class="layout-label">Split screen</span>
+          <span class="layout-hint">Two apps, side by side</span>
+        </label>
+        <label class="layout-card" data-layout="maximize">
+          <input type="radio" name="layout" value="maximize">
+          <span class="layout-icon">⬛</span>
+          <span class="layout-label">Maximized</span>
+          <span class="layout-hint">Each window fills the screen</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Apps to open (separate + maximize modes) -->
+    <div class="field" id="appsField">
+      <label class="field-label">Apps to open at startup</label>
+      <div class="app-check-grid" id="appsCheckGrid"></div>
+      <p class="field-hint" style="margin-top:8px;">Selected apps open automatically when the launcher loads.</p>
+    </div>
+
+    <!-- Split controls (split mode only) -->
+    <div class="split-controls field" id="splitControls">
+      <label class="field-label">Split configuration</label>
+
+      <div class="split-preview">
+        <select id="splitLeftSelect"></select>
+        <span class="split-divider">⇔</span>
+        <select id="splitRightSelect"></select>
+      </div>
+
+      <label class="field-label" style="margin-top:4px;">Split ratio</label>
+      <div class="slider-row">
+        <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;">Left</span>
+        <input type="range" id="splitSlider" min="20" max="80" value="50" step="5">
+        <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;">Right</span>
+        <span class="slider-pct" id="splitPct">50 / 50</span>
+      </div>
+      <p class="field-hint" style="margin-top:6px;">Drag to set how much screen width each side receives.</p>
+    </div>
+
+    <p class="field-hint" style="margin-top:8px;">
+      The launcher stays open after apps are launched. <span class="save-status" id="startupSaveStatus">Saved</span>
+    </p>
+  </section>
+
+  <!-- ── Data & Storage ───────────────────────────────── -->
+  <section class="config-section">
+    <h2>Data &amp; Storage</h2>
+    <p class="section-desc">The data folder holds all custom content, class groups, and saved session files.</p>
+    <p class="path-label">Current data folder</p>
+    <div class="path-box" id="dataPathBox">Loading…</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-outline" id="changeDataBtn">Change folder…</button>
+      <button class="btn btn-outline" id="resetDataBtn">Reset to default</button>
+      <button class="btn btn-outline" id="openDataLocationBtn">Advanced settings ↗</button>
+    </div>
+    <p class="field-hint" style="margin-top:8px;" id="dataStatus"></p>
+  </section>
+
+  <!-- ── Per-app Notes ────────────────────────────────── -->
+  <section class="config-section">
+    <h2>Per-app Notes</h2>
+    <p class="section-desc">Personal notes for each tool. These are the same notes shown in the launcher card panels.</p>
+    <div class="app-accordion" id="appAccordion"></div>
+  </section>
+
+</div>
+
+<script>
+  /* ── constants ─────────────────────────────────────── */
+  const APPS = [
+    { id: 'board',                pageFile: 'board.html',                label: 'Board' },
+    { id: 'classManagement',      pageFile: 'class-management.html',     label: 'Class Management' },
+    { id: 'learningTools',        pageFile: 'learning-tools.html',       label: 'Learning Tools' },
+    { id: 'gradeSheet',           pageFile: 'grade-sheet.html',          label: 'Grade Sheet' },
+    { id: 'manageDatabase',       pageFile: 'manage-database.html',      label: 'Manage Database' },
+    { id: 'participationTracker', pageFile: 'participation-tracker.html',label: 'Participation Tracker' }
+  ];
+
+  /* ── persistence ───────────────────────────────────── */
+  function getGeneralConfig() {
+    try { return JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); } catch { return {}; }
+  }
+  function saveGeneralConfig(patch) {
+    const cfg = getGeneralConfig();
+    Object.assign(cfg, patch);
+    localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
+    persistGeneralConfigToFile(cfg);
+  }
+  async function persistGeneralConfigToFile(cfg) {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+      const content = 'const GENERAL_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
+      try { await Desktop.saveText('user', 'general-config-settings.js', content); }
+      catch (e) { console.warn('general-config: could not save to file:', e); }
+    }
+  }
+  function getCardConfig(id) {
+    try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
+  }
+  function saveCardConfig(id, data) {
+    localStorage.setItem('cmt-card-config-' + id, JSON.stringify(data));
+  }
+
+  function flashSaved(el) {
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 1800);
+  }
+
+  /* ── back button ───────────────────────────────────── */
+  document.getElementById('backBtn').addEventListener('click', function () {
+    if (window.electronApi && window.electronApi.loadPage) {
+      window.electronApi.loadPage({ pageFile: 'launcher.html' });
+    } else {
+      window.location.href = 'launcher.html';
+    }
+  });
+
+  /* ── app title ─────────────────────────────────────── */
+  var titleInput  = document.getElementById('appTitleInput');
+  var titleStatus = document.getElementById('titleSaveStatus');
+  titleInput.addEventListener('input', function () {
+    saveGeneralConfig({ appTitle: titleInput.value });
+    document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
+    flashSaved(titleStatus);
+  });
+
+  /* ── language ──────────────────────────────────────── */
+  var langStatus = document.getElementById('langSaveStatus');
+  document.getElementById('langGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('.lang-btn');
+    if (!btn) return;
+    document.querySelectorAll('.lang-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    saveGeneralConfig({ language: btn.dataset.lang });
+    flashSaved(langStatus);
+  });
+
+  /* ── startup layout ────────────────────────────────── */
+  var startupStatus = document.getElementById('startupSaveStatus');
+
+  function getCurrentLayout() {
+    var checked = document.querySelector('input[name="layout"]:checked');
+    return checked ? checked.value : 'separate';
+  }
+
+  function updateLayoutUI(layout) {
+    document.querySelectorAll('.layout-card').forEach(function (card) {
+      card.classList.toggle('active', card.dataset.layout === layout);
+    });
+    var isSplit = layout === 'split';
+    document.getElementById('appsField').style.display     = isSplit ? 'none' : 'block';
+    document.getElementById('splitControls').style.display = isSplit ? 'block' : 'none';
+  }
+
+  document.getElementById('layoutGrid').addEventListener('change', function (e) {
+    if (e.target.name === 'layout') {
+      updateLayoutUI(e.target.value);
+      persistStartup();
+    }
+  });
+
+  /* ── app checkboxes ────────────────────────────────── */
+  function buildAppCheckboxes() {
+    var grid = document.getElementById('appsCheckGrid');
+    APPS.forEach(function (app) {
+      var label = document.createElement('label');
+      label.className = 'app-check-item';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.dataset.pageFile = app.pageFile;
+      cb.addEventListener('change', persistStartup);
+      var span = document.createElement('span');
+      span.className = 'app-check-label';
+      span.textContent = app.label;
+      label.appendChild(cb);
+      label.appendChild(span);
+      grid.appendChild(label);
+    });
+  }
+
+  function getCheckedApps() {
+    return Array.from(document.querySelectorAll('#appsCheckGrid input[type="checkbox"]:checked'))
+      .map(function (cb) { return cb.dataset.pageFile; });
+  }
+
+  function setCheckedApps(pageFiles) {
+    document.querySelectorAll('#appsCheckGrid input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = pageFiles.indexOf(cb.dataset.pageFile) !== -1;
+    });
+  }
+
+  /* ── split selector ────────────────────────────────── */
+  function buildSplitSelects() {
+    var leftSel  = document.getElementById('splitLeftSelect');
+    var rightSel = document.getElementById('splitRightSelect');
+    APPS.forEach(function (app) {
+      var o1 = document.createElement('option');
+      o1.value = app.pageFile; o1.textContent = app.label;
+      var o2 = document.createElement('option');
+      o2.value = app.pageFile; o2.textContent = app.label;
+      leftSel.appendChild(o1);
+      rightSel.appendChild(o2);
+    });
+    leftSel.addEventListener('change',  persistStartup);
+    rightSel.addEventListener('change', persistStartup);
+  }
+
+  var splitSlider = document.getElementById('splitSlider');
+  var splitPct    = document.getElementById('splitPct');
+  splitSlider.addEventListener('input', function () {
+    var v = parseInt(splitSlider.value);
+    splitPct.textContent = v + ' / ' + (100 - v);
+    persistStartup();
+  });
+
+  /* ── persist all startup settings ─────────────────── */
+  function persistStartup() {
+    var layout = getCurrentLayout();
+    saveGeneralConfig({
+      startupLayout:       layout,
+      startupApps:         getCheckedApps(),
+      startupSplitLeft:    document.getElementById('splitLeftSelect').value,
+      startupSplitRight:   document.getElementById('splitRightSelect').value,
+      startupSplitFraction: parseInt(splitSlider.value) / 100
+    });
+    flashSaved(startupStatus);
+  }
+
+  /* ── data location ─────────────────────────────────── */
+  var dataPathBox = document.getElementById('dataPathBox');
+  var dataStatus  = document.getElementById('dataStatus');
+
+  async function loadDataLocation() {
+    if (!window.electronApi || !window.electronApi.getDataLocation) {
+      dataPathBox.textContent = 'Electron API not available.';
+      return;
+    }
+    try {
+      var res = await window.electronApi.getDataLocation();
+      dataPathBox.textContent = (res && res.ok) ? (res.resolvedWritableRoot || '—') : 'Could not read data folder.';
+    } catch (e) { dataPathBox.textContent = 'Error: ' + e.message; }
+  }
+
+  document.getElementById('changeDataBtn').addEventListener('click', async function () {
+    if (!window.electronApi || !window.electronApi.pickDataLocation) return;
+    dataStatus.textContent = 'Selecting…';
+    try {
+      var res = await window.electronApi.pickDataLocation();
+      dataStatus.textContent = (res && res.ok) ? 'Folder updated. Restart may be required.' : ((res && res.error) || 'No folder selected.');
+      if (res && res.ok) await loadDataLocation();
+    } catch (e) { dataStatus.textContent = 'Error: ' + e.message; }
+  });
+
+  document.getElementById('resetDataBtn').addEventListener('click', async function () {
+    if (!window.electronApi || !window.electronApi.resetDataLocation) return;
+    dataStatus.textContent = 'Resetting…';
+    try {
+      var res = await window.electronApi.resetDataLocation();
+      dataStatus.textContent = (res && res.ok) ? 'Reset to default. Restart may be required.' : ((res && res.error) || 'Reset failed.');
+      if (res && res.ok) await loadDataLocation();
+    } catch (e) { dataStatus.textContent = 'Error: ' + e.message; }
+  });
+
+  document.getElementById('openDataLocationBtn').addEventListener('click', function () {
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.openTool('data-location.html');
+    } else {
+      window.location.href = 'data-location.html';
+    }
+  });
+
+  /* ── per-app accordion ─────────────────────────────── */
+  function buildAccordion() {
+    var container = document.getElementById('appAccordion');
+    APPS.forEach(function (app) {
+      var cfg  = getCardConfig(app.id);
+      var item = document.createElement('div');
+      item.className = 'acc-item';
+
+      var trigger = document.createElement('button');
+      trigger.className = 'acc-trigger';
+      trigger.innerHTML = '<span>' + app.label + '</span><span class="acc-arrow">▼</span>';
+
+      var body  = document.createElement('div');
+      body.className = 'acc-body';
+      var inner = document.createElement('div');
+      inner.className = 'acc-body-inner';
+
+      var lbl = document.createElement('label');
+      lbl.style.cssText = 'display:block;font-size:0.78rem;font-weight:600;margin-bottom:4px;color:var(--muted);';
+      lbl.textContent = 'Notes';
+
+      var ta = document.createElement('textarea');
+      ta.style.cssText = 'width:100%;border:1.5px solid #dde1e7;border-radius:5px;padding:7px 10px;font-family:inherit;font-size:0.88rem;resize:vertical;min-height:60px;';
+      ta.placeholder = 'Personal notes or reminders…';
+      ta.value = cfg.notes || '';
+      ta.addEventListener('input', function () {
+        var c = getCardConfig(app.id);
+        c.notes = ta.value;
+        saveCardConfig(app.id, c);
+      });
+
+      inner.appendChild(lbl);
+      inner.appendChild(ta);
+      body.appendChild(inner);
+
+      trigger.addEventListener('click', function () {
+        var isOpen = body.classList.toggle('open');
+        trigger.classList.toggle('open', isOpen);
+      });
+
+      item.appendChild(trigger);
+      item.appendChild(body);
+      container.appendChild(item);
+    });
+  }
+
+  /* ── init ──────────────────────────────────────────── */
+  function setSelectValue(sel, val) {
+    var opt = sel.querySelector('option[value="' + val + '"]');
+    if (opt) opt.selected = true;
+  }
+
+  async function init() {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
+      try {
+        var fileResult = await Desktop.readJson('user', 'general-config-settings.js');
+        if (fileResult && fileResult.ok && fileResult.data && typeof fileResult.data === 'object') {
+          localStorage.setItem('cmt-general-config', JSON.stringify(fileResult.data));
+        }
+      } catch (e) { console.warn('general-config: could not read from file:', e); }
+    }
+    var cfg = getGeneralConfig();
+
+    /* title */
+    titleInput.value = cfg.appTitle || '';
+    document.title = (cfg.appTitle && cfg.appTitle.trim() ? cfg.appTitle.trim() : 'Class Management Tools') + ' — General Config';
+
+    /* language */
+    var lang = cfg.language || 'fr';
+    document.querySelectorAll('.lang-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+
+    /* startup */
+    buildAppCheckboxes();
+    buildSplitSelects();
+
+    var layout = cfg.startupLayout || 'separate';
+    var radio = document.querySelector('input[name="layout"][value="' + layout + '"]');
+    if (radio) radio.checked = true;
+    updateLayoutUI(layout);
+
+    setCheckedApps(Array.isArray(cfg.startupApps) ? cfg.startupApps : []);
+    setSelectValue(document.getElementById('splitLeftSelect'),  cfg.startupSplitLeft  || 'board.html');
+    setSelectValue(document.getElementById('splitRightSelect'), cfg.startupSplitRight || 'class-management.html');
+
+    var pct = Math.round((cfg.startupSplitFraction || 0.5) * 100);
+    splitSlider.value = pct;
+    splitPct.textContent = pct + ' / ' + (100 - pct);
+
+    loadDataLocation();
+    buildAccordion();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

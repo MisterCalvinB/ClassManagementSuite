@@ -15,7 +15,10 @@ const PAGE_FILES = {
   learningDb: 'manage-database.html',
   learningTools: 'learning-tools.html',
   participationTracker: 'participation-tracker.html',
-  dataLocation: 'data-location.html'
+  dataLocation: 'data-location.html',
+  launcher: 'launcher.html',
+  generalConfig: 'general-config.html',
+  recentFiles: 'recent-files.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -31,7 +34,13 @@ const PAGE_ARG_MAP = {
   tracker: PAGE_FILES.participationTracker,
   datalocation: PAGE_FILES.dataLocation,
   datasettings: PAGE_FILES.dataLocation,
-  datafolder: PAGE_FILES.dataLocation
+  datafolder: PAGE_FILES.dataLocation,
+  launcher: PAGE_FILES.launcher,
+  home: PAGE_FILES.launcher,
+  generalconfig: PAGE_FILES.generalConfig,
+  config: PAGE_FILES.generalConfig,
+  recentfiles: PAGE_FILES.recentFiles,
+  recent: PAGE_FILES.recentFiles
 };
 
 const PAGE_LABELS = {
@@ -41,7 +50,10 @@ const PAGE_LABELS = {
   [PAGE_FILES.learningDb]: 'Learning DB',
   [PAGE_FILES.learningTools]: 'Learning Tools',
   [PAGE_FILES.participationTracker]: 'Participation Tracker',
-  [PAGE_FILES.dataLocation]: 'Data Location'
+  [PAGE_FILES.dataLocation]: 'Data Location',
+  [PAGE_FILES.launcher]: 'Launcher',
+  [PAGE_FILES.generalConfig]: 'General Config',
+  [PAGE_FILES.recentFiles]: 'Recent Files'
 };
 
 function getDefaultWritableRootDir() {
@@ -154,7 +166,10 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.gradeSheet]: new Set(['gradeSheet', 'grades', 'user']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
-  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation'])
+  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
+  [PAGE_FILES.launcher]: new Set(['user']),
+  [PAGE_FILES.generalConfig]: new Set(['user']),
+  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps', 'textualAnalyses', 'notes'])
 };
 
 let mainWindow;
@@ -246,7 +261,7 @@ function getInitialPageFile(argv = process.argv.slice(1)) {
     }
   }
 
-  return PAGE_FILES.classManagement;
+  return PAGE_FILES.launcher;
 }
 
 function getToolPath(pageFile) {
@@ -379,7 +394,7 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createMainWindow(initialPageFile = PAGE_FILES.classManagement) {
+function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
   mainWindow = new BrowserWindow({
     width: 1600,
     height: 1000,
@@ -2351,7 +2366,29 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       _arrangeSideBySide(senderWin, toolWin, mainFrac, cmOnRight);
     }
   }
+  if (request.maximize && !toolWin.isDestroyed()) {
+    toolWin.maximize();
+  }
   return { ok: true, windowId: toolWin.id };
+});
+
+ipcMain.handle('app:open-split', async (event, request = {}) => {
+  const knownPages = new Set(Object.values(PAGE_FILES));
+  const pageFile1 = String(request.pageFile1 || '');
+  const pageFile2 = String(request.pageFile2 || '');
+  if (!pageFile1 || !knownPages.has(pageFile1)) return { ok: false, error: `Unknown page: ${pageFile1}` };
+  if (!pageFile2 || !knownPages.has(pageFile2)) return { ok: false, error: `Unknown page: ${pageFile2}` };
+  const fraction = Math.min(Math.max(Number(request.fraction) || 0.5, 0.1), 0.9);
+  const win1 = createToolWindow(pageFile1);
+  const win2 = createToolWindow(pageFile2);
+  await new Promise(resolve => setImmediate(resolve));
+  const { workArea } = screen.getPrimaryDisplay();
+  const { x, y, width, height } = workArea;
+  const w1 = Math.round(width * fraction);
+  if (!win1.isDestroyed()) win1.setBounds({ x, y, width: w1, height });
+  if (!win2.isDestroyed()) win2.setBounds({ x: x + w1, y, width: width - w1, height });
+  if (!win2.isDestroyed()) win2.focus();
+  return { ok: true };
 });
 
 ipcMain.handle('app:arrange-side-by-side', async (event, request = {}) => {

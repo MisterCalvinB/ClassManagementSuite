@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Launcher</title>
+  <script src="electron-bridge.js"></script>
+  <script>
+    // Startup: open configured apps in the background after the launcher renders.
+    // Runs once per window session — navigating back to the launcher skips this.
+    (function () {
+      try {
+        if (sessionStorage.getItem('cmt-launcher-started')) return;
+        sessionStorage.setItem('cmt-launcher-started', '1');
+
+        var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+        var layout  = cfg.startupLayout || 'separate';
+        var apps    = Array.isArray(cfg.startupApps) ? cfg.startupApps : [];
+        var hasApps = apps.length > 0;
+        var isSplit = layout === 'split' && cfg.startupSplitLeft && cfg.startupSplitRight;
+
+        if (!hasApps && !isSplit) return;
+
+        // Wait for the launcher to render, then open apps silently in the background.
+        window.addEventListener('DOMContentLoaded', function () {
+          setTimeout(async function () {
+            try {
+              var api = window.electronApi;
+              if (!api) return;
+              if (isSplit && api.openSplit) {
+                await api.openSplit({
+                  pageFile1: cfg.startupSplitLeft,
+                  pageFile2: cfg.startupSplitRight,
+                  fraction:  cfg.startupSplitFraction || 0.5
+                });
+              } else if (hasApps && api.openTool) {
+                var maximize = layout === 'maximize';
+                for (var i = 0; i < apps.length; i++) {
+                  await api.openTool({ pageFile: apps[i], maximize: maximize });
+                }
+              }
+            } catch (e) {}
+          }, 200);
+        });
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #1c2526;
+      min-height: 100vh;
+    }
+
+    .launcher {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 44px 24px 60px;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .l-header {
+      text-align: center;
+      margin-bottom: 44px;
+    }
+    .l-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+    .l-header .subtitle {
+      margin-top: 8px;
+      font-size: 0.93rem;
+      color: #6b7280;
+    }
+
+    /* ── Grid ───────────────────────────────────────────── */
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .app-card {
+      background: #fff;
+      border: 1.5px solid #e1e4e8;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: border-color 0.14s, box-shadow 0.14s;
+    }
+    .app-card:hover {
+      border-color: #111;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.07);
+    }
+    .app-card.config-open {
+      border-color: #111;
+    }
+
+    .card-body {
+      padding: 22px 20px 14px;
+      flex: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .card-body:hover .card-title {
+      text-decoration: underline;
+    }
+    .card-icon {
+      font-size: 2.1rem;
+      display: block;
+      margin-bottom: 12px;
+      user-select: none;
+    }
+    .card-title {
+      font-size: 1.06rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .card-desc {
+      font-size: 0.86rem;
+      color: #6b7280;
+      line-height: 1.55;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px 12px;
+    }
+    .card-open-hint {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      user-select: none;
+    }
+    .card-gear-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9ca3af;
+      font-size: 1.05rem;
+      padding: 4px 7px;
+      border-radius: 5px;
+      line-height: 1;
+      transition: background 0.1s, color 0.1s;
+    }
+    .card-gear-btn:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .card-gear-btn.active {
+      color: #111;
+      background: #f0f0f0;
+    }
+
+    /* ── Inline config panel ────────────────────────────── */
+    .config-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.26s ease;
+    }
+    .config-panel.open {
+      max-height: 280px;
+    }
+    .config-panel-inner {
+      background: #f8f9fa;
+      border-top: 1px solid #e8eaed;
+      padding: 14px 20px 16px;
+    }
+    .cfg-label {
+      display: block;
+      font-size: 0.71rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 4px;
+    }
+    .cfg-input {
+      width: 100%;
+      border: 1px solid #dde1e7;
+      border-radius: 5px;
+      padding: 6px 9px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      color: #1c2526;
+      background: #fff;
+      margin-bottom: 12px;
+      transition: border-color 0.1s;
+    }
+    .cfg-input:focus {
+      outline: none;
+      border-color: #111;
+    }
+    .cfg-notes {
+      resize: vertical;
+      min-height: 54px;
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="launcher">
+  <header class="l-header">
+    <h1 id="appTitle">Class Management Tools</h1>
+    <p class="subtitle">Select a tool to get started</p>
+  </header>
+  <div class="apps-grid" id="appsGrid"></div>
+</div>
+
+<script>
+  const APPS = [
+    {
+      id: 'board',
+      pageFile: 'board.html',
+      icon: '🖥',
+      title: 'Board',
+      desc: 'Interactive classroom display for activities, group games, timers, and constellation mind maps.'
+    },
+    {
+      id: 'classManagement',
+      pageFile: 'class-management.html',
+      icon: '👥',
+      title: 'Class Management',
+      desc: 'Manage class groups, track participation, and export session data for individual classes.'
+    },
+    {
+      id: 'learningTools',
+      pageFile: 'learning-tools.html',
+      icon: '📖',
+      title: 'Learning Tools',
+      desc: 'Vocabulary, word work, grammar practice, and custom activity presentation for the classroom.'
+    },
+    {
+      id: 'gradeSheet',
+      pageFile: 'grade-sheet.html',
+      icon: '📊',
+      title: 'Grade Sheet',
+      desc: 'Record, view, and export student grades and assessments by class.'
+    },
+    {
+      id: 'manageDatabase',
+      pageFile: 'manage-database.html',
+      icon: '🗂',
+      title: 'Manage Database',
+      desc: 'Create and edit custom word banks, dictations, grammar banks, stories, and quiz content.'
+    },
+    {
+      id: 'participationTracker',
+      pageFile: 'participation-tracker.html',
+      icon: '✅',
+      title: 'Participation Tracker',
+      desc: 'Track and log individual and group participation scores across sessions.'
+    },
+    {
+      id: 'generalConfig',
+      pageFile: 'general-config.html',
+      icon: '⚙',
+      title: 'General Config',
+      desc: 'Set the app title, configure data and backup folders, and adjust launcher preferences.'
+    },
+    {
+      id: 'recentFiles',
+      pageFile: 'recent-files.html',
+      icon: '📂',
+      title: 'Recent Files',
+      desc: 'Browse and reopen recent constellation maps, board sessions, and analyses.'
+    }
+  ];
+
+  function getCardConfig(id) {
+    try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
+  }
+
+  function saveCardConfig(id, data) {
+    localStorage.setItem('cmt-card-config-' + id, JSON.stringify(data));
+  }
+
+  function getGeneralConfig() {
+    try { return JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); } catch { return {}; }
+  }
+
+  function applyTitle() {
+    const cfg = getGeneralConfig();
+    const title = (cfg.appTitle && cfg.appTitle.trim()) || 'Class Management Tools';
+    document.getElementById('appTitle').textContent = title;
+    document.title = title;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function openApp(pageFile) {
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.openTool(pageFile);
+    } else {
+      window.location.href = pageFile;
+    }
+  }
+
+  function buildCard(app) {
+    const cfg = getCardConfig(app.id);
+    const label = (cfg.customLabel && cfg.customLabel.trim()) || app.title;
+    const notes = cfg.notes || '';
+
+    const card = document.createElement('div');
+    card.className = 'app-card';
+    card.dataset.id = app.id;
+
+    card.innerHTML =
+      '<div class="card-body">' +
+        '<span class="card-icon" aria-hidden="true">' + app.icon + '</span>' +
+        '<div class="card-title">' + escHtml(label) + '</div>' +
+        '<div class="card-desc">' + escHtml(app.desc) + '</div>' +
+      '</div>' +
+      '<div class="card-footer">' +
+        '<span class="card-open-hint">Click to open ↗</span>' +
+        '<button class="card-gear-btn" title="Card settings" aria-label="Card settings">⚙</button>' +
+      '</div>' +
+      '<div class="config-panel">' +
+        '<div class="config-panel-inner">' +
+          '<label class="cfg-label">Custom label</label>' +
+          '<input class="cfg-input cfg-label-input" type="text" placeholder="' + escHtml(app.title) + ' (default)" value="' + escHtml(cfg.customLabel || '') + '">' +
+          '<label class="cfg-label">Personal notes</label>' +
+          '<textarea class="cfg-input cfg-notes" rows="3" placeholder="Notes or reminders about this tool...">' + escHtml(notes) + '</textarea>' +
+        '</div>' +
+      '</div>';
+
+    const cardBody = card.querySelector('.card-body');
+    const gearBtn = card.querySelector('.card-gear-btn');
+    const configPanel = card.querySelector('.config-panel');
+    const labelInput = card.querySelector('.cfg-label-input');
+    const notesInput = card.querySelector('.cfg-notes');
+
+    cardBody.addEventListener('click', function () {
+      openApp(app.pageFile);
+    });
+
+    gearBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const isOpen = configPanel.classList.toggle('open');
+      gearBtn.classList.toggle('active', isOpen);
+      card.classList.toggle('config-open', isOpen);
+    });
+
+    function persistConfig() {
+      saveCardConfig(app.id, { customLabel: labelInput.value, notes: notesInput.value });
+      const trimmed = labelInput.value.trim();
+      card.querySelector('.card-title').textContent = trimmed || app.title;
+    }
+
+    labelInput.addEventListener('input', persistConfig);
+    notesInput.addEventListener('input', persistConfig);
+
+    return card;
+  }
+
+  async function init() {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
+      try {
+        const fileResult = await Desktop.readJson('user', 'general-config-settings.js');
+        if (fileResult && fileResult.ok && fileResult.data && typeof fileResult.data === 'object') {
+          localStorage.setItem('cmt-general-config', JSON.stringify(fileResult.data));
+        }
+      } catch (e) { console.warn('launcher: could not read general-config from file:', e); }
+    }
+    applyTitle();
+    const grid = document.getElementById('appsGrid');
+    APPS.forEach(function (app) { grid.appendChild(buildCard(app)); });
+
+    window.addEventListener('storage', function (e) {
+      if (e.key === 'cmt-general-config') applyTitle();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

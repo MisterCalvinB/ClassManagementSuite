@@ -362,24 +362,6 @@
             <small>Seating layouts with room and weekly schedule</small>
         </span>
     </button>
-    <div class="db-popup-section settings-startup-section" style="margin-top:4px;">
-        <div class="db-popup-section-label">General settings</div>
-    </div>
-    <div class="db-popup-section settings-startup-section">
-        <div class="db-popup-section-label">App title (your name, shown in menus &amp; page headers)</div>
-        <input type="text" id="settings-app-title" class="settings-startup-select" style="width:100%;box-sizing:border-box;" placeholder="e.g. Mr Smith" oninput="saveAppTitleSetting(this.value)">
-    </div>
-    <div class="db-popup-section settings-startup-section">
-        <div class="db-popup-section-label">Open on startup</div>
-        <select id="settings-startup-window" class="settings-startup-select" onchange="saveStartupWindowSetting(this.value)">
-            <option value="">— None —</option>
-            <option value="board.html">🌐 Board</option>
-            <option value="learning-tools.html">📚 Learning Tools</option>
-            <option value="grade-sheet.html">📊 Grade Sheet</option>
-            <option value="participation-tracker.html">📈 Participation Tracker</option>
-            <option value="manage-database.html">🗃 Manage Database</option>
-        </select>
-    </div>
 </div>
 <!-- Links popup -->
 <div id="links-popup">
@@ -559,8 +541,6 @@
                 <button type="button" data-action="copy-roster" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores">📋 Copy roster</button>
             </div>
 			<div id='drumroll-and-pick'>
-			<button id="drumroll-btn" data-i18n="btn_drumroll">Drumroll</button>
-        <button id="gavel-btn" onclick="triggerActionButton('gavel')">Gavel</button>
             <div id="custom-action-buttons"></div>
 			<button class="btn-pick" id="pick-btn" onclick="pickStudent()" disabled data-i18n="btn_pick">Random Student</button>
 			<button class="btn-pick" id="pick-team-btn" onclick="pickTeam()" disabled data-i18n="btn_pick_team" style="display:none">Random Team</button>
@@ -889,21 +869,15 @@
             <strong>Tips:</strong> put any audio files in <strong>user/custom-data/sounds</strong>, click <strong>Refresh Sound Files</strong>, then pick one from the list. The <strong>Timer background audio</strong> slot powers the new <strong>MP3</strong> button in the timer. For JS tunes, you can use helpers like <strong>playTone(...)</strong>, <strong>playToneSequence(...)</strong>, or <strong>gavelHit()</strong>.
         </div>
         <div id="edit-sounds-body" style="display:flex; flex-direction:column; gap:12px;"></div>
+        <hr style="border:none; border-top:2px solid #e0e0e0; margin:18px 0 14px;">
+        <h3 style="text-transform:uppercase; letter-spacing:1.5px; font-size:0.85rem; margin:0 0 4px;">Sound Buttons</h3>
+        <p style="color:#666; font-size:0.82rem; margin:0 0 10px;">Add one-tap sound buttons that appear in the main panel.</p>
+        <div id="custom-buttons-modal-section" class="settings-custom-buttons"></div>
         <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
             <button onclick="refreshSoundFileList(true)" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">↻ Refresh Sound Files</button>
-            <button onclick="openCustomButtonsModal()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">🎛️ Customise Buttons</button>
             <button onclick="saveSoundSettings()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">Save to config.js</button>
             <button onclick="resetSoundSettings()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">Reset Defaults</button>
         </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="custom-buttons-modal" onclick="closeCustomButtonsModal()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:860px; width:min(96vw, 860px);">
-        <button class="close-modal" onclick="closeCustomButtonsModal()">&times;</button>
-        <h2 style="margin:0 0 8px; font-size:1.15rem; letter-spacing:0.02em;">Customise Buttons</h2>
-        <div style="margin-bottom:10px; font-size:0.82rem; color:#666;">Change labels, pick sound files for Drumroll/Gavel, and add extra one-tap sound buttons.</div>
-        <div id="custom-buttons-modal-section" class="settings-custom-buttons"></div>
     </div>
 </div>
 
@@ -1218,13 +1192,9 @@
     let participationSettings = { ...DEFAULT_PARTICIPATION_SETTINGS };
     let availableSoundFiles = [];
     const DEFAULT_ACTION_BUTTON_SETTINGS = {
-        drumroll: { label: 'Drumroll', file: '' },
-        gavel: { label: 'Gavel', file: '' },
         custom: []
     };
     let actionButtonSettings = JSON.parse(JSON.stringify(DEFAULT_ACTION_BUTTON_SETTINGS));
-    let startupCompanionWindow = '';
-    let appTitle = '';                    // Custom teacher/school name shown in titles
     let planAbbrevLen = 3;                // Number of first-name letters shown in plan view cells
     let loadedConfigCache = null;
     let soundFileRefreshTimer = null;
@@ -1611,52 +1581,10 @@
             ? src.custom.map(item => normalizeItem(item, 'Custom Sound')).filter(item => item.label)
             : [];
 
-        return {
-            drumroll: {
-                label: String(src.drumroll?.label || DEFAULT_ACTION_BUTTON_SETTINGS.drumroll.label).trim() || DEFAULT_ACTION_BUTTON_SETTINGS.drumroll.label,
-                file: normalizeSoundFilePath(src.drumroll?.file || '')
-            },
-            gavel: {
-                label: String(src.gavel?.label || DEFAULT_ACTION_BUTTON_SETTINGS.gavel.label).trim() || DEFAULT_ACTION_BUTTON_SETTINGS.gavel.label,
-                file: normalizeSoundFilePath(src.gavel?.file || '')
-            },
-            custom
-        };
-    }
-
-    function applyActionButtonLabels() {
-        const drumrollBtn = document.getElementById('drumroll-btn');
-        if (drumrollBtn) {
-            drumrollBtn.textContent = actionButtonSettings.drumroll.label || DEFAULT_ACTION_BUTTON_SETTINGS.drumroll.label;
-        }
-
-        const gavelBtn = document.getElementById('gavel-btn');
-        if (gavelBtn) {
-            gavelBtn.textContent = actionButtonSettings.gavel.label || DEFAULT_ACTION_BUTTON_SETTINGS.gavel.label;
-        }
+        return { custom };
     }
 
     function triggerActionButton(kind, customId = null) {
-        if (kind === 'drumroll') {
-            const file = normalizeSoundFilePath(actionButtonSettings?.drumroll?.file || '');
-            if (file) {
-                playSoundFileClip(file, 1, 120, 1.0);
-                return;
-            }
-            playConfiguredSound('drumroll', { repeatCount: 1, spacingMs: 70 });
-            return;
-        }
-
-        if (kind === 'gavel') {
-            const file = normalizeSoundFilePath(actionButtonSettings?.gavel?.file || '');
-            if (file) {
-                playSoundFileClip(file, 1, 180, 1.0);
-                return;
-            }
-            testBeep();
-            return;
-        }
-
         if (kind === 'custom' && customId) {
             const entry = (actionButtonSettings.custom || []).find(item => item.id === customId);
             if (!entry || !entry.file) return;
@@ -1668,10 +1596,11 @@
         const host = document.getElementById('custom-action-buttons');
         if (!host) return;
 
+        host.querySelectorAll('[data-dynamic-btn]').forEach(b => b.remove());
         const entries = (actionButtonSettings.custom || []).filter(item => item.label && item.file);
-        host.innerHTML = entries.map(item => (
-            `<button class="custom-action-btn" onclick="triggerActionButton('custom', '${escapeSettingsHtml(item.id)}')">${escapeSettingsHtml(item.label)}</button>`
-        )).join('');
+        host.insertAdjacentHTML('beforeend', entries.map(item => (
+            `<button class="custom-action-btn" data-dynamic-btn onclick="triggerActionButton('custom', '${escapeSettingsHtml(item.id)}')">${escapeSettingsHtml(item.label)}</button>`
+        )).join(''));
     }
 
     function _buildCustomButtonEditorRowsHtml() {
@@ -1697,23 +1626,7 @@
         const host = document.getElementById('custom-buttons-modal-section');
         if (!host) return;
 
-        const drumrollFileOptions = `<option value="">Default drumroll sound</option>${buildSoundFileOptionsHtml(actionButtonSettings.drumroll.file)}`;
-        const gavelFileOptions = `<option value="">Default gavel sound</option>${buildSoundFileOptionsHtml(actionButtonSettings.gavel.file)}`;
-
         host.innerHTML = `
-            <div class="settings-custom-row">
-                <span class="settings-custom-tag">Drumroll</span>
-                <input type="text" id="settings-drumroll-label" class="settings-startup-select" value="${escapeSettingsHtml(actionButtonSettings.drumroll.label)}" placeholder="Drumroll label">
-                <select id="settings-drumroll-file" class="settings-startup-select">${drumrollFileOptions}</select>
-                <button class="settings-custom-mini-btn" onclick="triggerActionButton('drumroll')" type="button">▶</button>
-            </div>
-            <div class="settings-custom-row">
-                <span class="settings-custom-tag">Gavel</span>
-                <input type="text" id="settings-gavel-label" class="settings-startup-select" value="${escapeSettingsHtml(actionButtonSettings.gavel.label)}" placeholder="Gavel label">
-                <select id="settings-gavel-file" class="settings-startup-select">${gavelFileOptions}</select>
-                <button class="settings-custom-mini-btn" onclick="triggerActionButton('gavel')" type="button">▶</button>
-            </div>
-            <div class="settings-custom-divider"></div>
             <div class="settings-custom-subtitle">Extra sound buttons</div>
             <div id="custom-buttons-extra-rows">${_buildCustomButtonEditorRowsHtml()}</div>
             <div class="settings-custom-actions">
@@ -1721,11 +1634,6 @@
                 <button class="settings-custom-mini-btn primary" onclick="saveCustomButtonSettings()" type="button">Save buttons</button>
             </div>
         `;
-
-        const drumrollSelect = document.getElementById('settings-drumroll-file');
-        if (drumrollSelect) drumrollSelect.value = normalizeSoundFilePath(actionButtonSettings.drumroll.file || '');
-        const gavelSelect = document.getElementById('settings-gavel-file');
-        if (gavelSelect) gavelSelect.value = normalizeSoundFilePath(actionButtonSettings.gavel.file || '');
 
         document.querySelectorAll('#custom-buttons-extra-rows .settings-custom-row').forEach(row => {
             const index = Number(row.getAttribute('data-custom-index'));
@@ -1755,11 +1663,6 @@
     }
 
     async function saveCustomButtonSettings() {
-        const drumrollLabel = String(document.getElementById('settings-drumroll-label')?.value || '').trim() || DEFAULT_ACTION_BUTTON_SETTINGS.drumroll.label;
-        const gavelLabel = String(document.getElementById('settings-gavel-label')?.value || '').trim() || DEFAULT_ACTION_BUTTON_SETTINGS.gavel.label;
-        const drumrollFile = normalizeSoundFilePath(document.getElementById('settings-drumroll-file')?.value || '');
-        const gavelFile = normalizeSoundFilePath(document.getElementById('settings-gavel-file')?.value || '');
-
         const custom = Array.from(document.querySelectorAll('#custom-buttons-extra-rows .settings-custom-row')).map((row, index) => {
             const prev = actionButtonSettings.custom[index] || {};
             return {
@@ -1769,13 +1672,8 @@
             };
         }).filter(item => item.label);
 
-        actionButtonSettings = normalizeActionButtonSettings({
-            drumroll: { label: drumrollLabel, file: drumrollFile },
-            gavel: { label: gavelLabel, file: gavelFile },
-            custom
-        });
+        actionButtonSettings = normalizeActionButtonSettings({ custom });
 
-        applyActionButtonLabels();
         renderCustomActionButtons();
         renderCustomButtonsModalEditor();
         await persistSettingsToUserFile();
@@ -1895,8 +1793,6 @@
                 if (typeof ui.presSettings.roles    === 'boolean') presSettings.roles    = ui.presSettings.roles;
                 if (typeof ui.presSettings.modes    === 'boolean') presSettings.modes    = ui.presSettings.modes;
             }
-            if (typeof ui.startupCompanionWindow === 'string') startupCompanionWindow = ui.startupCompanionWindow;
-            if (typeof ui.appTitle === 'string') appTitle = ui.appTitle.trim();
             if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
         }
         if (config?.classPlans && typeof config.classPlans === 'object') {
@@ -2057,8 +1953,6 @@
                 animationsEnabled: animationsEnabled,
                 scoreMuted: scoreMuted,
                 presSettings: { ...presSettings },
-                startupCompanionWindow: startupCompanionWindow,
-                appTitle: appTitle,
                 planAbbrevLen: planAbbrevLen,
                 actionButtons: normalizeActionButtonSettings(actionButtonSettings)
             },
@@ -2220,19 +2114,11 @@
         if (_rolesToggleBtn) { _rolesToggleBtn.classList.toggle('badges-hidden', !rolesVisible); _rolesToggleBtn.innerHTML = rolesVisible ? 'Roles' : '<s>Roles</s>'; }
         const _scoreMuteBtn = document.getElementById('score-mute-btn');
         if (_scoreMuteBtn) { _scoreMuteBtn.textContent = scoreMuted ? '🔇' : '🔔'; _scoreMuteBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)'; _scoreMuteBtn.style.color = scoreMuted ? '#bbb' : '#111'; }
-        const _startupWinSel = document.getElementById('settings-startup-window');
-        if (_startupWinSel) _startupWinSel.value = startupCompanionWindow;
-        const _appTitleIn = document.getElementById('settings-app-title');
-        if (_appTitleIn) _appTitleIn.value = appTitle;
         _applyAppTitle();
         const _planAbbrevIn = document.getElementById('settings-plan-abbrev-len');
         if (_planAbbrevIn) _planAbbrevIn.value = planAbbrevLen;
-        applyActionButtonLabels();
         renderCustomActionButtons();
         renderCustomButtonsModalEditor();
-        if (startupCompanionWindow) {
-            openAppLink(startupCompanionWindow);
-        }
     }
 
     initApp().catch(error => {
@@ -3536,13 +3422,11 @@
         body.innerHTML = [
             buildSoundEditorCard('timerEnd', 'Timer alarm', 'Used when the countdown reaches 00:00.'),
             buildSoundEditorCard('timerBackground', 'Timer background audio', 'Used by the MP3 button next to White, Pink, and Brown.'),
-            buildSoundEditorCard('drumroll', 'Drumroll', 'Used by the Drumroll button before picking a student.'),
-            buildSoundEditorCard('gavelAlarm', 'Gavel / Alarm', 'Used by the Alarm button in the main panel.'),
             buildSoundEditorCard('scorePositive', 'Positive score', 'Used for +1 and team +1 feedback.'),
             buildSoundEditorCard('scoreNegative', 'Negative score', 'Used for −1 and team −1 feedback.')
         ].join('');
 
-        ['timerEnd', 'timerBackground', 'drumroll', 'gavelAlarm', 'scorePositive', 'scoreNegative'].forEach(slotKey => {
+        ['timerEnd', 'timerBackground', 'scorePositive', 'scoreNegative'].forEach(slotKey => {
             updateSoundEditorVisibility(slotKey);
             const card = document.querySelector(`[data-sound-slot="${slotKey}"]`);
             const textarea = card ? card.querySelector('.sound-js') : null;
@@ -3790,20 +3674,9 @@
     async function openEditSoundsModal() {
         await refreshSoundFileList(false);
         renderEditSoundsModal();
+        renderCustomButtonsModalEditor();
         document.getElementById('edit-sounds-modal').style.display = 'flex';
         startSoundFileAutoRefresh();
-    }
-
-    async function openCustomButtonsModal() {
-        await refreshSoundFileList(false);
-        renderCustomButtonsModalEditor();
-        const modal = document.getElementById('custom-buttons-modal');
-        if (modal) modal.style.display = 'flex';
-    }
-
-    function closeCustomButtonsModal() {
-        const modal = document.getElementById('custom-buttons-modal');
-        if (modal) modal.style.display = 'none';
     }
 
     function closeEditSoundsModal() {
@@ -8286,11 +8159,6 @@ function playHybridHit(time, volume) {
   noiseSource.stop(time + 0.2);
 }
 
-document.getElementById('drumroll-btn').addEventListener('click', () => {
-    triggerActionButton('drumroll');
-});
-
-
 // Function specifically for the gavel effect with wooden impact and room echo
 function gavelHit(duration = 0.2, volumeScale = null) {
     if (audioContext.state === 'suspended') audioContext.resume();
@@ -10173,12 +10041,6 @@ function openAppLink(pageFile) {
     }
 }
 
-function saveAppTitleSetting(value) {
-    appTitle = String(value || '').trim();
-    _applyAppTitle();
-    persistSettingsToUserFile().catch(err => console.warn('saveAppTitleSetting: could not save config:', err));
-}
-
 function savePlanAbbrevLenSetting(value) {
     const n = parseInt(value, 10);
     if (Number.isFinite(n) && n >= 1 && n <= 20) planAbbrevLen = n;
@@ -10187,16 +10049,13 @@ function savePlanAbbrevLenSetting(value) {
 }
 
 function _applyAppTitle() {
-    const label = appTitle || 'Coll\u00e8ge Calvin';
+    let label = 'Coll\u00e8ge Calvin';
+    try { const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); if (cfg.appTitle && cfg.appTitle.trim()) label = cfg.appTitle.trim(); } catch {}
     const titleEl = document.getElementById('main-title');
     if (titleEl) titleEl.textContent = label + ': Class Management System';
     document.title = label + ': Class Management System';
 }
-
-function saveStartupWindowSetting(value) {
-    startupCompanionWindow = value || '';
-    persistSettingsToUserFile().catch(err => console.warn('saveStartupWindowSetting: could not save config:', err));
-}
+window.addEventListener('storage', e => { if (e.key === 'cmt-general-config') _applyAppTitle(); });
 
 function toggleSettingsPopup(event) {
     if (event) {
@@ -10856,7 +10715,6 @@ const I18N = {
     btn_badges:          'Badges',
     btn_badges_title:    'Show/hide badge columns',
     roster_select_group: 'Select a group...',
-    btn_drumroll:        'Drumroll',
     btn_pick:            'Random Student',
     btn_pick_team:       'Random Team',
 
@@ -11023,7 +10881,6 @@ const I18N = {
     btn_badges:          'Badges',
     btn_badges_title:    'Afficher/masquer la colonne badges',
     roster_select_group: 'Sélectionnez un groupe…',
-    btn_drumroll:        'Roulement de tambour',
     btn_pick:            'Élève aléatoire',
     btn_pick_team:       'Équipe aléatoire',
 
@@ -11182,7 +11039,6 @@ const I18N = {
     btn_badges:          'Abzeichen',
     btn_badges_title:    'Abzeichenspalte ein-/ausblenden',
     roster_select_group: 'Gruppe auswählen…',
-    btn_drumroll:        'Trommelwirbel',
     btn_pick:            'Zufälliger Schüler',
     btn_pick_team:       'Zufälliges Team',
 
@@ -11341,7 +11197,6 @@ const I18N = {
     btn_badges:          'Badge',
     btn_badges_title:    'Mostra/nascondi colonna badge',
     roster_select_group: 'Seleziona un gruppo…',
-    btn_drumroll:        'Rullo di tamburi',
     btn_pick:            'Studente casuale',
     btn_pick_team:       'Squadra casuale',
 
@@ -11600,7 +11455,6 @@ function applyLang() {
   if (timerBtn) timerBtn.textContent = dict['btn_timer'];
 
     // Keep user-defined labels/files for action buttons after i18n text updates.
-    if (typeof applyActionButtonLabels === 'function') applyActionButtonLabels();
     if (typeof renderCustomActionButtons === 'function') renderCustomActionButtons();
 }
 

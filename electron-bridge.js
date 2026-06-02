@@ -387,7 +387,13 @@
       req.mainFraction = opts.mainFraction || 0.20;
       req.cmOnRight = opts.cmOnRight !== false;
     }
+    if (opts && opts.maximize) req.maximize = true;
     return getDesktopApi().openTool(req);
+  }
+
+  async function openSplit(opts) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openSplit(opts || {});
   }
 
   async function arrangeSideBySide(opts) {
@@ -426,6 +432,7 @@
     listByPath,
     listFiles,
     openTool,
+    openSplit,
     openTimerWindow,
     readByPath,
     readJson,

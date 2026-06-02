@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recent Files</title>
+  <script src="electron-bridge.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0f2f5;
+      --card: #fff;
+      --border: #e1e4e8;
+      --text: #1c2526;
+      --muted: #6b7280;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+    }
+
+    /* ── Back link ──────────────────────────────────────── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      text-decoration: none;
+      margin-bottom: 28px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      transition: color 0.1s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    /* ── Page title ─────────────────────────────────────── */
+    .page-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
+    .page-subtitle { font-size: 0.9rem; color: var(--muted); margin-bottom: 32px; }
+
+    /* ── Toolbar ────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .toolbar select {
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      color: var(--text);
+      background: #fff;
+      cursor: pointer;
+    }
+    .toolbar select:focus { outline: none; border-color: #111; }
+    .result-count {
+      font-size: 0.83rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* ── File list ──────────────────────────────────────── */
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .file-row {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .file-row:hover {
+      border-color: #111;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+
+    .file-type-tag {
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: #f0f0f0;
+      color: #555;
+      white-space: nowrap;
+    }
+    .file-type-tag.constellation { background: #eff6ff; color: #2563eb; }
+    .file-type-tag.textanalysis  { background: #fef9ee; color: #92400e; }
+    .file-type-tag.notes         { background: #f0fdf4; color: #166534; }
+
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 0.93rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .file-meta { font-size: 0.78rem; color: var(--muted); }
+
+    .open-btn {
+      flex-shrink: 0;
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1.5px solid #111;
+      background: #111;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, color 0.12s;
+    }
+    .open-btn:hover { background: #fff; color: #111; }
+
+    /* ── Empty / loading states ─────────────────────────── */
+    .state-msg {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+      font-size: 0.93rem;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+    }
+    .state-msg .state-icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <button class="back-link" id="backBtn">← Back to Launcher</button>
+
+  <h1 class="page-title">Recent Files</h1>
+  <p class="page-subtitle">Board sessions, constellation maps, and analyses saved to your data folder.</p>
+
+  <div class="toolbar">
+    <select id="typeFilter">
+      <option value="all">All types</option>
+      <option value="mindmaps">Constellation maps</option>
+      <option value="textualAnalyses">Textual analyses</option>
+      <option value="notes">Notes</option>
+    </select>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+
+  <div class="file-list" id="fileList">
+    <div class="state-msg"><span class="state-icon">⏳</span>Loading files…</div>
+  </div>
+
+</div>
+
+<script>
+  var allFiles = [];
+
+  var TYPE_INFO = {
+    mindmaps:       { label: 'Constellation', cssClass: 'constellation' },
+    textualAnalyses:{ label: 'Text Analysis', cssClass: 'textanalysis' },
+    notes:          { label: 'Notes',          cssClass: 'notes' }
+  };
+
+  function goBack() {
+    if (window.Desktop && Desktop.isElectron() && window.electronApi && window.electronApi.loadPage) {
+      window.electronApi.loadPage({ pageFile: 'launcher.html' });
+    } else {
+      window.location.href = 'launcher.html';
+    }
+  }
+
+  document.getElementById('backBtn').addEventListener('click', goBack);
+
+  function formatDate(ms) {
+    if (!ms) return '—';
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+           ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function prettyName(filename) {
+    return filename
+      .replace(/\.(js|json)$/i, '')
+      .replace(/_/g, ' ')
+      .replace(/-Autosave$/, ' (autosave)')
+      .trim();
+  }
+
+  function openFile(target, filename, relativePath) {
+    if (!window.Desktop || !Desktop.isElectron()) {
+      alert('Opening files requires the Electron desktop app.');
+      return;
+    }
+    Desktop.openTool('board.html', {
+      query: {
+        openSession: '1',
+        openTarget: target,
+        openFilename: filename,
+        openRelPath: relativePath || filename
+      }
+    });
+  }
+
+  function renderFiles(files) {
+    var list = document.getElementById('fileList');
+    document.getElementById('resultCount').textContent = files.length + ' file' + (files.length === 1 ? '' : 's');
+
+    if (files.length === 0) {
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>No files found for this filter.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    files.forEach(function (f) {
+      var info = TYPE_INFO[f.target] || { label: f.target, cssClass: '' };
+      var row = document.createElement('div');
+      row.className = 'file-row';
+
+      var tag = document.createElement('span');
+      tag.className = 'file-type-tag ' + info.cssClass;
+      tag.textContent = info.label;
+
+      var fileInfo = document.createElement('div');
+      fileInfo.className = 'file-info';
+
+      var name = document.createElement('div');
+      name.className = 'file-name';
+      name.textContent = prettyName(f.filename);
+      name.title = f.filename;
+
+      var meta = document.createElement('div');
+      meta.className = 'file-meta';
+      var dateMs = f.savedAt || f.createdAt || f.mtimeMs || 0;
+      var sizeKb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      meta.textContent = formatDate(dateMs) + (sizeKb ? ' · ' + sizeKb : '');
+
+      fileInfo.appendChild(name);
+      fileInfo.appendChild(meta);
+
+      var btn = document.createElement('button');
+      btn.className = 'open-btn';
+      btn.textContent = 'Open in Board ↗';
+      (function (target, filename, relPath) {
+        btn.addEventListener('click', function () { openFile(target, filename, relPath); });
+      })(f.target, f.filename, f.relativePath);
+
+      row.appendChild(tag);
+      row.appendChild(fileInfo);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+
+  function applyFilter() {
+    var filter = document.getElementById('typeFilter').value;
+    var filtered = filter === 'all' ? allFiles : allFiles.filter(function (f) { return f.target === filter; });
+    renderFiles(filtered);
+  }
+
+  document.getElementById('typeFilter').addEventListener('change', applyFilter);
+
+  async function loadFiles() {
+    var list = document.getElementById('fileList');
+
+    if (!window.Desktop || !Desktop.isElectron()) {
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>This page requires the Electron desktop app.</div>';
+      return;
+    }
+
+    var targets = ['mindmaps', 'textualAnalyses', 'notes'];
+    var gathered = [];
+
+    try {
+      for (var i = 0; i < targets.length; i++) {
+        var target = targets[i];
+        try {
+          var res = await Desktop.listByPath(target, '', {
+            extensions: ['.js', '.json'],
+            recursive: true
+          });
+          if (res && res.ok && Array.isArray(res.files)) {
+            res.files.forEach(function (f) {
+              gathered.push(Object.assign({}, f, { target: target }));
+            });
+          }
+        } catch (e) {
+          console.warn('Could not list ' + target + ':', e);
+        }
+      }
+
+      // Sort newest first
+      gathered.sort(function (a, b) {
+        var ta = a.savedAt || a.createdAt || a.mtimeMs || 0;
+        var tb = b.savedAt || b.createdAt || b.mtimeMs || 0;
+        return tb - ta;
+      });
+
+      allFiles = gathered;
+      applyFilter();
+    } catch (e) {
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>Error loading files: ' + escHtml(e.message || String(e)) + '</div>';
+    }
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  document.addEventListener('DOMContentLoaded', loadFiles);
+</script>
+</body>
+</html>

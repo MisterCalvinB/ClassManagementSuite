@@ -6,13 +6,13 @@
   <title>Collège Calvin: Board</title>
   <script>
     function applyBoardTitleFromConfig() {
-      var _cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) ? CLASS_MANAGEMENT_CONFIG : null;
-      var _t = (_cfg && _cfg.uiSettings && typeof _cfg.uiSettings.appTitle === 'string' && _cfg.uiSettings.appTitle.trim()) || '';
-      if (_t) {
-        var el = document.querySelector('.nav-brand'); if (el) el.textContent = _t;
-        document.title = _t + ': Board';
-      }
+      var _t = '';
+      try { var _gc = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); _t = (_gc.appTitle && _gc.appTitle.trim()) || ''; } catch {}
+      var label = _t || 'Collège Calvin';
+      var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
+      document.title = label + ': Board';
     }
+    window.addEventListener('storage', function(e) { if (e.key === 'cmt-general-config') applyBoardTitleFromConfig(); });
 
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -24553,6 +24553,33 @@ ${imgTags}
       return false;
     }
 
+    // Stricter check used only for the initial silent save of a brand-new file:
+    // requires actual board objects (nodes, notes, drawings, imported files).
+    // Title-only or background-color-only boards do not qualify.
+    function conSessionHasMeaningfulContent(data) {
+      if (!data) return false;
+      if ((data.attachments || []).length) return true;
+      if ((data.media || []).length) return true;
+      if (data.backgroundPdf && (data.backgroundPdf.relativePath || data.backgroundPdf.attachmentId)) return true;
+      // Multi-page format
+      if (data.pages && Array.isArray(data.pages)) {
+        return data.pages.some(p => p && (
+          (p.nodes || []).length || (p.notes || []).length ||
+          (p.drawings || []).length || (p.shapes || []).length || (p.masks || []).length ||
+          (p.media || []).length || (p.backgroundPdf && (p.backgroundPdf.relativePath || p.backgroundPdf.attachmentId))
+        ));
+      }
+      // Single-page (flat) format
+      if ((data.nodes || []).length) return true;
+      if ((data.edges || []).length) return true;
+      if ((data.groups || []).length) return true;
+      if ((data.masks || []).length) return true;
+      if ((data.notes || []).length) return true;
+      if ((data.drawings || []).length) return true;
+      if ((data.shapes || []).length) return true;
+      return false;
+    }
+
     function taBuildSessionData() {
       const rawText = document.getElementById('ta-paste-area').value;
       const fontSize = document.getElementById('ta-font-size-slider').value;
@@ -25504,7 +25531,7 @@ ${imgTags}
       if (_conSilentInitialSavePromise) return _conSilentInitialSavePromise;
 
       const data = conBuildSessionData();
-      if (!conSessionHasContent(data)) return null;
+      if (!conSessionHasMeaningfulContent(data)) return null;
 
       const titleVal = (window.conGetTitle ? window.conGetTitle() : '').trim();
       const requestedName = boardDefaultFileName('constellation', titleVal);

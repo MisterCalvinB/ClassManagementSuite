@@ -132,6 +132,9 @@ const exposedApi = {
   openTool(request) {
     return invoke('app:open-tool', request);
   },
+  openSplit(request) {
+    return invoke('app:open-split', request);
+  },
   arrangeSideBySide(request) {
     return invoke('app:arrange-side-by-side', request);
   },
