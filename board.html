@@ -3420,7 +3420,9 @@ function hideFailure() {
       sel.appendChild(noneOpt);
 
       const groupKeys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS).sort((a, b) => a.localeCompare(b))
+        ? Object.keys(CLASS_GROUPS)
+            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => a.localeCompare(b))
         : [];
       groupKeys.forEach(key => {
         const opt = document.createElement('option');
@@ -26825,7 +26827,9 @@ ${imgTags}
       if (!sel) return;
       sel.innerHTML = '';
       const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS).sort((a, b) => a.localeCompare(b))
+        ? Object.keys(CLASS_GROUPS)
+            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => a.localeCompare(b))
         : [];
       if (!keys.length) {
         const opt = document.createElement('option');
