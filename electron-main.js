@@ -122,13 +122,13 @@ function getSaveTargets() {
     app: ROOT_DIR,
     user: path.join(writableRoot, 'user'),
     data: customDataRoot,
-    gradeSheet: path.join(writableRoot, 'log/grade-sheet'),
-    grades: path.join(writableRoot, 'log/grades'),
-    groupParticipation: path.join(writableRoot, 'log/group-participation'),
-    mindmaps: path.join(writableRoot, 'log/constellation'),
-    constellationTemplates: path.join(writableRoot, 'log/constellation/templates'),
-    textualAnalyses: path.join(writableRoot, 'log/textual-analyses'),
-    notes: path.join(writableRoot, 'log/notes'),
+    gradeSheet: path.join(writableRoot, 'user/log/grade-sheet'),
+    grades: path.join(writableRoot, 'user/log/grades'),
+    groupParticipation: path.join(writableRoot, 'user/log/group-participation'),
+    mindmaps: path.join(writableRoot, 'user/log/constellation'),
+    constellationTemplates: path.join(writableRoot, 'user/log/constellation/templates'),
+    textualAnalyses: path.join(writableRoot, 'user/log/textual-analyses'),
+    notes: path.join(writableRoot, 'user/log/notes'),
     customData: customDataRoot,
     customBooks: path.join(writableRoot, 'user/custom-data/books'),
     customDictations: path.join(writableRoot, 'user/custom-data/dictations'),
@@ -1009,7 +1009,7 @@ async function ensureWritableSeedData() {
   const saveTargets = getSaveTargets();
   const writableRoot = getWritableRootDir();
   const legacyDataRoot = path.join(writableRoot, 'data');
-  const legacyCustomDataRoot = path.join(writableRoot, 'log/custom-data');
+  const legacyCustomDataRoot = path.join(writableRoot, 'user/log/custom-data');
   // Create all writable target folders up front so portable builds mirror Linux behavior.
   await Promise.all([
     fs.mkdir(saveTargets.user, { recursive: true }),
@@ -1265,7 +1265,7 @@ async function runAutoSync() {
   _autoSyncRunning = true;
   try {
     const writableRoot = getWritableRootDir();
-    const subDirs = ['log', 'user', 'data'];
+    const subDirs = ['user', 'data'];
     for (const sub of subDirs) {
       const srcDir  = path.join(writableRoot, sub);
       const destDir = path.join(syncLocation, sub);
@@ -1294,7 +1294,7 @@ async function runAutoSync() {
 function startAutoSyncWatcher() {
   stopAutoSyncWatcher();
   const writableRoot = getWritableRootDir();
-  const subDirs = ['log', 'user', 'data'];
+  const subDirs = ['user', 'data'];
   const handles = [];
 
   for (const sub of subDirs) {
@@ -1562,7 +1562,7 @@ async function savePortableRoot(dirPath) {
 
 async function checkIsFirstRun() {
   const writableRoot = getWritableRootDir();
-  for (const folder of ['data', 'log', 'user']) {
+  for (const folder of ['data', 'user']) {
     try {
       await fs.access(path.join(writableRoot, folder));
       return false;
@@ -1780,7 +1780,6 @@ ipcMain.handle('app:backup-zip', async (event) => {
   const BACKUP_META_ENTRY = '__backup_meta__.json';
   const writableRoot = getWritableRootDir();
   const targets = [
-    { dir: path.join(writableRoot, 'log'), prefix: 'log' },
     { dir: path.join(writableRoot, 'user'), prefix: 'user' }
   ];
 
@@ -1904,7 +1903,7 @@ ipcMain.handle('app:restore-zip', async (event) => {
     
     const writableRoot = getWritableRootDir();
     const targets = {
-      log: path.join(writableRoot, 'log'),
+      log: path.join(writableRoot, 'user', 'log'),
       user: path.join(writableRoot, 'user')
     };
 
@@ -1978,7 +1977,7 @@ ipcMain.handle('app:apply-restore-choices', async (event, request = {}) => {
     
     const writableRoot = getWritableRootDir();
     const targets = {
-      log: path.join(writableRoot, 'log'),
+      log: path.join(writableRoot, 'user', 'log'),
       user: path.join(writableRoot, 'user')
     };
 
@@ -2201,7 +2200,7 @@ ipcMain.handle('app:migrate-data-location', async (_event, { from } = {}) => {
     return { ok: true, copied: 0, errors: [], skipped: true };
   }
 
-  const subDirs = ['log', 'user', 'data'];
+  const subDirs = ['user', 'data'];
   let totalCopied = 0;
   const allErrors = [];
 
@@ -3096,7 +3095,6 @@ ipcMain.handle('app:run-backup', async () => {
 
   const writableRoot = getWritableRootDir();
   const sources = [
-    { dir: path.join(writableRoot, 'log'), prefix: 'log' },
     { dir: path.join(writableRoot, 'user'), prefix: 'user' }
   ];
 
@@ -3170,7 +3168,7 @@ ipcMain.handle('app:run-sync', async (_event, { mode } = {}) => {
   }
 
   const writableRoot = getWritableRootDir();
-  const subDirs = ['log', 'user', 'data'];
+  const subDirs = ['user', 'data'];
   let totalCopied = 0;
   const allErrors = [];
   const allConflicts = [];
