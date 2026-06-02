@@ -163,6 +163,14 @@
         <select id="class-picker"></select>
       </div>
       <div class="field">
+        <label for="half-picker">Half</label>
+        <select id="half-picker">
+          <option value="">All students</option>
+          <option value="1">First half</option>
+          <option value="2">Second half</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="student-picker">Student</label>
         <select id="student-picker"></select>
       </div>
@@ -188,6 +196,7 @@
   <script>
     const statusEl = document.getElementById('status');
     const classPickerEl = document.getElementById('class-picker');
+    const halfPickerEl = document.getElementById('half-picker');
     const studentPickerEl = document.getElementById('student-picker');
     const nameEl = document.getElementById('name');
     const connectBtn = document.getElementById('connect');
@@ -219,7 +228,12 @@
     function fillStudentPicker() {
       const groups = normalizeClassGroups();
       const className = String(classPickerEl.value || '');
-      const names = Array.isArray(groups[className]) ? groups[className] : [];
+      let names = Array.isArray(groups[className]) ? groups[className] : [];
+
+      const half = halfPickerEl ? String(halfPickerEl.value || '') : '';
+      if (half === '1') names = names.slice(0, Math.ceil(names.length / 2));
+      else if (half === '2') names = names.slice(Math.ceil(names.length / 2));
+
       studentPickerEl.innerHTML = '';
 
       if (!names.length) {
@@ -282,6 +296,7 @@
       disconnectBtn.disabled = !connected;
       nameEl.disabled = connected;
       classPickerEl.disabled = connected;
+      halfPickerEl.disabled = connected || (halfFromUrl === '1' || halfFromUrl === '2');
       studentPickerEl.disabled = connected;
     }
 
@@ -469,9 +484,15 @@
       };
     }
 
+    const _qpQuery = new URLSearchParams(location.search);
+    const halfFromUrl = String(_qpQuery.get('half') || '').trim();
+
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
     classPickerEl.addEventListener('change', function() {
+      fillStudentPicker();
+    });
+    halfPickerEl.addEventListener('change', function() {
       fillStudentPicker();
     });
     studentPickerEl.addEventListener('change', function() {
@@ -481,6 +502,9 @@
     nameEl.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') connect();
     });
+    if (halfFromUrl === '1' || halfFromUrl === '2') {
+      halfPickerEl.value = halfFromUrl;
+    }
     fillClassPicker();
     setButtons();
   </script>

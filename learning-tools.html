@@ -1499,6 +1499,14 @@
       </div>
 
       <div id="quiz-mp-host-panel" class="hidden" style="margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;">
+          <label for="quiz-mp-half" style="font-size:0.82rem;color:#475569;font-weight:600;">Half:</label>
+          <select id="quiz-mp-half" class="search-input" style="min-width:150px;" onchange="quizMpUpdateJoinDisplay()">
+            <option value="">Full class</option>
+            <option value="1">First half</option>
+            <option value="2">Second half</option>
+          </select>
+        </div>
         <div style="text-align:center;font-size:0.88rem;color:#334155;">
           Players can join using
           <strong id="quiz-mp-join-url">http://localhost:8787/quiz-player.html</strong>
@@ -6230,7 +6238,20 @@ function renderSentenceWithGap(userInput) {
         }
       }
       const u = new URL(base);
-      return u.origin.replace(/\/+$/, '') + '/quiz-player.html';
+      const url = new URL(u.origin.replace(/\/+$/, '') + '/quiz-player.html');
+      const halfEl = document.getElementById('quiz-mp-half');
+      const half = halfEl ? String(halfEl.value || '') : '';
+      if (half) url.searchParams.set('half', half);
+      return url.toString();
+    }
+
+    function quizMpUpdateJoinDisplay() {
+      const joinEl = document.getElementById('quiz-mp-join-url');
+      if (joinEl) {
+        try { joinEl.textContent = quizMpJoinUrlForDisplay(); }
+        catch (_) { joinEl.textContent = 'http://localhost:8787/quiz-player.html'; }
+      }
+      quizMpUpdateQrCode();
     }
 
     function quizMpUpdateQrCode() {
@@ -6436,20 +6457,15 @@ function renderSentenceWithGap(userInput) {
 
     function quizApplyModeUi() {
       const hostPanel = document.getElementById('quiz-mp-host-panel');
-      const joinEl = document.getElementById('quiz-mp-join-url');
       const showHost = quizIsMpHostMode();
       if (hostPanel) hostPanel.classList.toggle('hidden', !showHost);
-      if (joinEl) {
-        try { joinEl.textContent = quizMpJoinUrlForDisplay(); }
-        catch (_) { joinEl.textContent = 'http://localhost:8787/quiz-player.html'; }
-      }
+      quizMpUpdateJoinDisplay();
       if (!showHost) {
         quizMpDisconnect();
         quizMpSetStatus('Single player is active.', false);
       } else if (!quizMp.connected) {
         quizMpSetStatus('Multiplayer host mode selected. Connect to the local server.', false);
       }
-      quizMpUpdateQrCode();
       quizRenderChoices();
     }
 
