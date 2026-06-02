@@ -1452,6 +1452,67 @@
     <h2>🎯 Quiz</h2>
     <p style="text-align:center;color:#666;margin-top:-12px;margin-bottom:18px;font-size:0.9rem;">Kahoot-style multiple choice quiz from your custom bank.</p>
 
+    <div class="gp-quiz-card" style="max-width:960px;padding:12px 14px;margin-bottom:14px;">
+      <div style="display:flex;gap:10px;align-items:end;justify-content:center;flex-wrap:wrap;">
+        <label style="display:flex;flex-direction:column;gap:4px;min-width:210px;">
+          <span style="font-size:0.82rem;color:#666;">Mode</span>
+          <select id="quiz-play-mode" class="search-input" style="min-width:210px;" onchange="quizApplyModeUi()">
+            <option value="single">Single Player</option>
+            <option value="multiplayer-host">Multiplayer Host (WebSocket)</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;min-width:260px;">
+          <span style="font-size:0.82rem;color:#666;">Server URL</span>
+          <input id="quiz-mp-server" class="search-input" type="text" placeholder="http://localhost:8787" style="min-width:260px;" />
+        </label>
+        <button class="action-btn btn-blue" id="quiz-mp-connect-btn" onclick="quizMpConnect()">Connect</button>
+        <button class="action-btn btn-grey" id="quiz-mp-disconnect-btn" onclick="quizMpDisconnect()">Disconnect</button>
+        <button class="action-btn btn-orange" id="quiz-mp-end-btn" onclick="quizMpEndGame()">End Game & Results</button>
+      </div>
+      <div id="quiz-mp-status" style="margin-top:10px;font-size:0.9rem;text-align:center;color:#666;">Single player is active.</div>
+
+      <div id="quiz-controls-row" style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;gap:10px;align-items:end;justify-content:center;flex-wrap:wrap;">
+        <label style="display:flex;flex-direction:column;gap:4px;min-width:210px;">
+          <span style="font-size:0.82rem;color:#666;">Sort Questions</span>
+          <select id="quiz-sort-mode" class="search-input" style="min-width:210px;" onchange="quizSortModeChanged()">
+            <option value="random">Random</option>
+            <option value="theme-az">Theme (A-Z)</option>
+            <option value="theme-za">Theme (Z-A)</option>
+            <option value="keyword-az">Keyword (A-Z)</option>
+            <option value="keyword-za">Keyword (Z-A)</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
+          <span style="font-size:0.82rem;color:#666;">Filter By</span>
+          <select id="quiz-filter-field" class="search-input" style="min-width:180px;" onchange="quizFilterFieldChanged()">
+            <option value="none">No filter</option>
+            <option value="theme">Theme</option>
+            <option value="keyword">Keyword</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px;min-width:220px;">
+          <span style="font-size:0.82rem;color:#666;">Filter Value</span>
+          <select id="quiz-filter-value" class="search-input" style="min-width:220px;" onchange="quizFilterChanged()">
+            <option value="">All</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="quiz-mp-host-panel" class="hidden" style="margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
+        <div style="text-align:center;font-size:0.88rem;color:#334155;">
+          Players can join using
+          <strong id="quiz-mp-join-url">http://localhost:8787/quiz-player.html</strong>
+        </div>
+        <div style="margin-top:8px;text-align:center;">
+          <div style="font-size:0.8rem;color:#64748b;margin-bottom:4px;">Scan to join</div>
+          <img id="quiz-mp-qr-img" src="" alt="Quiz Join QR" width="128" height="128" style="display:none;border:1px solid #e2e8f0;border-radius:8px;padding:4px;background:#fff;" />
+        </div>
+        <div id="quiz-mp-answers" style="margin-top:6px;text-align:center;font-size:0.88rem;color:#475569;">Answered: 0/0</div>
+        <div id="quiz-mp-presence" style="margin-top:8px;font-size:0.9rem;color:#1f2937;"></div>
+        <div id="quiz-mp-leaderboard" style="margin-top:8px;font-size:0.9rem;color:#1f2937;"></div>
+      </div>
+    </div>
+
     <div class="ipa-score-bar">
       <div class="ipa-stat"><div class="ipa-stat-num" id="quiz-score">0</div><div class="ipa-stat-lbl" data-i18n="statScore">Score</div></div>
       <div class="ipa-stat"><div class="ipa-stat-num" id="quiz-streak">0</div><div class="ipa-stat-lbl" data-i18n="statStreak">🔥 Streak</div></div>
@@ -1460,6 +1521,7 @@
 
     <div class="gp-quiz-card" style="max-width:960px;">
       <div class="gp-quiz-question" id="quiz-question" style="min-height:72px;"></div>
+      <div id="quiz-meta" style="text-align:center;color:#64748b;font-size:0.9rem;margin-top:-8px;margin-bottom:10px;display:none;"></div>
       <div id="quiz-choice-grid" class="ipa-choice-grid"></div>
       <div class="gp-quiz-explanation" id="quiz-explanation" style="margin-top:14px;"></div>
       <div class="gp-actions" style="margin-top:14px;">
@@ -1492,6 +1554,13 @@
           <input id="ww-auto-enable" type="checkbox" onchange="wwOnAutoSettingsChanged()">
           <label class="ww-inline-label" for="ww-auto-seconds">Seconds</label>
           <input id="ww-auto-seconds" type="number" min="2" max="120" step="1" value="8" onchange="wwOnAutoSettingsChanged()">
+        </div>
+
+        <div class="ww-inline-controls" style="margin-top:8px;">
+          <label class="ww-inline-label" for="ww-vote-timer-enable">Vote timer</label>
+          <input id="ww-vote-timer-enable" type="checkbox" onchange="wwOnVoteTimerSettingsChanged()">
+          <label class="ww-inline-label" for="ww-vote-timer-seconds">Seconds</label>
+          <input id="ww-vote-timer-seconds" type="number" min="5" max="180" step="1" value="30" onchange="wwOnVoteTimerSettingsChanged()">
         </div>
 
         <div class="ww-inline-controls" style="margin-top:10px;">
@@ -2530,6 +2599,8 @@
     function normalizeQuizItem(raw) {
       if (!raw || typeof raw !== 'object') return null;
       const question = String(raw.question || '').trim();
+      const theme = String(raw.theme || '').trim();
+      const keyword = String(raw.keyword || '').trim();
       const answers = [
         raw['answer 1'] ?? raw.answer1,
         raw['answer 2'] ?? raw.answer2,
@@ -2553,7 +2624,7 @@
       }
 
       if (correctIndex < 0 || correctIndex > 3) return null;
-      return { question, answers, correctIndex };
+      return { question, answers, correctIndex, theme, keyword };
     }
 
     async function ensureCustomQuizLoaded() {
@@ -6042,6 +6113,454 @@ function renderSentenceWithGap(userInput) {
     let quizScore = 0;
     let quizStreak = 0;
     let quizSeen = 0;
+    let quizMp = {
+      ws: null,
+      connected: false,
+      answers: { answered: 0, total: 0 },
+      players: [],
+      leaderboard: []
+    };
+
+    function quizIsMpHostMode() {
+      const modeEl = document.getElementById('quiz-play-mode');
+      return !!modeEl && modeEl.value === 'multiplayer-host';
+    }
+
+    function quizMpSetStatus(text, isError) {
+      const el = document.getElementById('quiz-mp-status');
+      if (!el) return;
+      el.textContent = String(text || '');
+      el.style.color = isError ? '#b91c1c' : '#475569';
+    }
+
+    function quizMpRenderPresence() {
+      const listEl = document.getElementById('quiz-mp-presence');
+      const answersEl = document.getElementById('quiz-mp-answers');
+      if (answersEl) {
+        answersEl.textContent = 'Answered: ' + Number(quizMp.answers.answered || 0) + '/' + Number(quizMp.answers.total || 0);
+      }
+      if (!listEl) return;
+      const players = Array.isArray(quizMp.players) ? quizMp.players : [];
+      if (!players.length) {
+        listEl.textContent = 'Players connected: 0';
+        return;
+      }
+      listEl.textContent = 'Players (' + players.length + '): ' + players.map(function(p) {
+        const name = String((p && p.name) || 'Player');
+        const score = Number((p && p.score) || 0);
+        return name + ' (' + score + ')';
+      }).join(', ');
+    }
+
+    function quizMpFormatTimeMs(ms) {
+      const n = Number(ms);
+      if (!isFinite(n) || n < 0) return '--';
+      if (n < 10000) return (n / 1000).toFixed(2) + 's';
+      return (n / 1000).toFixed(1) + 's';
+    }
+
+    function quizMpRenderLeaderboard() {
+      const el = document.getElementById('quiz-mp-leaderboard');
+      if (!el) return;
+      const rows = Array.isArray(quizMp.leaderboard) ? quizMp.leaderboard : [];
+      if (!rows.length) {
+        el.textContent = 'Leaderboard: waiting for answers.';
+        return;
+      }
+      const top = rows.slice(0, 8).map(function(item, idx) {
+        const name = String(item.name || 'Player');
+        const score = Number(item.score || 0);
+        const hasRoundData = Number.isFinite(Number(item.scoreDelta)) || Number.isFinite(Number(item.elapsedMs)) || Number.isFinite(Number(item.speedRank));
+        if (!hasRoundData) {
+          return (idx + 1) + '. ' + name + ' - ' + score;
+        }
+        const delta = Number(item.scoreDelta || 0);
+        const deltaText = (delta > 0 ? '+' : '') + delta;
+        const timeText = quizMpFormatTimeMs(item.elapsedMs);
+        const rankText = item.speedRank ? ('#' + Number(item.speedRank)) : '--';
+        return (idx + 1) + '. ' + name + ' - ' + score + ' (' + deltaText + ' pts, ' + timeText + ', speed ' + rankText + ')';
+      }).join(' | ');
+      el.textContent = 'Leaderboard: ' + top;
+    }
+
+    async function quizMpEnsureServerForElectron() {
+      if (!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron())) {
+        return null;
+      }
+      if (!(window.Desktop && typeof Desktop.quizServerStart === 'function')) {
+        return null;
+      }
+      let res = null;
+      try {
+        res = await Desktop.quizServerStart(8787);
+      } catch (_) {
+        return null;
+      }
+      if (!res || res.ok === false) {
+        return null;
+      }
+      return res;
+    }
+
+    function quizMpBuildWsUrl() {
+      const inputEl = document.getElementById('quiz-mp-server');
+      let base = String((inputEl && inputEl.value) || '').trim();
+      if (!base) base = location.origin;
+      if (!/^https?:\/\//i.test(base) && !/^wss?:\/\//i.test(base)) {
+        base = 'http://' + base;
+      }
+      if (/^wss?:\/\//i.test(base)) {
+        const clean = base.replace(/\/+$/, '');
+        return /\/quiz-ws$/i.test(clean) ? clean : (clean + '/quiz-ws');
+      }
+      const u = new URL(base);
+      const proto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+      return proto + '//' + u.host + '/quiz-ws';
+    }
+
+    function quizMpJoinUrlForDisplay() {
+      const inputEl = document.getElementById('quiz-mp-server');
+      let base = String((inputEl && inputEl.value) || '').trim();
+      if (!base) base = location.origin;
+      if (!/^https?:\/\//i.test(base)) {
+        if (/^wss?:\/\//i.test(base)) {
+          base = base.replace(/^ws:/i, 'http:').replace(/^wss:/i, 'https:');
+        } else {
+          base = 'http://' + base;
+        }
+      }
+      const u = new URL(base);
+      return u.origin.replace(/\/+$/, '') + '/quiz-player.html';
+    }
+
+    function quizMpUpdateQrCode() {
+      const qrEl = document.getElementById('quiz-mp-qr-img');
+      if (!qrEl) return;
+      if (!quizIsMpHostMode()) {
+        qrEl.style.display = 'none';
+        qrEl.removeAttribute('src');
+        return;
+      }
+      let joinUrl = '';
+      try {
+        joinUrl = quizMpJoinUrlForDisplay();
+      } catch (_) {
+        qrEl.style.display = 'none';
+        qrEl.removeAttribute('src');
+        return;
+      }
+      qrEl.style.display = 'inline-block';
+      qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=128x128&margin=6&data=' + encodeURIComponent(joinUrl);
+    }
+
+    function quizMpSend(payload) {
+      if (!quizMp.ws || !quizMp.connected) return false;
+      try {
+        quizMp.ws.send(JSON.stringify(payload));
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function quizMpApplyReveal(correctIndex) {
+      if (!quizCurrent) return;
+      quizAnswered = true;
+      const buttons = Array.from(document.querySelectorAll('#quiz-choice-grid .action-btn'));
+      buttons.forEach(function(btn, idx) {
+        btn.disabled = true;
+        btn.style.outline = (idx === correctIndex) ? '4px solid #22c55e' : 'none';
+        btn.style.outlineOffset = '0';
+        btn.style.filter = (idx === correctIndex) ? 'brightness(1.05)' : 'brightness(0.8)';
+      });
+      const correctOpt = quizCurrent.displayAnswers[correctIndex];
+      const correctText = correctOpt ? String(correctOpt.text || '') : '';
+      quizShowMessage('📖 <strong>Answer:</strong> <em>' + correctText + '</em>', false);
+    }
+
+    function quizMpPushCurrentQuestion() {
+      if (!quizIsMpHostMode() || !quizMp.connected || !quizCurrent) return;
+      quizMp.answers = { answered: 0, total: quizMp.answers.total || 0 };
+      quizMpRenderPresence();
+      quizMpSend({
+        type: 'host_next_question',
+        payload: {
+          question: quizCurrent.question,
+          answers: quizCurrent.displayAnswers.map(function(opt) { return opt.text; }),
+          correctIndex: quizCurrent.displayAnswers.findIndex(function(opt) {
+            return opt.originalIndex === quizCurrent.correctIndex;
+          })
+        }
+      });
+      quizMpSetStatus('Question sent to players.', false);
+    }
+
+    function quizMpEndGame() {
+      if (!quizIsMpHostMode()) {
+        quizMpSetStatus('Switch to Multiplayer Host mode first.', true);
+        return;
+      }
+      if (!quizMp.connected) {
+        quizMpSetStatus('Connect to the multiplayer server first.', true);
+        return;
+      }
+      quizMpSend({ type: 'host_end_game' });
+      quizMpSetStatus('Ending game and requesting final results...', false);
+    }
+
+    function quizMpHandleMessage(msg) {
+      if (!msg || typeof msg.type !== 'string') return;
+      if (msg.type === 'welcome') {
+        quizMpSetStatus('Connected as host.', false);
+      } else if (msg.type === 'presence') {
+        quizMp.players = Array.isArray(msg.players) ? msg.players : [];
+        if (Array.isArray(msg.leaderboard)) quizMp.leaderboard = msg.leaderboard;
+        quizMpRenderPresence();
+        quizMpRenderLeaderboard();
+      } else if (msg.type === 'answers') {
+        const data = msg.payload || {};
+        quizMp.answers = {
+          answered: Number(data.answered || 0),
+          total: Number(data.total || 0)
+        };
+        quizMpRenderPresence();
+      } else if (msg.type === 'reveal') {
+        const payload = msg.payload || {};
+        if (typeof payload.correctIndex === 'number') {
+          quizMpApplyReveal(payload.correctIndex);
+        }
+        if (Array.isArray(payload.leaderboard)) {
+          quizMp.leaderboard = payload.leaderboard;
+          quizMpRenderLeaderboard();
+        }
+        quizMpSetStatus('Answer revealed to all players.', false);
+      } else if (msg.type === 'final_results') {
+        const payload = msg.payload || {};
+        if (Array.isArray(payload.leaderboard)) {
+          quizMp.leaderboard = payload.leaderboard;
+          quizMpRenderLeaderboard();
+        }
+        const winner = payload.winner && payload.winner.name
+          ? (String(payload.winner.name) + ' (' + Number(payload.winner.score || 0) + ')')
+          : 'No winner yet';
+        const qEl = document.getElementById('quiz-question');
+        const grid = document.getElementById('quiz-choice-grid');
+        if (qEl) qEl.textContent = '🏁 Game finished. Final results are in.';
+        if (grid) grid.innerHTML = '';
+        quizCurrent = null;
+        quizAnswered = true;
+        quizShowMessage('🏆 <strong>Winner:</strong> ' + winner, false);
+        quizMpSetStatus('Game ended. Final results published to players.', false);
+      } else if (msg.type === 'error') {
+        quizMpSetStatus(String(msg.message || 'Server error'), true);
+      }
+    }
+
+    function quizMpDisconnect() {
+      if (quizMp.ws) {
+        try { quizMp.ws.close(); } catch (_) {}
+      }
+      quizMp.ws = null;
+      quizMp.connected = false;
+      quizMp.answers = { answered: 0, total: 0 };
+      if (quizIsMpHostMode()) {
+        quizMpSetStatus('Disconnected. Multiplayer host is offline.', true);
+      }
+      quizMpRenderPresence();
+      quizMpRenderLeaderboard();
+      quizRenderChoices();
+    }
+
+    async function quizMpConnect() {
+      if (!quizIsMpHostMode()) {
+        quizMpSetStatus('Switch to Multiplayer Host mode first.', true);
+        return;
+      }
+      const serverInput = document.getElementById('quiz-mp-server');
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      if (isElectron) {
+        quizMpSetStatus('Starting local multiplayer server...', false);
+        const serverInfo = await quizMpEnsureServerForElectron();
+        if (!serverInfo) {
+          quizMpSetStatus('Could not start local server in Electron.', true);
+          return;
+        }
+        if (serverInput && serverInfo.playerUrl) {
+          const base = String(serverInfo.playerUrl).replace(/\/quiz-player\.html$/i, '');
+          serverInput.value = base;
+        }
+        quizMpUpdateQrCode();
+      }
+      let wsUrl;
+      try {
+        wsUrl = quizMpBuildWsUrl();
+      } catch (_) {
+        quizMpSetStatus('Invalid server URL.', true);
+        return;
+      }
+      quizMpDisconnect();
+      let ws;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (_) {
+        quizMpSetStatus('Cannot open websocket connection.', true);
+        return;
+      }
+      quizMp.ws = ws;
+      quizMpSetStatus('Connecting to ' + wsUrl + ' ...', false);
+
+      ws.onopen = function() {
+        quizMp.connected = true;
+        quizMpSetStatus('Connected. Waiting for players.', false);
+        quizMpSend({ type: 'hello', role: 'host', name: 'Teacher' });
+        if (quizCurrent) quizMpPushCurrentQuestion();
+        quizRenderChoices();
+      };
+
+      ws.onmessage = function(event) {
+        let msg = null;
+        try { msg = JSON.parse(event.data); } catch (_) { return; }
+        quizMpHandleMessage(msg);
+      };
+
+      ws.onerror = function() {
+        quizMpSetStatus('Websocket error. Check server status.', true);
+      };
+
+      ws.onclose = function() {
+        quizMp.connected = false;
+        quizMpSetStatus('Connection closed.', true);
+        quizRenderChoices();
+      };
+    }
+
+    function quizApplyModeUi() {
+      const hostPanel = document.getElementById('quiz-mp-host-panel');
+      const joinEl = document.getElementById('quiz-mp-join-url');
+      const showHost = quizIsMpHostMode();
+      if (hostPanel) hostPanel.classList.toggle('hidden', !showHost);
+      if (joinEl) {
+        try { joinEl.textContent = quizMpJoinUrlForDisplay(); }
+        catch (_) { joinEl.textContent = 'http://localhost:8787/quiz-player.html'; }
+      }
+      if (!showHost) {
+        quizMpDisconnect();
+        quizMpSetStatus('Single player is active.', false);
+      } else if (!quizMp.connected) {
+        quizMpSetStatus('Multiplayer host mode selected. Connect to the local server.', false);
+      }
+      quizMpUpdateQrCode();
+      quizRenderChoices();
+    }
+
+    function quizGetSortMode() {
+      const el = document.getElementById('quiz-sort-mode');
+      return el ? String(el.value || 'random') : 'random';
+    }
+
+    function quizSortModeChanged() {
+      quizUsed = new Set();
+    }
+
+    function quizGetFilterField() {
+      const el = document.getElementById('quiz-filter-field');
+      return el ? String(el.value || 'none') : 'none';
+    }
+
+    function quizGetFilterValue() {
+      const el = document.getElementById('quiz-filter-value');
+      return el ? String(el.value || '').trim() : '';
+    }
+
+    function quizRefreshFilterOptions(preserveValue) {
+      const fieldEl = document.getElementById('quiz-filter-field');
+      const valueEl = document.getElementById('quiz-filter-value');
+      if (!fieldEl || !valueEl) return;
+
+      const field = quizGetFilterField();
+      const previous = preserveValue ? quizGetFilterValue().toLowerCase() : '';
+      const bank = Array.isArray(window.quizBank) ? window.quizBank : [];
+
+      valueEl.innerHTML = '';
+
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.textContent = 'All';
+      valueEl.appendChild(allOpt);
+
+      if (field === 'none') {
+        valueEl.disabled = true;
+        valueEl.value = '';
+        return;
+      }
+
+      const uniqueValues = new Set();
+      bank.forEach(function(item) {
+        const raw = String((item && item[field]) || '').trim();
+        if (!raw) return;
+        uniqueValues.add(raw);
+      });
+
+      const sortedValues = Array.from(uniqueValues).sort(function(a, b) {
+        return a.localeCompare(b, undefined, { sensitivity: 'base' });
+      });
+
+      sortedValues.forEach(function(val) {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = val;
+        valueEl.appendChild(opt);
+      });
+
+      valueEl.disabled = sortedValues.length === 0;
+      if (valueEl.disabled) {
+        valueEl.value = '';
+        return;
+      }
+
+      if (previous) {
+        const match = sortedValues.find(function(v) {
+          return String(v).toLowerCase() === previous;
+        });
+        valueEl.value = match || '';
+      } else {
+        valueEl.value = '';
+      }
+    }
+
+    function quizFilterFieldChanged() {
+      quizRefreshFilterOptions(true);
+      quizFilterChanged();
+    }
+
+    function quizFilterChanged() {
+      quizUsed = new Set();
+    }
+
+    function quizItemMatchesFilter(item) {
+      const field = quizGetFilterField();
+      const value = quizGetFilterValue();
+      if (field === 'none' || !value) return true;
+      const raw = String((item && item[field]) || '').trim();
+      return raw.toLowerCase() === value.toLowerCase();
+    }
+
+    function quizCompareByMeta(a, b, field, descending) {
+      const aValRaw = String((a && a[field]) || '').trim();
+      const bValRaw = String((b && b[field]) || '').trim();
+      const aMissing = !aValRaw;
+      const bMissing = !bValRaw;
+
+      if (aMissing && bMissing) {
+        return String((a && a.question) || '').localeCompare(String((b && b.question) || ''), undefined, { sensitivity: 'base' });
+      }
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+
+      const cmp = aValRaw.localeCompare(bValRaw, undefined, { sensitivity: 'base' });
+      if (cmp !== 0) return descending ? -cmp : cmp;
+      return String((a && a.question) || '').localeCompare(String((b && b.question) || ''), undefined, { sensitivity: 'base' });
+    }
 
     function quizUpdateStats() {
       const scoreEl = document.getElementById('quiz-score');
@@ -6059,10 +6578,29 @@ function renderSentenceWithGap(userInput) {
       exp.innerHTML = msg;
     }
 
+    function quizGetAnswerPalette(idx) {
+      const palette = [
+        { bg: '#2563eb', border: '#1d4ed8' },
+        { bg: '#dc2626', border: '#b91c1c' },
+        { bg: '#16a34a', border: '#15803d' },
+        { bg: '#eab308', border: '#ca8a04' }
+      ];
+      return palette[idx % palette.length];
+    }
+
+    function quizApplyAnswerPalette(btn, idx) {
+      const p = quizGetAnswerPalette(idx);
+      if (!btn || !p) return;
+      btn.style.background = p.bg;
+      btn.style.borderColor = p.border;
+      btn.style.color = (idx % 4 === 3) ? '#111111' : '#ffffff';
+    }
+
     function quizRenderChoices() {
       const grid = document.getElementById('quiz-choice-grid');
       if (!grid || !quizCurrent) return;
       grid.innerHTML = '';
+      const hostLocked = quizIsMpHostMode();
       quizCurrent.displayAnswers.forEach((opt, idx) => {
         const btn = document.createElement('button');
         btn.className = 'action-btn';
@@ -6073,7 +6611,14 @@ function renderSentenceWithGap(userInput) {
         btn.style.whiteSpace = 'normal';
         btn.style.lineHeight = '1.25';
         btn.textContent = opt.text;
-        btn.onclick = function() { quizSelectAnswer(idx); };
+        quizApplyAnswerPalette(btn, idx);
+        if (hostLocked) {
+          btn.disabled = true;
+          btn.style.opacity = '0.86';
+          btn.style.cursor = 'not-allowed';
+        } else {
+          btn.onclick = function() { quizSelectAnswer(idx); };
+        }
         grid.appendChild(btn);
       });
     }
@@ -6085,12 +6630,27 @@ function renderSentenceWithGap(userInput) {
         question: item.question,
         answers: item.answers,
         correctIndex: item.correctIndex,
+        theme: item.theme || '',
+        keyword: item.keyword || '',
         displayAnswers
       };
       quizAnswered = false;
       quizSeen++;
 
       document.getElementById('quiz-question').textContent = item.question;
+      const metaEl = document.getElementById('quiz-meta');
+      if (metaEl) {
+        const tags = [];
+        if (quizCurrent.theme) tags.push('Theme: ' + quizCurrent.theme);
+        if (quizCurrent.keyword) tags.push('Keyword: ' + quizCurrent.keyword);
+        if (tags.length) {
+          metaEl.textContent = tags.join(' | ');
+          metaEl.style.display = 'block';
+        } else {
+          metaEl.textContent = '';
+          metaEl.style.display = 'none';
+        }
+      }
       quizRenderChoices();
       const exp = document.getElementById('quiz-explanation');
       if (exp) {
@@ -6098,34 +6658,80 @@ function renderSentenceWithGap(userInput) {
         exp.innerHTML = '';
       }
       quizUpdateStats();
+      if (quizIsMpHostMode()) {
+        quizShowMessage('🌐 Multiplayer host mode: students answer on their own devices.', false);
+        quizMpPushCurrentQuestion();
+      }
     }
 
     function quizNextQuestion() {
       const bank = Array.isArray(window.quizBank) ? window.quizBank : [];
       const questionEl = document.getElementById('quiz-question');
       const grid = document.getElementById('quiz-choice-grid');
+      const metaEl = document.getElementById('quiz-meta');
       if (!questionEl || !grid) return;
 
       if (!bank.length) {
         quizCurrent = null;
         questionEl.textContent = 'No quiz questions found. Add user/custom-data/quizzes/quiz.js.';
         grid.innerHTML = '';
-        quizShowMessage('Expected keys: question, answer 1, answer 2, answer 3, answer 4, correctAnswer.', true);
+        if (metaEl) {
+          metaEl.textContent = '';
+          metaEl.style.display = 'none';
+        }
+        quizShowMessage('Expected keys: question, answer 1, answer 2, answer 3, answer 4, correctAnswer. Optional: theme, keyword.', true);
         return;
       }
 
-      let candidates = bank.filter((_, idx) => !quizUsed.has(idx));
+      const filteredBank = bank.filter(function(item) {
+        return quizItemMatchesFilter(item);
+      });
+
+      if (!filteredBank.length) {
+        quizCurrent = null;
+        questionEl.textContent = 'No quiz questions match the current filter.';
+        grid.innerHTML = '';
+        if (metaEl) {
+          metaEl.textContent = '';
+          metaEl.style.display = 'none';
+        }
+        quizShowMessage('Change or clear the filter to continue.', true);
+        return;
+      }
+
+      let candidates = bank
+        .map((item, idx) => ({ item, idx }))
+        .filter(entry => !quizUsed.has(entry.idx) && quizItemMatchesFilter(entry.item));
+
       if (!candidates.length) {
         quizUsed = new Set();
-        candidates = bank.slice();
+        candidates = bank
+          .map((item, idx) => ({ item, idx }))
+          .filter(entry => quizItemMatchesFilter(entry.item));
       }
-      const picked = candidates[Math.floor(Math.random() * candidates.length)];
-      const pickedIdx = bank.indexOf(picked);
-      if (pickedIdx >= 0) quizUsed.add(pickedIdx);
-      quizLoadQuestion(picked);
+
+      const sortMode = quizGetSortMode();
+      if (sortMode === 'theme-az') {
+        candidates.sort((a, b) => quizCompareByMeta(a.item, b.item, 'theme', false));
+      } else if (sortMode === 'theme-za') {
+        candidates.sort((a, b) => quizCompareByMeta(a.item, b.item, 'theme', true));
+      } else if (sortMode === 'keyword-az') {
+        candidates.sort((a, b) => quizCompareByMeta(a.item, b.item, 'keyword', false));
+      } else if (sortMode === 'keyword-za') {
+        candidates.sort((a, b) => quizCompareByMeta(a.item, b.item, 'keyword', true));
+      }
+
+      const pickedEntry = sortMode === 'random'
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : candidates[0];
+
+      if (!pickedEntry || !pickedEntry.item) return;
+      quizUsed.add(pickedEntry.idx);
+      quizLoadQuestion(pickedEntry.item);
     }
 
     function quizSelectAnswer(displayIdx) {
+      if (quizIsMpHostMode()) return;
       if (!quizCurrent || quizAnswered) return;
       quizAnswered = true;
 
@@ -6136,8 +6742,11 @@ function renderSentenceWithGap(userInput) {
         btn.disabled = true;
         const answer = quizCurrent.displayAnswers[idx];
         if (!answer) return;
-        if (answer.originalIndex === quizCurrent.correctIndex) btn.classList.add('btn-blue');
-        if (idx === displayIdx && answer.originalIndex !== quizCurrent.correctIndex) btn.classList.add('btn-orange');
+        const isCorrectOption = answer.originalIndex === quizCurrent.correctIndex;
+        const isWrongSelection = idx === displayIdx && !isCorrectOption;
+        btn.style.outline = isCorrectOption ? '4px solid #22c55e' : (isWrongSelection ? '4px solid #f87171' : 'none');
+        btn.style.outlineOffset = '0';
+        btn.style.filter = isCorrectOption ? 'brightness(1.05)' : (isWrongSelection ? 'brightness(0.92)' : 'brightness(0.76)');
       });
 
       const correctText = quizCurrent.answers[quizCurrent.correctIndex] || '';
@@ -6159,6 +6768,10 @@ function renderSentenceWithGap(userInput) {
 
     function quizRevealAnswer() {
       if (!quizCurrent || quizAnswered) return;
+      if (quizIsMpHostMode() && quizMp.connected) {
+        quizMpSend({ type: 'host_reveal' });
+        return;
+      }
       quizAnswered = true;
       quizStreak = 0;
       awardPoints(POINTS_LOSE);
@@ -6167,7 +6780,10 @@ function renderSentenceWithGap(userInput) {
       buttons.forEach((btn, idx) => {
         btn.disabled = true;
         const answer = quizCurrent.displayAnswers[idx];
-        if (answer && answer.originalIndex === quizCurrent.correctIndex) btn.classList.add('btn-blue');
+        const isCorrectOption = answer && answer.originalIndex === quizCurrent.correctIndex;
+        btn.style.outline = isCorrectOption ? '4px solid #22c55e' : 'none';
+        btn.style.outlineOffset = '0';
+        btn.style.filter = isCorrectOption ? 'brightness(1.05)' : 'brightness(0.76)';
       });
       quizShowMessage('📖 <strong>Answer:</strong> <em>' + correctText + '</em>', false);
       quizUpdateStats();
@@ -6176,6 +6792,17 @@ function renderSentenceWithGap(userInput) {
 
     async function quizInit() {
       await ensureCustomQuizLoaded();
+      quizRefreshFilterOptions(false);
+      const serverInput = document.getElementById('quiz-mp-server');
+      if (serverInput) {
+        if (!String(serverInput.value || '').trim()) {
+          const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+          serverInput.value = isElectron ? 'http://localhost:8787' : location.origin;
+        }
+        serverInput.addEventListener('input', quizMpUpdateQrCode);
+        serverInput.addEventListener('change', quizMpUpdateQrCode);
+      }
+      quizApplyModeUi();
       quizUpdateStats();
       if (!quizCurrent) quizNextQuestion();
     }
@@ -6741,7 +7368,7 @@ function renderSentenceWithGap(userInput) {
         const step = wwSteps[wwCurrentStep];
         title = step.title;
         message = step.text;
-        turnLabel = 'Turn ' + (wwCurrentStep + 1) + ' of ' + wwSteps.length;
+        turnLabel = wwGetTurnCounterText();
       } else if (wwCurrentStep >= wwSteps.length && wwSteps.length) {
         title = 'Round Complete';
         message = 'Click Start Night to run another cycle, or edit instructions first.';
@@ -6907,6 +7534,7 @@ function renderSentenceWithGap(userInput) {
     const WW_SOUND_STORAGE_KEY = 'werewolf_kill_sound_v1';
     const WW_TURN_SOUND_STORAGE_KEY = 'werewolf_turn_sounds_v1';
     const WW_AUTO_STORAGE_KEY = 'werewolf_auto_settings_v1';
+    const WW_VOTE_TIMER_STORAGE_KEY = 'werewolf_vote_timer_v1';
     const WW_CUSTOM_REL_PATH = 'werewolf/werewolf-custom.js';
     const WW_ROLES_REL_PATH = 'werewolf/werewolves-roles.js';
     let wwActiveCustomRelPath = WW_CUSTOM_REL_PATH;
@@ -6935,6 +7563,13 @@ function renderSentenceWithGap(userInput) {
     let wwTurnKillStepEnabledByStep = {};
     let wwTurnAudio = null;
     let wwTurnSoundChoiceResolver = null;
+    let wwVoteTimerState = {
+      running: false,
+      stepKey: '',
+      endsAt: 0,
+      tickId: null,
+      timeoutId: null
+    };
 
     function wwSetStatus(msg, isOk) {
       const el = document.getElementById('ww-save-status');
@@ -7581,6 +8216,8 @@ function renderSentenceWithGap(userInput) {
         settings: {
           autoAdvanceEnabled: !!(document.getElementById('ww-auto-enable') && document.getElementById('ww-auto-enable').checked),
           autoAdvanceSeconds: Math.max(2, Math.min(120, parseInt((document.getElementById('ww-auto-seconds') || {}).value, 10) || 8)),
+          voteTimerEnabled: !!(document.getElementById('ww-vote-timer-enable') && document.getElementById('ww-vote-timer-enable').checked),
+          voteTimerSeconds: Math.max(5, Math.min(180, parseInt((document.getElementById('ww-vote-timer-seconds') || {}).value, 10) || 30)),
           killSound: String((document.getElementById('ww-kill-sound-select') || {}).value || ''),
           turnSounds,
           turnSoundChoices,
@@ -7634,9 +8271,13 @@ function renderSentenceWithGap(userInput) {
 
       const autoEnable = document.getElementById('ww-auto-enable');
       const autoSeconds = document.getElementById('ww-auto-seconds');
+      const voteEnable = document.getElementById('ww-vote-timer-enable');
+      const voteSeconds = document.getElementById('ww-vote-timer-seconds');
       const killSel = document.getElementById('ww-kill-sound-select');
       if (autoEnable) autoEnable.checked = !!set.autoAdvanceEnabled;
       if (autoSeconds) autoSeconds.value = String(Math.max(2, Math.min(120, parseInt(set.autoAdvanceSeconds, 10) || 8)));
+      if (voteEnable) voteEnable.checked = set.voteTimerEnabled !== false;
+      if (voteSeconds) voteSeconds.value = String(Math.max(5, Math.min(180, parseInt(set.voteTimerSeconds, 10) || 30)));
       if (killSel) killSel.value = String(set.killSound || '');
 
       wwTurnSoundsByStep = {};
@@ -7693,7 +8334,9 @@ function renderSentenceWithGap(userInput) {
       if (safe.group) wwSetGroup(String(safe.group));
       else wwRenderStudents();
 
+      wwStopVoteTimer();
       wwStoreAutoSettings();
+      wwStoreVoteTimerSettings();
       wwOnKillSoundChange();
       wwStoreTurnSoundSettings();
       wwBuildSteps();
@@ -8202,6 +8845,124 @@ function renderSentenceWithGap(userInput) {
       const enabled = !!(document.getElementById('ww-auto-enable') && document.getElementById('ww-auto-enable').checked);
       const seconds = Math.max(2, Math.min(120, parseInt((document.getElementById('ww-auto-seconds') || {}).value, 10) || 8));
       return { enabled, seconds };
+    }
+
+    function wwStoreVoteTimerSettings() {
+      const enabled = !!(document.getElementById('ww-vote-timer-enable') && document.getElementById('ww-vote-timer-enable').checked);
+      const seconds = Math.max(5, Math.min(180, parseInt((document.getElementById('ww-vote-timer-seconds') || {}).value, 10) || 30));
+      try { localStorage.setItem(WW_VOTE_TIMER_STORAGE_KEY, JSON.stringify({ enabled, seconds })); } catch (e) {}
+    }
+
+    function wwLoadVoteTimerSettings() {
+      let saved = { enabled: true, seconds: 30 };
+      try {
+        const parsed = JSON.parse(localStorage.getItem(WW_VOTE_TIMER_STORAGE_KEY) || '{}');
+        if (parsed && typeof parsed === 'object') saved = parsed;
+      } catch (e) {}
+
+      const voteEnable = document.getElementById('ww-vote-timer-enable');
+      const voteSeconds = document.getElementById('ww-vote-timer-seconds');
+      if (voteEnable) voteEnable.checked = saved.enabled !== false;
+      if (voteSeconds) voteSeconds.value = String(Math.max(5, Math.min(180, parseInt(saved.seconds, 10) || 30)));
+    }
+
+    function wwGetVoteTimerConfig() {
+      const enabled = !!(document.getElementById('ww-vote-timer-enable') && document.getElementById('ww-vote-timer-enable').checked);
+      const seconds = Math.max(5, Math.min(180, parseInt((document.getElementById('ww-vote-timer-seconds') || {}).value, 10) || 30));
+      return { enabled, seconds };
+    }
+
+    function wwGetCurrentStepEntry() {
+      return (wwCurrentStep >= 0 && wwCurrentStep < wwSteps.length) ? wwSteps[wwCurrentStep] : null;
+    }
+
+    function wwFormatCountdown(totalSeconds) {
+      const safe = Math.max(0, Math.ceil(Number(totalSeconds) || 0));
+      const minutes = Math.floor(safe / 60);
+      const seconds = safe % 60;
+      return minutes + ':' + String(seconds).padStart(2, '0');
+    }
+
+    function wwGetVoteTimerRemainingSeconds() {
+      if (!wwVoteTimerState.running) return 0;
+      return Math.max(0, Math.ceil((wwVoteTimerState.endsAt - Date.now()) / 1000));
+    }
+
+    function wwGetTurnCounterText() {
+      if (wwCurrentStep < 0 || wwCurrentStep >= wwSteps.length) {
+        return 'Round complete';
+      }
+
+      const cfg = wwGetVoteTimerConfig();
+      const step = wwGetCurrentStepEntry();
+      const base = 'Turn ' + (wwCurrentStep + 1) + ' of ' + wwSteps.length;
+      if (step && step.key === 'vote' && cfg.enabled) {
+        const remaining = wwVoteTimerState.running ? wwGetVoteTimerRemainingSeconds() : cfg.seconds;
+        return base + ' • vote ' + wwFormatCountdown(remaining);
+      }
+      return base;
+    }
+
+    function wwStopVoteTimer() {
+      if (wwVoteTimerState.tickId) clearInterval(wwVoteTimerState.tickId);
+      if (wwVoteTimerState.timeoutId) clearTimeout(wwVoteTimerState.timeoutId);
+      wwVoteTimerState.running = false;
+      wwVoteTimerState.stepKey = '';
+      wwVoteTimerState.endsAt = 0;
+      wwVoteTimerState.tickId = null;
+      wwVoteTimerState.timeoutId = null;
+    }
+
+    function wwRefreshVoteTimerDisplay() {
+      const counterEl = document.getElementById('ww-turn-counter');
+      if (counterEl) counterEl.textContent = wwGetTurnCounterText();
+      wwBroadcastPresentation();
+    }
+
+    function wwScheduleVoteTimer() {
+      const step = wwGetCurrentStepEntry();
+      const cfg = wwGetVoteTimerConfig();
+
+      if (!step || step.key !== 'vote' || !cfg.enabled) {
+        if (wwVoteTimerState.running) {
+          wwStopVoteTimer();
+        }
+        return;
+      }
+
+      if (wwVoteTimerState.running && wwVoteTimerState.stepKey === step.key) {
+        return;
+      }
+
+      wwStopVoteTimer();
+      wwVoteTimerState.running = true;
+      wwVoteTimerState.stepKey = step.key;
+      wwVoteTimerState.endsAt = Date.now() + cfg.seconds * 1000;
+
+      wwVoteTimerState.tickId = setInterval(() => {
+        if (!wwVoteTimerState.running || wwVoteTimerState.stepKey !== step.key) return;
+        if (Date.now() >= wwVoteTimerState.endsAt) {
+          wwStopVoteTimer();
+          wwNextTurn();
+          return;
+        }
+        wwRefreshVoteTimerDisplay();
+      }, 1000);
+
+      wwVoteTimerState.timeoutId = setTimeout(() => {
+        if (!wwVoteTimerState.running || wwVoteTimerState.stepKey !== step.key) return;
+        wwStopVoteTimer();
+        wwNextTurn();
+      }, cfg.seconds * 1000);
+    }
+
+    function wwOnVoteTimerSettingsChanged() {
+      wwStoreVoteTimerSettings();
+      wwStopVoteTimer();
+      if (wwCurrentStep >= 0 && wwCurrentStep < wwSteps.length) {
+        wwRenderCurrentStep();
+      }
+      wwBroadcastPresentation();
     }
 
     function wwStopAutoAdvance() {
@@ -8968,10 +9729,10 @@ function renderSentenceWithGap(userInput) {
       }
 
       const step = wwSteps[wwCurrentStep];
-      const autoCfg = wwGetAutoConfig();
       titleEl.textContent = step.title;
       msgEl.textContent = step.text;
-      counterEl.textContent = 'Turn ' + (wwCurrentStep + 1) + ' of ' + wwSteps.length + (autoCfg.enabled ? (' • auto ' + autoCfg.seconds + 's') : '');
+      wwScheduleVoteTimer();
+      counterEl.textContent = wwGetTurnCounterText();
       wwRenderKillPickerForCurrentStep();
       wwAnimateTurnCard();
       wwRenderProgress();
@@ -8980,6 +9741,7 @@ function renderSentenceWithGap(userInput) {
 
     async function wwStartNight() {
       wwStopAutoAdvance();
+      wwStopVoteTimer();
       wwBuildSteps();
       wwCurrentStep = 0;
       wwRenderCurrentStep();
@@ -8992,6 +9754,7 @@ function renderSentenceWithGap(userInput) {
         await wwStartNight();
         return;
       }
+      wwStopVoteTimer();
       if (wwCurrentStep < 0) {
         wwCurrentStep = 0;
       } else {
@@ -9008,6 +9771,7 @@ function renderSentenceWithGap(userInput) {
 
     function wwResetRound() {
       wwStopAutoAdvance();
+      wwStopVoteTimer();
       wwBuildSteps();
       wwCurrentStep = -1;
       const titleEl = document.getElementById('ww-turn-title');
@@ -9025,6 +9789,7 @@ function renderSentenceWithGap(userInput) {
       wwBootProjectionReceiverIfNeeded();
       wwLoadDeadState();
       wwLoadAutoSettings();
+      wwLoadVoteTimerSettings();
       wwLoadTurnSoundSettings();
       wwRenderRoles();
       wwRenderStepOrderList();
@@ -9848,8 +10613,8 @@ function renderSentenceWithGap(userInput) {
           input.autocomplete    = 'off';
           input.autocorrect     = 'off';
           input.spellcheck      = false;
-          // Width based on word length
-          const charWidth = Math.max(22, tok.length * 12);
+          // Width based on word length (extra room improves readability for longer words)
+          const charWidth = Math.max(34, Math.ceil(tok.length * 13) + 12);
           input.style.width = charWidth + 'px';
           input.style.minWidth = charWidth + 'px';
           ghost.style.minWidth = charWidth + 'px';

@@ -326,6 +326,21 @@
     return getDesktopApi().remoteNewToken();
   }
 
+  async function quizServerStart(port) {
+    if (!isElectron()) return null;
+    return getDesktopApi().quizServerStart({ port });
+  }
+
+  async function quizServerStop() {
+    if (!isElectron()) return null;
+    return getDesktopApi().quizServerStop();
+  }
+
+  async function quizServerStatus() {
+    if (!isElectron()) return null;
+    return getDesktopApi().quizServerStatus();
+  }
+
   async function printPdf(request) {
     if (!isElectron()) return null;
     return getDesktopApi().printPdf(request);
@@ -439,7 +454,10 @@
     remoteStop,
     remoteStatus,
     remotePushState,
-    remoteNewToken
+    remoteNewToken,
+    quizServerStart,
+    quizServerStop,
+    quizServerStatus
   });
 
   // In Electron, intercept app-nav links so they open in a new tool window

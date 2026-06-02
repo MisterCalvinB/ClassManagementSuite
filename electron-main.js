@@ -5,6 +5,7 @@ const path = require('path');
 const zlib = require('zlib');
 const os   = require('os');
 const http = require('http');
+const { spawn } = require('child_process');
 
 const ROOT_DIR = __dirname;
 const PAGE_FILES = {
@@ -3599,6 +3600,86 @@ ipcMain.handle('app:remote-new-token', async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// QUIZ MULTIPLAYER LOCAL SERVER (Electron-managed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _quizServerProc = null;
+let _quizServerPort = 8787;
+
+function _quizStatus() {
+  const ip = _remoteGetLocalIp();
+  const running = !!(_quizServerProc && !_quizServerProc.killed && _quizServerProc.exitCode == null);
+  return {
+    running,
+    port: _quizServerPort,
+    ip,
+    hostUrl: `http://${ip}:${_quizServerPort}/learning-tools.html`,
+    playerUrl: `http://${ip}:${_quizServerPort}/quiz-player.html`
+  };
+}
+
+function stopQuizServer() {
+  if (!_quizServerProc) return { ok: true, ..._quizStatus() };
+  try {
+    _quizServerProc.kill();
+  } catch (_) {}
+  _quizServerProc = null;
+  return { ok: true, ..._quizStatus() };
+}
+
+function startQuizServer(port) {
+  if (_quizServerProc && !_quizServerProc.killed && _quizServerProc.exitCode == null) {
+    return { ok: true, ..._quizStatus() };
+  }
+
+  const requestedPort = Number(port) || 8787;
+  const scriptPath = path.join(ROOT_DIR, 'quiz-multiplayer-server.js');
+  if (!fsSync.existsSync(scriptPath)) {
+    return { ok: false, error: 'quiz-multiplayer-server.js not found.' };
+  }
+
+  _quizServerPort = requestedPort;
+  const env = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    QUIZ_PORT: String(requestedPort)
+  };
+
+  try {
+    const child = spawn(process.execPath, [scriptPath], {
+      cwd: ROOT_DIR,
+      env,
+      detached: false,
+      stdio: 'ignore',
+      windowsHide: true
+    });
+    child.on('exit', () => {
+      if (_quizServerProc === child) _quizServerProc = null;
+    });
+    child.on('error', () => {
+      if (_quizServerProc === child) _quizServerProc = null;
+    });
+    _quizServerProc = child;
+    return { ok: true, ..._quizStatus() };
+  } catch (error) {
+    _quizServerProc = null;
+    return { ok: false, error: error && error.message ? error.message : 'Failed to start quiz server.' };
+  }
+}
+
+ipcMain.handle('app:quiz-server-start', async (_event, { port } = {}) => {
+  return startQuizServer(port || 8787);
+});
+
+ipcMain.handle('app:quiz-server-stop', async () => {
+  return stopQuizServer();
+});
+
+ipcMain.handle('app:quiz-server-status', async () => {
+  return _quizStatus();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -3652,4 +3733,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  stopQuizServer();
 });

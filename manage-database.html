@@ -1215,6 +1215,14 @@
                     <option value="4">Answer 4</option>
                   </select>
                 </div>
+                <div class="aw-field">
+                  <label>Theme</label>
+                  <input type="text" id="aw-quiz-theme" placeholder="e.g. Grammar, Travel">
+                </div>
+                <div class="aw-field">
+                  <label>Keyword</label>
+                  <input type="text" id="aw-quiz-keyword" placeholder="e.g. present simple, holidays">
+                </div>
               </div>
               <div id="aw-quiz-feedback" class="aw-feedback"></div>
               <div id="aw-quiz-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
@@ -1234,7 +1242,9 @@
     "answer 2": "She goes to school every day.",
     "answer 3": "She going to school every day.",
     "answer 4": "She gone to school every day.",
-    "correctAnswer": "She goes to school every day."
+    "correctAnswer": "She goes to school every day.",
+    "theme": "Grammar",
+    "keyword": "present simple"
   }
 ]'></textarea>
               <div style="text-align:center;margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -3321,7 +3331,9 @@ function hideFailure() {
             item['answer 2'],
             item['answer 3'],
             item['answer 4'],
-            item.correctAnswer
+            item.correctAnswer,
+            item.theme,
+            item.keyword
           ].map(v => String(v || '').toLowerCase()).some(v => v.includes(q));
         });
       }
@@ -3338,6 +3350,10 @@ function hideFailure() {
         const answers = [item['answer 1'], item['answer 2'], item['answer 3'], item['answer 4']]
           .map(v => String(v || ''));
         const correct = String(item.correctAnswer || '').trim().toLowerCase();
+        const meta = [
+          item.theme ? `<span class="meta-badge">Theme: ${String(item.theme)}</span>` : '',
+          item.keyword ? `<span class="meta-badge">Keyword: ${String(item.keyword)}</span>` : ''
+        ].filter(Boolean).join(' ');
         const answerHtml = answers.map((ans, i) => {
           const isCorrect = correct && correct === ans.trim().toLowerCase();
           return `<div style="margin-top:4px;font-size:0.9rem;${isCorrect ? 'font-weight:700;color:#176b2a;' : 'color:#333;'}">${i + 1}. ${ans}</div>`;
@@ -3345,6 +3361,7 @@ function hideFailure() {
         const editBtn = `<button class="action-btn btn-grey" style="font-size:0.8rem;padding:4px 10px;" data-q="${encodedQuestion}" onclick="qzEditCustom(this.dataset.q)">✏ Edit</button>`;
         return `<div class="vocab-grid-card" style="max-width:920px;margin:10px auto;text-align:left;cursor:default;">
           <div style="font-size:1rem;font-weight:700;line-height:1.45;">${String(item.question || '')}</div>
+          ${meta ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${meta}</div>` : ''}
           <div style="margin-top:6px;">${answerHtml}</div>
           <div style="margin-top:8px;display:flex;justify-content:flex-end;">${editBtn}</div>
         </div>`;
@@ -3369,6 +3386,8 @@ function hideFailure() {
           'answer 3': source['answer 3'] || '',
           'answer 4': source['answer 4'] || '',
           correctAnswer: source.correctAnswer || source['answer 1'] || '',
+          theme: source.theme || '',
+          keyword: source.keyword || '',
           _custom: true
         };
         custom.push(promoted);
@@ -4095,6 +4114,16 @@ function hideFailure() {
     function awNormalizeQuizEntry(obj) {
       if (!obj || typeof obj !== 'object') return null;
       const question = String(obj.question || '').trim();
+      const theme = Array.isArray(obj.theme)
+        ? obj.theme.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+        : Array.isArray(obj.themes)
+          ? obj.themes.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+          : String(obj.theme ?? obj.themes ?? '').trim();
+      const keyword = Array.isArray(obj.keyword)
+        ? obj.keyword.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+        : Array.isArray(obj.keywords)
+          ? obj.keywords.map(v => String(v || '').trim()).filter(Boolean).join(', ')
+          : String(obj.keyword ?? obj.keywords ?? '').trim();
       const answers = [
         obj['answer 1'] ?? obj.answer1,
         obj['answer 2'] ?? obj.answer2,
@@ -4121,6 +4150,8 @@ function hideFailure() {
         'answer 3': answers[2],
         'answer 4': answers[3],
         correctAnswer: answers[idx],
+        theme,
+        keyword,
         _custom: true
       };
     }
@@ -4395,7 +4426,7 @@ function hideFailure() {
     }
 
     function awClearQuiz() {
-      ['aw-quiz-question','aw-quiz-a1','aw-quiz-a2','aw-quiz-a3','aw-quiz-a4'].forEach(id => {
+      ['aw-quiz-question','aw-quiz-a1','aw-quiz-a2','aw-quiz-a3','aw-quiz-a4','aw-quiz-theme','aw-quiz-keyword'].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = '';
       });
       const sel = document.getElementById('aw-quiz-correct');
@@ -4417,6 +4448,8 @@ function hideFailure() {
       document.getElementById('aw-quiz-a2').value = q['answer 2'] || '';
       document.getElementById('aw-quiz-a3').value = q['answer 3'] || '';
       document.getElementById('aw-quiz-a4').value = q['answer 4'] || '';
+      document.getElementById('aw-quiz-theme').value = q.theme || '';
+      document.getElementById('aw-quiz-keyword').value = q.keyword || '';
 
       const answers = [q['answer 1'], q['answer 2'], q['answer 3'], q['answer 4']].map(v => String(v || '').trim());
       const ci = answers.findIndex(a => a.toLowerCase() === String(q.correctAnswer || '').trim().toLowerCase());
@@ -4445,6 +4478,8 @@ function hideFailure() {
       const a3 = String(document.getElementById('aw-quiz-a3')?.value || '').trim();
       const a4 = String(document.getElementById('aw-quiz-a4')?.value || '').trim();
       const cIdx = Number(String(document.getElementById('aw-quiz-correct')?.value || '1'));
+      const theme = String(document.getElementById('aw-quiz-theme')?.value || '').trim();
+      const keyword = String(document.getElementById('aw-quiz-keyword')?.value || '').trim();
       const answers = [a1, a2, a3, a4];
 
       if (!question || answers.some(a => !a)) {
@@ -4459,6 +4494,8 @@ function hideFailure() {
         'answer 3': a3,
         'answer 4': a4,
         correctAnswer: answers[Math.max(1, Math.min(4, cIdx)) - 1],
+        theme,
+        keyword,
         _custom: true
       };
 
@@ -5829,13 +5866,16 @@ Format:
     "answer 2": "She goes to school every day.",
     "answer 3": "She going to school every day.",
     "answer 4": "She gone to school every day.",
-    "correctAnswer": "She goes to school every day."
+    "correctAnswer": "She goes to school every day.",
+    "theme": "Grammar",
+    "keyword": "present simple"
   }
 ]
 
 Rules:
 - Include all keys exactly as shown.
 - "correctAnswer" must match one of the 4 answer strings exactly.
+- Include "theme" and "keyword" whenever they are known; use an empty string if not.
 - No markdown or explanation text.`;
       awCopyPromptText(btn, template, 'aw-quiz-json-input');
     }

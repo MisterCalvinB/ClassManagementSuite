@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Note Input</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #dbe3ef;
+      --brand: #0f766e;
+      --brand-dark: #0b5f58;
+      --ok: #166534;
+      --bad: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 0% 0%, #dbeafe, transparent 52%),
+        radial-gradient(circle at 100% 100%, #ccfbf1, transparent 46%),
+        var(--bg);
+    }
+    .card {
+      max-width: 760px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.09);
+      padding: 16px;
+    }
+    h1 {
+      margin: 4px 0 6px;
+      font-size: 1.55rem;
+      text-align: center;
+    }
+    .sub {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #334155;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    select,
+    input,
+    textarea,
+    button {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 11px;
+      font-size: 0.98rem;
+      font-family: inherit;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+      line-height: 1.35;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      background: #f8fafc;
+    }
+    button.primary {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand-dark);
+    }
+    button.primary:hover { background: var(--brand-dark); }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .status {
+      margin-top: 10px;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      text-align: center;
+    }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    .meta {
+      margin-top: 10px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #334155;
+      font-size: 0.88rem;
+    }
+    @media (max-width: 760px) {
+      .row { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Student Note Input</h1>
+    <div class="sub">Pick your class and name, write your message, and send it.</div>
+
+    <div class="row">
+      <div>
+        <label for="class-picker">Class</label>
+        <select id="class-picker"></select>
+      </div>
+      <div>
+        <label for="name-picker">Name</label>
+        <select id="name-picker"></select>
+      </div>
+      <div>
+        <label for="server-url">Server</label>
+        <input id="server-url" type="text" placeholder="http://localhost:8787" />
+      </div>
+    </div>
+
+    <div>
+      <label for="message-input">Your note</label>
+      <textarea id="message-input" maxlength="600" placeholder="Write your contribution here..."></textarea>
+    </div>
+
+    <div class="toolbar">
+      <button id="connect-btn" type="button">Connect</button>
+      <button id="send-btn" class="primary" type="button">Send</button>
+      <button id="disconnect-btn" type="button">Disconnect</button>
+    </div>
+
+    <div id="status" class="status">Waiting for setup...</div>
+    <div id="meta" class="meta"></div>
+  </div>
+
+  <script src="user/class-groups.js"></script>
+  <script>
+    const classPicker = document.getElementById('class-picker');
+    const namePicker = document.getElementById('name-picker');
+    const serverInput = document.getElementById('server-url');
+    const messageInput = document.getElementById('message-input');
+    const connectBtn = document.getElementById('connect-btn');
+    const sendBtn = document.getElementById('send-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const statusEl = document.getElementById('status');
+    const metaEl = document.getElementById('meta');
+
+    const query = new URLSearchParams(location.search);
+    const noteId = String(query.get('note') || '').trim();
+    const classFromUrl = String(query.get('class') || '').trim();
+
+    let ws = null;
+    let connected = false;
+
+    function setStatus(text, tone) {
+      statusEl.textContent = String(text || '');
+      statusEl.className = 'status';
+      if (tone === 'ok') statusEl.classList.add('ok');
+      if (tone === 'bad') statusEl.classList.add('bad');
+    }
+
+    function setButtons() {
+      connectBtn.disabled = connected;
+      disconnectBtn.disabled = !connected;
+      sendBtn.disabled = !connected;
+      classPicker.disabled = connected;
+      namePicker.disabled = connected;
+      serverInput.disabled = connected;
+    }
+
+    function wsUrlFromServerInput() {
+      let base = String(serverInput.value || '').trim();
+      if (!base) base = location.origin;
+      if (!/^https?:\/\//i.test(base) && !/^wss?:\/\//i.test(base)) {
+        base = 'http://' + base;
+      }
+      if (/^wss?:\/\//i.test(base)) {
+        const clean = base.replace(/\/+$/, '');
+        return /\/note-ws$/i.test(clean) ? clean : (clean + '/note-ws');
+      }
+      const u = new URL(base);
+      const proto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+      return proto + '//' + u.host + '/note-ws';
+    }
+
+    function buildMeta() {
+      const className = String(classPicker.value || '');
+      const studentName = String(namePicker.value || '');
+      const roomText = noteId ? noteId : '(missing room id)';
+      metaEl.innerHTML = '<strong>Room:</strong> ' + roomText + ' | <strong>Class:</strong> ' + (className || '-') + ' | <strong>Name:</strong> ' + (studentName || '-');
+    }
+
+    function normalizeClassGroups() {
+      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return {};
+      const out = {};
+      Object.keys(CLASS_GROUPS).forEach(function (key) {
+        const names = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key] : [];
+        out[key] = names.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
+      });
+      return out;
+    }
+
+    function refillNames() {
+      const groups = normalizeClassGroups();
+      const className = String(classPicker.value || '');
+      const names = Array.isArray(groups[className]) ? groups[className] : [];
+      namePicker.innerHTML = '';
+      if (!names.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No students found';
+        namePicker.appendChild(opt);
+        return;
+      }
+      names.forEach(function (name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        namePicker.appendChild(opt);
+      });
+      buildMeta();
+    }
+
+    function fillClasses() {
+      const groups = normalizeClassGroups();
+      const keys = Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); });
+      const visibleKeys = classFromUrl && keys.includes(classFromUrl) ? [classFromUrl] : keys;
+      classPicker.innerHTML = '';
+      if (!visibleKeys.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No classes found';
+        classPicker.appendChild(opt);
+        refillNames();
+        return;
+      }
+      visibleKeys.forEach(function (key) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = key;
+        classPicker.appendChild(opt);
+      });
+      if (classFromUrl && visibleKeys.includes(classFromUrl)) {
+        classPicker.value = classFromUrl;
+      }
+      classPicker.disabled = !!classFromUrl;
+      refillNames();
+    }
+
+    function disconnect() {
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+      ws = null;
+      connected = false;
+      setButtons();
+      setStatus('Disconnected.', 'bad');
+    }
+
+    function connect() {
+      if (!noteId) {
+        setStatus('Missing room id in URL. Ask your teacher for a new QR/link.', 'bad');
+        return;
+      }
+      const className = String(classPicker.value || '').trim();
+      const studentName = String(namePicker.value || '').trim();
+      if (!className) {
+        setStatus('Select your class first.', 'bad');
+        return;
+      }
+      if (!studentName) {
+        setStatus('Select your name first.', 'bad');
+        return;
+      }
+
+      disconnect();
+      let url = '';
+      try {
+        url = wsUrlFromServerInput();
+      } catch (_) {
+        setStatus('Invalid server URL.', 'bad');
+        return;
+      }
+
+      setStatus('Connecting...', '');
+      try {
+        ws = new WebSocket(url);
+      } catch (_) {
+        setStatus('Could not open websocket.', 'bad');
+        return;
+      }
+
+      ws.onopen = function () {
+        connected = true;
+        setButtons();
+        ws.send(JSON.stringify({
+          type: 'hello',
+          role: 'note-student',
+          noteId: noteId,
+          classGroup: className,
+          name: studentName
+        }));
+      };
+
+      ws.onmessage = function (event) {
+        let msg = null;
+        try { msg = JSON.parse(event.data); } catch (_) { return; }
+        if (!msg || !msg.type) return;
+
+        if (msg.type === 'welcome') {
+          setStatus('Connected. You can now send your note.', 'ok');
+        } else if (msg.type === 'note_ack') {
+          messageInput.value = '';
+          setStatus('Sent to teacher.', 'ok');
+        } else if (msg.type === 'status') {
+          const text = String((msg.payload && msg.payload.message) || 'Status update');
+          setStatus(text, '');
+        } else if (msg.type === 'error') {
+          setStatus(String(msg.message || 'Server error'), 'bad');
+        }
+      };
+
+      ws.onclose = function () {
+        connected = false;
+        setButtons();
+        setStatus('Connection closed.', 'bad');
+      };
+
+      ws.onerror = function () {
+        setStatus('Websocket error.', 'bad');
+      };
+    }
+
+    function sendNote() {
+      if (!connected || !ws) {
+        setStatus('Connect first.', 'bad');
+        return;
+      }
+      const text = String(messageInput.value || '').replace(/\s+/g, ' ').trim();
+      if (!text) {
+        setStatus('Write something first.', 'bad');
+        return;
+      }
+      ws.send(JSON.stringify({
+        type: 'note_submit',
+        payload: { text: text }
+      }));
+    }
+
+    classPicker.addEventListener('change', function () {
+      refillNames();
+      buildMeta();
+    });
+    namePicker.addEventListener('change', buildMeta);
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    sendBtn.addEventListener('click', sendNote);
+    messageInput.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        sendNote();
+      }
+    });
+
+    serverInput.value = location.origin;
+    fillClasses();
+    buildMeta();
+    setButtons();
+
+    if (!noteId) {
+      setStatus('Missing room id. Open this page from your teacher QR/link.', 'bad');
+    } else {
+      setStatus('Select class and name, then connect.', '');
+    }
+  </script>
+</body>
+</html>

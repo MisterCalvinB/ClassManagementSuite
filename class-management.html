@@ -141,6 +141,10 @@
         <button class="btn-objectives" onclick="toggleObjectivesBar()" data-i18n="btn_objectives">Objectives</button>
         <button class="btn-db-hub" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title" title="Database &amp; Time Machine">🗄 DB</button>
         <button class="btn-objectives" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings">⚙ Settings</button>
+        <button class="btn-objectives" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote" style="display:flex;align-items:center;gap:6px;">
+            <span>📱 Remote</span>
+            <span id="remote-connected-badge" style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
+        </button>
         <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool">🔗 Links</button>
         <div id="cm-lang-switcher" style="display:flex;align-items:center;gap:0;border:1px solid #ccc;border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:2px;">
             <button onclick="setLang('en')" id="lang-btn-en" title="English" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-radius:0;background:#111;color:#fff;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">EN</button>
@@ -358,13 +362,12 @@
             <small>Seating layouts with room and weekly schedule</small>
         </span>
     </button>
+    <div class="db-popup-section settings-startup-section" style="margin-top:4px;">
+        <div class="db-popup-section-label">General settings</div>
+    </div>
     <div class="db-popup-section settings-startup-section">
         <div class="db-popup-section-label">App title (your name, shown in menus &amp; page headers)</div>
         <input type="text" id="settings-app-title" class="settings-startup-select" style="width:100%;box-sizing:border-box;" placeholder="e.g. Mr Smith" oninput="saveAppTitleSetting(this.value)">
-    </div>
-    <div class="db-popup-section settings-startup-section">
-        <div class="db-popup-section-label">Plan view: first-name letters to show in seat cells</div>
-        <input type="number" id="settings-plan-abbrev-len" class="settings-startup-select" style="width:80px;" min="1" max="20" value="3" oninput="savePlanAbbrevLenSetting(this.value)">
     </div>
     <div class="db-popup-section settings-startup-section">
         <div class="db-popup-section-label">Open on startup</div>
@@ -377,21 +380,6 @@
             <option value="manage-database.html">🗃 Manage Database</option>
         </select>
     </div>
-    <button class="db-popup-btn" onclick="closeSettingsPopup(); openCustomButtonsModal();">
-        <span class="db-popup-btn-icon">🎛️</span>
-        <span class="db-popup-btn-text">
-            <strong>Customise Buttons</strong>
-            <small>Rename Drumroll/Gavel and manage custom sound buttons</small>
-        </span>
-    </button>
-    <button class="db-popup-btn" id="remote-settings-btn" onclick="closeSettingsPopup(); openRemoteModal();">
-        <span class="db-popup-btn-icon">📱</span>
-        <span class="db-popup-btn-text">
-            <strong>Phone Remote</strong>
-            <small>Control scores &amp; badges from your phone over Wi-Fi</small>
-        </span>
-        <span id="remote-connected-badge" style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;margin-left:auto;flex-shrink:0;"></span>
-    </button>
 </div>
 <!-- Links popup -->
 <div id="links-popup">
@@ -903,6 +891,7 @@
         <div id="edit-sounds-body" style="display:flex; flex-direction:column; gap:12px;"></div>
         <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
             <button onclick="refreshSoundFileList(true)" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">↻ Refresh Sound Files</button>
+            <button onclick="openCustomButtonsModal()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">🎛️ Customise Buttons</button>
             <button onclick="saveSoundSettings()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">Save to config.js</button>
             <button onclick="resetSoundSettings()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">Reset Defaults</button>
         </div>
@@ -12827,6 +12816,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <input type="number" id="cp-config-cols" class="cp-config-input" min="1" max="14" value="5">
       </div>
     </div>
+        <label class="cp-config-label">Plan view: first-name letters to show in seat cells</label>
+        <input type="number" id="settings-plan-abbrev-len" class="cp-config-input" style="max-width:120px;" min="1" max="20" value="3" oninput="savePlanAbbrevLenSetting(this.value)">
     <label class="cp-config-label">Room number</label>
     <input type="text" id="cp-config-room" class="cp-config-input" placeholder="e.g. B204" maxlength="30">
     <label class="cp-config-label">Weekly schedule</label>

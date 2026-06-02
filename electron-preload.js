@@ -190,6 +190,15 @@ const exposedApi = {
   },
   remoteNewToken() {
     return invoke('app:remote-new-token');
+  },
+  quizServerStart(request) {
+    return invoke('app:quiz-server-start', request);
+  },
+  quizServerStop() {
+    return invoke('app:quiz-server-stop');
+  },
+  quizServerStatus() {
+    return invoke('app:quiz-server-status');
   }
 };
 

@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz Player</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --ok: #15803d;
+      --bad: #b91c1c;
+      --line: #e2e8f0;
+      --brand: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 18px;
+      background: radial-gradient(circle at top right, #dbeafe, #f8fafc 50%, #eef2ff);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .card {
+      max-width: 780px;
+      margin: 0 auto;
+      background: var(--panel);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      padding: 14px;
+    }
+    h1 {
+      margin: 4px 0 6px;
+      text-align: center;
+      font-size: 1.5rem;
+    }
+    .status {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin-bottom: 10px;
+      min-height: 22px;
+    }
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 180px;
+      max-width: 300px;
+      width: 100%;
+    }
+    .field label {
+      color: #334155;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    input, button {
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      padding: 9px 12px;
+      font-size: 1rem;
+    }
+    select {
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      padding: 9px 12px;
+      font-size: 1rem;
+      background: #fff;
+    }
+    input {
+      min-width: 230px;
+      max-width: 300px;
+      width: 100%;
+    }
+    button {
+      background: #f8fafc;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--brand);
+      color: #fff;
+      border-color: #0284c7;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    #question {
+      margin: 10px 0;
+      padding: 12px;
+      min-height: 54px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-align: center;
+      background: #f8fbff;
+    }
+    .answers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+    .answers button {
+      min-height: 58px;
+      width: 100%;
+      font-size: 1rem;
+      font-weight: 700;
+      white-space: normal;
+      line-height: 1.25;
+    }
+    .answers button.answer-color-0 { background: #2563eb; border-color: #1d4ed8; color: #fff; }
+    .answers button.answer-color-1 { background: #dc2626; border-color: #b91c1c; color: #fff; }
+    .answers button.answer-color-2 { background: #16a34a; border-color: #15803d; color: #fff; }
+    .answers button.answer-color-3 { background: #eab308; border-color: #ca8a04; color: #111; }
+    .answers button.ok {
+      outline: 4px solid #22c55e;
+      filter: brightness(1.05);
+    }
+    .answers button.bad {
+      outline: 4px solid #f87171;
+      filter: brightness(0.92);
+    }
+    .meta {
+      margin-top: 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    #leaderboard {
+      margin-top: 8px;
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      font-size: 0.95rem;
+    }
+    #leaderboard .line {
+      padding: 3px 0;
+    }
+    @media (max-width: 700px) {
+      .answers { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Multiplayer Quiz Player</h1>
+    <div id="status" class="status">Enter your name and connect.</div>
+
+    <div class="row">
+      <div class="field">
+        <label for="class-picker">Class</label>
+        <select id="class-picker"></select>
+      </div>
+      <div class="field">
+        <label for="student-picker">Student</label>
+        <select id="student-picker"></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="name">Name (editable)</label>
+        <input id="name" type="text" maxlength="24" placeholder="Your name" />
+      </div>
+      <button id="connect" class="primary" type="button">Connect</button>
+      <button id="disconnect" type="button">Disconnect</button>
+    </div>
+
+    <div id="question">Waiting for host...</div>
+    <div id="answers" class="answers"></div>
+
+    <div class="meta" id="result"></div>
+    <div id="leaderboard"></div>
+  </div>
+
+  <script src="user/class-groups.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const classPickerEl = document.getElementById('class-picker');
+    const studentPickerEl = document.getElementById('student-picker');
+    const nameEl = document.getElementById('name');
+    const connectBtn = document.getElementById('connect');
+    const disconnectBtn = document.getElementById('disconnect');
+    const questionEl = document.getElementById('question');
+    const answersEl = document.getElementById('answers');
+    const resultEl = document.getElementById('result');
+    const leaderboardEl = document.getElementById('leaderboard');
+
+    let ws = null;
+    let connected = false;
+    let playerId = '';
+    let questionState = null;
+    let selectedAnswer = null;
+    let questionStartedAt = 0;
+
+    function normalizeClassGroups() {
+      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return {};
+      const out = {};
+      Object.keys(CLASS_GROUPS).forEach(function (key) {
+        const names = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key] : [];
+        out[String(key)] = names
+          .map(function (name) { return String(name || '').trim(); })
+          .filter(Boolean);
+      });
+      return out;
+    }
+
+    function fillStudentPicker() {
+      const groups = normalizeClassGroups();
+      const className = String(classPickerEl.value || '');
+      const names = Array.isArray(groups[className]) ? groups[className] : [];
+      studentPickerEl.innerHTML = '';
+
+      if (!names.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Type name below';
+        studentPickerEl.appendChild(opt);
+        return;
+      }
+
+      names.forEach(function (name, idx) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        studentPickerEl.appendChild(opt);
+        if (idx === 0) opt.selected = true;
+      });
+
+      if (!String(nameEl.value || '').trim()) {
+        nameEl.value = String(studentPickerEl.value || '');
+      }
+    }
+
+    function fillClassPicker() {
+      const groups = normalizeClassGroups();
+      const classNames = Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); });
+      classPickerEl.innerHTML = '';
+
+      if (!classNames.length) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No class list loaded';
+        classPickerEl.appendChild(opt);
+        fillStudentPicker();
+        return;
+      }
+
+      classNames.forEach(function (className) {
+        const opt = document.createElement('option');
+        opt.value = className;
+        opt.textContent = className;
+        classPickerEl.appendChild(opt);
+      });
+
+      fillStudentPicker();
+    }
+
+    function wsUrl() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return proto + '//' + location.host + '/quiz-ws';
+    }
+
+    function setStatus(text, isError) {
+      statusEl.textContent = String(text || '');
+      statusEl.style.color = isError ? '#b91c1c' : '#475569';
+    }
+
+    function setButtons() {
+      connectBtn.disabled = connected;
+      disconnectBtn.disabled = !connected;
+      nameEl.disabled = connected;
+      classPickerEl.disabled = connected;
+      studentPickerEl.disabled = connected;
+    }
+
+    function formatMs(ms) {
+      const n = Number(ms);
+      if (!isFinite(n) || n < 0) return '--';
+      if (n < 10000) return (n / 1000).toFixed(2) + 's';
+      return (n / 1000).toFixed(1) + 's';
+    }
+
+    function renderQuestion() {
+      answersEl.innerHTML = '';
+      if (!questionState) {
+        questionEl.textContent = 'Waiting for host...';
+        return;
+      }
+      questionEl.textContent = questionState.question || 'Question';
+      (questionState.answers || []).forEach((answerText, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = String(answerText || '');
+        btn.classList.add('answer-color-' + String(idx % 4));
+        btn.disabled = selectedAnswer !== null;
+        btn.onclick = function() { submitAnswer(idx); };
+        answersEl.appendChild(btn);
+      });
+    }
+
+    function renderLeaderboard(rows) {
+      const items = Array.isArray(rows) ? rows : [];
+      if (!items.length) {
+        leaderboardEl.textContent = '';
+        return;
+      }
+      leaderboardEl.innerHTML = '<strong>Leaderboard</strong>';
+      items.slice(0, 10).forEach((item, idx) => {
+        const line = document.createElement('div');
+        line.className = 'line';
+        const score = Number(item.score || 0);
+        const hasRound = Number.isFinite(Number(item.scoreDelta)) || Number.isFinite(Number(item.elapsedMs)) || Number.isFinite(Number(item.speedRank));
+        if (hasRound) {
+          const delta = Number(item.scoreDelta || 0);
+          const deltaText = (delta > 0 ? '+' : '') + delta;
+          const t = formatMs(item.elapsedMs);
+          const rankText = item.speedRank ? ('#' + Number(item.speedRank)) : '--';
+          line.textContent = (idx + 1) + '. ' + String(item.name || 'Player') + ' - ' + score + ' (' + deltaText + ' pts, ' + t + ', speed ' + rankText + ')';
+        } else {
+          line.textContent = (idx + 1) + '. ' + String(item.name || 'Player') + ' - ' + score;
+        }
+        leaderboardEl.appendChild(line);
+      });
+    }
+
+    function submitAnswer(answerIndex) {
+      if (!connected || !ws || !questionState || selectedAnswer !== null) return;
+      selectedAnswer = Number(answerIndex);
+      ws.send(JSON.stringify({
+        type: 'player_answer',
+        payload: {
+          questionId: Number(questionState.id),
+          answerIndex: Number(answerIndex)
+        }
+      }));
+      resultEl.textContent = 'Answer submitted.';
+      Array.from(answersEl.querySelectorAll('button')).forEach(btn => btn.disabled = true);
+    }
+
+    function disconnect() {
+      if (ws) {
+        try { ws.close(); } catch (_) {}
+      }
+      ws = null;
+      connected = false;
+      playerId = '';
+      questionState = null;
+      selectedAnswer = null;
+      questionStartedAt = 0;
+      resultEl.textContent = '';
+      renderQuestion();
+      setButtons();
+      setStatus('Disconnected.', true);
+    }
+
+    function connect() {
+      const pickedStudent = String(studentPickerEl.value || '').trim();
+      const typedName = String(nameEl.value || '').trim();
+      const name = typedName || pickedStudent || 'Player';
+      nameEl.value = name;
+      disconnect();
+      setStatus('Connecting...', false);
+      try {
+        ws = new WebSocket(wsUrl());
+      } catch (_) {
+        setStatus('Could not open websocket.', true);
+        return;
+      }
+
+      ws.onopen = function() {
+        connected = true;
+        setButtons();
+        ws.send(JSON.stringify({ type: 'hello', role: 'player', name }));
+      };
+
+      ws.onmessage = function(event) {
+        let msg = null;
+        try { msg = JSON.parse(event.data); } catch (_) { return; }
+
+        if (msg.type === 'welcome') {
+          if (msg.role === 'player' && msg.playerId) {
+            playerId = String(msg.playerId);
+          }
+          setStatus('Connected as ' + name + '.', false);
+        } else if (msg.type === 'question') {
+          questionState = msg.payload || null;
+          selectedAnswer = null;
+          questionStartedAt = Date.now();
+          resultEl.textContent = '';
+          renderQuestion();
+          setStatus('Question is live. Choose one answer.', false);
+        } else if (msg.type === 'answer_ack') {
+          setStatus('Answer recorded.', false);
+        } else if (msg.type === 'reveal') {
+          const payload = msg.payload || {};
+          const correct = Number(payload.correctIndex);
+          const buttons = Array.from(answersEl.querySelectorAll('button'));
+          buttons.forEach((btn, idx) => {
+            btn.disabled = true;
+            if (idx === correct) btn.classList.add('ok');
+            if (selectedAnswer !== null && idx === selectedAnswer && idx !== correct) btn.classList.add('bad');
+            if (idx !== correct && !(selectedAnswer !== null && idx === selectedAnswer)) {
+              btn.style.filter = 'brightness(0.76)';
+            }
+          });
+          if (selectedAnswer === null) {
+            resultEl.textContent = 'Time up. Correct answer: ' + String(payload.correctAnswer || '');
+          } else if (selectedAnswer === correct) {
+            resultEl.textContent = 'Correct!';
+          } else {
+            resultEl.textContent = 'Wrong. Correct answer: ' + String(payload.correctAnswer || '');
+          }
+          const myRow = Array.isArray(payload.leaderboard)
+            ? payload.leaderboard.find(row => String(row.id || '') === playerId)
+            : null;
+          if (myRow) {
+            const myDelta = Number(myRow.scoreDelta || 0);
+            const myTime = formatMs(myRow.elapsedMs);
+            const myRank = myRow.speedRank ? ('#' + Number(myRow.speedRank)) : '--';
+            resultEl.textContent += ' | +' + myDelta + ' pts | Time: ' + myTime + ' | Speed: ' + myRank;
+          } else if (questionStartedAt > 0 && selectedAnswer !== null) {
+            const localMs = Math.max(0, Date.now() - questionStartedAt);
+            resultEl.textContent += ' | Time: ' + formatMs(localMs);
+          }
+          renderLeaderboard(payload.leaderboard || []);
+          setStatus('Answer revealed.', false);
+        } else if (msg.type === 'final_results') {
+          const payload = msg.payload || {};
+          questionState = null;
+          selectedAnswer = null;
+          questionEl.textContent = '🏁 Game finished';
+          answersEl.innerHTML = '';
+          renderLeaderboard(payload.leaderboard || []);
+          const winner = payload.winner && payload.winner.name
+            ? (String(payload.winner.name) + ' (' + Number(payload.winner.score || 0) + ')')
+            : 'No winner';
+          resultEl.textContent = 'Final results posted. Winner: ' + winner;
+          setStatus('Game ended by host. See final leaderboard.', false);
+        } else if (msg.type === 'presence') {
+          renderLeaderboard(msg.leaderboard || []);
+        } else if (msg.type === 'status') {
+          const text = String(msg.payload && msg.payload.message || 'Server status update');
+          setStatus(text, false);
+        } else if (msg.type === 'error') {
+          setStatus(String(msg.message || 'Server error'), true);
+        }
+      };
+
+      ws.onerror = function() {
+        setStatus('Websocket error.', true);
+      };
+
+      ws.onclose = function() {
+        connected = false;
+        setButtons();
+        setStatus('Connection closed.', true);
+      };
+    }
+
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    classPickerEl.addEventListener('change', function() {
+      fillStudentPicker();
+    });
+    studentPickerEl.addEventListener('change', function() {
+      const selected = String(studentPickerEl.value || '').trim();
+      if (selected) nameEl.value = selected;
+    });
+    nameEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') connect();
+    });
+    fillClassPicker();
+    setButtons();
+  </script>
+</body>
+</html>

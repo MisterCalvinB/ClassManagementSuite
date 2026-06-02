@@ -494,6 +494,19 @@
     #con-draw-live-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 800; pointer-events: none; overflow: visible; }
     #con-draw-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 850; display: none; cursor: crosshair; touch-action: none; }
     #con-draw-overlay.active { display: block; }
+    #con-draw-overlay .con-eraser-outline {
+      position: absolute;
+      box-sizing: border-box;
+      border: 2px solid rgba(17, 17, 17, 0.95);
+      border-radius: 50%;
+      background: transparent;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 3;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+      transition: opacity 0.06s linear;
+    }
+    #con-draw-overlay.con-eraser-active .con-eraser-outline.visible { opacity: 1; }
     #con-page-pdf-bg {
       position: absolute;
       inset: 0;
@@ -1489,7 +1502,7 @@
 
 
      /* Mirror: hide everything on the page except the board clip wrapper and laser/mark overlays */
-  .con-mirror-mode body > *:not(#constellation-section):not(#laser-dot):not(.laser-mark):not(.laser-trail-dot):not(.laser-pulse-ring) { display: none !important; }
+  .con-mirror-mode body > *:not(#constellation-section):not(#board-cms-timer-strip):not(#board-cms-timer-show-btn):not(#laser-dot):not(.laser-mark):not(.laser-trail-dot):not(.laser-pulse-ring) { display: none !important; }
   /* Hide all direct children of the section except the clip wrapper (hides sticky bar, tabs, heading, etc.) */
   .con-mirror-mode #constellation-section > *:not(#con-mirror-clip) { display: none !important; }
   .con-mirror-mode #constellation-section { padding: 0 !important; margin: 0 !important; background: none !important; border: none !important; box-shadow: none !important; min-height: 0 !important; }
@@ -6153,6 +6166,28 @@ h1#main-title {
 }
 .roster-settings-popup.open { display: block; }
 
+  @media (max-width: 760px) {
+    .roster-settings-popup {
+      min-width: 0;
+      width: min(94vw, 360px);
+      max-width: 94vw;
+      white-space: normal;
+    }
+
+    .rsp-inline-row {
+      flex-wrap: wrap;
+    }
+
+    .rsp-inline-btn {
+      flex: 1 1 calc(50% - 4px);
+      white-space: normal;
+    }
+
+    .rsp-item {
+      flex: 1 1 100%;
+    }
+  }
+
   /* Keep roster settings usable in ultra-narrow windows. */
   @media (max-width: 220px) {
     .roster-settings-popup {
@@ -7457,8 +7492,8 @@ h1#main-title {
     .vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 5px; margin-top: 12px; width: 100%; }
     .vl-grid-group-header { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; padding: 6px 4px 2px; border-top: 1px solid #ddd; margin-top: 4px; }
     .vocab-grid-card { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px; cursor: pointer; transition: background 0.1s, border-color 0.1s; text-align: center; }
-    .vocab-grid-card:hover { background: #111; border-color: #111; color:rgba(255,255,255,1); }
-    .vocab-grid-card:hover .vg-word { color: #fff; }
+    .vocab-grid-card:hover { outline: 2px solid #111; }
+    .vocab-grid-card:hover .vg-word {  }
     .vg-word { font-size: 0.88rem; font-weight: 600; color: #111; }
     .words-seen-meta { text-align: center; color: #777; margin: -6px 0 18px; font-size: 0.92rem; }
     .words-seen-card { min-width: 180px; max-width: 240px; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }

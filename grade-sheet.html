@@ -409,10 +409,16 @@
       text-align: left;
       font-size: 0.92rem;
       white-space: nowrap;
+      position:relative;
+      margin-right:2px;
     }
+    td {
+      z-index:2;
+    }
+
+
     #test-table td:hover, #summary-table td:hover {
-      background: rgba(20,32,20,0.95)!important;
-      color: white!important;
+      outline: solid 2px black;
     }
 
     th {
@@ -445,7 +451,7 @@
     }
 
     .num {
-      text-align: right;
+      text-align: center;
       font-variant-numeric: tabular-nums;
       width: 5em;
       max-width: 5em;
@@ -1088,6 +1094,38 @@
 
     .student-modal-close:hover { color: var(--warn); }
 
+    .row-context-menu {
+      position: fixed;
+      min-width: 190px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 6px;
+      z-index: 1205;
+    }
+
+    .row-context-menu .menu-item {
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: 7px;
+      font: inherit;
+      font-size: 0.88rem;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .row-context-menu .menu-item:hover {
+      background: #f3f7ec;
+    }
+
+    .row-context-menu .menu-item.danger {
+      color: var(--warn);
+    }
+
     .student-modal-body {
       padding: 18px 20px;
       overflow-y: auto;
@@ -1266,6 +1304,14 @@
     .student-name-link:hover {
       color: var(--accent-2);
       font-weight: 700;
+    }
+
+    .student-name-link.student-name-static,
+    .student-name-link.student-name-static:hover {
+      color: inherit;
+      cursor: default;
+      text-decoration: none;
+      font-weight: inherit;
     }
 
     
@@ -1890,6 +1936,10 @@
     </div>
   </div>
 
+  <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu">
+    <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem">Reset points and comments</button>
+  </div>
+
   <script>
     const STORAGE_KEY = "gradeSheetHtmlState.v1";
     const DELETED_CLASS_IDS_KEY = "gradeSheetHtmlDeletedIds.v1";
@@ -2059,6 +2109,8 @@
       summary: document.getElementById("screen-summary"),
       test: document.getElementById("screen-test")
     };
+
+    let _testRowMenuCtx = null;
 
     function uid() {
       return "id-" + Math.random().toString(36).slice(2, 11);
@@ -2989,6 +3041,45 @@
       });
     }
 
+    async function resetStudentTestPoints(student, classObj, sem, testIndex, config) {
+      const ok = await showConfirm('Reset all points and comments for this student on this test?');
+      if (!ok) return;
+      const map = student.criteriaResults[sem][testIndex] || {};
+      config.criteria.forEach(cr => {
+        if (map[cr.id]) {
+          map[cr.id].points = null;
+          map[cr.id].comment = '';
+        }
+      });
+      recalcStudentGradeFromCriteria(student, sem, testIndex, config);
+      saveState();
+      renderTestSheet();
+      renderSummary();
+    }
+
+    function closeTestRowMenu() {
+      const menu = document.getElementById("test-row-menu");
+      if (!menu) return;
+      menu.classList.add("hidden");
+      _testRowMenuCtx = null;
+    }
+
+    function openTestRowMenu(x, y, student, classObj, sem, testIndex, config) {
+      const menu = document.getElementById("test-row-menu");
+      if (!menu) return;
+      _testRowMenuCtx = { student, classObj, sem, testIndex, config };
+      menu.classList.remove("hidden");
+      menu.style.left = `${x}px`;
+      menu.style.top = `${y}px`;
+      requestAnimationFrame(() => {
+        const rect = menu.getBoundingClientRect();
+        const left = Math.max(8, Math.min(x, window.innerWidth - rect.width - 8));
+        const top = Math.max(8, Math.min(y, window.innerHeight - rect.height - 8));
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
+      });
+    }
+
     function isGradeOverrideEnabled(student, sem, testIndex) {
       return !!(student && student.gradeOverrides && Array.isArray(student.gradeOverrides[sem]) && student.gradeOverrides[sem][testIndex]);
     }
@@ -3607,6 +3698,7 @@
         }
         th.appendChild(label);
         if (idx >= 3) th.classList.add("num");
+        if (h === "Rank") th.style.textAlign = "center";
         if (idx <= 2) th.classList.add("col-shrink");
         headerRow.appendChild(th);
       });
@@ -3653,6 +3745,7 @@
           if (idx <= 2) td.classList.add("col-shrink");
           if (idx >= 3 && idx <= roundedFinalColIdx) td.classList.add("num");
           if (idx >= 3 && idx <= roundedFinalColIdx) applyGradeColor(td, rowNums[idx]);
+          if (idx === roundedFinalColIdx + 1) td.style.textAlign = "center";
           if (idx === sem1AvgColIdx || idx === sem2AvgColIdx) td.style.fontWeight = "700";
           if (idx === roundedFinalColIdx) {
             td.classList.toggle("good", c.roundedFinal != null && c.roundedFinal >= 4);
@@ -3938,9 +4031,8 @@
         const tdLast = document.createElement("td");
         tdLast.classList.add("col-shrink");
         const nameLink = document.createElement("span");
-        nameLink.className = "student-name-link";
+        nameLink.className = "student-name-link student-name-static";
         nameLink.textContent = student.firstName + (student.lastName ? " " + student.lastName : "");
-        nameLink.addEventListener("click", () => openStudentModal(student, classObj, sem, testIndex, tr, config));
         tdFirst.appendChild(nameLink);
         tdLast.textContent = "";
 
@@ -3952,6 +4044,9 @@
         tdGrade.className = "td-grade-display";
         const displayGrade = getTestDisplayGrade(student, classObj, sem, testIndex);
         tdGrade.textContent = displayGrade == null ? "—" : String(displayGrade);
+        tdGrade.style.cursor = "pointer";
+        tdGrade.title = "Click to edit grade";
+        tdGrade.addEventListener("click", () => openStudentModal(student, classObj, sem, testIndex, tr, config));
         applyGradeColor(tdGrade, displayGrade);
 
         const tdNote = document.createElement("td");
@@ -3984,31 +4079,6 @@
           tdCriteriaScore.textContent = "—";
         }
 
-        // Reset points button (per-student for this test)
-        const resetBtn = document.createElement('button');
-        resetBtn.type = 'button';
-        resetBtn.className = 'btn';
-        resetBtn.textContent = 'Reset';
-        resetBtn.title = 'Reset this student\'s points for the active test';
-        resetBtn.style.cssText = 'margin-left:8px;font-size:0.75rem;padding:2px 6px;';
-        resetBtn.addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          if (!confirm('Reset all points and comments for this student on this test?')) return;
-          const map = student.criteriaResults[sem][testIndex] || {};
-          config.criteria.forEach(cr => {
-            if (map[cr.id]) {
-              map[cr.id].points = null;
-              map[cr.id].comment = '';
-            }
-          });
-          // Recalculate grade from cleared criteria
-          recalcStudentGradeFromCriteria(student, sem, testIndex, config);
-          saveState();
-          renderTestSheet();
-          renderSummary();
-        });
-        tdCriteriaScore.appendChild(resetBtn);
-
         if (!student.correctionTime) student.correctionTime = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
         const tdCorrTime = document.createElement("td");
         tdCorrTime.className = "td-criteria-display";
@@ -4016,6 +4086,12 @@
         tdCorrTime.textContent = ctVal != null ? String(ctVal) : "—";
 
         [tdIdx, tdFirst, tdLast, tdGrade, tdNextDelta, tdNote, tdCriteriaScore, tdCorrTime].forEach(td => tr.appendChild(td));
+
+        tr.addEventListener("contextmenu", ev => {
+          if (ev.target.closest("button,input,textarea,select,a,label")) return;
+          ev.preventDefault();
+          openTestRowMenu(ev.clientX, ev.clientY, student, classObj, sem, testIndex, config);
+        });
 
         // Per-criterion score cells (index 7+)
         config.criteria.forEach((criterion, ci) => {
@@ -6113,8 +6189,23 @@
       document.getElementById("student-modal-overlay").addEventListener("click", e => {
         if (e.target === document.getElementById("student-modal-overlay")) closeStudentModal();
       });
+      document.getElementById("test-row-menu-reset").addEventListener("click", async () => {
+        const ctx = _testRowMenuCtx;
+        closeTestRowMenu();
+        if (!ctx) return;
+        await resetStudentTestPoints(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
+      });
+      document.addEventListener("click", e => {
+        const menu = document.getElementById("test-row-menu");
+        if (!menu || menu.classList.contains("hidden")) return;
+        if (menu.contains(e.target)) return;
+        closeTestRowMenu();
+      });
+      document.addEventListener("scroll", closeTestRowMenu, true);
+      window.addEventListener("resize", closeTestRowMenu);
       document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
+          closeTestRowMenu();
           const overlayIds = [
             "student-modal-overlay",
             "coeff-popup-overlay",
