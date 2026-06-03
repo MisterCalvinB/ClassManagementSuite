@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group Editor</title>
+  <script src="electron-bridge.js"></script>
+  <link rel="stylesheet" href="stylesheet.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+    }
+
+    .ge-page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 36px 24px 80px;
+    }
+
+    .ge-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    .ge-back-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 7px;
+      padding: 7px 14px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .ge-back-btn:hover { background: #000; color: #fff; }
+
+    .ge-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      flex: 1;
+    }
+    .ge-subtitle {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #000;
+      width: 100%;
+      margin-top: -8px;
+    }
+
+    /* ── Groups list ─────────────────────────────────────── */
+    .ge-section-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    #ge-groups-body {
+      margin-bottom: 16px;
+    }
+
+    /* ── Add new group ──────────────────────────────────── */
+    .ge-add-section {
+      border-top: 2px solid #000;
+      padding-top: 18px;
+      margin-top: 24px;
+    }
+    .ge-add-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .ge-add-name {
+      flex: 1;
+      min-width: 140px;
+      padding: 7px 10px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .ge-add-students {
+      flex: 3;
+      min-width: 220px;
+      padding: 7px 10px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      resize: vertical;
+      min-height: 36px;
+    }
+    .ge-add-year {
+      width: 96px;
+      padding: 7px 8px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .ge-add-select {
+      padding: 7px 4px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .ge-add-btn {
+      padding: 7px 16px;
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .ge-add-btn:hover { background: #fff; color: #000; }
+
+    /* ── Bottom save bar ─────────────────────────────────── */
+    .ge-save-bar {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      border-top: 2px solid #000;
+      padding: 14px 0 10px;
+      display: flex;
+      gap: 10px;
+      margin-top: 32px;
+    }
+    .ge-save-btn {
+      flex: 1;
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 11px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .ge-save-btn:hover { background: #fff; color: #000; }
+    .ge-save-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Archived section ─────────────────────────────── */
+    .ge-arch-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      padding: 0;
+      margin-bottom: 8px;
+    }
+    .ge-arch-sep {
+      border-top: 2px dashed #000;
+      padding-top: 12px;
+      margin-top: 20px;
+    }
+
+    /* ── Status notice ────────────────────────────────── */
+    .ge-notice {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #000;
+      padding: 6px 12px;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 5px;
+      margin-bottom: 16px;
+    }
+    .ge-error {
+      background: #fff;
+      border-color: #000;
+      color: #000;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+<div class="ge-page">
+  <header class="ge-header">
+    <button class="ge-back-btn" onclick="goBack()">← Launcher</button>
+    <h1 class="ge-title">Group Editor</h1>
+    <p class="ge-subtitle">Create, edit, archive, and delete class groups. Changes are saved directly to <em>user/class-groups.js</em>.</p>
+  </header>
+
+  <div id="ge-notice" style="display:none;" class="ge-notice"></div>
+
+  <div class="ge-section-title">Active Groups</div>
+  <div id="ge-groups-body"></div>
+
+  <div class="ge-add-section">
+    <div class="ge-section-title">Add New Group</div>
+    <div class="ge-add-row">
+      <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)">
+      <textarea id="new-group-students" class="ge-add-students eg-row-students" rows="1"
+        placeholder="ALICE, BOB, CAROL, …" oninput="autoResizeEgStudents(this)"></textarea>
+      <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
+      <select id="new-group-semester" class="ge-add-select">
+        <option value="">Sem</option>
+        <option value="1">S1</option>
+        <option value="2">S2</option>
+      </select>
+      <select id="new-group-level" class="ge-add-select">
+        <option value="">Lvl</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+      <button class="ge-add-btn" onclick="addNewGroupRow()">Add</button>
+    </div>
+  </div>
+
+  <div class="ge-save-bar">
+    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()">💾 Save to class-groups.js</button>
+  </div>
+</div>
+
+<!-- Confirm dialog -->
+<div id="ge-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <p id="ge-confirm-msg" style="font-size:0.95rem;line-height:1.55;margin-bottom:20px;white-space:pre-line;"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="cancelConfirm()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'">Cancel</button>
+      <button id="ge-confirm-ok" onclick="okConfirm()" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const GROUPS_FILE_TARGET = 'user';
+  const GROUPS_FILE_NAME = 'class-groups.js';
+
+  let rawData = {};
+  let rawMeta = {};
+  let _confirmCb = null;
+
+  // ── Navigation ──────────────────────────────────────────────
+  function goBack() {
+    if (window.electronApi) {
+      window.electronApi.goToLauncher();
+    } else {
+      window.location.href = 'launcher.html';
+    }
+  }
+
+  // ── Confirm dialog ──────────────────────────────────────────
+  function showConfirm(msg, cb) {
+    _confirmCb = cb || null;
+    document.getElementById('ge-confirm-msg').textContent = msg;
+    const overlay = document.getElementById('ge-confirm-overlay');
+    overlay.style.display = 'flex';
+    setTimeout(() => document.getElementById('ge-confirm-ok').focus(), 40);
+  }
+  function okConfirm() {
+    document.getElementById('ge-confirm-overlay').style.display = 'none';
+    const cb = _confirmCb; _confirmCb = null;
+    if (cb) cb();
+  }
+  function cancelConfirm() {
+    document.getElementById('ge-confirm-overlay').style.display = 'none';
+    _confirmCb = null;
+  }
+
+  // ── Notice ──────────────────────────────────────────────────
+  function showNotice(msg, isError) {
+    const el = document.getElementById('ge-notice');
+    el.textContent = msg;
+    el.className = 'ge-notice' + (isError ? ' ge-error' : '');
+    el.style.display = '';
+    clearTimeout(showNotice._timer);
+    if (!isError) showNotice._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
+
+  // ── Load class-groups.js ─────────────────────────────────────
+  async function loadGroups() {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+      try {
+        const result = await Desktop.readText(GROUPS_FILE_TARGET, GROUPS_FILE_NAME);
+        if (result && result.ok && result.content) {
+          try {
+            const fn = new Function(
+              result.content +
+              '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA' +
+              ' : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
+              '   classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+            );
+            const parsed = fn();
+            rawData = (parsed && parsed.classGroups) ? parsed.classGroups : {};
+            rawMeta = (parsed && parsed.classGroupsMeta) ? parsed.classGroupsMeta : {};
+          } catch (parseErr) {
+            showNotice('Could not parse class-groups.js: ' + parseErr.message, true);
+          }
+        } else {
+          showNotice('Could not read class-groups.js: ' + (result && result.error || 'unknown error'), true);
+        }
+      } catch (e) {
+        showNotice('Error loading class-groups.js: ' + e.message, true);
+      }
+    } else {
+      // Browser fallback: rely on script tag globals if the script was loaded separately
+      rawData = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
+      rawMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+    }
+
+    renderGroupsList();
+  }
+
+  // ── Build file content (same format as class-management.html) ─
+  function buildGroupsFileContent(data, meta) {
+    const groupLines = Object.keys(data).map(name => {
+      const students = data[name].map(s => JSON.stringify(s)).join(', ');
+      return `    ${JSON.stringify(name)}: [${students}]`;
+    });
+    const metaLines = Object.keys(data).map(name => {
+      const m = (meta && meta[name]) ? meta[name] : { year: '', semester: '', level: '' };
+      const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
+      if (m.halfGroups && (m.halfGroups.A && m.halfGroups.A.length || m.halfGroups.B && m.halfGroups.B.length)) metaEntry.halfGroups = m.halfGroups;
+      if (m.archived) metaEntry.archived = true;
+      return `    ${JSON.stringify(name)}: ${JSON.stringify(metaEntry)}`;
+    });
+    return [
+      'const CLASS_GROUPS_DATA = {',
+      '  "classGroups": {',
+      groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
+      '  },',
+      '  "classGroupsMeta": {',
+      metaLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
+      '  }',
+      '};',
+      '',
+      'var CLASS_GROUPS = CLASS_GROUPS_DATA.classGroups || {};',
+      'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
+      ''
+    ].join('\n');
+  }
+
+  async function persistGroupsToUserFile(data, meta) {
+    const content = buildGroupsFileContent(data, meta);
+    if (window.Desktop && typeof Desktop.saveText === 'function') {
+      try {
+        return await Desktop.saveText(GROUPS_FILE_TARGET, GROUPS_FILE_NAME, content);
+      } catch (e) {
+        return { ok: false, error: e.message || 'Unable to save' };
+      }
+    }
+    // Browser fallback: trigger download
+    const blob = new Blob([content], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = GROUPS_FILE_NAME; a.click();
+    URL.revokeObjectURL(url);
+    return { ok: true, mode: 'download' };
+  }
+
+  // ── Auto-resize textarea ─────────────────────────────────────
+  function autoResizeEgStudents(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  // ── Meta inputs ──────────────────────────────────────────────
+  function makeMetaInputs(meta) {
+    const yearInput = document.createElement('input');
+    yearInput.type = 'text';
+    yearInput.className = 'eg-row-year';
+    yearInput.value = (meta && meta.year) ? meta.year : '';
+    yearInput.placeholder = '2025-2026';
+    yearInput.title = 'Calendar year';
+    yearInput.style.cssText = 'width:96px; padding:5px 7px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+
+    const semSelect = document.createElement('select');
+    semSelect.className = 'eg-row-semester';
+    semSelect.title = 'Semester';
+    semSelect.style.cssText = 'width:72px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+    [['', 'Sem'], ['1', 'S1'], ['2', 'S2']].forEach(([v, t]) => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = t;
+      if (String(meta && meta.semester) === v) opt.selected = true;
+      semSelect.appendChild(opt);
+    });
+
+    const lvlSelect = document.createElement('select');
+    lvlSelect.className = 'eg-row-level';
+    lvlSelect.title = 'Level';
+    lvlSelect.style.cssText = 'width:64px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+    [['', 'Lvl'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']].forEach(([v, t]) => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = t;
+      if (String(meta && meta.level) === v) opt.selected = true;
+      lvlSelect.appendChild(opt);
+    });
+
+    return { yearInput, semSelect, lvlSelect };
+  }
+
+  // ── Half-group chips ──────────────────────────────────────────
+  function buildHalfGroupChips(halfSection, studentsInputEl, existingHalfGroups) {
+    halfSection.innerHTML = '';
+    const studentNames = studentsInputEl
+      ? studentsInputEl.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+      : [];
+    if (studentNames.length === 0) {
+      halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">Add students to the group first.</em>';
+      return;
+    }
+    const hgA = (existingHalfGroups && existingHalfGroups.A) ? existingHalfGroups.A.map(s => s.toUpperCase()) : [];
+    const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B.map(s => s.toUpperCase()) : [];
+    const legend = document.createElement('div');
+    legend.style.cssText = 'font-size:0.72rem; color:#888; margin-bottom:7px; font-weight:600;';
+    legend.innerHTML = 'Click to cycle: <span style="color:#1e40af;font-weight:700;">■ A</span> → <span style="color:#9a3412;font-weight:700;">■ B</span> → unassigned';
+    halfSection.appendChild(legend);
+    const chipsWrap = document.createElement('div');
+    chipsWrap.style.cssText = 'display:flex; flex-wrap:wrap;';
+    studentNames.forEach(name => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'eg-half-chip';
+      chip.textContent = name;
+      chip.dataset.student = name;
+      chip.dataset.half = hgA.includes(name) ? 'A' : (hgB.includes(name) ? 'B' : '');
+      chip.onclick = () => {
+        const cur = chip.dataset.half;
+        chip.dataset.half = cur === '' ? 'A' : (cur === 'A' ? 'B' : '');
+      };
+      chipsWrap.appendChild(chip);
+    });
+    halfSection.appendChild(chipsWrap);
+  }
+
+  function collectHalfGroupsFromSection(halfSection) {
+    const result = { A: [], B: [] };
+    halfSection.querySelectorAll('.eg-half-chip').forEach(chip => {
+      if (chip.dataset.half === 'A') result.A.push(chip.dataset.student);
+      else if (chip.dataset.half === 'B') result.B.push(chip.dataset.student);
+    });
+    return (result.A.length + result.B.length > 0) ? result : null;
+  }
+
+  // ── Build a single group row ──────────────────────────────────
+  function buildGroupRow(groupName, body, isArchived) {
+    const row = document.createElement('div');
+    row.className = 'eg-row';
+    row.dataset.group = groupName;
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'eg-row-name';
+    nameInput.value = groupName;
+    nameInput.title = 'Group name';
+    if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
+
+    const studentsInput = document.createElement('textarea');
+    studentsInput.className = 'eg-row-students';
+    studentsInput.rows = 1;
+    studentsInput.value = (rawData[groupName] || []).join(', ');
+    studentsInput.title = 'Students (comma-separated)';
+    if (isArchived) { studentsInput.disabled = true; studentsInput.style.opacity = '0.6'; }
+    else { studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput)); }
+    requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
+
+    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupName]);
+    if (isArchived) {
+      yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true;
+      [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
+    }
+
+    const halfSection = document.createElement('div');
+    halfSection.className = 'eg-half-section';
+    halfSection.style.display = 'none';
+    if (isArchived) halfSection.style.opacity = '0.6';
+
+    const halfToggle = document.createElement('button');
+    halfToggle.type = 'button';
+    halfToggle.className = 'eg-half-toggle';
+    halfToggle.textContent = '½';
+    halfToggle.title = 'Define half-groups A / B';
+    halfToggle.disabled = !!isArchived;
+
+    if (!isArchived) {
+      buildHalfGroupChips(halfSection, studentsInput, rawMeta[groupName] && rawMeta[groupName].halfGroups);
+      const existingMeta = rawMeta[groupName];
+      const hasHalves = existingMeta && existingMeta.halfGroups &&
+        ((existingMeta.halfGroups.A && existingMeta.halfGroups.A.length) ||
+         (existingMeta.halfGroups.B && existingMeta.halfGroups.B.length));
+      if (hasHalves) { halfToggle.classList.add('active'); halfSection.style.display = ''; }
+      halfToggle.onclick = () => {
+        const isOpen = halfSection.style.display !== 'none';
+        halfSection.style.display = isOpen ? 'none' : '';
+        halfToggle.classList.toggle('active', !isOpen);
+        if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, collectHalfGroupsFromSection(halfSection));
+      };
+    }
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.title = isArchived ? 'Unarchive this group' : 'Archive this group';
+    archiveBtn.textContent = isArchived ? '↩' : '📦';
+    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
+    archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
+    archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
+    archiveBtn.onclick = () => {
+      if (isArchived) {
+        showConfirm('Unarchive "' + groupName + '"?\n\nIt will reappear in the class roster.', () => unarchiveGroup(groupName));
+      } else {
+        showConfirm('Archive "' + groupName + '"?\n\nIt will be hidden from the roster and its participation data folder will be moved to user/log/group-participation/archived/.', () => archiveGroup(groupName));
+      }
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'eg-row-del';
+    delBtn.textContent = '✕';
+    delBtn.title = 'Delete this group permanently';
+    if (isArchived) delBtn.style.opacity = '0.5';
+    delBtn.onclick = () => {
+      showConfirm('Delete "' + groupName + '" permanently?\n\nThis cannot be undone.', () => {
+        row.remove();
+        if (halfSection.parentNode) halfSection.remove();
+      });
+    };
+
+    row.appendChild(nameInput);
+    row.appendChild(studentsInput);
+    row.appendChild(yearInput);
+    row.appendChild(semSelect);
+    row.appendChild(lvlSelect);
+    row.appendChild(halfToggle);
+    row.appendChild(archiveBtn);
+    row.appendChild(delBtn);
+    body.appendChild(row);
+    body.appendChild(halfSection);
+  }
+
+  // ── Render the full groups list ──────────────────────────────
+  function renderGroupsList() {
+    const body = document.getElementById('ge-groups-body');
+    body.innerHTML = '';
+
+    const activeGroups = Object.keys(rawData).filter(g => !(rawMeta[g] && rawMeta[g].archived));
+    const archivedGroups = Object.keys(rawData).filter(g => rawMeta[g] && rawMeta[g].archived);
+
+    if (activeGroups.length === 0) {
+      const empty = document.createElement('p');
+      empty.style.cssText = 'color:#aaa; font-size:0.88rem; padding:16px 0;';
+      empty.textContent = 'No active groups yet. Add one below.';
+      body.appendChild(empty);
+    } else {
+      activeGroups.forEach(g => buildGroupRow(g, body, false));
+    }
+
+    if (archivedGroups.length > 0) {
+      const archSep = document.createElement('div');
+      archSep.className = 'ge-arch-sep';
+
+      const archToggle = document.createElement('button');
+      archToggle.className = 'ge-arch-toggle';
+      archToggle.textContent = '▶ Archived groups (' + archivedGroups.length + ')';
+
+      const archContent = document.createElement('div');
+      archContent.style.display = 'none';
+      archivedGroups.forEach(g => buildGroupRow(g, archContent, true));
+
+      archToggle.onclick = () => {
+        const isOpen = archContent.style.display !== 'none';
+        archContent.style.display = isOpen ? 'none' : '';
+        archToggle.textContent = (isOpen ? '▶' : '▼') + ' Archived groups (' + archivedGroups.length + ')';
+      };
+
+      archSep.appendChild(archToggle);
+      archSep.appendChild(archContent);
+      body.appendChild(archSep);
+    }
+  }
+
+  // ── Collect all current edits from the DOM ───────────────────
+  function collectGroupEdits() {
+    const updated = {};
+    const updatedMeta = {};
+    document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
+      const nameInput = row.querySelector('.eg-row-name');
+      const studentsInput = row.querySelector('.eg-row-students');
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const students = studentsInput.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      updated[name] = students;
+      const yearEl = row.querySelector('.eg-row-year');
+      const semEl = row.querySelector('.eg-row-semester');
+      const lvlEl = row.querySelector('.eg-row-level');
+      updatedMeta[name] = {
+        year: yearEl ? yearEl.value.trim() : '',
+        semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
+        level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
+      };
+      // Half-group data from sibling .eg-half-section
+      const halfSection = row.nextElementSibling;
+      if (halfSection && halfSection.classList.contains('eg-half-section')) {
+        const hg = collectHalfGroupsFromSection(halfSection);
+        if (hg) updatedMeta[name].halfGroups = hg;
+      }
+      // Preserve archived flag from original rawMeta (archived rows are disabled/read-only)
+      const origMeta = rawMeta[row.dataset.group];
+      if (origMeta && origMeta.archived) updatedMeta[name].archived = true;
+    });
+    return { groups: updated, meta: updatedMeta };
+  }
+
+  // ── Add new group row ────────────────────────────────────────
+  function addNewGroupRow() {
+    const nameVal = document.getElementById('new-group-name').value.trim();
+    if (!nameVal) { alert('Please enter a group name.'); return; }
+
+    const studentsVal = document.getElementById('new-group-students').value.trim();
+    const body = document.getElementById('ge-groups-body');
+
+    // Remove "no groups" placeholder if present
+    const placeholder = body.querySelector('p');
+    if (placeholder) placeholder.remove();
+
+    // Insert before the archived section separator (if any)
+    const archSep = body.querySelector('.ge-arch-sep');
+
+    const row = document.createElement('div');
+    row.className = 'eg-row';
+    row.dataset.group = nameVal;
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'eg-row-name';
+    nameInput.value = nameVal;
+    nameInput.title = 'Group name';
+
+    const studentsInput = document.createElement('textarea');
+    studentsInput.className = 'eg-row-students';
+    studentsInput.rows = 1;
+    studentsInput.value = studentsVal.toUpperCase();
+    studentsInput.title = 'Students (comma-separated)';
+    studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput));
+
+    const newMeta = {
+      year: document.getElementById('new-group-year').value.trim(),
+      semester: document.getElementById('new-group-semester').value,
+      level: document.getElementById('new-group-level').value
+    };
+    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(newMeta);
+
+    const halfSection = document.createElement('div');
+    halfSection.className = 'eg-half-section';
+    halfSection.style.display = 'none';
+    buildHalfGroupChips(halfSection, studentsInput, null);
+
+    const halfToggle = document.createElement('button');
+    halfToggle.type = 'button';
+    halfToggle.className = 'eg-half-toggle';
+    halfToggle.textContent = '½';
+    halfToggle.title = 'Define half-groups A / B';
+    halfToggle.onclick = () => {
+      const isOpen = halfSection.style.display !== 'none';
+      halfSection.style.display = isOpen ? 'none' : '';
+      halfToggle.classList.toggle('active', !isOpen);
+      if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, collectHalfGroupsFromSection(halfSection));
+    };
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.type = 'button';
+    archiveBtn.textContent = '📦';
+    archiveBtn.title = 'Archive this group';
+    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
+    archiveBtn.title = 'Save first to enable archiving';
+    archiveBtn.disabled = true;
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'eg-row-del';
+    delBtn.textContent = '✕';
+    delBtn.title = 'Remove this group';
+    delBtn.onclick = () => { row.remove(); if (halfSection.parentNode) halfSection.remove(); };
+
+    row.appendChild(nameInput);
+    row.appendChild(studentsInput);
+    row.appendChild(yearInput);
+    row.appendChild(semSelect);
+    row.appendChild(lvlSelect);
+    row.appendChild(halfToggle);
+    row.appendChild(archiveBtn);
+    row.appendChild(delBtn);
+
+    if (archSep) {
+      body.insertBefore(row, archSep);
+      body.insertBefore(halfSection, archSep);
+    } else {
+      body.appendChild(row);
+      body.appendChild(halfSection);
+    }
+
+    requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Clear add form
+    document.getElementById('new-group-name').value = '';
+    document.getElementById('new-group-students').value = '';
+    autoResizeEgStudents(document.getElementById('new-group-students'));
+    document.getElementById('new-group-year').value = '';
+    document.getElementById('new-group-semester').value = '';
+    document.getElementById('new-group-level').value = '';
+  }
+
+  // ── Archive / unarchive ──────────────────────────────────────
+  async function archiveGroup(groupName) {
+    if (!rawMeta[groupName]) rawMeta[groupName] = {};
+    rawMeta[groupName].archived = true;
+
+    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
+    // Force archived flag on this group in collected data
+    if (updatedMeta[groupName]) updatedMeta[groupName].archived = true;
+    else if (updated[groupName]) updatedMeta[groupName] = { archived: true };
+
+    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    if (!result?.ok && result?.mode !== 'download') {
+      showNotice('Failed to save archive status: ' + (result?.error || 'unknown error'), true);
+      delete rawMeta[groupName].archived;
+      return;
+    }
+
+    rawData = updated;
+    rawMeta = updatedMeta;
+
+    if (window.Desktop && typeof Desktop.renameByPath === 'function') {
+      try {
+        await Desktop.renameByPath('groupParticipation', groupName, 'archived/' + groupName);
+      } catch (_) {}
+    }
+
+    showNotice('"' + groupName + '" archived.');
+    renderGroupsList();
+  }
+
+  async function unarchiveGroup(groupName) {
+    if (!rawMeta[groupName]) rawMeta[groupName] = {};
+    delete rawMeta[groupName].archived;
+
+    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
+    if (updatedMeta[groupName]) delete updatedMeta[groupName].archived;
+
+    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    if (!result?.ok && result?.mode !== 'download') {
+      showNotice('Failed to save unarchive status: ' + (result?.error || 'unknown error'), true);
+      rawMeta[groupName].archived = true;
+      return;
+    }
+
+    rawData = updated;
+    rawMeta = updatedMeta;
+
+    if (window.Desktop && typeof Desktop.renameByPath === 'function') {
+      try {
+        await Desktop.renameByPath('groupParticipation', 'archived/' + groupName, groupName);
+      } catch (_) {}
+    }
+
+    showNotice('"' + groupName + '" unarchived.');
+    renderGroupsList();
+  }
+
+  // ── Save ─────────────────────────────────────────────────────
+  async function saveGroupsToFile() {
+    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
+    if (Object.keys(updated).length === 0) {
+      alert('No groups to save.');
+      return;
+    }
+
+    rawData = updated;
+    rawMeta = updatedMeta;
+
+    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    if (!result?.ok && result?.mode !== 'download') {
+      showNotice('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
+      return;
+    }
+
+    const saveBtn = document.getElementById('ge-save-btn');
+    const orig = saveBtn.textContent;
+    saveBtn.textContent = '✓ Saved!';
+    saveBtn.disabled = true;
+    setTimeout(() => {
+      saveBtn.textContent = orig;
+      saveBtn.disabled = false;
+      renderGroupsList();
+    }, 1200);
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', loadGroups);
+</script>
+</body>
+</html>

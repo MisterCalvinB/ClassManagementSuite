@@ -138,6 +138,9 @@ const exposedApi = {
   arrangeSideBySide(request) {
     return invoke('app:arrange-side-by-side', request);
   },
+  goToLauncher() {
+    return invoke('app:go-to-launcher');
+  },
   loadPage(request) {
     return invoke('app:load-page', request);
   },

@@ -8,18 +8,10 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg: #f0f2f5;
-      --card: #fff;
-      --border: #e1e4e8;
-      --text: #1c2526;
-      --muted: #6b7280;
-    }
-
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      background: #fff;
+      color: #000;
       min-height: 100vh;
     }
 
@@ -35,7 +27,8 @@
       align-items: center;
       gap: 5px;
       font-size: 0.88rem;
-      color: var(--muted);
+      font-weight: 700;
+      color: #000;
       text-decoration: none;
       margin-bottom: 28px;
       cursor: pointer;
@@ -43,13 +36,12 @@
       border: none;
       padding: 0;
       font-family: inherit;
-      transition: color 0.1s;
     }
-    .back-link:hover { color: var(--text); }
+    .back-link:hover { text-decoration: underline; }
 
     /* ── Page title ─────────────────────────────────────── */
-    .page-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
-    .page-subtitle { font-size: 0.9rem; color: var(--muted); margin-bottom: 32px; }
+    .page-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; }
+    .page-subtitle { font-size: 0.9rem; font-weight: 600; color: #000; margin-bottom: 32px; }
 
     /* ── Toolbar ────────────────────────────────────────── */
     .toolbar {
@@ -59,21 +51,36 @@
       margin-bottom: 18px;
       flex-wrap: wrap;
     }
-    .toolbar select {
-      border: 1.5px solid var(--border);
+    .toolbar input[type="search"] {
+      flex: 1;
+      min-width: 160px;
+      border: 2px solid #000;
       border-radius: 6px;
       padding: 7px 11px;
       font-family: inherit;
       font-size: 0.88rem;
-      color: var(--text);
+      color: #000;
+      background: #fff;
+    }
+    .toolbar input[type="search"]:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .toolbar select {
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #000;
       background: #fff;
       cursor: pointer;
     }
-    .toolbar select:focus { outline: none; border-color: #111; }
+    .toolbar select:focus { outline: none; box-shadow: 2px 2px 0 #000; }
     .result-count {
       font-size: 0.83rem;
-      color: var(--muted);
+      font-weight: 700;
+      color: #000;
       margin-left: auto;
+      white-space: nowrap;
     }
 
     /* ── File list ──────────────────────────────────────── */
@@ -84,71 +91,81 @@
     }
 
     .file-row {
-      background: var(--card);
-      border: 1.5px solid var(--border);
+      background: #fff;
+      border: 2px solid #000;
       border-radius: 8px;
       padding: 14px 18px;
       display: flex;
       align-items: center;
       gap: 16px;
-      transition: border-color 0.12s, box-shadow 0.12s;
+      transition: box-shadow 0.1s, transform 0.1s;
     }
     .file-row:hover {
-      border-color: #111;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      box-shadow: 3px 3px 0 #000;
+      transform: translate(-1px, -1px);
     }
 
     .file-type-tag {
       flex-shrink: 0;
       font-size: 0.7rem;
-      font-weight: 700;
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       padding: 3px 7px;
       border-radius: 4px;
-      background: #f0f0f0;
-      color: #555;
+      border: 1.5px solid #000;
+      background: #fff;
+      color: #000;
       white-space: nowrap;
     }
-    .file-type-tag.constellation { background: #eff6ff; color: #2563eb; }
-    .file-type-tag.textanalysis  { background: #fef9ee; color: #92400e; }
-    .file-type-tag.notes         { background: #f0fdf4; color: #166534; }
+
+    /* ── Section heading ────────────────────────────────────*/
+    .section-heading {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #000;
+      margin-top: 36px;
+      margin-bottom: 12px;
+    }
 
     .file-info { flex: 1; min-width: 0; }
     .file-name {
       font-size: 0.93rem;
-      font-weight: 600;
+      font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       margin-bottom: 3px;
     }
-    .file-meta { font-size: 0.78rem; color: var(--muted); }
+    .file-meta { font-size: 0.78rem; font-weight: 600; color: #000; }
 
     .open-btn {
       flex-shrink: 0;
       padding: 7px 14px;
       border-radius: 6px;
-      border: 1.5px solid #111;
-      background: #111;
+      border: 2px solid #000;
+      background: #000;
       color: #fff;
       font-family: inherit;
       font-size: 0.84rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.12s, color 0.12s;
+      transition: background 0.1s, color 0.1s;
     }
-    .open-btn:hover { background: #fff; color: #111; }
+    .open-btn:hover { background: #fff; color: #000; }
 
     /* ── Empty / loading states ─────────────────────────── */
     .state-msg {
       text-align: center;
       padding: 48px 24px;
-      color: var(--muted);
+      color: #000;
       font-size: 0.93rem;
-      background: var(--card);
-      border: 1.5px solid var(--border);
+      font-weight: 600;
+      background: #fff;
+      border: 2px solid #000;
       border-radius: 10px;
     }
     .state-msg .state-icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
@@ -163,11 +180,27 @@
   <p class="page-subtitle">Board sessions, constellation maps, and analyses saved to your data folder.</p>
 
   <div class="toolbar">
+    <input type="search" id="searchBox" placeholder="Search files…">
     <select id="typeFilter">
       <option value="all">All types</option>
-      <option value="mindmaps">Constellation maps</option>
-      <option value="textualAnalyses">Textual analyses</option>
-      <option value="notes">Notes</option>
+      <optgroup label="Session files">
+        <option value="mindmaps">Constellation maps</option>
+        <option value="textualAnalyses">Textual analyses</option>
+        <option value="notes">Notes</option>
+      </optgroup>
+      <optgroup label="Documents">
+        <option value="pdf">PDF</option>
+        <option value="image">Image</option>
+        <option value="sound">Sound</option>
+        <option value="book">Book</option>
+      </optgroup>
+    </select>
+    <select id="sortOrder">
+      <option value="date-desc">Newest first</option>
+      <option value="date-asc">Oldest first</option>
+      <option value="name-asc">Name A→Z</option>
+      <option value="name-desc">Name Z→A</option>
+      <option value="size-desc">Largest first</option>
     </select>
     <span class="result-count" id="resultCount"></span>
   </div>
@@ -176,10 +209,14 @@
     <div class="state-msg"><span class="state-icon">⏳</span>Loading files…</div>
   </div>
 
+  <h2 class="section-heading" id="docsHeading" style="display:none">Added Documents</h2>
+  <div class="file-list" id="docsList"></div>
+
 </div>
 
 <script>
   var allFiles = [];
+  var allDocs  = [];
 
   var TYPE_INFO = {
     mindmaps:       { label: 'Constellation', cssClass: 'constellation' },
@@ -188,8 +225,8 @@
   };
 
   function goBack() {
-    if (window.Desktop && Desktop.isElectron() && window.electronApi && window.electronApi.loadPage) {
-      window.electronApi.loadPage({ pageFile: 'launcher.html' });
+    if (window.Desktop && Desktop.isElectron()) {
+      window.close();
     } else {
       window.location.href = 'launcher.html';
     }
@@ -227,12 +264,30 @@
     });
   }
 
+  function fileDateMs(f) {
+    return f.savedAt || f.createdAt || f.mtimeMs || 0;
+  }
+
+  function getSortFn(order) {
+    switch (order) {
+      case 'date-asc':
+        return function (a, b) { return fileDateMs(a) - fileDateMs(b); };
+      case 'name-asc':
+        return function (a, b) { return prettyName(a.filename).localeCompare(prettyName(b.filename)); };
+      case 'name-desc':
+        return function (a, b) { return prettyName(b.filename).localeCompare(prettyName(a.filename)); };
+      case 'size-desc':
+        return function (a, b) { return (b.size || 0) - (a.size || 0); };
+      default: // date-desc
+        return function (a, b) { return fileDateMs(b) - fileDateMs(a); };
+    }
+  }
+
   function renderFiles(files) {
     var list = document.getElementById('fileList');
-    document.getElementById('resultCount').textContent = files.length + ' file' + (files.length === 1 ? '' : 's');
 
     if (files.length === 0) {
-      list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>No files found for this filter.</div>';
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>No files found.</div>';
       return;
     }
 
@@ -256,9 +311,8 @@
 
       var meta = document.createElement('div');
       meta.className = 'file-meta';
-      var dateMs = f.savedAt || f.createdAt || f.mtimeMs || 0;
       var sizeKb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
-      meta.textContent = formatDate(dateMs) + (sizeKb ? ' · ' + sizeKb : '');
+      meta.textContent = formatDate(fileDateMs(f)) + (sizeKb ? ' · ' + sizeKb : '');
 
       fileInfo.appendChild(name);
       fileInfo.appendChild(meta);
@@ -277,13 +331,85 @@
     });
   }
 
-  function applyFilter() {
-    var filter = document.getElementById('typeFilter').value;
-    var filtered = filter === 'all' ? allFiles : allFiles.filter(function (f) { return f.target === filter; });
-    renderFiles(filtered);
+  function renderDocs(files) {
+    var docsHeading = document.getElementById('docsHeading');
+    var docsList    = document.getElementById('docsList');
+
+    if (files.length === 0) {
+      docsHeading.style.display = 'none';
+      docsList.innerHTML = '';
+      return;
+    }
+
+    docsHeading.style.display = '';
+    docsList.innerHTML = '';
+
+    files.forEach(function (f) {
+      var info = docTypeInfo(f.filename);
+
+      var row = document.createElement('div');
+      row.className = 'file-row';
+
+      var tag = document.createElement('span');
+      tag.className = 'file-type-tag ' + info.cssClass;
+      tag.textContent = info.label;
+
+      var fileInfo = document.createElement('div');
+      fileInfo.className = 'file-info';
+
+      var name = document.createElement('div');
+      name.className = 'file-name';
+      name.textContent = f.filename;
+      name.title = f.relativePath || f.filename;
+
+      var meta = document.createElement('div');
+      meta.className = 'file-meta';
+      var sizeKb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      meta.textContent = formatDate(f.mtimeMs) + (sizeKb ? ' · ' + sizeKb : '');
+
+      fileInfo.appendChild(name);
+      fileInfo.appendChild(meta);
+      row.appendChild(tag);
+      row.appendChild(fileInfo);
+      docsList.appendChild(row);
+    });
   }
 
-  document.getElementById('typeFilter').addEventListener('change', applyFilter);
+  var SESSION_TYPES = ['mindmaps', 'textualAnalyses', 'notes'];
+  var DOC_TYPE_FILTERS = ['pdf', 'image', 'sound', 'book'];
+
+  function applyFilters() {
+    var filter = document.getElementById('typeFilter').value;
+    var search = document.getElementById('searchBox').value.trim().toLowerCase();
+    var sort   = document.getElementById('sortOrder').value;
+
+    var isDocFilter     = DOC_TYPE_FILTERS.indexOf(filter) !== -1;
+    var isSessionFilter = SESSION_TYPES.indexOf(filter) !== -1;
+
+    var filteredFiles = isDocFilter ? [] : allFiles.filter(function (f) {
+      if (isSessionFilter && f.target !== filter) return false;
+      if (search && prettyName(f.filename).toLowerCase().indexOf(search) === -1) return false;
+      return true;
+    });
+    filteredFiles.sort(getSortFn(sort));
+    renderFiles(filteredFiles);
+
+    var filteredDocs = isSessionFilter ? [] : allDocs.filter(function (f) {
+      if (isDocFilter && docTypeInfo(f.filename).cssClass !== filter) return false;
+      if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
+      return true;
+    });
+    filteredDocs.sort(getSortFn(sort));
+    renderDocs(filteredDocs);
+
+    var total = filteredFiles.length + filteredDocs.length;
+    document.getElementById('resultCount').textContent =
+      total + ' file' + (total === 1 ? '' : 's');
+  }
+
+  document.getElementById('typeFilter').addEventListener('change', applyFilters);
+  document.getElementById('sortOrder').addEventListener('change', applyFilters);
+  document.getElementById('searchBox').addEventListener('input', applyFilters);
 
   async function loadFiles() {
     var list = document.getElementById('fileList');
@@ -306,6 +432,8 @@
           });
           if (res && res.ok && Array.isArray(res.files)) {
             res.files.forEach(function (f) {
+              var relPath = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+              if (relPath.split('/').indexOf('archived') !== -1) return;
               gathered.push(Object.assign({}, f, { target: target }));
             });
           }
@@ -314,15 +442,8 @@
         }
       }
 
-      // Sort newest first
-      gathered.sort(function (a, b) {
-        var ta = a.savedAt || a.createdAt || a.mtimeMs || 0;
-        var tb = b.savedAt || b.createdAt || b.mtimeMs || 0;
-        return tb - ta;
-      });
-
       allFiles = gathered;
-      applyFilter();
+      applyFilters();
     } catch (e) {
       list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>Error loading files: ' + escHtml(e.message || String(e)) + '</div>';
     }
@@ -332,7 +453,45 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  document.addEventListener('DOMContentLoaded', loadFiles);
+  var IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+  var SOUND_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
+  var DOC_EXTS   = IMAGE_EXTS.concat(SOUND_EXTS, ['.pdf', '.epub']);
+
+  function docTypeInfo(filename) {
+    var ext = '.' + (filename || '').split('.').pop().toLowerCase();
+    if (IMAGE_EXTS.indexOf(ext) !== -1) return { label: 'Image', cssClass: 'image' };
+    if (SOUND_EXTS.indexOf(ext) !== -1) return { label: 'Sound', cssClass: 'sound' };
+    if (ext === '.pdf')  return { label: 'PDF',  cssClass: 'pdf' };
+    if (ext === '.epub') return { label: 'Book', cssClass: 'book' };
+    return { label: ext.slice(1).toUpperCase(), cssClass: '' };
+  }
+
+  async function loadDocs() {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+
+    try {
+      var res = await Desktop.listByPath('user', 'custom-data', {
+        extensions: DOC_EXTS,
+        recursive: true
+      });
+
+      if (!res || !res.ok || !Array.isArray(res.files)) return;
+
+      allDocs = res.files.filter(function (f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        return rel.split('/').indexOf('archived') === -1;
+      });
+
+      applyFilters();
+    } catch (e) {
+      console.warn('Could not load added documents:', e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadFiles();
+    loadDocs();
+  });
 </script>
 </body>
 </html>

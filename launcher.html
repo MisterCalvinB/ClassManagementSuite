@@ -50,8 +50,8 @@
 
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f0f2f5;
-      color: #1c2526;
+      background: #fff;
+      color: #000;
       min-height: 100vh;
     }
 
@@ -68,42 +68,65 @@
     }
     .l-header h1 {
       font-size: 2rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.4px;
     }
     .l-header .subtitle {
       margin-top: 8px;
       font-size: 0.93rem;
-      color: #6b7280;
+      font-weight: 600;
+      color: #000;
+    }
+    .l-header-actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .l-header-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 7px;
+      padding: 7px 16px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    .l-header-btn:hover {
+      background: #000;
+      color: #fff;
     }
 
     /* ── Grid ───────────────────────────────────────────── */
     .apps-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
-      gap: 16px;
+      gap: 10px;
     }
 
     /* ── Card ───────────────────────────────────────────── */
     .app-card {
       background: #fff;
-      border: 1.5px solid #e1e4e8;
+      border: 2px solid #000;
       border-radius: 10px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transition: border-color 0.14s, box-shadow 0.14s;
+      transition: box-shadow 0.14s, transform 0.1s;
     }
     .app-card:hover {
-      border-color: #111;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.07);
+      box-shadow: 4px 4px 0 #000;
+      transform: translate(-2px, -2px);
     }
     .app-card.config-open {
-      border-color: #111;
+      box-shadow: 4px 4px 0 #000;
     }
 
     .card-body {
-      padding: 22px 20px 14px;
+      padding: 12px 14px 8px;
       flex: 1;
       cursor: pointer;
       user-select: none;
@@ -112,19 +135,20 @@
       text-decoration: underline;
     }
     .card-icon {
-      font-size: 2.1rem;
+      font-size: 1.7rem;
       display: block;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
       user-select: none;
     }
     .card-title {
       font-size: 1.06rem;
-      font-weight: 700;
+      font-weight: 800;
       margin-bottom: 6px;
     }
     .card-desc {
       font-size: 0.86rem;
-      color: #6b7280;
+      color: #000;
+      font-weight: 500;
       line-height: 1.55;
     }
 
@@ -132,18 +156,14 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 20px 12px;
-    }
-    .card-open-hint {
-      font-size: 0.78rem;
-      color: #9ca3af;
-      user-select: none;
+      padding: 6px 14px 8px;
+      border-top: 1.5px solid #000;
     }
     .card-gear-btn {
       background: none;
-      border: none;
+      border: 1.5px solid #000;
       cursor: pointer;
-      color: #9ca3af;
+      color: #000;
       font-size: 1.05rem;
       padding: 4px 7px;
       border-radius: 5px;
@@ -151,65 +171,99 @@
       transition: background 0.1s, color 0.1s;
     }
     .card-gear-btn:hover {
-      background: #f3f4f6;
-      color: #374151;
+      background: #000;
+      color: #fff;
     }
     .card-gear-btn.active {
-      color: #111;
-      background: #f0f0f0;
+      background: #000;
+      color: #fff;
     }
 
-    /* ── Inline config panel ────────────────────────────── */
-    .config-panel {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.26s ease;
-    }
-    .config-panel.open {
-      max-height: 280px;
-    }
-    .config-panel-inner {
-      background: #f8f9fa;
-      border-top: 1px solid #e8eaed;
-      padding: 14px 20px 16px;
+    /* ── Config popup ───────────────────────────────────── */
+    .cfg-popup {
+      position: fixed;
+      z-index: 1000;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 8px;
+      box-shadow: 4px 4px 0 #000;
+      width: 280px;
+      padding: 14px 16px 16px;
     }
     .cfg-label {
       display: block;
       font-size: 0.71rem;
-      font-weight: 700;
-      color: #6b7280;
+      font-weight: 800;
+      color: #000;
       text-transform: uppercase;
       letter-spacing: 0.6px;
       margin-bottom: 4px;
     }
     .cfg-input {
       width: 100%;
-      border: 1px solid #dde1e7;
+      border: 2px solid #000;
       border-radius: 5px;
       padding: 6px 9px;
       font-family: inherit;
       font-size: 0.88rem;
-      color: #1c2526;
+      color: #000;
       background: #fff;
       margin-bottom: 12px;
-      transition: border-color 0.1s;
+      transition: box-shadow 0.1s;
     }
     .cfg-input:focus {
       outline: none;
-      border-color: #111;
+      box-shadow: 2px 2px 0 #000;
     }
     .cfg-notes {
       resize: vertical;
       min-height: 54px;
       margin-bottom: 0;
     }
+    .cfg-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .cfg-row > div { flex: 1; }
+    .cfg-row .cfg-input { margin-bottom: 0; }
   </style>
 </head>
 <body>
+<div id="cfgPopup" class="cfg-popup" hidden>
+  <label class="cfg-label">Custom label</label>
+  <input class="cfg-input cfg-label-input" type="text" placeholder="">
+  <label class="cfg-label">Personal notes</label>
+  <textarea class="cfg-input cfg-notes" rows="3" placeholder="Notes or reminders about this tool..."></textarea>
+  <div class="cfg-row">
+    <div>
+      <label class="cfg-label">Size (%)</label>
+      <input class="cfg-input cfg-size-input" type="number" min="20" max="100" step="5" placeholder="Default">
+    </div>
+    <div>
+      <label class="cfg-label">Position</label>
+      <select class="cfg-input cfg-pos-select">
+        <option value="">Default</option>
+        <option value="center">Center</option>
+        <option value="top-left">Top-left</option>
+        <option value="top-right">Top-right</option>
+        <option value="bottom-left">Bottom-left</option>
+        <option value="bottom-right">Bottom-right</option>
+        <option value="left">Left (full height)</option>
+        <option value="right">Right (full height)</option>
+      </select>
+    </div>
+  </div>
+</div>
 <div class="launcher">
   <header class="l-header">
     <h1 id="appTitle">Class Management Tools</h1>
     <p class="subtitle">Select a tool to get started</p>
+    <div class="l-header-actions">
+      <button class="l-header-btn" onclick="openApp('general-config.html')" title="General settings">⚙ Config</button>
+      <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app">? How To</button>
+      <button class="l-header-btn" onclick="openApp('credits.html')" title="Credits">ℹ️ Credits</button>
+    </div>
   </header>
   <div class="apps-grid" id="appsGrid"></div>
 </div>
@@ -229,6 +283,13 @@
       icon: '👥',
       title: 'Class Management',
       desc: 'Manage class groups, track participation, and export session data for individual classes.'
+    },
+    {
+      id: 'groupEditor',
+      pageFile: 'group-editor.html',
+      icon: '✏️',
+      title: 'Group Editor',
+      desc: 'Create, edit, archive, and delete class groups stored in class-groups.js.'
     },
     {
       id: 'learningTools',
@@ -301,9 +362,13 @@
       .replace(/"/g, '&quot;');
   }
 
-  function openApp(pageFile) {
+  function openApp(pageFile, cardCfg) {
     if (window.Desktop && Desktop.isElectron()) {
-      Desktop.openTool(pageFile);
+      const opts = {};
+      const size = cardCfg ? Number(cardCfg.windowSize) : 0;
+      if (size >= 20 && size <= 100) opts.windowSizeRatio = size / 100;
+      if (cardCfg && cardCfg.windowPosition) opts.windowPosition = cardCfg.windowPosition;
+      Desktop.openTool(pageFile, opts);
     } else {
       window.location.href = pageFile;
     }
@@ -312,7 +377,6 @@
   function buildCard(app) {
     const cfg = getCardConfig(app.id);
     const label = (cfg.customLabel && cfg.customLabel.trim()) || app.title;
-    const notes = cfg.notes || '';
 
     const card = document.createElement('div');
     card.className = 'app-card';
@@ -325,46 +389,102 @@
         '<div class="card-desc">' + escHtml(app.desc) + '</div>' +
       '</div>' +
       '<div class="card-footer">' +
-        '<span class="card-open-hint">Click to open ↗</span>' +
         '<button class="card-gear-btn" title="Card settings" aria-label="Card settings">⚙</button>' +
-      '</div>' +
-      '<div class="config-panel">' +
-        '<div class="config-panel-inner">' +
-          '<label class="cfg-label">Custom label</label>' +
-          '<input class="cfg-input cfg-label-input" type="text" placeholder="' + escHtml(app.title) + ' (default)" value="' + escHtml(cfg.customLabel || '') + '">' +
-          '<label class="cfg-label">Personal notes</label>' +
-          '<textarea class="cfg-input cfg-notes" rows="3" placeholder="Notes or reminders about this tool...">' + escHtml(notes) + '</textarea>' +
-        '</div>' +
       '</div>';
 
     const cardBody = card.querySelector('.card-body');
     const gearBtn = card.querySelector('.card-gear-btn');
-    const configPanel = card.querySelector('.config-panel');
-    const labelInput = card.querySelector('.cfg-label-input');
-    const notesInput = card.querySelector('.cfg-notes');
 
     cardBody.addEventListener('click', function () {
-      openApp(app.pageFile);
+      openApp(app.pageFile, getCardConfig(app.id));
     });
 
     gearBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      const isOpen = configPanel.classList.toggle('open');
-      gearBtn.classList.toggle('active', isOpen);
-      card.classList.toggle('config-open', isOpen);
+      const popup = document.getElementById('cfgPopup');
+      if (!popup.hidden && currentGearBtn === gearBtn) {
+        closePopup();
+      } else {
+        showPopup(gearBtn, card, app);
+      }
     });
-
-    function persistConfig() {
-      saveCardConfig(app.id, { customLabel: labelInput.value, notes: notesInput.value });
-      const trimmed = labelInput.value.trim();
-      card.querySelector('.card-title').textContent = trimmed || app.title;
-    }
-
-    labelInput.addEventListener('input', persistConfig);
-    notesInput.addEventListener('input', persistConfig);
 
     return card;
   }
+
+  let currentPopupApp = null;
+  let currentGearBtn  = null;
+  let currentCard     = null;
+
+  function showPopup(gearBtn, card, app) {
+    const popup = document.getElementById('cfgPopup');
+    currentPopupApp = app;
+    currentGearBtn  = gearBtn;
+    currentCard     = card;
+
+    const cfg = getCardConfig(app.id);
+    popup.querySelector('.cfg-label-input').placeholder = app.title + ' (default)';
+    popup.querySelector('.cfg-label-input').value = cfg.customLabel || '';
+    popup.querySelector('.cfg-notes').value        = cfg.notes || '';
+    popup.querySelector('.cfg-size-input').value   = cfg.windowSize || '';
+    popup.querySelector('.cfg-pos-select').value   = cfg.windowPosition || '';
+
+    // Measure off-screen then position
+    popup.style.visibility = 'hidden';
+    popup.hidden = false;
+
+    const rect   = gearBtn.getBoundingClientRect();
+    const pw     = popup.offsetWidth;
+    const ph     = popup.offsetHeight;
+    let top  = rect.top - ph - 8;
+    if (top < 8) top = rect.bottom + 8;
+    let left = rect.left;
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    if (left < 8) left = 8;
+
+    popup.style.top  = top  + 'px';
+    popup.style.left = left + 'px';
+    popup.style.visibility = '';
+
+    gearBtn.classList.add('active');
+    card.classList.add('config-open');
+  }
+
+  function closePopup() {
+    const popup = document.getElementById('cfgPopup');
+    popup.hidden = true;
+    if (currentGearBtn) currentGearBtn.classList.remove('active');
+    if (currentCard)    currentCard.classList.remove('config-open');
+    currentPopupApp = null;
+    currentGearBtn  = null;
+    currentCard     = null;
+  }
+
+  function persistPopupConfig() {
+    if (!currentPopupApp) return;
+    const popup = document.getElementById('cfgPopup');
+    const labelVal = popup.querySelector('.cfg-label-input').value;
+    saveCardConfig(currentPopupApp.id, {
+      customLabel:    labelVal,
+      notes:          popup.querySelector('.cfg-notes').value,
+      windowSize:     popup.querySelector('.cfg-size-input').value,
+      windowPosition: popup.querySelector('.cfg-pos-select').value
+    });
+    if (currentCard) {
+      currentCard.querySelector('.card-title').textContent = labelVal.trim() || currentPopupApp.title;
+    }
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    const popup = document.getElementById('cfgPopup');
+    if (!popup.hidden && !popup.contains(e.target) && e.target !== currentGearBtn) {
+      closePopup();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closePopup();
+  });
 
   async function init() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
@@ -375,6 +495,12 @@
         }
       } catch (e) { console.warn('launcher: could not read general-config from file:', e); }
     }
+    const popup = document.getElementById('cfgPopup');
+    popup.querySelector('.cfg-label-input').addEventListener('input',  persistPopupConfig);
+    popup.querySelector('.cfg-notes').addEventListener('input',        persistPopupConfig);
+    popup.querySelector('.cfg-size-input').addEventListener('input',   persistPopupConfig);
+    popup.querySelector('.cfg-pos-select').addEventListener('change',  persistPopupConfig);
+
     applyTitle();
     const grid = document.getElementById('appsGrid');
     APPS.forEach(function (app) { grid.appendChild(buildCard(app)); });

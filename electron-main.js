@@ -11,6 +11,7 @@ const ROOT_DIR = __dirname;
 const PAGE_FILES = {
   board: 'board.html',
   classManagement: 'class-management.html',
+  groupEditor: 'group-editor.html',
   gradeSheet: 'grade-sheet.html',
   learningDb: 'manage-database.html',
   learningTools: 'learning-tools.html',
@@ -18,7 +19,9 @@ const PAGE_FILES = {
   dataLocation: 'data-location.html',
   launcher: 'launcher.html',
   generalConfig: 'general-config.html',
-  recentFiles: 'recent-files.html'
+  recentFiles: 'recent-files.html',
+  howTo: 'how-to.html',
+  credits: 'credits.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -40,12 +43,17 @@ const PAGE_ARG_MAP = {
   generalconfig: PAGE_FILES.generalConfig,
   config: PAGE_FILES.generalConfig,
   recentfiles: PAGE_FILES.recentFiles,
-  recent: PAGE_FILES.recentFiles
+  recent: PAGE_FILES.recentFiles,
+  howto: PAGE_FILES.howTo,
+  help: PAGE_FILES.howTo,
+  groupeditor: PAGE_FILES.groupEditor,
+  groups: PAGE_FILES.groupEditor
 };
 
 const PAGE_LABELS = {
   [PAGE_FILES.board]: 'Board',
   [PAGE_FILES.classManagement]: 'Class Management',
+  [PAGE_FILES.groupEditor]: 'Group Editor',
   [PAGE_FILES.gradeSheet]: 'Grade Sheet',
   [PAGE_FILES.learningDb]: 'Learning DB',
   [PAGE_FILES.learningTools]: 'Learning Tools',
@@ -53,7 +61,9 @@ const PAGE_LABELS = {
   [PAGE_FILES.dataLocation]: 'Data Location',
   [PAGE_FILES.launcher]: 'Launcher',
   [PAGE_FILES.generalConfig]: 'General Config',
-  [PAGE_FILES.recentFiles]: 'Recent Files'
+  [PAGE_FILES.recentFiles]: 'Recent Files',
+  [PAGE_FILES.howTo]: 'How To',
+  [PAGE_FILES.credits]: 'Credits'
 };
 
 function getDefaultWritableRootDir() {
@@ -163,13 +173,16 @@ function getBundledDataRoot() {
 const PAGE_PERMISSIONS = {
   [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'textualAnalyses', 'notes', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
   [PAGE_FILES.classManagement]: new Set(['user', 'groupParticipation', 'data', 'grades']),
+  [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.gradeSheet]: new Set(['gradeSheet', 'grades', 'user']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps', 'textualAnalyses', 'notes'])
+  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps', 'textualAnalyses', 'notes']),
+  [PAGE_FILES.howTo]: new Set(['user']),
+  [PAGE_FILES.credits]: new Set([])
 };
 
 let mainWindow;
@@ -2095,6 +2108,21 @@ ipcMain.handle('app:get-data-location', async () => {
   };
 });
 
+ipcMain.handle('app:go-to-launcher', async (event) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (mainWindow && !mainWindow.isDestroyed() && senderWin !== mainWindow) {
+    if (getLoadedPageFile(mainWindow) !== PAGE_FILES.launcher) {
+      await loadTool(PAGE_FILES.launcher, mainWindow);
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    if (senderWin && !senderWin.isDestroyed()) senderWin.close();
+  } else {
+    await loadTool(PAGE_FILES.launcher, senderWin || mainWindow);
+  }
+  return { ok: true };
+});
+
 ipcMain.handle('app:load-page', async (event, request = {}) => {
   const pageFile = request.pageFile;
   const knownPages = new Set(Object.values(PAGE_FILES));
@@ -2355,6 +2383,47 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       const mappedBounds = mapWindowBoundsToDisplay(senderBounds, sourceDisplay, targetDisplay);
       if (mappedBounds) {
         toolWin.setBounds(mappedBounds);
+      }
+    }
+  }
+
+  if (!request.sideBySide && !request.maximize && !wantsSecondary && !toolWin.isDestroyed()) {
+    const winSizeRatio = Number(request.windowSizeRatio) || 0;
+    const winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';
+    const hasSize = winSizeRatio >= 0.1 && winSizeRatio <= 1.0;
+    const hasPos  = !!(winPosition && winPosition !== 'default');
+
+    if (hasSize || hasPos) {
+      const display = screen.getDisplayMatching(toolWin.getBounds());
+      const wa = display.workArea;
+
+      // Measure invisible resize border (DWM shadow on Windows) so tiled
+      // windows meet flush without overlap, matching _arrangeSideBySide.
+      const ob = toolWin.getBounds();
+      const cb = toolWin.getContentBounds();
+      const insetL = Math.max(0, cb.x - ob.x);
+      const insetR = Math.max(0, (ob.x + ob.width)  - (cb.x + cb.width));
+      const insetB = Math.max(0, (ob.y + ob.height) - (cb.y + cb.height));
+
+      // Work in visual (inset-excluded) dimensions
+      let vW = hasSize ? Math.max(400, Math.round(wa.width  * winSizeRatio)) : ob.width  - insetL - insetR;
+      let vH = hasSize ? Math.max(300, Math.round(wa.height * winSizeRatio)) : ob.height - insetB;
+      if (winPosition === 'left' || winPosition === 'right') vH = wa.height;
+
+      if (hasPos) {
+        let vX = wa.x, vY = wa.y;
+        switch (winPosition) {
+          case 'center':       vX = wa.x + Math.round((wa.width  - vW) / 2); vY = wa.y + Math.round((wa.height - vH) / 2); break;
+          case 'top-left':     vX = wa.x;                vY = wa.y; break;
+          case 'top-right':    vX = wa.x + wa.width - vW; vY = wa.y; break;
+          case 'bottom-left':  vX = wa.x;                vY = wa.y + wa.height - vH; break;
+          case 'bottom-right': vX = wa.x + wa.width - vW; vY = wa.y + wa.height - vH; break;
+          case 'left':         vX = wa.x;                vY = wa.y; break;
+          case 'right':        vX = wa.x + wa.width - vW; vY = wa.y; break;
+        }
+        toolWin.setBounds({ x: vX - insetL, y: vY, width: vW + insetL + insetR, height: vH + insetB });
+      } else {
+        toolWin.setSize(vW + insetL + insetR, vH + insetB);
       }
     }
   }

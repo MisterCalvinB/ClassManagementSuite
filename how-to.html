@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How To — Class Management Tools</title>
+  <script src="electron-bridge.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ───────────────────────────────────────────── */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 200;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      height: 48px;
+      flex-shrink: 0;
+    }
+    .top-bar-title {
+      font-size: 0.92rem;
+      font-weight: 800;
+      flex: 1;
+    }
+    .top-bar-btn {
+      background: none;
+      border: 1.5px solid rgba(255,255,255,0.55);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+      white-space: nowrap;
+    }
+    .top-bar-btn:hover {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    /* ── Layout ────────────────────────────────────────────── */
+    .layout {
+      display: flex;
+      min-height: calc(100vh - 48px);
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────── */
+    .sidebar {
+      width: 230px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 2px solid #000;
+      position: sticky;
+      top: 48px;
+      height: calc(100vh - 48px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-search-wrap {
+      padding: 12px 12px 8px;
+      border-bottom: 2px solid #000;
+      flex-shrink: 0;
+    }
+    .sidebar-search {
+      width: 100%;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 6px 10px 6px 28px;
+      font-size: 0.82rem;
+      font-family: inherit;
+      color: #000;
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 8px 50%;
+    }
+    .sidebar-search:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .sidebar-search::placeholder { color: #000; opacity: 0.45; }
+
+    .sidebar-nav { flex: 1; padding: 6px 0 20px; }
+    .sidebar-label {
+      font-size: 0.64rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      padding: 14px 14px 4px;
+    }
+    .sidebar-item {
+      position: relative;
+    }
+    .sidebar-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+    }
+    .sidebar-row-main {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      padding: 7px 10px 7px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #000;
+      transition: background 0.1s, color 0.1s;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-row-main:hover { background: #000; color: #fff; }
+    .sidebar-row-main.active {
+      background: #000;
+      color: #fff;
+      font-weight: 700;
+      border-left-color: #fff;
+    }
+    .sidebar-row-main.search-hidden { display: none; }
+
+    .sidebar-caret {
+      padding: 7px 10px 7px 4px;
+      color: #000;
+      font-size: 0.7rem;
+      transition: transform 0.18s;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .sidebar-caret:hover { opacity: 0.6; }
+    .sidebar-caret.open { transform: rotate(90deg); }
+
+    .sidebar-children {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.22s ease;
+    }
+    .sidebar-children.open { max-height: 600px; }
+    .sidebar-child {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      width: 100%;
+      padding: 5px 10px 5px 36px;
+      font-size: 0.79rem;
+      font-weight: 600;
+      color: #000;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: background 0.1s, color 0.1s;
+    }
+    .sidebar-child:hover { background: #000; color: #fff; }
+    .sidebar-child.active { color: #000; font-weight: 700; }
+    .sidebar-child-dot { width: 4px; height: 4px; border-radius: 50%; background: #000; flex-shrink: 0; }
+    .sidebar-child.active .sidebar-child-dot { background: #000; }
+    .sidebar-child.search-hidden { display: none; }
+
+    /* ── Content ───────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      padding: 36px 48px 80px;
+      max-width: 820px;
+      min-width: 0;
+    }
+
+    .page-header {
+      margin-bottom: 40px;
+    }
+    .page-header h1 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+    }
+    .page-header p {
+      font-size: 0.92rem;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.6;
+    }
+
+    /* ── Tool section ──────────────────────────────────────── */
+    .tool-section {
+      margin-bottom: 52px;
+      scroll-margin-top: 64px;
+    }
+    .tool-section.search-hidden { display: none; }
+
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #000;
+    }
+    .tool-icon { font-size: 1.7rem; line-height: 1; }
+    .tool-header h2 { font-size: 1.25rem; font-weight: 800; flex: 1; }
+    .open-tool-btn {
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 5px 13px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .open-tool-btn:hover { background: #fff; color: #000; }
+
+    .tool-overview {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.65;
+      margin-bottom: 16px;
+    }
+
+    /* ── Overview feature cards ────────────────────────────── */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .overview-card {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: box-shadow 0.1s, transform 0.1s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .overview-card:hover {
+      box-shadow: 3px 3px 0 #000;
+      transform: translate(-1px, -1px);
+    }
+    .overview-card h3 {
+      font-size: 0.88rem;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+    .overview-card p {
+      font-size: 0.81rem;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.5;
+    }
+
+    /* ── Accordion ─────────────────────────────────────────── */
+    .accordion {
+      border: 2px solid #000;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      background: #fff;
+      scroll-margin-top: 64px;
+    }
+    .accordion.search-hidden { display: none; }
+
+    .accordion-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #fff;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: background 0.1s, color 0.1s;
+    }
+    .accordion-header:hover { background: #000; color: #fff; }
+    .accordion-header:hover .accordion-arrow,
+    .accordion-header:hover .accordion-title,
+    .accordion-header:hover .accordion-badge { color: #fff; }
+    .accordion-header.open { background: #fff; border-bottom: 2px solid #000; }
+
+    .accordion-arrow {
+      font-size: 0.65rem;
+      color: #000;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+      width: 14px;
+      text-align: center;
+      line-height: 1;
+    }
+    .accordion-header.open .accordion-arrow { transform: rotate(90deg); }
+
+    .accordion-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #000;
+      flex: 1;
+    }
+    .accordion-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #000;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 4px;
+      padding: 2px 6px;
+      flex-shrink: 0;
+    }
+
+    .accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.28s ease;
+    }
+    .accordion-body.open { max-height: 2400px; }
+    .accordion-inner { padding: 14px 18px 16px; }
+
+    /* ── Steps ─────────────────────────────────────────────── */
+    .steps {
+      list-style: none;
+      counter-reset: steps;
+      margin-bottom: 12px;
+    }
+    .steps li {
+      counter-increment: steps;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 0.87rem;
+      font-weight: 500;
+      line-height: 1.6;
+      color: #000;
+      padding: 6px 0;
+      border-bottom: 1px solid #000;
+    }
+    .steps li:last-child { border-bottom: none; }
+    .steps li::before {
+      content: counter(steps);
+      min-width: 20px;
+      height: 20px;
+      background: #000;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* ── Tips ──────────────────────────────────────────────── */
+    .tip {
+      background: #fff;
+      border: 2px solid #000;
+      border-left-width: 5px;
+      padding: 9px 13px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.55;
+      margin: 10px 0 4px;
+    }
+    .tip strong { font-weight: 800; color: #000; }
+
+    /* ── Feature mini-grid ─────────────────────────────────── */
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 9px;
+      margin-bottom: 10px;
+    }
+    .mini-card {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .mini-card h4 {
+      font-size: 0.82rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .mini-card p {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.45;
+    }
+
+    /* ── Cross-links ───────────────────────────────────────── */
+    .xlink {
+      color: #000;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: inherit;
+      padding: 0;
+    }
+    .xlink:hover { opacity: 0.6; }
+
+    /* ── Kbd ───────────────────────────────────────────────── */
+    kbd {
+      display: inline-block;
+      background: #fff;
+      border: 2px solid #000;
+      border-bottom-width: 3px;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.76rem;
+      font-family: 'Segoe UI', monospace;
+      font-weight: 700;
+      color: #000;
+    }
+
+    /* ── Divider ───────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 2px solid #000;
+      margin: 36px 0;
+    }
+
+    /* ── No-results ────────────────────────────────────────── */
+    .no-results {
+      display: none;
+      padding: 48px 20px;
+      text-align: center;
+      font-weight: 700;
+      color: #000;
+      font-size: 0.9rem;
+    }
+    .no-results.visible { display: block; }
+
+    @media (max-width: 680px) {
+      .sidebar { display: none; }
+      .content { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="top-bar-title">How To — Class Management Tools</span>
+  <button class="top-bar-btn" id="btn-expand-all" onclick="expandAll()">Expand all</button>
+  <button class="top-bar-btn" id="btn-collapse-all" onclick="collapseAll()">Collapse all</button>
+  <button class="top-bar-btn" onclick="goBack()">← Launcher</button>
+</div>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <div class="sidebar-search-wrap">
+      <input class="sidebar-search" id="searchInput" type="search" placeholder="Search…" oninput="onSearch(this.value)" autocomplete="off">
+    </div>
+    <div class="sidebar-nav" id="sidebarNav">
+
+      <div class="sidebar-label">Getting Started</div>
+      <div class="sidebar-item">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="intro" onclick="navTo('intro')">
+            <span>🚀</span> Overview
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-first-setup">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="first-setup" onclick="navTo('first-setup')">
+            <span>🛠</span> First Setup
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-first-setup')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-fs-data" onclick="navToAccordion('first-setup','acc-fs-data')"><span class="sidebar-child-dot"></span>Data Folder</button>
+          <button class="sidebar-child" data-accordion="acc-fs-groups" onclick="navToAccordion('first-setup','acc-fs-groups')"><span class="sidebar-child-dot"></span>Create Classes</button>
+          <button class="sidebar-child" data-accordion="acc-fs-content" onclick="navToAccordion('first-setup','acc-fs-content')"><span class="sidebar-child-dot"></span>Add Content</button>
+          <button class="sidebar-child" data-accordion="acc-fs-config" onclick="navToAccordion('first-setup','acc-fs-config')"><span class="sidebar-child-dot"></span>Configure Preferences</button>
+          <button class="sidebar-child" data-accordion="acc-fs-session" onclick="navToAccordion('first-setup','acc-fs-session')"><span class="sidebar-child-dot"></span>First Session</button>
+        </div>
+      </div>
+
+      <div class="sidebar-label">Tools</div>
+
+      <div class="sidebar-item" id="nav-board">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="board" onclick="navTo('board')">
+            <span>🖥</span> Board
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-board')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-board-constellation" onclick="navToAccordion('board','acc-board-constellation')"><span class="sidebar-child-dot"></span>Constellation Maps</button>
+          <button class="sidebar-child" data-accordion="acc-board-timer" onclick="navToAccordion('board','acc-board-timer')"><span class="sidebar-child-dot"></span>Live Timer</button>
+          <button class="sidebar-child" data-accordion="acc-board-drawing" onclick="navToAccordion('board','acc-board-drawing')"><span class="sidebar-child-dot"></span>Drawing & Laser</button>
+          <button class="sidebar-child" data-accordion="acc-board-settings" onclick="navToAccordion('board','acc-board-settings')"><span class="sidebar-child-dot"></span>Board Settings</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-class-management">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="class-management" onclick="navTo('class-management')">
+            <span>👥</span> Class Management
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-class-management')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-cm-groups" onclick="navToAccordion('class-management','acc-cm-groups')"><span class="sidebar-child-dot"></span>Loading a Group</button>
+          <button class="sidebar-child" data-accordion="acc-cm-picker" onclick="navToAccordion('class-management','acc-cm-picker')"><span class="sidebar-child-dot"></span>Random Picker</button>
+          <button class="sidebar-child" data-accordion="acc-cm-points" onclick="navToAccordion('class-management','acc-cm-points')"><span class="sidebar-child-dot"></span>Points & Badges</button>
+          <button class="sidebar-child" data-accordion="acc-cm-timer" onclick="navToAccordion('class-management','acc-cm-timer')"><span class="sidebar-child-dot"></span>Timer</button>
+          <button class="sidebar-child" data-accordion="acc-cm-teams" onclick="navToAccordion('class-management','acc-cm-teams')"><span class="sidebar-child-dot"></span>Team Maker</button>
+          <button class="sidebar-child" data-accordion="acc-cm-roles" onclick="navToAccordion('class-management','acc-cm-roles')"><span class="sidebar-child-dot"></span>Roles</button>
+          <button class="sidebar-child" data-accordion="acc-cm-results" onclick="navToAccordion('class-management','acc-cm-results')"><span class="sidebar-child-dot"></span>Results & Ranking</button>
+          <button class="sidebar-child" data-accordion="acc-cm-history" onclick="navToAccordion('class-management','acc-cm-history')"><span class="sidebar-child-dot"></span>Session History</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-learning-tools">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="learning-tools" onclick="navTo('learning-tools')">
+            <span>📖</span> Learning Tools
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-learning-tools')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-lt-filters" onclick="navToAccordion('learning-tools','acc-lt-filters')"><span class="sidebar-child-dot"></span>Setting Filters</button>
+          <button class="sidebar-child" data-accordion="acc-lt-vocab" onclick="navToAccordion('learning-tools','acc-lt-vocab')"><span class="sidebar-child-dot"></span>Vocabulary Games</button>
+          <button class="sidebar-child" data-accordion="acc-lt-grammar" onclick="navToAccordion('learning-tools','acc-lt-grammar')"><span class="sidebar-child-dot"></span>Grammar & Story</button>
+          <button class="sidebar-child" data-accordion="acc-lt-dictation" onclick="navToAccordion('learning-tools','acc-lt-dictation')"><span class="sidebar-child-dot"></span>Dictation</button>
+          <button class="sidebar-child" data-accordion="acc-lt-quiz" onclick="navToAccordion('learning-tools','acc-lt-quiz')"><span class="sidebar-child-dot"></span>Quiz</button>
+          <button class="sidebar-child" data-accordion="acc-lt-timer" onclick="navToAccordion('learning-tools','acc-lt-timer')"><span class="sidebar-child-dot"></span>Timer</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-grade-sheet">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="grade-sheet" onclick="navTo('grade-sheet')">
+            <span>📊</span> Grade Sheet
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-grade-sheet')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-gs-setup" onclick="navToAccordion('grade-sheet','acc-gs-setup')"><span class="sidebar-child-dot"></span>Setting Up a Class</button>
+          <button class="sidebar-child" data-accordion="acc-gs-tests" onclick="navToAccordion('grade-sheet','acc-gs-tests')"><span class="sidebar-child-dot"></span>Creating Tests</button>
+          <button class="sidebar-child" data-accordion="acc-gs-scale" onclick="navToAccordion('grade-sheet','acc-gs-scale')"><span class="sidebar-child-dot"></span>Grading Scale</button>
+          <button class="sidebar-child" data-accordion="acc-gs-export" onclick="navToAccordion('grade-sheet','acc-gs-export')"><span class="sidebar-child-dot"></span>Import & Export</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-manage-database">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="manage-database" onclick="navTo('manage-database')">
+            <span>🗂</span> Manage Database
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-manage-database')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-db-words" onclick="navToAccordion('manage-database','acc-db-words')"><span class="sidebar-child-dot"></span>Word Banks</button>
+          <button class="sidebar-child" data-accordion="acc-db-dictations" onclick="navToAccordion('manage-database','acc-db-dictations')"><span class="sidebar-child-dot"></span>Dictations</button>
+          <button class="sidebar-child" data-accordion="acc-db-grammar" onclick="navToAccordion('manage-database','acc-db-grammar')"><span class="sidebar-child-dot"></span>Grammar Banks</button>
+          <button class="sidebar-child" data-accordion="acc-db-stories" onclick="navToAccordion('manage-database','acc-db-stories')"><span class="sidebar-child-dot"></span>Stories</button>
+          <button class="sidebar-child" data-accordion="acc-db-quiz" onclick="navToAccordion('manage-database','acc-db-quiz')"><span class="sidebar-child-dot"></span>Quiz Content</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-participation-tracker">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="participation-tracker" onclick="navTo('participation-tracker')">
+            <span>✅</span> Participation Tracker
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-participation-tracker')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-pt-log" onclick="navToAccordion('participation-tracker','acc-pt-log')"><span class="sidebar-child-dot"></span>Logging a Session</button>
+          <button class="sidebar-child" data-accordion="acc-pt-analysis" onclick="navToAccordion('participation-tracker','acc-pt-analysis')"><span class="sidebar-child-dot"></span>Viewing Analysis</button>
+          <button class="sidebar-child" data-accordion="acc-pt-history" onclick="navToAccordion('participation-tracker','acc-pt-history')"><span class="sidebar-child-dot"></span>Session History</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-general-config">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="general-config" onclick="navTo('general-config')">
+            <span>⚙</span> General Config
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-general-config')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-cfg-identity" onclick="navToAccordion('general-config','acc-cfg-identity')"><span class="sidebar-child-dot"></span>App Identity</button>
+          <button class="sidebar-child" data-accordion="acc-cfg-language" onclick="navToAccordion('general-config','acc-cfg-language')"><span class="sidebar-child-dot"></span>Language</button>
+          <button class="sidebar-child" data-accordion="acc-cfg-startup" onclick="navToAccordion('general-config','acc-cfg-startup')"><span class="sidebar-child-dot"></span>Startup & Launch</button>
+          <button class="sidebar-child" data-accordion="acc-cfg-data" onclick="navToAccordion('general-config','acc-cfg-data')"><span class="sidebar-child-dot"></span>Data & Storage</button>
+        </div>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- ── Main content ── -->
+  <main class="content" id="mainContent">
+
+    <div class="page-header">
+      <h1>How To Use Class Management Tools</h1>
+      <p>Click any section header to expand it. Use the sidebar to jump to a tool, or search above.</p>
+    </div>
+
+    <div class="no-results" id="noResults">No matching sections found.</div>
+
+    <!-- ═══ OVERVIEW ════════════════════════════════════════ -->
+    <section class="tool-section" id="intro">
+      <div class="tool-header">
+        <span class="tool-icon">🚀</span>
+        <h2>Overview</h2>
+      </div>
+      <p class="tool-overview">
+        Class Management Tools is a suite of classroom tools for managing students, running activities, tracking grades, and presenting vocabulary exercises. Each tool opens in its own window and runs simultaneously.
+      </p>
+      <div class="overview-grid">
+        <button class="overview-card" onclick="navTo('board')">
+          <h3>🖥 Board</h3>
+          <p>Constellation mind maps, timers, drawings, and group activities projected for students.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('class-management')">
+          <h3>👥 Class Management</h3>
+          <p>Pick students, track points and badges, run timers, assign teams and roles, view rankings.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('learning-tools')">
+          <h3>📖 Learning Tools</h3>
+          <p>15+ vocabulary and grammar games: flash cards, hangman, gap fill, dictation, quiz, and more.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('grade-sheet')">
+          <h3>📊 Grade Sheet</h3>
+          <p>Record test results, apply grading scales, track individual students, export CSV or PDF.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('manage-database')">
+          <h3>🗂 Manage Database</h3>
+          <p>Create word banks, dictations, grammar exercises, stories, and quiz content.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('participation-tracker')">
+          <h3>✅ Participation Tracker</h3>
+          <p>Log participation per session, compare groups, and analyse trends over time.</p>
+        </button>
+      </div>
+      <div class="tip">
+        <strong>Tip:</strong> Open <button class="xlink" onclick="navTo('class-management')">Class Management</button> and <button class="xlink" onclick="navTo('board')">Board</button> side by side — the Board mirrors the timer and sync state from Class Management in real time. Configure this in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-startup')">Startup &amp; Launch settings</button>.
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ FIRST SETUP ═════════════════════════════════════ -->
+    <section class="tool-section" id="first-setup">
+      <div class="tool-header">
+        <span class="tool-icon">🛠</span>
+        <h2>First Setup</h2>
+      </div>
+      <p class="tool-overview">
+        Follow these five steps the first time you install or launch Class Management Tools. Each step only takes a few minutes, and you only need to do it once.
+      </p>
+
+      <!-- Step 1 ── Data Folder -->
+      <div class="accordion" id="acc-fs-data">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-data')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 1 — Choose your data folder</span>
+          <span class="accordion-badge">first launch</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">All your data — class groups, word banks, grades, and session logs — is stored in a single folder on your computer. On first launch you will be asked where to put it.</p>
+          <ol class="steps">
+            <li>When the app starts for the first time a blue <strong>First Launch</strong> banner appears at the top of the launcher. If you are migrating from a previous installation, click <strong>Select Existing Folder</strong> and point to your old data folder. Otherwise click <strong>Start Fresh</strong>.</li>
+            <li>The default location is next to the app itself (or inside your home folder on Windows). You can change it any time in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-data')">General Config → Data &amp; Storage</button>.</li>
+            <li>If you want the data folder on a USB stick, an external drive, or a cloud-synced folder (Dropbox, OneDrive), click <strong>Change folder…</strong> in Data &amp; Storage and point to that location.</li>
+            <li>Optionally set a <strong>Backup folder</strong> — any save will copy files there too. Ideal for a cloud drive.</li>
+            <li>Optionally set a <strong>Sync folder</strong> — useful when you switch between two computers (e.g., classroom PC and a laptop at home).</li>
+          </ol>
+          <div class="tip"><strong>Recommendation:</strong> Set the data folder to a cloud-synced folder (OneDrive, Google Drive, Dropbox) from the start. You get automatic backup and cross-device sync for free.</div>
+        </div></div>
+      </div>
+
+      <!-- Step 2 ── Create Classes -->
+      <div class="accordion" id="acc-fs-groups">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-groups')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 2 — Create your classes and student groups</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Class groups are the foundation of every other tool. Set them up once here; they will be available everywhere — Class Management, Participation Tracker, Grade Sheet, and Learning Tools.</p>
+          <ol class="steps">
+            <li>Open <button class="xlink" onclick="openTool('class-management.html')">Class Management</button> or <button class="xlink" onclick="openTool('group-editor.html')">Group Editor</button> to manage your class groups.</li>
+            <li>Click <strong>New Group</strong>, give it a name (e.g., "3B English"), and add students one by one or paste a list.</li>
+            <li>To create a half-group (e.g., for split classes), add a group with the same base name and mark it as a half-group. Half-groups are automatically excluded from random pickers when the full group is loaded.</li>
+            <li>Repeat for each class you teach. You can create as many groups as you need.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> You can also import a student list from a CSV file — one name per line — using the <strong>Import</strong> button in the group editor.</div>
+        </div></div>
+      </div>
+
+      <!-- Step 3 ── Add Content -->
+      <div class="accordion" id="acc-fs-content">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-content')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 3 — Add learning content</span>
+          <span class="accordion-badge">optional but recommended</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Learning Tools games are powered by your content library. You can start using Class Management right away without any content, but activities like Flash Cards, Hangman, or Dictation need content first.</p>
+          <ol class="steps">
+            <li>Open <button class="xlink" onclick="openTool('manage-database.html')">Manage Database</button> and click <strong>Word Banks</strong>.</li>
+            <li>Click <strong>New Theme</strong> and name it after the unit or topic (e.g., "Unit 1 — Introductions").</li>
+            <li>Add words. Fill in as many fields as possible — <em>translation</em>, <em>definition</em>, <em>IPA</em>, <em>synonyms</em> — because the richer each entry is, the more game types unlock for that theme.</li>
+            <li>If you run oral dictations, click <strong>Dictations</strong> and create a sentence set linked to the theme.</li>
+            <li>For grammar exercises, go to <strong>Grammar Banks</strong> and create gap-fill item sets.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> You do not need to fill everything in one go. Start with 10–15 words for a unit and add more over the school year. The games auto-adjust to whatever is in the bank.</div>
+        </div></div>
+      </div>
+
+      <!-- Step 4 ── Configure -->
+      <div class="accordion" id="acc-fs-config">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-config')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 4 — Configure your preferences</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">A few settings make the app feel like yours. Open <button class="xlink" onclick="openTool('general-config.html')">General Config</button> from the launcher.</p>
+          <ol class="steps">
+            <li><strong>App Identity</strong> — Set the title to your school name or your name. It appears in the launcher header.</li>
+            <li><strong>Language</strong> — Choose the interface language (English, French, German, or Italian).</li>
+            <li><strong>Startup &amp; Launch</strong> — Choose which tools open automatically when the launcher starts, and how they arrange on screen. The most common setup is <em>Split screen</em> with Class Management on the left and Board on the right — both open side by side instantly every time.</li>
+            <li><strong>Per-app Notes</strong> — Jot any reminders for each tool; notes appear on the launcher card so you see them before opening.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <!-- Step 5 ── First Session -->
+      <div class="accordion" id="acc-fs-session">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-session')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 5 — Run your first session</span>
+          <span class="accordion-badge">you're ready</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">With groups and content in place, here is the typical flow for a class session.</p>
+          <ol class="steps">
+            <li>Open the launcher and click <strong>Class Management</strong> (or let it open automatically if you set up startup apps).</li>
+            <li>Select your class group from the dropdown at the top. The student list loads instantly.</li>
+            <li>Click <strong>Pick</strong> to randomly call on a student, then award or deduct points based on their answer.</li>
+            <li>Open the <strong>Board</strong> on your projector screen — constellation diagrams, the timer, and notes will be visible to students without exposing the class controls.</li>
+            <li>At the end of class, click <strong>Save Session</strong> in Class Management — scores, badges, and notes are saved to the history log.</li>
+            <li>Open <button class="xlink" onclick="navTo('learning-tools')">Learning Tools</button> any time during or after class for vocabulary and grammar activities powered by your word banks.</li>
+          </ol>
+          <div class="tip"><strong>Next steps:</strong> Once you are comfortable with the basics, explore <button class="xlink" onclick="navToAccordion('class-management','acc-cm-teams')">Team Maker</button>, <button class="xlink" onclick="navTo('grade-sheet')">Grade Sheet</button> for test recording, and <button class="xlink" onclick="navTo('participation-tracker')">Participation Tracker</button> for long-term analysis.</div>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ BOARD ════════════════════════════════════════════ -->
+    <section class="tool-section" id="board">
+      <div class="tool-header">
+        <span class="tool-icon">🖥</span>
+        <h2>Board</h2>
+        <button class="open-tool-btn" onclick="openTool('board.html')">Open Board →</button>
+      </div>
+      <p class="tool-overview">
+        A free-form canvas designed to be projected for the class. Build constellation (mind map) diagrams, draw, add images, and display a live timer synced from <button class="xlink" onclick="navTo('class-management')">Class Management</button>.
+      </p>
+
+      <div class="accordion" id="acc-board-constellation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-constellation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Constellation Mind Maps</span>
+          <span class="accordion-badge">core feature</span>
+        </button>
+        <div class="accordion-body">
+          <div class="accordion-inner">
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Build visual word networks with nodes, links, annotations, and colour coding. Content auto-enriched via Wiktionary.</p>
+            <ol class="steps">
+              <li>Click an empty area of the canvas to add a new word node, type the word, then press <kbd>Enter</kbd>.</li>
+              <li>Right-click any node to open the context menu — add synonyms, antonyms, a definition, IPA annotation, or French translation.</li>
+              <li>Click <strong>+</strong> in the context menu to add a connected word; choose arrow direction (→, ←, ↔) or no arrow.</li>
+              <li>Select a node and use the format panel to change shape (oval, circle, square, rectangle), border style, and colour.</li>
+              <li>Use <strong>Group</strong> to assign nodes to a colour group for visual clustering.</li>
+              <li>Export: click <strong>🖨 Print</strong>, then choose which columns (translation, IPA, definition…) to include in the PDF.</li>
+            </ol>
+            <div class="tip"><strong>Tip:</strong> Use <strong>DEF</strong> in the node context menu to auto-fetch a definition, or <strong>FR</strong> for a French translation via Wiktionary.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-board-timer">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-timer')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Live Timer</span>
+          <span class="accordion-badge">synced with Class Mgmt</span>
+        </button>
+        <div class="accordion-body">
+          <div class="accordion-inner">
+            <ol class="steps">
+              <li>Start the timer in <button class="xlink" onclick="navTo('class-management')">Class Management</button> — the Board shows a floating timer overlay automatically.</li>
+              <li>Drag the widget anywhere on screen. Use the <strong>◢</strong> handle to resize the font.</li>
+              <li>Click <strong>–</strong> to collapse it to a dot, or <strong>✕</strong> to hide it. Click the ⏱ button to restore.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-board-drawing">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-drawing')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Drawing & Laser Pointer</span>
+        </button>
+        <div class="accordion-body">
+          <div class="accordion-inner">
+            <ol class="steps">
+              <li>Open the drawing toolbar (pencil icon) to enter drawing mode.</li>
+              <li>Select pen colour and thickness, then draw freely on the canvas.</li>
+              <li>Use the laser pointer to highlight areas temporarily without leaving permanent marks.</li>
+              <li>Erase elements individually or clear all drawings at once.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-board-settings">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-settings')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Board Settings</span>
+        </button>
+        <div class="accordion-body">
+          <div class="accordion-inner">
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;">Open the ⚙ settings panel to customise: default node colours &amp; swatches, border styles, note styles, default font, board background, and node preset styles. Changes apply immediately and persist across sessions.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ CLASS MANAGEMENT ═════════════════════════════════ -->
+    <section class="tool-section" id="class-management">
+      <div class="tool-header">
+        <span class="tool-icon">👥</span>
+        <h2>Class Management</h2>
+        <button class="open-tool-btn" onclick="openTool('class-management.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        The central tool for running a class session. Load a group, pick students randomly, award points and badges, run a countdown timer, form teams, assign roles, and review session results.
+      </p>
+
+      <div class="accordion" id="acc-cm-groups">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-groups')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Loading a Class Group</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click the group selector at the top to choose a class from your configured groups.</li>
+            <li>The student list loads automatically with current session scores.</li>
+            <li>Half-groups are excluded from pickers by default — use the selector to switch between full and half groups.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-picker">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-picker')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Random Student Picker</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Pick</strong> to randomly select a student. Already-picked students are deprioritised so every student gets a turn.</li>
+            <li>Click the student card to mark the answer correct or incorrect and award/deduct points.</li>
+          </ol>
+          <div class="tip"><strong>Shortcuts:</strong> <kbd>Space</kbd> to pick, <kbd>Enter</kbd> to confirm the result.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-points">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-points')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Points & Badges</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>+</strong> or <strong>–</strong> on a student card to manually award or deduct points.</li>
+            <li>Click the badge icon to award a badge (badge types are configurable in Edit Badges).</li>
+            <li>Points and badges accumulate across the session and appear in the <button class="xlink" onclick="openAccordionAndScroll('acc-cm-results')">Results view</button>.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-timer">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-timer')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Timer</span>
+          <span class="accordion-badge">syncs to Board</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>⏱ Timer</strong> to open the timer panel. Set the duration and click <strong>Start</strong>.</li>
+            <li>The timer appears as a floating overlay on the <button class="xlink" onclick="navToAccordion('board','acc-board-timer')">Board</button> automatically.</li>
+            <li>Configure grace period and point deduction settings in the Timer Settings modal.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-teams">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-teams')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Team Maker</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Team Maker</strong> and choose the number of teams.</li>
+            <li>Click <strong>Randomise</strong> — students are distributed evenly across teams.</li>
+            <li>Drag students between teams to adjust manually, then confirm to lock teams in.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-roles">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-roles')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Roles</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Assign Roles</strong>, select a role set, then assign roles randomly or manually.</li>
+            <li>Click <strong>Show Role Descriptions</strong> to display what each role means — useful to project for students.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-results">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-results')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Results & Ranking</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Results &amp; Ranking</strong> to see the live leaderboard for the current session.</li>
+            <li><strong>Performance of the Day</strong> shows each student's score vs. their personal average.</li>
+            <li>Team standings (average score per team) appear when teams are active.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cm-history">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-history')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Session History & Export</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Session History</strong> to see all past sessions — date, scores, badges, and notes.</li>
+            <li>Use the export button to save session data to a file for record-keeping.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ LEARNING TOOLS ═══════════════════════════════════ -->
+    <section class="tool-section" id="learning-tools">
+      <div class="tool-header">
+        <span class="tool-icon">📖</span>
+        <h2>Learning Tools</h2>
+        <button class="open-tool-btn" onclick="openTool('learning-tools.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        15+ vocabulary and grammar games powered by your <button class="xlink" onclick="navTo('manage-database')">Manage Database</button> content. Select a class, theme, and unit, then launch any activity.
+      </p>
+
+      <div class="accordion" id="acc-lt-filters">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-filters')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Setting Filters</span>
+          <span class="accordion-badge">start here</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>At the top, select a <strong>Class</strong>, <strong>Theme</strong>, and optionally a <strong>Unit</strong> to filter the word pool.</li>
+            <li>The live word count updates — aim for at least 10 words for most games to work.</li>
+            <li>Enable <strong>Team Mode</strong> to track scores per team across activities.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> Word pool content comes from your <button class="xlink" onclick="navToAccordion('manage-database','acc-db-words')">Word Banks</button> — the richer the entries (definition, IPA, synonyms), the more game types unlock.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-vocab">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-vocab')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Vocabulary Games</span>
+          <span class="accordion-badge">12 games</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <div class="mini-grid">
+            <div class="mini-card"><h4>📖 Flash Cards</h4><p>Flip cards to reveal word / definition. Navigate with arrows or keyboard.</p></div>
+            <div class="mini-card"><h4>🔠 Definition Match</h4><p>Match words to their definitions from a list.</p></div>
+            <div class="mini-card"><h4>🎯 Hangman</h4><p>Guess letters to reveal the hidden word.</p></div>
+            <div class="mini-card"><h4>🔀 Scrambled Word</h4><p>Unscramble a shuffled word. Gets harder with longer words.</p></div>
+            <div class="mini-card"><h4>🏆 Word Quest</h4><p>Timed challenge — identify words from clues or definitions.</p></div>
+            <div class="mini-card"><h4>🧩 Sentence Builder</h4><p>Reconstruct a sentence from shuffled word tiles.</p></div>
+            <div class="mini-card"><h4>💬 Quote Analyser</h4><p>Analyse vocabulary in a quote context — definitions, translations, IPA.</p></div>
+            <div class="mini-card"><h4>✏️ Gap Fill</h4><p>Fill missing words in a sentence from your dictation content.</p></div>
+            <div class="mini-card"><h4>🔴 Find the Error</h4><p>Spot the incorrect word or grammar mistake in a sentence.</p></div>
+            <div class="mini-card"><h4>🔉 Phonetic Guess</h4><p>Guess the word from its IPA transcription.</p></div>
+            <div class="mini-card"><h4>🔗 Synonyms & Antonyms</h4><p>Identify synonyms or antonyms from multiple choices.</p></div>
+            <div class="mini-card"><h4>🔎 Word Search</h4><p>Find vocabulary hidden in a letter grid.</p></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-grammar">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-grammar')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Grammar & Story Activities</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <div class="mini-grid">
+            <div class="mini-card"><h4>📐 Grammar Practice</h4><p>Exercises drawn from your <button class="xlink" onclick="navToAccordion('manage-database','acc-db-grammar')">grammar bank</button>. Choose a rule set and practise.</p></div>
+            <div class="mini-card"><h4>📖 Choose Your Story</h4><p>Branching story — choices lead to different vocabulary outcomes.</p></div>
+            <div class="mini-card"><h4>🔢 Order Sentences</h4><p>Put sentences in the correct order to reconstruct a passage.</p></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-dictation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-dictation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Dictation</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Select a dictation created in <button class="xlink" onclick="navToAccordion('manage-database','acc-db-dictations')">Manage Database → Dictations</button>.</li>
+            <li>Click <strong>Play</strong> — words or sentences are read aloud one at a time.</li>
+            <li>Students write what they hear. Use the repeat button to replay the last item.</li>
+            <li>After the dictation, use <strong>Words Seen Today</strong> to review all vocabulary encountered in the session.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-quiz">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-quiz')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Quiz</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Select a quiz from the database (created in <button class="xlink" onclick="navToAccordion('manage-database','acc-db-quiz')">Manage Database → Quiz</button>).</li>
+            <li>Questions appear one at a time with multiple-choice answers.</li>
+            <li>Enable <strong>Team Mode</strong> to compete by team — scores tracked automatically.</li>
+            <li>Navigate with the arrow buttons or keyboard shortcuts.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-timer">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-timer')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Timer (Learning Tools)</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;">Each activity supports an optional countdown timer. Click the ⏱ icon to open <strong>Timer Settings</strong> — configure the grace period (no deduction initially), points deducted per interval, and deduction frequency.</p>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ GRADE SHEET ══════════════════════════════════════ -->
+    <section class="tool-section" id="grade-sheet">
+      <div class="tool-header">
+        <span class="tool-icon">📊</span>
+        <h2>Grade Sheet</h2>
+        <button class="open-tool-btn" onclick="openTool('grade-sheet.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Record, manage, and export student grades by class and test. Supports custom grading scales, correction criteria, and per-student analysis.
+      </p>
+
+      <div class="accordion" id="acc-gs-setup">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-setup')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Setting Up a Class</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Add Class</strong> or select an existing class from the dropdown.</li>
+            <li>Add students with <strong>Add Student</strong>.</li>
+            <li>Use <strong>Edit Class</strong> to rename or adjust class settings.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-gs-tests">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-tests')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Creating & Editing Tests</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Add Test</strong> — give it a name, date, and maximum score.</li>
+            <li>Click a test to open it, then enter each student's score directly in the table.</li>
+            <li>Use <strong>Test Options</strong> to assign a <button class="xlink" onclick="openAccordionAndScroll('acc-gs-scale')">grading scale</button>, set criteria, or adjust configuration.</li>
+            <li>Click <strong>Apply Criteria to Grades</strong> to auto-generate grade letters from the configured scale.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-gs-scale">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-scale')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Grading Scale & Criteria</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Open <strong>Criteria Reference</strong> to view or edit correction criteria and grading scale models.</li>
+            <li>Create named criteria (e.g., "Grammar", "Vocabulary") with descriptors per grade level.</li>
+            <li>Create scale presets that map score percentages to letter grades.</li>
+            <li>Reuse criteria and scales across multiple tests and classes.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-gs-export">
+        <button class="accordion-header" onclick="toggleAccordion('acc-gs-export')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Importing & Exporting</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Import Grades</strong> — load scores from a CSV file into an existing test.</li>
+            <li><strong>Export CSV</strong> — export the full semester's grades for the selected class.</li>
+            <li><strong>Print Semester / Print Results</strong> — generate a printable PDF.</li>
+            <li><strong>Duplicate / Import</strong> — copy a test structure into a new test or another class.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ MANAGE DATABASE ══════════════════════════════════ -->
+    <section class="tool-section" id="manage-database">
+      <div class="tool-header">
+        <span class="tool-icon">🗂</span>
+        <h2>Manage Database</h2>
+        <button class="open-tool-btn" onclick="openTool('manage-database.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        The content library powering <button class="xlink" onclick="navTo('learning-tools')">Learning Tools</button>. Create and organise word banks, dictations, grammar exercises, stories, and quiz content. Changes are live immediately in all activities.
+      </p>
+
+      <div class="accordion" id="acc-db-words">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-words')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Word Banks</span>
+          <span class="accordion-badge">powers all vocab games</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Word Banks</strong> and create a new theme (e.g., "Unit 3 — Travel").</li>
+            <li>Add words with translations, IPA, definitions, synonyms, and antonyms.</li>
+            <li>Use <strong>Rename Theme</strong> to reorganise without losing data, or <strong>Merge Themes</strong> to combine two.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> The more fields you fill in per word (IPA, definition, synonyms), the more <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-vocab')">vocabulary game types</button> become available for that theme.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-db-dictations">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-dictations')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Dictations</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Dictations</strong> and create a new set.</li>
+            <li>Add sentences or words in order — each will be read aloud during the <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-dictation')">Dictation activity</button>.</li>
+            <li>Assign the dictation to a theme so it appears when that theme is selected.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-db-grammar">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-grammar')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Grammar Banks</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Grammar</strong> to create exercise sets.</li>
+            <li>Each item: a sentence with a gap, the correct answer, and the grammar rule tested.</li>
+            <li>These feed the <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-grammar')">Grammar Practice</button> activity in Learning Tools.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-db-stories">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-stories')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Stories</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Stories</strong> to create branching or linear stories for the Choose Your Story activity.</li>
+            <li>Each node has a text passage and one or more choice options linking to other nodes.</li>
+            <li>Embed vocabulary words from your word banks to reinforce learning in context.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-db-quiz">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-quiz')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Quiz Content</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Quiz</strong> to create question sets.</li>
+            <li>Add multiple-choice questions — mark the correct answer. Questions can include images or audio.</li>
+            <li>Assign a difficulty level and theme to help filter quizzes in <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-quiz')">Learning Tools → Quiz</button>.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ PARTICIPATION TRACKER ════════════════════════════ -->
+    <section class="tool-section" id="participation-tracker">
+      <div class="tool-header">
+        <span class="tool-icon">✅</span>
+        <h2>Participation Tracker</h2>
+        <button class="open-tool-btn" onclick="openTool('participation-tracker.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Log participation session by session and analyse it over time. Track individuals, compare groups, and identify trends.
+      </p>
+
+      <div class="accordion" id="acc-pt-log">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pt-log')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Logging a Session</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Select a class group from the dropdown.</li>
+            <li>For each student, enter a score or use the quick-select buttons (present, absent, excellent…).</li>
+            <li>Click <strong>Save Session</strong> to record with today's date.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pt-analysis">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pt-analysis')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Viewing Analysis</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li><strong>Class Overview</strong> — summary table of all students' participation across sessions.</li>
+            <li>Click a student name to open the <strong>Individual Student Analysis</strong> view with trend graph.</li>
+            <li><strong>Group Comparison Summary</strong> — compare average participation across different groups.</li>
+            <li><strong>Participation Trend</strong> chart — how overall class participation changes week by week.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pt-history">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pt-history')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Session History</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Session History</strong> to view all recorded sessions.</li>
+            <li>Click any row to expand it and see individual student scores for that session.</li>
+            <li>Delete a session recorded in error using the delete button on that row.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ GENERAL CONFIG ═══════════════════════════════════ -->
+    <section class="tool-section" id="general-config">
+      <div class="tool-header">
+        <span class="tool-icon">⚙</span>
+        <h2>General Config</h2>
+        <button class="open-tool-btn" onclick="openTool('general-config.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Configure global settings — app name, language, startup behaviour, and data storage locations.
+      </p>
+
+      <div class="accordion" id="acc-cfg-identity">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cfg-identity')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">App Identity</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Set the <strong>App Title</strong> to your school or class name — shown in the launcher header and each tool's title bar.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cfg-language">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cfg-language')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Language</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Switch the app interface language (English / French).</li>
+            <li>The selected language applies to menus, labels, and built-in help text across all tools.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cfg-startup">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cfg-startup')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Startup & Launch</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Under <strong>Startup Apps</strong>, choose which tools open automatically when the launcher starts.</li>
+            <li>Set <strong>Startup Layout</strong> to <em>Separate</em>, <em>Maximized</em>, or <em>Split</em> (two tools side by side).</li>
+            <li>For Split, choose the Left and Right tools and the split fraction (0.5 = equal halves).</li>
+          </ol>
+          <div class="tip"><strong>Common setup:</strong> Split Left = <em>class-management.html</em>, Split Right = <em>board.html</em> — so both open side by side automatically.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-cfg-data">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cfg-data')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Data & Storage</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Set the <strong>Data Folder</strong> — where all class data (groups, grades, word banks) is stored.</li>
+            <li>Set a <strong>Backup Folder</strong> to automatically copy data on save (e.g., a cloud-synced folder).</li>
+            <li>Set a <strong>Sync Folder</strong> (e.g., a shared network drive) to keep data in sync across multiple computers.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // ── Navigation ────────────────────────────────────────────
+
+  function goBack() {
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.goToLauncher();
+    } else {
+      if (history.length > 1) history.back();
+      else window.location.href = 'launcher.html';
+    }
+  }
+
+  function openTool(pageFile) {
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.openTool(pageFile);
+    } else {
+      window.open(pageFile, '_blank');
+    }
+  }
+
+  function navTo(sectionId) {
+    var el = document.getElementById(sectionId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActiveSidebarSection(sectionId);
+    openSidebarSection(sectionId);
+  }
+
+  function navToAccordion(sectionId, accordionId) {
+    var section = document.getElementById(sectionId);
+    var acc = document.getElementById(accordionId);
+    if (!section || !acc) return;
+    openAccordion(accordionId);
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setActiveSidebarSection(sectionId);
+    openSidebarSection(sectionId);
+    setTimeout(function () {
+      acc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
+  }
+
+  function openAccordionAndScroll(accordionId) {
+    openAccordion(accordionId);
+    var acc = document.getElementById(accordionId);
+    if (acc) setTimeout(function () { acc.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 60);
+  }
+
+  // ── Accordion ─────────────────────────────────────────────
+
+  function openAccordion(id) {
+    var acc = document.getElementById(id);
+    if (!acc) return;
+    var header = acc.querySelector('.accordion-header');
+    var body = acc.querySelector('.accordion-body');
+    if (header && body) {
+      header.classList.add('open');
+      body.classList.add('open');
+    }
+  }
+
+  function closeAccordion(id) {
+    var acc = document.getElementById(id);
+    if (!acc) return;
+    var header = acc.querySelector('.accordion-header');
+    var body = acc.querySelector('.accordion-body');
+    if (header && body) {
+      header.classList.remove('open');
+      body.classList.remove('open');
+    }
+  }
+
+  function toggleAccordion(id) {
+    var acc = document.getElementById(id);
+    if (!acc) return;
+    var header = acc.querySelector('.accordion-header');
+    var body = acc.querySelector('.accordion-body');
+    if (!header || !body) return;
+    var isOpen = body.classList.contains('open');
+    header.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+    updateAccordionSidebarChild(id, !isOpen);
+  }
+
+  function expandAll() {
+    document.querySelectorAll('.accordion:not(.search-hidden)').forEach(function (acc) {
+      acc.querySelector('.accordion-header').classList.add('open');
+      acc.querySelector('.accordion-body').classList.add('open');
+      var id = acc.getAttribute('id');
+      if (id) {
+        var child = document.querySelector('[data-accordion="' + id + '"]');
+        if (child) child.classList.add('active');
+      }
+    });
+  }
+
+  function collapseAll() {
+    document.querySelectorAll('.accordion').forEach(function (acc) {
+      acc.querySelector('.accordion-header').classList.remove('open');
+      acc.querySelector('.accordion-body').classList.remove('open');
+    });
+    document.querySelectorAll('.sidebar-child').forEach(function (child) {
+      child.classList.remove('active');
+    });
+  }
+
+  function updateAccordionSidebarChild(accordionId, isOpen) {
+    var child = document.querySelector('[data-accordion="' + accordionId + '"]');
+    if (child) child.classList.toggle('active', isOpen);
+  }
+
+  // ── Sidebar ───────────────────────────────────────────────
+
+  function toggleSidebarChildren(navItemId) {
+    var item = document.getElementById(navItemId);
+    if (!item) return;
+    var children = item.querySelector('.sidebar-children');
+    var caret = item.querySelector('.sidebar-caret');
+    if (!children || !caret) return;
+    var open = children.classList.toggle('open');
+    caret.classList.toggle('open', open);
+  }
+
+  function setActiveSidebarSection(sectionId) {
+    document.querySelectorAll('.sidebar-row-main').forEach(function (btn) {
+      btn.classList.remove('active');
+    });
+    var active = document.querySelector('[data-section="' + sectionId + '"]');
+    if (active) active.classList.add('active');
+  }
+
+  function openSidebarSection(sectionId) {
+    var navItem = document.getElementById('nav-' + sectionId);
+    if (!navItem) return;
+    var children = navItem.querySelector('.sidebar-children');
+    var caret = navItem.querySelector('.sidebar-caret');
+    if (children && !children.classList.contains('open')) {
+      children.classList.add('open');
+      if (caret) caret.classList.add('open');
+    }
+  }
+
+  // ── Scroll spy ────────────────────────────────────────────
+
+  var SECTIONS = ['intro','first-setup','board','class-management','learning-tools','grade-sheet','manage-database','participation-tracker','general-config'];
+
+  function onScroll() {
+    var y = window.scrollY + 80;
+    var current = SECTIONS[0];
+    for (var i = 0; i < SECTIONS.length; i++) {
+      var el = document.getElementById(SECTIONS[i]);
+      if (el && !el.classList.contains('search-hidden') && el.offsetTop <= y) current = SECTIONS[i];
+    }
+    setActiveSidebarSection(current);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // ── Search ────────────────────────────────────────────────
+
+  function onSearch(query) {
+    var q = query.trim().toLowerCase();
+    var noResults = document.getElementById('noResults');
+    var anyVisible = false;
+
+    if (!q) {
+      // Restore everything
+      document.querySelectorAll('.tool-section, .accordion, .sidebar-row-main, .sidebar-child').forEach(function (el) {
+        el.classList.remove('search-hidden');
+      });
+      noResults.classList.remove('visible');
+      return;
+    }
+
+    // Score each accordion and section
+    document.querySelectorAll('.accordion').forEach(function (acc) {
+      var text = acc.textContent.toLowerCase();
+      var matches = text.includes(q);
+      acc.classList.toggle('search-hidden', !matches);
+    });
+
+    document.querySelectorAll('.tool-section').forEach(function (section) {
+      var visibleAccordions = section.querySelectorAll('.accordion:not(.search-hidden)');
+      var sectionText = (section.querySelector('.tool-header h2') || section.querySelector('.page-header h1') || { textContent: '' }).textContent.toLowerCase();
+      var overviewText = (section.querySelector('.tool-overview') || { textContent: '' }).textContent.toLowerCase();
+      var hasMatch = visibleAccordions.length > 0 || sectionText.includes(q) || overviewText.includes(q);
+      section.classList.toggle('search-hidden', !hasMatch);
+      if (hasMatch) anyVisible = true;
+    });
+
+    // Auto-expand matched accordions
+    document.querySelectorAll('.accordion:not(.search-hidden)').forEach(function (acc) {
+      acc.querySelector('.accordion-header').classList.add('open');
+      acc.querySelector('.accordion-body').classList.add('open');
+    });
+
+    // Sidebar children
+    document.querySelectorAll('.sidebar-child').forEach(function (child) {
+      var accordionId = child.getAttribute('data-accordion');
+      var acc = accordionId ? document.getElementById(accordionId) : null;
+      child.classList.toggle('search-hidden', !!(acc && acc.classList.contains('search-hidden')));
+    });
+
+    document.querySelectorAll('.sidebar-row-main').forEach(function (btn) {
+      var sectionId = btn.getAttribute('data-section');
+      var section = sectionId ? document.getElementById(sectionId) : null;
+      btn.classList.toggle('search-hidden', !!(section && section.classList.contains('search-hidden')));
+    });
+
+    noResults.classList.toggle('visible', !anyVisible);
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+
+  document.addEventListener('DOMContentLoaded', function () {
+    onScroll();
+  });
+</script>
+</body>
+</html>

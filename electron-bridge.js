@@ -388,6 +388,8 @@
       req.cmOnRight = opts.cmOnRight !== false;
     }
     if (opts && opts.maximize) req.maximize = true;
+    if (opts && opts.windowSizeRatio) req.windowSizeRatio = opts.windowSizeRatio;
+    if (opts && opts.windowPosition)  req.windowPosition  = opts.windowPosition;
     return getDesktopApi().openTool(req);
   }
 
