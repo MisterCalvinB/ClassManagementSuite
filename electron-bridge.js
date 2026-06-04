@@ -374,6 +374,11 @@
     return getDesktopApi().exportFiles({ files: Array.isArray(files) ? files : [] });
   }
 
+  async function goToLauncher() {
+    if (!isElectron()) return null;
+    return getDesktopApi().goToLauncher();
+  }
+
   async function openTool(pageFile, opts) {
     if (!isElectron()) {
       return null;
@@ -429,6 +434,7 @@
     arrangeSideBySide,
     backupZip,
     exportFiles,
+    goToLauncher,
     isElectron,
     isTimerWindowOpen,
     listByPath,

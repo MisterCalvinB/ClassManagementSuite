@@ -1293,322 +1293,6 @@
 
 
 
-  <!-- ============================================================ -->
-  <!-- TEXTUAL ANALYSIS CONTEXT MENU                               -->
-  <!-- ============================================================ -->
-  <div id="ta-ctx-menu">
-    <div class="ta-ctx-title" id="ta-ctx-word-label" style="display:flex;align-items:center;justify-content:space-between;">
-      <span id="ta-ctx-word-text">Word</span>
-      <span id="ta-ctx-detail-btn" title="Open word detail" onclick="taCtxOpenDetail()" style="display:none;cursor:pointer;font-size:1rem;opacity:0.7;padding:0 10px 0 4px;line-height:1;">🔍</span>
-    </div>
-    <!-- Base-word origin row (shown when word is a synonym/antonym/related of a DB word) -->
-    <div id="ta-ctx-baseword-row">
-      <div class="ta-ctx-baseword-label">Origin word</div>
-      <div class="ta-ctx-baseword-value">
-        <span class="ta-ctx-baseword-name" id="ta-ctx-baseword-name"></span>
-        <span id="ta-ctx-baseword-tag" class="ta-ctx-baseword-tag"></span>
-      </div>
-      <div id="ta-ctx-viewbase-btn" onclick="taCtxViewBaseWord()">🔍 View base word card</div>
-    </div>
-    <div class="ta-ctx-sep"></div>
-    <div style="padding:3px 14px 2px; font-size:0.6rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#666;">Highlight</div>
-    <div class="ta-ctx-swatches" id="ta-ctx-swatches"></div>
-    <div class="ta-ctx-sep"></div>
-    <div style="padding:3px 14px 2px; font-size:0.6rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#666;">Format</div>
-    <div class="ta-ctx-fmt-row">
-      <button class="ta-ctx-fmt-btn" id="ta-fmt-bold"   onclick="taCtxToggleFmt('bold')"      title="Bold"><b>B</b></button>
-      <button class="ta-ctx-fmt-btn" id="ta-fmt-italic" onclick="taCtxToggleFmt('italic')"    title="Italic"><i>I</i></button>
-      <button class="ta-ctx-fmt-btn" id="ta-fmt-under"  onclick="taCtxToggleFmt('underline')" title="Underline"><u>U</u></button>
-    </div>
-    <div class="ta-ctx-sep"></div>
-    <div class="ta-ctx-item" id="ta-ctx-trans-btn" onclick="taCtxToggleSub('trans')" style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-      <span>🌐 <span>Show translation</span></span>
-      <span style="display:flex; gap:3px; flex-shrink:0;" onclick="event.stopPropagation()">
-        <button onclick="taCtxSubSize('trans',-1)" style="width:20px;height:20px;background:#333;border:1px solid #555;border-radius:3px;color:#ccc;font-size:0.75rem;cursor:pointer;padding:0;line-height:1;">−</button>
-        <button onclick="taCtxSubSize('trans',+1)" style="width:20px;height:20px;background:#333;border:1px solid #555;border-radius:3px;color:#ccc;font-size:0.75rem;cursor:pointer;padding:0;line-height:1;">+</button>
-      </span>
-    </div>
-    <div class="ta-ctx-item" id="ta-ctx-ipa-btn" onclick="taCtxToggleSub('ipa')" style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-      <span>🔉 <span>Show IPA</span></span>
-      <span style="display:flex; gap:3px; flex-shrink:0;" onclick="event.stopPropagation()">
-        <button onclick="taCtxSubSize('ipa',-1)" style="width:20px;height:20px;background:#333;border:1px solid #555;border-radius:3px;color:#ccc;font-size:0.75rem;cursor:pointer;padding:0;line-height:1;">−</button>
-        <button onclick="taCtxSubSize('ipa',+1)" style="width:20px;height:20px;background:#333;border:1px solid #555;border-radius:3px;color:#ccc;font-size:0.75rem;cursor:pointer;padding:0;line-height:1;">+</button>
-      </span>
-    </div>
-    <div class="ta-ctx-sep"></div>
-    <div class="ta-ctx-item" onclick="taCtxAddNote()">📌 Add Word Note</div>
-    <div class="ta-ctx-sep"></div>
-    <div class="ta-ctx-item danger" onclick="taCtxReset()">↺ Reset word</div>
-    <div class="ta-ctx-item" onclick="taCtxClose()" style="color:#888; font-size:0.75rem;">✕ Close</div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- TEXTUAL ANALYSIS SECTION                                     -->
-  <!-- ============================================================ -->
-  <div id="textanalysis-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <div class="board-section-tabs">
-      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">🌐 Board</button>
-      <button class="bst-tab" onclick="navTo('search-section')" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('history-section')" title="Save History">🕘 History</button>
-    </div>
-    <h2>🔬 Textual Analysis</h2>
-
-    <div id="ta-sticky-wrapper">
-    <div id="ta-toolbar">
-      <button class="action-btn" onclick="taAnalyse()" style="align-self:flex-end;">▶ Analyse</button>
-      <button class="action-btn btn-grey" onclick="taClear()" style="align-self:flex-end;">✕ Clear</button>
-      <div class="ta-sep"></div>
-      <div id="ta-font-size-row" style="align-self:flex-end;">
-        <label>Text size</label>
-        <input type="range" id="ta-font-size-slider" min="18" max="64" value="16"
-               oninput="taSetFontSize(this.value)">
-        <span id="ta-font-size-val" style="font-size:0.75rem;color:#888;min-width:2.5em;">16px</span>
-      </div>
-      <div id="ta-side-padding-row" style="align-self:flex-end;">
-        <label>Side padding</label>
-        <input type="range" id="ta-side-padding-slider" min="40" max="320" step="4" value="232"
-               oninput="taSetSidePadding(this.value)">
-        <span id="ta-side-padding-val" style="font-size:0.75rem;color:#888;min-width:3.5em;">232px</span>
-      </div>
-      <span class="con-label" style="align-self:flex-end;">Title:</span>
-      <input type="text" id="ta-title-input" placeholder="Analysis title (for save filename)" maxlength="60"
-             style="align-self:flex-end;min-width:140px;max-width:220px;"
-             onchange="taSetTitle(this.value)" onkeyup="taSetTitle(this.value)">
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" onclick="taExport()" style="align-self:flex-end;" title="Export as PNG or PDF">⬇ Export</button>
-      <button class="action-btn btn-grey" onclick="taOpenImport()" style="align-self:flex-end;" title="Import text from an HTML or EPUB file">📂 Import HTML/EPUB</button>
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" id="ta-toggle-ipa-btn" onclick="taToggleAllIpa()" style="align-self:flex-end;" title="Show/hide IPA for all words">[ ] IPA</button>
-      <button class="action-btn btn-grey" id="ta-toggle-french-btn" onclick="taToggleAllFrench()" style="align-self:flex-end;" title="Show/hide French for all words">( ) FR</button>
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" onclick="boardNewSession('textanalysis')" style="align-self:flex-end;" title="Save current analysis and start a new one">✚ New</button>
-      <button class="action-btn btn-grey" onclick="taSaveSession()" style="align-self:flex-end;" title="Save analysis to a .js file">💾 Save</button>
-      <button class="action-btn btn-grey" onclick="openSessionLoadPopup('textanalysis')" style="align-self:flex-end;" title="Load a saved analysis .js file">📂 Load</button>
-      <input type="file" id="ta-load-input" accept=".js,.json" style="display:none" onchange="taLoadSession(event)">
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" onclick="wfaOpen('ta')" style="align-self:flex-end;" title="Analyse word frequency in this text">📊 Word Freq</button>
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" id="ta-draw-btn" onclick="taToggleDrawMode()" style="align-self:flex-end;" title="Draw freehand annotations over the text (click again to exit)">✎ Draw</button>
-      <button class="action-btn btn-grey" id="ta-eraser-toolbar-btn" onclick="taToggleEraserMode()" style="align-self:flex-end;" title="Erase freehand drawings (click again to exit)">⌫ Erase</button>
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" id="ta-laser-btn" onclick="laserToggle()" style="align-self:flex-end;" title="Laser pointer (Ctrl+L) — click: mark · hold &amp; drag: trail · double-click: pulse">⬤ Laser</button>
-      <div class="ta-sep"></div>
-      <button class="action-btn btn-grey" onclick="unknownWordsOpen('textanalysis')" style="align-self:flex-end;" title="List all words in the text that are not in the word database">❓ Unknown Words</button>
-    </div>
-    </div><!-- /#ta-sticky-wrapper -->
-
-    <textarea id="ta-paste-area" rows="3"
-      placeholder="Paste or type a passage here… then click ▶ Analyse"
-      oninput="taOnInput()"></textarea>
-
-    <!-- Draw mode panel (visible only when draw mode is active) -->
-    <div id="ta-draw-panel">
-      <span style="font-size:0.65rem;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;color:#555;white-space:nowrap;">✎ Draw</span>
-      <div class="ta-sep" style="height:20px;"></div>
-      <span style="font-size:0.6rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Colour</span>
-      <div id="ta-draw-color-swatches" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"></div>
-      <input type="color" id="ta-draw-color-input" value="#e53935"
-             oninput="taDrawSetColor(this.value)" title="Custom colour"
-             style="width:28px;height:22px;border:1px solid #ccc;border-radius:3px;cursor:pointer;padding:0;flex-shrink:0;">
-      <div class="ta-sep" style="height:20px;"></div>
-      <span style="font-size:0.6rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Size</span>
-      <input type="range" id="ta-draw-thickness" min="1" max="40" value="4"
-             oninput="taDrawSetThickness(this.value)"
-             style="width:80px;accent-color:#111;cursor:pointer;">
-      <span id="ta-draw-thickness-val" style="font-size:0.75rem;color:#555;min-width:2.5em;">4px</span>
-      <div class="ta-sep" style="height:20px;"></div>
-      <span style="font-size:0.6rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Opacity</span>
-      <input type="range" id="ta-draw-opacity" min="0.05" max="1" step="0.05" value="1"
-             oninput="taDrawSetOpacity(this.value)"
-             style="width:80px;accent-color:#111;cursor:pointer;">
-      <span id="ta-draw-opacity-val" style="font-size:0.75rem;color:#555;min-width:2.5em;">100%</span>
-      <div class="ta-sep" style="height:20px;"></div>
-      <button id="ta-draw-eraser-btn" class="action-btn btn-grey" onclick="taDrawToggleEraser()" title="Toggle eraser: drag over drawings to delete them">⌫ Erase</button>
-      <button class="action-btn btn-grey" onclick="taToggleDrawMode()" title="Exit draw mode" style="margin-left:4px;">✕ Exit</button>
-    </div>
-
-
-    <div id="ta-body">
-      <div id="ta-display"></div>
-      <svg id="ta-draw-live-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-      <div id="ta-draw-overlay"></div>
-    </div>
-  </div>
-
-  <!-- ============================================================ -->
-  <!-- NOTE TAKING SECTION                                          -->
-  <!-- ============================================================ -->
-  <div id="notes-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <div class="board-section-tabs">
-      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">🌐 Board</button>
-      <button class="bst-tab" onclick="navTo('search-section')" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('history-section')" title="Save History">🕘 History</button>
-    </div>
-    <h2>📝 Note Taking</h2>
-
-    <div id="note-toolbar">
-      <span class="note-toolbar-label">Format:</span>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('bold')" title="Bold"><b>B</b></button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('italic')" title="Italic"><i>I</i></button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('underline')" title="Underline"><u>U</u></button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
-      <div class="note-sep"></div>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','h1')" title="Heading 1">H1</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','h2')" title="Heading 2">H2</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','h3')" title="Heading 3">H3</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','h4')" title="Heading 4">H4</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','h5')" title="Heading 5">H5</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('formatBlock','p')" title="Paragraph">¶</button>
-      <div class="note-sep"></div>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('insertUnorderedList')" title="Bullet list">•</button>
-      <button class="action-btn btn-grey note-fmt-btn" onclick="noteExecCmd('insertOrderedList')" title="Numbered list">1.</button>
-      <div class="note-sep"></div>
-      <span class="note-toolbar-label">Size:</span>
-      <select id="note-size-picker" class="note-size-select" onchange="noteSetSize(this.value)" title="Font size">
-        <option value="16">16</option>
-        <option value="18">18</option>
-        <option value="20">20</option>
-        <option value="24">24</option>
-        <option value="28">28</option>
-        <option value="32">32</option>
-        <option value="36">36</option>
-        <option value="42">42</option>
-        <option value="48">48</option>
-        <option value="56">56</option>
-        <option value="64">64</option>
-        <option value="72">72</option>
-        <option value="84">84</option>
-      </select>
-      <div class="note-sep"></div>
-      <span class="note-toolbar-label">Colour:</span>
-      <input type="color" id="note-color-picker" value="#ffffff" title="Text colour" oninput="noteSetColor(this.value)" style="width:32px;height:28px;padding:2px;border:1px solid #555;border-radius:4px;background:#333;cursor:pointer;vertical-align:middle;">
-      <div class="note-sep"></div>
-      <button class="action-btn btn-grey" onclick="noteClear()">✕ Clear</button>
-      <div class="note-sep"></div>
-      <button class="action-btn btn-grey" onclick="boardNewSession('notes')" title="Save current notes and start a new one">✚ New</button>
-      <button class="action-btn btn-grey" onclick="noteSaveSession()" title="Save notes to a .js file">💾 Save</button>
-      <button class="action-btn btn-grey" onclick="openSessionLoadPopup('notes')" title="Load a saved notes .js file">📂 Load</button>
-      <input type="file" id="note-load-input" accept=".js,.json" style="display:none" onchange="noteLoadSession(event)">
-    </div>
-
-
-    <div id="note-body">
-      <input type="text" id="note-title-input" placeholder="Title (used as filename when saving)" maxlength="80" oninput="noteOnInput()">
-      <div id="note-editor" contenteditable="true" data-placeholder="Start typing your notes here…" oninput="noteOnInput()" onpaste="noteHandlePaste(event)" oncontextmenu="noteCtxOpen(event)"></div>
-    </div>
-  </div>
-
-  <!-- Note-taking right-click context menu -->
-  <div id="note-ctx-menu">
-    <div class="note-ctx-fmt-row">
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('bold')" title="Bold"><b>B</b></button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('italic')" title="Italic"><i>I</i></button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('underline')" title="Underline"><u>U</u></button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
-      <span class="note-ctx-mini-sep"></span>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('insertUnorderedList')" title="Bullet list">•</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('insertOrderedList')" title="Numbered list">1.</button>
-    </div>
-    <div class="note-ctx-fmt-row">
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','h1')" title="Heading 1">H1</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','h2')" title="Heading 2">H2</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','h3')" title="Heading 3">H3</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','h4')" title="Heading 4">H4</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','h5')" title="Heading 5">H5</button>
-      <button class="note-ctx-fmt-btn" onclick="noteCtxExecCmd('formatBlock','p')" title="Paragraph">¶</button>
-    </div>
-    <div class="note-ctx-sep"></div>
-    <div class="note-ctx-picker-row">
-      <select class="note-ctx-size-select" onchange="noteCtxSetSize(this.value)" id="note-ctx-size-picker" title="Font size">
-        <option value="16">16px</option>
-        <option value="18">18px</option>
-        <option value="20">20px</option>
-        <option value="24">24px</option>
-        <option value="28">28px</option>
-        <option value="32">32px</option>
-        <option value="36">36px</option>
-        <option value="42">42px</option>
-        <option value="48">48px</option>
-        <option value="56">56px</option>
-        <option value="64">64px</option>
-        <option value="72">72px</option>
-        <option value="84">84px</option>
-      </select>
-    </div>
-    <div class="note-ctx-swatches">
-      <span class="note-ctx-swatch" style="background:#ef4444" title="Red"     onclick="noteCtxSetColor('#ef4444')"></span>
-      <span class="note-ctx-swatch" style="background:#f97316" title="Orange"  onclick="noteCtxSetColor('#f97316')"></span>
-      <span class="note-ctx-swatch" style="background:#eab308" title="Yellow"  onclick="noteCtxSetColor('#eab308')"></span>
-      <span class="note-ctx-swatch" style="background:#22c55e" title="Green"   onclick="noteCtxSetColor('#22c55e')"></span>
-      <span class="note-ctx-swatch" style="background:#3b82f6" title="Blue"    onclick="noteCtxSetColor('#3b82f6')"></span>
-      <span class="note-ctx-swatch" style="background:#a855f7" title="Purple"  onclick="noteCtxSetColor('#a855f7')"></span>
-      <span class="note-ctx-swatch" style="background:#ffffff" title="White"   onclick="noteCtxSetColor('#ffffff')" style="border-color:#555"></span>
-      <span class="note-ctx-swatch" style="background:#111111" title="Black"   onclick="noteCtxSetColor('#111111')"></span>
-    </div>
-    <div class="note-ctx-sep"></div>
-    <div class="note-ctx-item danger" onclick="noteCtxEraseStyle()">✕ Erase style</div>
-    <div class="note-ctx-item" onclick="noteCtxClose()" style="color:#666; font-size:0.72rem;">✕ Close</div>
-  </div>
-
-  <div id="note-student-overlay" onclick="if(event.target===this)noteStudentPopupClose()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100040;align-items:center;justify-content:center;padding:14px;">
-    <div style="width:min(760px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;border:2px solid #111;border-radius:10px;box-shadow:0 20px 42px rgba(0,0,0,0.28);padding:12px 12px 10px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div style="font-size:1.05rem;font-weight:800;">👥 Student Input Note</div>
-        <button class="action-btn btn-grey" onclick="noteStudentPopupClose()" style="margin-left:auto;padding:3px 10px;">✕</button>
-      </div>
-      <div style="font-size:0.84rem;color:#475569;margin-bottom:10px;">Students join from a phone, pick their class/name, and send text that is added after their name in this note.</div>
-
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
-        <div>
-          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Class group</label>
-          <select id="note-student-class" class="search-input" style="width:100%;"></select>
-        </div>
-        <div>
-          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Title</label>
-          <input id="note-student-title" class="search-input" type="text" maxlength="80" placeholder="Student notes" />
-        </div>
-        <div>
-          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Server URL</label>
-          <input id="note-student-server" class="search-input" type="text" placeholder="http://localhost:8787" oninput="noteStudentRefreshAddressPreview()" />
-        </div>
-        <div>
-          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Room id</label>
-          <input id="note-student-noteid" class="search-input" type="text" readonly />
-        </div>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
-        <button class="action-btn btn-blue" id="note-student-connect-btn" onclick="noteStudentConnect()">Connect & Open Room</button>
-        <button class="action-btn btn-grey" id="note-student-disconnect-btn" onclick="noteStudentDisconnect()">Disconnect</button>
-        <button class="action-btn btn-grey" onclick="noteStudentCopyJoinUrl()">Copy Join URL</button>
-      </div>
-
-      <div id="note-student-status" style="margin-top:8px;font-size:0.88rem;color:#475569;">Disconnected.</div>
-
-      <div style="margin-top:8px;padding:8px;border:1px solid #dbeafe;border-radius:8px;background:#f8fbff;">
-        <div style="font-size:0.72rem;font-weight:800;color:#1e3a8a;letter-spacing:0.02em;text-transform:uppercase;">Connection targets</div>
-        <div style="margin-top:4px;font-size:0.8rem;color:#334155;line-height:1.3;">
-          Host app (local):<br>
-          <strong id="note-student-host-url" style="word-break:break-all;">-</strong>
-        </div>
-        <div style="margin-top:6px;font-size:0.8rem;color:#334155;line-height:1.3;">
-          Student join (LAN/QR):<br>
-          <strong id="note-student-public-url" style="word-break:break-all;">-</strong>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed #d1d5db;">
-        <div style="font-size:0.83rem;color:#334155;line-height:1.35;">
-          Join URL:<br>
-          <strong id="note-student-join-url" style="word-break:break-all;">-</strong>
-        </div>
-        <img id="note-student-qr" alt="Student note QR" width="128" height="128" style="display:none;border:1px solid #d1d5db;border-radius:8px;padding:4px;background:#fff;" />
-      </div>
-    </div>
-  </div>
-
   <!-- TA HTML/EPUB Import Modal -->
   <!-- Word-note style popup -->
   <div id="wn-style-overlay" onclick="wnStyleClose(event)">
@@ -1789,8 +1473,6 @@
   <!-- Search Results Context Menu -->
   <div id="search-ctx-menu">
     <div class="search-ctx-title">Search Result</div>
-    <div class="search-ctx-item" onclick="searchCtxOpenInTA()">📝 Open in Textual Analysis</div>
-    <div class="search-ctx-sep"></div>
     <div class="search-ctx-item" onclick="searchCtxClose()" style="color:#888;font-size:0.75rem;">✕ Close</div>
   </div>
   <div id="history-delete-overlay" onclick="if(event.target===this)historyDeleteCancel()">
@@ -3168,7 +2850,7 @@ function hideFailure() {
       const lens  = oldSection.querySelector('.length-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.length-picker-wrap')) : ['all'];
 
       // Autosave when leaving a board content section
-      const _boardSaveSections = { 'constellation-section': 'constellation', 'textanalysis-section': 'textanalysis', 'notes-section': 'notes' };
+      const _boardSaveSections = { 'constellation-section': 'constellation' };
       if (_boardSaveSections[activeSection] && activeSection !== sectionId && typeof boardAutosaveSection === 'function') {
         boardAutosaveSection(_boardSaveSections[activeSection], { force: true });
         // Save a real PNG snapshot of the current constellation page when navigating away
@@ -3210,7 +2892,6 @@ function hideFailure() {
         refreshCurrentGame();
         renderGameTeamUI();
         if (sectionId === 'history-section') historyRefreshList();
-        if (sectionId === 'notes-section') { const ed = document.getElementById('note-editor'); if (ed) ed.style.fontSize = _noteFontSize + 'px'; }
       } else {
         populateAllThemeMenus();
       }
@@ -16250,12 +15931,6 @@ function hideFailure() {
             window.conToggleDrawMode();
             return;
           }
-          const taSec = document.getElementById('textanalysis-section');
-          if (taSec && !taSec.classList.contains('hidden') && typeof window.taToggleDrawMode === 'function') {
-            e.preventDefault();
-            window.taToggleDrawMode();
-            return;
-          }
           return;
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
@@ -19624,6 +19299,7 @@ function hideFailure() {
     // ---- Init swatches ----
     (function taInitSwatches() {
       const wrap = document.getElementById('ta-ctx-swatches');
+      if (!wrap) return;
       TA_COLORS.forEach(c => {
         const s = document.createElement('div');
         s.className = 'ta-ctx-swatch';
@@ -20807,32 +20483,36 @@ function hideFailure() {
     }
 
     // Clicking outside a note editor should remove focus from it
-    document.getElementById('ta-body').addEventListener('mousedown', e => {
-      const ae = document.activeElement;
-      if (!ae || !ae.classList.contains('wn-note-editor')) return;
-      if (e.target && e.target.closest('.wn-note-editor')) return;
-      ae.blur();
-    }, true);
+    (function() {
+      const taBodyEl = document.getElementById('ta-body');
+      if (!taBodyEl) return;
+      taBodyEl.addEventListener('mousedown', e => {
+        const ae = document.activeElement;
+        if (!ae || !ae.classList.contains('wn-note-editor')) return;
+        if (e.target && e.target.closest('.wn-note-editor')) return;
+        ae.blur();
+      }, true);
 
-    // Click on bare ta-body background → create free-floating note at cursor
-    document.getElementById('ta-body').addEventListener('contextmenu', e => {
-      if (e.target.closest('.ta-cell,.ta-word-note,.wn-note-editor,textarea,input,#ta-ctx-menu')) return;
-      e.preventDefault();
-      const body  = document.getElementById('ta-body');
-      const bRect = body.getBoundingClientRect();
-      const x = e.clientX - bRect.left;
-      const y = e.clientY - bRect.top;
-      const id = 'wn' + (taWordNoteNextId++);
-      const noteData = { id, tokId: null, text: '', x, y,
-        color: '#111111', bg: '#ffffff', fontSize: 26,
-        bold: false, italic: false, underline: false, strike: false,
-        hidden: false, locked: false, manualSize: false, width: null, height: null };
-      taWordNotes.push(noteData);
-      taWordNoteBuild(noteData);
-      // Focus the new textarea
-      const ta = document.querySelector(`.ta-word-note[data-id="${id}"] .wn-note-editor`);
-      if (ta) { ta.focus(); }
-    });
+      // Click on bare ta-body background → create free-floating note at cursor
+      taBodyEl.addEventListener('contextmenu', e => {
+        if (e.target.closest('.ta-cell,.ta-word-note,.wn-note-editor,textarea,input,#ta-ctx-menu')) return;
+        e.preventDefault();
+        const body  = document.getElementById('ta-body');
+        const bRect = body.getBoundingClientRect();
+        const x = e.clientX - bRect.left;
+        const y = e.clientY - bRect.top;
+        const id = 'wn' + (taWordNoteNextId++);
+        const noteData = { id, tokId: null, text: '', x, y,
+          color: '#111111', bg: '#ffffff', fontSize: 26,
+          bold: false, italic: false, underline: false, strike: false,
+          hidden: false, locked: false, manualSize: false, width: null, height: null };
+        taWordNotes.push(noteData);
+        taWordNoteBuild(noteData);
+        // Focus the new textarea
+        const ta = document.querySelector(`.ta-word-note[data-id="${id}"] .wn-note-editor`);
+        if (ta) { ta.focus(); }
+      });
+    })();
 
     // ---- Word-note style popup ----
     const WN_COLORS = [
@@ -24828,24 +24508,9 @@ ${imgTags}
         _conRestoreSession(entry.data);
         boardSetAutosaveFingerprint('constellation', entry.data);
         navTo('constellation-section');
-      } else if (mode === 'notes') {
-        if (entry.data._type !== 'notes') {
-          mdbToast('⚠️ This entry is not a valid Notes save.');
-          return false;
-        }
-        _noteCurrentFileName = null;
-        _noteRestoreSession(entry.data);
-        boardSetAutosaveFingerprint('notes', entry.data);
-        navTo('notes-section');
       } else {
-        if (entry.data._type !== 'textanalysis') {
-          mdbToast('⚠️ This entry is not a valid Textual Analysis save.');
-          return false;
-        }
-        boardSetSessionFileMeta('textanalysis', entry.createdAt, entry.savedAt);
-        _taRestoreSession(entry.data);
-        boardSetAutosaveFingerprint('textanalysis', entry.data);
-        navTo('textanalysis-section');
+        mdbToast('⚠️ This section is no longer available.');
+        return false;
       }
 
       if (closePopup) closeSessionLoadPopup();
@@ -27472,12 +27137,12 @@ ${imgTags}
     // HISTORY BROWSER (ELECTRON SAVED FILES)
     // ================================================================
 
-    let historyEntries = [];
-    let historyLoading = false;
-    let historySelectedKeys = new Set();
-    let historyFilterDateFrom = '';
-    let historyFilterDateTo = '';
-    let historyFilterClass = '';
+    var historyEntries = [];
+    var historyLoading = false;
+    var historySelectedKeys = new Set();
+    var historyFilterDateFrom = '';
+    var historyFilterDateTo = '';
+    var historyFilterClass = '';
 
     function historyEntryRelativePath(entry) {
       const raw = String((entry && (entry.relativePath || entry.filename)) || '');
@@ -27569,9 +27234,9 @@ ${imgTags}
       });
       historyRenderList();
     }
-    let historySortKey = 'modified';
-    let historySortDir = 'desc';
-    let historyViewTab = 'manual';
+    var historySortKey = 'modified';
+    var historySortDir = 'desc';
+    var historyViewTab = 'manual';
 
     function historySetFilterDate(which, value) {
       if (which === 'from') historyFilterDateFrom = value || '';
@@ -28483,38 +28148,7 @@ ${imgTags}
           return;
         }
 
-        if (entry.section === 'notes') {
-          if (!data || sessionType !== 'notes') {
-            throw new Error('This file is not a valid Notes session.');
-          }
-          await maybeRepairAndResave();
-          _noteCurrentFileName = entry.filename ? (entry.filename.endsWith('.js') ? entry.filename : boardStripJsonExt(entry.filename) + '.js') : null;
-          _noteRestoreSession(data);
-          boardPersistLocalSession('notes', data, {
-            source: 'file-load',
-            name: boardStripJsonExt(entry.filename)
-          });
-          boardSetAutosaveFingerprint('notes', data);
-          navTo('notes-section');
-          return;
-        }
-
-        if (!data || sessionType !== 'textanalysis') {
-          throw new Error('This file is not a valid Textual Analysis session.');
-        }
-        await maybeRepairAndResave();
-        _taCurrentFileName = entry.filename ? (entry.filename.endsWith('.js') ? entry.filename : boardStripJsonExt(entry.filename) + '.js') : null;
-        boardSetSessionFileMetaFromData('textanalysis', data);
-        _taRestoreSession(data);
-        // Always update title from loaded filename
-        const _taHAutoTitle = boardStripJsonExt(entry.filename || '');
-        if (_taHAutoTitle) taSetTitle(_taHAutoTitle);
-        boardPersistLocalSession('textanalysis', data, {
-          source: 'file-load',
-          name: boardStripJsonExt(entry.filename)
-        });
-        boardSetAutosaveFingerprint('textanalysis', data);
-        navTo('textanalysis-section');
+        mdbToast('⚠️ This section is no longer available.');
       } catch (error) {
         mdbToast('⚠️ Could not load saved file: ' + (error && error.message ? error.message : String(error)));
       }
@@ -29355,23 +28989,6 @@ ${imgTags}
       menu.style.display = 'block';
     }
 
-    function searchCtxOpenInTA() {
-      if (searchCtxIndex === -1) return;
-      const result = searchResults[searchCtxIndex];
-      
-      // Set the text in textual analysis
-      document.getElementById('ta-paste-area').value = result.contextText;
-      
-      // Navigate to textual analysis section
-      navTo('textanalysis-section');
-      
-      // Trigger analysis
-      taAnalyse();
-      
-      // Close the context menu
-      searchCtxClose();
-    }
-
     function searchCtxClose() {
       document.getElementById('search-ctx-menu').style.display = 'none';
       searchCtxIndex = -1;
@@ -29765,8 +29382,8 @@ ${imgTags}
       return w;
     }
 
-    let _wfaSource    = null;  // 'ta' | 'search'
-    let _wfaStemMap   = {};    // stem → { count, forms, tier, displayWord }
+    var _wfaSource    = null;  // 'ta' | 'search'
+    var _wfaStemMap   = {};    // stem → { count, forms, tier, displayWord }
 
     function wfaOpen(source) {
       // Toggle off if already open for the same source

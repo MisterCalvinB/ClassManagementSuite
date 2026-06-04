@@ -180,7 +180,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps', 'textualAnalyses', 'notes']),
+  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([])
 };

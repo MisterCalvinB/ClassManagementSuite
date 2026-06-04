@@ -444,16 +444,28 @@
         <button id="managedb-close-btn" onclick="mdbClose()">✕ Close</button>
       </div>
       <div id="managedb-tabs">
-        <button class="mdb-tab active" id="mdb-tab-manage" onclick="mdbShowTab('manage')">🗂️ Manage Custom</button>
-        <button class="mdb-tab" id="mdb-tab-customdb" onclick="mdbShowTab('customdb')">🧩 Custom DB Files</button>
-        <button class="mdb-tab" id="mdb-tab-add" onclick="mdbShowTab('add')">➕ Add Items</button>
-        <button class="mdb-tab" id="mdb-tab-themes" onclick="mdbShowTab('themes')">🏷️ Themes</button>
-        <button class="mdb-tab" id="mdb-tab-dupes" onclick="mdbShowTab('dupes')">🔁 Find Duplicates</button>
-        <button class="mdb-tab" id="mdb-tab-delete" onclick="mdbShowTab('delete')">🗑️ Delete Words</button>
+        <button class="mdb-tab active" id="mdb-tab-words" onclick="mdbShowTab('words')">📝 Manage Words</button>
+        <button class="mdb-tab" id="mdb-tab-quotes" onclick="mdbShowTab('quotes')">📜 Manage Quotes</button>
+        <button class="mdb-tab" id="mdb-tab-gap" onclick="mdbShowTab('gap')">🕳️ Manage Gap Fill</button>
+        <button class="mdb-tab" id="mdb-tab-errors" onclick="mdbShowTab('errors')">🔴 Manage Errors</button>
+        <button class="mdb-tab" id="mdb-tab-dictations" onclick="mdbShowTab('dictations')">📝 Manage Dictations</button>
+        <button class="mdb-tab" id="mdb-tab-sentences" onclick="mdbShowTab('sentences')">🔀 Manage Sentence Orders</button>
+        <button class="mdb-tab" id="mdb-tab-quizzes" onclick="mdbShowTab('quizzes')">🎯 Manage Quizzes</button>
       </div>
 
-      <!-- DELETE TAB -->
       <div id="managedb-body">
+        <!-- Words sub-tab header (shown only when words top-tab is active) -->
+        <div id="mdb-panel-words-header" style="display:none;">
+          <div class="mdb-subtabs">
+            <button class="mdb-subtab active" id="mdb-subtab-add" onclick="mdbWordsSubTab('add')">➕ Add Words</button>
+            <button class="mdb-subtab" id="mdb-subtab-themes" onclick="mdbWordsSubTab('themes')">🏷️ Themes</button>
+            <button class="mdb-subtab" id="mdb-subtab-dupes" onclick="mdbWordsSubTab('dupes')">🔁 Find Duplicates</button>
+            <button class="mdb-subtab" id="mdb-subtab-delete" onclick="mdbWordsSubTab('delete')">🗑️ Delete Words</button>
+            <button class="mdb-subtab" id="mdb-subtab-manage" onclick="mdbWordsSubTab('manage')">🗂️ Manage Databases</button>
+          </div>
+        </div>
+
+        <!-- DELETE TAB -->
         <div id="mdb-panel-delete" style="display:none;">
           <div id="managedb-search-row">
             <input type="text" id="managedb-search" placeholder="Search words…" oninput="mdbRenderWords()">
@@ -1262,16 +1274,9 @@
 
         <!-- MANAGE CUSTOM TAB -->
         <div id="mdb-panel-manage">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
-            <span id="aw-manage-count" style="font-weight:700;color:#555;"></span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="action-btn btn-grey" onclick="awDownloadDB()">⬇ Download wordDb.js</button>
-              <button class="action-btn btn-grey" onclick="awDownloadQuotes()">⬇ Download quoteBank.js</button>
-              <button class="action-btn btn-grey" onclick="awDownloadGapFill()">⬇ Download gapFillBank.js</button>
-              <button class="action-btn btn-grey" onclick="awDownloadErrors()">⬇ Download errorBank.js</button>
-              <button class="action-btn btn-grey" onclick="awDownloadQuizzes()">⬇ Download quiz.js</button>
-              <button class="action-btn btn-orange" onclick="awDeleteAll()">🗑 Delete All Custom</button>
-            </div>
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+            <span id="aw-manage-count" style="font-weight:700;color:#555;flex:1;"></span>
+            <button class="action-btn btn-orange" onclick="awDeleteAll()">🗑 Delete All Custom</button>
           </div>
         </div>
 
@@ -1424,11 +1429,7 @@
       <button class="menu-btn btn-grey" onclick="navTo('dictations-section')">📝 View All Dictations</button>
       <button class="menu-btn btn-grey" onclick="navTo('sentences-section')">🔀 View All Order Sentences</button>
       <button class="menu-btn btn-grey" onclick="navTo('quizzes-section')">🎯 View All Quizzes</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('add')" data-i18n="btnAddWords">➕ Add Items</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('manage')">🗂️ Manage Custom</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('themes')">🏷️ Themes</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('dupes')">🔁 Find Duplicates</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('delete')">🗑️ Delete Words</button>
+      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbWordsSubTab('manage')">🗂️ Manage Databases</button>
     </div>
   </div>
   <template id="filter-template">
@@ -1503,7 +1504,7 @@
     </div>
     <div id="vocab-list-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:4px;"></div>
     <div id="vocab-flex-list" class="vocab-flex-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add')" title="Add a word"
+    <button onclick="mdbOpen()" title="Add a word"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1521,7 +1522,7 @@
     </div>
     <div id="ql-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="ql-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('quote');" title="Add a quote"
+    <button onclick="mdbOpen(); mdbShowTab('quotes');" title="Add a quote"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1539,7 +1540,7 @@
     </div>
     <div id="gl-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="gl-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('gap');" title="Add a gap fill sentence"
+    <button onclick="mdbOpen(); mdbShowTab('gap');" title="Add a gap fill sentence"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1557,7 +1558,7 @@
     </div>
     <div id="el-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="el-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('error');" title="Add an error pair"
+    <button onclick="mdbOpen(); mdbShowTab('errors');" title="Add an error pair"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1572,7 +1573,7 @@
     </div>
     <div id="dl-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="dl-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('dictation');" title="Add a dictation"
+    <button onclick="mdbOpen(); mdbShowTab('dictations');" title="Add a dictation"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1587,7 +1588,7 @@
     </div>
     <div id="sl-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="sl-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('sentence');" title="Add an order sentence set"
+    <button onclick="mdbOpen(); mdbShowTab('sentences');" title="Add an order sentence set"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -1602,7 +1603,7 @@
     </div>
     <div id="qzl-count" style="text-align:center;color:#666;font-size:0.9rem;margin-bottom:10px;"></div>
     <div id="qzl-list"></div>
-    <button onclick="mdbOpen(); mdbShowTab('add'); awSetTab('quiz');" title="Add a quiz"
+    <button onclick="mdbOpen(); mdbShowTab('quizzes');" title="Add a quiz"
       style="position:fixed; right:22px; bottom:74px; z-index:9999; width:44px; height:44px; border-radius:50%; background:#2d7d46; color:#fff; font-size:1.5rem; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.25); display:flex; align-items:center; justify-content:center; line-height:1;">＋</button>
   </div>
 
@@ -2779,7 +2780,7 @@ function hideFailure() {
       if (activeSection === 'quizzes-section') renderQuizzesList();
       if (activeSection === 'grammar-practice-section') gpInit();
       if (activeSection === 'dictation-section') dictInit();
-      if (activeSection === 'add-word-section') { mdbOpen(); mdbShowTab('add'); return; }
+      if (activeSection === 'add-word-section') { mdbOpen(); return; }
       if (activeSection === 'story-section') initStorySection();
     }
 
@@ -3021,8 +3022,7 @@ function hideFailure() {
         if (bi !== -1) quoteBank[bi] = promoted;
       }
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('quote');
+      mdbShowTab('quotes');
       awEditQuote(idx);
     }
 
@@ -3045,8 +3045,7 @@ function hideFailure() {
         if (bi !== -1) gapFillBank[bi] = promoted;
       }
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('gap');
+      mdbShowTab('gap');
       awEditGap(idx);
     }
 
@@ -3069,8 +3068,7 @@ function hideFailure() {
         if (bi !== -1) errorBank[bi] = promoted;
       }
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('error');
+      mdbShowTab('errors');
       awEditError(idx);
     }
 
@@ -3095,8 +3093,7 @@ function hideFailure() {
         if (bi !== -1) dictationBank[bi] = promoted;
       }
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('dictation');
+      mdbShowTab('dictations');
       awEditDictation(idx);
     }
 
@@ -3110,8 +3107,7 @@ function hideFailure() {
         return;
       }
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('sentence');
+      mdbShowTab('sentences');
       awEditSentenceByIndex(idx);
     }
 
@@ -3399,8 +3395,7 @@ function hideFailure() {
       }
 
       mdbOpen();
-      mdbShowTab('add');
-      awSetTab('quiz');
+      mdbShowTab('quizzes');
       awEditQuiz(idx);
     }
 
@@ -7072,8 +7067,8 @@ Rules:
 
       mdbSelectedWords.clear();
       mdbUpdateSelBar();
-      mdbShowTab('manage');
-      mdbRenderWords();
+      mdbCurrentWordsSubTab = 'add';
+      mdbShowTab('words');
       document.getElementById('managedb-overlay').classList.add('active');
     }
 
@@ -7082,27 +7077,64 @@ Rules:
       mdbCancelDelete();
     }
 
+    let mdbCurrentWordsSubTab = 'add';
+
     function mdbShowTab(tab) {
       mdbCurrentTab = tab;
-      document.getElementById('mdb-tab-delete').classList.toggle('active', tab === 'delete');
-      document.getElementById('mdb-tab-dupes').classList.toggle('active', tab === 'dupes');
-      document.getElementById('mdb-tab-themes').classList.toggle('active', tab === 'themes');
-      document.getElementById('mdb-tab-add').classList.toggle('active', tab === 'add');
-      document.getElementById('mdb-tab-customdb').classList.toggle('active', tab === 'customdb');
-      document.getElementById('mdb-tab-manage').classList.toggle('active', tab === 'manage');
-      document.getElementById('mdb-panel-delete').style.display = tab === 'delete' ? '' : 'none';
-      document.getElementById('mdb-panel-dupes').style.display  = tab === 'dupes'  ? '' : 'none';
-      document.getElementById('mdb-panel-themes').style.display = tab === 'themes' ? '' : 'none';
-      document.getElementById('mdb-panel-add').style.display    = tab === 'add'    ? '' : 'none';
-      document.getElementById('mdb-panel-customdb').style.display = tab === 'customdb' ? '' : 'none';
-      document.getElementById('mdb-panel-manage').style.display = tab === 'manage' ? '' : 'none';
+
+      // Update top-level tab button active states
+      ['words','quotes','gap','errors','dictations','sentences','quizzes'].forEach(t => {
+        const btn = document.getElementById('mdb-tab-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+      });
+
+      // Show/hide the words sub-tab header
+      const wordsHeader = document.getElementById('mdb-panel-words-header');
+      if (wordsHeader) wordsHeader.style.display = tab === 'words' ? '' : 'none';
+
+      // Hide all management panels first
+      ['mdb-panel-delete','mdb-panel-dupes','mdb-panel-themes','mdb-panel-manage','mdb-panel-customdb'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.style.display = 'none';
+      });
+
       document.getElementById('mdb-confirm-bar').classList.remove('active');
-      if (tab === 'delete')  mdbRenderWords();
-      if (tab === 'dupes')   mdbScanDuplicates();
-      if (tab === 'themes')  mdbRenderThemesTab();
-      if (tab === 'add')     { awSetTab('form'); awPopulateThemeDatalist(); }
-      if (tab === 'customdb') { cdbInitPanel(); }
-      if (tab === 'manage')  { awPopulateThemeDatalist(); awRenderManage(); }
+
+      const addPanel = document.getElementById('mdb-panel-add');
+      const awTabsBar = addPanel ? addPanel.querySelector('.aw-tabs') : null;
+      const headerP   = addPanel ? addPanel.querySelector('p') : null;
+      if (awTabsBar) awTabsBar.style.display = 'none';
+
+      if (tab === 'words') {
+        if (addPanel) addPanel.style.display = '';
+        if (headerP)  headerP.style.display  = '';
+        mdbWordsSubTab(mdbCurrentWordsSubTab);
+      } else {
+        // Non-words content types share mdb-panel-add but with appropriate sub-panel
+        if (addPanel) addPanel.style.display = '';
+        if (headerP)  headerP.style.display  = 'none';
+        const subtabMap = { quotes:'quote', gap:'gap', errors:'error', dictations:'dictation', sentences:'sentence', quizzes:'quiz' };
+        const awTab = subtabMap[tab];
+        if (awTab) awSetTab(awTab);
+      }
+    }
+
+    function mdbWordsSubTab(sub) {
+      mdbCurrentWordsSubTab = sub;
+      ['add','themes','dupes','delete','manage'].forEach(s => {
+        const btn = document.getElementById('mdb-subtab-' + s);
+        if (btn) btn.classList.toggle('active', s === sub);
+      });
+      const addPanel = document.getElementById('mdb-panel-add');
+      if (addPanel) addPanel.style.display = sub === 'add' ? '' : 'none';
+      ['mdb-panel-delete','mdb-panel-dupes','mdb-panel-themes','mdb-panel-manage'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === 'mdb-panel-' + sub) ? '' : 'none';
+      });
+      if (sub === 'add')    { awSetTab('form'); awPopulateThemeDatalist(); }
+      if (sub === 'delete') mdbRenderWords();
+      if (sub === 'dupes')  mdbScanDuplicates();
+      if (sub === 'themes') mdbRenderThemesTab();
+      if (sub === 'manage') { awPopulateThemeDatalist(); awRenderManage(); }
     }
 
     let cdbCurrentType = 'dictations';
