@@ -445,23 +445,23 @@
       </div>
       <div id="managedb-tabs">
         <button class="mdb-tab active" id="mdb-tab-words" onclick="mdbShowTab('words')">📝 Manage Words</button>
-        <button class="mdb-tab" id="mdb-tab-quotes" onclick="mdbShowTab('quotes')">📜 Manage Quotes</button>
-        <button class="mdb-tab" id="mdb-tab-gap" onclick="mdbShowTab('gap')">🕳️ Manage Gap Fill</button>
-        <button class="mdb-tab" id="mdb-tab-errors" onclick="mdbShowTab('errors')">🔴 Manage Errors</button>
-        <button class="mdb-tab" id="mdb-tab-dictations" onclick="mdbShowTab('dictations')">📝 Manage Dictations</button>
-        <button class="mdb-tab" id="mdb-tab-sentences" onclick="mdbShowTab('sentences')">🔀 Manage Sentence Orders</button>
-        <button class="mdb-tab" id="mdb-tab-quizzes" onclick="mdbShowTab('quizzes')">🎯 Manage Quizzes</button>
+        <button class="mdb-tab" id="mdb-tab-quotes" onclick="mdbShowTab('quotes')">📜 Add Quotes</button>
+        <button class="mdb-tab" id="mdb-tab-gap" onclick="mdbShowTab('gap')">🕳️ Add Gap Fill</button>
+        <button class="mdb-tab" id="mdb-tab-errors" onclick="mdbShowTab('errors')">🔴 Add Errors</button>
+        <button class="mdb-tab" id="mdb-tab-dictations" onclick="mdbShowTab('dictations')">📝 Add Dictations</button>
+        <button class="mdb-tab" id="mdb-tab-sentences" onclick="mdbShowTab('sentences')">🔀 Add Sentence Orders</button>
+        <button class="mdb-tab" id="mdb-tab-quizzes" onclick="mdbShowTab('quizzes')">🎯 Add Quizzes</button>
       </div>
 
       <div id="managedb-body">
         <!-- Words sub-tab header (shown only when words top-tab is active) -->
         <div id="mdb-panel-words-header" style="display:none;">
           <div class="mdb-subtabs">
-            <button class="mdb-subtab active" id="mdb-subtab-add" onclick="mdbWordsSubTab('add')">➕ Add Words</button>
-            <button class="mdb-subtab" id="mdb-subtab-themes" onclick="mdbWordsSubTab('themes')">🏷️ Themes</button>
-            <button class="mdb-subtab" id="mdb-subtab-dupes" onclick="mdbWordsSubTab('dupes')">🔁 Find Duplicates</button>
-            <button class="mdb-subtab" id="mdb-subtab-delete" onclick="mdbWordsSubTab('delete')">🗑️ Delete Words</button>
-            <button class="mdb-subtab" id="mdb-subtab-manage" onclick="mdbWordsSubTab('manage')">🗂️ Manage Databases</button>
+            <button class="mdb-subtab active" id="mdb-subtab-add"      onclick="mdbWordsSubTab('add')">➕ Add Words</button>
+            <button class="mdb-subtab"        id="mdb-subtab-themes"   onclick="mdbWordsSubTab('themes')">🏷️ Themes</button>
+            <button class="mdb-subtab"        id="mdb-subtab-keywords" onclick="mdbWordsSubTab('keywords')">🔑 Keywords</button>
+            <button class="mdb-subtab"        id="mdb-subtab-levels"   onclick="mdbWordsSubTab('levels')">📊 Levels</button>
+            <button class="mdb-subtab"        id="mdb-subtab-pos"      onclick="mdbWordsSubTab('pos')">🏷️ POS</button>
           </div>
         </div>
 
@@ -502,7 +502,14 @@
         <!-- THEMES TAB -->
         <div id="mdb-panel-themes" style="display:none;">
 
-          <!-- Rename section -->
+          <div class="mdb-subtabs" style="margin-bottom:16px;">
+            <button class="mdb-subtab active" id="mdb-themes-tab-rename" onclick="mdbThemesSubTab('rename')">✏️ Rename</button>
+            <button class="mdb-subtab"        id="mdb-themes-tab-merge"  onclick="mdbThemesSubTab('merge')">🔀 Merge</button>
+            <button class="mdb-subtab"        id="mdb-themes-tab-theme"  onclick="mdbThemesSubTab('theme')">📋 Assign Theme</button>
+          </div>
+
+          <!-- Rename pane -->
+          <div id="mdb-themes-pane-rename">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">✏️ Rename Theme</div>
             <p class="mdb-themes-desc">Rename a theme across every word in the database — including built-in words.</p>
@@ -526,10 +533,10 @@
             <div id="mdb-rename-preview" class="mdb-themes-preview"></div>
             <div id="mdb-rename-feedback" class="mdb-themes-feedback"></div>
           </div>
+          </div><!-- /mdb-themes-pane-rename -->
 
-          <hr class="mdb-themes-divider">
-
-          <!-- Merge section -->
+          <!-- Merge pane -->
+          <div id="mdb-themes-pane-merge" style="display:none;">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">🔀 Merge Themes</div>
             <p class="mdb-themes-desc">Drag theme pills into the merge zone. They will all collapse into one target theme.</p>
@@ -563,10 +570,10 @@
             <div id="mdb-merge-preview" class="mdb-themes-preview" style="margin-top:12px;"></div>
             <div id="mdb-merge-feedback" class="mdb-themes-feedback"></div>
           </div>
+          </div><!-- /mdb-themes-pane-merge -->
 
-          <hr class="mdb-themes-divider">
-
-          <!-- Assign Theme by Word List section -->
+          <!-- Assign Theme pane -->
+          <div id="mdb-themes-pane-theme" style="display:none;">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">📋 Assign Theme by Word List</div>
             <p class="mdb-themes-desc">Enter a theme name and a comma-separated list of words. Words already in the database will have the theme added to them; words not found will be created as new entries with that theme.</p>
@@ -590,10 +597,12 @@
             </div>
             <div id="mdb-assign-feedback" class="mdb-themes-feedback"></div>
           </div>
+          </div><!-- /mdb-themes-pane-theme -->
 
-          <hr class="mdb-themes-divider">
+        </div>
 
-          <!-- Assign Keyword by Word List section -->
+        <!-- KEYWORDS TAB -->
+        <div id="mdb-panel-keywords" style="display:none;">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">🔑 Assign Keyword by Word List</div>
             <p class="mdb-themes-desc">Enter a keyword and a comma-separated list of words. Words already in the database will have the keyword added to them; words not found will be created as new entries with that keyword.</p>
@@ -617,10 +626,10 @@
             </div>
             <div id="mdb-assign-keyword-feedback" class="mdb-themes-feedback"></div>
           </div>
+        </div>
 
-          <hr class="mdb-themes-divider">
-
-          <!-- Assign Level by Word List section -->
+        <!-- LEVELS TAB -->
+        <div id="mdb-panel-levels" style="display:none;">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">📊 Assign Level by Word List</div>
             <p class="mdb-themes-desc">Choose a CEFR level and enter a comma-separated list of words. Existing words will have their level set; unrecognised words will be created with that level.</p>
@@ -647,10 +656,10 @@
             </div>
             <div id="mdb-assign-level-feedback" class="mdb-themes-feedback"></div>
           </div>
+        </div>
 
-          <hr class="mdb-themes-divider">
-
-          <!-- Assign Part of Speech by Word List section -->
+        <!-- POS TAB -->
+        <div id="mdb-panel-pos" style="display:none;">
           <div class="mdb-themes-section">
             <div class="mdb-themes-section-title">🏷️ Assign Part of Speech by Word List</div>
             <p class="mdb-themes-desc">Choose a part of speech and enter a comma-separated list of words. Existing words will have their part of speech set; unrecognised words will be created with that part of speech.</p>
@@ -678,7 +687,6 @@
             </div>
             <div id="mdb-assign-pos-feedback" class="mdb-themes-feedback"></div>
           </div>
-
         </div>
 
         <!-- ADD WORDS TAB -->
@@ -1429,7 +1437,7 @@
       <button class="menu-btn btn-grey" onclick="navTo('dictations-section')">📝 View All Dictations</button>
       <button class="menu-btn btn-grey" onclick="navTo('sentences-section')">🔀 View All Order Sentences</button>
       <button class="menu-btn btn-grey" onclick="navTo('quizzes-section')">🎯 View All Quizzes</button>
-      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbWordsSubTab('manage')">🗂️ Manage Databases</button>
+      <button class="menu-btn btn-grey" onclick="mdbOpen(); mdbShowTab('words')">🗂️ Manage Databases</button>
     </div>
   </div>
   <template id="filter-template">
@@ -1514,6 +1522,17 @@
   <div id="quotes-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <h2>📜 All Quotes</h2>
+    <div class="filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Author</label>
+        <select id="ql-filter-author" onchange="renderQuotesList()"><option value="">All Authors</option></select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label">Theme</label>
+        <select id="ql-filter-theme" onchange="renderQuotesList()"><option value="">All Themes</option></select>
+      </div>
+      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="qlResetFilters()">Reset</button></div>
+    </div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;">
       <input type="text" id="ql-search" placeholder="🔍 Search quotes, authors, themes…"
         style="padding:8px 14px; border:2px solid #aaa; border-radius:5px; font-family:inherit; font-size:0.95rem; width:100%; max-width:420px; background:#fff; color:#111; outline:none; transition:border-color 0.15s;"
@@ -1532,6 +1551,17 @@
   <div id="gaps-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <h2>🕳️ All Gap Fill Sentences</h2>
+    <div class="filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Grammar Type</label>
+        <select id="gl-filter-type" onchange="renderGapsList()"><option value="">All Types</option></select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label">Level</label>
+        <select id="gl-filter-level" onchange="renderGapsList()"><option value="">All Levels</option></select>
+      </div>
+      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="glResetFilters()">Reset</button></div>
+    </div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;">
       <input type="text" id="gl-search" placeholder="🔍 Search sentences, grammar types, levels…"
         style="padding:8px 14px; border:2px solid #aaa; border-radius:5px; font-family:inherit; font-size:0.95rem; width:100%; max-width:420px; background:#fff; color:#111; outline:none; transition:border-color 0.15s;"
@@ -1550,6 +1580,13 @@
   <div id="errors-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <h2>🔴 All Error Pairs</h2>
+    <div class="filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Category</label>
+        <select id="el-filter-cat" onchange="renderErrorsList()"><option value="">All Categories</option></select>
+      </div>
+      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="elResetFilters()">Reset</button></div>
+    </div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;">
       <input type="text" id="el-search" placeholder="🔍 Search sentences, explanations, categories…"
         style="padding:8px 14px; border:2px solid #aaa; border-radius:5px; font-family:inherit; font-size:0.95rem; width:100%; max-width:420px; background:#fff; color:#111; outline:none; transition:border-color 0.15s;"
@@ -1565,6 +1602,17 @@
   <div id="dictations-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <h2>📝 All Dictations</h2>
+    <div class="filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Level</label>
+        <select id="dl-filter-level" onchange="renderDictationsList()"><option value="">All Levels</option></select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label">Theme</label>
+        <select id="dl-filter-theme" onchange="renderDictationsList()"><option value="">All Themes</option></select>
+      </div>
+      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="dlResetFilters()">Reset</button></div>
+    </div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;">
       <input type="text" id="dl-search" placeholder="🔍 Search titles, text, themes, levels…"
         style="padding:8px 14px; border:2px solid #aaa; border-radius:5px; font-family:inherit; font-size:0.95rem; width:100%; max-width:420px; background:#fff; color:#111; outline:none; transition:border-color 0.15s;"
@@ -1595,6 +1643,17 @@
   <div id="quizzes-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <h2>🎯 All Quizzes</h2>
+    <div class="filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Theme</label>
+        <select id="qzl-filter-theme" onchange="renderQuizzesList()"><option value="">All Themes</option></select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label">Keyword</label>
+        <select id="qzl-filter-keyword" onchange="renderQuizzesList()"><option value="">All Keywords</option></select>
+      </div>
+      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="qzlResetFilters()">Reset</button></div>
+    </div>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:14px;">
       <input type="text" id="qzl-search" placeholder="🔍 Search questions and answers…"
         style="padding:8px 14px; border:2px solid #aaa; border-radius:5px; font-family:inherit; font-size:0.95rem; width:100%; max-width:420px; background:#fff; color:#111; outline:none; transition:border-color 0.15s;"
@@ -3111,13 +3170,33 @@ function hideFailure() {
       awEditSentenceByIndex(idx);
     }
 
+    function populateSelect(id, values, allLabel) {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">${allLabel}</option>` +
+        values.map(v => `<option value="${String(v).replace(/"/g, '&quot;')}">${v}</option>`).join('');
+      if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+    }
+
     function renderQuotesList() {
       const listEl = document.getElementById('ql-list');
       const countEl = document.getElementById('ql-count');
       if (!listEl || !countEl) return;
 
-      const q = String(document.getElementById('ql-search')?.value || '').trim().toLowerCase();
-      let rows = Array.isArray(quoteBank) ? [...quoteBank] : [];
+      const allRows = Array.isArray(quoteBank) ? [...quoteBank] : [];
+      const authors = [...new Set(allRows.map(i => String(i.author || '').trim()).filter(Boolean))].sort();
+      const themes  = [...new Set(allRows.map(i => String(i.theme  || '').trim()).filter(Boolean))].sort();
+      populateSelect('ql-filter-author', authors, 'All Authors');
+      populateSelect('ql-filter-theme',  themes,  'All Themes');
+
+      const q          = String(document.getElementById('ql-search')?.value || '').trim().toLowerCase();
+      const filterAuth = String(document.getElementById('ql-filter-author')?.value || '');
+      const filterTheme = String(document.getElementById('ql-filter-theme')?.value || '');
+
+      let rows = allRows;
+      if (filterAuth)  rows = rows.filter(i => String(i.author || '').trim() === filterAuth);
+      if (filterTheme) rows = rows.filter(i => String(i.theme  || '').trim() === filterTheme);
       if (q) {
         rows = rows.filter(item => {
           const quote = String(item.quote || '').toLowerCase();
@@ -3153,8 +3232,19 @@ function hideFailure() {
       const countEl = document.getElementById('gl-count');
       if (!listEl || !countEl) return;
 
-      const q = String(document.getElementById('gl-search')?.value || '').trim().toLowerCase();
-      let rows = Array.isArray(gapFillBank) ? [...gapFillBank] : [];
+      const allRows = Array.isArray(gapFillBank) ? [...gapFillBank] : [];
+      const types  = [...new Set(allRows.map(i => String(i.grammarType || '').trim()).filter(Boolean))].sort();
+      const levels = [...new Set(allRows.map(i => String(i.level || '').trim().toUpperCase()).filter(Boolean))].sort();
+      populateSelect('gl-filter-type',  types,  'All Types');
+      populateSelect('gl-filter-level', levels, 'All Levels');
+
+      const q           = String(document.getElementById('gl-search')?.value || '').trim().toLowerCase();
+      const filterType  = String(document.getElementById('gl-filter-type')?.value  || '');
+      const filterLevel = String(document.getElementById('gl-filter-level')?.value || '');
+
+      let rows = allRows;
+      if (filterType)  rows = rows.filter(i => String(i.grammarType || '').trim() === filterType);
+      if (filterLevel) rows = rows.filter(i => String(i.level || '').trim().toUpperCase() === filterLevel);
       if (q) {
         rows = rows.filter(item => {
           return [item.sentence, item.removedWord, item.infinitive, item.grammarType, item.level]
@@ -3187,8 +3277,15 @@ function hideFailure() {
       const countEl = document.getElementById('el-count');
       if (!listEl || !countEl) return;
 
-      const q = String(document.getElementById('el-search')?.value || '').trim().toLowerCase();
-      let rows = Array.isArray(errorBank) ? [...errorBank] : [];
+      const allRows = Array.isArray(errorBank) ? [...errorBank] : [];
+      const cats = [...new Set(allRows.map(i => String(i.category || '').trim()).filter(Boolean))].sort();
+      populateSelect('el-filter-cat', cats, 'All Categories');
+
+      const q         = String(document.getElementById('el-search')?.value || '').trim().toLowerCase();
+      const filterCat = String(document.getElementById('el-filter-cat')?.value || '');
+
+      let rows = allRows;
+      if (filterCat) rows = rows.filter(i => String(i.category || '').trim() === filterCat);
       if (q) {
         rows = rows.filter(item => {
           return [item.correct, item.erroneous, item.explanation, item.category]
@@ -3221,8 +3318,19 @@ function hideFailure() {
       const countEl = document.getElementById('dl-count');
       if (!listEl || !countEl) return;
 
-      const q = String(document.getElementById('dl-search')?.value || '').trim().toLowerCase();
-      let rows = Array.isArray(dictationBank) ? [...dictationBank] : [];
+      const allRows = Array.isArray(dictationBank) ? [...dictationBank] : [];
+      const levels = [...new Set(allRows.map(i => String(i.level || '').trim()).filter(Boolean))].sort();
+      const themes = [...new Set(allRows.map(i => String(i.theme || '').trim()).filter(Boolean))].sort();
+      populateSelect('dl-filter-level', levels, 'All Levels');
+      populateSelect('dl-filter-theme', themes,  'All Themes');
+
+      const q            = String(document.getElementById('dl-search')?.value || '').trim().toLowerCase();
+      const filterLevel  = String(document.getElementById('dl-filter-level')?.value || '');
+      const filterTheme  = String(document.getElementById('dl-filter-theme')?.value  || '');
+
+      let rows = allRows;
+      if (filterLevel) rows = rows.filter(i => String(i.level || '').trim() === filterLevel);
+      if (filterTheme) rows = rows.filter(i => String(i.theme || '').trim() === filterTheme);
       if (q) {
         rows = rows.filter(item => {
           return [item.id, item.title, item.level, item.theme, item.text]
@@ -3303,7 +3411,6 @@ function hideFailure() {
       const countEl = document.getElementById('qzl-count');
       if (!listEl || !countEl) return;
 
-      const q = String(document.getElementById('qzl-search')?.value || '').trim().toLowerCase();
       const byQuestion = new Map();
       (Array.isArray(quizBank) ? quizBank : []).forEach(item => {
         const key = String(item && item.question || '').trim().toLowerCase();
@@ -3315,10 +3422,22 @@ function hideFailure() {
         if (!item) return;
         const key = String(item.question || '').trim().toLowerCase();
         if (!key) return;
-        // Prefer custom copy so recent edits always show in the list.
         byQuestion.set(key, item);
       });
-      let rows = Array.from(byQuestion.values());
+      const allRows = Array.from(byQuestion.values());
+
+      const themes   = [...new Set(allRows.map(i => String(i.theme   || '').trim()).filter(Boolean))].sort();
+      const keywords = [...new Set(allRows.map(i => String(i.keyword || '').trim()).filter(Boolean))].sort();
+      populateSelect('qzl-filter-theme',   themes,   'All Themes');
+      populateSelect('qzl-filter-keyword', keywords, 'All Keywords');
+
+      const q              = String(document.getElementById('qzl-search')?.value || '').trim().toLowerCase();
+      const filterTheme    = String(document.getElementById('qzl-filter-theme')?.value   || '');
+      const filterKeyword  = String(document.getElementById('qzl-filter-keyword')?.value || '');
+
+      let rows = allRows;
+      if (filterTheme)   rows = rows.filter(i => String(i.theme   || '').trim() === filterTheme);
+      if (filterKeyword) rows = rows.filter(i => String(i.keyword || '').trim() === filterKeyword);
       if (q) {
         rows = rows.filter(item => {
           return [
@@ -3362,6 +3481,31 @@ function hideFailure() {
           <div style="margin-top:8px;display:flex;justify-content:flex-end;">${editBtn}</div>
         </div>`;
       }).join('');
+    }
+
+    function qlResetFilters() {
+      const a = document.getElementById('ql-filter-author'); if (a) a.value = '';
+      const t = document.getElementById('ql-filter-theme');  if (t) t.value = '';
+      renderQuotesList();
+    }
+    function glResetFilters() {
+      const t = document.getElementById('gl-filter-type');  if (t) t.value = '';
+      const l = document.getElementById('gl-filter-level'); if (l) l.value = '';
+      renderGapsList();
+    }
+    function elResetFilters() {
+      const c = document.getElementById('el-filter-cat'); if (c) c.value = '';
+      renderErrorsList();
+    }
+    function dlResetFilters() {
+      const l = document.getElementById('dl-filter-level'); if (l) l.value = '';
+      const t = document.getElementById('dl-filter-theme'); if (t) t.value = '';
+      renderDictationsList();
+    }
+    function qzlResetFilters() {
+      const t = document.getElementById('qzl-filter-theme');   if (t) t.value = '';
+      const k = document.getElementById('qzl-filter-keyword'); if (k) k.value = '';
+      renderQuizzesList();
     }
 
     function qzEditCustom(encodedQuestion) {
@@ -7120,21 +7264,36 @@ Rules:
 
     function mdbWordsSubTab(sub) {
       mdbCurrentWordsSubTab = sub;
-      ['add','themes','dupes','delete','manage'].forEach(s => {
+      ['add','themes','keywords','levels','pos'].forEach(s => {
         const btn = document.getElementById('mdb-subtab-' + s);
         if (btn) btn.classList.toggle('active', s === sub);
       });
-      const addPanel = document.getElementById('mdb-panel-add');
-      if (addPanel) addPanel.style.display = sub === 'add' ? '' : 'none';
-      ['mdb-panel-delete','mdb-panel-dupes','mdb-panel-themes','mdb-panel-manage'].forEach(id => {
+      ['mdb-panel-add','mdb-panel-themes','mdb-panel-keywords','mdb-panel-levels','mdb-panel-pos'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === 'mdb-panel-' + sub) ? '' : 'none';
       });
-      if (sub === 'add')    { awSetTab('form'); awPopulateThemeDatalist(); }
-      if (sub === 'delete') mdbRenderWords();
-      if (sub === 'dupes')  mdbScanDuplicates();
-      if (sub === 'themes') mdbRenderThemesTab();
-      if (sub === 'manage') { awPopulateThemeDatalist(); awRenderManage(); }
+      if (sub === 'add')      { awSetTab('form'); awPopulateThemeDatalist(); }
+      if (sub === 'themes')   mdbRenderThemesTab();
+      if (sub === 'keywords') mdbPopulateKeywordDatalist();
+      if (sub === 'levels')   { /* nothing extra needed */ }
+      if (sub === 'pos')      { /* nothing extra needed */ }
+    }
+
+    function mdbPopulateKeywordDatalist() {
+      const allKeywords = [...new Set(vocabBank.flatMap(w => w.keywords || []).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const kwDl = document.getElementById('mdb-assign-keyword-datalist');
+      if (kwDl) kwDl.innerHTML = allKeywords.map(k => `<option value="${k}">`).join('');
+    }
+
+    let mdbCurrentThemesSubTab = 'rename';
+    function mdbThemesSubTab(tab) {
+      mdbCurrentThemesSubTab = tab;
+      ['rename','merge','theme'].forEach(t => {
+        const btn = document.getElementById('mdb-themes-tab-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+        const pane = document.getElementById('mdb-themes-pane-' + t);
+        if (pane) pane.style.display = t === tab ? '' : 'none';
+      });
     }
 
     let cdbCurrentType = 'dictations';
@@ -7264,6 +7423,7 @@ Rules:
     }
 
     function mdbRenderThemesTab() {
+      mdbThemesSubTab(mdbCurrentThemesSubTab);
       const themes = mdbGetAllThemes();
 
       // Populate rename-from select

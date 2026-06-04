@@ -962,20 +962,36 @@
     <button class="timer-btn" id="timer-btn-gap" onclick="timerOpenSettings()">⏱ Timer</button>
     <div id="gap-team-ui" class="hidden"></div>
     
-    <div class="center-container" style="margin-bottom:15px;">
-        <label class="filter-label" data-i18n="targetGrammar">Target Grammar:</label>
-      <select id="gap-grammar-select" class="grammar-select" onchange="clearGapUsed(); initGapGame()" style="padding: 5px; border-radius: 5px;">
-            <option value="all" selected data-i18n="allGrammar">All Grammar</option>
-            <option value="Relatives">Relative Clauses</option>
-            <option value="Conditionals">Conditionals</option>
+    <div class="filter-bar" id="gap-grammar-filter-bar">
+      <div class="filter-col">
+        <label class="filter-label">Level</label>
+        <select id="gap-level-select" onchange="clearGapUsed(); initGapGame()">
+          <option value="all">All Levels</option>
+          <option value="A1">A1</option>
+          <option value="A2">A2</option>
+          <option value="B1">B1</option>
+          <option value="B2">B2</option>
+          <option value="C1">C1</option>
         </select>
-      <label class="filter-label" style="margin-left:14px;">Database:</label>
-      <select id="gap-source-select" onchange="onGapSourceChanged()" style="padding: 5px; border-radius: 5px;">
-        <option value="all">All Databases</option>
-      </select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label" data-i18n="targetGrammar">Target Grammar</label>
+        <select id="gap-grammar-select" class="grammar-select" onchange="clearGapUsed(); initGapGame()">
+          <option value="all" selected data-i18n="allGrammar">All Grammar</option>
+          <option value="Relatives">Relative Clauses</option>
+          <option value="Conditionals">Conditionals</option>
+        </select>
+      </div>
+      <div class="filter-col">
+        <label class="filter-label">Source</label>
+        <select id="gap-source-select" onchange="onGapSourceChanged()">
+          <option value="all">All Databases</option>
+        </select>
+      </div>
+      <div class="filter-reset-col">
+        <button class="action-btn btn-grey" onclick="clearGapUsed(); initGapGame()">Reset</button>
+      </div>
     </div>
-
-    <div class="filter-mount"></div>
     <h2 data-i18n="titleGapFill">Gap Fill Challenge</h2>
     <div id="grammar-tag" style="text-align:center;" class="hidden"></div>
     <div id="gap-sentence-display"></div>
@@ -5188,8 +5204,8 @@ function populateGrammarMenu() {
       return;
     }
   
-  const lvlWrap = document.querySelector('.level-picker-wrap');
-  const lvlFilters = lvlWrap ? themePickerGetSelected(lvlWrap) : ['all'];
+  const lvlSel = document.getElementById('gap-level-select');
+  const lvlFilters = lvlSel && lvlSel.value !== 'all' ? [lvlSel.value] : ['all'];
 
   // Filter bank based on the database content
     let filtered = sourceBank.filter(item => {
@@ -6910,11 +6926,8 @@ function renderSentenceWithGap(userInput) {
       });
 
       if (sectionId === 'gap-game-section') {
-        const grammarSel = clone.querySelector('#gap-grammar-select');
-        if (grammarSel && grammarSel.closest('.center-container')) {
-          const row = grammarSel.closest('.center-container');
-          if (row && row.parentNode) row.parentNode.removeChild(row);
-        }
+        const grammarFilterBar = clone.querySelector('#gap-grammar-filter-bar');
+        if (grammarFilterBar && grammarFilterBar.parentNode) grammarFilterBar.parentNode.removeChild(grammarFilterBar);
         clone.querySelectorAll('.gap-presenter-answer').forEach(el => {
           if (el && el.parentNode) el.parentNode.removeChild(el);
         });
