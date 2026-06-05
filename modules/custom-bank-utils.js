@@ -217,8 +217,15 @@
       const key = getRecordKey(type, entry, itemIndex);
       const existingIndex = indexByKey.has(key) ? indexByKey.get(key) : -1;
       if (existingIndex !== -1) {
-        liveBank[existingIndex] = Object.assign({}, liveBank[existingIndex], entry);
+        const existing = liveBank[existingIndex];
+        const merged = Object.assign({}, existing, entry);
+        const prevSources = Array.isArray(existing._sources) ? existing._sources
+          : (existing._source ? [existing._source] : []);
+        merged._sources = (sourceId && !prevSources.includes(sourceId))
+          ? [...prevSources, sourceId] : prevSources.slice();
+        liveBank[existingIndex] = merged;
       } else {
+        entry._sources = sourceId ? [sourceId] : [];
         liveBank.push(entry);
         indexByKey.set(key, liveBank.length - 1);
       }

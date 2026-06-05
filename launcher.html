@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Launcher</title>
   <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
   <script>
     // Startup: open configured apps in the background after the launcher renders.
     // Runs once per window session — navigating back to the launcher skips this.
@@ -179,6 +180,112 @@
       color: #fff;
     }
 
+    /* ── Modal overlay ─────────────────────────────────── */
+    .lm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0,0,0,0.55);
+      place-items: center;
+      padding: 24px;
+    }
+    .lm-overlay.open { display: grid; }
+    .lm-box {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 10px;
+      box-shadow: 6px 6px 0 #000;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      max-width: 560px;
+    }
+    .lm-box.lm-wide { max-width: 880px; }
+    .lm-close {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: #000;
+      z-index: 1;
+      line-height: 1;
+      padding: 4px 8px;
+      font-weight: 700;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+    .lm-close:hover { background: #000; color: #fff; }
+    .lm-frame { width: 100%; border: none; display: block; }
+
+    /* ── Recent Files modal ─────────────────────────────── */
+    .rf-modal-box { display: flex; flex-direction: column; max-height: 88vh; }
+    .rf-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 18px 20px 14px; border-bottom: 2px solid #000; flex-shrink: 0; gap: 8px;
+    }
+    .rf-title    { font-size: 1.2rem; font-weight: 800; }
+    .rf-subtitle { font-size: 0.86rem; font-weight: 600; margin-top: 3px; }
+    .rf-close-btn {
+      flex-shrink: 0; background: #fff; border: 1.5px solid #000; border-radius: 5px;
+      font-size: 0.9rem; cursor: pointer; color: #000; line-height: 1; padding: 4px 8px;
+      font-weight: 700; font-family: inherit; transition: background 0.1s, color 0.1s;
+    }
+    .rf-close-btn:hover { background: #000; color: #fff; }
+    .rf-body { padding: 14px 20px 20px; overflow-y: auto; flex: 1; }
+    .rf-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .rf-toolbar input[type="search"] {
+      flex: 1; min-width: 130px; border: 2px solid #000; border-radius: 6px;
+      padding: 6px 10px; font-family: inherit; font-size: 0.87rem; color: #000; background: #fff;
+    }
+    .rf-toolbar input[type="search"]:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .rf-toolbar select {
+      border: 2px solid #000; border-radius: 6px; padding: 6px 10px;
+      font-family: inherit; font-size: 0.87rem; font-weight: 600; color: #000; background: #fff; cursor: pointer;
+    }
+    .rf-toolbar select:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .rf-result-count { font-size: 0.82rem; font-weight: 700; white-space: nowrap; margin-left: auto; }
+    .rf-file-list { display: flex; flex-direction: column; gap: 7px; }
+    .rf-file-row {
+      border: 2px solid #000; border-radius: 8px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 12px; transition: box-shadow 0.1s, transform 0.1s;
+    }
+    .rf-file-row:hover { box-shadow: 3px 3px 0 #000; transform: translate(-1px,-1px); }
+    .rf-type-tag {
+      flex-shrink: 0; font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.5px; padding: 3px 6px; border-radius: 4px; border: 1.5px solid #000; white-space: nowrap;
+    }
+    .rf-section-heading {
+      font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.8px; margin-top: 24px; margin-bottom: 10px;
+    }
+    .rf-file-info { flex: 1; min-width: 0; }
+    .rf-file-name {
+      font-size: 0.91rem; font-weight: 700; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
+    }
+    .rf-file-meta { font-size: 0.77rem; font-weight: 600; }
+    .rf-open-btn {
+      flex-shrink: 0; padding: 6px 12px; border-radius: 6px; border: 2px solid #000;
+      background: #000; color: #fff; font-family: inherit; font-size: 0.83rem; font-weight: 700;
+      cursor: pointer; white-space: nowrap; transition: background 0.1s, color 0.1s;
+    }
+    .rf-open-btn:hover { background: #fff; color: #000; }
+    .rf-state-msg {
+      text-align: center; padding: 36px 24px; font-size: 0.91rem; font-weight: 600;
+      border: 2px solid #000; border-radius: 10px;
+    }
+    .rf-state-icon { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+    .rf-file-snippet {
+      font-size: 0.74rem; font-weight: 500; color: #555; font-style: italic;
+      margin-top: 3px; white-space: normal; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+
     /* ── Config popup ───────────────────────────────────── */
     .cfg-popup {
       position: fixed;
@@ -231,26 +338,26 @@
 </head>
 <body>
 <div id="cfgPopup" class="cfg-popup" hidden>
-  <label class="cfg-label">Custom label</label>
+  <label class="cfg-label" data-i18n="cfgLabelCustomLabel">Custom label</label>
   <input class="cfg-input cfg-label-input" type="text" placeholder="">
-  <label class="cfg-label">Personal notes</label>
-  <textarea class="cfg-input cfg-notes" rows="3" placeholder="Notes or reminders about this tool..."></textarea>
+  <label class="cfg-label" data-i18n="cfgLabelNotes">Personal notes</label>
+  <textarea class="cfg-input cfg-notes" rows="3" placeholder="Notes or reminders about this tool..." data-i18n-placeholder="cfgNotesPlaceholder"></textarea>
   <div class="cfg-row">
     <div>
-      <label class="cfg-label">Size (%)</label>
-      <input class="cfg-input cfg-size-input" type="number" min="20" max="100" step="5" placeholder="Default">
+      <label class="cfg-label" data-i18n="cfgLabelSize">Size (%)</label>
+      <input class="cfg-input cfg-size-input" type="number" min="20" max="100" step="5" placeholder="Default" data-i18n-placeholder="cfgSizePlaceholder">
     </div>
     <div>
-      <label class="cfg-label">Position</label>
+      <label class="cfg-label" data-i18n="cfgLabelPosition">Position</label>
       <select class="cfg-input cfg-pos-select">
-        <option value="">Default</option>
-        <option value="center">Center</option>
-        <option value="top-left">Top-left</option>
-        <option value="top-right">Top-right</option>
-        <option value="bottom-left">Bottom-left</option>
-        <option value="bottom-right">Bottom-right</option>
-        <option value="left">Left (full height)</option>
-        <option value="right">Right (full height)</option>
+        <option value="" data-i18n="cfgPosDefault">Default</option>
+        <option value="center" data-i18n="cfgPosCenter">Center</option>
+        <option value="top-left" data-i18n="cfgPosTopLeft">Top-left</option>
+        <option value="top-right" data-i18n="cfgPosTopRight">Top-right</option>
+        <option value="bottom-left" data-i18n="cfgPosBottomLeft">Bottom-left</option>
+        <option value="bottom-right" data-i18n="cfgPosBottomRight">Bottom-right</option>
+        <option value="left" data-i18n="cfgPosLeft">Left (full height)</option>
+        <option value="right" data-i18n="cfgPosRight">Right (full height)</option>
       </select>
     </div>
   </div>
@@ -258,14 +365,63 @@
 <div class="launcher">
   <header class="l-header">
     <h1 id="appTitle">Class Management Tools</h1>
-    <p class="subtitle">Select a tool to get started</p>
+    <p class="subtitle" data-i18n="launcherSubtitle">Select a tool to get started</p>
     <div class="l-header-actions">
-      <button class="l-header-btn" onclick="openApp('general-config.html')" title="General settings">⚙ Config</button>
-      <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app">? How To</button>
-      <button class="l-header-btn" onclick="openApp('credits.html')" title="Credits">ℹ️ Credits</button>
+      <button class="l-header-btn" onclick="openModal('general-config.html')" title="General settings" data-i18n="btnHeaderConfig">⚙ Config</button>
+      <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app" data-i18n="btnHeaderHowTo">? How To</button>
+      <button class="l-header-btn" onclick="openModal('credits.html')" title="Credits" data-i18n="btnHeaderCredits">ℹ️ Credits</button>
     </div>
   </header>
   <div class="apps-grid" id="appsGrid"></div>
+</div>
+
+<div id="launcherModal" class="lm-overlay">
+  <div class="lm-box" id="launcherModalBox">
+    <button class="lm-close" id="launcherModalClose" aria-label="Close">✕</button>
+    <iframe class="lm-frame" id="launcherModalFrame" src="" title=""></iframe>
+  </div>
+</div>
+
+<div id="rfModal" class="lm-overlay">
+  <div class="lm-box lm-wide rf-modal-box">
+    <div class="rf-header">
+      <div>
+        <div class="rf-title" data-i18n="rfTitle">Recent Files</div>
+        <div class="rf-subtitle" data-i18n="rfSubtitle">Board sessions and constellation maps saved to your data folder.</div>
+      </div>
+      <button class="rf-close-btn" id="rfModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="rf-body">
+      <div class="rf-toolbar">
+        <input type="search" id="rfSearchBox" placeholder="Search files…" data-i18n-placeholder="rfSearchPlaceholder">
+        <select id="rfTypeFilter">
+          <option value="all" data-i18n="rfFilterAll">All types</option>
+          <optgroup data-i18n-label="rfFilterSessions" label="Session files">
+            <option value="mindmaps" data-i18n="rfFilterMindmaps">Constellation maps</option>
+          </optgroup>
+          <optgroup data-i18n-label="rfFilterDocs" label="Documents">
+            <option value="pdf">PDF</option>
+            <option value="image">Image</option>
+            <option value="sound">Sound</option>
+            <option value="book">Book</option>
+          </optgroup>
+        </select>
+        <select id="rfSortOrder">
+          <option value="date-desc" data-i18n="rfSortNewest">Newest first</option>
+          <option value="date-asc" data-i18n="rfSortOldest">Oldest first</option>
+          <option value="name-asc" data-i18n="rfSortNameAZ">Name A→Z</option>
+          <option value="name-desc" data-i18n="rfSortNameZA">Name Z→A</option>
+          <option value="size-desc" data-i18n="rfSortLargest">Largest first</option>
+        </select>
+        <span class="rf-result-count" id="rfResultCount"></span>
+      </div>
+      <div class="rf-file-list" id="rfFileList">
+        <div class="rf-state-msg"><span class="rf-state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
+      </div>
+      <h2 class="rf-section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
+      <div class="rf-file-list" id="rfDocsList"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -324,14 +480,16 @@
       pageFile: 'general-config.html',
       icon: '⚙',
       title: 'General Config',
-      desc: 'Set the app title, configure data and backup folders, and adjust launcher preferences.'
+      desc: 'Set the app title, configure data and backup folders, and adjust launcher preferences.',
+      modal: true
     },
     {
       id: 'recentFiles',
       pageFile: 'recent-files.html',
       icon: '📂',
       title: 'Recent Files',
-      desc: 'Browse and reopen recent constellation maps, board sessions, and analyses.'
+      desc: 'Browse and reopen recent constellation maps, board sessions, and analyses.',
+      modal: true
     }
   ];
 
@@ -376,27 +534,38 @@
 
   function buildCard(app) {
     const cfg = getCardConfig(app.id);
-    const label = (cfg.customLabel && cfg.customLabel.trim()) || app.title;
+    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title') : null) || app.title;
+    const localDesc  = (typeof t === 'function' ? t('app_' + app.id + '_desc')  : null) || app.desc;
+    const label = (cfg.customLabel && cfg.customLabel.trim()) || localTitle;
 
     const card = document.createElement('div');
     card.className = 'app-card';
     card.dataset.id = app.id;
 
+    const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
     card.innerHTML =
       '<div class="card-body">' +
         '<span class="card-icon" aria-hidden="true">' + app.icon + '</span>' +
         '<div class="card-title">' + escHtml(label) + '</div>' +
-        '<div class="card-desc">' + escHtml(app.desc) + '</div>' +
+        '<div class="card-desc">' + escHtml(localDesc) + '</div>' +
       '</div>' +
       '<div class="card-footer">' +
-        '<button class="card-gear-btn" title="Card settings" aria-label="Card settings">⚙</button>' +
+        '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '">⚙</button>' +
       '</div>';
 
     const cardBody = card.querySelector('.card-body');
     const gearBtn = card.querySelector('.card-gear-btn');
 
     cardBody.addEventListener('click', function () {
-      openApp(app.pageFile, getCardConfig(app.id));
+      if (app.modal) {
+        if (app.pageFile === 'recent-files.html') {
+          openRecentFilesModal();
+        } else {
+          openModal(app.pageFile);
+        }
+      } else {
+        openApp(app.pageFile, getCardConfig(app.id));
+      }
     });
 
     gearBtn.addEventListener('click', function (e) {
@@ -423,7 +592,8 @@
     currentCard     = card;
 
     const cfg = getCardConfig(app.id);
-    popup.querySelector('.cfg-label-input').placeholder = app.title + ' (default)';
+    const localTitle = (typeof t === 'function' ? t('app_' + app.id + '_title') : null) || app.title;
+    popup.querySelector('.cfg-label-input').placeholder = localTitle + ' (default)';
     popup.querySelector('.cfg-label-input').value = cfg.customLabel || '';
     popup.querySelector('.cfg-notes').value        = cfg.notes || '';
     popup.querySelector('.cfg-size-input').value   = cfg.windowSize || '';
@@ -471,7 +641,8 @@
       windowPosition: popup.querySelector('.cfg-pos-select').value
     });
     if (currentCard) {
-      currentCard.querySelector('.card-title').textContent = labelVal.trim() || currentPopupApp.title;
+      const fallbackTitle = (typeof t === 'function' ? t('app_' + currentPopupApp.id + '_title') : null) || currentPopupApp.title;
+      currentCard.querySelector('.card-title').textContent = labelVal.trim() || fallbackTitle;
     }
   }
 
@@ -483,8 +654,309 @@
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closePopup();
+    if (e.key === 'Escape') { closePopup(); closeModal(); closeRecentFilesModal(); }
   });
+
+  // ── iframe modal (credits, general-config) ──────────────
+  var MODAL_WIDE   = { 'general-config.html': true };
+  var MODAL_HEIGHT = { 'credits.html': '200px', 'general-config.html': '86vh' };
+
+  function openModal(src) {
+    var overlay = document.getElementById('launcherModal');
+    var box     = document.getElementById('launcherModalBox');
+    var frame   = document.getElementById('launcherModalFrame');
+    box.classList.toggle('lm-wide', !!MODAL_WIDE[src]);
+    frame.style.height = MODAL_HEIGHT[src] || '75vh';
+    frame.src = src;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    var overlay = document.getElementById('launcherModal');
+    var frame   = document.getElementById('launcherModalFrame');
+    if (!overlay.classList.contains('open')) return;
+    overlay.classList.remove('open');
+    frame.src = '';
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('launcherModalClose').addEventListener('click', closeModal);
+  document.getElementById('launcherModal').addEventListener('click', function (e) {
+    if (e.target === this) closeModal();
+  });
+  window.addEventListener('message', function (e) {
+    if (e.data === 'cmt-close-modal') closeModal();
+  });
+
+  // ── Recent Files modal (inline, no iframe) ──────────────
+  var rfAllFiles = [];
+  var rfAllDocs  = [];
+  var rfAllArchivedFiles = [];
+  var rfContentCache = new Map();
+  var rfContentSearchTimer = null;
+  var RF_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+  var RF_SOUND_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
+  var RF_DOC_EXTS   = RF_IMAGE_EXTS.concat(RF_SOUND_EXTS, ['.pdf', '.epub']);
+  var RF_SESSION_TYPES    = ['mindmaps'];
+  var RF_DOC_TYPE_FILTERS = ['pdf', 'image', 'sound', 'book'];
+  var RF_TYPE_LABELS = { mindmaps: 'Constellation' };
+
+  function rfGetSnippet(text, query) {
+    if (!text || !query) return '';
+    var idx = text.indexOf(query);
+    if (idx === -1) return '';
+    var ctx = 55;
+    var start = Math.max(0, idx - ctx);
+    var end = Math.min(text.length, idx + query.length + ctx);
+    var snippet = text.slice(start, end).trim();
+    if (start > 0) snippet = '[…] ' + snippet;
+    if (end < text.length) snippet += ' […]';
+    return snippet;
+  }
+
+  function rfExtractSearchText(rawContent) {
+    var parts = [];
+    var re = /"(?:baseWord|text|label|title)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    var m;
+    while ((m = re.exec(rawContent)) !== null) {
+      if (m[1]) parts.push(m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"'));
+    }
+    return parts.join(' ').toLowerCase();
+  }
+
+  async function rfRunContentSearch() {
+    rfContentSearchTimer = null;
+    var search = document.getElementById('rfSearchBox').value.trim().toLowerCase();
+    if (!search) { rfApplyFilters(); return; }
+    if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
+      rfApplyFilters(); return;
+    }
+    var allConstellationFiles = rfAllFiles.concat(rfAllArchivedFiles);
+    var toRead = allConstellationFiles.filter(function(f) {
+      var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+      return !rfContentCache.has(key);
+    });
+    if (toRead.length > 0) {
+      document.getElementById('rfResultCount').textContent = typeof t === 'function' ? t('rfSearching') : 'Searching…';
+      var BATCH = 8;
+      for (var i = 0; i < toRead.length; i += BATCH) {
+        var batch = toRead.slice(i, i + BATCH);
+        await Promise.all(batch.map(async function(f) {
+          var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+          try {
+            var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+            rfContentCache.set(key, rfExtractSearchText(result && result.content ? result.content : ''));
+          } catch(e) {
+            rfContentCache.set(key, '');
+          }
+        }));
+      }
+    }
+    rfApplyFilters();
+  }
+
+  function rfFormatDate(ms) {
+    if (!ms) return '—';
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+           ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function rfPrettyName(fn) {
+    return fn.replace(/\.(js|json)$/i, '').replace(/_/g, ' ').replace(/-Autosave$/, ' (autosave)').trim();
+  }
+
+  function rfFileDateMs(f) { return f.savedAt || f.createdAt || f.mtimeMs || 0; }
+
+  function rfGetSortFn(order) {
+    if (order === 'date-asc')  return function(a,b){ return rfFileDateMs(a) - rfFileDateMs(b); };
+    if (order === 'name-asc')  return function(a,b){ return rfPrettyName(a.filename).localeCompare(rfPrettyName(b.filename)); };
+    if (order === 'name-desc') return function(a,b){ return rfPrettyName(b.filename).localeCompare(rfPrettyName(a.filename)); };
+    if (order === 'size-desc') return function(a,b){ return (b.size||0) - (a.size||0); };
+    return function(a,b){ return rfFileDateMs(b) - rfFileDateMs(a); };
+  }
+
+  function rfDocTypeInfo(filename) {
+    var ext = '.' + (filename || '').split('.').pop().toLowerCase();
+    if (RF_IMAGE_EXTS.indexOf(ext) !== -1) return { label: 'Image', cssClass: 'image' };
+    if (RF_SOUND_EXTS.indexOf(ext) !== -1) return { label: 'Sound', cssClass: 'sound' };
+    if (ext === '.pdf')  return { label: 'PDF',  cssClass: 'pdf' };
+    if (ext === '.epub') return { label: 'Book', cssClass: 'book' };
+    return { label: ext.slice(1).toUpperCase(), cssClass: '' };
+  }
+
+  function rfMakeRow(tag, name, nameTitle, meta, btn) {
+    var row = document.createElement('div');
+    row.className = 'rf-file-row';
+    var tagEl = document.createElement('span');
+    tagEl.className = 'rf-type-tag'; tagEl.textContent = tag;
+    var fi = document.createElement('div'); fi.className = 'rf-file-info';
+    var nm = document.createElement('div'); nm.className = 'rf-file-name';
+    nm.textContent = name; nm.title = nameTitle;
+    var mt = document.createElement('div'); mt.className = 'rf-file-meta'; mt.textContent = meta;
+    fi.appendChild(nm); fi.appendChild(mt);
+    row.appendChild(tagEl); row.appendChild(fi);
+    if (btn) row.appendChild(btn);
+    return row;
+  }
+
+  function rfRenderFiles(files) {
+    var list = document.getElementById('rfFileList');
+    if (!files.length) {
+      list.innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">📭</span>' + (typeof t === 'function' ? t('rfNoFiles') : 'No files found.') + '</div>';
+      return;
+    }
+    list.innerHTML = '';
+    files.forEach(function(f) {
+      var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+      var isArchived = rel.split('/').indexOf('archived') !== -1;
+      var label = isArchived ? (typeof t === 'function' ? t('rfArchivedLabel') : 'Archived') : (RF_TYPE_LABELS[f.target] || f.target);
+      var kb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      var meta = rfFormatDate(rfFileDateMs(f)) + (kb ? ' · ' + kb : '');
+      var btn = document.createElement('button');
+      btn.className = 'rf-open-btn'; btn.textContent = typeof t === 'function' ? t('rfOpenInBoard') : 'Open in Board ↗';
+      (function(target, filename, relPath) {
+        btn.addEventListener('click', function() { rfOpenFile(target, filename, relPath); });
+      })(f.target, f.filename, f.relativePath);
+      var row = rfMakeRow(label, rfPrettyName(f.filename), f.filename, meta, btn);
+      var search = document.getElementById('rfSearchBox').value.trim().toLowerCase();
+      if (search) {
+        var cacheKey = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+        var cached = rfContentCache.get(cacheKey);
+        if (cached) {
+          var snippet = rfGetSnippet(cached, search);
+          if (snippet) {
+            var fi = row.querySelector('.rf-file-info');
+            if (fi) {
+              var snEl = document.createElement('div');
+              snEl.className = 'rf-file-snippet';
+              snEl.textContent = snippet;
+              fi.appendChild(snEl);
+            }
+          }
+        }
+      }
+      list.appendChild(row);
+    });
+  }
+
+  function rfRenderDocs(files) {
+    var heading = document.getElementById('rfDocsHeading');
+    var list    = document.getElementById('rfDocsList');
+    if (!files.length) { heading.style.display = 'none'; list.innerHTML = ''; return; }
+    heading.style.display = '';
+    list.innerHTML = '';
+    files.forEach(function(f) {
+      var info = rfDocTypeInfo(f.filename);
+      var kb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      list.appendChild(rfMakeRow(info.label, f.filename, f.relativePath || f.filename,
+        rfFormatDate(f.mtimeMs) + (kb ? ' · ' + kb : ''), null));
+    });
+  }
+
+  function rfApplyFilters() {
+    var filter = document.getElementById('rfTypeFilter').value;
+    var search = document.getElementById('rfSearchBox').value.trim().toLowerCase();
+    var sort   = document.getElementById('rfSortOrder').value;
+    var isDoc  = RF_DOC_TYPE_FILTERS.indexOf(filter) !== -1;
+    var isSess = RF_SESSION_TYPES.indexOf(filter) !== -1;
+    // When searching constellation files, include archived files too
+    var sessionPool = (search && !isDoc) ? rfAllFiles.concat(rfAllArchivedFiles) : rfAllFiles;
+    var ff = isDoc ? [] : sessionPool.filter(function(f) {
+      if (isSess && f.target !== filter) return false;
+      if (search) {
+        if (rfPrettyName(f.filename).toLowerCase().indexOf(search) !== -1) return true;
+        var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+        if (rfContentCache.has(key)) return rfContentCache.get(key).indexOf(search) !== -1;
+        return false;
+      }
+      return true;
+    });
+    ff.sort(rfGetSortFn(sort));
+    rfRenderFiles(ff);
+    var fd = isSess ? [] : rfAllDocs.filter(function(f) {
+      if (isDoc && rfDocTypeInfo(f.filename).cssClass !== filter) return false;
+      if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
+      return true;
+    });
+    fd.sort(rfGetSortFn(sort));
+    rfRenderDocs(fd);
+    var total = ff.length + fd.length;
+    var fileWord = typeof t === 'function' ? (total === 1 ? t('rfFile') : t('rfFiles')) : (total === 1 ? 'file' : 'files');
+    document.getElementById('rfResultCount').textContent = total + ' ' + fileWord;
+  }
+
+  function rfOpenFile(target, filename, relativePath) {
+    if (!window.Desktop || !Desktop.isElectron()) { alert(typeof t === 'function' ? t('rfElectronRequired') : 'Opening files requires the Electron desktop app.'); return; }
+    Desktop.openTool('board.html', { query: { openSession: '1', openTarget: target, openFilename: filename, openRelPath: relativePath || filename } });
+  }
+
+  async function openRecentFilesModal() {
+    var overlay = document.getElementById('rfModal');
+    rfAllFiles = []; rfAllDocs = []; rfAllArchivedFiles = [];
+    rfContentCache.clear();
+    if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
+    document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⏳</span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
+    document.getElementById('rfDocsList').innerHTML = '';
+    document.getElementById('rfDocsHeading').style.display = 'none';
+    document.getElementById('rfResultCount').textContent = '';
+    document.getElementById('rfSearchBox').value = '';
+    document.getElementById('rfTypeFilter').value = 'all';
+    document.getElementById('rfSortOrder').value = 'date-desc';
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    if (!window.Desktop || !Desktop.isElectron()) {
+      document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⚠</span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
+      return;
+    }
+
+    try {
+      var r = await Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true });
+      if (r && r.ok && Array.isArray(r.files)) {
+        r.files.forEach(function(f) {
+          var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+          var fWithTarget = Object.assign({}, f, { target: 'mindmaps' });
+          if (rel.split('/').indexOf('archived') !== -1) {
+            rfAllArchivedFiles.push(fWithTarget);
+          } else {
+            rfAllFiles.push(fWithTarget);
+          }
+        });
+      }
+    } catch(e) {}
+
+    try {
+      var d = await Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true });
+      if (d && d.ok && Array.isArray(d.files)) {
+        rfAllDocs = d.files.filter(function(f) {
+          var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+          return rel.split('/').indexOf('archived') === -1;
+        });
+      }
+    } catch(e) {}
+
+    rfApplyFilters();
+  }
+
+  function closeRecentFilesModal() {
+    document.getElementById('rfModal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('rfModalClose').addEventListener('click', closeRecentFilesModal);
+  document.getElementById('rfModal').addEventListener('click', function(e) {
+    if (e.target === this) closeRecentFilesModal();
+  });
+  document.getElementById('rfSearchBox').addEventListener('input', function() {
+    if (rfContentSearchTimer) clearTimeout(rfContentSearchTimer);
+    var val = this.value.trim().toLowerCase();
+    if (!val) { rfApplyFilters(); return; }
+    rfContentSearchTimer = setTimeout(rfRunContentSearch, 300);
+  });
+  document.getElementById('rfTypeFilter').addEventListener('change', rfApplyFilters);
+  document.getElementById('rfSortOrder').addEventListener('change', rfApplyFilters);
 
   async function init() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
@@ -510,7 +982,10 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof applyTranslations === 'function') applyTranslations();
+    init();
+  });
 </script>
 </body>
 </html>

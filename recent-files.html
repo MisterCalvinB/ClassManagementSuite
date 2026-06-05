@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Recent Files</title>
   <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -174,19 +175,19 @@
 <body>
 <div class="page">
 
-  <button class="back-link" id="backBtn">← Back to Launcher</button>
+  <button class="back-link" id="backBtn" data-i18n="btnBack">← Back to Launcher</button>
 
-  <h1 class="page-title">Recent Files</h1>
-  <p class="page-subtitle">Board sessions and constellation maps saved to your data folder.</p>
+  <h1 class="page-title" data-i18n="rfTitle">Recent Files</h1>
+  <p class="page-subtitle" data-i18n="rfSubtitle">Board sessions and constellation maps saved to your data folder.</p>
 
   <div class="toolbar">
-    <input type="search" id="searchBox" placeholder="Search files…">
+    <input type="search" id="searchBox" placeholder="Search files…" data-i18n-placeholder="rfSearchPlaceholder">
     <select id="typeFilter">
-      <option value="all">All types</option>
-      <optgroup label="Session files">
-        <option value="mindmaps">Constellation maps</option>
+      <option value="all" data-i18n="rfFilterAll">All types</option>
+      <optgroup label="Session files" data-i18n-label="rfFilterSessions">
+        <option value="mindmaps" data-i18n="rfFilterMindmaps">Constellation maps</option>
       </optgroup>
-      <optgroup label="Documents">
+      <optgroup label="Documents" data-i18n-label="rfFilterDocs">
         <option value="pdf">PDF</option>
         <option value="image">Image</option>
         <option value="sound">Sound</option>
@@ -194,25 +195,26 @@
       </optgroup>
     </select>
     <select id="sortOrder">
-      <option value="date-desc">Newest first</option>
-      <option value="date-asc">Oldest first</option>
-      <option value="name-asc">Name A→Z</option>
-      <option value="name-desc">Name Z→A</option>
-      <option value="size-desc">Largest first</option>
+      <option value="date-desc" data-i18n="rfSortNewest">Newest first</option>
+      <option value="date-asc" data-i18n="rfSortOldest">Oldest first</option>
+      <option value="name-asc" data-i18n="rfSortNameAZ">Name A→Z</option>
+      <option value="name-desc" data-i18n="rfSortNameZA">Name Z→A</option>
+      <option value="size-desc" data-i18n="rfSortLargest">Largest first</option>
     </select>
     <span class="result-count" id="resultCount"></span>
   </div>
 
   <div class="file-list" id="fileList">
-    <div class="state-msg"><span class="state-icon">⏳</span>Loading files…</div>
+    <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
   </div>
 
-  <h2 class="section-heading" id="docsHeading" style="display:none">Added Documents</h2>
+  <h2 class="section-heading" id="docsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
   <div class="file-list" id="docsList"></div>
 
 </div>
 
 <script>
+
   var allFiles = [];
   var allDocs  = [];
 
@@ -221,6 +223,10 @@
   };
 
   function goBack() {
+    if (window.parent !== window) {
+      window.parent.postMessage('cmt-close-modal', '*');
+      return;
+    }
     if (window.Desktop && Desktop.isElectron()) {
       window.close();
     } else {
@@ -247,16 +253,11 @@
 
   function openFile(target, filename, relativePath) {
     if (!window.Desktop || !Desktop.isElectron()) {
-      alert('Opening files requires the Electron desktop app.');
+      alert(typeof t === 'function' ? t('rfElectronRequired') : 'Opening files requires the Electron desktop app.');
       return;
     }
     Desktop.openTool('board.html', {
-      query: {
-        openSession: '1',
-        openTarget: target,
-        openFilename: filename,
-        openRelPath: relativePath || filename
-      }
+      query: { openSession: '1', openTarget: target, openFilename: filename, openRelPath: relativePath || filename }
     });
   }
 
@@ -283,7 +284,7 @@
     var list = document.getElementById('fileList');
 
     if (files.length === 0) {
-      list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>No files found.</div>';
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>' + (typeof t === 'function' ? t('rfNoFiles') : 'No files found.') + '</div>';
       return;
     }
 
@@ -315,7 +316,7 @@
 
       var btn = document.createElement('button');
       btn.className = 'open-btn';
-      btn.textContent = 'Open in Board ↗';
+      btn.textContent = typeof t === 'function' ? t('rfOpenInBoard') : 'Open in Board ↗';
       (function (target, filename, relPath) {
         btn.addEventListener('click', function () { openFile(target, filename, relPath); });
       })(f.target, f.filename, f.relativePath);
@@ -399,8 +400,8 @@
     renderDocs(filteredDocs);
 
     var total = filteredFiles.length + filteredDocs.length;
-    document.getElementById('resultCount').textContent =
-      total + ' file' + (total === 1 ? '' : 's');
+    var fileWord = typeof t === 'function' ? (total === 1 ? t('rfFile') : t('rfFiles')) : (total === 1 ? 'file' : 'files');
+    document.getElementById('resultCount').textContent = total + ' ' + fileWord;
   }
 
   document.getElementById('typeFilter').addEventListener('change', applyFilters);
@@ -411,7 +412,7 @@
     var list = document.getElementById('fileList');
 
     if (!window.Desktop || !Desktop.isElectron()) {
-      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>This page requires the Electron desktop app.</div>';
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
       return;
     }
 
@@ -439,9 +440,8 @@
       }
 
       allFiles = gathered;
-      applyFilters();
     } catch (e) {
-      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>Error loading files: ' + escHtml(e.message || String(e)) + '</div>';
+      list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + (typeof t === 'function' ? t('rfErrLoading') : 'Error loading files:') + ' ' + escHtml(e.message || String(e)) + '</div>';
     }
   }
 
@@ -477,16 +477,14 @@
         var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
         return rel.split('/').indexOf('archived') === -1;
       });
-
-      applyFilters();
     } catch (e) {
       console.warn('Could not load added documents:', e);
     }
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    loadFiles();
-    loadDocs();
+    if (typeof applyTranslations === 'function') applyTranslations();
+    Promise.all([loadFiles(), loadDocs()]).then(applyFilters, applyFilters);
   });
 </script>
 </body>

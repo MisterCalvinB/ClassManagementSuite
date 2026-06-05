@@ -1006,8 +1006,20 @@
     <!-- Translation -->
     <div class="detail-translation det-hoverable det-view" id="det-french">Translation</div>
     <div class="det-edit-group">
-      <div class="det-field-label">Translation</div>
-      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="Translation">
+      <div class="det-field-label">French</div>
+      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="French translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">English</div>
+      <input id="det-edit-english" class="det-edit-input" type="text" placeholder="English (if not the source word)">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">German</div>
+      <input id="det-edit-german" class="det-edit-input" type="text" placeholder="German translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">Italian</div>
+      <input id="det-edit-italian" class="det-edit-input" type="text" placeholder="Italian translation">
     </div>
 
     <!-- Meta badges -->
@@ -1449,6 +1461,9 @@
         </select>
       </label>
       <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()">✕ Clear</button>
+    </div>
+    <div id="history-search-bar" style="margin-bottom:8px;">
+      <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…" oninput="historySetFilterText(this.value)" style="width:100%;border:2px solid #000;border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.87rem;color:#000;background:#fff;">
     </div>
 
     <div id="history-table-wrap">
@@ -2065,6 +2080,18 @@
         .map(s => s.trim())
         .filter(Boolean);
     }
+    function _detSetAllTranslations(el, item) {
+      el.innerHTML = '';
+      const parts = [];
+      const fr = _splitFrenchTranslations(item.french).join(', ');
+      const de = item.german  || '';
+      const it = item.italian || '';
+      if (fr) parts.push('<span style="color:#aaa;font-size:0.75rem;">FR</span> ' + fr);
+      if (de) parts.push('<span style="color:#aaa;font-size:0.75rem;">DE</span> ' + de);
+      if (it) parts.push('<span style="color:#aaa;font-size:0.75rem;">IT</span> ' + it);
+      if (!parts.length) return;
+      el.innerHTML = parts.join('<span style="color:#555;margin:0 6px;">|</span>');
+    }
     function _detSetFrenchField(el, value) {
       const all = _splitFrenchTranslations(value);
       el.innerHTML = '';
@@ -2144,7 +2171,7 @@
       // View fields
       document.getElementById('det-word').textContent = item.word;
       document.getElementById('det-ipa').textContent = item.ipa ? `/ ${item.ipa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), item.french);
+      _detSetAllTranslations(document.getElementById('det-french'), item);
       document.getElementById('det-type').textContent = Array.isArray(item.partOfSpeech) ? item.partOfSpeech.join(', ') : (item.partOfSpeech || '');
       document.getElementById('det-theme').innerHTML = getItemThemes(item).map(t => `<span class="meta-badge">${t}</span>`).join(' ') || '<span class="meta-badge">—</span>';
       document.getElementById('det-level').textContent = (item.level || 'B2').toUpperCase();
@@ -2157,6 +2184,9 @@
       document.getElementById('det-edit-word').value = item.word || '';
       document.getElementById('det-edit-ipa').value = item.ipa || '';
       document.getElementById('det-edit-french').value = item.french || '';
+      const _detEn = document.getElementById('det-edit-english'); if (_detEn) _detEn.value = item.english || '';
+      const _detDe = document.getElementById('det-edit-german');  if (_detDe) _detDe.value = item.german  || '';
+      const _detIt = document.getElementById('det-edit-italian'); if (_detIt) _detIt.value = item.italian  || '';
       document.getElementById('det-edit-pos').value = Array.isArray(item.partOfSpeech) ? item.partOfSpeech.join(', ') : (item.partOfSpeech || '');
       document.getElementById('det-edit-level').value = (item.level || 'B2').toUpperCase();
       document.getElementById('det-edit-theme').value = getItemThemes(item).join(', ');
@@ -2245,6 +2275,9 @@
       const newWord    = document.getElementById('det-edit-word').value.trim();
       const newIpa     = document.getElementById('det-edit-ipa').value.trim();
       const newFrench  = document.getElementById('det-edit-french').value.trim();
+      const newEnglish = (document.getElementById('det-edit-english')?.value || '').trim() || newWord;
+      const newGerman  = (document.getElementById('det-edit-german')?.value  || '').trim();
+      const newItalian = (document.getElementById('det-edit-italian')?.value || '').trim();
       const newPos     = document.getElementById('det-edit-pos').value.trim();
       const newLevel   = document.getElementById('det-edit-level').value.trim();
       const newTheme   = document.getElementById('det-edit-theme').value.trim();
@@ -2263,7 +2296,7 @@
       const newThemes  = newTheme.split(',').map(s=>s.trim()).filter(Boolean);
 
       const update = {
-        word: newWord, ipa: newIpa, french: newFrench,
+        word: newWord, ipa: newIpa, french: newFrench, english: newEnglish, german: newGerman, italian: newItalian,
         partOfSpeech: newPos, level: newLevel,
         definition: newDef, exampleSentence: newEx,
         synonyms: newSyns, antonyms: newAnts
@@ -2302,7 +2335,7 @@
       // Refresh view fields
       document.getElementById('det-word').textContent = newWord;
       document.getElementById('det-ipa').textContent = newIpa ? `/ ${newIpa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), newFrench);
+      _detSetAllTranslations(document.getElementById('det-french'), { french: newFrench, german: newGerman, italian: newItalian });
       document.getElementById('det-type').textContent = newPos;
       document.getElementById('det-level').textContent = newLevel.toUpperCase();
       document.getElementById('det-theme').innerHTML = newThemes.map(th => `<span class="meta-badge">${th}</span>`).join(' ') || '<span class="meta-badge">—</span>';
@@ -4176,7 +4209,20 @@ function hideFailure() {
     // ================================================================
     // i18n — EN / DE / IT
     // ================================================================
-    let currentLang = (function(){ try { return localStorage.getItem('app_lang') || 'en'; } catch(e){ return 'en'; }})();
+    let currentLang = (function(){
+      try {
+        var saved = localStorage.getItem('app_lang');
+        if (saved) return saved;
+        var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+        return cfg.language || 'en';
+      } catch(e){ return 'en'; }
+    })();
+
+    function getTranslation(w, lang) {
+      const l = lang || currentLang;
+      if (l === 'en') return w.english || w.word || '';
+      return w[l] || w.french || w.translation || '';
+    }
 
     const I18N = {
       en: {
@@ -17675,7 +17721,7 @@ function hideFailure() {
         if (pos     !== 'all' && (!item.partOfSpeech  || !(Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => p.toLowerCase() === pos)))   return false;
         if (keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
         if (source  !== 'all' && item._source !== source) return false;
-        if (q && !wildcardTest(q, item.word, item.french)) return false;
+        if (q && !wildcardTest(q, item.word, item.french, item.german, item.italian, item.english)) return false;
         return true;
       });
     }
@@ -17704,8 +17750,9 @@ function hideFailure() {
       toRender.forEach(item => {
         const chip = document.createElement('div');
         chip.className = 'con-import-chip' + (conImportSelected.has(item.word) ? ' selected' : '');
+        const _chipTrans = getTranslation(item);
         chip.innerHTML = item.word
-          + (item.french ? '<span class="chip-translation">(' + item.french + ')</span>' : '');
+          + (_chipTrans ? '<span class="chip-translation">(' + _chipTrans + ')</span>' : '');
         chip.onclick = function() {
           if (conImportSelected.has(item.word)) {
             conImportSelected.delete(item.word);
@@ -27143,6 +27190,9 @@ ${imgTags}
     var historyFilterDateFrom = '';
     var historyFilterDateTo = '';
     var historyFilterClass = '';
+    var historyFilterText = '';
+    var historyContentCache = new Map();
+    var historyContentSearchTimer = null;
 
     function historyEntryRelativePath(entry) {
       const raw = String((entry && (entry.relativePath || entry.filename)) || '');
@@ -27249,16 +27299,82 @@ ${imgTags}
       historyRenderList();
     }
 
+    function historyGetSnippet(text, query) {
+      if (!text || !query) return '';
+      const idx = text.indexOf(query);
+      if (idx === -1) return '';
+      const ctx = 55;
+      const start = Math.max(0, idx - ctx);
+      const end = Math.min(text.length, idx + query.length + ctx);
+      let snippet = text.slice(start, end).trim();
+      if (start > 0) snippet = '[…] ' + snippet;
+      if (end < text.length) snippet += ' […]';
+      return snippet;
+    }
+
+    function historyExtractSearchText(rawContent) {
+      var parts = [];
+      var re = /"(?:baseWord|text|label|title)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+      var m;
+      while ((m = re.exec(rawContent)) !== null) {
+        if (m[1]) parts.push(m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"'));
+      }
+      return parts.join(' ').toLowerCase();
+    }
+
+    function historySetFilterText(value) {
+      historyFilterText = (value || '').trim().toLowerCase();
+      if (historyContentSearchTimer) clearTimeout(historyContentSearchTimer);
+      if (!historyFilterText) { historyRenderList(); return; }
+      historyContentSearchTimer = setTimeout(historyRunContentSearch, 300);
+    }
+
+    async function historyRunContentSearch() {
+      historyContentSearchTimer = null;
+      if (!historyFilterText) { historyRenderList(); return; }
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
+        historyRenderList(); return;
+      }
+      const toRead = historyEntries.filter(e => {
+        const key = historyEntryKey(e);
+        return key && !historyContentCache.has(key);
+      });
+      if (toRead.length > 0) {
+        historySetStatus('Searching content… (0/' + toRead.length + ')');
+        let done = 0;
+        const BATCH = 8;
+        for (let i = 0; i < toRead.length; i += BATCH) {
+          const batch = toRead.slice(i, i + BATCH);
+          await Promise.all(batch.map(async entry => {
+            const key = historyEntryKey(entry);
+            try {
+              const result = await Desktop.readByPath(entry.target, entry.relativePath);
+              historyContentCache.set(key, historyExtractSearchText(result && result.content ? result.content : ''));
+            } catch(e) {
+              historyContentCache.set(key, '');
+            }
+          }));
+          done = Math.min(i + BATCH, toRead.length);
+          if (historyFilterText) historySetStatus('Searching content… (' + done + '/' + toRead.length + ')');
+        }
+      }
+      historyRenderList();
+    }
+
     function historyClearFilters() {
       historyFilterDateFrom = '';
       historyFilterDateTo = '';
       historyFilterClass = '';
+      historyFilterText = '';
+      if (historyContentSearchTimer) { clearTimeout(historyContentSearchTimer); historyContentSearchTimer = null; }
       const fromEl = document.getElementById('history-filter-date-from');
       const toEl = document.getElementById('history-filter-date-to');
       const classEl = document.getElementById('history-filter-class');
+      const textEl = document.getElementById('history-filter-text');
       if (fromEl) fromEl.value = '';
       if (toEl) toEl.value = '';
       if (classEl) classEl.value = '';
+      if (textEl) textEl.value = '';
       historyRenderList();
     }
 
@@ -27506,9 +27622,19 @@ ${imgTags}
     }
 
     function historyGetSortedEntries() {
+      const q = historyFilterText;
       const entries = historyEntries.filter(entry => {
-        if (historyViewTab === 'archived') return entry && entry.source === 'archived';
-        if (!entry || entry.source === 'archived') return false;
+        if (!entry) return false;
+        if (q) {
+          // Text search: include all sources (including archived), filter by name or cached content
+          const name = (entry.baseName || entry.filename || '').toLowerCase();
+          if (name.indexOf(q) !== -1) return true;
+          const key = historyEntryKey(entry);
+          if (key && historyContentCache.has(key)) return historyContentCache.get(key).indexOf(q) !== -1;
+          return false;
+        }
+        if (historyViewTab === 'archived') return entry.source === 'archived';
+        if (entry.source === 'archived') return false;
         const isAutosave = entry.source === 'autosave';
         if (historyViewTab === 'autosave' ? !isAutosave : isAutosave) return false;
         if (historyFilterDateFrom && entry.dateKey < historyFilterDateFrom) return false;
@@ -27582,22 +27708,30 @@ ${imgTags}
       const allArchived = historyEntries.filter(entry => entry && entry.source === 'archived').length;
       const allAutosaves = historyEntries.filter(entry => entry && entry.source === 'autosave').length;
       const allManual = historyEntries.length - allAutosaves - allArchived;
-      const currentLabel = historyViewTab === 'autosave' ? 'autosaves' : historyViewTab === 'archived' ? 'archived' : 'manual saves';
-      historySetStatus(
-        entries.length + ' ' + currentLabel + ' shown · '
-        + allManual + ' manual · '
-        + allAutosaves + ' autosaves · '
-        + allArchived + ' archived'
-      );
+      if (historyFilterText) {
+        historySetStatus(
+          entries.length + ' result' + (entries.length === 1 ? '' : 's') + ' for "' + historyFilterText + '" (all files searched, including archived)'
+        );
+      } else {
+        const currentLabel = historyViewTab === 'autosave' ? 'autosaves' : historyViewTab === 'archived' ? 'archived' : 'manual saves';
+        historySetStatus(
+          entries.length + ' ' + currentLabel + ' shown · '
+          + allManual + ' manual · '
+          + allAutosaves + ' autosaves · '
+          + allArchived + ' archived'
+        );
+      }
       historyRenderSortIndicators();
 
       list.innerHTML = '';
       if (!entries.length) {
-        const emptyText = historyViewTab === 'autosave'
-          ? 'No autosaves found.'
-          : historyViewTab === 'archived'
-            ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
-            : 'No manual saves found.';
+        const emptyText = historyFilterText
+          ? 'No files match "' + historyFilterText + '". Content search is loading — try again in a moment if results seem incomplete.'
+          : historyViewTab === 'autosave'
+            ? 'No autosaves found.'
+            : historyViewTab === 'archived'
+              ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
+              : 'No manual saves found.';
         list.innerHTML = '<tr><td class="history-empty" colspan="8">' + emptyText + '</td></tr>';
         historyUpdateSelectionUI();
         return;
@@ -27619,10 +27753,23 @@ ${imgTags}
         const nameTd = document.createElement('td');
         nameTd.className = 'history-row-name';
         nameTd.textContent = entry.baseName || entry.filename;
+        if (historyFilterText) {
+          const cacheKey = historyEntryKey(entry);
+          const cached = historyContentCache.get(cacheKey);
+          if (cached) {
+            const snippet = historyGetSnippet(cached, historyFilterText);
+            if (snippet) {
+              const snEl = document.createElement('div');
+              snEl.style.cssText = 'font-size:0.73rem;color:#555;font-style:italic;margin-top:3px;white-space:normal;max-width:400px;';
+              snEl.textContent = snippet;
+              nameTd.appendChild(snEl);
+            }
+          }
+        }
 
         const typeTd = document.createElement('td');
         typeTd.className = 'history-row-type';
-        typeTd.textContent = historySectionLabel(entry.section);
+        typeTd.textContent = historySectionLabel(entry.section) + (entry.source === 'archived' ? ' · Archived' : '');
 
         const classTd = document.createElement('td');
         classTd.className = 'history-row-class';
@@ -27673,7 +27820,7 @@ ${imgTags}
         deleteBtn.textContent = '🗑 Delete';
         deleteBtn.onclick = () => historyDeleteEntry(entry);
 
-        if (historyViewTab === 'archived') {
+        if (entry.source === 'archived') {
           const unarchiveBtn = document.createElement('button');
           unarchiveBtn.className = 'action-btn btn-grey';
           unarchiveBtn.textContent = '↩ Unarchive';
@@ -27717,6 +27864,7 @@ ${imgTags}
         return;
       }
 
+      historyContentCache.clear();
       historySelectedKeys.clear();
       historyLoading = true;
       historyRenderList();

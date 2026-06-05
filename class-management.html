@@ -4478,7 +4478,7 @@ function renderRolesLibrary() {
         <p style="font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Option A · Choose role titles to use:</p>
         <div id="role-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;">${chipsHtml}</div>
 
-        <p style="font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Add a new role to the list:</p>
+        <p style="font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Add a Temporary Role:</p>
         <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
             <input type="text" id="new-role-input" placeholder="Role name"
                    style="width:100%; padding:8px; border:1px solid #ddd; border-radius:5px; box-sizing:border-box;">
@@ -4526,6 +4526,7 @@ async function addNewRole() {
 
     if (!role) return;
 
+    const settingsMode = rolesModalMode === 'settings';
     const existing = roleDefinitions.find(entry => entry.role.toLowerCase() === role.toLowerCase());
     if (existing) {
         if (explanation) existing.explanation = explanation;
@@ -4538,7 +4539,9 @@ async function addNewRole() {
     if (input) input.value = '';
     if (explanationInput) explanationInput.value = '';
 
-    await persistRolesLibrary();
+    if (settingsMode) {
+        await persistRolesLibrary();
+    }
     renderRolesLibrary();
 }
 
@@ -11292,7 +11295,7 @@ const I18N = {
   }
 };
 
-let currentLang = 'en';
+let currentLang = (function(){ try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
 
 function t(key, vars) {
   const dict = I18N[currentLang] || I18N.en;
@@ -11306,6 +11309,7 @@ function t(key, vars) {
 function setLang(lang) {
   if (!I18N[lang]) return;
   currentLang = lang;
+  try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.language = lang; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch(e){}
   // Update switcher button styles
   ['en','fr','de','it'].forEach(l => {
     const btn = document.getElementById('lang-btn-' + l);
@@ -11490,7 +11494,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (rolesListContainer) {
         const paragraphs = rolesListContainer.querySelectorAll('p');
         if (paragraphs[0]) paragraphs[0].textContent = t('roles_toggle_label');
-        if (paragraphs[1]) paragraphs[1].textContent = '2. Add a New Role:';
+        if (paragraphs[1]) paragraphs[1].textContent = '2. Add a New Temporary Role';
       }
 
       const newRoleInput = document.getElementById('new-role-input');

@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Manager</title>
+  <script src="electron-bridge.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      color: #111;
+      background: #fff;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────── */
+    #sidebar {
+      width: 200px;
+      min-width: 200px;
+      border-right: 2px solid #111;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .sb-hd {
+      padding: 16px 14px 10px;
+      font-size: 0.66rem;
+      font-weight: 800;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      border-bottom: 1px solid #eee;
+      flex-shrink: 0;
+    }
+    .type-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      user-select: none;
+      transition: background 0.08s;
+    }
+    .type-item:hover { background: #f5f5f5; }
+    .type-item.active { border-left-color: #111; background: #f5f5f5; font-weight: 700; }
+    .type-icon { font-size: 0.95rem; flex-shrink: 0; }
+    .type-label { flex: 1; font-size: 0.87rem; }
+    .type-count {
+      font-size: 0.7rem; color: #999; background: #eee;
+      border-radius: 10px; padding: 1px 6px; flex-shrink: 0;
+    }
+    .type-item.active .type-count { background: #111; color: #fff; }
+
+    /* ── Main ────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .center-msg {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #bbb;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+    #type-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────── */
+    #top-bar {
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid #eee;
+      flex-shrink: 0;
+    }
+    #top-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    #type-title { font-size: 1.25rem; font-weight: 800; }
+    #actions-row { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+    .rec-count { font-size: 0.78rem; color: #999; white-space: nowrap; }
+
+    /* ── File pills ──────────────────────────────────────── */
+    #pills-row { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+    .file-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 4px 3px 10px;
+      border: 1.5px solid #ccc;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: #555;
+      background: #fff;
+      user-select: none;
+      transition: all 0.1s;
+    }
+    .file-pill:hover { border-color: #111; color: #111; }
+    .file-pill.pill-active { background: #111; color: #fff; border-color: #111; }
+    .pill-nm { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill-cnt { font-size: 0.7rem; opacity: 0.65; }
+    .pill-dl {
+      background: none; border: none; cursor: pointer; font-size: 0.82rem;
+      padding: 2px 4px; border-radius: 3px; opacity: 0.55; line-height: 1;
+    }
+    .pill-dl:hover { opacity: 1; background: rgba(0,0,0,0.08); }
+    .file-pill.pill-active .pill-dl:hover { background: rgba(255,255,255,0.2); }
+    .pill-loading { opacity: 0.65; }
+    .pill-spin { font-size: 0.78rem; opacity: 0.6; animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .pill-pending { font-size: 0.78rem; color: #bbb; }
+    .pill-err { font-size: 0.78rem; color: #c0392b; }
+
+    /* ── Filter bar ──────────────────────────────────────── */
+    #filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      padding: 10px 20px;
+      background: #f8f8f8;
+      border-bottom: 1px solid #eee;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .fc { display: flex; flex-direction: column; gap: 3px; }
+    .fl { font-size: 0.64rem; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 0.8px; }
+    .fc select, .fc input[type=text] {
+      border: 1px solid #bbb; border-radius: 4px; padding: 4px 8px;
+      font-family: inherit; font-size: 0.82rem; background: #fff;
+      min-width: 80px; max-width: 170px;
+    }
+    .fc select:focus, .fc input:focus { outline: none; border-color: #111; }
+
+    /* ── Table ───────────────────────────────────────────── */
+    #table-wrap { flex: 1; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    thead th {
+      position: sticky; top: 0; z-index: 2;
+      background: #fff; border-bottom: 2px solid #111;
+      padding: 8px 11px; text-align: left;
+      font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.5px; white-space: nowrap;
+      cursor: pointer; user-select: none;
+    }
+    thead th:hover { background: #f5f5f5; }
+    thead th.sort-asc::after { content: ' ↑'; }
+    thead th.sort-desc::after { content: ' ↓'; }
+    thead th.th-act { cursor: default; width: 100px; }
+    tbody tr { border-bottom: 1px solid #f0f0f0; }
+    tbody tr:hover { background: #fafafa; }
+    tbody td { padding: 7px 11px; vertical-align: top; max-width: 260px; }
+    .act-cell { white-space: nowrap; }
+    .src-cell { color: #999; font-size: 0.76rem; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cell-empty { color: #ccc; }
+    .cell-trunc { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+    .tags { display: flex; flex-wrap: wrap; gap: 3px; }
+    .tag { background: #eee; border-radius: 3px; padding: 1px 5px; font-size: 0.71rem; white-space: nowrap; }
+    .tag-more { color: #999; font-size: 0.71rem; align-self: center; }
+
+    /* ── Chips view ─────────────────────────────────────────── */
+    #chips-container {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 14px 20px; align-content: flex-start;
+    }
+    #chips-container.hidden { display: none !important; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 0;
+      border: 1.5px solid #ddd; border-radius: 20px;
+      cursor: pointer; font-size: 0.83rem; background: #fff;
+      transition: border-color 0.1s, background 0.1s;
+      overflow: hidden;
+    }
+    .chip:hover { border-color: #111; }
+    .chip-body { display: flex; align-items: center; gap: 5px; padding: 4px 8px 4px 11px; }
+    .chip-main { font-weight: 700; color: #111; white-space: nowrap; }
+    .chip-sep { color: #ccc; font-weight: 400; }
+    .chip-sub { color: #666; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+    .chip-del {
+      background: none; border: none; border-left: 1.5px solid transparent;
+      color: #bbb; cursor: pointer; font-size: 1rem; line-height: 1;
+      padding: 4px 8px; align-self: stretch; display: flex; align-items: center;
+      transition: all 0.1s;
+    }
+    .chip-del:hover { color: #c0392b; background: #fff5f5; border-left-color: #fcc; }
+    .chip.chip-active { background: #111; border-color: #111; }
+    .chip.chip-active .chip-main { color: #fff; }
+    .chip.chip-active .chip-sub { color: #aaa; }
+    .chip.chip-active .chip-sep { color: #555; }
+
+    /* ── Pagination ──────────────────────────────────────────── */
+    #pagination {
+      display: flex; align-items: center; gap: 10px; padding: 8px 20px;
+      border-top: 1px solid #eee; background: #fafafa; flex-shrink: 0;
+      font-size: 0.82rem; color: #555;
+    }
+    #pagination.hidden { display: none !important; }
+    .pg-info { flex: 1; }
+    .pg-btn { padding: 3px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid #bbb; background: #fff; color: #111; }
+    .pg-btn:hover:not(:disabled) { background: #111; color: #fff; border-color: #111; }
+    .pg-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    button { font-family: inherit; cursor: pointer; }
+    .btn {
+      padding: 6px 13px; border-radius: 5px; font-size: 0.83rem;
+      font-weight: 700; border: 2px solid; transition: all 0.1s; line-height: 1;
+    }
+    .btn-primary { background: #111; color: #fff; border-color: #111; }
+    .btn-primary:hover { background: #fff; color: #111; }
+    .btn-secondary { background: #fff; color: #111; border-color: #bbb; }
+    .btn-secondary:hover { background: #111; color: #fff; border-color: #111; }
+    .btn-danger { background: #fff; color: #c0392b; border-color: #c0392b; }
+    .btn-danger:hover { background: #c0392b; color: #fff; }
+    .btn-sm { padding: 2px 8px; font-size: 0.74rem; border-width: 1.5px; }
+
+    /* ── Modal ───────────────────────────────────────────── */
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.38);
+      display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal-bg.hidden { display: none !important; }
+    .modal {
+      background: #fff; border: 2px solid #111; border-radius: 10px;
+      width: min(620px, 95vw); max-height: 90vh;
+      display: flex; flex-direction: column;
+      animation: mi 0.12s ease;
+    }
+    .modal-sm { width: min(380px, 95vw); }
+    @keyframes mi { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal-hd {
+      padding: 15px 20px 12px; border-bottom: 1px solid #eee;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; font-size: 0.97rem; font-weight: 800;
+    }
+    .modal-x { background: none; border: none; font-size: 1rem; color: #888; padding: 2px 6px; border-radius: 4px; }
+    .modal-x:hover { background: #f0f0f0; color: #111; }
+    .modal-bd { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .modal-ft {
+      padding: 12px 20px; border-top: 1px solid #eee;
+      display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0;
+    }
+    .form-field { margin-bottom: 13px; }
+    .form-field:last-child { margin-bottom: 0; }
+    .form-lbl {
+      display: block; font-size: 0.7rem; font-weight: 800; color: #555;
+      text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 4px;
+    }
+    .form-field input[type=text], .form-field input[type=number],
+    .form-field textarea, .form-field select {
+      width: 100%; border: 1.5px solid #ccc; border-radius: 5px;
+      padding: 6px 10px; font-family: inherit; font-size: 0.87rem;
+    }
+    .form-field input:focus, .form-field textarea:focus, .form-field select:focus {
+      outline: none; border-color: #111;
+    }
+    .form-field textarea { resize: vertical; min-height: 60px; }
+    .form-hint { font-size: 0.69rem; color: #888; margin-top: 3px; }
+    .form-source { font-size: 0.81rem; color: #666; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+    .form-err { font-size: 0.78rem; color: #c0392b; margin-top: 4px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="sb-hd">Data Types</div>
+  <div id="type-list"></div>
+</aside>
+
+<main id="main">
+  <div id="empty-state" class="center-msg">← Select a data type</div>
+
+  <div id="type-content" class="hidden">
+    <div id="top-bar">
+      <div id="top-row">
+        <h1 id="type-title"></h1>
+        <div id="actions-row">
+          <button class="btn btn-primary" onclick="openAdd()">+ Add Record</button>
+          <button class="btn btn-secondary" onclick="openNewFile()">+ New File</button>
+          <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)" style="display:none">📋 AI Prompt</button>
+          <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()" style="display:none"></button>
+          <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()" style="display:none">Remove Dupes</button>
+          <span id="rec-count" class="rec-count"></span>
+        </div>
+      </div>
+      <div id="pills-row"></div>
+    </div>
+
+    <div id="filter-bar"></div>
+
+    <div id="table-wrap">
+      <div id="empty-rows" class="center-msg hidden">No records match the current filters.</div>
+      <div id="no-selection" class="center-msg">Click a file above to load it.</div>
+      <table id="data-table" class="hidden">
+        <thead id="t-head"></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+      <div id="chips-container" class="hidden"></div>
+    </div>
+    <div id="pagination" class="hidden">
+      <span class="pg-info" id="pg-info"></span>
+      <button class="pg-btn" id="pg-prev" onclick="changePage(-1)">← Prev</button>
+      <button class="pg-btn" id="pg-next" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+</main>
+
+<!-- Edit / Add Modal -->
+<div id="edit-bg" class="modal-bg hidden" onclick="if(event.target===this)closeEdit()">
+  <div class="modal">
+    <div class="modal-hd">
+      <span id="edit-title">Record</span>
+      <button class="modal-x" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-bd" id="edit-body"></div>
+    <div class="modal-ft">
+      <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm -->
+<div id="del-bg" class="modal-bg hidden">
+  <div class="modal modal-sm">
+    <div class="modal-hd">Delete Record</div>
+    <div class="modal-bd"><p style="line-height:1.5">This will permanently remove the record from its file. Continue?</p></div>
+    <div class="modal-ft">
+      <button class="btn btn-secondary" onclick="closeDel()">Cancel</button>
+      <button class="btn btn-danger" onclick="doDel()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- New File Modal -->
+<div id="nf-bg" class="modal-bg hidden" onclick="if(event.target===this)closeNF()">
+  <div class="modal modal-sm">
+    <div class="modal-hd">
+      <span>New File</span>
+      <button class="modal-x" onclick="closeNF()">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="form-field">
+        <label class="form-lbl">File name</label>
+        <input type="text" id="nf-name" placeholder="e.g. my-words.js" onkeydown="if(event.key==='Enter')doCreateFile()">
+        <div id="nf-err" class="form-err"></div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-secondary" onclick="closeNF()">Cancel</button>
+      <button class="btn btn-primary" onclick="doCreateFile()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────────────
+const TYPE_DEFS = [
+  { key: 'wordbanks',     label: 'Word Banks',   icon: '📚', target: 'customWordbanks',    defaultView: 'chips' },
+  { key: 'quotebanks',    label: 'Quotes',       icon: '💬', target: 'customQuotes',       defaultView: 'table' },
+  { key: 'dictations',    label: 'Dictations',   icon: '🎤', target: 'customDictations',   defaultView: 'table' },
+  { key: 'grammarbanks',  label: 'Grammar',      icon: '📐', target: 'customGrammarbanks', defaultView: 'table' },
+  { key: 'gapfillbanks',  label: 'Gap Fill',     icon: '🔲', target: 'customGapfillbanks', defaultView: 'table' },
+  { key: 'errorbanks',    label: 'Error Banks',  icon: '🚨', target: 'customErrorbanks',   defaultView: 'table' },
+  { key: 'sentencebanks', label: 'Sentences',    icon: '✏️', target: 'customSentences',   defaultView: 'chips' },
+  { key: 'storybanks',    label: 'Stories',      icon: '📖', target: 'customStorybanks',   defaultView: 'table' },
+  { key: 'quizzes',       label: 'Quizzes',      icon: '❓', target: 'customQuizzes',      defaultView: 'table' },
+];
+
+const VAR_NAME_DEFAULTS = {
+  wordbanks: 'customVocabBank', quotebanks: 'customQuoteBank',
+  dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
+  gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
+  sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
+  quizzes: 'customQuizBank',
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// SESSION CACHE  (loaded file data, keyed by typeKey)
+// ─────────────────────────────────────────────────────────────────────
+const typeCache = {};
+
+// ─────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────
+const S = {
+  typeKey: null,
+  files: [],        // [{name, varName, records:[]}]
+  counts: {},       // {typeKey: fileCount}
+  schema: [],       // [{key, type, isLong, longArray, uniqueVals, useSelect}]
+  sortField: null,
+  sortDir: 'asc',
+  filters: {},      // {fieldKey: value} — '_src' for source
+  viewMode: 'table', // 'table' | 'chips'
+  editMode: null,   // 'add' | 'edit'
+  editFI: null,
+  editRI: null,
+  delFI: null,
+  delRI: null,
+  page: 0,
+  pageSize: 200,
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escHtml(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function cap(key) {
+  return String(key).replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')
+    .replace(/^./, s => s.toUpperCase()).trim();
+}
+function getTypeDef(key) { return TYPE_DEFS.find(d => d.key === key); }
+function detectVarName(text) {
+  // Prefer a variable whose right-hand side is an array literal
+  const mArr = String(text).match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[\r\n\s]*\[/m);
+  if (mArr) return mArr[1];
+  const m = String(text).match(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/);
+  return m ? m[1] : null;
+}
+function buildJsContent(varName, data) {
+  return `// ${varName}\nconst ${varName} = ${JSON.stringify(data, null, 2)};\n`;
+}
+function getAllRecords() {
+  return S.files.filter(f => f.status === 'loaded').flatMap(f => f.records);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────
+function init() {
+  renderSidebar();
+  if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
+    TYPE_DEFS.forEach(def => {
+      Desktop.listFiles(def.target, { extensions: ['.js'] })
+        .then(r => { S.counts[def.key] = r?.files?.length || 0; updateSidebarCount(def.key); })
+        .catch(() => {});
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  $('type-list').innerHTML = TYPE_DEFS.map(d => `
+    <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
+      <span class="type-icon">${d.icon}</span>
+      <span class="type-label">${d.label}</span>
+      <span class="type-count" id="tc-${d.key}">–</span>
+    </div>`).join('');
+}
+function updateSidebarCount(key) {
+  const el = $(`tc-${key}`);
+  if (el) el.textContent = S.counts[key] ?? '–';
+}
+function setSidebarActive(key) {
+  document.querySelectorAll('.type-item').forEach(el =>
+    el.classList.toggle('active', el.id === `type-${key}`));
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SELECT TYPE
+// ─────────────────────────────────────────────────────────────────────
+async function selectType(key) {
+  if (S.typeKey === key) return;
+  if (S.typeKey) typeCache[S.typeKey] = S.files.slice();
+  S.typeKey = key;
+  S.files = [];
+  S.schema = [];
+  S.sortField = null;
+  S.sortDir = 'asc';
+  S.filters = {};
+  S.page = 0;
+  S.viewMode = getTypeDef(key).defaultView || 'table';
+
+  setSidebarActive(key);
+  $('empty-state').classList.add('hidden');
+  $('type-content').classList.remove('hidden');
+  $('type-title').textContent = getTypeDef(key).label;
+  $('pills-row').innerHTML = '<span style="color:#bbb;font-size:0.82rem">Loading…</span>';
+  $('t-head').innerHTML = '';
+  $('t-body').innerHTML = '';
+  $('data-table').classList.add('hidden');
+  $('empty-rows').classList.add('hidden');
+  $('rec-count').textContent = '';
+  renderFilterBar();
+
+  if (typeof Desktop === 'undefined' || !Desktop.isElectron()) {
+    $('pills-row').innerHTML = '<span style="color:#c0392b;font-size:0.82rem">Requires Electron app.</span>';
+    return;
+  }
+
+  const aiBtn = $('ai-prompt-btn');
+  if (aiBtn) aiBtn.style.display = AI_PROMPTS[key] ? '' : 'none';
+
+  const def = getTypeDef(key);
+
+  // Phase 1: list files instantly → show pills right away
+  const listResult = await Desktop.listFiles(def.target, { extensions: ['.js'] });
+  const freshFiles = (listResult?.ok && listResult.files?.length)
+    ? listResult.files.map(fi => ({ name: fi.filename, varName: null, records: [], status: 'pending', size: fi.size || 0 }))
+    : [];
+  const cached = typeCache[key] || [];
+  S.files = freshFiles.map(ff => cached.find(cf => cf.name === ff.name && cf.status === 'loaded') || ff);
+  S.schema = buildSchema(getAllRecords());
+  S.counts[key] = S.files.length;
+  updateSidebarCount(key);
+  renderFilePills();
+
+  renderFilterBar();
+  renderTable();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// FILE LOADING
+// ─────────────────────────────────────────────────────────────────────
+async function loadFileContent(fi, def) {
+  const file = S.files[fi];
+  if (file.status !== 'pending') return;
+  file.status = 'loading';
+  renderFilePills();
+  try {
+    const raw = await Desktop.readText(def.target, file.name);
+    if (!raw?.ok) throw new Error(raw?.error || 'Read failed');
+
+    const content = raw.content;
+    file.varName = detectVarName(content) || VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
+
+    // Fast path: try JSON parsing (works for files with fully-quoted keys)
+    const json = await Desktop.readJson(def.target, file.name);
+    if (json?.ok && Array.isArray(json.data)) {
+      file.records = json.data;
+      file.status = 'loaded';
+      return;
+    }
+
+    // Fallback: inject the script and read the variable — handles unquoted JS object keys
+    const varName = file.varName;
+    const tmpKey = '__dbm2_' + fi + '_' + Date.now();
+    const s = document.createElement('script');
+    s.text = `(function(){\n${content}\ntry{window['${tmpKey}']=${varName};}catch(e){}})();`;
+    document.head.appendChild(s);
+    if (s.parentNode) s.parentNode.removeChild(s);
+
+    const data = window[tmpKey];
+    delete window[tmpKey];
+
+    if (Array.isArray(data)) {
+      file.records = data;
+      file.status = 'loaded';
+    } else {
+      throw new Error('Script did not yield an array');
+    }
+  } catch (err) {
+    file.status = 'error';
+    console.warn('Failed to load', file.name, err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// SCHEMA DETECTION
+// ─────────────────────────────────────────────────────────────────────
+function buildSchema(records) {
+  if (!records.length) return [];
+  const keyOrder = [];
+  for (const rec of records) {
+    for (const k of Object.keys(rec)) {
+      if (!keyOrder.includes(k)) keyOrder.push(k);
+    }
+  }
+
+  return keyOrder.map(key => {
+    const vals = records.map(r => r[key]).filter(v => v !== undefined && v !== null && v !== '');
+    if (!vals.length) return { key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false };
+
+    let type = 'string';
+    if (vals.every(v => typeof v === 'boolean')) type = 'boolean';
+    else if (vals.every(v => Array.isArray(v))) type = 'array';
+    else if (vals.every(v => v !== null && typeof v === 'object' && !Array.isArray(v))) type = 'object';
+    else if (vals.every(v => typeof v === 'number')) type = 'number';
+
+    const isLong = type === 'string' && vals.some(v => String(v).length > 65);
+    let longArray = false;
+    if (type === 'array') {
+      const flat = vals.flatMap(v => v);
+      const avgLen = flat.length ? flat.reduce((s, el) => s + String(el).length, 0) / flat.length : 0;
+      longArray = avgLen > 35;
+    }
+
+    const uniqueVals = (type === 'string' || type === 'number')
+      ? [...new Set(vals.map(v => String(v)).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      : [];
+    const useSelect = uniqueVals.length >= 1 && uniqueVals.length <= 25;
+
+    return { key, type, isLong, longArray, uniqueVals, useSelect };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// FILTERED / SORTED RECORDS
+// ─────────────────────────────────────────────────────────────────────
+function getDisplayRecords() {
+  let rows = [];
+  for (const [fi, file] of S.files.entries()) {
+    if (file.status !== 'loaded') continue;
+    for (const [ri, rec] of file.records.entries()) {
+      rows.push({ _fi: fi, _ri: ri, _src: file.name, ...rec });
+    }
+  }
+
+  for (const [key, val] of Object.entries(S.filters)) {
+    if (!val) continue;
+    if (key === '_src') { rows = rows.filter(r => r._src === val); continue; }
+    if (key === '_all') {
+      const lv = val.toLowerCase();
+      rows = rows.filter(r => S.schema.some(f => {
+        const v = r[f.key];
+        if (f.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
+        return String(v ?? '').toLowerCase().includes(lv);
+      }));
+      continue;
+    }
+    const field = S.schema.find(f => f.key === key);
+    if (!field) continue;
+    const lv = val.toLowerCase();
+    rows = rows.filter(r => {
+      const v = r[key];
+      if (field.type === 'array') return Array.isArray(v) && v.some(el => String(el).toLowerCase().includes(lv));
+      return String(v ?? '').toLowerCase().includes(lv);
+    });
+  }
+
+  if (S.sortField) {
+    const sf = S.sortField;
+    const field = sf === '_src' ? { type: 'string' } : S.schema.find(f => f.key === sf);
+    rows = [...rows].sort((a, b) => {
+      let va = a[sf], vb = b[sf];
+      if (field?.type === 'array') { va = (va ?? []).join(''); vb = (vb ?? []).join(''); }
+      else if (field?.type === 'number') { va = Number(va) || 0; vb = Number(vb) || 0; }
+      else { va = String(va ?? '').toLowerCase(); vb = String(vb ?? '').toLowerCase(); }
+      const c = va < vb ? -1 : va > vb ? 1 : 0;
+      return S.sortDir === 'asc' ? c : -c;
+    });
+  }
+
+  return rows;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderFilePills();
+  renderFilterBar();
+  renderTable();
+}
+
+function renderFilePills() {
+  const row = $('pills-row');
+  if (!S.files.length) {
+    row.innerHTML = '<span style="color:#bbb;font-size:0.82rem">No files found.</span>';
+    return;
+  }
+  const activeSrc = S.filters['_src'] || '';
+  row.innerHTML = S.files.map((f, fi) => {
+    const isActive = activeSrc === f.name;
+    const statusBadge = f.status === 'loading' ? '<span class="pill-spin">⟳</span>'
+      : f.status === 'error'   ? '<span class="pill-err" title="Failed to load">✕</span>'
+      : f.status === 'pending' ? '<span class="pill-pending">…</span>'
+      : `<span class="pill-cnt">${f.records.length}</span>`;
+    const canDl = f.status === 'loaded';
+    return `<div class="file-pill${isActive ? ' pill-active' : ''}${f.status === 'loading' ? ' pill-loading' : ''}" onclick="toggleSource('${esc(f.name)}')">
+      <span class="pill-nm">${esc(f.name)}</span>
+      ${statusBadge}
+      ${canDl ? `<button class="pill-dl" onclick="event.stopPropagation();downloadFile(${fi})" title="Download">⬇</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function toggleSource(filename) {
+  const fi = S.files.findIndex(f => f.name === filename);
+  if (fi !== -1 && S.files[fi].status === 'pending') {
+    S.filters['_src'] = filename;
+    S.page = 0;
+    const def = getTypeDef(S.typeKey);
+    await loadFileContent(fi, def);
+    S.schema = buildSchema(getAllRecords());
+    renderFilePills();
+    renderFilterBar();
+    renderTable();
+    return;
+  }
+  S.filters['_src'] = S.filters['_src'] === filename ? '' : filename;
+  S.page = 0;
+  renderFilePills();
+  renderTable();
+}
+
+function renderFilterBar() {
+  const bar = $('filter-bar');
+  if (!S.typeKey) { bar.innerHTML = ''; return; }
+
+  const allVal = S.filters['_all'] || '';
+  let html = `<div class="fc">
+    <span class="fl">All Fields</span>
+    <input type="text" value="${esc(allVal)}" placeholder="Search all…" oninput="setFilter('_all', this.value)" style="min-width:140px">
+  </div>`;
+
+  if (S.schema.length) {
+    const filterFields = S.schema.filter(f => f.type !== 'object' && f.type !== 'boolean');
+    const selectFields = filterFields.filter(f => f.useSelect && !f.isLong)
+      .sort((a, b) => a.uniqueVals.length - b.uniqueVals.length);
+    const textFields = filterFields.filter(f => !f.useSelect || f.isLong);
+    const MAX_FILTERS = 6;
+    const shown = [
+      ...selectFields.slice(0, MAX_FILTERS),
+      ...textFields.slice(0, Math.max(0, MAX_FILTERS - selectFields.length))
+    ];
+
+    for (const field of shown) {
+      const val = S.filters[field.key] || '';
+      if (field.useSelect && !field.isLong) {
+        html += `<div class="fc">
+          <span class="fl">${esc(cap(field.key))}</span>
+          <select onchange="setFilter('${field.key}', this.value)">
+            <option value=""${!val ? ' selected' : ''}>All</option>
+            ${field.uniqueVals.map(v => `<option value="${esc(v)}"${val === v ? ' selected' : ''}>${esc(v) || '(empty)'}</option>`).join('')}
+          </select></div>`;
+      } else {
+        html += `<div class="fc">
+          <span class="fl">${esc(cap(field.key))}</span>
+          <input type="text" value="${esc(val)}" placeholder="Filter…" oninput="setFilter('${field.key}', this.value)">
+          </div>`;
+      }
+    }
+  }
+
+  html += `<div class="fc" style="align-self:flex-end">
+    <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Reset</button></div>`;
+
+  bar.innerHTML = html;
+}
+
+function setFilter(key, val) {
+  S.filters[key] = val;
+  S.page = 0;
+  renderTable();
+}
+
+function resetFilters() {
+  S.filters = {};
+  renderAll();
+}
+
+function renderTable() {
+  const allRows = getDisplayRecords();
+  const table = $('data-table');
+  const thead = $('t-head');
+  const tbody = $('t-body');
+  const emptyRows = $('empty-rows');
+  const pg = $('pagination');
+
+  updateCount(allRows.length);
+
+  const noSel = $('no-selection');
+  const anyLoaded = S.files.some(f => f.status === 'loaded');
+  $('dedup-btn').style.display = anyLoaded ? '' : 'none';
+
+  if (!anyLoaded) {
+    table.classList.add('hidden');
+    $('chips-container').classList.add('hidden');
+    emptyRows.classList.add('hidden');
+    pg.classList.add('hidden');
+    updateViewToggleBtn();
+    if (noSel) noSel.classList.remove('hidden');
+    return;
+  }
+  if (noSel) noSel.classList.add('hidden');
+
+  if (!allRows.length) {
+    table.classList.add('hidden');
+    $('chips-container').classList.add('hidden');
+    emptyRows.classList.remove('hidden');
+    pg.classList.add('hidden');
+    updateViewToggleBtn();
+    return;
+  }
+  table.classList.add('hidden');
+  $('chips-container').classList.add('hidden');
+  emptyRows.classList.add('hidden');
+  updateViewToggleBtn();
+
+  const totalPages = Math.ceil(allRows.length / S.pageSize);
+  S.page = Math.max(0, Math.min(S.page, totalPages - 1));
+  const start = S.page * S.pageSize;
+  const rows = allRows.slice(start, start + S.pageSize);
+
+  if (totalPages > 1) {
+    pg.classList.remove('hidden');
+    const end = Math.min(start + S.pageSize, allRows.length);
+    $('pg-info').textContent = `Showing ${start + 1}–${end} of ${allRows.length}`;
+    $('pg-prev').disabled = S.page === 0;
+    $('pg-next').disabled = S.page >= totalPages - 1;
+  } else {
+    pg.classList.add('hidden');
+  }
+
+  if (S.viewMode === 'chips') {
+    $('chips-container').classList.remove('hidden');
+    renderChips(rows);
+    return;
+  }
+
+  table.classList.remove('hidden');
+  const tableCols = S.schema.filter(f => f.type !== 'object');
+  const multiFile = S.files.length > 1;
+
+  thead.innerHTML = `<tr>
+    ${tableCols.map(f => {
+      const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+      return `<th class="${cls}" onclick="setSort('${f.key}')">${esc(cap(f.key))}</th>`;
+    }).join('')}
+    ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">Source</th>` : ''}
+    <th class="th-act">Actions</th>
+  </tr>`;
+
+  tbody.innerHTML = rows.map(row => `<tr>
+    ${tableCols.map(f => `<td>${renderCell(row[f.key], f)}</td>`).join('')}
+    ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
+    <td class="act-cell">
+      <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+function renderCell(val, field) {
+  if (val === undefined || val === null || val === '') return '<span class="cell-empty">—</span>';
+  if (field.type === 'boolean') return val ? '✓' : '✗';
+  if (field.type === 'number') return String(val);
+  if (field.type === 'array') {
+    const arr = Array.isArray(val) ? val : [val];
+    if (!arr.length) return '<span class="cell-empty">—</span>';
+    const items = arr.slice(0, 4).map(t => `<span class="tag">${esc(String(t))}</span>`).join('');
+    const more = arr.length > 4 ? `<span class="tag-more">+${arr.length - 4}</span>` : '';
+    return `<span class="tags">${items}${more}</span>`;
+  }
+  const str = String(val);
+  if (str.length > 85) return `<span class="cell-trunc" title="${esc(str)}">${esc(str.slice(0, 85))}…</span>`;
+  return esc(str);
+}
+
+function updateCount(shown) {
+  const total = getAllRecords().length;
+  const pending = S.files.filter(f => f.status === 'pending' || f.status === 'loading').length;
+  const el = $('rec-count');
+  const suffix = pending ? ` (${pending} loading…)` : '';
+  el.textContent = (shown === total ? `${total} records` : `${shown} / ${total}`) + suffix;
+}
+
+function toggleViewMode() {
+  S.viewMode = S.viewMode === 'chips' ? 'table' : 'chips';
+  S.page = 0;
+  renderTable();
+}
+
+function updateViewToggleBtn() {
+  const btn = $('view-toggle-btn');
+  if (!S.typeKey) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.textContent = S.viewMode === 'chips' ? '⊞ Table' : '⬡ Chips';
+}
+
+async function deduplicateRecords() {
+  const loaded = S.files.filter(f => f.status === 'loaded');
+  if (!loaded.length) { alert('No files loaded.'); return; }
+
+  let totalRemoved = 0;
+  const toSave = [];
+  for (const [fi, file] of S.files.entries()) {
+    if (file.status !== 'loaded') continue;
+    const seen = new Set();
+    const deduped = [];
+    for (const rec of file.records) {
+      const key = JSON.stringify(
+        Object.keys(rec).sort().reduce((o, k) => { o[k] = rec[k]; return o; }, {})
+      );
+      if (!seen.has(key)) { seen.add(key); deduped.push(rec); }
+    }
+    const removed = file.records.length - deduped.length;
+    if (removed > 0) { totalRemoved += removed; toSave.push({ fi, file, deduped }); }
+  }
+
+  if (!totalRemoved) { alert('No duplicate entries found.'); return; }
+
+  const msg = `Found ${totalRemoved} duplicate ${totalRemoved === 1 ? 'entry' : 'entries'} across ${toSave.length} ${toSave.length === 1 ? 'file' : 'files'}. Remove them?`;
+  if (!confirm(msg)) return;
+
+  for (const { fi, file, deduped } of toSave) {
+    file.records = deduped;
+    if (!await saveFile(fi)) return;
+  }
+  S.schema = buildSchema(getAllRecords());
+  renderAll();
+}
+
+function getChipFields() {
+  const strFields = S.schema.filter(f => f.type === 'string' || f.type === 'number');
+  const PRIMARY = ['word', 'term', 'expression', 'sentence', 'english', 'target', 'question'];
+  const SECONDARY = ['translation', 'meaning', 'answer', 'french', 'german', 'italian', 'native', 'definition', 'l1'];
+  const primary = strFields.find(f => PRIMARY.includes(f.key.toLowerCase())) || strFields[0];
+  const secondary = strFields.find(f => f !== primary && SECONDARY.includes(f.key.toLowerCase()))
+    || strFields.find(f => f !== primary);
+  return { primary, secondary };
+}
+
+function renderChips(rows) {
+  const container = $('chips-container');
+  const { primary, secondary } = getChipFields();
+  if (!primary) {
+    container.innerHTML = '<div style="padding:20px;color:#bbb;font-size:0.85rem">No displayable fields detected.</div>';
+    return;
+  }
+  container.innerHTML = rows.map(row => {
+    const main = String(row[primary.key] ?? '');
+    const sub = secondary ? String(row[secondary.key] ?? '') : '';
+    return `<div class="chip">
+      <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})">
+        <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
+        ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
+      </div>
+      <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="Delete">×</button>
+    </div>`;
+  }).join('');
+}
+
+function setSort(field) {
+  S.sortField === field ? (S.sortDir = S.sortDir === 'asc' ? 'desc' : 'asc') : (S.sortField = field, S.sortDir = 'asc');
+  S.page = 0;
+  renderTable();
+}
+
+function changePage(delta) {
+  const rows = getDisplayRecords();
+  const totalPages = Math.ceil(rows.length / S.pageSize);
+  S.page = Math.max(0, Math.min(S.page + delta, totalPages - 1));
+  renderTable();
+  $('table-wrap').scrollTop = 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// EDIT / ADD MODAL
+// ─────────────────────────────────────────────────────────────────────
+function openEdit(fi, ri) {
+  S.editMode = 'edit';
+  S.editFI = fi;
+  S.editRI = ri;
+  const rec = S.files[fi].records[ri];
+  $('edit-title').textContent = `Edit — ${S.files[fi].name}`;
+  $('edit-body').innerHTML = buildForm(rec, S.schema, fi, false);
+  $('edit-bg').classList.remove('hidden');
+}
+
+function openAdd() {
+  if (!S.files.length) { openNewFile(); return; }
+  S.editMode = 'add';
+  S.editFI = null;
+  S.editRI = null;
+  $('edit-title').textContent = 'Add Record';
+  $('edit-body').innerHTML = buildForm({}, S.schema, null, true);
+  $('edit-bg').classList.remove('hidden');
+}
+
+function buildFieldInputHtml(field, rec) {
+  const id = `ff-${field.key}`;
+  const val = rec[field.key];
+  let input = '';
+  if (field.type === 'boolean') {
+    input = `<input type="checkbox" id="${id}"${val ? ' checked' : ''} style="width:auto">`;
+  } else if (field.type === 'number') {
+    input = `<input type="number" id="${id}" value="${esc(String(val ?? ''))}">`;
+  } else if (field.type === 'array') {
+    if (field.longArray) {
+      const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
+      input = `<textarea id="${id}" rows="4">${escHtml(sv)}</textarea>
+               <div class="form-hint">One item per line</div>`;
+    } else {
+      const sv = Array.isArray(val) ? val.join(', ') : String(val ?? '');
+      input = `<input type="text" id="${id}" value="${esc(sv)}">
+               <div class="form-hint">Comma-separated values</div>`;
+    }
+  } else if (field.type === 'object') {
+    const sv = val !== undefined ? JSON.stringify(val, null, 2) : '';
+    input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
+             <div class="form-hint">JSON format</div>`;
+  } else if (field.isLong) {
+    input = `<textarea id="${id}" rows="3">${escHtml(String(val ?? ''))}</textarea>`;
+  } else {
+    input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}">`;
+  }
+  return `<div class="form-field">
+    <label class="form-lbl" for="${id}">${esc(cap(field.key))}</label>
+    ${input}
+  </div>`;
+}
+
+function buildForm(rec, schema, fi, isAdd) {
+  let html = '';
+
+  if (isAdd) {
+    // Tab bar
+    html += `<div style="display:flex;margin-bottom:14px;border:1.5px solid #bbb;border-radius:5px;overflow:hidden;">
+      <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;">Single</button>
+      <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;">Bulk JSON</button>
+    </div>`;
+
+    // File selector (shared)
+    if (S.files.length > 0) {
+      html += `<div class="form-field">
+        <label class="form-lbl">Add to file</label>
+        <select id="ff-_target">${S.files.map((f, i) => `<option value="${i}">${esc(f.name)}</option>`).join('')}</select>
+      </div>`;
+    }
+
+    // Single tab
+    html += `<div id="tab-single-content">`;
+    if (!schema.length) {
+      html += `<div class="form-field">
+        <label class="form-lbl">Record (JSON)</label>
+        <textarea id="ff-_raw" rows="8">${escHtml('{}')}</textarea>
+        <div class="form-hint">Enter a valid JSON object</div>
+      </div>`;
+    } else {
+      for (const field of schema) html += buildFieldInputHtml(field, {});
+    }
+    html += `</div>`;
+
+    // Bulk tab (hidden by default)
+    html += `<div id="tab-bulk-content" class="hidden">
+      <div class="form-field">
+        <label class="form-lbl">JSON Array</label>
+        <textarea id="ff-_bulk" rows="13" placeholder='[\n  {"field": "value"},\n  {"field": "value"}\n]' style="font-family:monospace;font-size:0.8rem"></textarea>
+        <div class="form-hint">Paste a JSON array of objects — all will be added to the selected file.</div>
+        <div id="bulk-err" class="form-err"></div>
+      </div>
+    </div>`;
+
+    return html;
+  }
+
+  // Edit mode
+  if (fi !== null) {
+    html += `<div class="form-source">File: <strong>${esc(S.files[fi].name)}</strong></div>`;
+  }
+  if (!schema.length) {
+    html += `<div class="form-field">
+      <label class="form-lbl">Record (JSON)</label>
+      <textarea id="ff-_raw" rows="8">${escHtml(JSON.stringify(rec, null, 2) || '{}')}</textarea>
+      <div class="form-hint">Enter a valid JSON object</div>
+    </div>`;
+    return html;
+  }
+  for (const field of schema) html += buildFieldInputHtml(field, rec);
+  return html;
+}
+
+function switchAddTab(tab) {
+  const isBulk = tab === 'bulk';
+  $('tab-single-content').classList.toggle('hidden', isBulk);
+  $('tab-bulk-content').classList.toggle('hidden', !isBulk);
+  $('tab-btn-single').style.background = isBulk ? '#fff' : '#111';
+  $('tab-btn-single').style.color = isBulk ? '#111' : '#fff';
+  $('tab-btn-bulk').style.background = isBulk ? '#111' : '#fff';
+  $('tab-btn-bulk').style.color = isBulk ? '#fff' : '#111';
+}
+
+async function submitEdit() {
+  if (S.editMode === 'add') {
+    const bulkEl = $('ff-_bulk');
+    const isBulk = bulkEl && !$('tab-bulk-content').classList.contains('hidden');
+
+    const targetEl = $('ff-_target');
+    const fi = targetEl ? Number(targetEl.value) : 0;
+
+    // Load the target file first if it hasn't been read yet — ensures varName is set
+    // and existing records are not overwritten.
+    if (S.files[fi].status === 'pending') {
+      await loadFileContent(fi, getTypeDef(S.typeKey));
+      if (S.files[fi].status !== 'loaded') {
+        alert('Failed to load the target file. Cannot add records.');
+        return;
+      }
+    }
+
+    if (isBulk) {
+      let records;
+      try {
+        records = JSON.parse(bulkEl.value);
+        if (!Array.isArray(records)) throw new Error('Must be a JSON array');
+        if (!records.length) throw new Error('Array is empty');
+        if (!records.every(r => r && typeof r === 'object' && !Array.isArray(r))) throw new Error('All items must be objects');
+      } catch (e) {
+        $('bulk-err').textContent = e.message;
+        return;
+      }
+      S.files[fi].records.push(...records);
+      if (!await saveFile(fi)) { S.files[fi].records.splice(-records.length, records.length); return; }
+      closeEdit();
+      S.schema = buildSchema(getAllRecords());
+      renderAll();
+      return;
+    }
+
+    const rawEl = $('ff-_raw');
+    let values;
+    if (rawEl) {
+      try { values = JSON.parse(rawEl.value); }
+      catch { alert('Invalid JSON.'); return; }
+    } else {
+      values = readFormValues(S.schema);
+    }
+    S.files[fi].records.push(values);
+    if (!await saveFile(fi)) return;
+  } else {
+    const rawEl = $('ff-_raw');
+    let values;
+    if (rawEl) {
+      try { values = JSON.parse(rawEl.value); }
+      catch { alert('Invalid JSON.'); return; }
+    } else {
+      values = readFormValues(S.schema);
+    }
+    const { editFI: fi, editRI: ri } = S;
+    S.files[fi].records[ri] = { ...S.files[fi].records[ri], ...values };
+    if (!await saveFile(fi)) return;
+  }
+
+  closeEdit();
+  S.schema = buildSchema(getAllRecords());
+  renderAll();
+}
+
+function readFormValues(schema) {
+  const result = {};
+  for (const field of schema) {
+    const el = $(`ff-${field.key}`);
+    if (!el) continue;
+    if (field.type === 'boolean') result[field.key] = el.checked;
+    else if (field.type === 'number') result[field.key] = el.value === '' ? null : Number(el.value);
+    else if (field.type === 'array') {
+      const sep = field.longArray ? '\n' : ',';
+      const s = el.value.trim();
+      result[field.key] = s ? s.split(sep).map(x => x.trim()).filter(Boolean) : [];
+    } else if (field.type === 'object') {
+      try { result[field.key] = JSON.parse(el.value); }
+      catch { result[field.key] = el.value; }
+    } else {
+      result[field.key] = el.value;
+    }
+  }
+  return result;
+}
+
+function closeEdit() {
+  $('edit-bg').classList.add('hidden');
+  S.editMode = S.editFI = S.editRI = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────────────────────────────────
+function confirmDel(fi, ri) {
+  S.delFI = fi;
+  S.delRI = ri;
+  $('del-bg').classList.remove('hidden');
+}
+async function doDel() {
+  const { delFI: fi, delRI: ri } = S;
+  if (fi === null || ri === null) return;
+  S.files[fi].records.splice(ri, 1);
+  if (!await saveFile(fi)) { S.files[fi].records.splice(ri, 0, {}); return; } // crude undo
+  closeDel();
+  S.schema = buildSchema(getAllRecords());
+  renderAll();
+}
+function closeDel() {
+  $('del-bg').classList.add('hidden');
+  S.delFI = S.delRI = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// NEW FILE
+// ─────────────────────────────────────────────────────────────────────
+function openNewFile() {
+  $('nf-name').value = '';
+  $('nf-err').textContent = '';
+  $('nf-bg').classList.remove('hidden');
+  setTimeout(() => $('nf-name').focus(), 80);
+}
+function closeNF() { $('nf-bg').classList.add('hidden'); }
+
+async function doCreateFile() {
+  let name = $('nf-name').value.trim();
+  if (!name) { $('nf-err').textContent = 'Enter a file name.'; return; }
+  if (!name.endsWith('.js')) name += '.js';
+  const def = getTypeDef(S.typeKey);
+  const varName = VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
+  const result = await Desktop.saveText(def.target, name, buildJsContent(varName, []));
+  if (!result?.ok) { $('nf-err').textContent = result?.error || 'Failed to create file.'; return; }
+  S.files.push({ name, varName, records: [] });
+  S.counts[S.typeKey] = S.files.length;
+  updateSidebarCount(S.typeKey);
+  closeNF();
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// DOWNLOAD
+// ─────────────────────────────────────────────────────────────────────
+async function downloadFile(fi) {
+  const file = S.files[fi];
+  const content = buildJsContent(file.varName, file.records);
+  if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
+    await Desktop.exportFiles([{ filename: file.name, content, encoding: 'utf8' }]);
+  } else {
+    const blob = new Blob([content], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PERSIST
+// ─────────────────────────────────────────────────────────────────────
+async function saveFile(fi) {
+  const file = S.files[fi];
+  const def = getTypeDef(S.typeKey);
+  const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
+  if (!result?.ok) { alert(`Save failed: ${result?.error || 'Unknown error'}`); return false; }
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// AI PROMPT
+// ─────────────────────────────────────────────────────────────────────
+const AI_PROMPTS = {
+  wordbanks: `Give me a JSON array of vocabulary entries for: [PASTE WORDS HERE].
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "word": "resilient",
+    "ipa": "rɪˈzɪl.i.ənt",
+    "partOfSpeech": "adjective",
+    "level": "B2",
+    "theme": "Character",
+    "french": "résilient",
+    "english": "resilient",
+    "german": "belastbar",
+    "italian": "resiliente",
+    "definition": "Able to recover quickly from difficulties.",
+    "exampleSentence": "She is a resilient person.",
+    "synonyms": ["tough", "adaptable"],
+    "antonyms": ["fragile"],
+    "otherForms": ["resilience", "resiliently"]
+  }
+]
+
+Rules:
+- Include all fields shown above for every object.
+- "level" must be one of: A1, A2, B1, B2, C1, C2.
+- "partOfSpeech" should be lowercase (noun, verb, adjective, adverb, preposition, conjunction, pronoun, interjection, determiner).
+- "english" is the English form of the word (same as "word" when the source is English).
+- "french", "german", "italian" are translation strings; use "" if unknown.
+- "synonyms", "antonyms", and "otherForms" must be arrays.
+- No markdown, no comments, no explanation text.`,
+
+  quotebanks: `Generate JSON for literary quote entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "quote": "The only way to do great work is to love what you do.",
+    "author": "Steve Jobs",
+    "theme": "Passion",
+    "explanation": "Great outcomes usually come from meaningful effort.",
+    "keywords": ["work", "passion", "motivation"]
+  }
+]
+
+Rules:
+- "quote" and "author" are required.
+- "keywords" must be an array of short strings.
+- No extra keys unless clearly useful.
+- No markdown or commentary.`,
+
+  dictations: `Generate JSON for dictation entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "d11",
+    "title": "Sample dictation",
+    "level": "B1",
+    "theme": "History",
+    "text": "Long dictation paragraph..."
+  }
+]
+
+Rules:
+- "title" and "text" are required.
+- Keep "id" unique.
+- No markdown or commentary.`,
+
+  grammarbanks: `Generate JSON for grammar reference entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "b2-999",
+    "level": "B2",
+    "topic": "Future Perfect",
+    "category": "Tenses",
+    "common_mistake": "...",
+    "syntax": { "formula": "Subject + will have + past participle" }
+  }
+]
+
+Rules:
+- "topic" is required.
+- Keep ids unique.
+- No markdown or explanation text.`,
+
+  gapfillbanks: `Generate JSON for gap-fill exercises.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "sentence": "She has been working here since 2019.",
+    "removedWord": "has been working",
+    "infinitive": "work",
+    "grammarType": "Present Perfect Continuous",
+    "level": "b2"
+  }
+]
+
+Rules:
+- "sentence" and "removedWord" are required.
+- "removedWord" must appear exactly in the sentence.
+- "level" should be lowercase: a1, a2, b1, b2, c1, c2.
+- No markdown or explanation text.`,
+
+  errorbanks: `Generate JSON for grammar error pairs.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "correct": "She goes to school every day.",
+    "erroneous": "She go to school every day.",
+    "explanation": "Third-person singular needs goes.",
+    "category": "Common Mistake"
+  }
+]
+
+Rules:
+- "correct", "erroneous", and "explanation" are required.
+- Keep explanations concise and pedagogical.
+- "category" is optional but recommended.
+- No markdown or commentary.`,
+
+  sentencebanks: `Generate JSON for order-sentences entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "title": "title9",
+    "part1": "First part",
+    "part2": "Second part",
+    "part3": "Third part",
+    "part4": null,
+    "part5": null,
+    "part6": null,
+    "part7": null,
+    "part8": null
+  }
+]
+
+Rules:
+- "title" required.
+- At least part1 and part2 should be present.
+- No markdown or commentary.`,
+
+  storybanks: `Generate JSON for choose-your-story entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "story-example",
+    "title": "Example Story",
+    "theme": "Work",
+    "level": "B2",
+    "coverEmoji": "💼",
+    "synopsis": "...",
+    "stages": {
+      "start": {
+        "id": "start",
+        "passage": "...",
+        "choices": [{ "text": "Next", "next": "end" }]
+      },
+      "end": {
+        "id": "end",
+        "passage": "...",
+        "choices": [],
+        "isEnding": true
+      }
+    }
+  }
+]
+
+Rules:
+- "title" and "stages" are required.
+- Stages must be an object keyed by stage id.
+- No markdown or explanation text.`,
+
+  quizzes: `Generate JSON for quiz items.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "question": "Which sentence is correct?",
+    "answer 1": "She go to school every day.",
+    "answer 2": "She goes to school every day.",
+    "answer 3": "She going to school every day.",
+    "answer 4": "She gone to school every day.",
+    "correctAnswer": "She goes to school every day.",
+    "theme": "Grammar",
+    "keyword": "present simple"
+  }
+]
+
+Rules:
+- Include all keys exactly as shown.
+- "correctAnswer" must match one of the 4 answer strings exactly.
+- Include "theme" and "keyword" whenever they are known; use an empty string if not.
+- No markdown or explanation text.`,
+};
+
+function copyAIPrompt(btn) {
+  const template = AI_PROMPTS[S.typeKey];
+  if (!template) return;
+  const markCopied = () => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1800);
+  };
+  navigator.clipboard.writeText(template).then(markCopied).catch(() => markCopied());
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// START
+// ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

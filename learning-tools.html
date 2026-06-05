@@ -155,8 +155,20 @@
     <!-- Translation -->
     <div class="detail-translation det-hoverable det-view" id="det-french">Translation</div>
     <div class="det-edit-group">
-      <div class="det-field-label">Translation</div>
-      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="Translation">
+      <div class="det-field-label">French</div>
+      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="French translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">English</div>
+      <input id="det-edit-english" class="det-edit-input" type="text" placeholder="English (if not the source word)">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">German</div>
+      <input id="det-edit-german" class="det-edit-input" type="text" placeholder="German translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">Italian</div>
+      <input id="det-edit-italian" class="det-edit-input" type="text" placeholder="Italian translation">
     </div>
 
     <!-- Meta badges -->
@@ -506,8 +518,20 @@
                 <input type="text" id="aw-ipa" placeholder="e.g. ɪˈfem.ər.əl">
               </div>
               <div class="aw-field">
-                <label>French translation <span class="aw-req">*</span></label>
+                <label>French translation</label>
                 <input type="text" id="aw-french" placeholder="e.g. Éphémère">
+              </div>
+              <div class="aw-field">
+                <label>English <span class="aw-hint">(if source word is not English)</span></label>
+                <input type="text" id="aw-english" placeholder="English translation">
+              </div>
+              <div class="aw-field">
+                <label>German translation</label>
+                <input type="text" id="aw-german" placeholder="e.g. Vergänglichkeit">
+              </div>
+              <div class="aw-field">
+                <label>Italian translation</label>
+                <input type="text" id="aw-italian" placeholder="e.g. effimero">
               </div>
               <div class="aw-field">
                 <label>Part of speech</label>
@@ -3202,6 +3226,18 @@
         .map(s => s.trim())
         .filter(Boolean);
     }
+    function _detSetAllTranslations(el, item) {
+      el.innerHTML = '';
+      const parts = [];
+      const fr = _splitFrenchTranslations(item.french).join(', ');
+      const de = item.german  || '';
+      const it = item.italian || '';
+      if (fr) parts.push('<span style="color:#aaa;font-size:0.75rem;">FR</span> ' + fr);
+      if (de) parts.push('<span style="color:#aaa;font-size:0.75rem;">DE</span> ' + de);
+      if (it) parts.push('<span style="color:#aaa;font-size:0.75rem;">IT</span> ' + it);
+      if (!parts.length) return;
+      el.innerHTML = parts.join('<span style="color:#555;margin:0 6px;">|</span>');
+    }
     function _detSetFrenchField(el, value) {
       const all = _splitFrenchTranslations(value);
       el.innerHTML = '';
@@ -3281,7 +3317,7 @@
       // View fields
       document.getElementById('det-word').textContent = item.word;
       document.getElementById('det-ipa').textContent = item.ipa ? `/ ${item.ipa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), item.french);
+      _detSetAllTranslations(document.getElementById('det-french'), item);
       document.getElementById('det-type').textContent = item.partOfSpeech;
       document.getElementById('det-theme').innerHTML = getItemThemes(item).map(t => `<span class="meta-badge">${t}</span>`).join(' ') || '<span class="meta-badge">—</span>';
       document.getElementById('det-level').textContent = (item.level || 'B2').toUpperCase();
@@ -3294,6 +3330,9 @@
       document.getElementById('det-edit-word').value = item.word || '';
       document.getElementById('det-edit-ipa').value = item.ipa || '';
       document.getElementById('det-edit-french').value = item.french || '';
+      const _detEn = document.getElementById('det-edit-english'); if (_detEn) _detEn.value = item.english || '';
+      const _detDe = document.getElementById('det-edit-german');  if (_detDe) _detDe.value = item.german  || '';
+      const _detIt = document.getElementById('det-edit-italian'); if (_detIt) _detIt.value = item.italian  || '';
       document.getElementById('det-edit-pos').value = item.partOfSpeech || '';
       document.getElementById('det-edit-level').value = (item.level || 'B2').toUpperCase();
       document.getElementById('det-edit-theme').value = getItemThemes(item).join(', ');
@@ -3382,6 +3421,9 @@
       const newWord    = document.getElementById('det-edit-word').value.trim();
       const newIpa     = document.getElementById('det-edit-ipa').value.trim();
       const newFrench  = document.getElementById('det-edit-french').value.trim();
+      const newEnglish = (document.getElementById('det-edit-english')?.value || '').trim() || newWord;
+      const newGerman  = (document.getElementById('det-edit-german')?.value  || '').trim();
+      const newItalian = (document.getElementById('det-edit-italian')?.value || '').trim();
       const newPos     = document.getElementById('det-edit-pos').value.trim();
       const newLevel   = document.getElementById('det-edit-level').value.trim();
       const newTheme   = document.getElementById('det-edit-theme').value.trim();
@@ -3398,7 +3440,7 @@
       }
 
       const update = {
-        word: newWord, ipa: newIpa, french: newFrench,
+        word: newWord, ipa: newIpa, french: newFrench, english: newEnglish, german: newGerman, italian: newItalian,
         partOfSpeech: newPos, level: newLevel,
         theme: newTheme.split(',').map(s=>s.trim()).filter(Boolean),
         definition: newDef, exampleSentence: newEx,
@@ -3422,7 +3464,7 @@
       // Refresh view fields
       document.getElementById('det-word').textContent = newWord;
       document.getElementById('det-ipa').textContent = newIpa ? `/ ${newIpa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), newFrench);
+      _detSetAllTranslations(document.getElementById('det-french'), { french: newFrench, german: newGerman, italian: newItalian });
       document.getElementById('det-type').textContent = newPos;
       document.getElementById('det-level').textContent = newLevel.toUpperCase();
       document.getElementById('det-theme').innerHTML = update.theme.map(th => `<span class="meta-badge">${th}</span>`).join(' ') || '<span class="meta-badge">—</span>';
@@ -3851,7 +3893,7 @@ function hideFailure() {
         const letM  = skip === 'letter'  || letts.includes('all') || (item.word && letts.includes(item.word[0].toUpperCase()));
         const lenM  = skip === 'length'  || lens.includes('all')  || (item.word && lens.includes(String(item.word.length)));
         const kwrdM = skip === 'keyword' || kwrds.includes('all') || (item.keywords || []).some(k => kwrds.includes(k));
-        const srcM  = skip === 'source'  || srcs.includes('all')  || (item._source && srcs.includes(item._source));
+        const srcM  = skip === 'source'  || srcs.includes('all')  || (Array.isArray(item._sources) ? item._sources : item._source ? [item._source] : []).some(s => srcs.includes(s));
         return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && (!simple || isSimpleWord(item));
       }
 
@@ -3888,7 +3930,7 @@ function hideFailure() {
       const letD  = buildCounts('letter',  item => item.word ? [item.word[0].toUpperCase()] : []);
       const lenD  = buildCounts('length',  item => item.word ? [String(item.word.length)]   : []);
       const kwrdD = buildCounts('keyword', item => (item.keywords || []).filter(Boolean));
-      const srcD  = buildCounts('source',  item => item._source ? [item._source] : []);
+      const srcD  = buildCounts('source',  item => Array.isArray(item._sources) && item._sources.length ? item._sources : (item._source ? [item._source] : []));
 
       document.querySelectorAll('.level-picker-wrap').forEach(w => applyToWrap(w, lvlD.counts, lvlD.total));
       document.querySelectorAll(THEME_SEL).forEach(w => applyToWrap(w, thmD.counts, thmD.total));
@@ -3923,7 +3965,7 @@ function hideFailure() {
         const letM  = (letts.includes('all') || (item.word && letts.includes(item.word[0].toUpperCase())));
         const lenM  = (lens.includes('all')  || (item.word && lens.includes(String(item.word.length))));
         const kwrdM = (kwrds.includes('all') || ((item.keywords || []).some(k => kwrds.includes(k))));
-        const srcM  = (srcs.includes('all')  || (item._source && srcs.includes(item._source)));
+        const srcM  = (srcs.includes('all')  || (Array.isArray(item._sources) ? item._sources : item._source ? [item._source] : []).some(s => srcs.includes(s)));
         return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && (!simple || isSimpleWord(item));
       });
     }
@@ -4468,7 +4510,7 @@ function hideFailure() {
         div.className = 'flip-card';
         const ipaHtml = item.ipa ? `<div style="font-family:'Courier New',monospace;font-size:0.78rem;color:#888;margin-bottom:4px;">/ ${item.ipa} /</div>` : '';
         const otherFormsHtml = item.otherForms ? `<div style="font-size:0.78rem;color:#888;margin-top:4px;">${item.otherForms}</div>` : '';
-        div.innerHTML = `<div class="flip-card-inner"><div class="flip-card-front">${item.word.toLowerCase()}</div><div class="flip-card-back">${ipaHtml}<strong>${item.french}</strong><em style="display:block;margin-top:2px;">(${item.partOfSpeech})</em>${otherFormsHtml}<br>${_firstVal(item.definition)}</div></div>`;
+        div.innerHTML = `<div class="flip-card-inner"><div class="flip-card-front">${item.word.toLowerCase()}</div><div class="flip-card-back">${ipaHtml}<strong>${getTranslation(item)}</strong><em style="display:block;margin-top:2px;">(${item.partOfSpeech})</em>${otherFormsHtml}<br>${_firstVal(item.definition)}</div></div>`;
         container.appendChild(div);
       });
     }
@@ -11581,9 +11623,12 @@ function renderSentenceWithGap(userInput) {
       _customDbInitPromise = (async () => {
         await initCustomDatabases();
         if (window.CustomBankUtils) {
-          _customDbSources = CustomBankUtils.getCustomEntriesFromLiveBank('words')
-            .map(w => String(w._source || '').trim())
-            .filter(Boolean)
+          const _wordFiles = await CustomBankUtils.listCustomFiles('words');
+          const _baseFile = CustomBankUtils.getConfig('words').baseFile;
+          _customDbSources = _wordFiles
+            .map(f => String((f && (f.filename || f.relativePath)) || '').trim())
+            .filter(name => name && name.toLowerCase() !== _baseFile.toLowerCase())
+            .map(name => name.replace(/\.js$/i, ''))
             .filter((v, i, arr) => arr.indexOf(v) === i)
             .sort();
         }
@@ -11676,7 +11721,7 @@ function renderSentenceWithGap(userInput) {
 
     // ---- WORDS ----
     function awClearForm() {
-      ['aw-word','aw-ipa','aw-french','aw-pos','aw-level','aw-theme','aw-definition','aw-example','aw-synonyms','aw-antonyms']
+      ['aw-word','aw-ipa','aw-french','aw-english','aw-german','aw-italian','aw-pos','aw-level','aw-theme','aw-definition','aw-example','aw-synonyms','aw-antonyms']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       document.getElementById('aw-form-feedback').textContent = '';
     }
@@ -11685,6 +11730,9 @@ function renderSentenceWithGap(userInput) {
       document.getElementById('aw-word').value       = w.word || '';
       document.getElementById('aw-ipa').value        = w.ipa || '';
       document.getElementById('aw-french').value     = w.french || '';
+      const awEn = document.getElementById('aw-english'); if (awEn) awEn.value = w.english || '';
+      const awDe = document.getElementById('aw-german');  if (awDe) awDe.value = w.german  || '';
+      const awIt = document.getElementById('aw-italian'); if (awIt) awIt.value = w.italian  || '';
       document.getElementById('aw-pos').value        = w.partOfSpeech || '';
       document.getElementById('aw-level').value      = w.level || '';
       document.getElementById('aw-theme').value      = getItemThemes(w).join(', ');
@@ -11753,11 +11801,14 @@ function renderSentenceWithGap(userInput) {
     function awSubmitForm() {
       const word = document.getElementById('aw-word').value.trim();
       const french = document.getElementById('aw-french').value.trim();
+      const english = (document.getElementById('aw-english')?.value || '').trim() || word;
+      const german  = (document.getElementById('aw-german')?.value  || '').trim();
+      const italian = (document.getElementById('aw-italian')?.value || '').trim();
       const definition = document.getElementById('aw-definition').value.trim();
       if (!word)       { awSetFeedback('aw-form-feedback', '⚠ Word is required.', 'err'); return; }
       const themeRaw = document.getElementById('aw-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
-      const entry = { word, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
+      const entry = { word, sourceLanguage: 'en', english, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, german, italian, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
       if (awEditIdx >= 0) {
         const custom = awGetCustomWords(); const old = custom[awEditIdx];
         const bi = vocabBank.findIndex(v => v.word.toLowerCase() === old.word.toLowerCase() && v._custom);
@@ -12383,7 +12434,13 @@ function renderSentenceWithGap(userInput) {
     // ================================================================
     // i18n — EN / DE / IT
     // ================================================================
-    let currentLang = (function(){ try { return localStorage.getItem('app_lang') || 'en'; } catch(e){ return 'en'; }})();
+    let currentLang = (function(){ try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
+
+    function getTranslation(w, lang) {
+      const l = lang || currentLang;
+      if (l === 'en') return w.english || w.word || '';
+      return w[l] || w.french || w.translation || '';
+    }
 
     const I18N = {
       en: {
@@ -12930,7 +12987,7 @@ function renderSentenceWithGap(userInput) {
 
     function setLang(lang) {
       currentLang = lang;
-      try { localStorage.setItem('app_lang', lang); } catch(e){}
+      try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.language = lang; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch(e){}
       document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + lang));
       applyLang();
     }

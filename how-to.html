@@ -742,7 +742,7 @@
           <ol class="steps">
             <li>Open <button class="xlink" onclick="openTool('manage-database.html')">Manage Database</button> and click <strong>Word Banks</strong>.</li>
             <li>Click <strong>New Theme</strong> and name it after the unit or topic (e.g., "Unit 1 — Introductions").</li>
-            <li>Add words. Fill in as many fields as possible — <em>translation</em>, <em>definition</em>, <em>IPA</em>, <em>synonyms</em> — because the richer each entry is, the more game types unlock for that theme.</li>
+            <li>Add words. Each word can carry translations in up to four languages — <em>French</em>, <em>English</em>, <em>German</em>, and <em>Italian</em> — plus <em>definition</em>, <em>IPA</em>, and <em>synonyms</em>. The richer each entry is, the more game types unlock for that theme.</li>
             <li>If you run oral dictations, click <strong>Dictations</strong> and create a sentence set linked to the theme.</li>
             <li>For grammar exercises, go to <strong>Grammar Banks</strong> and create gap-fill item sets.</li>
           </ol>
@@ -760,7 +760,7 @@
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">A few settings make the app feel like yours. Open <button class="xlink" onclick="openTool('general-config.html')">General Config</button> from the launcher.</p>
           <ol class="steps">
             <li><strong>App Identity</strong> — Set the title to your school name or your name. It appears in the launcher header.</li>
-            <li><strong>Language</strong> — Choose the interface language (English, French, German, or Italian).</li>
+            <li><strong>Language</strong> — Choose the interface language (English, French, German, or Italian). This also sets which translation column is shown by default in vocabulary activities.</li>
             <li><strong>Startup &amp; Launch</strong> — Choose which tools open automatically when the launcher starts, and how they arrange on screen. The most common setup is <em>Split screen</em> with Class Management on the left and Board on the right — both open side by side instantly every time.</li>
             <li><strong>Per-app Notes</strong> — Jot any reminders for each tool; notes appear on the launcher card so you see them before opening.</li>
           </ol>
@@ -822,8 +822,9 @@
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
-            <li>Switch the app interface language (English / French).</li>
+            <li>Switch the app interface language (English / French / German / Italian).</li>
             <li>The selected language applies to menus, labels, and built-in help text across all tools.</li>
+            <li>The active language also controls which translation column is shown by default in vocabulary activities — e.g., setting the interface to German shows German translations in Flash Cards and other games.</li>
           </ol>
         </div></div>
       </div>
@@ -1210,7 +1211,7 @@
             <li>The live word count updates — aim for at least 10 words for most games to work.</li>
             <li>Enable <strong>Team Mode</strong> to track scores per team across activities.</li>
           </ol>
-          <div class="tip"><strong>Tip:</strong> Word pool content comes from your <button class="xlink" onclick="navToAccordion('manage-database','acc-db-words')">Word Banks</button> — the richer the entries (definition, IPA, synonyms), the more game types unlock.</div>
+          <div class="tip"><strong>Tip:</strong> Word pool content comes from your <button class="xlink" onclick="navToAccordion('manage-database','acc-db-words')">Word Banks</button> — the richer the entries (definition, IPA, synonyms, translations in all four languages), the more game types unlock. The translation shown in games matches the interface language set in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-language')">General Config → Language</button>.</div>
         </div></div>
       </div>
 
@@ -1316,10 +1317,28 @@
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
             <li>Click <strong>Word Banks</strong> and create a new theme (e.g., "Unit 3 — Travel").</li>
-            <li>Add words with translations, IPA, definitions, synonyms, and antonyms.</li>
+            <li>Click <strong>Add Word</strong> to open the word form. Fill in the word itself, then add translations in any of the four supported languages: <strong>French</strong>, <strong>English</strong>, <strong>German</strong>, and <strong>Italian</strong>. Also add IPA, definition, synonyms, and antonyms where possible.</li>
+            <li>The <strong>English</strong> field is only needed when the source word is not English (e.g., if the main word is a French or German word, enter its English equivalent here).</li>
             <li>Use <strong>Rename Theme</strong> to reorganise without losing data, or <strong>Merge Themes</strong> to combine two.</li>
           </ol>
-          <div class="tip"><strong>Tip:</strong> The more fields you fill in per word (IPA, definition, synonyms), the more <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-vocab')">vocabulary game types</button> become available for that theme.</div>
+          <div class="tip"><strong>Tip:</strong> The more fields you fill in per word (IPA, definition, synonyms, translations), the more <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-vocab')">vocabulary game types</button> become available for that theme. The active interface language controls which translation is shown by default in games.</div>
+          <p style="font-size:0.87rem;font-weight:700;margin:14px 0 6px;">Adding words via JSON import</p>
+          <p style="font-size:0.85rem;line-height:1.6;margin-bottom:10px;">Use the <strong>JSON</strong> or <strong>Bulk JSON</strong> tab in the Add Word panel to paste an array of word objects. Include as many language fields as you have:</p>
+          <pre style="background:#f5f5f5;border:2px solid #000;border-radius:6px;padding:12px;font-size:0.76rem;line-height:1.6;overflow-x:auto;">{
+  "word": "ephemeral",
+  "ipa": "ɪˈfem.ər.əl",
+  "partOfSpeech": "adjective",
+  "level": "C1",
+  "theme": "Time",
+  "french": "éphémère",
+  "english": "ephemeral",
+  "german": "vergänglich",
+  "italian": "effimero",
+  "definition": "Lasting for only a short time.",
+  "synonyms": ["fleeting", "transient"],
+  "antonyms": ["permanent"]
+}</pre>
+          <div class="tip"><strong>Tip:</strong> You can click <strong>Copy AI Prompt</strong> in the JSON tab to get a ready-made prompt to give an AI assistant — it will generate correctly formatted word objects including all four language fields.</div>
         </div></div>
       </div>
 

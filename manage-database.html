@@ -210,8 +210,20 @@
     <!-- Translation -->
     <div class="detail-translation det-hoverable det-view" id="det-french">Translation</div>
     <div class="det-edit-group">
-      <div class="det-field-label">Translation</div>
-      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="Translation">
+      <div class="det-field-label">French</div>
+      <input id="det-edit-french" class="det-edit-input" type="text" placeholder="French translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">English</div>
+      <input id="det-edit-english" class="det-edit-input" type="text" placeholder="English (if not the source word)">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">German</div>
+      <input id="det-edit-german" class="det-edit-input" type="text" placeholder="German translation">
+    </div>
+    <div class="det-edit-group">
+      <div class="det-field-label">Italian</div>
+      <input id="det-edit-italian" class="det-edit-input" type="text" placeholder="Italian translation">
     </div>
 
     <!-- Meta badges -->
@@ -733,8 +745,20 @@
                 <input type="text" id="aw-ipa" placeholder="e.g. ɪˈfem.ər.əl">
               </div>
               <div class="aw-field">
-                <label>French translation <span class="aw-req">*</span></label>
+                <label>French translation</label>
                 <input type="text" id="aw-french" placeholder="e.g. Éphémère">
+              </div>
+              <div class="aw-field">
+                <label>English <span class="aw-hint">(if source word is not English)</span></label>
+                <input type="text" id="aw-english" placeholder="English translation">
+              </div>
+              <div class="aw-field">
+                <label>German translation</label>
+                <input type="text" id="aw-german" placeholder="e.g. Vergänglichkeit">
+              </div>
+              <div class="aw-field">
+                <label>Italian translation</label>
+                <input type="text" id="aw-italian" placeholder="e.g. effimero">
               </div>
               <div class="aw-field">
                 <label>Part of speech</label>
@@ -782,6 +806,7 @@
             <div id="aw-form-feedback" class="aw-feedback"></div>
             <div id="aw-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏️ Editing: <span id="aw-edit-word-name"></span> — <button class="aw-inline-cancel" onclick="awCancelEdit()">Cancel edit</button>
+              <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-edit-source"></span></div>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
               <button class="action-btn" id="aw-submit-btn" onclick="awSubmitForm('memory')">➕ Add Word</button>
@@ -871,6 +896,7 @@
             <div id="aw-quote-feedback" class="aw-feedback"></div>
             <div id="aw-quote-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏️ Editing quote by: <span id="aw-quote-edit-author"></span> — <button class="aw-inline-cancel" onclick="awCancelEditQuote()">Cancel edit</button>
+              <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-quote-edit-source"></span></div>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
               <button class="action-btn" id="aw-quote-submit-btn" onclick="awSubmitQuote()">➕ Add Quote</button>
@@ -930,6 +956,7 @@
             <div id="aw-gap-feedback" class="aw-feedback"></div>
             <div id="aw-gap-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏️ Editing sentence — <button class="aw-inline-cancel" onclick="awCancelEditGap()">Cancel edit</button>
+              <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-gap-edit-source"></span></div>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
               <button class="action-btn" id="aw-gap-submit-btn" onclick="awSubmitGap()">➕ Add Gap Fill</button>
@@ -979,6 +1006,7 @@
             <div id="aw-error-feedback" class="aw-feedback"></div>
             <div id="aw-error-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏️ Editing error pair — <button class="aw-inline-cancel" onclick="awCancelEditError()">Cancel edit</button>
+              <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-error-edit-source"></span></div>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
               <button class="action-btn" id="aw-error-submit-btn" onclick="awSubmitError()">➕ Add Error Pair</button>
@@ -1026,6 +1054,7 @@
               <div id="aw-dictation-feedback" class="aw-feedback"></div>
               <div id="aw-dictation-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
                 ✏️ Editing dictation — <button class="aw-inline-cancel" onclick="awCancelEditDictation()">Cancel edit</button>
+                <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-dictation-edit-source"></span></div>
               </div>
               <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
                 <button class="action-btn" id="aw-dictation-submit-btn" onclick="awSubmitDictation()">➕ Add Dictation</button>
@@ -1119,6 +1148,7 @@
               <div id="aw-sentence-feedback" class="aw-feedback"></div>
               <div id="aw-sentence-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
                 ✏️ Editing sentence set — <button class="aw-inline-cancel" onclick="awCancelEditSentence()">Cancel edit</button>
+                <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-sentence-edit-source"></span></div>
               </div>
               <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
                 <button class="action-btn" id="aw-sentence-submit-btn" onclick="awSubmitSentence()">➕ Add Sentence Set</button>
@@ -1247,6 +1277,7 @@
               <div id="aw-quiz-feedback" class="aw-feedback"></div>
               <div id="aw-quiz-edit-banner" style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
                 ✏️ Editing quiz question — <button class="aw-inline-cancel" onclick="awCancelEditQuiz()">Cancel edit</button>
+                <div style="font-size:0.8rem;font-weight:400;color:#666;margin-top:3px;">📁 <span id="aw-quiz-edit-source"></span></div>
               </div>
               <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
                 <button class="action-btn" id="aw-quiz-submit-btn" onclick="awSubmitQuiz()">➕ Add Quiz Item</button>
@@ -1329,7 +1360,10 @@
   <div id="mdb-edit-modal-overlay" onclick="if(event.target===this)mdbCloseEditWord()">
     <div id="mdb-edit-modal">
       <div id="mdb-edit-modal-header">
-        <h3 id="mdb-edit-modal-title">✏️ Edit Word</h3>
+        <div>
+          <h3 id="mdb-edit-modal-title">✏️ Edit Word</h3>
+          <div id="mdb-edit-source-info" style="font-size:0.8rem;color:#aaa;margin-top:3px;"></div>
+        </div>
         <button onclick="mdbCloseEditWord()">✕ Close</button>
       </div>
       <div id="mdb-edit-modal-body">
@@ -1340,8 +1374,20 @@
             <input type="text" id="mdb-edit-word" placeholder="Word">
           </div>
           <div class="mdb-edit-field">
-            <label>Translation (French)</label>
+            <label>French</label>
             <input type="text" id="mdb-edit-french" placeholder="e.g. Éphémère">
+          </div>
+          <div class="mdb-edit-field">
+            <label>English</label>
+            <input type="text" id="mdb-edit-english" placeholder="English (if not the source word)">
+          </div>
+          <div class="mdb-edit-field">
+            <label>German</label>
+            <input type="text" id="mdb-edit-german" placeholder="e.g. Vergänglichkeit">
+          </div>
+          <div class="mdb-edit-field">
+            <label>Italian</label>
+            <input type="text" id="mdb-edit-italian" placeholder="e.g. effimero">
           </div>
           <div class="mdb-edit-field">
             <label>IPA</label>
@@ -1943,6 +1989,18 @@
         .map(s => s.trim())
         .filter(Boolean);
     }
+    function _detSetAllTranslations(el, item) {
+      el.innerHTML = '';
+      const parts = [];
+      const fr = _splitFrenchTranslations(item.french).join(', ');
+      const de = item.german  || '';
+      const it = item.italian || '';
+      if (fr) parts.push('<span style="color:#aaa;font-size:0.75rem;">FR</span> ' + fr);
+      if (de) parts.push('<span style="color:#aaa;font-size:0.75rem;">DE</span> ' + de);
+      if (it) parts.push('<span style="color:#aaa;font-size:0.75rem;">IT</span> ' + it);
+      if (!parts.length) return;
+      el.innerHTML = parts.join('<span style="color:#555;margin:0 6px;">|</span>');
+    }
     function _detSetFrenchField(el, value) {
       const all = _splitFrenchTranslations(value);
       el.innerHTML = '';
@@ -2022,7 +2080,7 @@
       // View fields
       document.getElementById('det-word').textContent = item.word;
       document.getElementById('det-ipa').textContent = item.ipa ? `/ ${item.ipa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), item.french);
+      _detSetAllTranslations(document.getElementById('det-french'), item);
       document.getElementById('det-type').textContent = item.partOfSpeech;
       document.getElementById('det-theme').innerHTML = getItemThemes(item).map(t => `<span class="meta-badge">${t}</span>`).join(' ') || '<span class="meta-badge">—</span>';
       document.getElementById('det-level').textContent = (item.level || 'B2').toUpperCase();
@@ -2035,6 +2093,9 @@
       document.getElementById('det-edit-word').value = item.word || '';
       document.getElementById('det-edit-ipa').value = item.ipa || '';
       document.getElementById('det-edit-french').value = item.french || '';
+      const _detEn = document.getElementById('det-edit-english'); if (_detEn) _detEn.value = item.english || '';
+      const _detDe = document.getElementById('det-edit-german');  if (_detDe) _detDe.value = item.german  || '';
+      const _detIt = document.getElementById('det-edit-italian'); if (_detIt) _detIt.value = item.italian  || '';
       document.getElementById('det-edit-pos').value = item.partOfSpeech || '';
       document.getElementById('det-edit-level').value = (item.level || 'B2').toUpperCase();
       document.getElementById('det-edit-theme').value = getItemThemes(item).join(', ');
@@ -2124,6 +2185,9 @@
       const newWord    = document.getElementById('det-edit-word').value.trim();
       const newIpa     = document.getElementById('det-edit-ipa').value.trim();
       const newFrench  = document.getElementById('det-edit-french').value.trim();
+      const newEnglish = (document.getElementById('det-edit-english')?.value || '').trim() || newWord;
+      const newGerman  = (document.getElementById('det-edit-german')?.value  || '').trim();
+      const newItalian = (document.getElementById('det-edit-italian')?.value || '').trim();
       const newPos     = document.getElementById('det-edit-pos').value.trim();
       const newLevel   = document.getElementById('det-edit-level').value.trim();
       const newTheme   = document.getElementById('det-edit-theme').value.trim();
@@ -2141,7 +2205,7 @@
       }
 
       const update = {
-        word: newWord, ipa: newIpa, french: newFrench,
+        word: newWord, ipa: newIpa, french: newFrench, english: newEnglish, german: newGerman, italian: newItalian,
         partOfSpeech: newPos, level: newLevel,
         theme: newTheme.split(',').map(s=>s.trim()).filter(Boolean),
         keywords: newKeywords ? newKeywords.split(',').map(s=>s.trim()).filter(Boolean) : [],
@@ -2167,7 +2231,7 @@
       // Refresh view fields
       document.getElementById('det-word').textContent = newWord;
       document.getElementById('det-ipa').textContent = newIpa ? `/ ${newIpa} /` : '';
-      _detSetFrenchField(document.getElementById('det-french'), newFrench);
+      _detSetAllTranslations(document.getElementById('det-french'), { french: newFrench, german: newGerman, italian: newItalian });
       document.getElementById('det-type').textContent = newPos;
       document.getElementById('det-level').textContent = newLevel.toUpperCase();
       document.getElementById('det-theme').innerHTML = update.theme.map(th => `<span class="meta-badge">${th}</span>`).join(' ') || '<span class="meta-badge">—</span>';
@@ -2638,7 +2702,7 @@ function hideFailure() {
         const letM  = skip === 'letter'  || letts.includes('all') || (letterVal ? letts.includes(letterVal) : letts.includes(UNDEFINED_FILTER_VALUE));
         const lenM  = skip === 'length'  || lens.includes('all')  || (lengthVal ? lens.includes(lengthVal) : lens.includes(UNDEFINED_FILTER_VALUE));
         const kwrdM = skip === 'keyword' || kwrds.includes('all') || kwrds.some(s => s === UNDEFINED_FILTER_VALUE ? keywordVals.length === 0 : keywordVals.includes(s));
-        const srcM  = skip === 'source'  || srcs.includes('all')  || (item._source && srcs.includes(item._source));
+        const srcM  = skip === 'source'  || srcs.includes('all')  || (Array.isArray(item._sources) ? item._sources : item._source ? [item._source] : []).some(s => srcs.includes(s));
         return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && (!simple || isSimpleWord(item));
       }
 
@@ -2675,7 +2739,7 @@ function hideFailure() {
       const letD  = buildCounts('letter',  item => [item.word ? item.word[0].toUpperCase() : UNDEFINED_FILTER_VALUE]);
       const lenD  = buildCounts('length',  item => [item.word ? String(item.word.length)   : UNDEFINED_FILTER_VALUE]);
       const kwrdD = buildCounts('keyword', item => { const vs = (Array.isArray(item.keywords) ? item.keywords : []).map(k => String(k || '').trim()).filter(Boolean); return vs.length ? vs : [UNDEFINED_FILTER_VALUE]; });
-      const srcD  = buildCounts('source',  item => item._source ? [item._source] : []);
+      const srcD  = buildCounts('source',  item => Array.isArray(item._sources) && item._sources.length ? item._sources : (item._source ? [item._source] : []));
 
       document.querySelectorAll('.level-picker-wrap').forEach(w => applyToWrap(w, lvlD.counts, lvlD.total));
       document.querySelectorAll(THEME_SEL).forEach(w => applyToWrap(w, thmD.counts, thmD.total));
@@ -2723,7 +2787,7 @@ function hideFailure() {
         const letM  = letts.includes('all') || (letterVal ? letts.includes(letterVal) : letts.includes(UNDEFINED_FILTER_VALUE));
         const lenM  = lens.includes('all') || (lengthVal ? lens.includes(lengthVal) : lens.includes(UNDEFINED_FILTER_VALUE));
         const kwrdM = kwrds.includes('all') || kwrds.some(sel => sel === UNDEFINED_FILTER_VALUE ? keywordVals.length === 0 : keywordVals.includes(sel));
-        const srcM  = srcs.includes('all') || (item._source && srcs.includes(item._source));
+        const srcM  = srcs.includes('all') || (Array.isArray(item._sources) ? item._sources : item._source ? [item._source] : []).some(s => srcs.includes(s));
         return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && (!simple || isSimpleWord(item));
       });
     }
@@ -4360,9 +4424,12 @@ function hideFailure() {
       _customDbInitPromise = (async () => {
         await initCustomDatabases();
         if (window.CustomBankUtils) {
-          _customDbSources = CustomBankUtils.getCustomEntriesFromLiveBank('words')
-            .map(w => String(w._source || '').trim())
-            .filter(Boolean)
+          const _wordFiles = await CustomBankUtils.listCustomFiles('words');
+          const _baseFile = CustomBankUtils.getConfig('words').baseFile;
+          _customDbSources = _wordFiles
+            .map(f => String((f && (f.filename || f.relativePath)) || '').trim())
+            .filter(name => name && name.toLowerCase() !== _baseFile.toLowerCase())
+            .map(name => name.replace(/\.js$/i, ''))
             .filter((v, i, arr) => arr.indexOf(v) === i)
             .sort();
         }
@@ -4596,6 +4663,7 @@ function hideFailure() {
 
       document.getElementById('aw-quiz-submit-btn').textContent = '💾 Save Changes';
       document.getElementById('aw-quiz-edit-banner').style.display = '';
+      document.getElementById('aw-quiz-edit-source').textContent = awGetItemSource(q);
       document.getElementById('aw-quiz-feedback').textContent = '';
 
       document.getElementById('aw-quiz-question').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4786,6 +4854,7 @@ function hideFailure() {
       document.getElementById('aw-dictation-text').value = d.text || '';
       document.getElementById('aw-dictation-submit-btn').textContent = t('saveChanges');
       document.getElementById('aw-dictation-edit-banner').style.display = '';
+      document.getElementById('aw-dictation-edit-source').textContent = awGetItemSource(d);
       const fb = document.getElementById('aw-dictation-feedback');
       if (fb) fb.textContent = '';
       awSetTab('dictation');
@@ -4960,6 +5029,7 @@ function hideFailure() {
       document.getElementById('aw-sentence-parts').value = awGetSentencePartsFromEntry(row).join('\n');
       document.getElementById('aw-sentence-submit-btn').textContent = t('saveChanges');
       document.getElementById('aw-sentence-edit-banner').style.display = '';
+      document.getElementById('aw-sentence-edit-source').textContent = awGetItemSource(row);
       const fb = document.getElementById('aw-sentence-feedback');
       if (fb) fb.textContent = '';
       awSetTab('sentence');
@@ -5099,9 +5169,16 @@ function hideFailure() {
       awSetFeedback('aw-story-feedback', `✓ Imported ${added} stor${added !== 1 ? 'ies' : 'y'}.`, 'ok');
     }
 
+    function awGetItemSource(item) {
+      if (!item) return '';
+      if (item._customFile) return item._customFile;
+      if (item._source && item._source !== 'custom') return item._source.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      return 'Custom (browser)';
+    }
+
     // ---- WORDS ----
     function awClearForm() {
-      ['aw-word','aw-ipa','aw-french','aw-pos','aw-level','aw-theme','aw-definition','aw-example','aw-synonyms','aw-antonyms','aw-otherforms']
+      ['aw-word','aw-ipa','aw-french','aw-english','aw-german','aw-italian','aw-pos','aw-level','aw-theme','aw-definition','aw-example','aw-synonyms','aw-antonyms','aw-otherforms']
         .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       document.getElementById('aw-form-feedback').textContent = '';
     }
@@ -5110,6 +5187,9 @@ function hideFailure() {
       document.getElementById('aw-word').value       = w.word || '';
       document.getElementById('aw-ipa').value        = w.ipa || '';
       document.getElementById('aw-french').value     = w.french || '';
+      const awEn = document.getElementById('aw-english'); if (awEn) awEn.value = w.english || '';
+      const awDe = document.getElementById('aw-german');  if (awDe) awDe.value = w.german  || '';
+      const awIt = document.getElementById('aw-italian'); if (awIt) awIt.value = w.italian  || '';
       document.getElementById('aw-pos').value        = w.partOfSpeech || '';
       document.getElementById('aw-level').value      = w.level || '';
       document.getElementById('aw-theme').value      = getItemThemes(w).join(', ');
@@ -5134,6 +5214,7 @@ function hideFailure() {
       document.getElementById('aw-delete-current-btn').disabled = false;
       document.getElementById('aw-edit-banner').style.display = '';
       document.getElementById('aw-edit-word-name').textContent = w.word;
+      document.getElementById('aw-edit-source').textContent = awGetItemSource(w);
       document.getElementById('aw-form-feedback').textContent = '';
       awSetTab('form');
       document.getElementById('aw-word').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5219,11 +5300,14 @@ function hideFailure() {
       }
       const word = document.getElementById('aw-word').value.trim();
       const french = document.getElementById('aw-french').value.trim();
+      const english = (document.getElementById('aw-english')?.value || '').trim() || word;
+      const german  = (document.getElementById('aw-german')?.value  || '').trim();
+      const italian = (document.getElementById('aw-italian')?.value || '').trim();
       const definition = document.getElementById('aw-definition').value.trim();
       if (!word)       { awSetFeedback('aw-form-feedback', '⚠ Word is required.', 'err'); return; }
       const themeRaw = document.getElementById('aw-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
-      const entry = { word, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), otherForms: awParseCSV(document.getElementById('aw-otherforms').value), _custom: true };
+      const entry = { word, sourceLanguage: 'en', english, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, german, italian, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), otherForms: awParseCSV(document.getElementById('aw-otherforms').value), _custom: true };
       if (awEditIdx >= 0) {
         const custom = awGetCustomWords(); const old = custom[awEditIdx];
         const bi = vocabBank.findIndex(v => v.word.toLowerCase() === old.word.toLowerCase() && v._custom);
@@ -5428,6 +5512,7 @@ function hideFailure() {
       document.getElementById('aw-quote-submit-btn').textContent = t('saveChanges');
       document.getElementById('aw-quote-edit-banner').style.display = '';
       document.getElementById('aw-quote-edit-author').textContent = q.author || 'quote';
+      document.getElementById('aw-quote-edit-source').textContent = awGetItemSource(q);
       document.getElementById('aw-quote-feedback').textContent = '';
       awSetTab('quote');
       document.getElementById('aw-quote-text').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5528,6 +5613,7 @@ function hideFailure() {
       document.getElementById('aw-gap-level').value     = g.level || '';
       document.getElementById('aw-gap-submit-btn').textContent = t('saveChanges');
       document.getElementById('aw-gap-edit-banner').style.display = '';
+      document.getElementById('aw-gap-edit-source').textContent = awGetItemSource(g);
       document.getElementById('aw-gap-feedback').textContent = '';
       awSetTab('gap');
       document.getElementById('aw-gap-sentence').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -5632,6 +5718,7 @@ function hideFailure() {
       document.getElementById('aw-error-category').value    = e.category || '';
       document.getElementById('aw-error-submit-btn').textContent = t('saveChanges');
       document.getElementById('aw-error-edit-banner').style.display = '';
+      document.getElementById('aw-error-edit-source').textContent = awGetItemSource(e);
       document.getElementById('aw-error-feedback').textContent = '';
       awSetTab('error');
       document.getElementById('aw-error-correct').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -6332,7 +6419,7 @@ Rules:
       const custom = awGetCustomWords(); const tbody = document.getElementById('aw-manage-body'); const empty = document.getElementById('aw-manage-empty');
       empty.style.display = custom.length ? 'none' : 'block';
       tbody.innerHTML = custom.map((w,i) => `<tr>
-        <td><strong>${w.word}</strong></td><td>${w.french||''}</td><td>${w.partOfSpeech||''}</td><td>${w.level||''}</td><td>${getItemThemes(w).join(', ')||''}</td>
+        <td><strong>${w.word}</strong></td><td>${getTranslation(w)}</td><td>${w.partOfSpeech||''}</td><td>${w.level||''}</td><td>${getItemThemes(w).join(', ')||''}</td>
         <td style="max-width:220px;color:#555;">${(w.definition||'').substring(0,70)}${(w.definition||'').length>70?'…':''}</td>
         <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditWord(${i})">✏️</button><button class="aw-delete-btn" onclick="awDeleteWord(${i})">✕</button></td>
       </tr>`).join('');
@@ -6567,7 +6654,13 @@ Rules:
     // ================================================================
     // i18n — EN / DE / IT
     // ================================================================
-    let currentLang = (function(){ try { return localStorage.getItem('app_lang') || 'en'; } catch(e){ return 'en'; }})();
+    let currentLang = (function(){ try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
+
+    function getTranslation(w, lang) {
+      const l = lang || currentLang;
+      if (l === 'en') return w.english || w.word || '';
+      return w[l] || w.french || w.translation || '';
+    }
 
     const I18N = {
       en: {
@@ -7090,7 +7183,7 @@ Rules:
 
     function setLang(lang) {
       currentLang = lang;
-      try { localStorage.setItem('app_lang', lang); } catch(e){}
+      try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.language = lang; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch(e){}
       document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + lang));
       applyLang();
     }
@@ -8059,7 +8152,7 @@ Rules:
       mdbFilteredWords = vocabBank.filter(w => {
         if (!w.word) return false;
         if (deleted.has(w.word.toLowerCase())) return false;
-        if (search && !wildcardTest(search, w.word, w.translation)) return false;
+        if (search && !wildcardTest(search, w.word, w.french, w.german, w.italian, w.english, w.translation)) return false;
         if (theme && !getItemThemes(w).includes(theme)) return false;
         if (source === 'custom' && !mdbIsCustomWord(w.word)) return false;
         if (source === 'builtin' && mdbIsCustomWord(w.word)) return false;
@@ -8096,7 +8189,7 @@ Rules:
         row.innerHTML = `
           <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation();mdbToggleWord('${w.word.toLowerCase().replace(/'/g,"\\'")}', this.checked)">
           <div>
-            <div class="mdb-word-name">${w.word}${w.translation ? ` <span style="color:#999;font-weight:400;font-size:0.85rem;">— ${w.translation}</span>` : ''}</div>
+            <div class="mdb-word-name">${w.word}${getTranslation(w) ? ` <span style="color:#999;font-weight:400;font-size:0.85rem;">— ${getTranslation(w)}</span>` : ''}</div>
             <div class="mdb-word-meta">
               ${w.level ? `<span class="mdb-badge">${w.level.toUpperCase()}</span>` : ''}
               ${w.partOfSpeech ? `<span class="mdb-badge">${w.partOfSpeech}</span>` : ''}
@@ -8226,8 +8319,15 @@ Rules:
       if (!w) return;
       _mdbEditWordKey = wordLower;
       document.getElementById('mdb-edit-modal-title').textContent = '✏️ Edit: ' + w.word;
+      const _srcVal = w._source || (w._custom ? 'custom' : 'worddb');
+      const _srcMap = { worddb: 'Word DB', custom: 'Custom Added' };
+      const _srcText = w._customFile ? w._customFile : (_srcMap[_srcVal] || _srcVal.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+      document.getElementById('mdb-edit-source-info').textContent = '📁 ' + _srcText;
       document.getElementById('mdb-edit-word').value       = w.word;
       document.getElementById('mdb-edit-french').value     = w.french || '';
+      const _mdbEn = document.getElementById('mdb-edit-english'); if (_mdbEn) _mdbEn.value = w.english || '';
+      const _mdbDe = document.getElementById('mdb-edit-german');  if (_mdbDe) _mdbDe.value = w.german  || '';
+      const _mdbIt = document.getElementById('mdb-edit-italian'); if (_mdbIt) _mdbIt.value = w.italian  || '';
       document.getElementById('mdb-edit-ipa').value        = w.ipa || '';
       const posEl = document.getElementById('mdb-edit-pos');
       const posVal = (Array.isArray(w.partOfSpeech) ? w.partOfSpeech[0] : (w.partOfSpeech || '')).toLowerCase();
@@ -8265,8 +8365,10 @@ Rules:
     function mdbSaveEditWord() {
       if (!_mdbEditWordKey) return;
       const french     = document.getElementById('mdb-edit-french').value.trim();
+      const english    = (document.getElementById('mdb-edit-english')?.value || '').trim() || _mdbEditWordKey;
+      const german     = (document.getElementById('mdb-edit-german')?.value  || '').trim();
+      const italian    = (document.getElementById('mdb-edit-italian')?.value || '').trim();
       const definition = document.getElementById('mdb-edit-definition').value.trim();
-      if (!french)     { mdbEditFeedback('⚠ French translation is required.', 'err'); return; }
       if (!definition) { mdbEditFeedback('⚠ Definition is required.', 'err'); return; }
 
       const themeRaw = document.getElementById('mdb-edit-theme').value.trim();
@@ -8274,7 +8376,7 @@ Rules:
 
       const update = {
         ipa:             document.getElementById('mdb-edit-ipa').value.trim(),
-        french,
+        french, english, german, italian,
         partOfSpeech:    document.getElementById('mdb-edit-pos').value || '',
         level:           document.getElementById('mdb-edit-level').value || '',
         theme:           themeVal,

@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Group Editor</title>
   <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
   <link rel="stylesheet" href="stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -206,22 +207,22 @@
 <body>
 <div class="ge-page">
   <header class="ge-header">
-    <button class="ge-back-btn" onclick="goBack()">← Launcher</button>
-    <h1 class="ge-title">Group Editor</h1>
-    <p class="ge-subtitle">Create, edit, archive, and delete class groups. Changes are saved directly to <em>user/class-groups.js</em>.</p>
+    <button class="ge-back-btn" onclick="goBack()" data-i18n="geBack">← Launcher</button>
+    <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
+    <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
   </header>
 
   <div id="ge-notice" style="display:none;" class="ge-notice"></div>
 
-  <div class="ge-section-title">Active Groups</div>
+  <div class="ge-section-title" data-i18n="geActiveGroups">Active Groups</div>
   <div id="ge-groups-body"></div>
 
   <div class="ge-add-section">
-    <div class="ge-section-title">Add New Group</div>
+    <div class="ge-section-title" data-i18n="geAddNewGroup">Add New Group</div>
     <div class="ge-add-row">
-      <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)">
+      <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
       <textarea id="new-group-students" class="ge-add-students eg-row-students" rows="1"
-        placeholder="ALICE, BOB, CAROL, …" oninput="autoResizeEgStudents(this)"></textarea>
+        placeholder="ALICE, BOB, CAROL, …" oninput="autoResizeEgStudents(this)" data-i18n-placeholder="geStudentsPlaceholder"></textarea>
       <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
       <select id="new-group-semester" class="ge-add-select">
         <option value="">Sem</option>
@@ -235,12 +236,12 @@
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
-      <button class="ge-add-btn" onclick="addNewGroupRow()">Add</button>
+      <button class="ge-add-btn" onclick="addNewGroupRow()" data-i18n="geAddBtn">Add</button>
     </div>
   </div>
 
   <div class="ge-save-bar">
-    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()">💾 Save to class-groups.js</button>
+    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn">💾 Save to class-groups.js</button>
   </div>
 </div>
 
@@ -249,8 +250,8 @@
   <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
     <p id="ge-confirm-msg" style="font-size:0.95rem;line-height:1.55;margin-bottom:20px;white-space:pre-line;"></p>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button onclick="cancelConfirm()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'">Cancel</button>
-      <button id="ge-confirm-ok" onclick="okConfirm()" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'">OK</button>
+      <button onclick="cancelConfirm()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
+      <button id="ge-confirm-ok" onclick="okConfirm()" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="btnOk">OK</button>
     </div>
   </div>
 </div>
@@ -430,14 +431,15 @@
       ? studentsInputEl.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
       : [];
     if (studentNames.length === 0) {
-      halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">Add students to the group first.</em>';
+      halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">' + (typeof t === 'function' ? t('geAddStudentsFirst') : 'Add students to the group first.') + '</em>';
       return;
     }
     const hgA = (existingHalfGroups && existingHalfGroups.A) ? existingHalfGroups.A.map(s => s.toUpperCase()) : [];
     const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B.map(s => s.toUpperCase()) : [];
     const legend = document.createElement('div');
     legend.style.cssText = 'font-size:0.72rem; color:#888; margin-bottom:7px; font-weight:600;';
-    legend.innerHTML = 'Click to cycle: <span style="color:#1e40af;font-weight:700;">■ A</span> → <span style="color:#9a3412;font-weight:700;">■ B</span> → unassigned';
+    var legendText = typeof t === 'function' ? t('geHalfLegend') : 'Click to cycle: u{25A0} A u{2192} u{25A0} B u{2192} unassigned';
+      legend.innerHTML = legendText.replace('u{25A0} A', '<span style="color:#1e40af;font-weight:700;">u{25A0} A</span>').replace('u{25A0} B', '<span style="color:#9a3412;font-weight:700;">u{25A0} B</span>');
     halfSection.appendChild(legend);
     const chipsWrap = document.createElement('div');
     chipsWrap.style.cssText = 'display:flex; flex-wrap:wrap;';
@@ -483,7 +485,7 @@
     studentsInput.className = 'eg-row-students';
     studentsInput.rows = 1;
     studentsInput.value = (rawData[groupName] || []).join(', ');
-    studentsInput.title = 'Students (comma-separated)';
+    studentsInput.title = typeof t === 'function' ? t('geStudentsTitle') : 'Students (comma-separated)';
     if (isArchived) { studentsInput.disabled = true; studentsInput.style.opacity = '0.6'; }
     else { studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput)); }
     requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
@@ -503,7 +505,7 @@
     halfToggle.type = 'button';
     halfToggle.className = 'eg-half-toggle';
     halfToggle.textContent = '½';
-    halfToggle.title = 'Define half-groups A / B';
+    halfToggle.title = typeof t === 'function' ? t('geHalfGroupTitle') : 'Define half-groups A / B';
     halfToggle.disabled = !!isArchived;
 
     if (!isArchived) {
@@ -523,26 +525,26 @@
 
     const archiveBtn = document.createElement('button');
     archiveBtn.type = 'button';
-    archiveBtn.title = isArchived ? 'Unarchive this group' : 'Archive this group';
+    archiveBtn.title = isArchived ? (typeof t === 'function' ? t('geUnarchiveTitle') : 'Unarchive this group') : (typeof t === 'function' ? t('geArchiveTitle') : 'Archive this group');
     archiveBtn.textContent = isArchived ? '↩' : '📦';
     archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
     archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
     archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
     archiveBtn.onclick = () => {
       if (isArchived) {
-        showConfirm('Unarchive "' + groupName + '"?\n\nIt will reappear in the class roster.', () => unarchiveGroup(groupName));
+        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmUnarchive', {name: groupName}) : 'Unarchive "' + groupName + '"?\n\nIt will reappear in the class roster.', () => unarchiveGroup(groupName));
       } else {
-        showConfirm('Archive "' + groupName + '"?\n\nIt will be hidden from the roster and its participation data folder will be moved to user/log/group-participation/archived/.', () => archiveGroup(groupName));
+        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmArchive', {name: groupName}) : 'Archive "' + groupName + '"?\n\nIt will be hidden from the roster.', () => archiveGroup(groupName));
       }
     };
 
     const delBtn = document.createElement('button');
     delBtn.className = 'eg-row-del';
     delBtn.textContent = '✕';
-    delBtn.title = 'Delete this group permanently';
+    delBtn.title = typeof t === 'function' ? t('geDeleteTitle') : 'Delete this group permanently';
     if (isArchived) delBtn.style.opacity = '0.5';
     delBtn.onclick = () => {
-      showConfirm('Delete "' + groupName + '" permanently?\n\nThis cannot be undone.', () => {
+      showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmDelete', {name: groupName}) : 'Delete "' + groupName + '" permanently?\n\nThis cannot be undone.', () => {
         row.remove();
         if (halfSection.parentNode) halfSection.remove();
       });
@@ -571,7 +573,7 @@
     if (activeGroups.length === 0) {
       const empty = document.createElement('p');
       empty.style.cssText = 'color:#aaa; font-size:0.88rem; padding:16px 0;';
-      empty.textContent = 'No active groups yet. Add one below.';
+      empty.textContent = typeof t === 'function' ? t('geNoActiveGroups') : 'No active groups yet. Add one below.';
       body.appendChild(empty);
     } else {
       activeGroups.forEach(g => buildGroupRow(g, body, false));
@@ -583,7 +585,8 @@
 
       const archToggle = document.createElement('button');
       archToggle.className = 'ge-arch-toggle';
-      archToggle.textContent = '▶ Archived groups (' + archivedGroups.length + ')';
+      var archLabel = typeof t === 'function' ? t('geArchivedGroups') : 'Archived groups';
+      archToggle.textContent = '▶ ' + archLabel + ' (' + archivedGroups.length + ')';
 
       const archContent = document.createElement('div');
       archContent.style.display = 'none';
@@ -592,7 +595,7 @@
       archToggle.onclick = () => {
         const isOpen = archContent.style.display !== 'none';
         archContent.style.display = isOpen ? 'none' : '';
-        archToggle.textContent = (isOpen ? '▶' : '▼') + ' Archived groups (' + archivedGroups.length + ')';
+        archToggle.textContent = (isOpen ? '▶' : '▼') + ' ' + archLabel + ' (' + archivedGroups.length + ')';
       };
 
       archSep.appendChild(archToggle);
@@ -636,7 +639,7 @@
   // ── Add new group row ────────────────────────────────────────
   function addNewGroupRow() {
     const nameVal = document.getElementById('new-group-name').value.trim();
-    if (!nameVal) { alert('Please enter a group name.'); return; }
+    if (!nameVal) { alert(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.'); return; }
 
     const studentsVal = document.getElementById('new-group-students').value.trim();
     const body = document.getElementById('ge-groups-body');
@@ -662,7 +665,7 @@
     studentsInput.className = 'eg-row-students';
     studentsInput.rows = 1;
     studentsInput.value = studentsVal.toUpperCase();
-    studentsInput.title = 'Students (comma-separated)';
+    studentsInput.title = typeof t === 'function' ? t('geStudentsTitle') : 'Students (comma-separated)';
     studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput));
 
     const newMeta = {
@@ -694,13 +697,13 @@
     archiveBtn.textContent = '📦';
     archiveBtn.title = 'Archive this group';
     archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
-    archiveBtn.title = 'Save first to enable archiving';
+    archiveBtn.title = typeof t === 'function' ? t('geSaveFirstTitle') : 'Save first to enable archiving';
     archiveBtn.disabled = true;
 
     const delBtn = document.createElement('button');
     delBtn.className = 'eg-row-del';
     delBtn.textContent = '✕';
-    delBtn.title = 'Remove this group';
+    delBtn.title = typeof t === 'function' ? t('geRemoveTitle') : 'Remove this group';
     delBtn.onclick = () => { row.remove(); if (halfSection.parentNode) halfSection.remove(); };
 
     row.appendChild(nameInput);
@@ -744,7 +747,7 @@
 
     const result = await persistGroupsToUserFile(updated, updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
-      showNotice('Failed to save archive status: ' + (result?.error || 'unknown error'), true);
+      showNotice((typeof t === 'function' ? t('geArchiveFailed') : 'Failed to save archive status:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
       delete rawMeta[groupName].archived;
       return;
     }
@@ -758,7 +761,7 @@
       } catch (_) {}
     }
 
-    showNotice('"' + groupName + '" archived.');
+    showNotice(typeof tFmt === 'function' ? tFmt('geArchived', {name: groupName}) : '"' + groupName + '" archived.');
     renderGroupsList();
   }
 
@@ -771,7 +774,7 @@
 
     const result = await persistGroupsToUserFile(updated, updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
-      showNotice('Failed to save unarchive status: ' + (result?.error || 'unknown error'), true);
+      showNotice((typeof t === 'function' ? t('geUnarchiveFailed') : 'Failed to save unarchive status:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
       rawMeta[groupName].archived = true;
       return;
     }
@@ -785,7 +788,7 @@
       } catch (_) {}
     }
 
-    showNotice('"' + groupName + '" unarchived.');
+    showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: groupName}) : '"' + groupName + '" unarchived.');
     renderGroupsList();
   }
 
@@ -793,7 +796,7 @@
   async function saveGroupsToFile() {
     const { groups: updated, meta: updatedMeta } = collectGroupEdits();
     if (Object.keys(updated).length === 0) {
-      alert('No groups to save.');
+      alert(typeof t === 'function' ? t('geNoGroupsToSave') : 'No groups to save.');
       return;
     }
 
@@ -802,13 +805,13 @@
 
     const result = await persistGroupsToUserFile(updated, updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
-      showNotice('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
+      showNotice((typeof t === 'function' ? t('geSaveFailed') : 'Save failed:') + ' ' + (result?.error || 'Unable to save class-groups.js'), true);
       return;
     }
 
     const saveBtn = document.getElementById('ge-save-btn');
     const orig = saveBtn.textContent;
-    saveBtn.textContent = '✓ Saved!';
+    saveBtn.textContent = typeof t === 'function' ? t('geSaved') : '✓ Saved!';
     saveBtn.disabled = true;
     setTimeout(() => {
       saveBtn.textContent = orig;
@@ -818,7 +821,10 @@
   }
 
   // ── Init ─────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', loadGroups);
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof applyTranslations === 'function') applyTranslations();
+    loadGroups();
+  });
 </script>
 </body>
 </html>
