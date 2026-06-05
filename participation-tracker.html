@@ -43,16 +43,17 @@
         })();
         </script>
     <script>
-    document.addEventListener('DOMContentLoaded', function(){
-            Promise.resolve(window.__ptUserBootstrapPromise).catch(function(){}).then(function(){
-                var _cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) ? CLASS_MANAGEMENT_CONFIG : null;
-                var _t = (_cfg && _cfg.uiSettings && typeof _cfg.uiSettings.appTitle === 'string' && _cfg.uiSettings.appTitle.trim()) || '';
-                if (_t) {
-                    var el = document.querySelector('.nav-brand'); if (el) el.textContent = _t;
-                    document.title = _t + ': Participation Tracker';
-                }
-            });
-    });
+    (function(){
+      document.addEventListener('DOMContentLoaded', function(){
+        Promise.resolve(window.__ptUserBootstrapPromise).catch(function(){}).then(function(){
+          var _t = '';
+          try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
+          var label = _t || 'Collège Calvin';
+          var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
+          document.title = label + ': Participation Tracker';
+        });
+      });
+    })();
     </script>
     <style>
         * {
@@ -916,7 +917,7 @@
   <button onclick="openCreditsModal()" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;background:none;cursor:pointer;font-family:inherit;" class="nav-link">ℹ️ Credits</button>
 </nav>
     <div class="container">
-        <h1>📊 Participation Tracker</h1>
+        <h1>Participation Tracker</h1>
 
         <!-- Message Container -->
         <div id="messageContainer"></div>

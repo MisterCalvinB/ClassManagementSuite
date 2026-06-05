@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Collège Calvin: Board</title>
+  <title>Board</title>
   <script>
     function applyBoardTitleFromConfig() {
       var _t = '';
-      try { var _gc = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); _t = (_gc.appTitle && _gc.appTitle.trim()) || ''; } catch {}
+      try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
       var label = _t || 'Collège Calvin';
       var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
       document.title = label + ': Board';
     }
-    window.addEventListener('storage', function(e) { if (e.key === 'cmt-general-config') applyBoardTitleFromConfig(); });
 
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -4351,7 +4350,7 @@ function hideFailure() {
         allLevels:'All Levels', allThemes:'All Themes', allTypes:'All Types',
       },
       de: {
-        siteTitle:'Collège Calvin - Vokabel- und Grammatik-Lernsystem',
+        siteTitle:'Board',
         secVocab:'📖 Vokabelspiele', secGrammar:'📐 Grammatikspiele', secTools:'📚 Werkzeuge',
         btnDefMatch:'🧩 Definition zuordnen', btnHangman:'😵 Galgenmännchen', btnScramble:'🔠 Buchstabensalat',
         btnWordQuest:'🔍 Wortsuche', btnPhonetic:'🔉 Phonetik-Quiz', btnSynAnt:'🔗 Synonyme & Antonyme',
@@ -4475,7 +4474,7 @@ function hideFailure() {
         allLevels:'Alle Niveaus', allThemes:'Alle Themen', allTypes:'Alle Wortarten',
       },
       it: {
-        siteTitle:"Collège Calvin - Sistema di Apprendimento del Vocabolario e della Grammatica",
+        siteTitle:'Board',
         secVocab:'📖 Giochi di Vocabolario', secGrammar:'📐 Giochi di Grammatica', secTools:'📚 Strumenti',
         btnDefMatch:'🧩 Abbina la Definizione', btnHangman:"😵 L'Impiccato", btnScramble:'🔠 Parola Mescolata',
         btnWordQuest:'🔍 Caccia alla Parola', btnPhonetic:'🔉 Fonetica', btnSynAnt:'🔗 Sinonimi & Contrari',
@@ -4599,7 +4598,7 @@ function hideFailure() {
         allLevels:'Tutti i Livelli', allThemes:'Tutti i Temi', allTypes:'Tutti i Tipi',
       },
       fr: {
-        siteTitle:'Collège Calvin - Système d\'Apprentissage du Vocabulaire et de la Grammaire',
+        siteTitle:'Board',
         secVocab:'📖 Jeux de Vocabulaire', secGrammar:'📐 Jeux de Grammaire', secTools:'📚 Outils',
         btnDefMatch:'🧩 Associer la Définition', btnHangman:'😵 Le Pendu', btnScramble:'🔠 Mot Mélangé',
         btnWordQuest:'🔍 Chasse aux Mots', btnPhonetic:'🔉 Quiz Phonétique', btnSynAnt:'🔗 Synonymes & Antonymes',
@@ -22712,7 +22711,7 @@ function hideFailure() {
     }
 
     // Shared canvas renderer for the current board state. Returns { canvas, now }.
-    function _conBuildBoardCanvas() {
+    async function _conBuildBoardCanvas() {
       const board = document.getElementById('constellation-board');
       if (!board) return null;
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
@@ -22728,9 +22727,17 @@ function hideFailure() {
       const ctx = canvas.getContext('2d');
       ctx.scale(scale, scale);
 
-      // White background + border
-      ctx.fillStyle = '#ffffff';
+      // Board background colour + optional PDF background image
+      ctx.fillStyle = _conBoardBgColor || '#ffffff';
       ctx.fillRect(0, 0, bw + PAD * 2, bh + PAD * 2);
+      if (_conBoardBg && _conBoardBg._cachedDataUrl) {
+        await new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => { ctx.drawImage(img, PAD, PAD, _conBoardBg._cachedW, _conBoardBg._cachedH); resolve(); };
+          img.onerror = resolve;
+          img.src = _conBoardBg._cachedDataUrl;
+        });
+      }
       ctx.strokeStyle = '#111111';
       ctx.lineWidth = 2;
       ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
@@ -23114,8 +23121,7 @@ function hideFailure() {
       const notes = window.conGetNotes ? window.conGetNotes() : [];
       const drawings = window.conGetDrawings ? window.conGetDrawings() : [];
       const shapes = window.conGetShapes ? window.conGetShapes() : [];
-      if (!nodes.length && !notes.length && !drawings.length && !shapes.length) { mdbToast('⚠️ Nothing to export — add some content first.'); return; }
-      const result = _conBuildBoardCanvas();
+      const result = await _conBuildBoardCanvas();
       if (!result) return;
       const { canvas, now } = result;
       canvas.toBlob(blob => {
@@ -23138,8 +23144,7 @@ function hideFailure() {
       const notes = window.conGetNotes ? window.conGetNotes() : [];
       const drawings = window.conGetDrawings ? window.conGetDrawings() : [];
       const shapes = window.conGetShapes ? window.conGetShapes() : [];
-      if (!nodes.length && !notes.length && !drawings.length && !shapes.length) { mdbToast('⚠️ Nothing to copy — add some content first.'); return; }
-      const result = _conBuildBoardCanvas();
+      const result = await _conBuildBoardCanvas();
       if (!result) return;
       const { canvas } = result;
       canvas.toBlob(async blob => {
@@ -23160,8 +23165,6 @@ function hideFailure() {
         (p.nodes && p.nodes.length) || (p.notes && p.notes.length) ||
         (p.drawings && p.drawings.length) || (p.shapes && p.shapes.length)
       ));
-      if (!hasContent) { mdbToast('⚠️ Nothing to export — add some content first.'); return; }
-
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
       function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
       const displayTitle = escapeHtml(titleVal);
@@ -23173,7 +23176,7 @@ function hideFailure() {
         _conRestorePageToBoard(allPages[i]);
         // Let the browser lay out the restored nodes before capturing
         await new Promise(r => setTimeout(r, 80));
-        const res = _conBuildBoardCanvas();
+        const res = await _conBuildBoardCanvas();
         if (res) {
           dataUrls.push(res.canvas.toDataURL('image/png'));
         }
@@ -24780,7 +24783,6 @@ ${imgTags}
 
     function conExportCSV() {
       const nodes = conGetAllPagesNodeData();
-      if (!nodes.length) { mdbToast('⚠️ Nothing to export — add some words first.'); return; }
       const rows = [['Word', 'Page', 'Translation', 'IPA', 'Definition']];
       nodes.forEach(n => {
         if (conShouldSkipWordExportNode(n)) return;
@@ -24964,7 +24966,6 @@ ${imgTags}
       const nodes = conGetAllPagesNodeData();
       const drawings = window.conGetDrawings ? window.conGetDrawings() : [];
       const shapes = window.conGetShapes ? window.conGetShapes() : [];
-      if (!nodes.length && !drawings.length && !shapes.length) { mdbToast('⚠️ Nothing to export — add some content first.'); return; }
       document.getElementById('con-pdf-picker-overlay').classList.add('active');
     }
 
@@ -24987,8 +24988,6 @@ ${imgTags}
       const nodes = conGetAllPagesNodeData();
       const _pdfDrawings = window.conGetDrawings ? window.conGetDrawings() : [];
       const _pdfShapes = window.conGetShapes ? window.conGetShapes() : [];
-      if (!nodes.length && !_pdfDrawings.length && !_pdfShapes.length) { mdbToast('⚠️ Nothing to export — add some content first.'); return; }
-
       // Build column definitions
       const cols = [{ label: 'Word' }];
       if (fields.page)        cols.push({ label: 'Page' });

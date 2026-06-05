@@ -961,11 +961,12 @@
   async function init() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
       try {
-        const fileResult = await Desktop.readJson('user', 'general-config-settings.js');
-        if (fileResult && fileResult.ok && fileResult.data && typeof fileResult.data === 'object') {
-          localStorage.setItem('cmt-general-config', JSON.stringify(fileResult.data));
+        const cfgResult = await Desktop.readJson('user', 'config.js');
+        if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
+          const merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+          localStorage.setItem('cmt-general-config', JSON.stringify(merged));
         }
-      } catch (e) { console.warn('launcher: could not read general-config from file:', e); }
+      } catch (e) { console.warn('launcher: could not read config.js:', e); }
     }
     const popup = document.getElementById('cfgPopup');
     popup.querySelector('.cfg-label-input').addEventListener('input',  persistPopupConfig);

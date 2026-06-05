@@ -698,18 +698,33 @@
   function getGeneralConfig() {
     try { return JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); } catch { return {}; }
   }
-  function saveGeneralConfig(patch) {
-    const cfg = getGeneralConfig();
-    Object.assign(cfg, patch);
-    localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
-    persistGeneralConfigToFile(cfg);
+
+  function buildConfigJsContent(data) {
+    return [
+      'const CLASS_MANAGEMENT_CONFIG = ' + JSON.stringify(data, null, 2) + ';',
+      '',
+      "var CLASS_GROUPS = CLASS_GROUPS || (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA.classGroups) || {};",
+      "var CLASS_GROUPS_META = CLASS_GROUPS_META || (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA.classGroupsMeta) || {};",
+      'const ROLE_DEFINITIONS = CLASS_MANAGEMENT_CONFIG.roleDefinitions || [];',
+      ''
+    ].join('\n');
   }
-  async function persistGeneralConfigToFile(cfg) {
-    if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
-      const content = 'const GENERAL_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
-      try { await Desktop.saveText('user', 'general-config-settings.js', content); }
-      catch (e) { console.warn('general-config: could not save to file:', e); }
-    }
+
+  async function patchLauncherSettings(patch) {
+    // Keep localStorage in sync for i18n.js and other consumers
+    const lsCfg = getGeneralConfig();
+    Object.assign(lsCfg, patch);
+    localStorage.setItem('cmt-general-config', JSON.stringify(lsCfg));
+    // Write to config.js
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readJson !== 'function') return;
+    try {
+      const result = await Desktop.readJson('user', 'config.js');
+      if (!result || !result.ok || !result.data) return;
+      const data = result.data;
+      if (!data.launcherSettings) data.launcherSettings = {};
+      Object.assign(data.launcherSettings, patch);
+      await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
+    } catch (e) { console.warn('general-config: could not patch config.js:', e); }
   }
   function getCardConfig(id) {
     try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
@@ -740,8 +755,9 @@
   /* ── app title ─────────────────────────────────────── */
   var titleInput  = document.getElementById('appTitleInput');
   var titleStatus = document.getElementById('titleSaveStatus');
+
   titleInput.addEventListener('input', function () {
-    saveGeneralConfig({ appTitle: titleInput.value });
+    patchLauncherSettings({ appTitle: titleInput.value.trim() });
     document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
     flashSaved(titleStatus);
   });
@@ -753,7 +769,7 @@
     if (!btn) return;
     document.querySelectorAll('.lang-btn').forEach(function (b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    saveGeneralConfig({ language: btn.dataset.lang });
+    patchLauncherSettings({ language: btn.dataset.lang });
     flashSaved(langStatus);
   });
 
@@ -838,7 +854,7 @@
   /* ── persist all startup settings ─────────────────── */
   function persistStartup() {
     var layout = getCurrentLayout();
-    saveGeneralConfig({
+    patchLauncherSettings({
       startupLayout:       layout,
       startupApps:         getCheckedApps(),
       startupSplitLeft:    document.getElementById('splitLeftSelect').value,
@@ -1688,17 +1704,19 @@
   async function init() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
       try {
-        var fileResult = await Desktop.readJson('user', 'general-config-settings.js');
-        if (fileResult && fileResult.ok && fileResult.data && typeof fileResult.data === 'object') {
-          localStorage.setItem('cmt-general-config', JSON.stringify(fileResult.data));
+        var cfgResult = await Desktop.readJson('user', 'config.js');
+        if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
+          // Populate localStorage from config.js so i18n.js and startup IIFE stay in sync
+          var merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+          localStorage.setItem('cmt-general-config', JSON.stringify(merged));
         }
-      } catch (e) { console.warn('general-config: could not read from file:', e); }
+      } catch (e) { console.warn('general-config: could not read config.js:', e); }
     }
     var cfg = getGeneralConfig();
 
     /* title */
     titleInput.value = cfg.appTitle || '';
-    document.title = (cfg.appTitle && cfg.appTitle.trim() ? cfg.appTitle.trim() : 'Class Management Tools') + ' — General Config';
+    document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
 
     /* language */
     var lang = cfg.language || 'fr';

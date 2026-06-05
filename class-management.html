@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collège Calvin: Class Management System</title>
+    <title>Class Management</title>
     <script src="electron-bridge.js"></script>
     <script>
     (function () {
@@ -410,7 +410,7 @@
 </div>
 <div class="main-wrapper">
 <!-- Title -->
-	<h1 id="main-title">Collège Calvin: Class Management System</h1>
+	<h1 id="main-title">Class Management</h1>
 
 
 
@@ -1956,6 +1956,7 @@
                 planAbbrevLen: planAbbrevLen,
                 actionButtons: normalizeActionButtonSettings(actionButtonSettings)
             },
+            launcherSettings: loadedConfig.launcherSettings || {},
             classPlans: classPlans
         };
 
@@ -10053,12 +10054,11 @@ function savePlanAbbrevLenSetting(value) {
 
 function _applyAppTitle() {
     let label = 'Coll\u00e8ge Calvin';
-    try { const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); if (cfg.appTitle && cfg.appTitle.trim()) label = cfg.appTitle.trim(); } catch {}
+    try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch {}
     const titleEl = document.getElementById('main-title');
-    if (titleEl) titleEl.textContent = label + ': Class Management System';
-    document.title = label + ': Class Management System';
+    if (titleEl) titleEl.textContent = label + ': Class Management';
+    document.title = label + ': Class Management';
 }
-window.addEventListener('storage', e => { if (e.key === 'cmt-general-config') _applyAppTitle(); });
 
 function toggleSettingsPopup(event) {
     if (event) {

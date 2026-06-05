@@ -45,13 +45,11 @@
   <script>
     function applyLearningToolsTitle() {
       var _t = '';
-      try { var _gc = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); _t = (_gc.appTitle && _gc.appTitle.trim()) || ''; } catch {}
+      try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
       var label = _t || 'Collège Calvin';
       var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
       document.title = label + ': Learning Tools';
     }
-    document.addEventListener('DOMContentLoaded', applyLearningToolsTitle);
-    window.addEventListener('storage', function(e) { if (e.key === 'cmt-general-config') applyLearningToolsTitle(); });
   </script>
   <meta name="theme-color" content="#111111">
   <script src="modules/custom-bank-utils.js"></script>
@@ -12575,7 +12573,7 @@ function renderSentenceWithGap(userInput) {
         allLevels:'All Levels', allThemes:'All Themes', allTypes:'All Types',
       },
       de: {
-        siteTitle:'Collège Calvin - Vokabel- und Grammatik-Lernsystem',
+        siteTitle:'Learning Tools',
         secVocab:'📖 Vokabelspiele', secGrammar:'📐 Grammatikspiele', secOtherGames:'🎲 Andere Spiele', secTools:'📚 Werkzeuge',
         btnDefMatch:'🧩 Definition zuordnen', btnHangman:'😵 Galgenmännchen', btnScramble:'🔠 Buchstabensalat',
         btnWordQuest:'🔍 Wortsuche', btnPhonetic:'🔉 Phonetik-Quiz', btnSynAnt:'🔗 Synonyme & Antonyme',
@@ -12705,7 +12703,7 @@ function renderSentenceWithGap(userInput) {
         allLevels:'Alle Niveaus', allThemes:'Alle Themen', allTypes:'Alle Wortarten',
       },
       it: {
-        siteTitle:"Collège Calvin - Sistema di Apprendimento del Vocabolario e della Grammatica",
+        siteTitle:'Learning Tools',
         secVocab:'📖 Giochi di Vocabolario', secGrammar:'📐 Giochi di Grammatica', secOtherGames:'🎲 Altri Giochi', secTools:'📚 Strumenti',
         btnDefMatch:'🧩 Abbina la Definizione', btnHangman:"😵 L'Impiccato", btnScramble:'🔠 Parola Mescolata',
         btnWordQuest:'🔍 Caccia alla Parola', btnPhonetic:'🔉 Fonetica', btnSynAnt:'🔗 Sinonimi & Contrari',
@@ -12835,7 +12833,7 @@ function renderSentenceWithGap(userInput) {
         allLevels:'Tutti i Livelli', allThemes:'Tutti i Temi', allTypes:'Tutti i Tipi',
       },
       fr: {
-        siteTitle:'Collège Calvin - Système d\'Apprentissage du Vocabulaire et de la Grammaire',
+        siteTitle:'Learning Tools',
         secVocab:'📖 Jeux de Vocabulaire', secGrammar:'📐 Jeux de Grammaire', secOtherGames:'🎲 Autres Jeux', secTools:'📚 Outils',
         btnDefMatch:'🧩 Associer la Définition', btnHangman:'😵 Le Pendu', btnScramble:'🔠 Mot Mélangé',
         btnWordQuest:'🔍 Chasse aux Mots', btnPhonetic:'🔉 Quiz Phonétique', btnSynAnt:'🔗 Synonymes & Antonymes',
@@ -13075,6 +13073,7 @@ function renderSentenceWithGap(userInput) {
       }
 
       await Promise.resolve(window.__ltUserBootstrapPromise).catch(function () {});
+      applyLearningToolsTitle();
       await ensureWordDbLoaded();
       await ensureCoreBanksLoaded();
       // Load class groups from user data folder (not bundled in packaged app).

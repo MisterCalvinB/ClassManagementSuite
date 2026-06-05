@@ -4,15 +4,107 @@
 
 | File | Purpose |
 |---|---|
+| `launcher.html` | Home screen — one-click access to all tools, startup app configuration, and per-card notes |
 | `class-management.html` | Classroom session manager — students, teams, timer, scoring, and settings |
 | `board.html` | Visual tools — Board, session History, and vocabulary Search |
 | `learning-tools.html` | Student-facing vocabulary and grammar games with team scoring |
 | `manage-database.html` | Vocabulary database browser, editor, and bulk-management tool |
 | `grade-sheet.html` | Test and grade tracking per class, semester, and criterion |
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
-| `data-location.html` | Configure the shared data folder, backups, and sync |
+| `group-editor.html` | Create, edit, archive, and delete class groups stored in `class-groups.js` |
+| `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
+| `recent-files.html` | Browse and reopen recent board sessions, constellation maps, and analyses |
+| `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
 
 All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
+
+---
+
+## launcher.html
+
+The home screen of the app. Opens automatically on startup and provides one-click access to every tool.
+
+### App Cards
+
+Each tool is represented by a card showing its name, description, and a launch button. Cards are laid out in a grid and can be individually customised:
+
+- **⚙ Card settings** (gear icon on hover): set a **custom label**, **personal notes**, a display **size (%)**, and a **position** on screen (default, centre, corners, or full-height sides).
+- Clicking a card opens the corresponding tool; the launcher stays open in the background.
+
+The **Recent Files** card opens an inline modal listing recent board and constellation sessions.
+
+### Header Buttons
+
+| Button | Action |
+|---|---|
+| **⚙ Config** | Opens General Config (language, startup, data folder) |
+| **? How To** | Opens the built-in how-to guide |
+| **ℹ️ Credits** | Opens the credits modal |
+
+### Startup Behaviour
+
+The launcher can automatically open tools at startup. Configure this in **General Config → Startup & Launch**:
+
+- **Separate windows** — open each selected app in its own window.
+- **Maximised** — open selected apps maximised.
+- **Split screen** — open two apps side by side; drag the divider to set the split ratio.
+
+The launcher renders first, then the configured apps open silently in the background.
+
+---
+
+## general-config.html
+
+Centralised settings page for app-wide configuration. Opened from the launcher via **⚙ Config**.
+
+### App Identity
+
+Set a custom **app title** (displayed in the header of all tool windows).
+
+### Language
+
+Choose the UI language: **EN · FR · DE · IT**. The selection applies to all tools and is stored in `localStorage` under `cmt-general-config.language`.
+
+### Startup & Launch
+
+Choose which apps open automatically when the launcher starts, and how they are arranged:
+
+| Layout | Behaviour |
+|---|---|
+| Separate windows | Each selected app opens in its own resizable window |
+| Maximised | Selected apps open full-screen |
+| Split screen | Two apps open side by side; choose left/right apps and the split percentage |
+
+### Data & Storage
+
+Mirrors the data-folder, backup, and sync controls previously found in `data-location.html`:
+
+- **Data folder** — current path displayed; **Change folder**, **Reset to default**, and **Check for Updates** buttons.
+- **First Launch banner** — detects a missing data folder and offers **Select Existing Folder** or **Start Fresh**.
+- **Migration** — when the folder is changed, a banner offers to copy files from the old location.
+- **Backup** — choose a backup folder and trigger a manual backup.
+- **Sync** — set a sync target; **Sync Now** opens conflict resolution; **Keep target up to date automatically** enables auto-sync.
+
+---
+
+## group-editor.html
+
+Manages the class groups stored in `class-groups.js`. Opened from the launcher or from within Class Management.
+
+- **Active Groups** — lists all non-archived groups with name, year, semester, and level. Edit or delete individual groups inline.
+- **Add New Group** — form to create a group: name, year, semester (1 or 2), and level.
+- **Archive / Unarchive** — move groups out of the active list without deleting them.
+
+---
+
+## recent-files.html
+
+Lists recent board sessions, constellation maps, and analyses saved to disk. Can be opened from the launcher as a standalone page or as an inline modal from the Recent Files card.
+
+- **Search bar** — filter by filename.
+- **Refresh** — reload the file list from disk.
+- **Open** — reopen any listed session directly in the relevant tool.
+- **Download / Delete** — manage individual files from the list.
 
 ---
 
@@ -165,7 +257,7 @@ A board can have multiple pages:
 #### Vocabulary Overlays
 
 - **[ ] IPA**: toggle International Phonetic Alphabet pronunciation under every word.
-- **( ) FR**: toggle French translations under every word.
+- **( ) Translation**: toggle the translation in the current app language under every word (resolved via `getTranslation()` — shows the French, German, or Italian equivalent depending on the active UI language).
 - **❓ Unknown**: list words on the board that are not found in the vocabulary database.
 
 #### Board Operations
@@ -215,7 +307,7 @@ A board can have multiple pages:
 
 ### History (🕘 History)
 
-Browses and manages all saved Board, Text Analysis, and Notes sessions stored on disk.
+Browses and manages all saved Board sessions stored on disk.
 
 #### View Tabs
 
@@ -240,7 +332,7 @@ Columns (all sortable by clicking the header):
 | Column | Description |
 |---|---|
 | Name | Session filename |
-| Type | Board · Text Analysis · Notes |
+| Type | Board |
 | Class/Group | Associated class group |
 | Created | Original creation timestamp |
 | Saved | Last modification timestamp |
@@ -310,11 +402,11 @@ Three independent filters sit at the top of the page and carry over as you move 
 | Tool | Description |
 |---|---|
 | **📐 Grammar Practice** | Reference library of grammar rules — formulas, signal words, common mistakes, and tips. Filter by category or level. |
-| **🎴 Flash Cards** | Hover a card to flip and reveal the French translation and definition. Passive review mode. |
+| **🎴 Flash Cards** | Hover a card to flip and reveal the translation (in the active UI language) and definition. Passive review mode. |
 | **📜 Quote Analyser** | A literary quote is displayed; guess its theme and keywords, unlock clues one by one, or request a full analysis. |
 | **📋 View All Words** | Browse the entire filtered vocabulary bank. Click any entry for full details. Export to CSV or TXT. |
 | **🌐 Board** | Opens the visual word-map in board.html showing connections by theme and meaning. |
-| **➕ Add Words to DB** | Add custom vocabulary, quotes, gap-fill sentences, and error pairs. Saved locally; download an updated DB file to make them permanent. |
+| **➕ Add Words to DB** | Add custom vocabulary entries with word, IPA, French/English/German/Italian translations, definition, example sentence, synonyms, antonyms, and more. Saved locally; download an updated DB file to make them permanent. |
 
 ### Team Mode
 
@@ -335,7 +427,7 @@ The timer runs independently of the game, making it usable for timed rounds or t
 
 ### Other Controls
 
-- **Language switcher**: EN · DE · IT · FR (top-right).
+- **Language switcher**: EN · DE · IT · FR (top-right). Affects which translation column is shown in games and flash cards.
 - **Font size**: A− · A · A+ buttons to scale the UI text.
 - **Mute**: toggle all game sound effects.
 
@@ -363,7 +455,11 @@ Displays the full record for a word and supports inline editing (toggle with the
 |---|---|
 | Word | The entry's spelling |
 | IPA | Phonetic transcription (without slashes) |
-| Translation | French equivalent |
+| Source Language | The language the word belongs to (`en`, `fr`, `de`, `it`) |
+| English | English form of the word |
+| French | French translation |
+| German | German translation |
+| Italian | Italian translation |
 | Part of Speech | noun · verb · adjective · etc. |
 | Level | CEFR level (A1–C2) |
 | Theme | Comma-separated list of themes |
@@ -375,6 +471,23 @@ Displays the full record for a word and supports inline editing (toggle with the
 | Other Forms | Plurals, conjugations, irregular forms |
 
 **Save** options: to browser memory, to the main database file, or to a named custom `.js` file (via the file picker). Navigate between entries with ← Prev / Next → / ↩ Back buttons. Zoom controls (−/+) scale the overlay text.
+
+### Multi-Language Word Schema
+
+Each word entry can carry translations for all supported languages alongside the source word:
+
+```json
+{
+  "word": "resilient",
+  "sourceLanguage": "en",
+  "english": "resilient",
+  "french": "résilient",
+  "german": "belastbar",
+  "italian": "resiliente"
+}
+```
+
+The `getTranslation(word)` helper (shared across all tools) reads the active UI language and returns the correct translation automatically. This means flash cards, vocabulary overlays, and game hints all adapt to the selected language without any per-tool configuration.
 
 ### Print to PDF
 
@@ -507,7 +620,7 @@ Below the Class Overview table, shows a stats summary and a per-session history 
 
 ## data-location.html
 
-A single-page utility for configuring where the app stores its data, how it backs up, and how it synchronises with a secondary location.
+A single-page utility for configuring where the app stores its data, how it backs up, and how it synchronises with a secondary location. The same controls are also available in **General Config**.
 
 ### Data Folder
 
