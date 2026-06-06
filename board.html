@@ -537,6 +537,7 @@
     <button class="con-ctx-icon-btn" id="con-fmt-def" onclick="conCtxAddDefinition()" title="Add definition node">DEF</button>
     <button class="con-ctx-icon-btn" id="con-fmt-trans" onclick="conCtxToggleAnnotation('translation')" title="Add French translation node(s)">FR</button>
     <button class="con-ctx-icon-btn" id="con-fmt-ipa" onclick="conCtxToggleAnnotation('ipa')" title="Add IPA node(s)">IPA</button>
+    <button class="con-ctx-icon-btn" id="con-ctx-network-btn" onclick="conCtxOpenNetworkModal()" title="Word Network — spawn related words radially">NET</button>
     <span class="con-ctx-icon-sep"></span>
     <button class="con-ctx-icon-btn" id="con-ctx-addconn-btn" onclick="conCtxAddConnectedWord()" title="Add Connected Word">＋</button>
     <button class="con-ctx-icon-btn" onclick="conCtxAddConnectedWord('forward')" title="Add word with arrow → (A→B)">→</button>
@@ -1200,6 +1201,7 @@
           <button class="action-btn btn-grey" onclick="unknownWordsOpen('constellation')" title="List all words on the board that are not in the word database">❓ Unknown</button>
           <button class="action-btn btn-grey" id="con-toggle-ipa-btn" onclick="conToggleAllIpa()" title="Show/hide IPA for all words">[ ] IPA</button>
           <button class="action-btn btn-grey" id="con-toggle-french-btn" onclick="conToggleAllFrench()" title="Show/hide French translation for all words">( ) FR</button>
+          <button class="action-btn btn-grey" onclick="conDbExportOpen()" title="Export board words to a wordbank database">💾 DB</button>
         </div>
       </div>
 
@@ -11987,6 +11989,182 @@ function hideFailure() {
         });
       }
 
+      // ── Board → Wordbank DB Export ──────────────────────────────────────────
+      let _conDbExportWords = [];
+
+      function conDbExportOpen() {
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        conDbExportRefresh();
+        document.getElementById('con-db-export-overlay').classList.add('active');
+      }
+
+      function conDbExportRefresh() {
+        const srcNodes = document.getElementById('con-db-src-nodes').checked;
+        const srcNotes = document.getElementById('con-db-src-notes').checked;
+        const wordMap  = new Map();
+
+        conPageSnapshots.forEach((snap, pageIdx) => {
+          const pg = pageIdx + 1;
+
+          if (srcNodes) {
+            (snap.nodes || []).forEach(n => {
+              const w = (n.baseWord || '').trim();
+              if (!w) return;
+              const k = w.toLowerCase();
+              if (!wordMap.has(k)) wordMap.set(k, { word: w, srcs: new Set(), pages: new Set(), bookPgs: new Set() });
+              const e = wordMap.get(k);
+              e.srcs.add('node');
+              e.pages.add(pg);
+              if (n.pageNum != null) e.bookPgs.add(n.pageNum);
+            });
+          }
+
+          if (srcNotes) {
+            (snap.notes || []).forEach(n => {
+              const raw = (n.text || '') + ' ' + (n.html || '').replace(/<[^>]+>/g, ' ');
+              const tokens = raw.match(/\b[a-zA-ZÀ-ÿ]{3,}\b/g) || [];
+              tokens.forEach(tok => {
+                const k = tok.toLowerCase();
+                if (!wordMap.has(k)) wordMap.set(k, { word: tok, srcs: new Set(), pages: new Set(), bookPgs: new Set() });
+                const e = wordMap.get(k);
+                e.srcs.add('note');
+                e.pages.add(pg);
+              });
+            });
+          }
+        });
+
+        _conDbExportWords = [...wordMap.values()].sort((a, b) =>
+          a.word.toLowerCase().localeCompare(b.word.toLowerCase())
+        );
+        _conDbExportRenderTable();
+      }
+
+      function _conDbExportRenderTable() {
+        const tbody   = document.getElementById('con-db-export-tbody');
+        const countEl = document.getElementById('con-db-export-count');
+        const multiPg = conPageSnapshots.length > 1;
+
+        countEl.textContent = `${_conDbExportWords.length} word${_conDbExportWords.length !== 1 ? 's' : ''}`;
+
+        // Show/hide page column header
+        const pgTh = document.getElementById('con-db-export-pg-th');
+        if (pgTh) pgTh.style.display = multiPg ? '' : 'none';
+
+        if (!_conDbExportWords.length) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px 10px;color:#aaa;font-style:italic;">No words found — enable a source above.</td></tr>`;
+          return;
+        }
+
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        tbody.innerHTML = _conDbExportWords.map((entry, i) => {
+          const inDb = Array.isArray(window.vocabBank) &&
+            vocabBank.some(v => v.word && v.word.toLowerCase() === entry.word.toLowerCase());
+
+          const srcBadges = [...entry.srcs].map(s =>
+            `<span class="cde-src-badge cde-src-${s}">${s === 'node' ? '⬡' : '📌'} ${s}</span>`
+          ).join(' ');
+
+          const pgTxt = [...entry.pages].sort((a,b)=>a-b).join(', ');
+          const bookPgTxt = entry.bookPgs.size > 0
+            ? ` <small class="cde-bookpg">p.${[...entry.bookPgs].sort((a,b)=>a-b).join(',')}</small>` : '';
+
+          return `<tr class="cde-row">
+            <td class="cde-cell-word">${esc(entry.word)}${bookPgTxt}</td>
+            <td class="cde-cell-src">${srcBadges}</td>
+            <td class="cde-cell-pg" style="${multiPg ? '' : 'display:none'}">${pgTxt}</td>
+            <td class="cde-cell-indb">${inDb ? '<span class="cde-indb-yes" title="Already in word bank">✓</span>' : ''}</td>
+            <td class="cde-cell-check"><label style="cursor:pointer;"><input type="checkbox" class="cde-cb" data-idx="${i}" checked></label></td>
+          </tr>`;
+        }).join('');
+      }
+
+      function conDbExportSelectAll(checked) {
+        document.querySelectorAll('.cde-cb').forEach(cb => { cb.checked = checked; });
+      }
+
+      function conDbExportClose() {
+        document.getElementById('con-db-export-overlay').classList.remove('active');
+      }
+
+      async function conDbExportSave() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+
+        const selected = [...document.querySelectorAll('.cde-cb:checked')]
+          .map(cb => _conDbExportWords[parseInt(cb.dataset.idx)])
+          .filter(Boolean);
+
+        if (!selected.length) { mdbToast('⚠ No words selected.'); return; }
+
+        const keyword = (document.getElementById('con-db-export-keyword').value || '').trim();
+
+        const filename = await pickCustomDbFile();
+        if (!filename) return;
+
+        // Read existing file entries
+        let entries = [];
+        try {
+          const res = await Desktop.readText('customWordbanks', filename);
+          if (res && res.ok && res.content) {
+            const s = res.content.indexOf('['), e2 = res.content.lastIndexOf(']');
+            if (s !== -1 && e2 > s) { try { entries = JSON.parse(res.content.slice(s, e2 + 1)); } catch {} }
+          }
+        } catch {}
+
+        // Build lookup by word (existing entries are not overwritten)
+        const entryMap = new Map();
+        entries.forEach(e => { if (e && e.word) entryMap.set(e.word.toLowerCase(), e); });
+
+        function _applyKeyword(entry) {
+          if (!keyword) return entry;
+          const kws = Array.isArray(entry.keywords) ? [...entry.keywords] : (entry.keywords ? [entry.keywords] : []);
+          if (!kws.includes(keyword)) kws.push(keyword);
+          return { ...entry, keywords: kws };
+        }
+
+        let added = 0, skipped = 0;
+        selected.forEach(item => {
+          const k = item.word.toLowerCase();
+          if (entryMap.has(k)) {
+            // Word already in file — only add keyword if one was provided
+            if (keyword) entryMap.set(k, _applyKeyword(entryMap.get(k)));
+            skipped++;
+            return;
+          }
+
+          // Use full vocabBank entry if word is known, otherwise minimal stub
+          const dbEntry = Array.isArray(window.vocabBank)
+            ? vocabBank.find(v => v.word && v.word.toLowerCase() === k)
+            : null;
+
+          if (dbEntry) {
+            const clean = { ...dbEntry };
+            delete clean._source;
+            entryMap.set(k, _applyKeyword(clean));
+          } else {
+            entryMap.set(k, _applyKeyword({ word: item.word }));
+          }
+          added++;
+        });
+
+        const allEntries = [...entryMap.values()];
+        const lines  = allEntries.map(w => '  ' + JSON.stringify(w));
+        const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
+
+        try {
+          await Desktop.saveText('customWordbanks', filename, content);
+          const msg = `✓ ${added} word${added !== 1 ? 's' : ''} added to ${filename}` +
+            (skipped > 0 ? ` (${skipped} already existed, kept unchanged)` : '');
+          mdbToast(msg);
+          conDbExportClose();
+        } catch (err) {
+          mdbToast('⚠ Save failed: ' + err);
+        }
+      }
+      // ── end DB Export ────────────────────────────────────────────────────────
+
+
       async function cwdbSave(target) {
         if (!_cwdbEditWord) return;
 
@@ -12168,6 +12346,11 @@ function hideFailure() {
       window.cwdbDelete = cwdbDelete;
       window.cwdbWikiLookup = cwdbWikiLookup;
       window.pickCustomDbFile = pickCustomDbFile;
+      window.conDbExportOpen     = conDbExportOpen;
+      window.conDbExportRefresh  = conDbExportRefresh;
+      window.conDbExportSelectAll = conDbExportSelectAll;
+      window.conDbExportClose    = conDbExportClose;
+      window.conDbExportSave     = conDbExportSave;
       // ================================================================
       // END CONSTELLATION → WORD DB MODAL
       // ================================================================
@@ -12739,6 +12922,7 @@ function hideFailure() {
           labelColor: color || '#333333',
           labelWeight: 600,
           thickness: _defLinkThickness,
+          dashStyle: null,
           line,
           hit,
           labelEl,
@@ -12770,7 +12954,10 @@ function hideFailure() {
         edge.labelEl.style.fontSize = style.size + 'px';
         edge.labelEl.style.fill = style.color;
         edge.labelEl.style.fontWeight = String(style.weight);
-        if (edge.line) edge.line.style.stroke = style.color;
+        if (edge.line) {
+          edge.line.style.stroke = style.color;
+          edge.line.style.strokeDasharray = edge.dashStyle === 'dashed' ? '6 4' : '';
+        }
       }
 
       function conEnsureSvgDefs() {
@@ -13102,6 +13289,28 @@ function hideFailure() {
         antBtn.classList.toggle('disabled', !hasAnt);
         synBtn.innerHTML = hasSyn ? `🔗<span class="con-ctx-icon-label">syn·${dbWord.synonyms.length}</span>` : '🔗<span class="con-ctx-icon-label">syn</span>';
         antBtn.innerHTML = hasAnt ? `⚡<span class="con-ctx-icon-label">ant·${dbWord.antonyms.length}</span>` : '⚡<span class="con-ctx-icon-label">ant</span>';
+
+        const networkBtn = document.getElementById('con-ctx-network-btn');
+        if (networkBtn) {
+          const hasNetwork = !!(dbWord && (
+            (dbWord.synonyms    && dbWord.synonyms.length)    ||
+            (dbWord.antonyms    && dbWord.antonyms.length)    ||
+            (dbWord.otherForms  && dbWord.otherForms.length)  ||
+            (dbWord.hypernym    && dbWord.hypernym.length)    ||
+            (dbWord.hyponym     && dbWord.hyponym.length)
+          ));
+          networkBtn.classList.toggle('disabled', !hasNetwork);
+          const totalCount = dbWord ? [
+            ...(dbWord.synonyms   || []),
+            ...(dbWord.antonyms   || []),
+            ...(dbWord.otherForms || []),
+            ...(dbWord.hypernym   || []),
+            ...(dbWord.hyponym    || [])
+          ].length : 0;
+          networkBtn.innerHTML = hasNetwork
+            ? `NET<span class="con-ctx-icon-label">${totalCount}</span>`
+            : 'NET';
+        }
 
         // Show/hide Card button
         if (cardBtn) cardBtn.style.display = dbWord ? '' : 'none';
@@ -13804,6 +14013,33 @@ function hideFailure() {
         }, 20);
       };
 
+      // Returns the nearest (x, y) that does not overlap any existing board node.
+      // Uses a phyllotaxis (golden-angle) spiral to probe outward from the proposed position.
+      // estW / estH: estimated size of the node being placed (pre-render).
+      // excludeId: optional node id to ignore during overlap checks (e.g. the source node).
+      function conFindFreePosition(x, y, excludeId) {
+        const estW = 88, estH = 34, pad = 8;
+        function overlaps(tx, ty) {
+          return conNodes.some(n => {
+            if (excludeId && n.id === excludeId) return false;
+            const nw = (n.el && n.el.offsetWidth)  || 80;
+            const nh = (n.el && n.el.offsetHeight) || 32;
+            return !(tx + estW + pad <= n.x || tx >= n.x + nw + pad ||
+                     ty + estH + pad <= n.y || ty >= n.y + nh + pad);
+          });
+        }
+        if (!overlaps(x, y)) return { x, y };
+        const step = Math.max(estW, estH) + pad;
+        const golden = 2.39996323; // ~137.5° in radians
+        for (let i = 1; i <= 300; i++) {
+          const r  = step * Math.sqrt(i);
+          const tx = x + r * Math.cos(i * golden);
+          const ty = y + r * Math.sin(i * golden);
+          if (!overlaps(tx, ty)) return { x: tx, y: ty };
+        }
+        return { x, y };
+      }
+
       window.conBoardCtxConfirm = function() {
         const inp = document.getElementById('con-board-ctx-input');
         const raw = (inp && inp.value.trim()) || '';
@@ -13871,17 +14107,18 @@ function hideFailure() {
               if (!cleanWord) return;
               const ox = partOffsetX + wordIdx * 6;
               const oy = partOffsetY + wordIdx * (28 + 6);
+              const _fp = conFindFreePosition(baseX + ox, baseY + oy);
               if (cleanWord.includes('_')) {
                 // Underscore-separated phrase → seamless phrase group (one node per segment)
                 const phraseWords = cleanWord.split('_').map(w => w.trim()).filter(Boolean);
-                const phraseIds = conCreatePhraseGroup(phraseWords, baseX + ox, baseY + oy);
+                const phraseIds = conCreatePhraseGroup(phraseWords, _fp.x, _fp.y);
                 if (phraseIds.length) {
                   unitNodeIds.push(phraseIds[0]);
                   phraseIds.forEach(nid => { chainNodeIds.push(nid); allNewIds.push(nid); });
                   lastId = phraseIds[0];
                 }
               } else {
-                const newId = conAddWordAt(cleanWord, baseX + ox, baseY + oy, pageNum);
+                const newId = conAddWordAt(cleanWord, _fp.x, _fp.y, pageNum);
                 if (newId) {
                   unitNodeIds.push(newId);
                   chainNodeIds.push(newId);
@@ -15136,6 +15373,7 @@ function hideFailure() {
           let ny = originY + Math.sin(angle) * radius - 18;
           nx = Math.max(4, Math.min(bw - 120, nx));
           ny = Math.max(4, Math.min(bh - 50, ny));
+          ({ x: nx, y: ny } = conFindFreePosition(nx, ny));
 
           const id = 'cn' + conNextId++;
           const dbMatch = vocabBank.find(w => w.word.toLowerCase() === word.toLowerCase());
@@ -15159,6 +15397,243 @@ function hideFailure() {
           conAttachNodeEvents(id, el);
           conAddEdge(node.id, id);
         });
+      };
+
+      // ---- Word Network ----
+      let _conNetworkNodeId = null;
+      let _conNetworkDepth  = 1;
+
+      const _CON_NETWORK_CATS = [
+        { key: 'synonyms',   label: 'Synonyms',   color: '#16a34a', edgeLabel: 'syn'  },
+        { key: 'antonyms',   label: 'Antonyms',   color: '#dc2626', edgeLabel: 'ant'  },
+        { key: 'otherForms', label: 'Other Forms', color: '#2563eb', edgeLabel: 'form' },
+        { key: 'hypernym',   label: 'Hypernyms',  color: '#9333ea', edgeLabel: '↑'    },
+        { key: 'hyponym',    label: 'Hyponyms',   color: '#ea580c', edgeLabel: '↓'    }
+      ];
+
+      window.conCtxOpenNetworkModal = function() {
+        if (!conCtxNodeId) return;
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) { conCtxClose(); return; }
+        const dbWord = node.dbWord
+          ? vocabBank.find(w => w.word === node.dbWord)
+          : vocabBank.find(w => w.word.toLowerCase() === (node.baseWord || '').toLowerCase());
+        if (!dbWord) { conCtxClose(); return; }
+
+        conCtxClose();
+        _conNetworkNodeId = node.id;
+        _conNetworkDepth  = 1;
+
+        document.querySelectorAll('.con-network-depth-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.depth) === 1);
+        });
+        document.getElementById('con-network-depth-warning').style.display = 'none';
+        document.getElementById('con-network-word-badge').textContent = node.baseWord || node.el.textContent.trim() || '';
+
+        const container = document.getElementById('con-network-categories');
+        container.innerHTML = '';
+
+        _CON_NETWORK_CATS.forEach(cat => {
+          const words = (dbWord[cat.key] || []).filter(Boolean);
+          // A word is "on board" if a node with that baseWord already exists
+          const onBoardCount = words.filter(w =>
+            conNodes.find(n => (n.baseWord || '').toLowerCase() === w.toLowerCase())
+          ).length;
+          // Category is useful if there are any words (on-board ones will be linked, new ones spawned)
+          const hasAny = words.length > 0;
+
+          const row = document.createElement('div');
+          row.className = 'con-network-cat-row';
+
+          const chipsHtml = hasAny
+            ? `<div class="con-network-cat-chips">${words.map(w => {
+                const ob = !!conNodes.find(n => (n.baseWord || '').toLowerCase() === w.toLowerCase());
+                return `<span class="con-network-chip${ob ? ' on-board' : ''}" title="${ob ? 'already on board — will be linked' : ''}">${w}</span>`;
+              }).join('')}</div>`
+            : `<div class="con-network-cat-empty">(none)</div>`;
+
+          const countLabel = onBoardCount > 0 && onBoardCount < words.length
+            ? `${words.length - onBoardCount}+${onBoardCount}↗`
+            : words.length > 0 ? String(words.length) : '—';
+
+          row.innerHTML = `
+            <label class="con-network-cat-toggle">
+              <input type="checkbox" data-cat="${cat.key}" ${hasAny ? 'checked' : 'disabled'}>
+              <span class="con-network-cat-label" style="color:${cat.color};">${cat.label}</span>
+              <span class="con-network-cat-count" title="${onBoardCount} already on board">${countLabel}</span>
+            </label>
+            ${chipsHtml}
+          `;
+          container.appendChild(row);
+        });
+
+        document.getElementById('con-network-overlay').classList.add('active');
+      };
+
+      window.conNetworkClose = function() {
+        document.getElementById('con-network-overlay').classList.remove('active');
+        _conNetworkNodeId = null;
+      };
+
+      window.conNetworkSetDepth = function(d) {
+        _conNetworkDepth = d;
+        document.querySelectorAll('.con-network-depth-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.depth) === d);
+        });
+        document.getElementById('con-network-depth-warning').style.display = d > 1 ? '' : 'none';
+      };
+
+      window.conNetworkSpawn = function() {
+        if (!_conNetworkNodeId) { window.conNetworkClose(); return; }
+
+        const enabledCats = {};
+        document.querySelectorAll('#con-network-categories input[type=checkbox]:checked:not(:disabled)').forEach(cb => {
+          enabledCats[cb.dataset.cat] = true;
+        });
+
+        const srcNodeId = _conNetworkNodeId;
+        const maxDepth  = _conNetworkDepth;
+        window.conNetworkClose();
+
+        if (!Object.keys(enabledCats).length) return;
+
+        conPushUndo();
+
+        const brd  = board();
+        const bw   = brd.clientWidth;
+        const bh   = brd.clientHeight;
+
+        // Map of word (lowercase) → nodeId for all nodes already on the board before spawn.
+        // These will be linked-to rather than re-created.
+        const preExisting = new Map();
+        conNodes.forEach(n => {
+          const w = (n.baseWord || n.el.textContent.trim()).toLowerCase();
+          if (!preExisting.has(w)) preExisting.set(w, n.id);
+        });
+
+        // visitedInBFS tracks only words queued/created in THIS run to prevent cycles.
+        // Pre-existing words are NOT seeded here so they can still be linked.
+        const visitedInBFS = new Set();
+        const srcNode0 = conNodes.find(n => n.id === srcNodeId);
+        if (srcNode0) visitedInBFS.add((srcNode0.baseWord || srcNode0.el.textContent.trim()).toLowerCase());
+
+        // BFS: { nodeId, depth }
+        const queue = [{ nodeId: srcNodeId, depth: 0 }];
+
+        while (queue.length > 0) {
+          const { nodeId: parentNodeId, depth } = queue.shift();
+          if (depth >= maxDepth) continue;
+
+          const parentNode = conNodes.find(n => n.id === parentNodeId);
+          if (!parentNode) continue;
+
+          const lookupWord = parentNode.dbWord || parentNode.baseWord || '';
+          const dbEntry = typeof vocabBank !== 'undefined'
+            ? vocabBank.find(e => e.word && e.word.toLowerCase() === lookupWord.toLowerCase())
+            : null;
+          if (!dbEntry) continue;
+
+          // Collect relations to handle. Skip only words already queued/created in this run.
+          const toSpawn = [];
+          _CON_NETWORK_CATS.forEach(cat => {
+            if (!enabledCats[cat.key]) return;
+            (dbEntry[cat.key] || []).filter(Boolean).forEach(w => {
+              if (!visitedInBFS.has(w.toLowerCase())) {
+                toSpawn.push({ word: w, cat, existingId: preExisting.get(w.toLowerCase()) || null });
+              }
+            });
+          });
+
+          if (!toSpawn.length) continue;
+
+          // Compute radial positions only for words that need new nodes
+          const newWords = toSpawn.filter(item => !item.existingId);
+          const nodeW  = parentNode.el.offsetWidth  || 80;
+          const nodeH  = parentNode.el.offsetHeight || 32;
+          const cx     = parentNode.x + nodeW / 2;
+          const cy     = parentNode.y + nodeH / 2;
+          const count  = newWords.length;
+          const radius = Math.max(180, count * 32);
+          let newWordIdx = 0;
+
+          toSpawn.forEach(item => {
+            if (visitedInBFS.has(item.word.toLowerCase())) return; // concurrent dedup
+            visitedInBFS.add(item.word.toLowerCase());
+
+            const isDashed = depth > 0;
+
+            if (item.existingId) {
+              // Word already on board — just connect parent → existing node
+              const beforeLen = conEdges.length;
+              conAddEdge(parentNodeId, item.existingId, 'none', item.cat.color);
+              if (conEdges.length > beforeLen) {
+                const edge = conEdges[conEdges.length - 1];
+                edge.label      = isDashed ? '' : item.cat.edgeLabel;
+                edge.labelColor = item.cat.color;
+                edge.dashStyle  = isDashed ? 'dashed' : null;
+                if (edge.labelEl) edge.labelEl.textContent = edge.label;
+                conApplyEdgeLabelStyle(edge);
+              }
+              // Don't BFS-expand pre-existing nodes (they may already have rich connections)
+              return;
+            }
+
+            // New node — place it radially around the parent, then nudge if it overlaps
+            const angle = (2 * Math.PI * newWordIdx / Math.max(count, 1)) - Math.PI / 2;
+            newWordIdx++;
+            let nx = cx + radius * Math.cos(angle) - 40;
+            let ny = cy + radius * Math.sin(angle) - 18;
+            nx = Math.max(4, Math.min(bw - 120, nx));
+            ny = Math.max(4, Math.min(bh - 50, ny));
+            ({ x: nx, y: ny } = conFindFreePosition(nx, ny, parentNodeId));
+
+            const newId   = 'cn' + conNextId++;
+            const dbMatch = typeof vocabBank !== 'undefined'
+              ? vocabBank.find(w2 => w2.word && w2.word.toLowerCase() === item.word.toLowerCase())
+              : null;
+
+            const el = document.createElement('div');
+            el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+            el.id = newId;
+            el.style.left = nx + 'px';
+            el.style.top  = ny + 'px';
+            conApplyDefaultWordFontSize(el);
+            if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+            brd.appendChild(el);
+
+            const newNode = {
+              id: newId, el, x: nx, y: ny,
+              dbWord:     dbMatch ? dbMatch.word : null,
+              baseWord:   dbMatch ? dbMatch.word : item.word,
+              sourceWord: parentNode.baseWord || parentNode.el.textContent.trim(),
+              relation:   item.cat.key,
+              locked:     false,
+              fontFamily: window._bcNodeFontFamily || null
+            };
+            conNodes.push(newNode);
+            conSyncNodeLockState(newNode);
+            conRenderNodeLabel(newNode);
+            conAttachNodeEvents(newId, el);
+
+            // Register in preExisting so further BFS steps link to it rather than re-create
+            preExisting.set(item.word.toLowerCase(), newId);
+
+            const beforeLen = conEdges.length;
+            conAddEdge(parentNodeId, newId, 'none', item.cat.color);
+            if (conEdges.length > beforeLen) {
+              const edge = conEdges[conEdges.length - 1];
+              edge.label      = isDashed ? '' : item.cat.edgeLabel;
+              edge.labelColor = item.cat.color;
+              edge.dashStyle  = isDashed ? 'dashed' : null;
+              if (edge.labelEl) edge.labelEl.textContent = edge.label;
+              conApplyEdgeLabelStyle(edge);
+            }
+
+            queue.push({ nodeId: newId, depth: depth + 1 });
+          });
+        }
+
+        conRedrawEdges();
       };
 
       // ---- Translation picker ----
@@ -15221,6 +15696,7 @@ function hideFailure() {
           let ny = originY + Math.sin(angle) * radius - 18;
           nx = Math.max(4, Math.min(bw - 120, nx));
           ny = Math.max(4, Math.min(bh - 50, ny));
+          ({ x: nx, y: ny } = conFindFreePosition(nx, ny));
 
           const id = 'cn' + conNextId++;
           const el = document.createElement('div');
@@ -15653,6 +16129,7 @@ function hideFailure() {
             edge.labelSize = Number(e.labelSize) || 11;
             edge.labelColor = e.labelColor || '#333333';
             edge.labelWeight = Number(e.labelWeight) || 600;
+            edge.dashStyle = e.dashStyle || null;
             if (e.thickness > 0) {
               edge.thickness = Number(e.thickness);
               if (edge.line) edge.line.style.strokeWidth = String(edge.thickness);
@@ -24077,7 +24554,8 @@ ${imgTags}
           labelSize: Number(e.labelSize) || 11,
           labelColor: e.labelColor || '#333333',
           labelWeight: Number(e.labelWeight) || 600,
-          thickness: Number(e.thickness) > 0 ? Number(e.thickness) : null
+          thickness: Number(e.thickness) > 0 ? Number(e.thickness) : null,
+          dashStyle: e.dashStyle || null
         })),
         groups: groups.map(g => ({
           id: g.id,
@@ -24311,7 +24789,9 @@ ${imgTags}
     }
 
     function taBuildSessionData() {
-      const rawText = document.getElementById('ta-paste-area').value;
+      const pasteAreaEl = document.getElementById('ta-paste-area');
+      if (!pasteAreaEl) return null;
+      const rawText = pasteAreaEl.value;
       const fontSize = document.getElementById('ta-font-size-slider').value;
 
       const tokenOverrides = [];
@@ -25648,7 +26128,8 @@ ${imgTags}
             e.labelSize,
             e.labelColor,
             e.labelWeight,
-            e.thickness
+            e.thickness,
+            e.dashStyle || null
           );
         }
       });
@@ -25736,7 +26217,7 @@ ${imgTags}
     }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
-    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness) {
+    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle) {
       if (window.conEnsureSvgDefs) window.conEnsureSvgDefs();
       const svgEl = document.getElementById('constellation-svg');
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -25772,6 +26253,7 @@ ${imgTags}
         labelColor: labelColor || '#333333',
         labelWeight: Number(labelWeight) || 600,
         thickness: _restoreThickness,
+        dashStyle: dashStyle || null,
         line,
         hit,
         labelEl,
@@ -31299,6 +31781,37 @@ ${imgTags}
   </div>
 </div>
 <!-- Constellation: Related-word picker -->
+<!-- ============================================================ -->
+<!-- WORD NETWORK MODAL                                          -->
+<!-- ============================================================ -->
+<div id="con-network-overlay" onclick="if(event.target===this)conNetworkClose()">
+  <div id="con-network-modal">
+    <div id="con-network-header">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888;">Word Network</span>
+        <span id="con-network-word-badge" style="font-size:1rem;font-weight:800;color:#111;"></span>
+      </div>
+      <button id="con-network-close-btn" onclick="conNetworkClose()" title="Close">✕</button>
+    </div>
+    <div id="con-network-body">
+      <div id="con-network-categories"></div>
+      <div id="con-network-depth-row">
+        <span class="con-network-depth-label">Levels</span>
+        <div id="con-network-depth-btns">
+          <button class="con-network-depth-btn active" data-depth="1" onclick="conNetworkSetDepth(1)">1</button>
+          <button class="con-network-depth-btn" data-depth="2" onclick="conNetworkSetDepth(2)">2</button>
+          <button class="con-network-depth-btn" data-depth="3" onclick="conNetworkSetDepth(3)">3</button>
+        </div>
+        <span id="con-network-depth-warning" style="display:none;font-size:0.7rem;color:#b45309;">⚠ many nodes possible</span>
+      </div>
+    </div>
+    <div id="con-network-footer">
+      <button class="cwdb-btn" onclick="conNetworkSpawn()">Spawn Network</button>
+      <button class="cwdb-btn-outline" onclick="conNetworkClose()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="con-rel-picker-overlay" onclick="if(event.target===this)conRelPickerClose()">
   <div id="con-rel-picker-modal">
     <div id="con-rel-picker-header">
@@ -32255,6 +32768,127 @@ async function conConvertPdfMediaItemToPng(item) {
       <button id="con-ctx-crop-btn" onclick="window.conMediaCtxCrop()">&#x2702;&#xFE0F; Crop</button>
       <button id="con-ctx-lock-btn" onclick="window.conMediaCtxToggleLock()">&#x1F512; Lock</button>
     </div>
+    <!-- ── Board → Wordbank DB Export modal ─────────────────────────────── -->
+    <div id="con-db-export-overlay">
+      <div id="con-db-export-modal">
+        <div id="con-db-export-header">
+          <h3>💾 Export Words to Database</h3>
+          <button id="con-db-export-close-btn" onclick="conDbExportClose()" title="Close">✕</button>
+        </div>
+        <div id="con-db-export-toolbar">
+          <span class="cde-lbl">Sources:</span>
+          <label class="cde-src-toggle"><input type="checkbox" id="con-db-src-nodes" checked onchange="conDbExportRefresh()"> ⬡ Nodes</label>
+          <label class="cde-src-toggle"><input type="checkbox" id="con-db-src-notes" checked onchange="conDbExportRefresh()"> 📌 Notes</label>
+          <span id="con-db-export-count" class="cde-count"></span>
+        </div>
+        <div id="con-db-export-sel-row">
+          <button class="cde-sel-btn" onclick="conDbExportSelectAll(true)">Select All</button>
+          <button class="cde-sel-btn" onclick="conDbExportSelectAll(false)">Select None</button>
+          <span class="cde-hint">✓ = word already in your word bank</span>
+        </div>
+        <div id="con-db-export-body">
+          <table id="con-db-export-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;">Word</th>
+                <th style="text-align:left;">Source</th>
+                <th id="con-db-export-pg-th" style="text-align:left;">Page</th>
+                <th style="text-align:center;" title="Already in word bank">DB</th>
+                <th style="text-align:center;">Include</th>
+              </tr>
+            </thead>
+            <tbody id="con-db-export-tbody"></tbody>
+          </table>
+        </div>
+        <div id="con-db-export-keyword-row">
+          <label class="cde-lbl" for="con-db-export-keyword">Keyword for all saved words</label>
+          <input type="text" id="con-db-export-keyword" placeholder="e.g. Unit 5, revision, B2…" autocomplete="off" spellcheck="false">
+          <span class="cde-hint">Added to each word's keyword list</span>
+        </div>
+        <div id="con-db-export-footer">
+          <button class="cwdb-btn-outline" onclick="conDbExportClose()">Cancel</button>
+          <button class="cwdb-btn" onclick="conDbExportSave()">💾 Save to Wordbank…</button>
+        </div>
+      </div>
+    </div>
+    <style>
+    #con-db-export-overlay {
+      display:none; position:fixed; inset:0; z-index:99000;
+      background:rgba(0,0,0,0.55); align-items:center; justify-content:center; padding:20px;
+    }
+    #con-db-export-overlay.active { display:flex; }
+    #con-db-export-modal {
+      background:#fff; border-radius:8px; border:2px solid #111;
+      box-shadow:6px 6px 0 rgba(0,0,0,0.12); width:min(680px, 96vw);
+      max-height:88vh; display:flex; flex-direction:column; overflow:hidden;
+      animation:popIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    #con-db-export-header {
+      display:flex; align-items:center; gap:10px; padding:14px 18px;
+      border-bottom:2px solid #eee; flex-shrink:0;
+    }
+    #con-db-export-header h3 { margin:0; font-size:1.05rem; font-weight:900; flex:1; }
+    #con-db-export-close-btn {
+      padding:4px 9px; background:#111; color:#fff; border:2px solid #111;
+      border-radius:5px; cursor:pointer; font-size:0.95rem; line-height:1;
+      font-weight:700; font-family:inherit;
+    }
+    #con-db-export-close-btn:hover { background:#fff; color:#111; }
+    #con-db-export-toolbar {
+      display:flex; align-items:center; gap:14px; padding:10px 18px;
+      border-bottom:1.5px solid #eee; flex-shrink:0; flex-wrap:wrap;
+    }
+    .cde-lbl { font-size:0.72rem; font-weight:900; text-transform:uppercase; letter-spacing:0.6px; color:#666; white-space:nowrap; }
+    .cde-src-toggle { display:flex; align-items:center; gap:5px; font-size:0.85rem; font-weight:600; cursor:pointer; user-select:none; }
+    .cde-src-toggle input { accent-color:#111; width:14px; height:14px; cursor:pointer; }
+    .cde-count { margin-left:auto; font-size:0.78rem; color:#999; }
+    #con-db-export-sel-row {
+      display:flex; align-items:center; gap:6px; padding:7px 18px;
+      border-bottom:1px solid #f0f0f0; flex-shrink:0;
+    }
+    .cde-sel-btn {
+      padding:3px 10px; border:1.5px solid #ccc; border-radius:4px; background:#f5f5f5;
+      font-size:0.75rem; font-weight:700; cursor:pointer; font-family:inherit;
+    }
+    .cde-sel-btn:hover { border-color:#111; background:#fff; }
+    .cde-hint { font-size:0.72rem; color:#aaa; margin-left:6px; }
+    #con-db-export-body { overflow-y:auto; flex:1; min-height:0; }
+    #con-db-export-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    #con-db-export-table thead th {
+      position:sticky; top:0; background:#f8f8f8; border-bottom:2px solid #ddd;
+      padding:7px 10px; font-size:0.68rem; font-weight:900;
+      text-transform:uppercase; letter-spacing:0.6px; color:#555;
+    }
+    .cde-row { border-bottom:1px solid #f0f0f0; }
+    .cde-row:hover { background:#fafafa; }
+    .cde-cell-word { padding:6px 10px; font-weight:700; }
+    .cde-cell-src  { padding:4px 8px; }
+    .cde-cell-pg   { padding:4px 8px; color:#666; font-size:0.78rem; }
+    .cde-cell-indb { padding:4px 8px; text-align:center; }
+    .cde-cell-check { padding:4px 10px; text-align:center; }
+    .cde-indb-yes { color:#27ae60; font-weight:900; font-size:1rem; }
+    .cde-bookpg { color:#bbb; font-size:0.7rem; margin-left:4px; }
+    .cde-src-badge {
+      display:inline-block; padding:2px 7px; border-radius:999px;
+      font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
+    }
+    .cde-src-node { background:#eef2ff; color:#3730a3; }
+    .cde-src-note { background:#fefce8; color:#854d0e; }
+    #con-db-export-keyword-row {
+      display:flex; align-items:center; gap:10px; padding:9px 18px;
+      border-top:1.5px solid #eee; background:#fafafa; flex-shrink:0; flex-wrap:wrap;
+    }
+    #con-db-export-keyword {
+      flex:1; min-width:160px; padding:6px 10px; border:1.5px solid #ddd;
+      border-radius:5px; font-family:inherit; font-size:0.85rem; outline:none;
+    }
+    #con-db-export-keyword:focus { border-color:#111; }
+    #con-db-export-footer {
+      display:flex; gap:8px; justify-content:flex-end; padding:12px 18px;
+      border-top:2px solid #eee; background:#fafafa; flex-shrink:0;
+      border-radius:0 0 8px 8px;
+    }
+    </style>
     <!-- Image crop overlay -->
     <div id="con-crop-overlay">
       <div id="con-crop-container">
