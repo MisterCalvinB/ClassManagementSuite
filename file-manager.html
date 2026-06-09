@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Manager</title>
+  <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #000;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit;
+      margin-bottom: 28px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    .page-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; }
+    .page-subtitle { font-size: 0.9rem; font-weight: 600; color: #000; margin-bottom: 24px; }
+
+    /* ── Tabs ─────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #000;
+    }
+    .tab-btn {
+      padding: 10px 22px;
+      background: #fff;
+      border: 2px solid #000;
+      border-bottom: none;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: -2px;
+      border-radius: 6px 6px 0 0;
+      color: #000;
+      margin-right: 4px;
+    }
+    .tab-btn:not(.active):hover { background: #f0f0f0; }
+    .tab-btn.active { background: #000; color: #fff; border-color: #000; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Shared toolbar ───────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .toolbar input[type="search"],
+    .browse-search {
+      flex: 1;
+      min-width: 150px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      color: #000;
+      background: #fff;
+    }
+    .toolbar input[type="search"]:focus,
+    .browse-search:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+
+    .toolbar select,
+    .browse-target-select {
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #000;
+      background: #fff;
+      cursor: pointer;
+    }
+    .toolbar select:focus,
+    .browse-target-select:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+
+    .result-count {
+      font-size: 0.83rem;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+
+    /* ── File list ────────────────────────────────────── */
+    .file-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .file-row {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: box-shadow 0.1s, transform 0.1s;
+    }
+    .file-row:hover { box-shadow: 3px 3px 0 #000; transform: translate(-1px, -1px); }
+
+    .file-type-tag {
+      flex-shrink: 0;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      border: 1.5px solid #000;
+      white-space: nowrap;
+    }
+
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .file-name.editing { overflow: visible; white-space: normal; }
+    .file-meta { font-size: 0.76rem; font-weight: 600; color: #555; }
+
+    .file-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+
+    .btn-open {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 2px solid #000;
+      background: #000;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.81rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-open:hover { background: #fff; color: #000; }
+
+    .btn-rename {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 2px solid #000;
+      background: #fff;
+      color: #000;
+      font-family: inherit;
+      font-size: 0.81rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-rename:hover { background: #000; color: #fff; }
+    .btn-rename:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .rename-input {
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #000;
+      background: #fff;
+      width: 100%;
+    }
+    .rename-input:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .rename-input.invalid { border-color: #c00; box-shadow: 2px 2px 0 #c00; }
+    .rename-warn {
+      display: block;
+      font-size: 0.72rem;
+      color: #c00;
+      font-weight: 600;
+      margin-top: 2px;
+      min-height: 1em;
+    }
+
+    /* ── Section heading ──────────────────────────────── */
+    .section-heading {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 32px;
+      margin-bottom: 10px;
+    }
+
+    /* ── State messages ───────────────────────────────── */
+    .state-msg {
+      text-align: center;
+      padding: 40px 24px;
+      border: 2px solid #000;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+    .state-icon { font-size: 2.2rem; margin-bottom: 10px; display: block; }
+
+    /* ── Browse ───────────────────────────────────────── */
+    .browse-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .btn-refresh {
+      padding: 7px 13px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #fff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-refresh:hover { background: #000; color: #fff; }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      min-height: 1.6em;
+    }
+    .breadcrumb-seg {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #000;
+    }
+    .breadcrumb-seg:hover { background: #f0f0f0; text-decoration: underline; }
+    .breadcrumb-seg:disabled { cursor: default; font-weight: 800; }
+    .breadcrumb-seg:disabled:hover { background: none; text-decoration: none; }
+    .breadcrumb-sep { color: #888; user-select: none; }
+
+    .folder-row {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: box-shadow 0.1s, transform 0.1s;
+    }
+    .folder-row:hover { box-shadow: 3px 3px 0 #000; transform: translate(-1px, -1px); background: #f8f8f8; }
+    .folder-icon { font-size: 1.05rem; flex-shrink: 0; }
+    .folder-name { font-size: 0.92rem; font-weight: 700; }
+    .folder-count { font-size: 0.76rem; font-weight: 600; color: #555; margin-left: auto; }
+
+    /* ── Sync ─────────────────────────────────────────── */
+    .sync-card {
+      border: 2px solid #000;
+      border-radius: 10px;
+      padding: 22px 26px;
+      margin-bottom: 20px;
+    }
+    .sync-card h2 { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
+    .sync-card-desc { font-size: 0.84rem; font-weight: 500; color: #555; margin-bottom: 16px; line-height: 1.5; }
+
+    .path-box {
+      background: #f5f5f5;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: #000;
+      word-break: break-all;
+      margin-bottom: 12px;
+      min-height: 2.4em;
+    }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    .btn {
+      padding: 8px 16px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #000;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:hover { background: #fff; color: #000; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:disabled:hover { background: #000; color: #fff; }
+
+    .btn-outline {
+      padding: 8px 16px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #fff;
+      color: #000;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-outline:hover { background: #000; color: #fff; }
+    .btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-outline:disabled:hover { background: #fff; color: #000; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .sync-status { font-size: 0.85rem; font-weight: 600; min-height: 1.2em; }
+    .sync-status.ok { color: #1a7f37; }
+    .sync-status.err { color: #c00; }
+    .sync-last { font-size: 0.8rem; color: #555; margin-top: 4px; }
+
+    /* ── Conflict resolution ──────────────────────────── */
+    .conflict-bulk-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .conflict-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .conflict-row {
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .conflict-name {
+      flex: 1;
+      min-width: 120px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .conflict-dates { font-size: 0.74rem; color: #555; white-space: nowrap; }
+    .conflict-btns { display: flex; gap: 5px; flex-shrink: 0; }
+
+    .conflict-btn {
+      padding: 4px 9px;
+      border: 2px solid #000;
+      border-radius: 5px;
+      background: #fff;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .conflict-btn:hover,
+    .conflict-btn.sel { background: #000; color: #fff; }
+
+    .conflict-apply-row { display: flex; gap: 10px; margin-top: 14px; }
+
+    .btn-action {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 2px solid #000;
+      background: #fff;
+      color: #000;
+      font-family: inherit;
+      font-size: 0.81rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-action:hover { background: #000; color: #fff; }
+
+    .section-divider {
+      border: none;
+      border-top: 2px solid #000;
+      margin: 8px 0 16px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <button class="back-link" id="backBtn" data-i18n="btnBack">← Back to Launcher</button>
+
+  <h1 class="page-title" data-i18n="fmTitle">File Manager</h1>
+  <p class="page-subtitle" data-i18n="fmSubtitle">Browse, rename, and sync your data files.</p>
+
+  <!-- ── Tabs ── -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="recent" data-i18n="fmTabRecent">Recent</button>
+    <button class="tab-btn" data-tab="browse" data-i18n="fmTabBrowse">Browse</button>
+    <button class="tab-btn" data-tab="sync" data-i18n="fmTabSync">Sync</button>
+  </div>
+
+  <!-- ══ RECENT TAB ══════════════════════════════════════════════ -->
+  <div id="tab-recent" class="tab-panel active">
+    <div class="toolbar">
+      <input type="search" id="rfSearch" placeholder="Search files…" data-i18n-placeholder="rfSearchPlaceholder">
+      <select id="rfTypeFilter">
+        <option value="all" data-i18n="rfFilterAll">All types</option>
+        <optgroup label="Session files" data-i18n-label="rfFilterSessions">
+          <option value="mindmaps" data-i18n="rfFilterMindmaps">Constellation maps</option>
+        </optgroup>
+        <optgroup label="Documents" data-i18n-label="rfFilterDocs">
+          <option value="pdf">PDF</option>
+          <option value="image">Image</option>
+          <option value="sound">Sound</option>
+          <option value="book">Book</option>
+        </optgroup>
+      </select>
+      <select id="rfSortOrder">
+        <option value="date-desc" data-i18n="rfSortNewest">Newest first</option>
+        <option value="date-asc" data-i18n="rfSortOldest">Oldest first</option>
+        <option value="name-asc" data-i18n="rfSortNameAZ">Name A→Z</option>
+        <option value="name-desc" data-i18n="rfSortNameZA">Name Z→A</option>
+        <option value="size-desc" data-i18n="rfSortLargest">Largest first</option>
+      </select>
+      <span class="result-count" id="rfCount"></span>
+    </div>
+    <div class="file-list" id="rfList">
+      <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
+    </div>
+    <h2 class="section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
+    <div class="file-list" id="rfDocsList"></div>
+  </div>
+
+  <!-- ══ BROWSE TAB ══════════════════════════════════════════════ -->
+  <div id="tab-browse" class="tab-panel">
+    <div class="browse-toolbar">
+      <select id="browseTarget" class="browse-target-select">
+        <option value="mindmaps" data-i18n="fmTargetMindmaps">Constellation Maps</option>
+        <option value="user" data-i18n="fmTargetUser">User Data</option>
+        <option value="data" data-i18n="fmTargetData">Custom Data</option>
+        <option value="grades" data-i18n="fmTargetGrades">Grades</option>
+        <option value="gradeSheet" data-i18n="fmTargetGradeSheet">Grade Sheets</option>
+        <option value="groupParticipation" data-i18n="fmTargetParticipation">Participation</option>
+      </select>
+      <input type="search" id="browseSearch" class="browse-search" placeholder="Filter…" data-i18n-placeholder="fmBrowseFilter">
+      <button id="browseRefresh" class="btn-refresh" data-i18n="fmRefresh">↺ Refresh</button>
+    </div>
+    <div id="breadcrumb" class="breadcrumb"></div>
+    <div id="browseList" class="file-list">
+      <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- ══ SYNC TAB ════════════════════════════════════════════════ -->
+  <div id="tab-sync" class="tab-panel">
+
+    <!-- Data folder -->
+    <div class="sync-card">
+      <h2 data-i18n="gcSecData">Data &amp; Storage</h2>
+      <p class="sync-card-desc" data-i18n="gcSecDataDesc">The folder where all app data is stored. Change it or reset to the default location.</p>
+      <p style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;" data-i18n="gcCurrentDataFolder">Current data folder</p>
+      <div class="path-box" id="dataPathBox">Loading…</div>
+      <div class="btn-row">
+        <button class="btn-outline" id="changeDataBtn" data-i18n="gcChangeFolder">Change folder…</button>
+        <button class="btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
+      </div>
+      <div class="sync-status" id="dataStatus"></div>
+    </div>
+
+    <!-- Backup -->
+    <div class="sync-card">
+      <h2 data-i18n="gcBackupLocation">Backup Location</h2>
+      <p class="sync-card-desc" data-i18n="gcBackupDesc">When you click "Backup Now", all user data is copied to this folder.</p>
+      <div class="path-box" id="backupPathDisplay" data-i18n="notSet">Not set</div>
+      <div class="btn-row">
+        <button class="btn-outline" id="pickBackupBtn" data-i18n="gcChooseFolder">Choose Folder</button>
+        <button class="btn" id="runBackupBtn" disabled data-i18n="gcBackupNow">Backup Now</button>
+      </div>
+      <div class="sync-status" id="backupStatus"></div>
+    </div>
+
+    <!-- Sync -->
+    <div class="sync-card">
+      <h2 data-i18n="fmSyncLocation">Sync Location</h2>
+      <p class="sync-card-desc" data-i18n="fmSyncDesc">Synchronize your data folder with a saved location — useful when switching between two computers.</p>
+      <div class="path-box" id="syncPathDisplay" data-i18n="notSet">Not set</div>
+      <div class="btn-row">
+        <button class="btn-outline" id="pickSyncBtn" data-i18n="gcChooseFolder">Choose Folder</button>
+        <button class="btn" id="runSyncBtn" disabled data-i18n="gcSyncNow">Sync Now</button>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="autoSyncToggle" disabled style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+        <label for="autoSyncToggle" data-i18n="gcAutoSync">Keep target up to date automatically</label>
+      </div>
+      <div class="sync-status" id="syncStatus"></div>
+      <div class="sync-last" id="syncLast"></div>
+      <details id="syncAddedDetails" style="display:none;margin-top:8px;">
+        <summary id="syncAddedSummary" style="cursor:pointer;font-size:0.84rem;font-weight:600;user-select:none;"></summary>
+        <ul id="syncAddedList" style="margin:6px 0 0 0;padding:0 0 0 18px;font-family:Consolas,'Courier New',monospace;font-size:0.79rem;line-height:1.7;max-height:200px;overflow-y:auto;"></ul>
+      </details>
+    </div>
+
+    <div id="conflictSection" style="display:none">
+      <h2 class="section-heading" data-i18n="fmConflictsHeading">Sync Conflicts</h2>
+      <p style="font-size:0.85rem;font-weight:600;margin-bottom:12px;" data-i18n="fmConflictsDesc">Both sides have different versions of the files below. Choose which to keep.</p>
+      <div class="conflict-bulk-row">
+        <button class="btn-outline" id="bulkKeepMine" data-i18n="fmBulkMine">Keep all mine</button>
+        <button class="btn-outline" id="bulkKeepSync" data-i18n="fmBulkSync">Keep all sync</button>
+        <button class="btn-outline" id="bulkSkip" data-i18n="fmBulkSkip">Skip all</button>
+      </div>
+      <div class="conflict-list" id="conflictList"></div>
+      <div class="conflict-apply-row">
+        <button class="btn" id="applyConflicts" data-i18n="fmApplyConflicts">Apply choices</button>
+        <button class="btn-outline" id="cancelConflicts" data-i18n="btnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+
+/* ════════════════════════════════════════════
+   UTILITIES
+   ════════════════════════════════════════════ */
+
+function tt(key, fallback) {
+  return (typeof t === 'function' ? t(key) : null) || fallback;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatDate(ms) {
+  if (!ms) return '—';
+  var d = new Date(ms);
+  return d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) +
+         ' ' + d.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' });
+}
+
+function fileDateMs(f) { return f.savedAt || f.createdAt || f.mtimeMs || 0; }
+
+function prettyName(fn) {
+  return fn.replace(/\.(js|json)$/i, '').replace(/_/g, ' ').replace(/-Autosave$/, ' (autosave)').trim();
+}
+
+function escRegex(s) { return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); }
+
+var IMAGE_EXTS = ['.png','.jpg','.jpeg','.gif','.webp','.svg'];
+var SOUND_EXTS = ['.mp3','.wav','.ogg','.m4a','.aac'];
+var DOC_EXTS   = IMAGE_EXTS.concat(SOUND_EXTS, ['.pdf','.epub']);
+
+function docTypeInfo(fn) {
+  var ext = '.' + (fn||'').split('.').pop().toLowerCase();
+  if (IMAGE_EXTS.indexOf(ext) !== -1) return { label:'Image' };
+  if (SOUND_EXTS.indexOf(ext) !== -1) return { label:'Sound' };
+  if (ext === '.pdf')  return { label:'PDF', key:'pdf' };
+  if (ext === '.epub') return { label:'Book', key:'book' };
+  return { label: ext.slice(1).toUpperCase() || 'FILE', key: ext.slice(1) };
+}
+function docTypeKey(fn) {
+  var ext = '.' + (fn||'').split('.').pop().toLowerCase();
+  if (IMAGE_EXTS.indexOf(ext) !== -1) return 'image';
+  if (SOUND_EXTS.indexOf(ext) !== -1) return 'sound';
+  if (ext === '.pdf')  return 'pdf';
+  if (ext === '.epub') return 'book';
+  return '';
+}
+
+function normPath(p) { return (p||'').replace(/\\/g, '/'); }
+
+/* ════════════════════════════════════════════
+   TAB SWITCHING
+   ════════════════════════════════════════════ */
+
+var browseFirstLoad = false;
+var syncFirstLoad   = false;
+
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (tab === 'browse' && !browseFirstLoad) { browseFirstLoad = true; loadBrowse(); }
+    if (tab === 'sync'   && !syncFirstLoad)   { syncFirstLoad   = true; refreshSyncPanel(); }
+  });
+});
+
+/* ════════════════════════════════════════════
+   BACK BUTTON
+   ════════════════════════════════════════════ */
+
+document.getElementById('backBtn').addEventListener('click', function() {
+  if (window.parent !== window) { window.parent.postMessage('cmt-close-modal', '*'); return; }
+  if (window.Desktop && Desktop.isElectron()) window.close();
+  else window.location.href = 'launcher.html';
+});
+
+/* ════════════════════════════════════════════
+   RENAME LOGIC (shared)
+   ════════════════════════════════════════════ */
+
+function startInlineRename(row, file, target, onRenamed, siblings) {
+  if (row.dataset.renaming === '1') return;
+  row.dataset.renaming = '1';
+
+  var nameEl      = row.querySelector('.file-name');
+  var renameBtn   = row.querySelector('.btn-rename');
+  var oldFilename = file.filename;
+  var dotIdx      = oldFilename.lastIndexOf('.');
+  var base = dotIdx > 0 ? oldFilename.slice(0, dotIdx) : oldFilename;
+  var ext  = dotIdx > 0 ? oldFilename.slice(dotIdx) : '';
+
+  nameEl.classList.add('editing');
+  var inp = document.createElement('input');
+  inp.className = 'rename-input';
+  inp.type = 'text';
+  inp.value = base;
+  nameEl.textContent = '';
+  nameEl.appendChild(inp);
+
+  var warnEl = document.createElement('span');
+  warnEl.className = 'rename-warn';
+  nameEl.appendChild(warnEl);
+
+  var origBtnText = renameBtn.textContent;
+  renameBtn.textContent = tt('fmSave', 'Save');
+
+  var done = false;
+
+  function showWarn(msg) {
+    warnEl.textContent = msg || '';
+    inp.classList.toggle('invalid', !!msg);
+  }
+
+  function cancelRename() {
+    if (done) return;
+    done = true;
+    nameEl.textContent = onRenamed ? prettyName(oldFilename) : oldFilename;
+    nameEl.classList.remove('editing');
+    renameBtn.textContent = origBtnText;
+    row.dataset.renaming = '';
+    renameBtn.onclick = function() { startInlineRename(row, file, target, onRenamed, siblings); };
+  }
+
+  function confirmRename() {
+    if (done) return;
+    var newBase = inp.value.trim();
+    if (!newBase) { showWarn(tt('fmRenameEmpty', 'Name cannot be empty.')); return; }
+    if ((newBase + ext) === oldFilename) { cancelRename(); return; }
+    if (/[/\\<>:"|?*\x00-\x1f]/.test(newBase)) {
+      showWarn(tt('fmRenameInvalidChars', 'Name contains invalid characters (\\ / : * ? " < > |).')); return;
+    }
+    if ((newBase + ext).length > 255) {
+      showWarn(tt('fmRenameNameTooLong', 'Name is too long (max 255 characters).')); return;
+    }
+    var newFilename = newBase + ext;
+    var oldRelPath  = normPath(file.relativePath || file.filename);
+    var dir = oldRelPath.includes('/') ? oldRelPath.slice(0, oldRelPath.lastIndexOf('/') + 1) : '';
+    var newRelPath  = dir + newFilename;
+    if (siblings) {
+      var conflict = siblings.some(function(s) {
+        var sRel = normPath(s.relativePath || s.filename);
+        return sRel !== oldRelPath && sRel === newRelPath;
+      });
+      if (conflict) { showWarn(tt('fmRenameConflict', 'A file with this name already exists.')); return; }
+    }
+    done = true;
+
+    if (!window.Desktop || !Desktop.isElectron()) { cancelRename(); return; }
+
+    Desktop.renameByPath(target, oldRelPath, newRelPath).then(function(res) {
+      if (res && res.ok) {
+        file.filename     = newFilename;
+        file.relativePath = newRelPath;
+        var displayName = onRenamed ? onRenamed(newFilename) : newFilename;
+        nameEl.textContent = displayName;
+        nameEl.classList.remove('editing');
+        renameBtn.textContent = origBtnText;
+        row.dataset.renaming = '';
+        renameBtn.onclick = function() { startInlineRename(row, file, target, onRenamed, siblings); };
+      } else {
+        showWarn(tt('fmRenameFailed','Rename failed.'));
+        done = false;
+      }
+    }).catch(function(e) {
+      showWarn(tt('fmRenameFailed','Rename failed:') + ' ' + (e && e.message ? e.message : String(e)));
+      done = false;
+    });
+  }
+
+  renameBtn.onclick = confirmRename;
+  inp.addEventListener('input', function() { showWarn(''); });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmRename();
+    if (e.key === 'Escape') cancelRename();
+  });
+  inp.addEventListener('blur', function() {
+    setTimeout(function() { if (!done) cancelRename(); }, 180);
+  });
+  inp.focus();
+  inp.select();
+}
+
+/* ════════════════════════════════════════════
+   RECENT TAB
+   ════════════════════════════════════════════ */
+
+var rfSessions = [];
+var rfDocs     = [];
+
+function rfSortFn(order) {
+  if (order === 'date-asc')  return function(a,b){ return fileDateMs(a) - fileDateMs(b); };
+  if (order === 'name-asc')  return function(a,b){ return prettyName(a.filename).localeCompare(prettyName(b.filename)); };
+  if (order === 'name-desc') return function(a,b){ return prettyName(b.filename).localeCompare(prettyName(a.filename)); };
+  if (order === 'size-desc') return function(a,b){ return (b.size||0) - (a.size||0); };
+  return function(a,b){ return fileDateMs(b) - fileDateMs(a); };
+}
+
+function makeRfRow(file, isSession) {
+  var row = document.createElement('div');
+  row.className = 'file-row';
+
+  var tag = document.createElement('span');
+  tag.className = 'file-type-tag';
+  tag.textContent = isSession ? tt('rfFilterMindmaps','Constellation') : docTypeInfo(file.filename).label;
+  row.appendChild(tag);
+
+  var info = document.createElement('div');
+  info.className = 'file-info';
+
+  var nameEl = document.createElement('div');
+  nameEl.className = 'file-name';
+  nameEl.textContent = isSession ? prettyName(file.filename) : file.filename;
+  nameEl.title = file.filename;
+  info.appendChild(nameEl);
+
+  var meta = document.createElement('div');
+  meta.className = 'file-meta';
+  var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
+  meta.textContent = formatDate(fileDateMs(file)) + (kb ? ' · ' + kb : '');
+  info.appendChild(meta);
+  row.appendChild(info);
+
+  var acts = document.createElement('div');
+  acts.className = 'file-actions';
+
+  if (isSession) {
+    var openBtn = document.createElement('button');
+    openBtn.className = 'btn-open';
+    openBtn.textContent = tt('rfOpenInBoard', 'Open in Board ↗');
+    (function(f) {
+      openBtn.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) {
+          alert(tt('rfElectronRequired','Requires Electron app.')); return;
+        }
+        Desktop.openTool('board.html', {
+          query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename }
+        });
+      });
+    })(file);
+    acts.appendChild(openBtn);
+  }
+
+  if (window.Desktop && Desktop.isElectron() && isSession) {
+    var rnBtn = document.createElement('button');
+    rnBtn.className = 'btn-rename';
+    rnBtn.textContent = tt('fmRename', 'Rename');
+    (function(f, ne, rb) {
+      rb.addEventListener('click', function() {
+        startInlineRename(row, f, f.target, prettyName, rfFiles);
+      });
+    })(file, nameEl, rnBtn);
+    acts.appendChild(rnBtn);
+  }
+
+  row.appendChild(acts);
+  return row;
+}
+
+function rfRender() {
+  var filter = document.getElementById('rfTypeFilter').value;
+  var search = document.getElementById('rfSearch').value.trim().toLowerCase();
+  var sort   = document.getElementById('rfSortOrder').value;
+  var DOC_KEYS = ['pdf','image','sound','book'];
+  var isDocFilter  = DOC_KEYS.indexOf(filter) !== -1;
+  var isSessFilter = filter === 'mindmaps';
+
+  var filteredS = isDocFilter ? [] : rfSessions.filter(function(f) {
+    if (isSessFilter && f.target !== filter) return false;
+    if (search && prettyName(f.filename).toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filteredS.sort(rfSortFn(sort));
+
+  var filteredD = isSessFilter ? [] : rfDocs.filter(function(f) {
+    if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
+    if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filteredD.sort(rfSortFn(sort));
+
+  var rfList = document.getElementById('rfList');
+  if (!filteredS.length && !filteredD.length) {
+    rfList.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>' + escHtml(tt('rfNoFiles','No files found.')) + '</div>';
+  } else {
+    rfList.innerHTML = '';
+    filteredS.forEach(function(f) { rfList.appendChild(makeRfRow(f, true)); });
+  }
+
+  var rfDH = document.getElementById('rfDocsHeading');
+  var rfDL = document.getElementById('rfDocsList');
+  rfDH.style.display = filteredD.length ? '' : 'none';
+  rfDL.innerHTML = '';
+  filteredD.forEach(function(f) { rfDL.appendChild(makeRfRow(f, false)); });
+
+  var total = filteredS.length + filteredD.length;
+  document.getElementById('rfCount').textContent = total + ' ' + tt(total === 1 ? 'rfFile' : 'rfFiles', total === 1 ? 'file' : 'files');
+}
+
+document.getElementById('rfTypeFilter').addEventListener('change', rfRender);
+document.getElementById('rfSortOrder').addEventListener('change', rfRender);
+document.getElementById('rfSearch').addEventListener('input', rfRender);
+
+async function loadRecent() {
+  var rfList = document.getElementById('rfList');
+  if (!window.Desktop || !Desktop.isElectron()) {
+    rfList.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + escHtml(tt('rfElectronRequiredPage','Requires the Electron desktop app.')) + '</div>';
+    return;
+  }
+
+  try {
+    var r = await Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true });
+    if (r && r.ok && Array.isArray(r.files)) {
+      rfSessions = r.files
+        .filter(function(f) {
+          var rel = normPath(f.relativePath || f.filename || '');
+          return rel.split('/').indexOf('archived') === -1;
+        })
+        .map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+    }
+  } catch(e) { console.warn('loadRecent sessions:', e); }
+
+  try {
+    var d = await Desktop.listByPath('user', 'custom-data', { extensions:DOC_EXTS, recursive:true });
+    if (d && d.ok && Array.isArray(d.files)) {
+      rfDocs = d.files.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        return rel.split('/').indexOf('archived') === -1;
+      });
+    }
+  } catch(e) { console.warn('loadRecent docs:', e); }
+
+  rfRender();
+}
+
+/* ════════════════════════════════════════════
+   BROWSE TAB
+   ════════════════════════════════════════════ */
+
+var browseAllFiles = [];
+var browseTarget   = 'mindmaps';
+var browsePath     = '';
+
+var TARGET_LABELS = {
+  mindmaps:          'Constellation Maps',
+  user:              'User Data',
+  data:              'Custom Data',
+  grades:            'Grades',
+  gradeSheet:        'Grade Sheets',
+  groupParticipation:'Participation'
+};
+
+function renderBreadcrumb() {
+  var bc = document.getElementById('breadcrumb');
+  bc.innerHTML = '';
+  var parts = browsePath ? browsePath.split('/') : [];
+
+  var rootBtn = document.createElement('button');
+  rootBtn.className = 'breadcrumb-seg';
+  rootBtn.textContent = TARGET_LABELS[browseTarget] || browseTarget;
+  rootBtn.addEventListener('click', function() { browsePath = ''; renderBrowse(); renderBreadcrumb(); });
+  bc.appendChild(rootBtn);
+
+  parts.forEach(function(part, idx) {
+    var sep = document.createElement('span');
+    sep.className = 'breadcrumb-sep';
+    sep.textContent = ' / ';
+    bc.appendChild(sep);
+
+    var seg = document.createElement('button');
+    seg.className = 'breadcrumb-seg';
+    seg.textContent = part;
+    if (idx === parts.length - 1) {
+      seg.disabled = true;
+    } else {
+      (function(targetPath) {
+        seg.addEventListener('click', function() {
+          browsePath = targetPath;
+          renderBrowse();
+          renderBreadcrumb();
+        });
+      })(parts.slice(0, idx + 1).join('/'));
+    }
+    bc.appendChild(seg);
+  });
+}
+
+function renderBrowse() {
+  var searchVal = document.getElementById('browseSearch').value.trim().toLowerCase();
+  var list = document.getElementById('browseList');
+  list.innerHTML = '';
+
+  var prefix = browsePath ? browsePath + '/' : '';
+
+  // Derive immediate subdirectories
+  var folderCounts = {};
+  browseAllFiles.forEach(function(f) {
+    var rel = normPath(f.relativePath || f.filename || '');
+    if (prefix && !rel.startsWith(prefix)) return;
+    var rest = rel.slice(prefix.length);
+    var slash = rest.indexOf('/');
+    if (slash !== -1) {
+      var folder = rest.slice(0, slash);
+      folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+    }
+  });
+
+  // Files directly at current level (no sub-slash after prefix)
+  var levelFiles = browseAllFiles.filter(function(f) {
+    var rel = normPath(f.relativePath || f.filename || '');
+    if (prefix && !rel.startsWith(prefix)) return false;
+    var rest = rel.slice(prefix.length);
+    return rest.indexOf('/') === -1 && rest.length > 0;
+  });
+
+  // Apply search filter
+  if (searchVal) {
+    levelFiles = levelFiles.filter(function(f) {
+      return (f.filename || '').toLowerCase().indexOf(searchVal) !== -1;
+    });
+  }
+
+  var folders = Object.keys(folderCounts).sort();
+
+  if (!folders.length && !levelFiles.length) {
+    list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>' + escHtml(tt('rfNoFiles','No files found.')) + '</div>';
+    return;
+  }
+
+  // Render folders (hidden when searching to focus on matching files)
+  if (!searchVal) {
+    folders.forEach(function(folder) {
+      var row = document.createElement('div');
+      row.className = 'folder-row';
+
+      var icon = document.createElement('span');
+      icon.className = 'folder-icon';
+      icon.textContent = '📁';
+
+      var name = document.createElement('span');
+      name.className = 'folder-name';
+      name.textContent = folder;
+
+      var cnt = document.createElement('span');
+      cnt.className = 'folder-count';
+      var n = folderCounts[folder];
+      cnt.textContent = n + ' ' + tt(n === 1 ? 'rfFile' : 'rfFiles', n === 1 ? 'file' : 'files');
+
+      row.appendChild(icon);
+      row.appendChild(name);
+      row.appendChild(cnt);
+
+      (function(folderName) {
+        row.addEventListener('click', function() {
+          browsePath = prefix + folderName;
+          renderBrowse();
+          renderBreadcrumb();
+        });
+      })(folder);
+
+      list.appendChild(row);
+    });
+  }
+
+  // Render files
+  levelFiles.forEach(function(f) {
+    var fileObj = Object.assign({}, f, { target: browseTarget });
+    list.appendChild(makeBrowseRow(fileObj));
+  });
+}
+
+function makeBrowseRow(file) {
+  var row = document.createElement('div');
+  row.className = 'file-row';
+
+  var extRaw = (file.filename || '').split('.').pop().toLowerCase();
+  var tagText;
+  if (/^(js|json)$/.test(extRaw)) tagText = 'Data';
+  else if (IMAGE_EXTS.indexOf('.' + extRaw) !== -1) tagText = 'Image';
+  else if (SOUND_EXTS.indexOf('.' + extRaw) !== -1) tagText = 'Sound';
+  else if (extRaw === 'pdf')  tagText = 'PDF';
+  else if (extRaw === 'epub') tagText = 'Book';
+  else tagText = extRaw.toUpperCase() || 'FILE';
+
+  var tag = document.createElement('span');
+  tag.className = 'file-type-tag';
+  tag.textContent = tagText;
+  row.appendChild(tag);
+
+  var info = document.createElement('div');
+  info.className = 'file-info';
+
+  var nameEl = document.createElement('div');
+  nameEl.className = 'file-name';
+  nameEl.textContent = file.filename;
+  nameEl.title = normPath(file.relativePath || file.filename);
+  info.appendChild(nameEl);
+
+  var meta = document.createElement('div');
+  meta.className = 'file-meta';
+  var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
+  meta.textContent = formatDate(file.mtimeMs || 0) + (kb ? ' · ' + kb : '');
+  info.appendChild(meta);
+  row.appendChild(info);
+
+  var acts = document.createElement('div');
+  acts.className = 'file-actions';
+
+  var isConst = /\.(js|json)$/i.test(file.filename) && browseTarget === 'mindmaps';
+  if (isConst) {
+    var boardBtn = document.createElement('button');
+    boardBtn.className = 'btn-open';
+    boardBtn.textContent = tt('rfOpenInBoard','Open in Board ↗');
+    (function(f) {
+      boardBtn.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        Desktop.openTool('board.html', { query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename } });
+      });
+    })(file);
+    acts.appendChild(boardBtn);
+  }
+
+  if (window.Desktop && Desktop.isElectron()) {
+    // Open in native app
+    var nativeBtn = document.createElement('button');
+    nativeBtn.className = 'btn-action';
+    nativeBtn.textContent = tt('fmOpenNative','Open');
+    (function(f) {
+      nativeBtn.addEventListener('click', async function() {
+        var res = await Desktop.openNative(f.target, f.relativePath || f.filename);
+        if (res && !res.ok) alert(tt('fmOpenNativeFailed','Could not open file:') + ' ' + (res.error || ''));
+      });
+    })(file);
+    acts.appendChild(nativeBtn);
+
+    // Duplicate
+    var dupBtn = document.createElement('button');
+    dupBtn.className = 'btn-action';
+    dupBtn.textContent = tt('fmDuplicate','Duplicate');
+    (function(f, dBtn) {
+      dBtn.addEventListener('click', async function() {
+        dBtn.disabled = true;
+        try {
+          var res = await Desktop.duplicateByPath(f.target, f.relativePath || f.filename);
+          if (res && res.ok) {
+            var newFile = Object.assign({}, f, {
+              filename: res.filename,
+              relativePath: res.relativePath,
+              size: res.size,
+              mtimeMs: res.mtimeMs
+            });
+            browseAllFiles.push(newFile);
+            var newRow = makeBrowseRow(newFile);
+            row.parentNode.insertBefore(newRow, row.nextSibling);
+          } else {
+            alert(tt('fmDuplicateFailed','Duplicate failed.'));
+          }
+        } catch(e) {
+          alert(tt('fmDuplicateFailed','Duplicate failed:') + ' ' + (e && e.message ? e.message : String(e)));
+        } finally { dBtn.disabled = false; }
+      });
+    })(file, dupBtn);
+    acts.appendChild(dupBtn);
+
+    // Rename
+    var rnBtn = document.createElement('button');
+    rnBtn.className = 'btn-rename';
+    rnBtn.textContent = tt('fmRename','Rename');
+    (function(f, rb) {
+      rb.addEventListener('click', function() {
+        startInlineRename(row, f, f.target, null, browseAllFiles);
+      });
+    })(file, rnBtn);
+    acts.appendChild(rnBtn);
+  }
+
+  row.appendChild(acts);
+  return row;
+}
+
+async function loadBrowse() {
+  browseTarget = document.getElementById('browseTarget').value;
+  browsePath   = '';
+  renderBreadcrumb();
+
+  var list = document.getElementById('browseList');
+  list.innerHTML = '<div class="state-msg"><span class="state-icon">⏳</span>' + escHtml(tt('rfLoading','Loading…')) + '</div>';
+
+  if (!window.Desktop || !Desktop.isElectron()) {
+    list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + escHtml(tt('rfElectronRequiredPage','Requires the Electron app.')) + '</div>';
+    return;
+  }
+
+  try {
+    var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true });
+    browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
+  } catch(e) {
+    list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + escHtml('Error: ' + (e && e.message ? e.message : String(e))) + '</div>';
+    return;
+  }
+
+  renderBrowse();
+}
+
+document.getElementById('browseTarget').addEventListener('change', function() {
+  browseTarget = this.value;
+  browsePath   = '';
+  loadBrowse();
+});
+document.getElementById('browseRefresh').addEventListener('click', function() {
+  browsePath = '';
+  loadBrowse();
+});
+document.getElementById('browseSearch').addEventListener('input', function() {
+  renderBrowse();
+});
+
+/* ════════════════════════════════════════════
+   SYNC TAB — DATA, BACKUP, SYNC
+   ════════════════════════════════════════════ */
+
+var _syncConflicts = [];
+var _lastSyncTime  = parseInt(localStorage.getItem('lastSyncTime') || '0', 10) || 0;
+
+function setDataStatus(msg, kind) {
+  var el = document.getElementById('dataStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'sync-status' + (kind ? ' ' + kind : '');
+}
+
+function setBackupStatus(msg, kind) {
+  var el = document.getElementById('backupStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'sync-status' + (kind ? ' ' + kind : '');
+}
+
+function setSyncStatus(msg, kind) {
+  var el = document.getElementById('syncStatus');
+  el.textContent = msg || '';
+  el.className = 'sync-status' + (kind ? ' ' + kind : '');
+}
+
+function refreshLastSync() {
+  var el = document.getElementById('syncLast');
+  el.textContent = _lastSyncTime > 0 ? 'Last synced: ' + new Date(_lastSyncTime).toLocaleString() : '';
+}
+
+async function refreshDataPanel() {
+  if (!window.electronApi || !window.electronApi.getDataLocation) return;
+  try {
+    var res = await window.electronApi.getDataLocation();
+    document.getElementById('dataPathBox').textContent = (res && res.resolvedWritableRoot) ? res.resolvedWritableRoot : tt('notSet','Not set');
+  } catch(e) {}
+}
+
+async function refreshBackupPanel() {
+  if (!window.electronApi || !window.electronApi.getBackupLocation) return;
+  try {
+    var res = await window.electronApi.getBackupLocation();
+    var has = res && res.ok && res.backupLocation;
+    document.getElementById('backupPathDisplay').textContent = has ? res.backupLocation : tt('notSet','Not set');
+    document.getElementById('runBackupBtn').disabled = !has;
+  } catch(e) {}
+}
+
+async function refreshSyncPanel() {
+  await Promise.all([refreshDataPanel(), refreshBackupPanel()]);
+  if (!window.electronApi || !window.electronApi.getSyncLocation) return;
+  try {
+    var res = await window.electronApi.getSyncLocation();
+    var has = res && res.ok && res.syncLocation;
+    document.getElementById('syncPathDisplay').textContent = has ? res.syncLocation : tt('notSet','Not set');
+    document.getElementById('runSyncBtn').disabled    = !has;
+    document.getElementById('autoSyncToggle').disabled = !has;
+    if (!has) document.getElementById('autoSyncToggle').checked = false;
+    if (has && window.electronApi.getAutoSync) {
+      try {
+        var ar = await window.electronApi.getAutoSync();
+        document.getElementById('autoSyncToggle').checked = !!(ar && ar.autoSync);
+      } catch(e) {}
+    }
+  } catch(e) {}
+  refreshLastSync();
+}
+
+// ── Data folder buttons ──────────────────────────────────
+document.getElementById('changeDataBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.pickDataLocation) return;
+  this.disabled = true;
+  setDataStatus(tt('gcChangingFolder','Opening folder picker…'), '');
+  try {
+    var r = await window.electronApi.pickDataLocation();
+    if (r && r.ok) {
+      await refreshDataPanel();
+      setDataStatus(tt('gcDataFolderChanged','Data folder updated.'), 'ok');
+    } else if (r && r.canceled) {
+      setDataStatus('', '');
+    } else {
+      setDataStatus(tt('gcErrChangingFolder','Failed to change folder.'), 'err');
+    }
+  } catch(e) {
+    setDataStatus(tt('gcErrChangingFolder','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('resetDataBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.resetDataLocation) return;
+  this.disabled = true;
+  setDataStatus(tt('gcResettingFolder','Resetting…'), '');
+  try {
+    var r = await window.electronApi.resetDataLocation();
+    if (r && r.ok) {
+      await refreshDataPanel();
+      setDataStatus(tt('gcDataFolderReset','Reset to default.'), 'ok');
+    } else {
+      setDataStatus(tt('gcErrChangingFolder','Failed to reset.'), 'err');
+    }
+  } catch(e) {
+    setDataStatus(tt('gcErrChangingFolder','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+// ── Backup buttons ───────────────────────────────────────
+document.getElementById('pickBackupBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.pickBackupLocation) return;
+  this.disabled = true;
+  setBackupStatus(tt('fmSyncPickingFolder','Opening folder picker…'), '');
+  try {
+    var r = await window.electronApi.pickBackupLocation();
+    if (r && r.ok && r.backupLocation) {
+      await refreshBackupPanel();
+      setBackupStatus(tt('gcBackupFolderSet','Backup folder set.'), 'ok');
+    } else {
+      setBackupStatus('', '');
+    }
+  } catch(e) {
+    setBackupStatus(tt('fmSyncErr','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('runBackupBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.runBackup) return;
+  this.disabled = true;
+  setBackupStatus(tt('gcBackingUp','Backing up…'), '');
+  try {
+    var r = await window.electronApi.runBackup();
+    if (r && r.ok) {
+      var n = r.copied || 0;
+      setBackupStatus(tt('gcBackupDone','Backup complete.') + ' ' + n + ' file' + (n !== 1 ? 's' : '') + ' copied.', 'ok');
+    } else {
+      setBackupStatus(tt('gcBackupFailed','Backup failed.') + (r && r.error ? ' ' + r.error : ''), 'err');
+    }
+  } catch(e) {
+    setBackupStatus(tt('fmSyncErr','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('pickSyncBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.pickSyncLocation) return;
+  this.disabled = true;
+  setSyncStatus(tt('fmSyncPickingFolder','Opening folder picker…'), '');
+  try {
+    var r = await window.electronApi.pickSyncLocation();
+    if (r && !r.canceled && r.syncLocation) {
+      await refreshSyncPanel();
+      setSyncStatus(tt('fmSyncFolderSet','Sync folder set.'), 'ok');
+    } else {
+      setSyncStatus('', '');
+    }
+  } catch(e) {
+    setSyncStatus(tt('fmSyncErr','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('runSyncBtn').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.runSync) return;
+  this.disabled = true;
+  setSyncStatus(tt('fmSyncing','Syncing…'), '');
+  document.getElementById('conflictSection').style.display = 'none';
+  try {
+    var r = await window.electronApi.runSync({});
+    if (!r || !r.ok) {
+      setSyncStatus(tt('fmSyncErr','Sync error:') + ' ' + (r && r.error ? r.error : 'Unknown error'), 'err');
+    } else if (r.conflicts && r.conflicts.length > 0) {
+      _syncConflicts = r.conflicts;
+      setSyncStatus(r.conflicts.length + ' ' + tt('fmConflictsFound','conflict(s) — resolve below.'), '');
+      renderConflicts(r.conflicts);
+    } else {
+      var n = r.copied || 0;
+      setSyncStatus(tt('fmSyncDone','Sync complete.') + ' ' + n + ' file' + (n !== 1 ? 's' : '') + ' copied.', 'ok');
+      _lastSyncTime = Date.now();
+      localStorage.setItem('lastSyncTime', String(_lastSyncTime));
+      refreshLastSync();
+    }
+  } catch(e) {
+    setSyncStatus(tt('fmSyncErr','Sync error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('autoSyncToggle').addEventListener('change', async function() {
+  if (!window.electronApi || !window.electronApi.setAutoSync) return;
+  try { await window.electronApi.setAutoSync({ autoSync: this.checked }); } catch(e) {}
+});
+
+function renderConflicts(conflicts) {
+  var listEl  = document.getElementById('conflictList');
+  var section = document.getElementById('conflictSection');
+  listEl.innerHTML = '';
+
+  conflicts.forEach(function(c, idx) {
+    var row = document.createElement('div');
+    row.className = 'conflict-row';
+    row.dataset.choice = 'skip';
+
+    var name = document.createElement('span');
+    name.className = 'conflict-name';
+    var relPath = normPath(c.relativePath || c.filename || '');
+    name.textContent = relPath;
+    name.title = relPath;
+    row.appendChild(name);
+
+    var btns = document.createElement('div');
+    btns.className = 'conflict-btns';
+
+    [['mine', tt('fmKeepMine','Mine')], ['sync', tt('fmKeepSync','Sync')], ['skip', tt('fmSkip','Skip')]].forEach(function(pair) {
+      var choice = pair[0], label = pair[1];
+      var btn = document.createElement('button');
+      btn.className = 'conflict-btn' + (choice === 'skip' ? ' sel' : '');
+      btn.dataset.choice = choice;
+      btn.textContent = label;
+      btn.addEventListener('click', function() {
+        row.dataset.choice = choice;
+        btns.querySelectorAll('.conflict-btn').forEach(function(b) { b.classList.toggle('sel', b.dataset.choice === choice); });
+      });
+      btns.appendChild(btn);
+    });
+
+    row.appendChild(btns);
+    listEl.appendChild(row);
+  });
+
+  section.style.display = '';
+}
+
+function applyBulkChoice(choice) {
+  document.querySelectorAll('#conflictList .conflict-row').forEach(function(row) {
+    row.dataset.choice = choice;
+    row.querySelectorAll('.conflict-btn').forEach(function(b) {
+      b.classList.toggle('sel', b.dataset.choice === choice);
+    });
+  });
+}
+
+document.getElementById('bulkKeepMine').addEventListener('click', function() { applyBulkChoice('mine'); });
+document.getElementById('bulkKeepSync').addEventListener('click', function() { applyBulkChoice('sync'); });
+document.getElementById('bulkSkip').addEventListener('click',     function() { applyBulkChoice('skip'); });
+
+document.getElementById('applyConflicts').addEventListener('click', async function() {
+  if (!window.electronApi || !window.electronApi.applySyncChoices) return;
+  this.disabled = true;
+  setSyncStatus(tt('fmApplying','Applying choices…'), '');
+
+  var decisions = [];
+  document.querySelectorAll('#conflictList .conflict-row').forEach(function(row, i) {
+    var c = _syncConflicts[i];
+    if (!c) return;
+    var choice = row.dataset.choice;
+    decisions.push({
+      relativePath: normPath(c.relativePath || c.filename || ''),
+      action: choice === 'mine' ? 'keep-src' : choice === 'sync' ? 'keep-dest' : 'skip'
+    });
+  });
+
+  try {
+    var r = await window.electronApi.applySyncChoices({ decisions });
+    if (r && r.ok) {
+      document.getElementById('conflictSection').style.display = 'none';
+      setSyncStatus(tt('fmSyncDone','Sync complete.'), 'ok');
+      _lastSyncTime = Date.now();
+      localStorage.setItem('lastSyncTime', String(_lastSyncTime));
+      refreshLastSync();
+    } else {
+      setSyncStatus(tt('fmSyncErr','Error applying choices.'), 'err');
+    }
+  } catch(e) {
+    setSyncStatus(tt('fmSyncErr','Error:') + ' ' + (e && e.message ? e.message : String(e)), 'err');
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('cancelConflicts').addEventListener('click', function() {
+  document.getElementById('conflictSection').style.display = 'none';
+  setSyncStatus('', '');
+});
+
+/* ════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════ */
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof applyTranslations === 'function') applyTranslations();
+  loadRecent();
+});
+</script>
+</body>
+</html>

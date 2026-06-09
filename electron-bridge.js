@@ -161,6 +161,16 @@
     return getDesktopApi().deleteByPath({ target, relativePath, ...options });
   }
 
+  async function openNative(target, relativePath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openNative({ target, relativePath });
+  }
+
+  async function duplicateByPath(target, relativePath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().duplicateByPath({ target, relativePath });
+  }
+
   function extractWrappedJsonValue(rawText) {
     const normalized = String(rawText || "");
     const assignmentMatch = normalized.match(/(?:window\.[A-Za-z_$][\w$]*\s*=\s*|const\s+[A-Za-z_$][\w$]*\s*=\s*|let\s+[A-Za-z_$][\w$]*\s*=\s*|var\s+[A-Za-z_$][\w$]*\s*=\s*|export\s+default\s+)/m);
@@ -433,12 +443,14 @@
     applyRestoreChoices,
     arrangeSideBySide,
     backupZip,
+    duplicateByPath,
     exportFiles,
     goToLauncher,
     isElectron,
     isTimerWindowOpen,
     listByPath,
     listFiles,
+    openNative,
     openTool,
     openSplit,
     openTimerWindow,

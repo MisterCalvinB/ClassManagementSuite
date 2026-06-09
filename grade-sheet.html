@@ -3457,11 +3457,14 @@
 
     function defaultStudent(index, fullName) {
       const name = (fullName || "").trim();
+      const spaceIdx = name.indexOf(' ');
+      const firstName = spaceIdx > 0 ? name.slice(0, spaceIdx) : name;
+      const lastName = spaceIdx > 0 ? name.slice(spaceIdx + 1) : "";
       return {
         id: uid(),
         index,
-        firstName: name,
-        lastName: "",
+        firstName,
+        lastName,
         sem1Tests: Array(TEST_COUNT_PER_SEM).fill(null),
         sem2Tests: Array(TEST_COUNT_PER_SEM).fill(null),
         comments: "",

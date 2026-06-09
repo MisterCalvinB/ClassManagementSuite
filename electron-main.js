@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session } = require('electron');
+﻿const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
@@ -20,9 +20,10 @@ const PAGE_FILES = {
   dataLocation: 'data-location.html',
   launcher: 'launcher.html',
   generalConfig: 'general-config.html',
-  recentFiles: 'recent-files.html',
+  fileManager: 'file-manager.html',
   howTo: 'how-to.html',
-  credits: 'credits.html'
+  credits: 'credits.html',
+  scheduleMaker: 'schedule-maker.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -45,12 +46,16 @@ const PAGE_ARG_MAP = {
   home: PAGE_FILES.launcher,
   generalconfig: PAGE_FILES.generalConfig,
   config: PAGE_FILES.generalConfig,
-  recentfiles: PAGE_FILES.recentFiles,
-  recent: PAGE_FILES.recentFiles,
+  filemanager: PAGE_FILES.fileManager,
+  files: PAGE_FILES.fileManager,
+  recentfiles: PAGE_FILES.fileManager,
+  recent: PAGE_FILES.fileManager,
   howto: PAGE_FILES.howTo,
   help: PAGE_FILES.howTo,
   groupeditor: PAGE_FILES.groupEditor,
-  groups: PAGE_FILES.groupEditor
+  groups: PAGE_FILES.groupEditor,
+  schedulemaker: PAGE_FILES.scheduleMaker,
+  schedule: PAGE_FILES.scheduleMaker
 };
 
 const PAGE_LABELS = {
@@ -65,9 +70,10 @@ const PAGE_LABELS = {
   [PAGE_FILES.dataLocation]: 'Data Location',
   [PAGE_FILES.launcher]: 'Launcher',
   [PAGE_FILES.generalConfig]: 'General Config',
-  [PAGE_FILES.recentFiles]: 'Recent Files',
+  [PAGE_FILES.fileManager]: 'File Manager',
   [PAGE_FILES.howTo]: 'How To',
-  [PAGE_FILES.credits]: 'Credits'
+  [PAGE_FILES.credits]: 'Credits',
+  [PAGE_FILES.scheduleMaker]: 'Schedule Maker'
 };
 
 function getDefaultWritableRootDir() {
@@ -185,9 +191,10 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.recentFiles]: new Set(['user', 'mindmaps']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation']),
   [PAGE_FILES.howTo]: new Set(['user']),
-  [PAGE_FILES.credits]: new Set([])
+  [PAGE_FILES.credits]: new Set([]),
+  [PAGE_FILES.scheduleMaker]: new Set(['user', 'data'])
 };
 
 let mainWindow;
@@ -3786,6 +3793,41 @@ ipcMain.handle('app:quiz-server-stop', async () => {
 
 ipcMain.handle('app:quiz-server-status', async () => {
   return _quizStatus();
+});
+
+ipcMain.handle('app:open-native', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const { fullPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+  const errMsg = await shell.openPath(fullPath);
+  return errMsg ? { ok: false, error: errMsg } : { ok: true };
+});
+
+ipcMain.handle('app:duplicate-by-path', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const { fullPath: srcPath, safeRelative: srcRelPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+
+  const ext = path.extname(srcPath);
+  const basePath    = ext ? srcPath.slice(0, -ext.length)    : srcPath;
+  const baseRelPath = ext ? srcRelPath.slice(0, -ext.length) : srcRelPath;
+
+  let destPath, destRelPath, n = 1;
+  while (true) {
+    const suffix = n === 1 ? ' - Copy' : ` - Copy (${n})`;
+    destPath    = basePath    + suffix + ext;
+    destRelPath = baseRelPath + suffix + ext;
+    try { await fs.access(destPath); n++; } catch { break; }
+  }
+
+  await fs.mkdir(path.dirname(destPath), { recursive: true });
+  await fs.copyFile(srcPath, destPath);
+  const stats = await fs.stat(destPath);
+  return {
+    ok: true,
+    relativePath: destRelPath,
+    filename: path.basename(destPath),
+    size: stats.size,
+    mtimeMs: stats.mtimeMs
+  };
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

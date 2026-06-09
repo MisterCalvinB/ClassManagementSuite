@@ -72,6 +72,12 @@ const exposedApi = {
   deleteByPath(request) {
     return invoke('app:delete-by-path', request);
   },
+  openNative(request) {
+    return invoke('app:open-native', request);
+  },
+  duplicateByPath(request) {
+    return invoke('app:duplicate-by-path', request);
+  },
   backupZip() {
     return invoke('app:backup-zip');
   },

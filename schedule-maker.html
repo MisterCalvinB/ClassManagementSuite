@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule Maker</title>
+  <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
+  <link rel="stylesheet" href="stylesheet.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+    }
+
+    .sm-page {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 100px;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    .sm-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .sm-back-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 7px;
+      padding: 7px 14px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #000;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .sm-back-btn:hover { background: #000; color: #fff; }
+    .sm-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      flex: 1;
+    }
+    .sm-subtitle {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #555;
+      width: 100%;
+      margin-top: -8px;
+    }
+
+    /* ── Section title ─────────────────────────────────── */
+    .sm-section-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    /* ── Config panel ──────────────────────────────────── */
+    .sm-config {
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 16px 18px 18px;
+      margin-bottom: 24px;
+    }
+    .sm-config-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 10px 14px;
+      margin-bottom: 12px;
+    }
+    .sm-config-grid2 {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px 14px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 700px) {
+      .sm-config-grid, .sm-config-grid2 { grid-template-columns: 1fr 1fr; }
+    }
+    .sm-field { display: flex; flex-direction: column; gap: 4px; }
+    .sm-label {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #666;
+    }
+    .sm-input {
+      padding: 6px 9px;
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.84rem;
+      width: 100%;
+    }
+    .sm-input:focus { border-color: #000; outline: none; }
+    .sm-select { padding: 6px 6px; }
+
+    .sm-config-row3 {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .sm-radio-group { display: flex; gap: 14px; align-items: center; }
+    .sm-radio-label { display: flex; align-items: center; gap: 5px; font-size: 0.84rem; cursor: pointer; }
+    .sm-apply-btn {
+      margin-left: auto;
+      padding: 8px 22px;
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      border-radius: 5px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .sm-apply-btn:hover { background: #fff; color: #000; }
+
+    /* ── Order panel ──────────────────────────────────── */
+    .sm-order-panel {
+      margin-bottom: 24px;
+    }
+    .sm-order-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .sm-hint {
+      font-size: 0.78rem;
+      color: #888;
+      font-style: italic;
+    }
+    .sm-add-break-btn {
+      margin-left: auto;
+      padding: 5px 14px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: #fff;
+      border: 1.5px dashed #999;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #555;
+      transition: all 0.12s;
+    }
+    .sm-add-break-btn:hover { border-color: #000; color: #000; }
+    .sm-add-break-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .sm-order-list {
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      min-height: 48px;
+    }
+    .sm-order-empty {
+      padding: 18px;
+      text-align: center;
+      color: #bbb;
+      font-size: 0.85rem;
+    }
+
+    /* ── Order rows ──────────────────────────────────── */
+    .sm-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto 28px;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid #eee;
+      background: #fff;
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .sm-row:last-child { border-bottom: none; }
+    .sm-row.drag-over { border-top: 2px solid #000; }
+    .sm-row.dragging { opacity: 0.4; }
+
+    .sm-row.sm-break-row {
+      background: #f5f5f5;
+      grid-template-columns: 28px 1fr 28px;
+    }
+    .sm-handle {
+      cursor: grab;
+      color: #ccc;
+      font-size: 1rem;
+      text-align: center;
+      line-height: 1;
+    }
+    .sm-handle:active { cursor: grabbing; }
+    .sm-row-name { font-size: 0.86rem; font-weight: 600; }
+    .sm-break-label {
+      font-size: 0.82rem;
+      color: #777;
+      font-style: italic;
+      font-weight: 600;
+    }
+    .sm-row-controls { display: flex; align-items: center; gap: 10px; }
+    .sm-sen-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      color: #888;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sm-sen-toggle input { cursor: pointer; width: 14px; height: 14px; }
+    .sm-sen-toggle.sen-active { color: #c05000; font-weight: 700; }
+    .sm-include-toggle {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      color: #888;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .sm-include-toggle input { cursor: pointer; width: 14px; height: 14px; }
+    .sm-row.excluded { opacity: 0.38; }
+    .sm-row.excluded .sm-row-name { text-decoration: line-through; }
+    .sm-row-del {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 0.9rem;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color 0.1s;
+    }
+    .sm-row-del:hover { color: #c33; }
+
+    /* ── Schedule table ───────────────────────────────── */
+    .sm-schedule-panel { margin-bottom: 24px; }
+    .sm-schedule-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+    .sm-schedule-meta {
+      font-size: 0.82rem;
+      color: #555;
+    }
+
+    .sm-table-wrap { overflow-x: auto; }
+    table.sm-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .sm-table th {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #aaa;
+      border-bottom: 2px solid #000;
+      padding: 6px 10px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .sm-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    .sm-table tr:last-child td { border-bottom: none; }
+    .sm-table .sm-col-num { width: 36px; color: #aaa; font-size: 0.78rem; }
+    .sm-table .sm-col-sen { width: 48px; text-align: center; }
+    .sm-table .sm-col-time { width: 90px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .sm-sen-badge {
+      display: inline-block;
+      background: #fff3e0;
+      color: #c05000;
+      border: 1px solid #e8c080;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    tr.sm-break-tr td {
+      background: #f5f5f5;
+      color: #777;
+      font-style: italic;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    tr.sm-gap-tr td {
+      background: #fff8f0;
+      color: #c06000;
+      font-size: 0.75rem;
+      font-style: italic;
+      padding: 3px 10px;
+    }
+    .sm-table-empty {
+      text-align: center;
+      color: #bbb;
+      padding: 24px;
+      font-size: 0.88rem;
+    }
+
+    /* ── Sticky action bar ────────────────────────────── */
+    .sm-action-bar {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      border-top: 2px solid #000;
+      padding: 12px 0 8px;
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .sm-action-btn {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      background: #fff;
+      color: #000;
+    }
+    .sm-action-btn:hover { background: #000; color: #fff; }
+    .sm-action-btn.primary { background: #000; color: #fff; }
+    .sm-action-btn.primary:hover { background: #fff; color: #000; }
+    .sm-action-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Notice ──────────────────────────────────────── */
+    .sm-notice {
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border: 2px solid #000;
+      border-radius: 5px;
+      margin-bottom: 14px;
+    }
+    .sm-notice.error { background: #fff8f8; border-color: #c33; color: #c33; }
+
+    /* ── Load modal ──────────────────────────────────── */
+    .sm-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+    }
+    .sm-modal-overlay.open { display: flex; }
+    .sm-modal-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 24px;
+      max-width: 480px;
+      width: 92%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .sm-modal-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+    .sm-modal-list {
+      overflow-y: auto;
+      flex: 1;
+      border: 1.5px solid #eee;
+      border-radius: 5px;
+      margin-bottom: 14px;
+    }
+    .sm-modal-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      font-size: 0.85rem;
+      transition: background 0.1s;
+    }
+    .sm-modal-item:last-child { border-bottom: none; }
+    .sm-modal-item:hover { background: #f5f5f5; }
+    .sm-modal-item-name { font-weight: 700; }
+    .sm-modal-item-meta { font-size: 0.75rem; color: #888; }
+    .sm-modal-empty { padding: 20px; text-align: center; color: #bbb; font-size: 0.85rem; }
+    .sm-modal-close-btn {
+      padding: 8px 18px;
+      border: 2px solid #000;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: #000;
+      align-self: flex-end;
+    }
+    .sm-modal-close-btn:hover { background: #000; color: #fff; }
+
+    /* ── Print header ────────────────────────────────── */
+    .sm-print-header { display: none; margin-bottom: 18px; }
+    .sm-print-header h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+    .sm-print-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+      font-size: 0.85rem;
+      color: #333;
+      border-bottom: 1.5px solid #000;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .sm-print-meta span { display: flex; gap: 5px; }
+    .sm-print-meta strong { font-weight: 700; }
+
+    /* ── Print ───────────────────────────────────────── */
+    @media print {
+      .sm-header, .sm-config, .sm-order-panel, .sm-action-bar, .sm-notice,
+      .sm-modal-overlay { display: none !important; }
+      .sm-page { padding: 0; max-width: 100%; }
+      .sm-table th { color: #000; }
+      .sm-print-header { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="sm-page">
+
+  <header class="sm-header">
+    <button class="sm-back-btn" onclick="goBack()" data-i18n="smBack">← Launcher</button>
+    <h1 class="sm-title" data-i18n="smTitle">Schedule Maker</h1>
+    <p class="sm-subtitle" data-i18n="smSubtitle">Create and print oral exam schedules with concurrent preparation and examination timing.</p>
+  </header>
+
+  <div id="sm-notice" class="sm-notice" style="display:none;"></div>
+
+  <!-- ── Configuration ── -->
+  <div class="sm-config">
+    <div class="sm-section-title" data-i18n="smSectionConfig">Session Configuration</div>
+    <div class="sm-config-grid">
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelTitle">Exam title</label>
+        <input id="sm-exam-title" class="sm-input" type="text" data-i18n-placeholder="smTitlePlaceholder">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelDate">Date</label>
+        <input id="sm-date" class="sm-input" type="date">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelStartTime">Start time</label>
+        <input id="sm-start" class="sm-input" type="time" value="08:00">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelGroup">Class / group</label>
+        <select id="sm-group" class="sm-input sm-select">
+          <option value="" data-i18n="smGroupPlaceholder">— Select a group —</option>
+        </select>
+      </div>
+    </div>
+    <div class="sm-config-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelSubject">Subject</label>
+        <input id="sm-subject" class="sm-input" type="text" data-i18n-placeholder="smSubjectPlaceholder">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelTeacher">Teacher</label>
+        <input id="sm-teacher" class="sm-input" type="text" data-i18n-placeholder="smTeacherPlaceholder">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelRoom">Room</label>
+        <input id="sm-room" class="sm-input" type="text" data-i18n-placeholder="smRoomPlaceholder">
+      </div>
+    </div>
+    <div class="sm-config-grid2">
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelPrepNormal">Prep time – standard (min)</label>
+        <input id="sm-prep-normal" class="sm-input" type="number" min="1" max="120" value="10">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelPrepSen">Prep time – SEN (min)</label>
+        <input id="sm-prep-sen" class="sm-input" type="number" min="1" max="120" value="20">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelExamTime">Exam time per student (min)</label>
+        <input id="sm-exam-time" class="sm-input" type="number" min="1" max="120" value="15">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelBreaks">Number of breaks</label>
+        <input id="sm-num-breaks" class="sm-input" type="number" min="0" max="20" value="1">
+      </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelBreakDur">Break duration (min)</label>
+        <input id="sm-break-dur" class="sm-input" type="number" min="1" max="120" value="15">
+      </div>
+    </div>
+    <div class="sm-config-row3">
+      <span class="sm-label" data-i18n="smLabelOrder">Initial order</span>
+      <div class="sm-radio-group">
+        <label class="sm-radio-label">
+          <input type="radio" name="sm-order" value="random" checked>
+          <span data-i18n="smOrderRandom">Random</span>
+        </label>
+        <label class="sm-radio-label">
+          <input type="radio" name="sm-order" value="alpha">
+          <span data-i18n="smOrderAlpha">Alphabetical</span>
+        </label>
+        <label class="sm-radio-label">
+          <input type="radio" name="sm-order" value="manual">
+          <span data-i18n="smOrderManual">Keep current</span>
+        </label>
+      </div>
+      <button class="sm-apply-btn" onclick="applyConfig()" data-i18n="smApplyBtn">Apply</button>
+    </div>
+  </div>
+
+  <!-- ── Student ordering ── -->
+  <div class="sm-order-panel">
+    <div class="sm-order-header">
+      <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionOrder">Student Order</div>
+      <span class="sm-hint" data-i18n="smOrderHint">Drag rows to reorder students and breaks.</span>
+      <button id="sm-add-break-btn" class="sm-add-break-btn" onclick="addBreak()" disabled data-i18n="smAddBreak">+ Add Break</button>
+    </div>
+    <div id="sm-order-list" class="sm-order-list">
+      <div class="sm-order-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</div>
+    </div>
+  </div>
+
+  <!-- ── Schedule output ── -->
+  <div class="sm-schedule-panel">
+    <div class="sm-schedule-header">
+      <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionSchedule">Schedule</div>
+      <div id="sm-schedule-meta" class="sm-schedule-meta"></div>
+    </div>
+    <div id="sm-print-header" class="sm-print-header">
+      <h2 id="sm-print-title"></h2>
+      <div class="sm-print-meta" id="sm-print-meta-row"></div>
+    </div>
+    <div class="sm-table-wrap">
+      <table class="sm-table">
+        <thead id="sm-table-head">
+          <tr>
+            <th class="sm-col-num" data-i18n="smColNum">#</th>
+            <th data-i18n="smColName">Student</th>
+            <th class="sm-col-sen" data-i18n="smColSen">SEN</th>
+            <th class="sm-col-time" data-i18n="smColPrepStart">Prep starts</th>
+            <th class="sm-col-time" data-i18n="smColExamStart">Exam starts</th>
+            <th class="sm-col-time" data-i18n="smColExamEnd">Exam ends</th>
+          </tr>
+        </thead>
+        <tbody id="sm-table-body">
+          <tr><td colspan="6" class="sm-table-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Action bar ── -->
+  <div class="sm-action-bar">
+    <button class="sm-action-btn primary" onclick="printSchedule()" data-i18n="smBtnPrint">Print</button>
+    <button class="sm-action-btn" onclick="exportCsv()" data-i18n="smBtnCsv">Export CSV</button>
+    <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
+    <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnLoad">Load</button>
+  </div>
+</div>
+
+<!-- ── Load modal ── -->
+<div id="sm-load-modal" class="sm-modal-overlay" onclick="closeLoadModal(event)">
+  <div class="sm-modal-box" onclick="event.stopPropagation()">
+    <div class="sm-modal-title" data-i18n="smLoadTitle">Load Saved Schedule</div>
+    <div id="sm-modal-list" class="sm-modal-list">
+      <div class="sm-modal-empty" data-i18n="smNoSaved">No saved schedules found.</div>
+    </div>
+    <button class="sm-modal-close-btn" onclick="closeLoadModal()" data-i18n="btnCancel">Cancel</button>
+  </div>
+</div>
+
+<script>
+  const GROUPS_FILE_TARGET = 'user';
+  const GROUPS_FILE_NAME = 'class-groups.js';
+  const SCHEDULE_DIR    = 'schedules/';
+  const SCHEDULE_PREFIX = 'schedule-';
+  const SCHEDULE_TARGET = 'user';
+
+  let classGroups = {};
+  let classGroupsMeta = {};
+  let orderItems = []; // [{type:'student', name, sen}, {type:'break'}]
+  let _dragSrcIdx = null;
+
+  // ── Navigation ───────────────────────────────────────────
+  function goBack() {
+    if (window.electronApi) window.electronApi.goToLauncher();
+    else window.location.href = 'launcher.html';
+  }
+
+  // ── Notice ───────────────────────────────────────────────
+  function showNotice(msg, isError) {
+    const el = document.getElementById('sm-notice');
+    el.textContent = msg;
+    el.className = 'sm-notice' + (isError ? ' error' : '');
+    el.style.display = '';
+    clearTimeout(showNotice._t);
+    if (!isError) showNotice._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
+  // ── Time helpers ─────────────────────────────────────────
+  function minutesToTime(m) {
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+  }
+  function timeToMinutes(str) {
+    const [h, m] = (str || '08:00').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  // ── Shuffle ──────────────────────────────────────────────
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // ── Load class-groups.js ─────────────────────────────────
+  async function loadGroups() {
+    if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+      try {
+        const result = await Desktop.readText(GROUPS_FILE_TARGET, GROUPS_FILE_NAME);
+        if (result && result.ok && result.content) {
+          const fn = new Function(
+            result.content +
+            '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA' +
+            ' : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
+            '   classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+          );
+          const parsed = fn();
+          classGroups = (parsed && parsed.classGroups) ? parsed.classGroups : {};
+          classGroupsMeta = (parsed && parsed.classGroupsMeta) ? parsed.classGroupsMeta : {};
+        }
+      } catch (e) {
+        showNotice('Could not load class-groups.js: ' + e.message, true);
+      }
+    } else {
+      classGroups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
+      classGroupsMeta = (typeof CLASS_GROUPS_META !== 'undefined') ? CLASS_GROUPS_META : {};
+    }
+    populateGroupSelect();
+  }
+
+  function populateGroupSelect() {
+    const sel = document.getElementById('sm-group');
+    const prev = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    Object.keys(classGroups)
+      .filter(g => !(classGroupsMeta[g] && classGroupsMeta[g].archived))
+      .sort()
+      .forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g;
+        const meta = classGroupsMeta[g] || {};
+        opt.textContent = g + (meta.year ? ' (' + meta.year + ')' : '');
+        sel.appendChild(opt);
+      });
+    if (prev && sel.querySelector('option[value="' + CSS.escape(prev) + '"]')) sel.value = prev;
+  }
+
+  // ── Apply config ─────────────────────────────────────────
+  function applyConfig() {
+    const groupName = document.getElementById('sm-group').value;
+    if (!groupName) {
+      showNotice(typeof t === 'function' ? t('smNoGroup') : 'Select a group.', true);
+      return;
+    }
+
+    const meta = classGroupsMeta[groupName];
+    let students;
+    if (meta && Array.isArray(meta.students) && meta.students.length > 0) {
+      students = meta.students;
+    } else {
+      students = (classGroups[groupName] || []).map(name => {
+        const parts = String(name).trim().split(/\s+/);
+        return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', sen: false };
+      });
+    }
+
+    if (students.length === 0) {
+      showNotice(typeof t === 'function' ? t('smNoStudents') : 'No students found.', true);
+      return;
+    }
+
+    const order = document.querySelector('input[name="sm-order"]:checked')?.value || 'random';
+    let newItems = students.map(s => ({
+      type: 'student',
+      name: ([s.firstName, s.lastName].filter(Boolean).join(' ').trim() || String(s)).toUpperCase(),
+      sen: s.sen === true
+    }));
+
+    if (order === 'random') {
+      shuffle(newItems);
+    } else if (order === 'alpha') {
+      newItems.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (order === 'manual' && orderItems.length > 0) {
+      // Preserve current manual order: re-use positions of existing students, append new ones
+      const currentNames = orderItems.filter(i => i.type === 'student').map(i => i.name);
+      const newNames = new Set(newItems.map(i => i.name));
+      // Keep breaks from current order; replace students with updated info
+      const studentMap = Object.fromEntries(newItems.map(i => [i.name, i]));
+      const kept = orderItems.map(i => {
+        if (i.type === 'break') return i;
+        return studentMap[i.name] || null;
+      }).filter(Boolean);
+      // Append students not in current order
+      const keptNames = new Set(kept.filter(i => i.type === 'student').map(i => i.name));
+      const added = newItems.filter(i => !keptNames.has(i.name));
+      newItems = [...kept, ...added];
+    }
+
+    // Place breaks evenly
+    const numBreaks = Math.max(0, parseInt(document.getElementById('sm-num-breaks').value) || 0);
+    const studentCount = newItems.filter(i => i.type === 'student').length;
+    if (numBreaks > 0 && studentCount > 0) {
+      const step = Math.floor(studentCount / (numBreaks + 1));
+      let inserted = 0;
+      for (let b = 1; b <= numBreaks; b++) {
+        let pos = b * step + inserted;
+        if (pos >= newItems.length) pos = newItems.length;
+        newItems.splice(pos, 0, { type: 'break' });
+        inserted++;
+      }
+    }
+
+    orderItems = newItems;
+    document.getElementById('sm-add-break-btn').disabled = false;
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  // ── Add break ────────────────────────────────────────────
+  function addBreak() {
+    orderItems.push({ type: 'break' });
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  // ── Toggle SEN ───────────────────────────────────────────
+  function toggleSen(idx) {
+    if (orderItems[idx] && orderItems[idx].type === 'student') {
+      orderItems[idx].sen = !orderItems[idx].sen;
+      renderOrderList();
+      renderScheduleTable();
+    }
+  }
+
+  // ── Toggle inclusion ─────────────────────────────────────
+  function toggleIncluded(idx) {
+    if (orderItems[idx] && orderItems[idx].type === 'student') {
+      orderItems[idx].excluded = !orderItems[idx].excluded;
+      renderOrderList();
+      renderScheduleTable();
+    }
+  }
+
+  // ── Delete item from order ───────────────────────────────
+  function deleteItem(idx) {
+    orderItems.splice(idx, 1);
+    if (orderItems.length === 0) document.getElementById('sm-add-break-btn').disabled = true;
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  // ── Render order list ────────────────────────────────────
+  function renderOrderList() {
+    const listEl = document.getElementById('sm-order-list');
+    listEl.innerHTML = '';
+
+    if (orderItems.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'sm-order-empty';
+      empty.textContent = typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply.';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+
+    orderItems.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'sm-row' + (item.type === 'break' ? ' sm-break-row' : '');
+      row.draggable = true;
+      row.dataset.index = idx;
+
+      // Drag handle
+      const handle = document.createElement('div');
+      handle.className = 'sm-handle';
+      handle.textContent = '⠿';
+
+      if (item.type === 'break') {
+        const breakDur = parseInt(document.getElementById('sm-break-dur').value) || 15;
+        const label = document.createElement('div');
+        label.className = 'sm-break-label';
+        const brFmt = typeof tFmt === 'function' ? tFmt('smBreakRow', {duration: breakDur}) : 'Break – ' + breakDur + ' min';
+        label.textContent = brFmt;
+        const del = makeDelBtn(idx);
+        row.appendChild(handle);
+        row.appendChild(label);
+        row.appendChild(del);
+      } else {
+        if (item.excluded) row.classList.add('excluded');
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'sm-row-name';
+        nameEl.textContent = item.name;
+
+        const controls = document.createElement('div');
+        controls.className = 'sm-row-controls';
+
+        const includeToggle = document.createElement('label');
+        includeToggle.className = 'sm-include-toggle';
+        const includeCb = document.createElement('input');
+        includeCb.type = 'checkbox';
+        includeCb.checked = !item.excluded;
+        includeCb.onchange = () => toggleIncluded(idx);
+        includeToggle.appendChild(includeCb);
+        includeToggle.appendChild(document.createTextNode('Include'));
+
+        const senToggle = document.createElement('label');
+        senToggle.className = 'sm-sen-toggle' + (item.sen ? ' sen-active' : '');
+        const senCb = document.createElement('input');
+        senCb.type = 'checkbox';
+        senCb.checked = item.sen;
+        senCb.onchange = () => toggleSen(idx);
+        senToggle.appendChild(senCb);
+        senToggle.appendChild(document.createTextNode(senLabel));
+
+        controls.appendChild(includeToggle);
+        controls.appendChild(senToggle);
+
+        const del = makeDelBtn(idx);
+        row.appendChild(handle);
+        row.appendChild(nameEl);
+        row.appendChild(controls);
+        row.appendChild(del);
+      }
+
+      // Drag events
+      row.addEventListener('dragstart', e => {
+        _dragSrcIdx = idx;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        listEl.querySelectorAll('.sm-row').forEach(r => r.classList.remove('drag-over'));
+      });
+      row.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        listEl.querySelectorAll('.sm-row').forEach(r => r.classList.remove('drag-over'));
+        row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        if (_dragSrcIdx === null || _dragSrcIdx === idx) return;
+        const moved = orderItems.splice(_dragSrcIdx, 1)[0];
+        const targetIdx = idx > _dragSrcIdx ? idx - 1 : idx;
+        orderItems.splice(targetIdx, 0, moved);
+        _dragSrcIdx = null;
+        renderOrderList();
+        renderScheduleTable();
+      });
+
+      listEl.appendChild(row);
+    });
+  }
+
+  function makeDelBtn(idx) {
+    const btn = document.createElement('button');
+    btn.className = 'sm-row-del';
+    btn.textContent = '✕';
+    btn.title = 'Remove';
+    btn.onclick = () => deleteItem(idx);
+    return btn;
+  }
+
+  // ── Compute schedule ─────────────────────────────────────
+  function computeSchedule() {
+    const startTime = document.getElementById('sm-start').value || '08:00';
+    const prepNormal = Math.max(1, parseInt(document.getElementById('sm-prep-normal').value) || 10);
+    const prepSen    = Math.max(1, parseInt(document.getElementById('sm-prep-sen').value) || 20);
+    const examTime   = Math.max(1, parseInt(document.getElementById('sm-exam-time').value) || 15);
+    const breakDur   = Math.max(1, parseInt(document.getElementById('sm-break-dur').value) || 15);
+
+    let currentMinutes = timeToMinutes(startTime);
+    let prevExamStart = null;
+    let isFirstInSegment = true;
+    const results = [];
+    let studentNum = 0;
+
+    for (const item of orderItems) {
+      if (item.type === 'break') {
+        results.push({ type: 'break', start: currentMinutes, duration: breakDur });
+        currentMinutes += breakDur;
+        isFirstInSegment = true;
+        prevExamStart = null;
+        continue;
+      }
+
+      if (item.excluded) continue;
+
+      studentNum++;
+      const prepTime = item.sen ? prepSen : prepNormal;
+      let prepStart, examStart;
+
+      if (isFirstInSegment) {
+        prepStart = currentMinutes;
+        examStart = prepStart + prepTime;
+      } else {
+        prepStart = prevExamStart;
+        const slotTime = Math.max(examTime, prepTime);
+        examStart = prevExamStart + slotTime;
+        // Flag if a gap occurs (examiner has to wait)
+        if (prepTime > examTime) {
+          results.push({ type: 'gap', duration: prepTime - examTime });
+        }
+      }
+
+      const examEnd = examStart + examTime;
+      results.push({ type: 'student', num: studentNum, name: item.name, sen: item.sen, prepStart, examStart, examEnd });
+
+      prevExamStart = examStart;
+      currentMinutes = examEnd;
+      isFirstInSegment = false;
+    }
+
+    return results;
+  }
+
+  // ── Update print header ──────────────────────────────────
+  function updatePrintHeader() {
+    const title   = document.getElementById('sm-exam-title').value.trim();
+    const subject = document.getElementById('sm-subject').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim();
+    const room    = document.getElementById('sm-room').value.trim();
+    const date    = document.getElementById('sm-date').value;
+    const group   = document.getElementById('sm-group').value;
+
+    document.getElementById('sm-print-title').textContent = title || (typeof t === 'function' ? t('smTitle') : 'Schedule');
+
+    const metaRow = document.getElementById('sm-print-meta-row');
+    metaRow.innerHTML = '';
+    const add = (label, val) => {
+      if (!val) return;
+      const span = document.createElement('span');
+      span.innerHTML = '<strong>' + label + '</strong> ' + val;
+      metaRow.appendChild(span);
+    };
+    add(typeof t === 'function' ? t('smLabelSubject') : 'Subject', subject);
+    add(typeof t === 'function' ? t('smLabelTeacher') : 'Teacher', teacher);
+    add(typeof t === 'function' ? t('smLabelRoom') : 'Room', room);
+    add(typeof t === 'function' ? t('smLabelDate') : 'Date', date);
+    add(typeof t === 'function' ? t('smLabelGroup') : 'Group', group);
+  }
+
+  // ── Render schedule table ────────────────────────────────
+  function renderScheduleTable() {
+    const tbody = document.getElementById('sm-table-body');
+    const meta = document.getElementById('sm-schedule-meta');
+    tbody.innerHTML = '';
+    updatePrintHeader();
+
+    if (orderItems.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.className = 'sm-table-empty';
+      td.textContent = typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      meta.textContent = '';
+      return;
+    }
+
+    const rows = computeSchedule();
+    const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+    const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
+    const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
+
+    let lastExamEnd = 0;
+    let studentCount = 0;
+
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+
+      if (row.type === 'gap') {
+        tr.className = 'sm-gap-tr';
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.textContent = '⚠ ' + gapLabel + ' (' + row.duration + ' min)';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      if (row.type === 'break') {
+        tr.className = 'sm-break-tr';
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.textContent = '— ' + breakLabel + ' ' + minutesToTime(row.start) + ' → ' + minutesToTime(row.start + row.duration) + ' (' + row.duration + ' min) —';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      // Student row
+      studentCount++;
+      lastExamEnd = row.examEnd;
+
+      const tdNum = document.createElement('td');
+      tdNum.className = 'sm-col-num';
+      tdNum.textContent = row.num;
+
+      const tdName = document.createElement('td');
+      tdName.textContent = row.name;
+
+      const tdSen = document.createElement('td');
+      tdSen.className = 'sm-col-sen';
+      if (row.sen) {
+        const badge = document.createElement('span');
+        badge.className = 'sm-sen-badge';
+        badge.textContent = senLabel;
+        tdSen.appendChild(badge);
+      }
+
+      const tdPrep = document.createElement('td');
+      tdPrep.className = 'sm-col-time';
+      tdPrep.textContent = minutesToTime(row.prepStart);
+
+      const tdExam = document.createElement('td');
+      tdExam.className = 'sm-col-time';
+      tdExam.textContent = minutesToTime(row.examStart);
+
+      const tdEnd = document.createElement('td');
+      tdEnd.className = 'sm-col-time';
+      tdEnd.textContent = minutesToTime(row.examEnd);
+
+      tr.appendChild(tdNum);
+      tr.appendChild(tdName);
+      tr.appendChild(tdSen);
+      tr.appendChild(tdPrep);
+      tr.appendChild(tdExam);
+      tr.appendChild(tdEnd);
+      tbody.appendChild(tr);
+    });
+
+    // Schedule metadata line
+    if (studentCount > 0 && lastExamEnd > 0) {
+      const startMin = timeToMinutes(document.getElementById('sm-start').value || '08:00');
+      const totalMin = lastExamEnd - startMin;
+      const durLabel = typeof t === 'function' ? t('smTotalDuration') : 'Total duration:';
+      const studLabel = typeof t === 'function' ? t('smTotalStudents') : 'students';
+      meta.textContent = studentCount + ' ' + studLabel + ' · ' + durLabel + ' ' + totalMin + ' min (' + minutesToTime(startMin) + ' – ' + minutesToTime(lastExamEnd) + ')';
+    } else {
+      meta.textContent = '';
+    }
+  }
+
+  // ── Print ────────────────────────────────────────────────
+  function printSchedule() {
+    window.print();
+  }
+
+  // ── Export CSV ───────────────────────────────────────────
+  function exportCsv() {
+    if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
+      showNotice('Nothing to export.', true);
+      return;
+    }
+
+    const title   = document.getElementById('sm-exam-title').value.trim();
+    const subject = document.getElementById('sm-subject').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim();
+    const room    = document.getElementById('sm-room').value.trim();
+    const date    = document.getElementById('sm-date').value;
+    const group   = document.getElementById('sm-group').value;
+    const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+
+    const esc = v => {
+      const s = String(v === null || v === undefined ? '' : v);
+      return (s.includes(',') || s.includes('"') || s.includes('\n'))
+        ? '"' + s.replace(/"/g, '""') + '"'
+        : s;
+    };
+
+    const rows = [];
+
+    // Metadata header block
+    if (title)   rows.push(['Title',   title].map(esc).join(','));
+    if (subject) rows.push(['Subject', subject].map(esc).join(','));
+    if (teacher) rows.push(['Teacher', teacher].map(esc).join(','));
+    if (room)    rows.push(['Room',    room].map(esc).join(','));
+    if (date)    rows.push(['Date',    date].map(esc).join(','));
+    if (group)   rows.push(['Group',   group].map(esc).join(','));
+    if (rows.length) rows.push('');  // blank separator
+
+    // Column headers
+    rows.push(['#', 'Student', senLabel, 'Prep start', 'Exam start', 'Exam end'].map(esc).join(','));
+
+    // Data rows
+    const schedule = computeSchedule();
+    schedule.forEach(row => {
+      if (row.type === 'gap') return;
+      if (row.type === 'break') {
+        rows.push(['', '— Break —', '', minutesToTime(row.start), minutesToTime(row.start + row.duration), '(' + row.duration + ' min)'].map(esc).join(','));
+        return;
+      }
+      rows.push([row.num, row.name, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)].map(esc).join(','));
+    });
+
+    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = date || new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = 'schedule-' + stamp + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Build schedule object for save/load ──────────────────
+  function buildScheduleObject() {
+    return {
+      title: document.getElementById('sm-exam-title').value.trim(),
+      subject: document.getElementById('sm-subject').value.trim(),
+      teacher: document.getElementById('sm-teacher').value.trim(),
+      room: document.getElementById('sm-room').value.trim(),
+      date: document.getElementById('sm-date').value,
+      startTime: document.getElementById('sm-start').value,
+      group: document.getElementById('sm-group').value,
+      prepNormal: parseInt(document.getElementById('sm-prep-normal').value) || 10,
+      prepSen: parseInt(document.getElementById('sm-prep-sen').value) || 20,
+      examTime: parseInt(document.getElementById('sm-exam-time').value) || 15,
+      numBreaks: parseInt(document.getElementById('sm-num-breaks').value) || 0,
+      breakDuration: parseInt(document.getElementById('sm-break-dur').value) || 15,
+      items: orderItems.map(i => i.type === 'break' ? { type: 'break' } : { type: 'student', name: i.name, sen: i.sen, excluded: !!i.excluded })
+    };
+  }
+
+  function applyScheduleObject(obj) {
+    if (!obj) return;
+    document.getElementById('sm-exam-title').value = obj.title || '';
+    document.getElementById('sm-subject').value = obj.subject || '';
+    document.getElementById('sm-teacher').value = obj.teacher || '';
+    document.getElementById('sm-room').value = obj.room || '';
+    document.getElementById('sm-date').value = obj.date || '';
+    document.getElementById('sm-start').value = obj.startTime || '08:00';
+    document.getElementById('sm-prep-normal').value = obj.prepNormal || 10;
+    document.getElementById('sm-prep-sen').value = obj.prepSen || 20;
+    document.getElementById('sm-exam-time').value = obj.examTime || 15;
+    document.getElementById('sm-num-breaks').value = obj.numBreaks || 0;
+    document.getElementById('sm-break-dur').value = obj.breakDuration || 15;
+    if (obj.group) {
+      const sel = document.getElementById('sm-group');
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === obj.group) { sel.selectedIndex = i; break; }
+      }
+    }
+    orderItems = (obj.items || []).map(i => i.type === 'break' ? { type: 'break' } : { type: 'student', name: i.name, sen: !!i.sen, excluded: !!i.excluded });
+    document.getElementById('sm-add-break-btn').disabled = orderItems.length === 0;
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  // ── Save ─────────────────────────────────────────────────
+  async function saveSchedule() {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Save requires the Electron app.', true);
+      return;
+    }
+    if (orderItems.length === 0) {
+      showNotice('Nothing to save.', true);
+      return;
+    }
+    const obj = buildScheduleObject();
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const stamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
+    const filename = SCHEDULE_DIR + SCHEDULE_PREFIX + stamp + '.js';
+    const content = '/* Schedule Maker – Class Management Tools */\nvar SCHEDULE_DATA = ' + JSON.stringify(obj, null, 2) + ';\n';
+    try {
+      const res = await Desktop.saveText(SCHEDULE_TARGET, filename, content);
+      if (res && res.ok) {
+        showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
+      } else {
+        showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + (res && res.error || '?'), true);
+      }
+    } catch (e) {
+      showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + e.message, true);
+    }
+  }
+
+  // ── Load modal ───────────────────────────────────────────
+  async function openLoadModal() {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Load requires the Electron app.', true);
+      return;
+    }
+    const modal = document.getElementById('sm-load-modal');
+    const list = document.getElementById('sm-modal-list');
+    list.innerHTML = '<div class="sm-modal-empty">' + (typeof t === 'function' ? t('loading') : 'Loading…') + '</div>';
+    modal.classList.add('open');
+
+    try {
+      const res = await Desktop.listByPath(SCHEDULE_TARGET, SCHEDULE_DIR, { extensions: ['.js'], recursive: false });
+      const files = (res && Array.isArray(res.files))
+        ? res.files.filter(f => (f.name || f).startsWith(SCHEDULE_PREFIX))
+        : [];
+
+      list.innerHTML = '';
+      if (files.length === 0) {
+        list.innerHTML = '<div class="sm-modal-empty">' + (typeof t === 'function' ? t('smNoSaved') : 'No saved schedules found.') + '</div>';
+        return;
+      }
+
+      // Sort newest first
+      files.sort((a, b) => {
+        const na = a.name || a, nb = b.name || b;
+        return nb.localeCompare(na);
+      });
+
+      files.forEach(f => {
+        const fname = f.name || f;
+        const item = document.createElement('div');
+        item.className = 'sm-modal-item';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'sm-modal-item-name';
+        nameEl.textContent = fname.replace(SCHEDULE_PREFIX, '').replace('.js', '');
+        const metaEl = document.createElement('div');
+        metaEl.className = 'sm-modal-item-meta';
+        if (f.size !== undefined) metaEl.textContent = Math.ceil(f.size / 1024) + ' KB';
+        item.appendChild(nameEl);
+        item.appendChild(metaEl);
+        item.onclick = () => loadScheduleFile(fname);
+        list.appendChild(item);
+      });
+    } catch (e) {
+      list.innerHTML = '<div class="sm-modal-empty">' + (typeof t === 'function' ? t('smLoadFailed') : 'Error:') + ' ' + e.message + '</div>';
+    }
+  }
+
+  async function loadScheduleFile(filename) {
+    closeLoadModal();
+    try {
+      const res = await Desktop.readText(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
+      if (!res || !res.ok) throw new Error(res && res.error || 'unknown error');
+      const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
+      const obj = fn();
+      if (!obj) throw new Error('Invalid schedule file');
+      applyScheduleObject(obj);
+    } catch (e) {
+      showNotice((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message, true);
+    }
+  }
+
+  function closeLoadModal(e) {
+    if (e && e.target !== document.getElementById('sm-load-modal')) return;
+    document.getElementById('sm-load-modal').classList.remove('open');
+  }
+
+  // ── Init ────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async function () {
+    if (typeof applyTranslations === 'function') applyTranslations();
+
+    // Default date to today
+    const today = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    document.getElementById('sm-date').value = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+
+    await loadGroups();
+
+    // Live update on config changes (except group selector, which requires Apply)
+    ['sm-start', 'sm-prep-normal', 'sm-prep-sen', 'sm-exam-time', 'sm-break-dur'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        if (orderItems.length > 0) renderScheduleTable();
+      });
+    });
+  });
+</script>
+</body>
+</html>

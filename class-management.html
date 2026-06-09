@@ -313,6 +313,20 @@
         <span class="db-popup-title">⚙ Settings</span>
         <button class="db-popup-close" onclick="closeSettingsPopup()">✕</button>
     </div>
+    <div style="display:flex; align-items:center; gap:10px; padding:10px 14px 6px; flex-wrap:wrap;">
+        <span style="font-size:0.8rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;">Show name</span>
+        <div style="display:flex; gap:6px;">
+            <label style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <input type="radio" name="nameDisplayMode" value="full" onchange="saveNameDisplayMode(this.value)" checked> Full
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <input type="radio" name="nameDisplayMode" value="first" onchange="saveNameDisplayMode(this.value)"> First
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                <input type="radio" name="nameDisplayMode" value="last" onchange="saveNameDisplayMode(this.value)"> Last
+            </label>
+        </div>
+    </div>
     <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditGroupsModal();">
         <span class="db-popup-btn-icon">👥</span>
         <span class="db-popup-btn-text">
@@ -1196,6 +1210,7 @@
     };
     let actionButtonSettings = JSON.parse(JSON.stringify(DEFAULT_ACTION_BUTTON_SETTINGS));
     let planAbbrevLen = 3;                // Number of first-name letters shown in plan view cells
+    let nameDisplayMode = 'full';         // 'full' | 'first' | 'last'
     let loadedConfigCache = null;
     let soundFileRefreshTimer = null;
     let classPlans = {};  // { groupName: [ {id, name, rows, cols, roomNumber, schedule, seats, isTemporary, isActive, createdAt} ] }
@@ -1234,6 +1249,7 @@
                 nameSizeRem: studentNameSizeRem,
                 presNameSizeRem: presNameSizeRem,
                 planAbbrevLen: planAbbrevLen,
+                nameDisplayMode: nameDisplayMode,
                 timerActive: !!(timerEndTime || (timerPaused && timerPausedRemaining > 0) || stopwatchInterval || stopwatchPaused),
                 timerDisplayText: (() => { const d = document.getElementById('timer-active-display'); return d ? d.textContent : '--:--'; })(),
                 timerDisplayClass: (() => { const d = document.getElementById('timer-active-display'); return d ? d.className : ''; })(),
@@ -1338,6 +1354,7 @@
         if (data.nameSizeRem !== undefined) { studentNameSizeRem = data.nameSizeRem; applyNameSize(); }
         if (data.presNameSizeRem !== undefined) { presNameSizeRem = data.presNameSizeRem; applyPresNameSize(); }
         if (data.planAbbrevLen !== undefined) { planAbbrevLen = data.planAbbrevLen; }
+        if (data.nameDisplayMode !== undefined && ['full','first','last'].includes(data.nameDisplayMode)) { nameDisplayMode = data.nameDisplayMode; }
         const dn = document.getElementById('display-name');
         if (dn) {
             dn.textContent = (data.displayName != null) ? data.displayName : (selectedGroupName || '--');
@@ -1794,6 +1811,7 @@
                 if (typeof ui.presSettings.modes    === 'boolean') presSettings.modes    = ui.presSettings.modes;
             }
             if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
+            if (typeof ui.nameDisplayMode === 'string' && ['full','first','last'].includes(ui.nameDisplayMode)) nameDisplayMode = ui.nameDisplayMode;
         }
         if (config?.classPlans && typeof config.classPlans === 'object') {
             classPlans = config.classPlans;
@@ -1954,6 +1972,7 @@
                 scoreMuted: scoreMuted,
                 presSettings: { ...presSettings },
                 planAbbrevLen: planAbbrevLen,
+                nameDisplayMode: nameDisplayMode,
                 actionButtons: normalizeActionButtonSettings(actionButtonSettings)
             },
             launcherSettings: loadedConfig.launcherSettings || {},
@@ -2118,6 +2137,8 @@
         _applyAppTitle();
         const _planAbbrevIn = document.getElementById('settings-plan-abbrev-len');
         if (_planAbbrevIn) _planAbbrevIn.value = planAbbrevLen;
+        const _ndmRadio = document.querySelector(`input[name="nameDisplayMode"][value="${nameDisplayMode}"]`);
+        if (_ndmRadio) _ndmRadio.checked = true;
         renderCustomActionButtons();
         renderCustomButtonsModalEditor();
     }
@@ -4968,7 +4989,7 @@ function setStudentRole(studentOrId, role) {
         li.innerHTML = `
     <div class="student-info">
         <span class="student-name" onclick="toggleStrike(${student.id})">
-            ${student.name}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged: more likely to be picked">🚩</sup>' : ''}
+            ${getDisplayName(student)}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged: more likely to be picked">🚩</sup>' : ''}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: 0.9rem; margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
@@ -5120,7 +5141,7 @@ function copyRosterPlainText() {
             lines.push(customName);
             lastTeamId = student.teamId;
         }
-        let nameLine = student.teamId ? '  ' + student.name : student.name;
+        let nameLine = student.teamId ? '  ' + getDisplayName(student) : getDisplayName(student);
         if (student.role) nameLine += ' (' + student.role + ')';
         if (student.isAbsent) nameLine += ' [absent]';
         lines.push(nameLine);
@@ -5738,7 +5759,7 @@ function modTeam(teamId, type, val) {
             const scoreClass = student.score > 0 ? 'positive' : student.score < 0 ? 'negative' : 'neutral';
             li.innerHTML = `
                 <span class="rank-position">${index + 1}.</span>
-                <span class="rank-name">${student.name}</span>
+                <span class="rank-name">${getDisplayName(student)}</span>
                 <span class="rank-score ${scoreClass}">${student.score > 0 ? '+' : ''}${student.score}</span>
             `;
             listEl.appendChild(li);
@@ -10052,6 +10073,27 @@ function savePlanAbbrevLenSetting(value) {
     persistSettingsToUserFile().catch(err => console.warn('savePlanAbbrevLenSetting: could not save config:', err));
 }
 
+function getDisplayName(student) {
+    const name = student.name || '';
+    if (nameDisplayMode === 'first') {
+        const sp = name.indexOf(' ');
+        return sp > 0 ? name.slice(0, sp) : name;
+    }
+    if (nameDisplayMode === 'last') {
+        const sp = name.lastIndexOf(' ');
+        return sp > 0 ? name.slice(sp + 1) : name;
+    }
+    return name;
+}
+
+function saveNameDisplayMode(value) {
+    if (['full', 'first', 'last'].includes(value)) nameDisplayMode = value;
+    renderRoster();
+    renderRanking();
+    if (!PRESENTATION_MODE) _broadcastPresentationState();
+    persistSettingsToUserFile().catch(err => console.warn('saveNameDisplayMode: could not save config:', err));
+}
+
 function _applyAppTitle() {
     let label = 'Coll\u00e8ge Calvin';
     try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch {}
@@ -12442,7 +12484,7 @@ function renderRosterPlanView() {
 
             const hasNotes = student.comments && student.comments.length > 0;
 
-            const abbrev = student.name.split(' ')[0].slice(0, planAbbrevLen);
+            const abbrev = getDisplayName(student).split(' ')[0].slice(0, planAbbrevLen);
 
             li.innerHTML = `
                 <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">

@@ -12,8 +12,9 @@
 | `grade-sheet.html` | Test and grade tracking per class, semester, and criterion |
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
 | `group-editor.html` | Create, edit, archive, and delete class groups stored in `class-groups.js` |
+| `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
-| `recent-files.html` | Browse and reopen recent board sessions, constellation maps, and analyses |
+| `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
 | `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
 
 All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
@@ -31,7 +32,7 @@ Each tool is represented by a card showing its name, description, and a launch b
 - **⚙ Card settings** (gear icon on hover): set a **custom label**, **personal notes**, a display **size (%)**, and a **position** on screen (default, centre, corners, or full-height sides).
 - Clicking a card opens the corresponding tool; the launcher stays open in the background.
 
-The **Recent Files** card opens an inline modal listing recent board and constellation sessions.
+The **File Manager** card opens a standalone tool window with three tabs: Recent, Browse, and Sync.
 
 ### Header Buttons
 
@@ -94,17 +95,61 @@ Manages the class groups stored in `class-groups.js`. Opened from the launcher o
 - **Active Groups** — lists all non-archived groups with name, year, semester, and level. Edit or delete individual groups inline.
 - **Add New Group** — form to create a group: name, year, semester (1 or 2), and level.
 - **Archive / Unarchive** — move groups out of the active list without deleting them.
+- **SEN flag** — each student row has a SEN checkbox. Checked students are given the SEN preparation time in the Schedule Maker by default (can be overridden per session).
 
 ---
 
-## recent-files.html
+## schedule-maker.html
 
-Lists recent board sessions, constellation maps, and analyses saved to disk. Can be opened from the launcher as a standalone page or as an inline modal from the Recent Files card.
+Plans oral exam sessions where one student prepares while another presents, accounting for SEN accommodation time and breaks.
 
-- **Search bar** — filter by filename.
-- **Refresh** — reload the file list from disk.
-- **Open** — reopen any listed session directly in the relevant tool.
-- **Download / Delete** — manage individual files from the list.
+### Configuration
+| Field | Purpose |
+|---|---|
+| Exam title | Free-text label printed on the schedule |
+| Date / Start time | Session start |
+| Class / group | Load students from `class-groups.js` |
+| Prep time – standard | Preparation room time for regular students (min) |
+| Prep time – SEN | Preparation room time for SEN students (min) |
+| Exam time | Duration of each student's presentation (min) |
+| Number of breaks | How many breaks to auto-place when clicking Apply |
+| Break duration | Duration of each break (min) |
+| Initial order | Random, alphabetical, or keep current manual order |
+
+### Timing model
+- **First student in each segment** (start or after a break): pure prep time, then exam. No one presents while they prepare.
+- **Subsequent students**: enter the prep room as the previous student enters the exam room. Their exam starts as soon as the previous student's exam ends (or when prep is done if prep time > exam time, creating a brief examiner wait).
+- **Last student before a break / at the end**: presents with no one preparing behind them.
+
+### Workflow
+1. Fill in the configuration and click **Apply** — students are loaded and breaks auto-placed.
+2. Drag student rows and break markers to adjust order.
+3. Toggle the SEN checkbox per student to override the class-groups.js default for this session.
+4. The schedule table updates live.
+5. Click **Print** for a print-friendly view or **Save** to save the session for later recall.
+
+---
+
+## file-manager.html
+
+Browse, rename, and sync data files. Opens as a standalone tool window from the launcher.
+
+### Recent tab
+- **Search / filter / sort** — filter by filename, type (constellation, PDF, image, sound, book), and sort order.
+- **Open in Board** — reopen any constellation map directly in the Board tool.
+- **Rename** — inline rename any session file; edit the name in place and press Enter to save.
+
+### Browse tab
+- **Target selector** — switch between Constellation Maps, User Data, Custom Data, Grades, Grade Sheets, or Participation logs.
+- **Folder navigation** — click into subdirectories; breadcrumb trail shows your current path.
+- **Search** — filter filenames at the current folder level.
+- **Rename** — inline rename any file; the change is written to disk immediately.
+
+### Sync tab
+- **Sync location** — shows the configured sync folder (set in General Config or directly here).
+- **Choose Folder / Sync Now** — pick a sync folder and run an immediate sync.
+- **Auto-sync** — keep the sync folder up to date automatically on every save.
+- **Conflict resolution** — when both sides differ, choose per file: keep mine, keep sync, or skip.
 
 ---
 

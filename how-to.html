@@ -632,6 +632,29 @@
         </div>
       </div>
 
+      <div class="sidebar-item" id="nav-file-manager">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="file-manager" onclick="navTo('file-manager')">
+            <span>📂</span> File Manager
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-schedule-maker">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="schedule-maker" onclick="navTo('schedule-maker')">
+            <span>🗓</span> Schedule Maker
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-schedule-maker')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-sm-config" onclick="navToAccordion('schedule-maker','acc-sm-config')"><span class="sidebar-child-dot"></span>Configuration</button>
+          <button class="sidebar-child" data-accordion="acc-sm-order" onclick="navToAccordion('schedule-maker','acc-sm-order')"><span class="sidebar-child-dot"></span>Student Order</button>
+          <button class="sidebar-child" data-accordion="acc-sm-timing" onclick="navToAccordion('schedule-maker','acc-sm-timing')"><span class="sidebar-child-dot"></span>Timing Model</button>
+          <button class="sidebar-child" data-accordion="acc-sm-output" onclick="navToAccordion('schedule-maker','acc-sm-output')"><span class="sidebar-child-dot"></span>Output &amp; Save</button>
+        </div>
+      </div>
+
     </div>
   </nav>
 
@@ -1485,6 +1508,172 @@
 
     </section>
 
+    <hr class="divider">
+
+    <!-- ═══ FILE MANAGER ═════════════════════════════════════ -->
+    <section class="tool-section" id="file-manager">
+      <div class="tool-header">
+        <span class="tool-icon">📂</span>
+        <h2>File Manager</h2>
+        <button class="open-tool-btn" onclick="openTool('file-manager.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Browse, rename, open, and duplicate your data files from one place. Three tabs cover recent sessions, full folder navigation, and all data &amp; storage settings including backup and sync.
+      </p>
+
+      <div class="accordion" id="acc-fm-recent">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fm-recent')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Recent tab</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Shows your constellation maps and Board session files sorted by most recent. Use it to quickly reopen or tidy up saved work.</p>
+          <ul class="steps">
+            <li><strong>Search</strong> — type to filter files by name in real time.</li>
+            <li><strong>Type filter</strong> — narrow the list to Constellation maps, Session files, or Documents (PDFs, images, sounds, books).</li>
+            <li><strong>Sort</strong> — order by Newest first, Oldest first, Name A→Z, or Name Z→A.</li>
+            <li><strong>Open in Board</strong> — appears on constellation map rows; click to reopen the map directly in the Board tool.</li>
+            <li><strong>Rename</strong> — click Rename on any session or map row to edit the name inline. Press <kbd>Enter</kbd> to save, <kbd>Escape</kbd> to cancel. The file extension is preserved automatically.</li>
+          </ul>
+          <div class="tip"><strong>Rename warnings:</strong> If you try to save an empty name, use forbidden characters (<code>\ / : * ? " &lt; &gt; |</code>), exceed 255 characters, or pick a name already taken in the same folder, a red warning appears below the input and the save is blocked until you fix it.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-fm-browse">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fm-browse')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Browse tab</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Explore any data area as a real folder tree. Navigate sub-folders, open files in external apps, duplicate or rename anything.</p>
+          <ul class="steps">
+            <li>Use the <strong>target selector</strong> to choose the data area: Constellation Maps, User Data, Custom Data, Custom Wordbanks, Books, Dictations, Quizzes, Grades, Grade Sheets, or Participation logs.</li>
+            <li>Click a <strong>folder row</strong> to navigate into it. Click any segment of the <strong>breadcrumb</strong> at the top to jump back up.</li>
+            <li>Type in the <strong>search box</strong> to filter by filename at the current folder level.</li>
+            <li>Click <strong>↺ Refresh</strong> to reload the list from disk after external changes.</li>
+            <li><strong>Open</strong> — opens the file in the default desktop application (e.g., a PDF in your PDF viewer, an image in Photos).</li>
+            <li><strong>Duplicate</strong> — copies the file in the same folder with a <em>– Copy</em> suffix. If that name already exists, it appends <em>– Copy (2)</em>, <em>– Copy (3)</em>, and so on. The new row appears immediately below the original.</li>
+            <li><strong>Rename</strong> — edits the name inline with the same validation as the Recent tab (forbidden characters, length, conflict checks).</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-fm-sync">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fm-sync')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Sync tab — Data, Backup &amp; Sync</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The Sync tab consolidates all storage controls in one place: where your data lives, where backups go, and how to sync between two machines.</p>
+
+          <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Data folder</p>
+          <ul class="steps">
+            <li>Shows the <strong>current data folder</strong> — the root location where all app files are stored.</li>
+            <li><strong>Change folder…</strong> — opens a folder picker to move your data root to a different location (e.g., a OneDrive or Dropbox folder so it syncs automatically via your cloud provider).</li>
+            <li><strong>Reset to default</strong> — moves the data root back to the default location inside the app directory.</li>
+          </ul>
+
+          <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Backup</p>
+          <ul class="steps">
+            <li><strong>Choose Folder</strong> — pick a destination for manual backups (a USB stick, external drive, or separate cloud folder).</li>
+            <li><strong>Backup Now</strong> — copies all user data files to the backup folder immediately. The button is disabled until a backup folder is set.</li>
+          </ul>
+
+          <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 6px;">Sync</p>
+          <ul class="steps">
+            <li>The sync feature keeps two copies of your data folder in step — useful for working across a classroom PC and a laptop at home via a shared USB stick or network drive.</li>
+            <li><strong>Choose Folder</strong> — point to the sync location.</li>
+            <li><strong>Sync Now</strong> — copies files that differ between your active data folder and the sync location. Newer files win.</li>
+            <li>Enable <strong>Keep target up to date automatically</strong> to sync on every file save without clicking.</li>
+            <li>If both sides have changed the same file since the last sync, a <strong>conflict list</strong> appears. For each file choose <em>Mine</em> (keep your local version), <em>Sync</em> (take the version from the sync folder), or <em>Skip</em> (leave both unchanged). Use the bulk buttons to resolve all at once, then click <strong>Apply choices</strong>.</li>
+          </ul>
+        </div></div>
+      </div>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ SCHEDULE MAKER ═══════════════════════════════════ -->
+    <section class="tool-section" id="schedule-maker">
+      <div class="tool-header">
+        <span class="tool-icon">🗓</span>
+        <h2>Schedule Maker</h2>
+        <button class="open-tool-btn" onclick="openTool('schedule-maker.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Plans oral exam sessions where one student prepares in a separate room while the previous student presents. Handles SEN accommodation times, breaks, random or manual ordering, and produces a printable timetable.
+      </p>
+
+      <div class="accordion" id="acc-sm-config">
+        <button class="accordion-header" onclick="toggleAccordion('acc-sm-config')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Configuration</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Select a <strong>Class / group</strong> from the dropdown — students are loaded from <code>class-groups.js</code>.</li>
+            <li>Set <strong>Prep time – standard</strong>: how long a regular student needs in the preparation room (e.g., 10 min).</li>
+            <li>Set <strong>Prep time – SEN</strong>: how long a student with a special education needs accommodation needs (e.g., 20 min).</li>
+            <li>Set <strong>Exam time</strong>: how long each student's oral presentation lasts (same for all students).</li>
+            <li>Enter <strong>Number of breaks</strong> and <strong>Break duration</strong>. Breaks are placed evenly when you click Apply and can be repositioned by dragging.</li>
+            <li>Choose an <strong>Initial order</strong> — Random, Alphabetical, or Keep current (preserves the existing drag order when re-applying).</li>
+            <li>Click <strong>Apply</strong> to generate the student list and schedule.</li>
+          </ol>
+          <div class="tip"><strong>SEN flag:</strong> Students with the SEN checkbox checked in <button class="xlink" onclick="openTool('group-editor.html')">Group Editor</button> are automatically marked as SEN here. You can override this per session using the SEN toggle on each row.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-sm-order">
+        <button class="accordion-header" onclick="toggleAccordion('acc-sm-order')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Student Order</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>After clicking Apply, the <strong>Student Order</strong> list shows all students and break markers.</li>
+            <li>Drag the <strong>⠿</strong> handle on any row to reorder students or move break markers to a different position.</li>
+            <li>Toggle the <strong>SEN</strong> checkbox on any student row to enable or disable the SEN accommodation for this session only — it does not affect the saved class data.</li>
+            <li>Click <strong>✕</strong> on a break row to remove that break, or use <strong>+ Add Break</strong> to add one at the end.</li>
+            <li>The schedule table below updates live as you make changes.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-sm-timing">
+        <button class="accordion-header" onclick="toggleAccordion('acc-sm-timing')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Timing Model</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The schedule uses a concurrent preparation/examination model: while one student presents, the next student is already preparing in a separate room.</p>
+          <ul class="steps">
+            <li><strong>First student</strong> (in each segment, i.e., at the start or after a break): pure preparation time, then exam. No one presents while they prepare.</li>
+            <li><strong>Middle students</strong>: enter the prep room the moment the previous student enters the exam room. Their exam starts when the previous student's exam ends — unless their prep time is longer than the exam time, in which case the examiner waits briefly (a ⚠ gap warning appears).</li>
+            <li><strong>Last student before a break or at session end</strong>: presents with no one preparing behind them.</li>
+            <li><strong>After a break</strong>: the first student in the new segment starts fresh with a full prep period — breaks are clean pauses for everyone.</li>
+          </ul>
+          <div class="tip"><strong>Example:</strong> Exam time = 15 min, standard prep = 10 min. Student 1 prepares 08:00–08:10, presents 08:10–08:25. Student 2 prepares 08:10–08:20 (5 min wait), presents 08:25–08:40. Each slot is 15 min from Student 2 onward.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-sm-output">
+        <button class="accordion-header" onclick="toggleAccordion('acc-sm-output')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Output &amp; Save</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>The <strong>schedule table</strong> shows each student's number, name, SEN badge (if applicable), prep start time, exam start time, and exam end time. Breaks and any examiner wait gaps are shown inline.</li>
+            <li>Click <strong>Print</strong> to open the browser print dialog — only the schedule table is printed (configuration and ordering panels are hidden).</li>
+            <li>Click <strong>Save</strong> to save the current session (configuration + student order) as a <code>schedule-YYYY-MM-DD-HHmm.js</code> file in your user data folder.</li>
+            <li>Click <strong>Load</strong> to open a list of previously saved sessions and restore one.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> Save often — especially after setting up a complex manual order — so you can restore it if needed.</div>
+        </div></div>
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -1643,7 +1832,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database'];
+  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','schedule-maker'];
 
   function onScroll() {
     var y = window.scrollY + 80;

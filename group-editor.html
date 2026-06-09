@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -18,7 +18,7 @@
     }
 
     .ge-page {
-      max-width: 960px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 36px 24px 80px;
     }
@@ -59,6 +59,28 @@
       margin-top: -8px;
     }
 
+    /* ── CSV buttons ─────────────────────────────────────── */
+    .ge-csv-bar {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .ge-csv-btn {
+      padding: 7px 12px;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      transition: background 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .ge-csv-btn:hover { background: #000; color: #fff; }
+
     /* ── Groups list ─────────────────────────────────────── */
     .ge-section-title {
       font-size: 0.72rem;
@@ -72,6 +94,92 @@
     #ge-groups-body {
       margin-bottom: 16px;
     }
+
+    /* ── Student toggle button ────────────────────────────── */
+    .eg-students-toggle {
+      padding: 4px 9px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      border: 1.5px solid #bbb;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #fff;
+      color: #666;
+      flex-shrink: 0;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .eg-students-toggle:hover { border-color: #111; color: #111; }
+    .eg-students-toggle.active { border-color: #0891b2; background: #0891b2; color: #fff; }
+    .eg-students-toggle:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Student section ─────────────────────────────────── */
+    .eg-student-section {
+      background: #f7f7f7;
+      border: 1px solid #e0e0e0;
+      border-radius: 5px;
+      padding: 8px 12px 10px;
+      margin-bottom: 8px;
+    }
+    .eg-student-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr 120px 80px 44px 28px;
+      gap: 4px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #aaa;
+      padding: 0 2px 5px;
+    }
+    .eg-student-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 120px 80px 44px 28px;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .eg-s-sen-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .eg-s-sen { width: 16px; height: 16px; cursor: pointer; }
+    .eg-s-input {
+      padding: 4px 7px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      background: #fff;
+    }
+    .eg-s-input:focus { border-color: #555; outline: none; }
+    .eg-s-del {
+      width: 28px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      cursor: pointer;
+      color: #bbb;
+      font-size: 0.85rem;
+      transition: all 0.1s;
+      line-height: 1;
+    }
+    .eg-s-del:hover { border-color: #c33; color: #c33; }
+    .eg-s-add {
+      margin-top: 7px;
+      padding: 4px 14px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: #fff;
+      border: 1.5px dashed #bbb;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #666;
+      transition: all 0.12s;
+    }
+    .eg-s-add:hover { border-color: #111; color: #111; }
 
     /* ── Add new group ──────────────────────────────────── */
     .ge-add-section {
@@ -209,8 +317,14 @@
   <header class="ge-header">
     <button class="ge-back-btn" onclick="goBack()" data-i18n="geBack">← Launcher</button>
     <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
+    <div class="ge-csv-bar">
+      <button class="ge-csv-btn" onclick="triggerCsvImport()" title="Import groups and students from a CSV file">⬆ Import CSV</button>
+      <button class="ge-csv-btn" onclick="exportCsv()" title="Export all groups and students to a CSV file">⬇ Export CSV</button>
+    </div>
     <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
   </header>
+
+  <input type="file" id="csv-import-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(event)">
 
   <div id="ge-notice" style="display:none;" class="ge-notice"></div>
 
@@ -221,8 +335,8 @@
     <div class="ge-section-title" data-i18n="geAddNewGroup">Add New Group</div>
     <div class="ge-add-row">
       <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
-      <textarea id="new-group-students" class="ge-add-students eg-row-students" rows="1"
-        placeholder="ALICE, BOB, CAROL, …" oninput="autoResizeEgStudents(this)" data-i18n-placeholder="geStudentsPlaceholder"></textarea>
+      <textarea id="new-group-students" class="ge-add-students" rows="1"
+        placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" oninput="autoResizeStudents(this)"></textarea>
       <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
       <select id="new-group-semester" class="ge-add-select">
         <option value="">Sem</option>
@@ -301,6 +415,64 @@
     if (!isError) showNotice._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
   }
 
+  // ── Student helpers ──────────────────────────────────────────
+  function studentDisplayName(s) {
+    if (typeof s === 'string') return s.trim().toUpperCase();
+    const fn = (s.firstName || '').trim().toUpperCase();
+    const ln = (s.lastName || '').trim().toUpperCase();
+    return (fn + ' ' + ln).trim();
+  }
+
+  function getStudentsForGroup(groupName) {
+    const metaStudents = rawMeta[groupName] && rawMeta[groupName].students;
+    if (Array.isArray(metaStudents) && metaStudents.length > 0) return metaStudents;
+    return (rawData[groupName] || []).map(entry => {
+      if (typeof entry === 'object' && entry) return entry;
+      const parts = String(entry).trim().split(/\s+/);
+      return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', dob: '', adminClass: '' };
+    });
+  }
+
+  function parseNamesText(text) {
+    return text.split(/[\n,]/).map(s => s.trim()).filter(Boolean).map(entry => {
+      const parts = entry.split(/\s+/);
+      return {
+        firstName: (parts[0] || '').toUpperCase(),
+        lastName: parts.slice(1).join(' ').toUpperCase(),
+        dob: '',
+        adminClass: ''
+      };
+    });
+  }
+
+  function collectStudentsFromTable(studentSection) {
+    const results = [];
+    studentSection.querySelectorAll('.eg-student-row').forEach(row => {
+      const fn = (row.querySelector('.eg-s-fn')?.value || '').trim().toUpperCase();
+      const ln = (row.querySelector('.eg-s-ln')?.value || '').trim().toUpperCase();
+      const dob = (row.querySelector('.eg-s-dob')?.value || '').trim();
+      const ac = (row.querySelector('.eg-s-class')?.value || '').trim().toUpperCase();
+      const senCb = row.querySelector('.eg-s-sen');
+      const sen = senCb ? senCb.checked : false;
+      if (fn || ln) {
+        const entry = { firstName: fn, lastName: ln, dob, adminClass: ac };
+        if (sen) entry.sen = true;
+        results.push(entry);
+      }
+    });
+    return results;
+  }
+
+  function getStudentNamesFromSection(studentSection) {
+    return collectStudentsFromTable(studentSection).map(studentDisplayName).filter(Boolean);
+  }
+
+  function autoResizeStudents(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
   // ── Load class-groups.js ─────────────────────────────────────
   async function loadGroups() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
@@ -327,15 +499,15 @@
         showNotice('Error loading class-groups.js: ' + e.message, true);
       }
     } else {
-      // Browser fallback: rely on script tag globals if the script was loaded separately
       rawData = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
       rawMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
     }
-
     renderGroupsList();
   }
 
-  // ── Build file content (same format as class-management.html) ─
+  // ── Build file content ────────────────────────────────────────
+  // classGroups stores string names for compatibility with class-management and other tools.
+  // classGroupsMeta stores extended student objects (firstName, lastName, dob, adminClass).
   function buildGroupsFileContent(data, meta) {
     const groupLines = Object.keys(data).map(name => {
       const students = data[name].map(s => JSON.stringify(s)).join(', ');
@@ -345,6 +517,7 @@
       const m = (meta && meta[name]) ? meta[name] : { year: '', semester: '', level: '' };
       const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
       if (m.halfGroups && (m.halfGroups.A && m.halfGroups.A.length || m.halfGroups.B && m.halfGroups.B.length)) metaEntry.halfGroups = m.halfGroups;
+      if (m.students && m.students.length) metaEntry.students = m.students;
       if (m.archived) metaEntry.archived = true;
       return `    ${JSON.stringify(name)}: ${JSON.stringify(metaEntry)}`;
     });
@@ -373,20 +546,12 @@
         return { ok: false, error: e.message || 'Unable to save' };
       }
     }
-    // Browser fallback: trigger download
     const blob = new Blob([content], { type: 'text/javascript' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = GROUPS_FILE_NAME; a.click();
     URL.revokeObjectURL(url);
     return { ok: true, mode: 'download' };
-  }
-
-  // ── Auto-resize textarea ─────────────────────────────────────
-  function autoResizeEgStudents(el) {
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
   }
 
   // ── Meta inputs ──────────────────────────────────────────────
@@ -424,13 +589,96 @@
     return { yearInput, semSelect, lvlSelect };
   }
 
+  // ── Student table section ────────────────────────────────────
+  function buildStudentInputRow(student, isDisabled) {
+    const row = document.createElement('div');
+    row.className = 'eg-student-row';
+
+    const makeInput = (cls, val, placeholder, type) => {
+      const input = document.createElement('input');
+      input.type = type || 'text';
+      input.className = 'eg-s-input ' + cls;
+      input.value = val || '';
+      input.placeholder = placeholder;
+      if (isDisabled) input.disabled = true;
+      return input;
+    };
+
+    const fnInput = makeInput('eg-s-fn', student.firstName, 'First name');
+    const lnInput = makeInput('eg-s-ln', student.lastName, 'Last name');
+    const dobInput = makeInput('eg-s-dob', student.dob, '', 'date');
+    const acInput = makeInput('eg-s-class', student.adminClass, 'Class');
+
+    const senCell = document.createElement('div');
+    senCell.className = 'eg-s-sen-cell';
+    const senCb = document.createElement('input');
+    senCb.type = 'checkbox';
+    senCb.className = 'eg-s-sen';
+    senCb.checked = student.sen === true;
+    senCb.title = 'SEN';
+    if (isDisabled) senCb.disabled = true;
+    senCell.appendChild(senCb);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'eg-s-del';
+    delBtn.textContent = '×';
+    delBtn.title = 'Remove student';
+    if (isDisabled) {
+      delBtn.disabled = true;
+    } else {
+      delBtn.onclick = () => row.remove();
+    }
+
+    row.appendChild(fnInput);
+    row.appendChild(lnInput);
+    row.appendChild(dobInput);
+    row.appendChild(acInput);
+    row.appendChild(senCell);
+    row.appendChild(delBtn);
+    return row;
+  }
+
+  function buildStudentSection(students, isDisabled) {
+    const section = document.createElement('div');
+    section.className = 'eg-student-section';
+    section.style.display = 'none';
+
+    const header = document.createElement('div');
+    header.className = 'eg-student-header';
+    ['First Name', 'Last Name', 'Date of Birth', 'Class', 'SEN', ''].forEach(label => {
+      const span = document.createElement('span');
+      span.textContent = label;
+      header.appendChild(span);
+    });
+    section.appendChild(header);
+
+    const tableBody = document.createElement('div');
+    tableBody.className = 'eg-student-body';
+    students.forEach(s => tableBody.appendChild(buildStudentInputRow(s, isDisabled)));
+    section.appendChild(tableBody);
+
+    if (!isDisabled) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'eg-s-add';
+      addBtn.textContent = '+ Student';
+      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', dob: '', adminClass: '' }, false));
+      section.appendChild(addBtn);
+    }
+
+    return section;
+  }
+
+  function updateStudentCountBtn(toggle, count) {
+    toggle.textContent = count === 0 ? 'Students' : count + ' student' + (count !== 1 ? 's' : '');
+  }
+
   // ── Half-group chips ──────────────────────────────────────────
-  function buildHalfGroupChips(halfSection, studentsInputEl, existingHalfGroups) {
+  // studentNames: string array of display names (already uppercased)
+  function buildHalfGroupChips(halfSection, studentNames, existingHalfGroups) {
     halfSection.innerHTML = '';
-    const studentNames = studentsInputEl
-      ? studentsInputEl.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-      : [];
-    if (studentNames.length === 0) {
+    if (!studentNames || studentNames.length === 0) {
       halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">' + (typeof t === 'function' ? t('geAddStudentsFirst') : 'Add students to the group first.') + '</em>';
       return;
     }
@@ -438,8 +686,10 @@
     const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B.map(s => s.toUpperCase()) : [];
     const legend = document.createElement('div');
     legend.style.cssText = 'font-size:0.72rem; color:#888; margin-bottom:7px; font-weight:600;';
-    var legendText = typeof t === 'function' ? t('geHalfLegend') : 'Click to cycle: u{25A0} A u{2192} u{25A0} B u{2192} unassigned';
-      legend.innerHTML = legendText.replace('u{25A0} A', '<span style="color:#1e40af;font-weight:700;">u{25A0} A</span>').replace('u{25A0} B', '<span style="color:#9a3412;font-weight:700;">u{25A0} B</span>');
+    const legendText = typeof t === 'function' ? t('geHalfLegend') : 'Click to cycle: ■ A → ■ B → unassigned';
+    legend.innerHTML = legendText
+      .replace('■ A', '<span style="color:#1e40af;font-weight:700;">■ A</span>')
+      .replace('■ B', '<span style="color:#9a3412;font-weight:700;">■ B</span>');
     halfSection.appendChild(legend);
     const chipsWrap = document.createElement('div');
     chipsWrap.style.cssText = 'display:flex; flex-wrap:wrap;';
@@ -469,6 +719,7 @@
   }
 
   // ── Build a single group row ──────────────────────────────────
+  // DOM order after this call: row → studentSection → halfSection
   function buildGroupRow(groupName, body, isArchived) {
     const row = document.createElement('div');
     row.className = 'eg-row';
@@ -481,20 +732,22 @@
     nameInput.title = 'Group name';
     if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
 
-    const studentsInput = document.createElement('textarea');
-    studentsInput.className = 'eg-row-students';
-    studentsInput.rows = 1;
-    studentsInput.value = (rawData[groupName] || []).join(', ');
-    studentsInput.title = typeof t === 'function' ? t('geStudentsTitle') : 'Students (comma-separated)';
-    if (isArchived) { studentsInput.disabled = true; studentsInput.style.opacity = '0.6'; }
-    else { studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput)); }
-    requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
+    const students = getStudentsForGroup(groupName);
+
+    const studentsToggle = document.createElement('button');
+    studentsToggle.type = 'button';
+    studentsToggle.className = 'eg-students-toggle';
+    updateStudentCountBtn(studentsToggle, students.length);
+    studentsToggle.title = 'Show/hide student details';
+    if (isArchived) studentsToggle.disabled = true;
 
     const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupName]);
     if (isArchived) {
       yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true;
       [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
     }
+
+    const studentSection = buildStudentSection(students, isArchived);
 
     const halfSection = document.createElement('div');
     halfSection.className = 'eg-half-section';
@@ -509,23 +762,38 @@
     halfToggle.disabled = !!isArchived;
 
     if (!isArchived) {
-      buildHalfGroupChips(halfSection, studentsInput, rawMeta[groupName] && rawMeta[groupName].halfGroups);
+      studentsToggle.onclick = () => {
+        const isOpen = studentSection.style.display !== 'none';
+        studentSection.style.display = isOpen ? 'none' : '';
+        studentsToggle.classList.toggle('active', !isOpen);
+      };
+
       const existingMeta = rawMeta[groupName];
       const hasHalves = existingMeta && existingMeta.halfGroups &&
         ((existingMeta.halfGroups.A && existingMeta.halfGroups.A.length) ||
          (existingMeta.halfGroups.B && existingMeta.halfGroups.B.length));
-      if (hasHalves) { halfToggle.classList.add('active'); halfSection.style.display = ''; }
+      if (hasHalves) {
+        buildHalfGroupChips(halfSection, students.map(studentDisplayName).filter(Boolean), existingMeta.halfGroups);
+        halfToggle.classList.add('active');
+        halfSection.style.display = '';
+      }
+
       halfToggle.onclick = () => {
         const isOpen = halfSection.style.display !== 'none';
         halfSection.style.display = isOpen ? 'none' : '';
         halfToggle.classList.toggle('active', !isOpen);
-        if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, collectHalfGroupsFromSection(halfSection));
+        if (!isOpen) {
+          const names = getStudentNamesFromSection(studentSection);
+          buildHalfGroupChips(halfSection, names, collectHalfGroupsFromSection(halfSection));
+        }
       };
     }
 
     const archiveBtn = document.createElement('button');
     archiveBtn.type = 'button';
-    archiveBtn.title = isArchived ? (typeof t === 'function' ? t('geUnarchiveTitle') : 'Unarchive this group') : (typeof t === 'function' ? t('geArchiveTitle') : 'Archive this group');
+    archiveBtn.title = isArchived
+      ? (typeof t === 'function' ? t('geUnarchiveTitle') : 'Unarchive this group')
+      : (typeof t === 'function' ? t('geArchiveTitle') : 'Archive this group');
     archiveBtn.textContent = isArchived ? '↩' : '📦';
     archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
     archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
@@ -546,12 +814,13 @@
     delBtn.onclick = () => {
       showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmDelete', {name: groupName}) : 'Delete "' + groupName + '" permanently?\n\nThis cannot be undone.', () => {
         row.remove();
+        studentSection.remove();
         if (halfSection.parentNode) halfSection.remove();
       });
     };
 
     row.appendChild(nameInput);
-    row.appendChild(studentsInput);
+    row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
@@ -559,6 +828,7 @@
     row.appendChild(archiveBtn);
     row.appendChild(delBtn);
     body.appendChild(row);
+    body.appendChild(studentSection);
     body.appendChild(halfSection);
   }
 
@@ -585,7 +855,7 @@
 
       const archToggle = document.createElement('button');
       archToggle.className = 'ge-arch-toggle';
-      var archLabel = typeof t === 'function' ? t('geArchivedGroups') : 'Archived groups';
+      const archLabel = typeof t === 'function' ? t('geArchivedGroups') : 'Archived groups';
       archToggle.textContent = '▶ ' + archLabel + ' (' + archivedGroups.length + ')';
 
       const archContent = document.createElement('div');
@@ -605,16 +875,22 @@
   }
 
   // ── Collect all current edits from the DOM ───────────────────
+  // Relies on DOM order: .eg-row → .eg-student-section → .eg-half-section
   function collectGroupEdits() {
     const updated = {};
     const updatedMeta = {};
     document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
       const nameInput = row.querySelector('.eg-row-name');
-      const studentsInput = row.querySelector('.eg-row-students');
       const name = nameInput.value.trim();
       if (!name) return;
-      const students = studentsInput.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-      updated[name] = students;
+
+      const studentSection = row.nextElementSibling;
+      const students = (studentSection && studentSection.classList.contains('eg-student-section'))
+        ? collectStudentsFromTable(studentSection)
+        : getStudentsForGroup(row.dataset.group);
+
+      updated[name] = students.map(s => studentDisplayName(s)).filter(Boolean);
+
       const yearEl = row.querySelector('.eg-row-year');
       const semEl = row.querySelector('.eg-row-semester');
       const lvlEl = row.querySelector('.eg-row-level');
@@ -623,13 +899,14 @@
         semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
         level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
       };
-      // Half-group data from sibling .eg-half-section
-      const halfSection = row.nextElementSibling;
+      if (students.length > 0) updatedMeta[name].students = students;
+
+      const halfSection = studentSection ? studentSection.nextElementSibling : null;
       if (halfSection && halfSection.classList.contains('eg-half-section')) {
         const hg = collectHalfGroupsFromSection(halfSection);
         if (hg) updatedMeta[name].halfGroups = hg;
       }
-      // Preserve archived flag from original rawMeta (archived rows are disabled/read-only)
+
       const origMeta = rawMeta[row.dataset.group];
       if (origMeta && origMeta.archived) updatedMeta[name].archived = true;
     });
@@ -641,14 +918,13 @@
     const nameVal = document.getElementById('new-group-name').value.trim();
     if (!nameVal) { alert(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.'); return; }
 
-    const studentsVal = document.getElementById('new-group-students').value.trim();
+    const studentsText = document.getElementById('new-group-students').value.trim();
+    const students = studentsText ? parseNamesText(studentsText) : [];
     const body = document.getElementById('ge-groups-body');
 
-    // Remove "no groups" placeholder if present
     const placeholder = body.querySelector('p');
     if (placeholder) placeholder.remove();
 
-    // Insert before the archived section separator (if any)
     const archSep = body.querySelector('.ge-arch-sep');
 
     const row = document.createElement('div');
@@ -661,12 +937,11 @@
     nameInput.value = nameVal;
     nameInput.title = 'Group name';
 
-    const studentsInput = document.createElement('textarea');
-    studentsInput.className = 'eg-row-students';
-    studentsInput.rows = 1;
-    studentsInput.value = studentsVal.toUpperCase();
-    studentsInput.title = typeof t === 'function' ? t('geStudentsTitle') : 'Students (comma-separated)';
-    studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput));
+    const studentsToggle = document.createElement('button');
+    studentsToggle.type = 'button';
+    studentsToggle.className = 'eg-students-toggle active';
+    updateStudentCountBtn(studentsToggle, students.length);
+    studentsToggle.title = 'Show/hide student details';
 
     const newMeta = {
       year: document.getElementById('new-group-year').value.trim(),
@@ -675,39 +950,50 @@
     };
     const { yearInput, semSelect, lvlSelect } = makeMetaInputs(newMeta);
 
+    const studentSection = buildStudentSection(students, false);
+    studentSection.style.display = ''; // open by default for new groups
+
     const halfSection = document.createElement('div');
     halfSection.className = 'eg-half-section';
     halfSection.style.display = 'none';
-    buildHalfGroupChips(halfSection, studentsInput, null);
 
     const halfToggle = document.createElement('button');
     halfToggle.type = 'button';
     halfToggle.className = 'eg-half-toggle';
     halfToggle.textContent = '½';
     halfToggle.title = 'Define half-groups A / B';
+
+    studentsToggle.onclick = () => {
+      const isOpen = studentSection.style.display !== 'none';
+      studentSection.style.display = isOpen ? 'none' : '';
+      studentsToggle.classList.toggle('active', !isOpen);
+    };
+
     halfToggle.onclick = () => {
       const isOpen = halfSection.style.display !== 'none';
       halfSection.style.display = isOpen ? 'none' : '';
       halfToggle.classList.toggle('active', !isOpen);
-      if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, collectHalfGroupsFromSection(halfSection));
+      if (!isOpen) {
+        const names = getStudentNamesFromSection(studentSection);
+        buildHalfGroupChips(halfSection, names, collectHalfGroupsFromSection(halfSection));
+      }
     };
 
     const archiveBtn = document.createElement('button');
     archiveBtn.type = 'button';
     archiveBtn.textContent = '📦';
-    archiveBtn.title = 'Archive this group';
-    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
     archiveBtn.title = typeof t === 'function' ? t('geSaveFirstTitle') : 'Save first to enable archiving';
+    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
     archiveBtn.disabled = true;
 
     const delBtn = document.createElement('button');
     delBtn.className = 'eg-row-del';
     delBtn.textContent = '✕';
     delBtn.title = typeof t === 'function' ? t('geRemoveTitle') : 'Remove this group';
-    delBtn.onclick = () => { row.remove(); if (halfSection.parentNode) halfSection.remove(); };
+    delBtn.onclick = () => { row.remove(); studentSection.remove(); if (halfSection.parentNode) halfSection.remove(); };
 
     row.appendChild(nameInput);
-    row.appendChild(studentsInput);
+    row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
@@ -717,19 +1003,19 @@
 
     if (archSep) {
       body.insertBefore(row, archSep);
+      body.insertBefore(studentSection, archSep);
       body.insertBefore(halfSection, archSep);
     } else {
       body.appendChild(row);
+      body.appendChild(studentSection);
       body.appendChild(halfSection);
     }
 
-    requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Clear add form
     document.getElementById('new-group-name').value = '';
     document.getElementById('new-group-students').value = '';
-    autoResizeEgStudents(document.getElementById('new-group-students'));
+    autoResizeStudents(document.getElementById('new-group-students'));
     document.getElementById('new-group-year').value = '';
     document.getElementById('new-group-semester').value = '';
     document.getElementById('new-group-level').value = '';
@@ -741,7 +1027,6 @@
     rawMeta[groupName].archived = true;
 
     const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-    // Force archived flag on this group in collected data
     if (updatedMeta[groupName]) updatedMeta[groupName].archived = true;
     else if (updated[groupName]) updatedMeta[groupName] = { archived: true };
 
@@ -756,9 +1041,7 @@
     rawMeta = updatedMeta;
 
     if (window.Desktop && typeof Desktop.renameByPath === 'function') {
-      try {
-        await Desktop.renameByPath('groupParticipation', groupName, 'archived/' + groupName);
-      } catch (_) {}
+      try { await Desktop.renameByPath('groupParticipation', groupName, 'archived/' + groupName); } catch (_) {}
     }
 
     showNotice(typeof tFmt === 'function' ? tFmt('geArchived', {name: groupName}) : '"' + groupName + '" archived.');
@@ -783,9 +1066,7 @@
     rawMeta = updatedMeta;
 
     if (window.Desktop && typeof Desktop.renameByPath === 'function') {
-      try {
-        await Desktop.renameByPath('groupParticipation', 'archived/' + groupName, groupName);
-      } catch (_) {}
+      try { await Desktop.renameByPath('groupParticipation', 'archived/' + groupName, groupName); } catch (_) {}
     }
 
     showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: groupName}) : '"' + groupName + '" unarchived.');
@@ -818,6 +1099,166 @@
       saveBtn.disabled = false;
       renderGroupsList();
     }, 1200);
+  }
+
+  // ── CSV Export ───────────────────────────────────────────────
+  function csvEscape(val) {
+    const s = String(val === null || val === undefined ? '' : val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportCsv() {
+    const { groups, meta } = collectGroupEdits();
+    if (Object.keys(groups).length === 0) {
+      alert('No groups to export.');
+      return;
+    }
+
+    const rows = ['Group,First Name,Last Name,Date of Birth,Admin Class,Year,Semester,Level,SEN'];
+    Object.keys(groups).forEach(groupName => {
+      const m = meta[groupName] || {};
+      const students = m.students && m.students.length
+        ? m.students
+        : groups[groupName].map(name => {
+            const parts = name.trim().split(/\s+/);
+            return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', dob: '', adminClass: '' };
+          });
+
+      if (students.length === 0) {
+        rows.push([groupName, '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
+      } else {
+        students.forEach(s => {
+          rows.push([groupName, s.firstName || '', s.lastName || '', s.dob || '', s.adminClass || '', m.year || '', m.semester ?? '', m.level ?? '', s.sen ? 'true' : ''].map(csvEscape).join(','));
+        });
+      }
+    });
+
+    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'class-groups.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── CSV Import ───────────────────────────────────────────────
+  function triggerCsvImport() {
+    document.getElementById('csv-import-input').click();
+  }
+
+  function handleCsvImport(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => parseCsvImport(e.target.result);
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function parseCsvLine(line) {
+    const fields = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQuotes = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQuotes = true;
+        else if (ch === ',') { fields.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    fields.push(cur);
+    return fields;
+  }
+
+  function parseCsvImport(text) {
+    const lines = text.replace(/^﻿/, '').replace(/\r/g, '').split('\n').filter(l => l.trim());
+    if (lines.length < 2) { showNotice('CSV file is empty or has no data rows.', true); return; }
+
+    const rawHeaders = parseCsvLine(lines[0]);
+    const headers = rawHeaders.map(h => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
+
+    const find = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t)));
+    const idx = {
+      group:     find('group'),
+      firstName: find('first', 'firstname', 'fn', 'prenom', 'prénom'),
+      lastName:  find('last', 'lastname', 'ln', 'nom', 'surname'),
+      dob:       find('dob', 'birth', 'date', 'born'),
+      adminClass: find('adminclass', 'admin', 'class'),
+      year:      find('year', 'annee', 'année'),
+      semester:  find('sem'),
+      level:     find('level', 'lvl'),
+      sen:       find('sen', 'special'),
+    };
+
+    // adminClass should not steal "group" if both match "class"
+    if (idx.adminClass === idx.group && idx.adminClass >= 0) idx.adminClass = -1;
+
+    if (idx.group < 0) { showNotice('CSV must have a "Group" column.', true); return; }
+
+    const groups = {};
+    const meta = {};
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      const gName = (cols[idx.group] || '').trim();
+      if (!gName) continue;
+
+      if (!groups[gName]) { groups[gName] = []; meta[gName] = {}; }
+
+      const fn = idx.firstName >= 0 ? (cols[idx.firstName] || '').trim().toUpperCase() : '';
+      const ln = idx.lastName  >= 0 ? (cols[idx.lastName]  || '').trim().toUpperCase() : '';
+      const dob = idx.dob      >= 0 ? (cols[idx.dob]       || '').trim() : '';
+      const ac = idx.adminClass >= 0 ? (cols[idx.adminClass] || '').trim().toUpperCase() : '';
+      const senRaw = idx.sen >= 0 ? (cols[idx.sen] || '').trim().toLowerCase() : '';
+      const isSen = senRaw === 'true' || senRaw === 'yes' || senRaw === '1' || senRaw === 'x';
+
+      if (fn || ln) {
+        const entry = { firstName: fn, lastName: ln, dob, adminClass: ac };
+        if (isSen) entry.sen = true;
+        groups[gName].push(entry);
+      }
+
+      if (idx.year >= 0 && cols[idx.year]?.trim()) meta[gName].year = cols[idx.year].trim();
+      if (idx.semester >= 0 && cols[idx.semester]?.trim()) {
+        const sv = Number(cols[idx.semester]);
+        if (sv === 1 || sv === 2) meta[gName].semester = sv;
+      }
+      if (idx.level >= 0 && cols[idx.level]?.trim()) {
+        const lv = Number(cols[idx.level]);
+        if (lv >= 1 && lv <= 4) meta[gName].level = lv;
+      }
+    }
+
+    const groupCount = Object.keys(groups).length;
+    const studentCount = Object.values(groups).reduce((sum, g) => sum + g.length, 0);
+    if (groupCount === 0) { showNotice('No valid groups found in CSV.', true); return; }
+
+    showConfirm(
+      `Import ${studentCount} student(s) into ${groupCount} group(s)?\n\nGroups with matching names will have their student list replaced. New groups will be added.`,
+      () => applyCsvImport(groups, meta)
+    );
+  }
+
+  function applyCsvImport(newGroups, newMeta) {
+    Object.keys(newGroups).forEach(gName => {
+      const students = newGroups[gName];
+      rawData[gName] = students.map(s => studentDisplayName(s)).filter(Boolean);
+      if (!rawMeta[gName]) rawMeta[gName] = {};
+      rawMeta[gName].students = students;
+      const m = newMeta[gName] || {};
+      if (m.year)     rawMeta[gName].year = m.year;
+      if (m.semester) rawMeta[gName].semester = m.semester;
+      if (m.level)    rawMeta[gName].level = m.level;
+    });
+
+    renderGroupsList();
+    showNotice('Imported ' + Object.keys(newGroups).length + ' group(s). Click Save to persist.');
   }
 
   // ── Init ─────────────────────────────────────────────────────
