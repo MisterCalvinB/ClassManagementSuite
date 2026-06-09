@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Prompt Clarification
+
+Before implementing any non-trivial feature or change, ask clarifying questions and offer concrete suggestions to make sure the intent is understood. For example: propose two or three specific approaches with trade-offs, flag assumptions about scope or behaviour, and confirm which files or tools are in scope. Only proceed once the direction is clear.
+
 ## Documentation Maintenance
 
 Whenever a user-facing feature, tool, setting, or behavior changes, update both:

@@ -12,6 +12,7 @@
 | `grade-sheet.html` | Test and grade tracking per class, semester, and criterion |
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
 | `group-editor.html` | Create, edit, archive, and delete class groups stored in `class-groups.js` |
+| `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
@@ -96,6 +97,34 @@ Manages the class groups stored in `class-groups.js`. Opened from the launcher o
 - **Add New Group** — form to create a group: name, year, semester (1 or 2), and level.
 - **Archive / Unarchive** — move groups out of the active list without deleting them.
 - **SEN flag** — each student row has a SEN checkbox. Checked students are given the SEN preparation time in the Schedule Maker by default (can be overridden per session).
+
+---
+
+## class-plan.html
+
+Standalone seating-plan designer. Plans are saved as `user/class-plans/plans.js` and synced to `user/config.js` so **Class Management** can read the same data.
+
+### Layout types
+
+| Layout | Description | Configuration |
+|---|---|---|
+| **Grid** | Standard rows × columns grid of desks | Rows (1–12), Columns (1–14) |
+| **U-Shape** | One top row + two side arms forming a U | Width (top row count), Depth (arm length) |
+| **Pods** | Clusters of desks arranged in a room grid | Pod size (rows × cols), Room layout (pods rows × pods cols) |
+
+### Workflow
+
+1. Select a class group from the sidebar.
+2. Click **+ New Plan**, choose a layout type, and set dimensions.
+3. Drag students from the panel onto desk cells to assign seats.
+4. Drag from desk to desk to swap students; click **✕** to unassign.
+5. Use **🎲 Random** to shuffle all students automatically.
+6. Changes auto-save; use **Save** for an immediate write.
+7. Use **🖨 Print** to produce a printable A4 seating chart.
+
+### Sharing with Class Management
+
+Plans created here are visible in `class-management.html`'s Class Plans manager after the next load. Plans created in Class Management are imported when Class Plan starts.
 
 ---
 

@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class Plan</title>
+  <script src="electron-bridge.js"></script>
+  <script>
+  (function () {
+    function injectScript(source, name) {
+      var s = document.createElement('script');
+      s.text = String(source || '') + '\n//# sourceURL=' + (name || 'injected');
+      document.head.appendChild(s);
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    window.__cpBootstrap = (async function () {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      async function load(target, file) {
+        try {
+          var r = await Desktop.readText(target, file);
+          if (r && r.ok) injectScript(r.content, target + '/' + file);
+        } catch (e) {}
+      }
+      await load('user', 'class-groups.js');
+      await load('user', 'config.js');
+      await load('classPlans', 'plans.js');
+    })();
+  })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f4f4f4; color: #111;
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* ── Nav ── */
+    #app-nav {
+      background: #111; color: #fff; padding: 0 16px;
+      display: flex; align-items: center; gap: 20px; height: 44px; flex-shrink: 0;
+      font-size: .82rem; font-weight: 600; letter-spacing: .3px;
+    }
+    .nav-brand { font-weight: 900; font-size: .95rem; letter-spacing: 1px; text-transform: uppercase; }
+    #app-nav a { color: #bbb; text-decoration: none; transition: color .1s; }
+    #app-nav a:hover { color: #fff; }
+
+    /* ── Root layout ── */
+    #app-root { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Plans sidebar ── */
+    #plans-sidebar {
+      width: 272px; flex-shrink: 0; background: #fff;
+      border-right: 1px solid #e0e0e0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #sidebar-header { padding: 12px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+    #group-sel {
+      width: 100%; padding: 7px 10px; border: 1.5px solid #ddd; border-radius: 5px;
+      font-size: .85rem; font-weight: 600; background: #fff; cursor: pointer;
+    }
+    #group-sel:focus { outline: none; border-color: #111; }
+    #new-plan-btn {
+      width: 100%; padding: 9px; background: #111; color: #fff;
+      border: none; border-radius: 5px; font-weight: 700; font-size: .82rem;
+      text-transform: uppercase; letter-spacing: .5px; cursor: pointer;
+    }
+    #new-plan-btn:hover { background: #333; }
+    #sidebar-body { flex: 1; overflow-y: auto; padding: 8px; }
+
+    /* ── Plan cards ── */
+    .plan-card {
+      padding: 10px 12px; border: 1.5px solid #e0e0e0; border-radius: 6px;
+      margin-bottom: 6px; cursor: pointer; background: #fafafa;
+      transition: border-color .12s, background .12s;
+    }
+    .plan-card:hover { border-color: #aaa; background: #fff; }
+    .plan-card.selected { border-color: #111; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.07); }
+    .plan-card-name { font-size: .87rem; font-weight: 700; }
+    .plan-card-meta { font-size: .73rem; color: #888; margin-top: 2px; }
+    .plan-card-badges { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+    .badge-active {
+      background: #111; color: #fff; padding: 1px 7px; border-radius: 10px;
+      font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .badge-temp {
+      background: #fef08a; color: #713f12; padding: 1px 7px; border-radius: 10px;
+      font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .plan-card-actions { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; }
+    .pca-btn {
+      padding: 3px 9px; font-size: .71rem; font-weight: 700; background: #fff;
+      border: 1.5px solid #ccc; border-radius: 4px; cursor: pointer;
+      text-transform: uppercase; letter-spacing: .3px;
+    }
+    .pca-btn:hover { border-color: #111; }
+    .pca-btn.danger:hover { border-color: #c33; color: #c33; }
+
+    /* ── Editor panel ── */
+    #editor-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; color: #ccc; gap: 10px;
+    }
+    #empty-state .es-icon { font-size: 3rem; }
+    #empty-state .es-text { font-size: .9rem; font-weight: 500; }
+
+    /* ── Editor main ── */
+    #editor-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; display: none; }
+
+    #editor-top {
+      padding: 11px 16px 10px; background: #fff; border-bottom: 1px solid #eee;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    #editor-plan-name {
+      font-size: 1.05rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1.2px;
+      outline: none; border-bottom: 2px dashed #ddd; padding-bottom: 2px; min-width: 60px;
+      cursor: text;
+    }
+    #editor-plan-name:focus { border-bottom-color: #111; }
+    #editor-plan-meta { font-size: .76rem; color: #888; }
+    #editor-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .btn-ghost {
+      padding: 7px 14px; background: #fff; border: 2px solid #111; border-radius: 5px;
+      font-weight: 700; font-size: .8rem; cursor: pointer;
+      text-transform: uppercase; letter-spacing: .4px; transition: all .1s;
+    }
+    .btn-ghost:hover { background: #111; color: #fff; }
+    .btn-solid {
+      padding: 7px 16px; background: #111; color: #fff; border: 2px solid #111;
+      border-radius: 5px; font-weight: 700; font-size: .8rem; cursor: pointer;
+      text-transform: uppercase; letter-spacing: .4px; transition: all .1s;
+    }
+    .btn-solid:hover { background: #333; border-color: #333; }
+
+    /* ── Editor body ── */
+    #editor-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+
+    /* ── Students panel ── */
+    #students-panel {
+      width: 148px; flex-shrink: 0; overflow-y: auto;
+      border-right: 1px solid #e0e0e0; padding: 10px; background: #fafafa;
+    }
+    .students-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .8px; color: #888; margin-bottom: 8px;
+    }
+    .cp-student-chip {
+      padding: 5px 8px; margin-bottom: 4px; background: #fff; border: 1.5px solid #bbb;
+      border-radius: 4px; font-size: .78rem; font-weight: 600;
+      user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cp-student-chip[draggable="true"] { cursor: grab; }
+    .cp-student-chip.placed { opacity: .38; cursor: default; }
+
+    /* ── Grid wrap ── */
+    #grid-wrap {
+      flex: 1; overflow: auto; padding: 16px;
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+    }
+
+    /* ── Teacher's desk ── */
+    #cp-teacher-row {
+      margin-top: 20px; align-self: stretch;
+      display: flex; justify-content: flex-end;
+    }
+    #cp-teacher-desk {
+      background: #2a2a2a; color: #fff;
+      padding: 9px 28px; border-radius: 6px;
+      font-size: .79rem; font-weight: 700; letter-spacing: .6px;
+      text-transform: uppercase; min-width: 130px; text-align: center;
+    }
+
+    /* ── Desk grid ── */
+    #cp-desk-grid {
+      display: inline-grid; gap: 6px;
+      border: 2px solid #e0e0e0; border-radius: 8px;
+      padding: 12px; background: #f8f8f8; min-width: max-content;
+    }
+    #cp-desk-grid.pods-layout {
+      display: inline-grid; gap: 22px;
+      border: none; background: transparent; padding: 0;
+    }
+
+    /* ── Desk cell ── */
+    .cp-desk-cell {
+      width: 92px; height: 66px; border: 2px solid #ccc; border-radius: 5px;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      position: relative; transition: border-color .1s, background .1s; cursor: pointer;
+    }
+    .cp-desk-cell.drag-over { border-color: #111; background: #eff6ff; }
+    .cp-desk-empty { color: #ccc; font-size: 1.3rem; pointer-events: none; }
+    .cp-desk-name {
+      font-weight: 700; font-size: .76rem; text-align: center;
+      padding: 2px 20px 2px 4px; word-break: break-word; line-height: 1.3;
+    }
+    .cp-desk-remove {
+      position: absolute; top: 2px; right: 3px; background: none; border: none;
+      cursor: pointer; color: #ccc; font-size: .7rem; padding: 0 3px; line-height: 1;
+    }
+    .cp-desk-remove:hover { color: #c33; }
+    .cp-desk-spacer { width: 92px; height: 66px; }
+
+    /* ── Pod wrapper ── */
+    .cp-pod {
+      display: inline-grid; gap: 6px;
+      border: 2px solid #ddd; border-radius: 8px; padding: 10px; background: #f8f8f8;
+    }
+
+    /* ── Grid controls bar ── */
+    #grid-controls {
+      display: flex; gap: 6px; justify-content: center; padding: 8px 12px;
+      border-top: 1px solid #eee; background: #fff; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .gc-btn {
+      padding: 4px 13px; font-size: .79rem; font-weight: 700;
+      background: #fff; border: 1.5px solid #bbb; border-radius: 4px; cursor: pointer;
+    }
+    .gc-btn:hover { border-color: #111; }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.55); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 8px; padding: 24px 26px;
+      position: relative; max-height: 92vh; overflow-y: auto;
+      width: 470px; max-width: 96vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+    }
+    .modal-close {
+      position: absolute; top: 10px; right: 13px; background: none; border: none;
+      font-size: 1.4rem; cursor: pointer; color: #888; line-height: 1;
+    }
+    .modal-close:hover { color: #111; }
+    .modal-title {
+      font-size: 1rem; font-weight: 900; text-transform: uppercase;
+      letter-spacing: 1.5px; margin-bottom: 18px;
+    }
+    .form-label {
+      display: block; font-size: .74rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .7px; color: #555;
+      margin: 13px 0 4px;
+    }
+    .form-input {
+      width: 100%; padding: 8px 10px; border: 1.5px solid #ccc; border-radius: 5px;
+      font-size: .88rem; font-weight: 500; color: #111; background: #fff;
+    }
+    .form-input:focus { outline: none; border-color: #111; }
+
+    /* ── Layout type buttons ── */
+    .layout-btns { display: flex; gap: 8px; margin-top: 4px; }
+    .layout-btn {
+      flex: 1; padding: 9px 6px; border: 2px solid #ccc; border-radius: 6px;
+      background: #fff; font-size: .8rem; font-weight: 700; cursor: pointer;
+      text-align: center; transition: all .1s;
+    }
+    .layout-btn:hover { border-color: #777; }
+    .layout-btn.active { border-color: #111; background: #111; color: #fff; }
+
+    /* ── Layout dimension groups ── */
+    .dim-row { display: flex; gap: 10px; margin-top: 4px; }
+    .dim-group { flex: 1; }
+    .layout-section { display: none; }
+    .layout-section.visible { display: block; }
+
+    /* ── Schedule slots ── */
+    .sched-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+    .sched-row select { border: 1.5px solid #ccc; border-radius: 4px; padding: 5px 7px; font-size: .82rem; width: 68px; }
+    .sched-row input[type=time] { border: 1.5px solid #ccc; border-radius: 4px; padding: 5px 7px; font-size: .82rem; }
+    .sched-sep { color: #aaa; font-size: .8rem; }
+    .sched-rm { background: none; border: none; cursor: pointer; color: #ccc; font-size: 1rem; padding: 0 4px; }
+    .sched-rm:hover { color: #c33; }
+    .add-slot-btn {
+      margin-top: 4px; padding: 4px 12px; font-size: .77rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .5px;
+      background: #fff; border: 1.5px solid #bbb; border-radius: 4px; cursor: pointer;
+    }
+    .add-slot-btn:hover { border-color: #111; }
+
+    /* ── Modal actions ── */
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+    /* ── Toast ── */
+    #cp-toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: #111; color: #fff; padding: 9px 22px; border-radius: 20px;
+      font-size: .82rem; font-weight: 600; opacity: 0; transition: opacity .22s;
+      pointer-events: none; z-index: 99999; white-space: nowrap;
+    }
+    #cp-toast.show { opacity: 1; }
+
+    /* ── Confirm ── */
+    #cp-confirm {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 99998;
+      align-items: center; justify-content: center;
+    }
+    #cp-confirm.open { display: flex; }
+    #cp-confirm-box {
+      background: #fff; border-radius: 8px; padding: 22px 24px;
+      max-width: 380px; width: 92%; box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    }
+    #cp-confirm-msg { font-size: .9rem; color: #333; margin-bottom: 18px; line-height: 1.5; }
+    #cp-confirm-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+
+<nav id="app-nav">
+  <span class="nav-brand">Class Plan</span>
+  <a href="class-management.html" target="_blank">👥 Class Mgmt</a>
+  <a href="group-editor.html" target="_blank">✏️ Groups</a>
+  <a href="launcher.html" target="_blank">🏠 Launcher</a>
+</nav>
+
+<div id="app-root">
+
+  <!-- ── Plans sidebar ── -->
+  <div id="plans-sidebar">
+    <div id="sidebar-header">
+      <select id="group-sel" onchange="onGroupChange(this.value)"></select>
+      <button id="new-plan-btn" onclick="openNewPlanConfig()">+ New Plan</button>
+    </div>
+    <div id="sidebar-body">
+      <div id="plans-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Editor panel ── -->
+  <div id="editor-panel">
+
+    <div id="empty-state">
+      <div class="es-icon">🪑</div>
+      <div class="es-text">Select a plan or create one to get started.</div>
+    </div>
+
+    <div id="editor-main">
+      <div id="editor-top">
+        <span id="editor-plan-name" contenteditable="true" spellcheck="false"
+          onblur="onNameBlur(this)"></span>
+        <span id="editor-plan-meta"></span>
+        <div id="editor-actions">
+          <button class="btn-ghost" onclick="randomAssign()">🎲 Random</button>
+          <button class="btn-ghost" onclick="editPlanSettings()">⚙ Settings</button>
+          <button class="btn-ghost" onclick="printCurrentPlan()">🖨 Print</button>
+          <button class="btn-solid" id="save-btn" onclick="manualSave()">Save</button>
+        </div>
+      </div>
+
+      <div id="editor-body">
+        <div id="students-panel">
+          <div class="students-label">Students</div>
+          <div id="student-chips"></div>
+        </div>
+        <div id="grid-wrap">
+          <div id="cp-desk-grid"></div>
+        </div>
+      </div>
+
+      <div id="grid-controls"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Config modal ── -->
+<div id="cfg-modal" class="modal-overlay" onclick="if(event.target===this)closeCfgModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeCfgModal()">&times;</button>
+    <div id="cfg-title" class="modal-title">New Plan</div>
+    <input type="hidden" id="cfg-edit-id">
+
+    <label class="form-label">Class</label>
+    <select id="cfg-group" class="form-input"></select>
+
+    <label class="form-label">Plan name</label>
+    <input type="text" id="cfg-name" class="form-input" placeholder="e.g. Normal Seating" maxlength="60">
+
+    <label class="form-label">Layout type</label>
+    <div class="layout-btns">
+      <div class="layout-btn active" data-lt="grid" onclick="selectLayoutType('grid')">⬛ Grid</div>
+      <div class="layout-btn" data-lt="ushape" onclick="selectLayoutType('ushape')">🔲 U-Shape</div>
+      <div class="layout-btn" data-lt="pods" onclick="selectLayoutType('pods')">⊞ Pods</div>
+    </div>
+
+    <!-- Grid dims -->
+    <div id="sec-grid" class="layout-section visible">
+      <div class="dim-row">
+        <div class="dim-group">
+          <label class="form-label">Rows</label>
+          <input type="number" id="cfg-rows" class="form-input" min="1" max="12" value="4">
+        </div>
+        <div class="dim-group">
+          <label class="form-label">Columns</label>
+          <input type="number" id="cfg-cols" class="form-input" min="1" max="14" value="5">
+        </div>
+      </div>
+    </div>
+
+    <!-- U-shape dims -->
+    <div id="sec-ushape" class="layout-section">
+      <div class="dim-row">
+        <div class="dim-group">
+          <label class="form-label">Width (top row desks)</label>
+          <input type="number" id="cfg-uwidth" class="form-input" min="3" max="20" value="6">
+        </div>
+        <div class="dim-group">
+          <label class="form-label">Depth (arm length)</label>
+          <input type="number" id="cfg-udepth" class="form-input" min="1" max="10" value="3">
+        </div>
+      </div>
+    </div>
+
+    <!-- Pods dims -->
+    <div id="sec-pods" class="layout-section">
+      <label class="form-label" style="margin-top:10px;">Desks per pod</label>
+      <div class="dim-row">
+        <div class="dim-group">
+          <label class="form-label">Rows</label>
+          <input type="number" id="cfg-pod-rows" class="form-input" min="1" max="6" value="2">
+        </div>
+        <div class="dim-group">
+          <label class="form-label">Columns</label>
+          <input type="number" id="cfg-pod-cols" class="form-input" min="1" max="6" value="3">
+        </div>
+      </div>
+      <label class="form-label" style="margin-top:10px;">Pods in room</label>
+      <div class="dim-row">
+        <div class="dim-group">
+          <label class="form-label">Rows of pods</label>
+          <input type="number" id="cfg-room-rows" class="form-input" min="1" max="8" value="2">
+        </div>
+        <div class="dim-group">
+          <label class="form-label">Columns of pods</label>
+          <input type="number" id="cfg-room-cols" class="form-input" min="1" max="8" value="3">
+        </div>
+      </div>
+    </div>
+
+    <label class="form-label">Room number</label>
+    <input type="text" id="cfg-room" class="form-input" placeholder="e.g. B204" maxlength="30">
+
+    <label class="form-label">Name display on desks</label>
+    <select id="cfg-name-display" class="form-input">
+      <option value="full">First + Last name</option>
+      <option value="first">First name only</option>
+      <option value="last">Last name only</option>
+    </select>
+
+    <label class="form-label">Weekly schedule</label>
+    <div id="cfg-schedule-slots"></div>
+    <button class="add-slot-btn" onclick="addScheduleSlot()">+ Add slot</button>
+
+    <div style="margin-top:13px;display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="cfg-temp" style="width:16px;height:16px;cursor:pointer;">
+      <label for="cfg-temp" style="font-size:.82rem;color:#555;cursor:pointer;">Temporary plan (one-off activity)</label>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" style="background:#fff;" onclick="closeCfgModal()">Cancel</button>
+      <button class="btn-solid" onclick="confirmPlanConfig()">Open Editor →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm dialog ── -->
+<div id="cp-confirm" onclick="if(event.target===this)_cfmCancel()">
+  <div id="cp-confirm-box">
+    <div id="cp-confirm-msg"></div>
+    <div id="cp-confirm-btns">
+      <button class="btn-ghost" style="background:#fff;" onclick="_cfmCancel()">Cancel</button>
+      <button class="btn-solid" onclick="_cfmOk()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="cp-toast"></div>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let classPlans = {};
+let studentGroups = {};
+let selectedGroup = '';
+let selectedPlan = null;
+let _cfgLayout = 'grid';
+let _autoSaveTimer = null;
+let _cfmOkCb = null;
+let _cfmCancelCb = null;
+let _dirty = false;
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async function () {
+  try { await window.__cpBootstrap; } catch (e) {}
+  buildStudentGroups();
+  loadPlansFromGlobals();
+  renderGroupSelector();
+  renderPlansList();
+  updateNavBrand();
+});
+
+function updateNavBrand() {
+  try {
+    const cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined') ? CLASS_MANAGEMENT_CONFIG : null;
+    const title = cfg?.launcherSettings?.appTitle || cfg?.schoolName || null;
+    if (title) {
+      const brand = document.querySelector('.nav-brand');
+      if (brand) brand.textContent = title + ' · Class Plan';
+    }
+  } catch (e) {}
+}
+
+function buildStudentGroups() {
+  studentGroups = {};
+  let src = {};
+  let meta = {};
+  try {
+    if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroups) {
+      src = CLASS_GROUPS_DATA.classGroups;
+      meta = CLASS_GROUPS_DATA.classGroupsMeta || {};
+    } else if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) {
+      src = CLASS_GROUPS;
+      if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) meta = CLASS_GROUPS_META;
+    }
+  } catch (e) {}
+  for (const group in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, group)) continue;
+    if (meta[group] && meta[group].archived) continue;
+    const raw = Array.isArray(src[group]) ? src[group] : [];
+    studentGroups[group] = raw.map(function (s) {
+      if (typeof s === 'string') return s;
+      if (s && s.firstName) return (s.firstName + (s.lastName ? ' ' + s.lastName : '')).trim();
+      return String(s);
+    });
+  }
+}
+
+function loadPlansFromGlobals() {
+  classPlans = {};
+  // From config.js (class-management.html's store)
+  try {
+    const cmPlans = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined')
+      ? CLASS_MANAGEMENT_CONFIG?.classPlans : null;
+    if (cmPlans && typeof cmPlans === 'object') {
+      for (const group in cmPlans) {
+        const arr = Array.isArray(cmPlans[group]) ? cmPlans[group] : [];
+        classPlans[group] = arr.map(normalizePlan);
+      }
+    }
+  } catch (e) {}
+  // Merge from user/class-plans/plans.js (class-plan.html's own store)
+  try {
+    if (typeof SAVED_CLASS_PLANS !== 'undefined' && SAVED_CLASS_PLANS) {
+      for (const group in SAVED_CLASS_PLANS) {
+        if (!classPlans[group]) classPlans[group] = [];
+        const arr = Array.isArray(SAVED_CLASS_PLANS[group]) ? SAVED_CLASS_PLANS[group] : [];
+        arr.forEach(function (p) {
+          if (!classPlans[group].find(function (x) { return x.id === p.id; })) {
+            classPlans[group].push(normalizePlan(p));
+          }
+        });
+      }
+    }
+  } catch (e) {}
+}
+
+function normalizePlan(p) {
+  const plan = Object.assign({}, p);
+  plan.layoutType = plan.layoutType || 'grid';
+  plan.seats = normalizeSeats(plan);
+  return plan;
+}
+
+function normalizeSeats(plan) {
+  const seats = plan.seats || [];
+  if (!seats.length) return [];
+  if (seats[0] && seats[0].seatId !== undefined) return seats;
+  // Convert from class-management.html's {row, col, studentName} format
+  return seats.map(function (s) {
+    return { seatId: s.row + ':' + s.col, studentName: s.studentName };
+  });
+}
+
+// ── Group selector ────────────────────────────────────────────────────────────
+function renderGroupSelector() {
+  const sel = document.getElementById('group-sel');
+  const groups = mergeGroupKeys();
+  if (!groups.length) {
+    sel.innerHTML = '<option value="">— No groups —</option>';
+    return;
+  }
+  sel.innerHTML = groups.map(function (g) {
+    return '<option value="' + esc(g) + '">' + esc(g) + '</option>';
+  }).join('');
+  selectedGroup = groups[0];
+  sel.value = selectedGroup;
+}
+
+function mergeGroupKeys() {
+  const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+    ? CLASS_GROUPS_DATA.classGroupsMeta
+    : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {});
+  const isArchived = g => meta[g] && meta[g].archived;
+  const seen = new Set();
+  const result = [];
+  Object.keys(studentGroups).forEach(function (g) { seen.add(g); result.push(g); });
+  Object.keys(classPlans).forEach(function (g) { if (!seen.has(g) && !isArchived(g)) result.push(g); });
+  return result;
+}
+
+function onGroupChange(group) {
+  selectedGroup = group;
+  selectedPlan = null;
+  renderPlansList();
+  showEmptyState();
+}
+
+// ── Plans list ────────────────────────────────────────────────────────────────
+function renderPlansList() {
+  const list = document.getElementById('plans-list');
+  const plans = classPlans[selectedGroup] || [];
+  if (!plans.length) {
+    list.innerHTML = '<div style="color:#bbb;font-size:.8rem;padding:6px 2px;">No plans yet.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  plans.forEach(function (plan) {
+    const card = document.createElement('div');
+    card.className = 'plan-card' + (selectedPlan && selectedPlan.id === plan.id ? ' selected' : '');
+    const dim = dimLabel(plan);
+    const meta = [dim, plan.roomNumber ? '📍 ' + plan.roomNumber : ''].filter(Boolean).join('  ·  ');
+    card.innerHTML =
+      '<div class="plan-card-name">' + esc(plan.name) + '</div>' +
+      (meta ? '<div class="plan-card-meta">' + esc(meta) + '</div>' : '') +
+      '<div class="plan-card-badges">' +
+        (plan.isActive ? '<span class="badge-active">Active</span>' : '') +
+        (plan.isTemporary ? '<span class="badge-temp">Temp</span>' : '') +
+      '</div>' +
+      '<div class="plan-card-actions">' +
+        '<button class="pca-btn" onclick="event.stopPropagation();editPlanById(\'' + esc(plan.id) + '\')">Settings</button>' +
+        (!plan.isActive ? '<button class="pca-btn" onclick="event.stopPropagation();setActivePlan(\'' + esc(plan.id) + '\')">Set Active</button>' : '') +
+        '<button class="pca-btn" onclick="event.stopPropagation();printPlanById(\'' + esc(plan.id) + '\')">🖨</button>' +
+        '<button class="pca-btn danger" onclick="event.stopPropagation();deletePlanById(\'' + esc(plan.id) + '\')">✕</button>' +
+      '</div>';
+    card.addEventListener('click', function () { openEditor(plan); });
+    list.appendChild(card);
+  });
+}
+
+function dimLabel(plan) {
+  if (plan.layoutType === 'ushape') return 'U ' + (plan.uWidth || '?') + '×' + (plan.uDepth || '?');
+  if (plan.layoutType === 'pods')
+    return (plan.roomRows || '?') + '×' + (plan.roomCols || '?') + ' pods (' + (plan.podRows || '?') + '×' + (plan.podCols || '?') + ')';
+  return (plan.rows || '?') + '×' + (plan.cols || '?');
+}
+
+// ── Editor ────────────────────────────────────────────────────────────────────
+function showEmptyState() {
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('editor-main').style.display = 'none';
+  selectedPlan = null;
+}
+
+function openEditor(plan) {
+  selectedPlan = plan;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('editor-main').style.display = 'flex';
+  buildEditor(plan);
+  renderPlansList(); // re-render to show selected card
+}
+
+function buildEditor(plan) {
+  document.getElementById('editor-plan-name').textContent = plan.name;
+  const schedStr = schedSummary(plan);
+  const meta = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ');
+  document.getElementById('editor-plan-meta').textContent = meta;
+  buildStudentChips(plan);
+  buildDeskGrid(plan);
+  buildGridControls(plan);
+  markSaved();
+}
+
+// ── Student chips ─────────────────────────────────────────────────────────────
+function buildStudentChips(plan) {
+  const container = document.getElementById('student-chips');
+  container.innerHTML = '';
+  const students = studentGroups[selectedGroup] || [];
+  const placed = new Set((plan.seats || []).map(function (s) { return s.studentName; }));
+  students.forEach(function (name) {
+    const chip = makeStudentChip(name, placed.has(name));
+    container.appendChild(chip);
+  });
+}
+
+function makeStudentChip(name, isPlaced) {
+  const chip = document.createElement('div');
+  chip.className = 'cp-student-chip' + (isPlaced ? ' placed' : '');
+  chip.textContent = name;
+  chip.dataset.student = name;
+  if (!isPlaced) {
+    chip.draggable = true;
+    chip.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', name);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+  }
+  return chip;
+}
+
+function refreshChips(plan) {
+  const placed = new Set((plan.seats || []).map(function (s) { return s.studentName; }));
+  document.querySelectorAll('#student-chips .cp-student-chip').forEach(function (chip) {
+    const name = chip.dataset.student;
+    const isPlaced = placed.has(name);
+    chip.classList.toggle('placed', isPlaced);
+    chip.draggable = !isPlaced;
+    if (!isPlaced && !chip._cpDrag) {
+      chip._cpDrag = true;
+      chip.addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', name);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+    }
+  });
+}
+
+// ── Desk grid rendering ───────────────────────────────────────────────────────
+function buildDeskGrid(plan) {
+  const wrap = document.getElementById('grid-wrap');
+  const grid = document.getElementById('cp-desk-grid');
+  grid.innerHTML = '';
+  grid.className = '';
+  grid.removeAttribute('style');
+
+  const oldTeacher = wrap.querySelector('#cp-teacher-row');
+  if (oldTeacher) oldTeacher.remove();
+
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    renderGridLayout(grid, plan);
+  } else if (plan.layoutType === 'ushape') {
+    renderUShapeLayout(grid, plan);
+  } else if (plan.layoutType === 'pods') {
+    renderPodsLayout(grid, plan);
+  }
+
+  const teacherRow = document.createElement('div');
+  teacherRow.id = 'cp-teacher-row';
+  const teacherDesk = document.createElement('div');
+  teacherDesk.id = 'cp-teacher-desk';
+  teacherDesk.textContent = '🖥 Teacher';
+  teacherRow.appendChild(teacherDesk);
+  wrap.appendChild(teacherRow);
+}
+
+function renderGridLayout(grid, plan) {
+  grid.style.gridTemplateColumns = 'repeat(' + plan.cols + ', 92px)';
+  for (let r = 0; r < plan.rows; r++) {
+    for (let c = 0; c < plan.cols; c++) {
+      const seatId = r + ':' + c;
+      grid.appendChild(buildCell(seatId, findStudent(plan, seatId), plan));
+    }
+  }
+}
+
+function renderUShapeLayout(grid, plan) {
+  const w = plan.uWidth || 6;
+  const d = plan.uDepth || 3;
+  grid.style.gridTemplateColumns = 'repeat(' + w + ', 92px)';
+  // Top row
+  for (let c = 0; c < w; c++) {
+    const seatId = 'top:' + c;
+    grid.appendChild(buildCell(seatId, findStudent(plan, seatId), plan));
+  }
+  // Arms
+  for (let r = 1; r <= d; r++) {
+    for (let c = 0; c < w; c++) {
+      if (c === 0) {
+        const seatId = 'left:' + r;
+        grid.appendChild(buildCell(seatId, findStudent(plan, seatId), plan));
+      } else if (c === w - 1) {
+        const seatId = 'right:' + r;
+        grid.appendChild(buildCell(seatId, findStudent(plan, seatId), plan));
+      } else {
+        const spacer = document.createElement('div');
+        spacer.className = 'cp-desk-spacer';
+        grid.appendChild(spacer);
+      }
+    }
+  }
+}
+
+function renderPodsLayout(grid, plan) {
+  grid.className = 'pods-layout';
+  grid.style.gridTemplateColumns = 'repeat(' + (plan.roomCols || 3) + ', auto)';
+  for (let pr = 0; pr < (plan.roomRows || 2); pr++) {
+    for (let pc = 0; pc < (plan.roomCols || 3); pc++) {
+      const pod = document.createElement('div');
+      pod.className = 'cp-pod';
+      pod.style.gridTemplateColumns = 'repeat(' + (plan.podCols || 3) + ', 92px)';
+      for (let r = 0; r < (plan.podRows || 2); r++) {
+        for (let c = 0; c < (plan.podCols || 3); c++) {
+          const seatId = pr + ':' + pc + ':' + r + ':' + c;
+          pod.appendChild(buildCell(seatId, findStudent(plan, seatId), plan));
+        }
+      }
+      grid.appendChild(pod);
+    }
+  }
+}
+
+function findStudent(plan, seatId) {
+  const seat = (plan.seats || []).find(function (s) { return s.seatId === seatId; });
+  return seat ? seat.studentName : null;
+}
+
+// ── Cell building ─────────────────────────────────────────────────────────────
+function buildCell(seatId, studentName, plan) {
+  const cell = document.createElement('div');
+  cell.className = 'cp-desk-cell';
+  cell.dataset.seatId = seatId;
+  if (studentName) {
+    fillCell(cell, studentName, plan);
+  } else {
+    cell.innerHTML = '<span class="cp-desk-empty">+</span>';
+  }
+  wireDropTarget(cell, seatId, plan);
+  return cell;
+}
+
+function formatName(fullName, display) {
+  if (!display || display === 'full') return fullName;
+  const parts = String(fullName || '').trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0] || fullName;
+  if (display === 'first') return parts[0];
+  if (display === 'last') return parts.slice(1).join(' ');
+  return fullName;
+}
+
+function fillCell(cell, studentName, plan) {
+  cell.innerHTML = '';
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'cp-desk-name';
+  nameSpan.textContent = formatName(studentName, plan.nameDisplay);
+  nameSpan.draggable = true;
+  nameSpan.addEventListener('dragstart', function (e) {
+    e.dataTransfer.setData('text/plain', studentName);
+    e.dataTransfer.effectAllowed = 'move';
+    e.stopPropagation();
+  });
+
+  const rm = document.createElement('button');
+  rm.className = 'cp-desk-remove';
+  rm.title = 'Remove';
+  rm.textContent = '✕';
+  rm.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const sid = cell.dataset.seatId;
+    plan.seats = (plan.seats || []).filter(function (s) { return s.seatId !== sid; });
+    cell.innerHTML = '<span class="cp-desk-empty">+</span>';
+    wireDropTarget(cell, sid, plan);
+    refreshChips(plan);
+    schedAutoSave(plan);
+  });
+
+  cell.appendChild(nameSpan);
+  cell.appendChild(rm);
+}
+
+function wireDropTarget(cell, seatId, plan) {
+  cell.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    cell.classList.add('drag-over');
+  });
+  cell.addEventListener('dragleave', function () {
+    cell.classList.remove('drag-over');
+  });
+  cell.addEventListener('drop', function (e) {
+    e.preventDefault();
+    cell.classList.remove('drag-over');
+    const name = e.dataTransfer.getData('text/plain');
+    if (!name) return;
+    assignSeat(cell, seatId, name, plan);
+  });
+}
+
+function assignSeat(cell, seatId, studentName, plan) {
+  // Vacate previous seat of this student (if any)
+  const prev = (plan.seats || []).find(function (s) { return s.studentName === studentName; });
+  if (prev) {
+    const oldCell = document.querySelector('[data-seat-id="' + CSS.escape(prev.seatId) + '"]');
+    if (oldCell) {
+      oldCell.innerHTML = '<span class="cp-desk-empty">+</span>';
+      wireDropTarget(oldCell, prev.seatId, plan);
+    }
+  }
+  // Remove whomever is currently in this seat
+  plan.seats = (plan.seats || []).filter(function (s) {
+    return s.seatId !== seatId && s.studentName !== studentName;
+  });
+  plan.seats.push({ seatId: seatId, studentName: studentName });
+  fillCell(cell, studentName, plan);
+  refreshChips(plan);
+  schedAutoSave(plan);
+}
+
+// ── Grid controls ─────────────────────────────────────────────────────────────
+function buildGridControls(plan) {
+  const bar = document.getElementById('grid-controls');
+  bar.innerHTML = '';
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    bar.innerHTML =
+      '<button class="gc-btn" onclick="gridRemoveRow()">− Row</button>' +
+      '<button class="gc-btn" onclick="gridAddRow()">+ Row</button>' +
+      '<button class="gc-btn" onclick="gridRemoveCol()">− Col</button>' +
+      '<button class="gc-btn" onclick="gridAddCol()">+ Col</button>';
+  }
+}
+
+function gridAddRow() {
+  const p = selectedPlan;
+  if (!p || (p.rows || 0) >= 12) return;
+  p.rows = (p.rows || 1) + 1;
+  schedAutoSave(p); buildEditor(p);
+}
+
+function gridRemoveRow() {
+  const p = selectedPlan;
+  if (!p || (p.rows || 0) <= 1) return;
+  const lastRow = p.rows - 1;
+  const seated = (p.seats || []).filter(function (s) {
+    return parseInt(s.seatId.split(':')[0]) === lastRow;
+  });
+  const doRemove = function () {
+    p.seats = (p.seats || []).filter(function (s) {
+      return parseInt(s.seatId.split(':')[0]) !== lastRow;
+    });
+    p.rows--;
+    schedAutoSave(p); buildEditor(p);
+  };
+  seated.length
+    ? showConfirm('Remove last row? ' + seated.length + ' student(s) will be unplaced.', doRemove)
+    : doRemove();
+}
+
+function gridAddCol() {
+  const p = selectedPlan;
+  if (!p || (p.cols || 0) >= 14) return;
+  p.cols = (p.cols || 1) + 1;
+  schedAutoSave(p); buildEditor(p);
+}
+
+function gridRemoveCol() {
+  const p = selectedPlan;
+  if (!p || (p.cols || 0) <= 1) return;
+  const lastCol = p.cols - 1;
+  const seated = (p.seats || []).filter(function (s) {
+    const parts = s.seatId.split(':');
+    return parseInt(parts[1]) === lastCol;
+  });
+  const doRemove = function () {
+    p.seats = (p.seats || []).filter(function (s) {
+      return parseInt(s.seatId.split(':')[1]) !== lastCol;
+    });
+    p.cols--;
+    schedAutoSave(p); buildEditor(p);
+  };
+  seated.length
+    ? showConfirm('Remove last column? ' + seated.length + ' student(s) will be unplaced.', doRemove)
+    : doRemove();
+}
+
+// ── Random assign ─────────────────────────────────────────────────────────────
+function randomAssign() {
+  const plan = selectedPlan;
+  if (!plan) return;
+  const students = studentGroups[selectedGroup] || [];
+  if (!students.length) { toast('No students in this group.'); return; }
+  const doAssign = function () {
+    const shuffled = students.slice().sort(function () { return Math.random() - 0.5; });
+    const ids = getAllSeatIds(plan);
+    plan.seats = shuffled.slice(0, ids.length).map(function (name, i) {
+      return { seatId: ids[i], studentName: name };
+    });
+    schedAutoSave(plan);
+    buildEditor(plan);
+    toast('Seats randomly assigned');
+  };
+  (plan.seats || []).length
+    ? showConfirm('Randomly assign all students? Current seating will be replaced.', doAssign)
+    : doAssign();
+}
+
+function getAllSeatIds(plan) {
+  const ids = [];
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    // Bottom-right first (closest to teacher)
+    for (let r = plan.rows - 1; r >= 0; r--)
+      for (let c = plan.cols - 1; c >= 0; c--)
+        ids.push(r + ':' + c);
+  } else if (plan.layoutType === 'ushape') {
+    // Arms from bottom (open end near teacher) upward, then top row right-to-left
+    for (let r = plan.uDepth; r >= 1; r--) {
+      ids.push('right:' + r);
+      ids.push('left:' + r);
+    }
+    for (let c = plan.uWidth - 1; c >= 0; c--) ids.push('top:' + c);
+  } else if (plan.layoutType === 'pods') {
+    // Bottom-right pod first
+    for (let pr = plan.roomRows - 1; pr >= 0; pr--)
+      for (let pc = plan.roomCols - 1; pc >= 0; pc--)
+        for (let r = plan.podRows - 1; r >= 0; r--)
+          for (let c = plan.podCols - 1; c >= 0; c--)
+            ids.push(pr + ':' + pc + ':' + r + ':' + c);
+  }
+  return ids;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+function schedAutoSave(plan) {
+  markDirty();
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function () { doSave(false); }, 700);
+}
+
+function manualSave() {
+  doSave(true);
+}
+
+async function doSave(showFeedback) {
+  if (selectedPlan) {
+    const nameEl = document.getElementById('editor-plan-name');
+    if (nameEl && nameEl.textContent.trim()) selectedPlan.name = nameEl.textContent.trim();
+  }
+
+  if (!window.Desktop || !Desktop.isElectron()) {
+    if (showFeedback) toast('Running in browser — files not saved.');
+    return;
+  }
+
+  try {
+    // 1. Save to user/class-plans/plans.js
+    const plansContent = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';';
+    await Desktop.saveText('classPlans', 'plans.js', plansContent);
+
+    // 2. Sync to user/config.js so class-management.html sees the changes
+    await syncToConfigJs();
+
+    markSaved();
+    if (showFeedback) toast('✅ Plan saved.');
+    renderPlansList();
+  } catch (e) {
+    if (showFeedback) toast('Error saving: ' + (e.message || e));
+  }
+}
+
+async function syncToConfigJs() {
+  let cfg = {};
+  try {
+    if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) {
+      cfg = JSON.parse(JSON.stringify(CLASS_MANAGEMENT_CONFIG));
+    }
+  } catch (e) {}
+
+  // Build config-compatible classPlans (grid plans use {row,col,studentName})
+  const configPlans = {};
+  for (const group in classPlans) {
+    configPlans[group] = (classPlans[group] || []).map(function (p) {
+      return Object.assign({}, p, { seats: toConfigSeats(p) });
+    });
+  }
+  cfg.classPlans = configPlans;
+
+  const lines = [
+    'const CLASS_MANAGEMENT_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';',
+    '',
+    "var CLASS_GROUPS = CLASS_GROUPS || (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA.classGroups) || {};",
+    "var CLASS_GROUPS_META = CLASS_GROUPS_META || (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA.classGroupsMeta) || {};",
+    "const ROLE_DEFINITIONS = CLASS_MANAGEMENT_CONFIG.roleDefinitions || [];",
+    ''
+  ];
+  await Desktop.saveText('user', 'config.js', lines.join('\n'));
+}
+
+function toConfigSeats(plan) {
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    return (plan.seats || []).map(function (s) {
+      const parts = String(s.seatId || '').split(':');
+      const row = parseInt(parts[0]);
+      const col = parseInt(parts[1]);
+      return { row: isNaN(row) ? 0 : row, col: isNaN(col) ? 0 : col, studentName: s.studentName };
+    });
+  }
+  return plan.seats || [];
+}
+
+function markDirty() {
+  _dirty = true;
+  const btn = document.getElementById('save-btn');
+  if (btn) btn.textContent = 'Save *';
+}
+
+function markSaved() {
+  _dirty = false;
+  const btn = document.getElementById('save-btn');
+  if (btn) btn.textContent = 'Save';
+}
+
+// ── Config modal ──────────────────────────────────────────────────────────────
+function openNewPlanConfig() {
+  if (!selectedGroup) { toast('Select a class group first.'); return; }
+
+  document.getElementById('cfg-title').textContent = 'New Plan';
+  document.getElementById('cfg-edit-id').value = '';
+  document.getElementById('cfg-name').value = 'Seating Plan';
+  document.getElementById('cfg-rows').value = 4;
+  document.getElementById('cfg-cols').value = 5;
+  document.getElementById('cfg-uwidth').value = 6;
+  document.getElementById('cfg-udepth').value = 3;
+  document.getElementById('cfg-pod-rows').value = 2;
+  document.getElementById('cfg-pod-cols').value = 3;
+  document.getElementById('cfg-room-rows').value = 2;
+  document.getElementById('cfg-room-cols').value = 3;
+  document.getElementById('cfg-room').value = '';
+  document.getElementById('cfg-name-display').value = 'full';
+  document.getElementById('cfg-temp').checked = false;
+  renderScheduleSlots([]);
+  selectLayoutType('grid');
+
+  const groupSel = document.getElementById('cfg-group');
+  const groups = mergeGroupKeys();
+  groupSel.innerHTML = groups.map(function (g) {
+    return '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(g) + '</option>';
+  }).join('');
+  groupSel.disabled = false;
+
+  document.getElementById('cfg-modal').classList.add('open');
+  setTimeout(function () { document.getElementById('cfg-name').focus(); }, 80);
+}
+
+function editPlanSettings() {
+  if (!selectedPlan) return;
+  editPlanById(selectedPlan.id);
+}
+
+function editPlanById(planId) {
+  const plan = getPlanById(planId);
+  if (!plan) return;
+
+  document.getElementById('cfg-title').textContent = 'Edit Plan';
+  document.getElementById('cfg-edit-id').value = plan.id;
+  document.getElementById('cfg-name').value = plan.name;
+  document.getElementById('cfg-room').value = plan.roomNumber || '';
+  document.getElementById('cfg-name-display').value = plan.nameDisplay || 'full';
+  document.getElementById('cfg-temp').checked = !!plan.isTemporary;
+  renderScheduleSlots(plan.schedule || []);
+
+  const lt = plan.layoutType || 'grid';
+  selectLayoutType(lt);
+  if (lt === 'grid') {
+    document.getElementById('cfg-rows').value = plan.rows || 4;
+    document.getElementById('cfg-cols').value = plan.cols || 5;
+  } else if (lt === 'ushape') {
+    document.getElementById('cfg-uwidth').value = plan.uWidth || 6;
+    document.getElementById('cfg-udepth').value = plan.uDepth || 3;
+  } else if (lt === 'pods') {
+    document.getElementById('cfg-pod-rows').value = plan.podRows || 2;
+    document.getElementById('cfg-pod-cols').value = plan.podCols || 3;
+    document.getElementById('cfg-room-rows').value = plan.roomRows || 2;
+    document.getElementById('cfg-room-cols').value = plan.roomCols || 3;
+  }
+
+  const groupSel = document.getElementById('cfg-group');
+  groupSel.innerHTML = '<option value="' + esc(selectedGroup) + '" selected>' + esc(selectedGroup) + '</option>';
+  groupSel.disabled = true;
+
+  document.getElementById('cfg-modal').classList.add('open');
+}
+
+function closeCfgModal() {
+  document.getElementById('cfg-modal').classList.remove('open');
+  document.getElementById('cfg-group').disabled = false;
+}
+
+function selectLayoutType(lt) {
+  _cfgLayout = lt;
+  document.querySelectorAll('.layout-btn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.lt === lt);
+  });
+  document.getElementById('sec-grid').classList.toggle('visible', lt === 'grid');
+  document.getElementById('sec-ushape').classList.toggle('visible', lt === 'ushape');
+  document.getElementById('sec-pods').classList.toggle('visible', lt === 'pods');
+}
+
+function confirmPlanConfig() {
+  const name = document.getElementById('cfg-name').value.trim();
+  if (!name) { toast('Enter a plan name.'); return; }
+  const group = document.getElementById('cfg-group').value;
+  if (!group) { toast('Select a class.'); return; }
+
+  const editId = document.getElementById('cfg-edit-id').value;
+  const room = document.getElementById('cfg-room').value.trim();
+  const nameDisplay = document.getElementById('cfg-name-display').value;
+  const temp = document.getElementById('cfg-temp').checked;
+  const sched = collectSchedule();
+
+  const lt = _cfgLayout;
+  let plan = editId ? getPlanById(editId) : null;
+
+  if (plan) {
+    // Update existing
+    plan.name = name;
+    plan.roomNumber = room;
+    plan.nameDisplay = nameDisplay;
+    plan.isTemporary = temp;
+    plan.schedule = sched;
+    applyLayoutDims(plan, lt, true);
+  } else {
+    // Create new
+    if (!classPlans[group]) classPlans[group] = [];
+    const plans = classPlans[group];
+    plan = {
+      id: 'cp_' + Date.now(),
+      name: name, roomNumber: room, nameDisplay: nameDisplay, schedule: sched, seats: [],
+      isTemporary: temp, isActive: !plans.length, createdAt: Date.now(),
+      layoutType: lt
+    };
+    applyLayoutDims(plan, lt, false);
+    plans.push(plan);
+    selectedGroup = group;
+    document.getElementById('group-sel').value = group;
+  }
+
+  closeCfgModal();
+  renderPlansList();
+  openEditor(plan);
+  schedAutoSave(plan);
+}
+
+function applyLayoutDims(plan, lt, preserveSeats) {
+  const old = plan.layoutType;
+  plan.layoutType = lt;
+  if (lt === 'grid') {
+    const rows = clamp(parseInt(document.getElementById('cfg-rows').value) || 4, 1, 12);
+    const cols = clamp(parseInt(document.getElementById('cfg-cols').value) || 5, 1, 14);
+    if (old === 'grid' && preserveSeats) {
+      plan.seats = (plan.seats || []).filter(function (s) {
+        const p = s.seatId.split(':').map(Number);
+        return p[0] < rows && p[1] < cols;
+      });
+    } else {
+      plan.seats = [];
+    }
+    plan.rows = rows; plan.cols = cols;
+    delete plan.uWidth; delete plan.uDepth;
+    delete plan.podRows; delete plan.podCols; delete plan.roomRows; delete plan.roomCols;
+  } else if (lt === 'ushape') {
+    const uWidth = clamp(parseInt(document.getElementById('cfg-uwidth').value) || 6, 3, 20);
+    const uDepth = clamp(parseInt(document.getElementById('cfg-udepth').value) || 3, 1, 10);
+    if (old !== 'ushape') plan.seats = [];
+    plan.uWidth = uWidth; plan.uDepth = uDepth;
+    delete plan.rows; delete plan.cols;
+    delete plan.podRows; delete plan.podCols; delete plan.roomRows; delete plan.roomCols;
+  } else if (lt === 'pods') {
+    const podRows = clamp(parseInt(document.getElementById('cfg-pod-rows').value) || 2, 1, 6);
+    const podCols = clamp(parseInt(document.getElementById('cfg-pod-cols').value) || 3, 1, 6);
+    const roomRows = clamp(parseInt(document.getElementById('cfg-room-rows').value) || 2, 1, 8);
+    const roomCols = clamp(parseInt(document.getElementById('cfg-room-cols').value) || 3, 1, 8);
+    if (old !== 'pods') plan.seats = [];
+    plan.podRows = podRows; plan.podCols = podCols;
+    plan.roomRows = roomRows; plan.roomCols = roomCols;
+    delete plan.rows; delete plan.cols;
+    delete plan.uWidth; delete plan.uDepth;
+  }
+}
+
+// ── Plan actions ──────────────────────────────────────────────────────────────
+function setActivePlan(planId) {
+  const plans = classPlans[selectedGroup] || [];
+  plans.forEach(function (p) { p.isActive = (p.id === planId); });
+  schedAutoSave(plans[0] || selectedPlan);
+  renderPlansList();
+  if (selectedPlan) buildEditor(selectedPlan);
+}
+
+function deletePlanById(planId) {
+  const plans = classPlans[selectedGroup] || [];
+  const idx = plans.findIndex(function (p) { return p.id === planId; });
+  if (idx === -1) return;
+  showConfirm('Delete plan "' + plans[idx].name + '"?', function () {
+    plans.splice(idx, 1);
+    if (plans.length && !plans.find(function (p) { return p.isActive; })) plans[0].isActive = true;
+    if (selectedPlan && selectedPlan.id === planId) showEmptyState();
+    schedAutoSave(plans[0]);
+    renderPlansList();
+  });
+}
+
+function getPlanById(id) {
+  for (const group in classPlans) {
+    const plan = (classPlans[group] || []).find(function (p) { return p.id === id; });
+    if (plan) return plan;
+  }
+  return null;
+}
+
+function onNameBlur(el) {
+  const name = el.textContent.trim();
+  if (name && selectedPlan && name !== selectedPlan.name) {
+    selectedPlan.name = name;
+    schedAutoSave(selectedPlan);
+    renderPlansList();
+  }
+}
+
+// ── Print ─────────────────────────────────────────────────────────────────────
+function printCurrentPlan() {
+  if (!selectedPlan) return;
+  printPlanById(selectedPlan.id);
+}
+
+function printPlanById(planId) {
+  const plan = getPlanById(planId);
+  if (!plan) return;
+  const html = buildPrintHtml(plan);
+  if (window.Desktop && typeof Desktop.printHtml === 'function') {
+    Desktop.printHtml(html).catch(function () { browserPrint(html); });
+  } else {
+    browserPrint(html);
+  }
+}
+
+function browserPrint(html) {
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
+  document.body.appendChild(frame);
+  frame.contentDocument.open();
+  frame.contentDocument.write(html);
+  frame.contentDocument.close();
+  setTimeout(function () {
+    frame.contentWindow.print();
+    setTimeout(function () { frame.remove(); }, 1500);
+  }, 300);
+}
+
+function buildPrintHtml(plan) {
+  const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const schedStr = schedSummary(plan);
+  const metaLine = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ');
+
+  const fmt = function (n) { return formatName(n || '', plan.nameDisplay); };
+  let body = '';
+
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    let rows = '';
+    for (let r = 0; r < plan.rows; r++) {
+      let cells = '';
+      for (let c = 0; c < plan.cols; c++) {
+        const name = fmt(findStudent(plan, r + ':' + c));
+        cells += '<td style="width:2cm;height:1.5cm;border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:8pt;font-weight:' +
+          (name ? '700' : '400') + ';color:' + (name ? '#111' : '#ccc') + ';">' + esc(name || '·') + '</td>';
+      }
+      rows += '<tr>' + cells + '</tr>';
+    }
+    body = '<table style="border-collapse:collapse;">' + rows + '</table>';
+
+  } else if (plan.layoutType === 'ushape') {
+    const w = plan.uWidth; const d = plan.uDepth;
+    let rows = '';
+    let topCells = '';
+    for (let c = 0; c < w; c++) {
+      const name = fmt(findStudent(plan, 'top:' + c));
+      topCells += '<td style="width:1.8cm;height:1.4cm;border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:7.5pt;font-weight:' +
+        (name ? '700' : '400') + ';color:' + (name ? '#111' : '#ccc') + ';">' + esc(name || '·') + '</td>';
+    }
+    rows += '<tr>' + topCells + '</tr>';
+    for (let r = 1; r <= d; r++) {
+      let cells = '';
+      for (let c = 0; c < w; c++) {
+        if (c === 0) {
+          const name = fmt(findStudent(plan, 'left:' + r));
+          cells += '<td style="width:1.8cm;height:1.4cm;border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:7.5pt;font-weight:' +
+            (name ? '700' : '400') + ';color:' + (name ? '#111' : '#ccc') + ';">' + esc(name || '·') + '</td>';
+        } else if (c === w - 1) {
+          const name = fmt(findStudent(plan, 'right:' + r));
+          cells += '<td style="width:1.8cm;height:1.4cm;border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:7.5pt;font-weight:' +
+            (name ? '700' : '400') + ';color:' + (name ? '#111' : '#ccc') + ';">' + esc(name || '·') + '</td>';
+        } else {
+          cells += '<td style="width:1.8cm;height:1.4cm;border:none;"></td>';
+        }
+      }
+      rows += '<tr>' + cells + '</tr>';
+    }
+    body = '<table style="border-collapse:collapse;">' + rows + '</table>';
+
+  } else if (plan.layoutType === 'pods') {
+    let outerRows = '';
+    for (let pr = 0; pr < plan.roomRows; pr++) {
+      let outerCells = '';
+      for (let pc = 0; pc < plan.roomCols; pc++) {
+        let podRows = '';
+        for (let r = 0; r < plan.podRows; r++) {
+          let podCells = '';
+          for (let c = 0; c < plan.podCols; c++) {
+            const name = fmt(findStudent(plan, pr + ':' + pc + ':' + r + ':' + c));
+            podCells += '<td style="width:1.7cm;height:1.3cm;border:1px solid #ccc;text-align:center;vertical-align:middle;font-size:7pt;font-weight:' +
+              (name ? '700' : '400') + ';color:' + (name ? '#111' : '#ccc') + ';">' + esc(name || '·') + '</td>';
+          }
+          podRows += '<tr>' + podCells + '</tr>';
+        }
+        outerCells += '<td style="padding:6px;vertical-align:top;"><table style="border-collapse:collapse;border:2px solid #999;">' + podRows + '</table></td>';
+      }
+      outerRows += '<tr>' + outerCells + '</tr>';
+    }
+    body = '<table style="border-collapse:separate;border-spacing:4px 4px;">' + outerRows + '</table>';
+  }
+
+  const teacherDeskHtml = '<div style="margin-top:18px;text-align:right;">' +
+    '<span style="display:inline-block;background:#2a2a2a;color:#fff;padding:6px 22px;border-radius:5px;' +
+    'font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;min-width:110px;">🖥 Teacher</span></div>';
+
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(plan.name) + '</title>' +
+    '<style>body{font-family:Arial,sans-serif;margin:1cm;color:#111;}' +
+    'h1{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;}' +
+    '.meta{font-size:8.5pt;color:#555;margin-bottom:14px;}' +
+    'td{padding:2px;}footer{margin-top:14px;font-size:7.5pt;color:#aaa;border-top:1px solid #eee;padding-top:4px;}' +
+    '@page{size:A4;margin:1cm;}</style></head><body>' +
+    '<h1>' + esc(plan.name) + '</h1>' +
+    (metaLine ? '<div class="meta">' + esc(metaLine) + '</div>' : '') +
+    body +
+    teacherDeskHtml +
+    '<footer>' + esc(selectedGroup || '') + '  —  Printed ' + today + '</footer>' +
+    '</body></html>';
+}
+
+// ── Schedule ──────────────────────────────────────────────────────────────────
+function renderScheduleSlots(slots) {
+  const container = document.getElementById('cfg-schedule-slots');
+  container.innerHTML = '';
+  (slots || []).forEach(function (s) { appendScheduleSlot(container, s); });
+}
+
+function addScheduleSlot() {
+  appendScheduleSlot(document.getElementById('cfg-schedule-slots'), null);
+}
+
+function appendScheduleSlot(container, slot) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const row = document.createElement('div');
+  row.className = 'sched-row';
+
+  const daySel = document.createElement('select');
+  days.forEach(function (d) {
+    const o = document.createElement('option');
+    o.value = d; o.textContent = d;
+    if (slot && slot.day === d) o.selected = true;
+    daySel.appendChild(o);
+  });
+
+  const startIn = document.createElement('input');
+  startIn.type = 'time'; startIn.value = (slot && slot.start) || '08:00';
+
+  const sep = document.createElement('span');
+  sep.className = 'sched-sep'; sep.textContent = '–';
+
+  const endIn = document.createElement('input');
+  endIn.type = 'time'; endIn.value = (slot && slot.end) || '09:00';
+
+  const rm = document.createElement('button');
+  rm.className = 'sched-rm'; rm.textContent = '✕';
+  rm.onclick = function () { row.remove(); };
+
+  row.appendChild(daySel); row.appendChild(startIn);
+  row.appendChild(sep); row.appendChild(endIn); row.appendChild(rm);
+  container.appendChild(row);
+}
+
+function collectSchedule() {
+  return Array.from(document.querySelectorAll('#cfg-schedule-slots .sched-row')).map(function (row) {
+    const inputs = row.querySelectorAll('input[type=time]');
+    return {
+      day: row.querySelector('select').value,
+      start: inputs[0].value,
+      end: inputs[1].value
+    };
+  });
+}
+
+function schedSummary(plan) {
+  if (!plan.schedule || !plan.schedule.length) return '';
+  return plan.schedule.map(function (s) { return s.day + ' ' + s.start + '–' + s.end; }).join(' · ');
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function toast(msg) {
+  const el = document.getElementById('cp-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.classList.remove('show'); }, 2200);
+}
+
+function showConfirm(msg, onOk, onCancel) {
+  document.getElementById('cp-confirm-msg').textContent = msg;
+  _cfmOkCb = onOk || null;
+  _cfmCancelCb = onCancel || null;
+  document.getElementById('cp-confirm').classList.add('open');
+}
+
+function _cfmOk() {
+  document.getElementById('cp-confirm').classList.remove('open');
+  if (_cfmOkCb) _cfmOkCb();
+}
+
+function _cfmCancel() {
+  document.getElementById('cp-confirm').classList.remove('open');
+  if (_cfmCancelCb) _cfmCancelCb();
+}
+</script>
+</body>
+</html>

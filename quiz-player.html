@@ -214,10 +214,15 @@
     let questionStartedAt = 0;
 
     function normalizeClassGroups() {
-      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return {};
+      const src = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroups)
+        ? CLASS_GROUPS_DATA.classGroups
+        : ((typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : null);
+      if (!src || typeof src !== 'object') return {};
+      const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta) || {};
       const out = {};
-      Object.keys(CLASS_GROUPS).forEach(function (key) {
-        const names = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key] : [];
+      Object.keys(src).forEach(function (key) {
+        if (meta[key] && meta[key].archived) return;
+        const names = Array.isArray(src[key]) ? src[key] : [];
         out[String(key)] = names
           .map(function (name) { return String(name || '').trim(); })
           .filter(Boolean);

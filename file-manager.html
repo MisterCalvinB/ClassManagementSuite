@@ -150,6 +150,16 @@
     }
     .file-name.editing { overflow: visible; white-space: normal; }
     .file-meta { font-size: 0.76rem; font-weight: 600; color: #555; }
+    .file-snippet {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: #777;
+      font-style: italic;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .file-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
 
@@ -745,6 +755,64 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
 
 var rfSessions = [];
 var rfDocs     = [];
+var rfContentCache     = new Map();
+var rfSearchTimer      = null;
+var rfSearchGeneration = 0;
+
+function rfExtractSearchText(raw) {
+  var parts = [];
+  var re = /(?:baseWord|text|label|title)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  var m;
+  while ((m = re.exec(raw)) !== null) {
+    if (m[1]) parts.push(m[1].replace(/\\n/g, ' ').replace(/\\r/g, ' ').replace(/\\"/g, '"'));
+  }
+  return parts.join(' ').toLowerCase();
+}
+
+function rfGetSnippet(text, query) {
+  if (!text || !query) return '';
+  var idx = text.indexOf(query);
+  if (idx === -1) return '';
+  var ctx = 60;
+  var start = Math.max(0, idx - ctx);
+  var end   = Math.min(text.length, idx + query.length + ctx);
+  var snippet = text.slice(start, end).trim();
+  if (start > 0) snippet = '[…] ' + snippet;
+  if (end < text.length) snippet += ' […]';
+  return snippet;
+}
+
+async function rfRunContentSearch() {
+  rfSearchTimer = null;
+  var search = document.getElementById('rfSearch').value.trim().toLowerCase();
+  if (!search) { rfRender(); return; }
+  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
+    rfRender(); return;
+  }
+  var gen = ++rfSearchGeneration;
+  var toRead = rfSessions.filter(function(f) {
+    return !rfContentCache.has(normPath(f.relativePath || f.filename));
+  });
+  if (toRead.length > 0) {
+    var BATCH = 8;
+    for (var i = 0; i < toRead.length; i += BATCH) {
+      if (rfSearchGeneration !== gen) return;
+      var batch = toRead.slice(i, i + BATCH);
+      await Promise.all(batch.map(async function(f) {
+        var key = normPath(f.relativePath || f.filename);
+        try {
+          var result = await Desktop.readByPath(f.target, f.relativePath || f.filename);
+          rfContentCache.set(key, rfExtractSearchText(result && result.content ? result.content : ''));
+        } catch(e) {
+          rfContentCache.set(key, '');
+        }
+      }));
+      if (rfSearchGeneration !== gen) return;
+      rfRender();
+    }
+  }
+  if (rfSearchGeneration === gen) rfRender();
+}
 
 function rfSortFn(order) {
   if (order === 'date-asc')  return function(a,b){ return fileDateMs(a) - fileDateMs(b); };
@@ -754,7 +822,7 @@ function rfSortFn(order) {
   return function(a,b){ return fileDateMs(b) - fileDateMs(a); };
 }
 
-function makeRfRow(file, isSession) {
+function makeRfRow(file, isSession, snippet) {
   var row = document.createElement('div');
   row.className = 'file-row';
 
@@ -777,6 +845,14 @@ function makeRfRow(file, isSession) {
   var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
   meta.textContent = formatDate(fileDateMs(file)) + (kb ? ' · ' + kb : '');
   info.appendChild(meta);
+
+  if (snippet) {
+    var snippetEl = document.createElement('div');
+    snippetEl.className = 'file-snippet';
+    snippetEl.textContent = snippet;
+    info.appendChild(snippetEl);
+  }
+
   row.appendChild(info);
 
   var acts = document.createElement('div');
@@ -823,12 +899,29 @@ function rfRender() {
   var isDocFilter  = DOC_KEYS.indexOf(filter) !== -1;
   var isSessFilter = filter === 'mindmaps';
 
+  var uncachedCount = 0;
+  if (search) {
+    rfSessions.forEach(function(f) {
+      if (!rfContentCache.has(normPath(f.relativePath || f.filename))) uncachedCount++;
+    });
+  }
+
   var filteredS = isDocFilter ? [] : rfSessions.filter(function(f) {
     if (isSessFilter && f.target !== filter) return false;
-    if (search && prettyName(f.filename).toLowerCase().indexOf(search) === -1) return false;
-    return true;
+    if (!search) return true;
+    var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
+    if (nameMatch) return true;
+    var key = normPath(f.relativePath || f.filename);
+    return rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1;
+  }).map(function(f) {
+    var snippet = '';
+    if (search) {
+      var cached = rfContentCache.get(normPath(f.relativePath || f.filename));
+      if (cached) snippet = rfGetSnippet(cached, search);
+    }
+    return { file: f, snippet: snippet };
   });
-  filteredS.sort(rfSortFn(sort));
+  filteredS.sort(function(a, b) { return rfSortFn(sort)(a.file, b.file); });
 
   var filteredD = isSessFilter ? [] : rfDocs.filter(function(f) {
     if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
@@ -839,25 +932,36 @@ function rfRender() {
 
   var rfList = document.getElementById('rfList');
   if (!filteredS.length && !filteredD.length) {
-    rfList.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>' + escHtml(tt('rfNoFiles','No files found.')) + '</div>';
+    var noFilesIcon = uncachedCount > 0 ? '🔍' : '📭';
+    var noFilesMsg  = uncachedCount > 0
+      ? tt('rfNoFiles','No files found yet') + ' · ' + tt('rfSearchingContent','scanning content…')
+      : tt('rfNoFiles','No files found.');
+    rfList.innerHTML = '<div class="state-msg"><span class="state-icon">' + noFilesIcon + '</span>' + escHtml(noFilesMsg) + '</div>';
   } else {
     rfList.innerHTML = '';
-    filteredS.forEach(function(f) { rfList.appendChild(makeRfRow(f, true)); });
+    filteredS.forEach(function(item) { rfList.appendChild(makeRfRow(item.file, true, item.snippet)); });
   }
 
   var rfDH = document.getElementById('rfDocsHeading');
   var rfDL = document.getElementById('rfDocsList');
   rfDH.style.display = filteredD.length ? '' : 'none';
   rfDL.innerHTML = '';
-  filteredD.forEach(function(f) { rfDL.appendChild(makeRfRow(f, false)); });
+  filteredD.forEach(function(f) { rfDL.appendChild(makeRfRow(f, false, '')); });
 
   var total = filteredS.length + filteredD.length;
-  document.getElementById('rfCount').textContent = total + ' ' + tt(total === 1 ? 'rfFile' : 'rfFiles', total === 1 ? 'file' : 'files');
+  var countText = total + ' ' + tt(total === 1 ? 'rfFile' : 'rfFiles', total === 1 ? 'file' : 'files');
+  if (search && uncachedCount > 0) countText += ' · scanning…';
+  document.getElementById('rfCount').textContent = countText;
 }
 
 document.getElementById('rfTypeFilter').addEventListener('change', rfRender);
 document.getElementById('rfSortOrder').addEventListener('change', rfRender);
-document.getElementById('rfSearch').addEventListener('input', rfRender);
+document.getElementById('rfSearch').addEventListener('input', function() {
+  if (rfSearchTimer) { clearTimeout(rfSearchTimer); rfSearchTimer = null; }
+  rfRender(); // immediate render with name-only matches
+  var search = this.value.trim().toLowerCase();
+  if (search) rfSearchTimer = setTimeout(rfRunContentSearch, 300);
+});
 
 async function loadRecent() {
   var rfList = document.getElementById('rfList');

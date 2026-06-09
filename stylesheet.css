@@ -9394,6 +9394,15 @@ h1#main-title {
     display: inline-grid; gap: 6px; border: 2px solid #e0e0e0; border-radius: 6px;
     padding: 10px; background: #f8f8f8; min-width: max-content;
 }
+.cp-grid.cp-pods-layout {
+    display: inline-grid; gap: 20px;
+    border: none; background: transparent; padding: 0;
+}
+.cp-pod-container {
+    display: inline-grid; gap: 6px;
+    border: 2px solid #ccc; border-radius: 6px;
+    padding: 10px; background: #f8f8f8;
+}
 .cp-desk-cell {
     width: 90px; height: 64px; border: 2px solid #ccc; border-radius: 5px;
     background: #fff; display: flex; align-items: center; justify-content: center;
@@ -9413,6 +9422,23 @@ h1#main-title {
 .cp-desk-remove:hover { color: #c33; }
 
 /* --- Roster Plan View ----------------------------------------------- */
+
+/* Pod layout: thick border on pod-group edges, spacer columns handled in JS */
+.roster-plan-pods .roster-plan-cell[data-pod-top]    { border-top: 2.5px solid #777; }
+.roster-plan-pods .roster-plan-cell[data-pod-bottom] { border-bottom: 2.5px solid #777; }
+.roster-plan-pods .roster-plan-cell[data-pod-left]   { border-left: 2.5px solid #777; }
+.roster-plan-pods .roster-plan-cell[data-pod-right]  { border-right: 2.5px solid #777; }
+/* Rounded corners only on the four pod corners */
+.roster-plan-pods .roster-plan-cell[data-pod-top][data-pod-left]     { border-top-left-radius: 7px; }
+.roster-plan-pods .roster-plan-cell[data-pod-top][data-pod-right]    { border-top-right-radius: 7px; }
+.roster-plan-pods .roster-plan-cell[data-pod-bottom][data-pod-left]  { border-bottom-left-radius: 7px; }
+.roster-plan-pods .roster-plan-cell[data-pod-bottom][data-pod-right] { border-bottom-right-radius: 7px; }
+/* Non-corner pod cells: zero out the radius on the pod-edge sides */
+.roster-plan-pods .roster-plan-cell[data-pod-top]:not([data-pod-left]):not([data-pod-right])    { border-radius: 0; }
+.roster-plan-pods .roster-plan-cell[data-pod-bottom]:not([data-pod-left]):not([data-pod-right]) { border-radius: 0; }
+.roster-plan-pods .roster-plan-cell[data-pod-left]:not([data-pod-top]):not([data-pod-bottom])   { border-radius: 0; }
+.roster-plan-pods .roster-plan-cell[data-pod-right]:not([data-pod-top]):not([data-pod-bottom])  { border-radius: 0; }
+
 .roster-plan-view {
     display: grid !important;
     columns: unset !important;

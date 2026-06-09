@@ -533,9 +533,9 @@
                     </div>
                 </div>
             </div>
-            <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; display:none;">
-                <button class="btn-mini" onclick="cpAutoGroupByTeams()" title="Automatically fill seats grouping present students by team">🎲 Group by teams</button>
-                <button id="roster-plan-reset-btn" class="btn-mini" onclick="cpResetToOriginalPlan()" title="Restore original seat arrangement" style="display:none">↩ Reset seats</button>
+            <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; flex-wrap:wrap; gap:2px;">
+                <button class="rsp-item" onclick="cpAutoGroupByTeams()" title="Automatically fill seats grouping present students by team">🎲 Group by teams</button>
+                <button id="roster-plan-reset-btn" class="rsp-item" onclick="cpResetToOriginalPlan()" title="Restore original seat arrangement" style="display:none">↩ Reset seats</button>
             </div>
             <ul id="roster-list" class="roster-list">
                 <li style="color:#999; padding: 20px; text-align: center;" data-i18n="roster_select_group">Select a group...</li>
@@ -11862,8 +11862,8 @@ function cpRenderManagerList() {
     const container = document.getElementById('cp-manager-list');
     if (!container) return;
 
-    const allGroups = Object.keys(studentGroups || {});
-    const extraGroups = Object.keys(classPlans || {}).filter(g => !allGroups.includes(g));
+    const allGroups = Object.keys(studentGroups || {}).filter(g => !rawMeta[g]?.archived);
+    const extraGroups = Object.keys(classPlans || {}).filter(g => !allGroups.includes(g) && !rawMeta[g]?.archived);
     const groups = [...allGroups, ...extraGroups];
 
     let html = '';
@@ -12083,15 +12083,67 @@ function _cpBuildEditor(plan) {
         sidebar.appendChild(chip);
     });
 
-    // Grid
+    // Grid / Pods / U-shape
     const grid = document.getElementById('cp-grid');
-    grid.style.gridTemplateColumns = `repeat(${plan.cols}, 90px)`;
+    const lt = plan.layoutType || 'grid';
     grid.innerHTML = '';
+    grid.className = 'cp-grid';
+    grid.removeAttribute('style');
 
-    for (let r = 0; r < plan.rows; r++) {
-        for (let c = 0; c < plan.cols; c++) {
-            const seat = (plan.seats || []).find(s => s.row === r && s.col === c);
-            grid.appendChild(_cpBuildCell(r, c, seat ? seat.studentName : null, plan));
+    const controls = document.getElementById('cp-grid-controls');
+    if (controls) controls.style.display = lt === 'grid' ? '' : 'none';
+
+    if (lt === 'pods') {
+        grid.classList.add('cp-pods-layout');
+        grid.style.gridTemplateColumns = `repeat(${plan.roomCols || 3}, auto)`;
+        for (let pr = 0; pr < (plan.roomRows || 2); pr++) {
+            for (let pc = 0; pc < (plan.roomCols || 3); pc++) {
+                const pod = document.createElement('div');
+                pod.className = 'cp-pod-container';
+                pod.style.gridTemplateColumns = `repeat(${plan.podCols || 3}, 90px)`;
+                for (let r = 0; r < (plan.podRows || 2); r++) {
+                    for (let c = 0; c < (plan.podCols || 3); c++) {
+                        const seatId = `${pr}:${pc}:${r}:${c}`;
+                        const seat = (plan.seats || []).find(s => s.seatId === seatId);
+                        pod.appendChild(_cpBuildSeatIdCell(seatId, seat ? seat.studentName : null, plan));
+                    }
+                }
+                grid.appendChild(pod);
+            }
+        }
+    } else if (lt === 'ushape') {
+        const w = plan.uWidth || 6;
+        const d = plan.uDepth || 3;
+        grid.style.gridTemplateColumns = `repeat(${w}, 90px)`;
+        for (let c = 0; c < w; c++) {
+            const seatId = `top:${c}`;
+            const seat = (plan.seats || []).find(s => s.seatId === seatId);
+            grid.appendChild(_cpBuildSeatIdCell(seatId, seat ? seat.studentName : null, plan));
+        }
+        for (let r = 1; r <= d; r++) {
+            for (let c = 0; c < w; c++) {
+                if (c === 0) {
+                    const seatId = `left:${r}`;
+                    const seat = (plan.seats || []).find(s => s.seatId === seatId);
+                    grid.appendChild(_cpBuildSeatIdCell(seatId, seat ? seat.studentName : null, plan));
+                } else if (c === w - 1) {
+                    const seatId = `right:${r}`;
+                    const seat = (plan.seats || []).find(s => s.seatId === seatId);
+                    grid.appendChild(_cpBuildSeatIdCell(seatId, seat ? seat.studentName : null, plan));
+                } else {
+                    const spacer = document.createElement('div');
+                    spacer.style.cssText = 'width:90px;height:64px;';
+                    grid.appendChild(spacer);
+                }
+            }
+        }
+    } else {
+        grid.style.gridTemplateColumns = `repeat(${plan.cols}, 90px)`;
+        for (let r = 0; r < plan.rows; r++) {
+            for (let c = 0; c < plan.cols; c++) {
+                const seat = (plan.seats || []).find(s => s.row === r && s.col === c);
+                grid.appendChild(_cpBuildCell(r, c, seat ? seat.studentName : null, plan));
+            }
         }
     }
 }
@@ -12138,13 +12190,32 @@ function cpEditorRandomAssign() {
     const group = _cpEditingGroup || selectedGroupName;
     const students = (studentGroups[group] || []).map(s => s.name);
     if (!students.length) return;
+    const lt = plan.layoutType || 'grid';
     const _doAssign = () => {
         const shuffled = [...students].sort(() => Math.random() - 0.5);
-        const seats = [];
-        for (let c = plan.cols - 1; c >= 0; c--)
-            for (let r = plan.rows - 1; r >= 0; r--)
-                seats.push({ row: r, col: c });
-        plan.seats = shuffled.slice(0, seats.length).map((name, i) => ({ row: seats[i].row, col: seats[i].col, studentName: name }));
+        if (lt === 'pods') {
+            const seatIds = [];
+            for (let pr = (plan.roomRows || 2) - 1; pr >= 0; pr--)
+                for (let pc = (plan.roomCols || 3) - 1; pc >= 0; pc--)
+                    for (let r = (plan.podRows || 2) - 1; r >= 0; r--)
+                        for (let c = (plan.podCols || 3) - 1; c >= 0; c--)
+                            seatIds.push(`${pr}:${pc}:${r}:${c}`);
+            plan.seats = shuffled.slice(0, seatIds.length).map((name, i) => ({ seatId: seatIds[i], studentName: name }));
+        } else if (lt === 'ushape') {
+            const seatIds = [];
+            for (let r = (plan.uDepth || 3); r >= 1; r--) {
+                seatIds.push(`right:${r}`);
+                seatIds.push(`left:${r}`);
+            }
+            for (let c = (plan.uWidth || 6) - 1; c >= 0; c--) seatIds.push(`top:${c}`);
+            plan.seats = shuffled.slice(0, seatIds.length).map((name, i) => ({ seatId: seatIds[i], studentName: name }));
+        } else {
+            const seats = [];
+            for (let c = plan.cols - 1; c >= 0; c--)
+                for (let r = plan.rows - 1; r >= 0; r--)
+                    seats.push({ row: r, col: c });
+            plan.seats = shuffled.slice(0, seats.length).map((name, i) => ({ row: seats[i].row, col: seats[i].col, studentName: name }));
+        }
         cpSavePlans();
         _cpBuildEditor(plan);
         mdbToast('Seats randomly assigned');
@@ -12207,6 +12278,37 @@ function _cpRewireDrop(cell, row, col, plan) {
     });
 }
 
+function _cpBuildSeatIdCell(seatId, studentName, plan) {
+    const cell = document.createElement('div');
+    cell.className = 'cp-desk-cell';
+    cell.dataset.seatId = seatId;
+    if (studentName) {
+        _cpFillCell(cell, studentName, plan);
+    } else {
+        cell.innerHTML = '<span class="cp-desk-empty">+</span>';
+    }
+    _cpRewireDropSeatId(cell, seatId, plan);
+    return cell;
+}
+
+function _cpRewireDropSeatId(cell, seatId, plan) {
+    cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('cp-drag-over'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('cp-drag-over'));
+    cell.addEventListener('drop', e => {
+        e.preventDefault(); cell.classList.remove('cp-drag-over');
+        const name = e.dataTransfer.getData('text/plain');
+        if (!name) return;
+        (plan.seats || []).filter(s => s.studentName === name).forEach(s => {
+            const oldCell = document.querySelector(`#cp-grid .cp-desk-cell[data-seat-id="${s.seatId}"]`);
+            if (oldCell) { oldCell.innerHTML = '<span class="cp-desk-empty">+</span>'; _cpRewireDropSeatId(oldCell, s.seatId, plan); }
+        });
+        plan.seats = (plan.seats || []).filter(s => s.seatId !== seatId && s.studentName !== name);
+        plan.seats.push({ seatId, studentName: name });
+        _cpFillCell(cell, name, plan);
+        _cpRefreshSidebar(plan);
+    });
+}
+
 function _cpFillCell(cell, studentName, plan) {
     // Team color tint
     const group = selectedGroupName;
@@ -12221,16 +12323,24 @@ function _cpFillCell(cell, studentName, plan) {
     cell.innerHTML = '';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'cp-desk-name';
-    nameSpan.textContent = studentName;
+    nameSpan.textContent = student ? getDisplayName(student) : studentName;
 
     const rmBtn = document.createElement('button');
     rmBtn.className = 'cp-desk-remove'; rmBtn.title = 'Remove'; rmBtn.textContent = '✕';
     rmBtn.addEventListener('click', e => {
         e.stopPropagation();
-        plan.seats = (plan.seats || []).filter(s => !(s.row === parseInt(cell.dataset.row) && s.col === parseInt(cell.dataset.col)));
-        cell.style.background = '';
-        cell.innerHTML = '<span class="cp-desk-empty">+</span>';
-        _cpRewireDrop(cell, parseInt(cell.dataset.row), parseInt(cell.dataset.col), plan);
+        const sid = cell.dataset.seatId;
+        if (sid) {
+            plan.seats = (plan.seats || []).filter(s => s.seatId !== sid);
+            cell.style.background = '';
+            cell.innerHTML = '<span class="cp-desk-empty">+</span>';
+            _cpRewireDropSeatId(cell, sid, plan);
+        } else {
+            plan.seats = (plan.seats || []).filter(s => !(s.row === parseInt(cell.dataset.row) && s.col === parseInt(cell.dataset.col)));
+            cell.style.background = '';
+            cell.innerHTML = '<span class="cp-desk-empty">+</span>';
+            _cpRewireDrop(cell, parseInt(cell.dataset.row), parseInt(cell.dataset.col), plan);
+        }
         _cpRefreshSidebar(plan);
     });
 
@@ -12309,29 +12419,84 @@ function _cpBrowserPrint(html) {
 }
 
 function _cpBuildPrintHtml(plan, groupName) {
-    const rows = plan.rows || 4;
-    const cols = plan.cols || 5;
-    const seats = plan.seats || [];
-
     const todayStr = new Date().toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
     const schedStr = cpScheduleSummary(plan);
+    const lt = plan.layoutType || 'grid';
+    const seats = plan.seats || [];
 
-    // Build grid rows
-    let tableRows = '';
-    for (let r = 0; r < rows; r++) {
-        let cells = '';
-        for (let c = 0; c < cols; c++) {
-            const seat = seats.find(s => s.row === r && s.col === c);
-            const name = seat ? seat.studentName : '';
-            // team color
-            let bg = '#fff';
-            if (name && studentGroups[groupName]) {
-                const st = studentGroups[groupName].find(s => s.name === name);
-                if (st && st.teamId && teamColors[st.teamId - 1]) bg = teamColors[st.teamId - 1].hex;
+    function teamBg(name) {
+        if (!name || !studentGroups[groupName]) return '#fff';
+        const st = studentGroups[groupName].find(s => s.name === name);
+        return (st && st.teamId && teamColors[st.teamId - 1]) ? teamColors[st.teamId - 1].hex : '#fff';
+    }
+    function tdStyle(name, w = '2cm', h = '1.5cm') {
+        const bg = teamBg(name);
+        return `width:${w};height:${h};border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:8pt;font-weight:${name?'700':'400'};color:${name?'#111':'#ddd'};background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+    }
+
+    let body = '';
+    if (lt === 'pods') {
+        let outerRows = '';
+        for (let pr = 0; pr < (plan.roomRows || 2); pr++) {
+            let outerCells = '';
+            for (let pc = 0; pc < (plan.roomCols || 3); pc++) {
+                let podRows = '';
+                for (let r = 0; r < (plan.podRows || 2); r++) {
+                    let podCells = '';
+                    for (let c = 0; c < (plan.podCols || 3); c++) {
+                        const sid = `${pr}:${pc}:${r}:${c}`;
+                        const seat = seats.find(s => s.seatId === sid);
+                        const name = seat ? seat.studentName : '';
+                        podCells += `<td style="${tdStyle(name,'1.7cm','1.3cm')}">${name || '·'}</td>`;
+                    }
+                    podRows += `<tr>${podCells}</tr>`;
+                }
+                outerCells += `<td style="padding:6px;vertical-align:top;"><table style="border-collapse:collapse;border:2px solid #999;">${podRows}</table></td>`;
             }
-            cells += `<td style="width:2cm;height:1.5cm;border:1px solid #bbb;text-align:center;vertical-align:middle;font-size:8pt;font-weight:${name?'700':'400'};color:${name?'#111':'#ddd'};background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">${name || '·'}</td>`;
+            outerRows += `<tr>${outerCells}</tr>`;
         }
-        tableRows += `<tr>${cells}</tr>`;
+        body = `<table style="border-collapse:separate;border-spacing:4px 4px;">${outerRows}</table>`;
+    } else if (lt === 'ushape') {
+        const w = plan.uWidth || 6; const d = plan.uDepth || 3;
+        let tableRows = '';
+        let topCells = '';
+        for (let c = 0; c < w; c++) {
+            const seat = seats.find(s => s.seatId === `top:${c}`);
+            const name = seat ? seat.studentName : '';
+            topCells += `<td style="${tdStyle(name,'1.8cm','1.4cm')}">${name || '·'}</td>`;
+        }
+        tableRows += `<tr>${topCells}</tr>`;
+        for (let r = 1; r <= d; r++) {
+            let cells = '';
+            for (let c = 0; c < w; c++) {
+                if (c === 0) {
+                    const seat = seats.find(s => s.seatId === `left:${r}`);
+                    const name = seat ? seat.studentName : '';
+                    cells += `<td style="${tdStyle(name,'1.8cm','1.4cm')}">${name || '·'}</td>`;
+                } else if (c === w - 1) {
+                    const seat = seats.find(s => s.seatId === `right:${r}`);
+                    const name = seat ? seat.studentName : '';
+                    cells += `<td style="${tdStyle(name,'1.8cm','1.4cm')}">${name || '·'}</td>`;
+                } else {
+                    cells += `<td style="width:1.8cm;height:1.4cm;border:none;"></td>`;
+                }
+            }
+            tableRows += `<tr>${cells}</tr>`;
+        }
+        body = `<table style="border-collapse:collapse;">${tableRows}</table>`;
+    } else {
+        const rows = plan.rows || 4; const cols = plan.cols || 5;
+        let tableRows = '';
+        for (let r = 0; r < rows; r++) {
+            let cells = '';
+            for (let c = 0; c < cols; c++) {
+                const seat = seats.find(s => s.row === r && s.col === c);
+                const name = seat ? seat.studentName : '';
+                cells += `<td style="${tdStyle(name)}">${name || '·'}</td>`;
+            }
+            tableRows += `<tr>${cells}</tr>`;
+        }
+        body = `<table style="border-collapse:collapse;">${tableRows}</table>`;
     }
 
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${plan.name}</title>
@@ -12347,7 +12512,7 @@ function _cpBuildPrintHtml(plan, groupName) {
 </style></head><body>
 <h1>${plan.name}</h1>
 <div class="meta">${[plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ')}</div>
-<table>${tableRows}</table>
+${body}
 <footer>${groupName || ''}  —  Printed ${todayStr}</footer>
 </body></html>`;
 }
@@ -12359,7 +12524,7 @@ function toggleRosterPlanView() {
     const btn = document.getElementById('roster-plan-view-btn');
     if (btn) btn.classList.toggle('active', rosterPlanView);
     const toolbar = document.getElementById('roster-plan-toolbar');
-    if (toolbar) toolbar.style.display = rosterPlanView ? '' : 'none';
+    if (toolbar) toolbar.style.display = rosterPlanView ? 'flex' : 'none';
     if (!rosterPlanView) {
         const listEl = document.getElementById('roster-list');
         listEl.classList.remove('roster-plan-view');
@@ -12375,7 +12540,8 @@ function renderRosterPlanView() {
     listEl.innerHTML = '';
     closeRosterContextMenu();
     listEl.classList.add('roster-plan-view');
-    listEl.classList.remove('teams-active');
+    listEl.classList.remove('teams-active', 'roster-plan-pods');
+    listEl.style.removeProperty('grid-template-columns');
 
     if (!selectedGroupName || !studentGroups[selectedGroupName]) {
         listEl.style.removeProperty('--cp-cols');
@@ -12391,125 +12557,205 @@ function renderRosterPlanView() {
         return;
     }
 
-    listEl.style.setProperty('--cp-cols', plan.cols);
-
-    // Show/hide reset button depending on whether a team-view override is active
-    const _resetBtn = document.getElementById('roster-plan-reset-btn');
-    if (_resetBtn) _resetBtn.style.display = plan._teamViewSeats ? '' : 'none';
-
+    const lt = plan.layoutType || 'grid';
     const allStudents = studentGroups[selectedGroupName];
     const halfNames = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || null)
         : null;
+    const _resetBtn = document.getElementById('roster-plan-reset-btn');
 
-    const _viewSeats = plan._teamViewSeats || plan.seats || [];
-    const _viewRows  = plan._teamViewRows  || plan.rows;
-
-    // In presentation mode, detect and skip entirely-empty columns
-    const _hiddenCols = new Set();
-    if (PRESENTATION_MODE) {
-        for (let c = 0; c < plan.cols; c++) {
-            let colEmpty = true;
-            for (let r = 0; r < _viewRows; r++) {
-                const seat = _viewSeats.find(s => s.row === r && s.col === c);
-                if (seat && seat.studentName) {
-                    const st = allStudents.find(s => s.name === seat.studentName);
-                    if (!halfNames || (st && halfNames.includes(st.name))) { colEmpty = false; break; }
+    if (lt === 'pods') {
+        const roomRows = plan.roomRows || 2, roomCols = plan.roomCols || 3;
+        const podRows  = plan.podRows  || 2, podCols  = plan.podCols  || 3;
+        // Custom column template: pod columns interleaved with 12px gap columns
+        const colParts = [];
+        for (let rc = 0; rc < roomCols; rc++) {
+            if (rc > 0) colParts.push('12px');
+            for (let pc = 0; pc < podCols; pc++) colParts.push('minmax(0, 1fr)');
+        }
+        listEl.style.gridTemplateColumns = colParts.join(' ');
+        listEl.classList.add('roster-plan-pods');
+        if (_resetBtn) _resetBtn.style.display = 'none';
+        const seats = plan.seats || [];
+        const totalTracks = roomCols * podCols + (roomCols - 1);
+        for (let roomRow = 0; roomRow < roomRows; roomRow++) {
+            if (roomRow > 0) {
+                // Spacer row between room rows
+                for (let i = 0; i < totalTracks; i++) {
+                    const sp = document.createElement('li');
+                    sp.style.cssText = 'height:12px;border:none;background:transparent;pointer-events:none;padding:0;min-height:0;';
+                    listEl.appendChild(sp);
                 }
             }
-            if (colEmpty) _hiddenCols.add(c);
-        }
-        if (_hiddenCols.size > 0) {
-            listEl.style.setProperty('--cp-cols', plan.cols - _hiddenCols.size);
-        }
-    }
-
-    for (let r = 0; r < _viewRows; r++) {
-        for (let c = 0; c < plan.cols; c++) {
-            if (_hiddenCols.has(c)) continue;
-            const seat = _viewSeats.find(s => s.row === r && s.col === c);
-            let student = null;
-            if (seat && seat.studentName) {
-                student = allStudents.find(s => s.name === seat.studentName);
-                if (halfNames && student && !halfNames.includes(student.name)) student = null;
+            for (let podRow = 0; podRow < podRows; podRow++) {
+                for (let roomCol = 0; roomCol < roomCols; roomCol++) {
+                    if (roomCol > 0) {
+                        // Spacer cell for the gap column
+                        const sp = document.createElement('li');
+                        sp.style.cssText = 'border:none;background:transparent;pointer-events:none;padding:0;';
+                        listEl.appendChild(sp);
+                    }
+                    for (let podCol = 0; podCol < podCols; podCol++) {
+                        const seatId = `${roomRow}:${roomCol}:${podRow}:${podCol}`;
+                        const seat = seats.find(s => s.seatId === seatId);
+                        let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
+                        if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                        const li = _appendRpcSeatIdCell(listEl, seatId, student, plan);
+                        if (podRow === 0)           li.dataset.podTop    = '';
+                        if (podRow === podRows - 1) li.dataset.podBottom = '';
+                        if (podCol === 0)           li.dataset.podLeft   = '';
+                        if (podCol === podCols - 1) li.dataset.podRight  = '';
+                    }
+                }
             }
+        }
+    } else if (lt === 'ushape') {
+        const w = plan.uWidth || 6, d = plan.uDepth || 3;
+        listEl.style.setProperty('--cp-cols', w);
+        if (_resetBtn) _resetBtn.style.display = 'none';
+        const seats = plan.seats || [];
+        for (let c = 0; c < w; c++) {
+            const seatId = `top:${c}`;
+            const seat = seats.find(s => s.seatId === seatId);
+            let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
+            if (halfNames && student && !halfNames.includes(student.name)) student = null;
+            _appendRpcSeatIdCell(listEl, seatId, student, plan);
+        }
+        for (let r = 1; r <= d; r++) {
+            for (let c = 0; c < w; c++) {
+                if (c === 0) {
+                    const seatId = `left:${r}`;
+                    const seat = seats.find(s => s.seatId === seatId);
+                    let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
+                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                    _appendRpcSeatIdCell(listEl, seatId, student, plan);
+                } else if (c === w - 1) {
+                    const seatId = `right:${r}`;
+                    const seat = seats.find(s => s.seatId === seatId);
+                    let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
+                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                    _appendRpcSeatIdCell(listEl, seatId, student, plan);
+                } else {
+                    const spacer = document.createElement('li');
+                    spacer.className = 'roster-plan-cell-empty';
+                    spacer.style.cssText = 'border:none;background:transparent;pointer-events:none;';
+                    listEl.appendChild(spacer);
+                }
+            }
+        }
+    } else {
+        // Grid layout
+        listEl.style.setProperty('--cp-cols', plan.cols);
+        if (_resetBtn) _resetBtn.style.display = plan._teamViewSeats ? '' : 'none';
 
-            const li = document.createElement('li');
+        const _viewSeats = plan._teamViewSeats || plan.seats || [];
+        const _viewRows  = plan._teamViewRows  || plan.rows;
 
-            if (!student) {
-                li.className = 'roster-plan-cell roster-plan-cell-empty';
-                li.innerHTML = '<span class="rpc-empty">·</span>';
+        // In presentation mode, detect and skip entirely-empty columns
+        const _hiddenCols = new Set();
+        if (PRESENTATION_MODE) {
+            for (let c = 0; c < plan.cols; c++) {
+                let colEmpty = true;
+                for (let r = 0; r < _viewRows; r++) {
+                    const seat = _viewSeats.find(s => s.row === r && s.col === c);
+                    if (seat && seat.studentName) {
+                        const st = allStudents.find(s => s.name === seat.studentName);
+                        if (!halfNames || (st && halfNames.includes(st.name))) { colEmpty = false; break; }
+                    }
+                }
+                if (colEmpty) _hiddenCols.add(c);
+            }
+            if (_hiddenCols.size > 0) {
+                listEl.style.setProperty('--cp-cols', plan.cols - _hiddenCols.size);
+            }
+        }
+
+        for (let r = 0; r < _viewRows; r++) {
+            for (let c = 0; c < plan.cols; c++) {
+                if (_hiddenCols.has(c)) continue;
+                const seat = _viewSeats.find(s => s.row === r && s.col === c);
+                let student = null;
+                if (seat && seat.studentName) {
+                    student = allStudents.find(s => s.name === seat.studentName);
+                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                }
+
+                const li = document.createElement('li');
+
+                if (!student) {
+                    li.className = 'roster-plan-cell roster-plan-cell-empty';
+                    li.innerHTML = '<span class="rpc-empty">·</span>';
+                    li.setAttribute('data-row', r);
+                    li.setAttribute('data-col', c);
+                    li.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('rpc-dragover'); });
+                    li.addEventListener('dragleave', () => li.classList.remove('rpc-dragover'));
+                    li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('rpc-dragover'); try { const d = JSON.parse(e.dataTransfer.getData('text/plain')); cpPlanSwapSeats(d.row, d.col, r, c); } catch(_) {} });
+                    listEl.appendChild(li);
+                    continue;
+                }
+
+                li.className = 'roster-plan-cell' +
+                    (student.isPicked ? ' picked' : '') +
+                    (student.isAbsent ? ' absent' : '') +
+                    (student.isFlagged ? ' flagged' : '');
+                li.setAttribute('data-student-id', student.id);
                 li.setAttribute('data-row', r);
                 li.setAttribute('data-col', c);
+                li.draggable = true;
+                li.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', JSON.stringify({ row: r, col: c })); e.dataTransfer.effectAllowed = 'move'; li.classList.add('rpc-dragging'); listEl.classList.add('is-dragging'); });
+                li.addEventListener('dragend',   () => { li.classList.remove('rpc-dragging'); listEl.classList.remove('is-dragging'); });
                 li.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('rpc-dragover'); });
-                li.addEventListener('dragleave', () => li.classList.remove('rpc-dragover'));
+                li.addEventListener('dragleave', e => { if (!li.contains(e.relatedTarget)) li.classList.remove('rpc-dragover'); });
                 li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('rpc-dragover'); try { const d = JSON.parse(e.dataTransfer.getData('text/plain')); cpPlanSwapSeats(d.row, d.col, r, c); } catch(_) {} });
+                li.addEventListener('contextmenu', e => { openRosterContextMenu(e, student.id); });
+
+                const teamColor = student.teamId ? teamColors[(student.teamId - 1) % teamColors.length] : null;
+                if (teamColor && !student.isAbsent) li.style.backgroundColor = teamColor.hex;
+
+                const plusDisplay  = student.pluses      > 0 ? `+${student.pluses}` : '';
+                const minusDisplay = student.minuses     > 0 ? `−${student.minuses}` : '';
+                const teamPlusDisplay  = student.teamPluses  > 0 ? `T+${student.teamPluses}` : '';
+                const teamMinusDisplay = student.teamMinuses > 0 ? `T−${student.teamMinuses}` : '';
+
+                const badgeMap = {};
+                (student.badges || []).forEach(b => {
+                    if (!badgeMap[b.icon]) badgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
+                    badgeMap[b.icon].count++;
+                });
+                const badgeSpans = Object.values(badgeMap).map(b => {
+                    const sup = b.count > 1 ? `<sup>${b.count}</sup>` : '';
+                    const toneClass = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
+                    return `<span class="earned-badge-chip${toneClass}" onclick="removeBadge(${student.id},'${b.icon}')" title="${b.label}: click to remove">${b.icon}${sup}</span>`;
+                }).join('');
+
+                const hasNotes = student.comments && student.comments.length > 0;
+                const abbrev = getDisplayName(student);
+
+                li.innerHTML = `
+                    <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
+                        ${abbrev}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged">⚑</sup>' : ''}
+                        ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
+                    </span>
+                    <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
+                        <span class="student-badges-earned">${badgeSpans}</span>
+                        <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
+                        <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
+                        <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
+                        <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
+                    </div>
+                    <div class="rpc-controls">
+                        <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
+                        <div class="badge-popup" id="badge-popup-${student.id}">${buildBadgePopupButtons(student.id)}</div>
+                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
+                        <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
+                        <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
+                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
+                        <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'Notes — click to edit' : 'No notes — click to add'}">●</span>
+                    </div>
+                `;
+
                 listEl.appendChild(li);
-                continue;
             }
-
-            li.className = 'roster-plan-cell' +
-                (student.isPicked ? ' picked' : '') +
-                (student.isAbsent ? ' absent' : '') +
-                (student.isFlagged ? ' flagged' : '');
-            li.setAttribute('data-student-id', student.id);
-            li.setAttribute('data-row', r);
-            li.setAttribute('data-col', c);
-            li.draggable = true;
-            li.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', JSON.stringify({ row: r, col: c })); e.dataTransfer.effectAllowed = 'move'; li.classList.add('rpc-dragging'); listEl.classList.add('is-dragging'); });
-            li.addEventListener('dragend',   () => { li.classList.remove('rpc-dragging'); listEl.classList.remove('is-dragging'); });
-            li.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('rpc-dragover'); });
-            li.addEventListener('dragleave', e => { if (!li.contains(e.relatedTarget)) li.classList.remove('rpc-dragover'); });
-            li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('rpc-dragover'); try { const d = JSON.parse(e.dataTransfer.getData('text/plain')); cpPlanSwapSeats(d.row, d.col, r, c); } catch(_) {} });
-            li.addEventListener('contextmenu', e => { openRosterContextMenu(e, student.id); });
-
-            const teamColor = student.teamId ? teamColors[(student.teamId - 1) % teamColors.length] : null;
-            if (teamColor && !student.isAbsent) li.style.backgroundColor = teamColor.hex;
-
-            const plusDisplay  = student.pluses      > 0 ? `+${student.pluses}` : '';
-            const minusDisplay = student.minuses     > 0 ? `−${student.minuses}` : '';
-            const teamPlusDisplay  = student.teamPluses  > 0 ? `T+${student.teamPluses}` : '';
-            const teamMinusDisplay = student.teamMinuses > 0 ? `T−${student.teamMinuses}` : '';
-
-            const badgeMap = {};
-            (student.badges || []).forEach(b => {
-                if (!badgeMap[b.icon]) badgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
-                badgeMap[b.icon].count++;
-            });
-            const badgeSpans = Object.values(badgeMap).map(b => {
-                const sup = b.count > 1 ? `<sup>${b.count}</sup>` : '';
-                const toneClass = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
-                return `<span class="earned-badge-chip${toneClass}" onclick="removeBadge(${student.id},'${b.icon}')" title="${b.label}: click to remove">${b.icon}${sup}</span>`;
-            }).join('');
-
-            const hasNotes = student.comments && student.comments.length > 0;
-
-            const abbrev = getDisplayName(student).split(' ')[0].slice(0, planAbbrevLen);
-
-            li.innerHTML = `
-                <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-                    ${abbrev}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged">⚑</sup>' : ''}
-                    ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
-                </span>
-                <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
-                    <span class="student-badges-earned">${badgeSpans}</span>
-                    <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
-                    <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-                    <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
-                    <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
-                </div>
-                <div class="rpc-controls">
-                    <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
-                    <div class="badge-popup" id="badge-popup-${student.id}">${buildBadgePopupButtons(student.id)}</div>
-                    ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
-                    <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
-                    <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
-                    ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
-                    <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'Notes — click to edit' : 'No notes — click to add'}">●</span>
-                </div>
-            `;
-
-            listEl.appendChild(li);
         }
     }
 
@@ -12520,6 +12766,74 @@ function renderRosterPlanView() {
 
     updatePresentCount();
     if (PRESENTATION_MODE) requestAnimationFrame(_presAdjustPlanViewHeight);
+}
+
+function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
+    const li = document.createElement('li');
+    if (!student) {
+        li.className = 'roster-plan-cell roster-plan-cell-empty';
+        li.innerHTML = '<span class="rpc-empty">·</span>';
+        li.setAttribute('data-seat-id', seatId);
+        li.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('rpc-dragover'); });
+        li.addEventListener('dragleave', () => li.classList.remove('rpc-dragover'));
+        li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('rpc-dragover'); try { const d = JSON.parse(e.dataTransfer.getData('text/plain')); cpPlanSwapSeatsBySeatId(d.seatId, seatId); } catch(_) {} });
+        listEl.appendChild(li);
+        return li;
+    }
+    li.className = 'roster-plan-cell' +
+        (student.isPicked ? ' picked' : '') +
+        (student.isAbsent ? ' absent' : '') +
+        (student.isFlagged ? ' flagged' : '');
+    li.setAttribute('data-student-id', student.id);
+    li.setAttribute('data-seat-id', seatId);
+    li.draggable = true;
+    li.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', JSON.stringify({ seatId })); e.dataTransfer.effectAllowed = 'move'; li.classList.add('rpc-dragging'); listEl.classList.add('is-dragging'); });
+    li.addEventListener('dragend',   () => { li.classList.remove('rpc-dragging'); listEl.classList.remove('is-dragging'); });
+    li.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; li.classList.add('rpc-dragover'); });
+    li.addEventListener('dragleave', e => { if (!li.contains(e.relatedTarget)) li.classList.remove('rpc-dragover'); });
+    li.addEventListener('drop', e => { e.preventDefault(); li.classList.remove('rpc-dragover'); try { const d = JSON.parse(e.dataTransfer.getData('text/plain')); cpPlanSwapSeatsBySeatId(d.seatId, seatId); } catch(_) {} });
+    li.addEventListener('contextmenu', e => { openRosterContextMenu(e, student.id); });
+    const teamColor = student.teamId ? teamColors[(student.teamId - 1) % teamColors.length] : null;
+    if (teamColor && !student.isAbsent) li.style.backgroundColor = teamColor.hex;
+    const plusDisplay      = student.pluses      > 0 ? `+${student.pluses}` : '';
+    const minusDisplay     = student.minuses     > 0 ? `−${student.minuses}` : '';
+    const teamPlusDisplay  = student.teamPluses  > 0 ? `T+${student.teamPluses}` : '';
+    const teamMinusDisplay = student.teamMinuses > 0 ? `T−${student.teamMinuses}` : '';
+    const badgeMap = {};
+    (student.badges || []).forEach(b => {
+        if (!badgeMap[b.icon]) badgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
+        badgeMap[b.icon].count++;
+    });
+    const badgeSpans = Object.values(badgeMap).map(b => {
+        const sup = b.count > 1 ? `<sup>${b.count}</sup>` : '';
+        const tc = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
+        return `<span class="earned-badge-chip${tc}" onclick="removeBadge(${student.id},'${b.icon}')" title="${b.label}: click to remove">${b.icon}${sup}</span>`;
+    }).join('');
+    const hasNotes = student.comments && student.comments.length > 0;
+    const abbrev = getDisplayName(student);
+    li.innerHTML = `
+        <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
+            ${abbrev}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged">⚑</sup>' : ''}
+            ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
+        </span>
+        <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
+            <span class="student-badges-earned">${badgeSpans}</span>
+            <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
+            <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
+            <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
+            <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
+        </div>
+        <div class="rpc-controls">
+            <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
+            <div class="badge-popup" id="badge-popup-${student.id}">${buildBadgePopupButtons(student.id)}</div>
+            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
+            <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
+            <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
+            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
+            <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'Notes — click to edit' : 'No notes — click to add'}">●</span>
+        </div>`;
+    listEl.appendChild(li);
+    return li;
 }
 
 function cpPlanSwapSeats(fromRow, fromCol, toRow, toCol) {
@@ -12538,6 +12852,23 @@ function cpPlanSwapSeats(fromRow, fromCol, toRow, toCol) {
     if (toSeat) toSeat.studentName = fromName;
     else seats.push({ row: toRow, col: toCol, studentName: fromName });
     if (!isTeamView) cpSavePlans();
+    renderRosterPlanView();
+    if (!PRESENTATION_MODE) _broadcastPresentationState();
+}
+
+function cpPlanSwapSeatsBySeatId(fromSeatId, toSeatId) {
+    if (!fromSeatId || fromSeatId === toSeatId) return;
+    const plan = cpGetActivePlan(selectedGroupName);
+    if (!plan) return;
+    const seats = plan.seats || [];
+    const fromSeat = seats.find(s => s.seatId === fromSeatId);
+    if (!fromSeat) return;
+    let toSeat = seats.find(s => s.seatId === toSeatId);
+    const fromName = fromSeat.studentName;
+    const toName   = toSeat ? toSeat.studentName : null;
+    if (toName) fromSeat.studentName = toName; else delete fromSeat.studentName;
+    if (toSeat) toSeat.studentName = fromName; else seats.push({ seatId: toSeatId, studentName: fromName });
+    cpSavePlans();
     renderRosterPlanView();
     if (!PRESENTATION_MODE) _broadcastPresentationState();
 }
@@ -12750,7 +13081,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <div class="cp-grid-wrap">
         <div id="cp-grid" class="cp-grid"></div>
-        <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
+        <div id="cp-grid-controls" style="display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap;">
           <button onclick="cpEditorRemoveRow()" title="Remove last row" style="padding:4px 10px;font-size:.8rem;background:#fff;border:1px solid #bbb;border-radius:4px;cursor:pointer;">− Row</button>
           <button onclick="cpEditorAddRow()" title="Add row" style="padding:4px 10px;font-size:.8rem;background:#fff;border:1px solid #bbb;border-radius:4px;cursor:pointer;">+ Row</button>
           <button onclick="cpEditorRemoveCol()" title="Remove last column" style="padding:4px 10px;font-size:.8rem;background:#fff;border:1px solid #bbb;border-radius:4px;cursor:pointer;">− Col</button>

@@ -3528,29 +3528,29 @@
       const now = Date.now();
       for (const cls of appState.classes) {
         const classSlug = slugifyForPath(cls.name);
-        for (const sem of ['sem1', 'sem2']) {
-          const subdir = `${sem}/${classSlug}`;
-          const classMeta = {
-            _savedAt: now,
-            classId: cls.id,
-            className: cls.name,
-            classYear: cls.year,
-            classSemester: cls.semester,
-            classLevel: cls.level,
-            classCreatedAt: cls.createdAt,
-            testCounts: cls.testCounts || { sem1: 0, sem2: 0 },
-            students: cls.students.map(s => ({
-              id: s.id,
-              index: s.index,
-              firstName: s.firstName,
-              lastName: s.lastName,
-              comments: s.comments
-            }))
-          };
-          await Desktop.saveText('grades', '_class.js',
-            `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
-            subdir);
+        const subdir = classSlug;
+        const classMeta = {
+          _savedAt: now,
+          classId: cls.id,
+          className: cls.name,
+          classYear: cls.year,
+          classSemester: cls.semester,
+          classLevel: cls.level,
+          classCreatedAt: cls.createdAt,
+          testCounts: cls.testCounts || { sem1: 0, sem2: 0 },
+          students: cls.students.map(s => ({
+            id: s.id,
+            index: s.index,
+            firstName: s.firstName,
+            lastName: s.lastName,
+            comments: s.comments
+          }))
+        };
+        await Desktop.saveText('grades', '_class.js',
+          `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
+          subdir);
 
+        for (const sem of ['sem1', 'sem2']) {
           const configs = (cls.testConfigs && cls.testConfigs[sem]) || [];
           for (let i = 0; i < TEST_COUNT_PER_SEM; i++) {
             const cfg = configs[i];
@@ -3562,7 +3562,7 @@
               (Array.isArray(cfg.criteria) && cfg.criteria.length > 0));
             if (!hasScore && !hasCfg) continue;
 
-            const testLabel = `test-${String(i + 1).padStart(2, '0')}`;
+            const testLabel = `${sem}-test-${String(i + 1).padStart(2, '0')}`;
             const results = cls.students.map(s => {
               const tests = sem === 'sem1' ? s.sem1Tests : s.sem2Tests;
               const notes = s.testNotes ? (sem === 'sem1' ? s.testNotes.sem1 : s.testNotes.sem2) : [];
@@ -3590,6 +3590,12 @@
               `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
               subdir);
           }
+        }
+
+        // Migrate: remove old sem1/{slug} and sem2/{slug} folders if present
+        for (const sem of ['sem1', 'sem2']) {
+          Desktop.deleteByPath('grades', `${sem}/${classSlug}`, { recursive: true, force: true })
+            .catch(() => {});
         }
       }
     }
@@ -6428,9 +6434,12 @@
       // Best-effort removal of grade files (not the primary guard — blocklist is).
       if (window.Desktop && Desktop.isElectron()) {
         const slug = slugifyForPath(classObj.name);
+        Desktop.deleteByPath('grades', slug, { recursive: true, force: true })
+          .catch(err => console.warn('deleteActiveClass: could not remove grade folder', slug, err));
+        // Also clean up old sem1/{slug} / sem2/{slug} layout if present
         for (const sem of ['sem1', 'sem2']) {
           Desktop.deleteByPath('grades', `${sem}/${slug}`, { recursive: true, force: true })
-            .catch(err => console.warn('deleteActiveClass: could not remove grade folder', sem, slug, err));
+            .catch(() => {});
         }
       }
 

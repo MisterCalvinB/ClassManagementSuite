@@ -23,7 +23,8 @@ const PAGE_FILES = {
   fileManager: 'file-manager.html',
   howTo: 'how-to.html',
   credits: 'credits.html',
-  scheduleMaker: 'schedule-maker.html'
+  scheduleMaker: 'schedule-maker.html',
+  classPlan: 'class-plan.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -55,7 +56,10 @@ const PAGE_ARG_MAP = {
   groupeditor: PAGE_FILES.groupEditor,
   groups: PAGE_FILES.groupEditor,
   schedulemaker: PAGE_FILES.scheduleMaker,
-  schedule: PAGE_FILES.scheduleMaker
+  schedule: PAGE_FILES.scheduleMaker,
+  classplan: PAGE_FILES.classPlan,
+  plan: PAGE_FILES.classPlan,
+  classp: PAGE_FILES.classPlan
 };
 
 const PAGE_LABELS = {
@@ -73,7 +77,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.fileManager]: 'File Manager',
   [PAGE_FILES.howTo]: 'How To',
   [PAGE_FILES.credits]: 'Credits',
-  [PAGE_FILES.scheduleMaker]: 'Schedule Maker'
+  [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
+  [PAGE_FILES.classPlan]: 'Class Plan'
 };
 
 function getDefaultWritableRootDir() {
@@ -172,7 +177,8 @@ function getSaveTargets() {
     customSentences: path.join(writableRoot, 'user/custom-data/sentencebanks'),
     customStorybanks: path.join(writableRoot, 'user/custom-data/storybanks'),
     customSounds: path.join(writableRoot, 'user/custom-data/custom-sounds'),
-    customWordbanks: path.join(writableRoot, 'user/custom-data/wordbanks')
+    customWordbanks: path.join(writableRoot, 'user/custom-data/wordbanks'),
+    classPlans: path.join(writableRoot, 'user/class-plans')
   };
 }
 
@@ -194,7 +200,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
-  [PAGE_FILES.scheduleMaker]: new Set(['user', 'data'])
+  [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
+  [PAGE_FILES.classPlan]: new Set(['user', 'classPlans'])
 };
 
 let mainWindow;

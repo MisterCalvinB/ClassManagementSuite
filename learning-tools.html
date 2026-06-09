@@ -8788,7 +8788,11 @@ function renderSentenceWithGap(userInput) {
     function wwRenderGroupOptions() {
       const sel = document.getElementById('ww-group-select');
       if (!sel) return;
-      const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? Object.keys(CLASS_GROUPS).sort((a, b) => a.localeCompare(b)) : [];
+      const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
+        ? Object.keys(CLASS_GROUPS)
+            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => a.localeCompare(b))
+        : [];
 
       sel.innerHTML = '';
       const placeholder = document.createElement('option');

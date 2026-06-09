@@ -640,6 +640,19 @@
         </div>
       </div>
 
+      <div class="sidebar-item" id="nav-class-plan">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="class-plan" onclick="navTo('class-plan')">
+            <span>🪑</span> Class Plan
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-class-plan')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-cp-layouts" onclick="navToAccordion('class-plan','acc-cp-layouts')"><span class="sidebar-child-dot"></span>Layout Types</button>
+          <button class="sidebar-child" data-accordion="acc-cp-assign" onclick="navToAccordion('class-plan','acc-cp-assign')"><span class="sidebar-child-dot"></span>Assigning Students</button>
+          <button class="sidebar-child" data-accordion="acc-cp-save" onclick="navToAccordion('class-plan','acc-cp-save')"><span class="sidebar-child-dot"></span>Saving &amp; Sharing</button>
+        </div>
+      </div>
       <div class="sidebar-item" id="nav-schedule-maker">
         <div class="sidebar-row">
           <button class="sidebar-row-main" data-section="schedule-maker" onclick="navTo('schedule-maker')">
@@ -1593,6 +1606,58 @@
 
     <hr class="divider">
 
+    <!-- ═══ CLASS PLAN ══════════════════════════════════════ -->
+    <section class="tool-section" id="class-plan">
+      <div class="tool-header">
+        <span class="tool-icon">🪑</span>
+        <h2>Class Plan</h2>
+        <button class="open-tool-btn" onclick="openTool('class-plan.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Design, save, and print seating plans for your classroom. Choose from three desk layouts, assign students by drag-and-drop, and randomise seats in one click. Plans sync automatically with Class Management.
+      </p>
+
+      <div class="accordion" id="acc-cp-layouts">
+        <button class="accordion-header" onclick="toggleAccordion(this)">Layout Types <span class="acc-arrow">▶</span></button>
+        <div class="accordion-body">
+          <table class="info-table">
+            <tr><th>Layout</th><th>Shape</th><th>Configuration</th></tr>
+            <tr><td><strong>Grid</strong></td><td>Rectangular rows × columns</td><td>Rows (1–12), Columns (1–14). Add/remove rows and columns from the editor toolbar.</td></tr>
+            <tr><td><strong>U-Shape</strong></td><td>One top row + two side arms</td><td><em>Width</em> — number of desks across the top row (also sets arm spacing). <em>Depth</em> — number of desks on each arm.</td></tr>
+            <tr><td><strong>Pods</strong></td><td>Clusters of desks arranged in a room grid</td><td><em>Pod size</em> (rows × cols per cluster) and <em>Room layout</em> (how many pod rows/columns in the room).</td></tr>
+          </table>
+          <p>The layout type is chosen when creating a plan and can be changed in <strong>Settings</strong>. Changing the layout clears existing seat assignments.</p>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-cp-assign">
+        <button class="accordion-header" onclick="toggleAccordion(this)">Assigning Students <span class="acc-arrow">▶</span></button>
+        <div class="accordion-body">
+          <ul>
+            <li><strong>Drag-and-drop</strong> — drag a student chip from the left panel onto any empty desk cell.</li>
+            <li><strong>Swap seats</strong> — drag a name from an occupied desk directly onto another desk to swap or move.</li>
+            <li><strong>Unassign</strong> — click the <strong>✕</strong> button on a desk cell to return the student to the unassigned panel.</li>
+            <li><strong>🎲 Random</strong> — fills all seats with shuffled students. Asks for confirmation if seats are already assigned.</li>
+          </ul>
+          <p>Placed students appear greyed out in the student panel. Unassigned students remain draggable.</p>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-cp-save">
+        <button class="accordion-header" onclick="toggleAccordion(this)">Saving &amp; Sharing <span class="acc-arrow">▶</span></button>
+        <div class="accordion-body">
+          <ul>
+            <li>Plans are <strong>auto-saved</strong> after every seat change (0.7 s debounce).</li>
+            <li>Primary storage: <code>user/class-plans/plans.js</code>.</li>
+            <li>On every save, plans are also written into <code>user/config.js</code> so <strong>Class Management</strong> picks them up on next load.</li>
+            <li>Plans created in Class Management are imported into Class Plan on startup.</li>
+            <li>Use <strong>🖨 Print</strong> to produce an A4 seating chart for any layout type.</li>
+            <li>Mark a plan as <strong>Active</strong> to make it the default shown in Class Management's plan view.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ═══ SCHEDULE MAKER ═══════════════════════════════════ -->
     <section class="tool-section" id="schedule-maker">
       <div class="tool-header">
@@ -1832,7 +1897,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','schedule-maker'];
+  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker'];
 
   function onScroll() {
     var y = window.scrollY + 80;
