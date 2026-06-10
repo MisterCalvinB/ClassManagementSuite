@@ -72,6 +72,27 @@ customDictations  → .../custom-data/dictations
 customQuizzes     → .../custom-data/quizzes
 ```
 
+### Per-Tool File I/O
+
+What each tool reads and writes via the Desktop API.
+
+| Tool | Reads | Writes |
+|------|-------|--------|
+| **class-management.html** | `user/config.js`, `user/class-groups.js`, `user/roles.js`; lists & reads `grades/*`, `groupParticipation/*`; lists `data/sounds` | `user/config.js`, `user/class-groups.js`; `groupParticipation/<session>.js` |
+| **board.html** | `user/board-config.js`, `user/board-sessions-backup.json`, `user/ui-prefs.json`, `user/class-groups.js`; reads `customWordbanks/wordDb.js`, `customQuotes/quoteBank.js`, `customGapfillbanks/gapFillBank.js`, `customErrorbanks/errorBank.js`; lists & reads `mindmaps/*`, `notes/*`, `textualAnalyses/*`; reads `data/*` | `user/board-config.js`, `user/board-sessions-backup.json`, `user/ui-prefs.json`; `customWordbanks/wordDb.js`; `customQuotes/quoteBank.js`; `customGapfillbanks/gapFillBank.js`; `customErrorbanks/errorBank.js`; `mindmaps/*` blobs/files |
+| **grade-sheet.html** | `user/correction-criteria.js`, `user/grade-scale-models.js`; lists & reads `grades/**`; `gradeSheet/grade-sheet-data.json`, `gradeSheet/deleted-class-ids-backup.json` | `user/correction-criteria.js`, `user/grade-scale-models.js`; `grades/_class.js`, `grades/sem-test-*.js`; `gradeSheet/deleted-class-ids-backup.json` |
+| **participation-tracker.html** | `user/class-groups.js`; lists & reads `groupParticipation/*.js`; `groupParticipation/pt-notes.js`, `groupParticipation/pt-deleted.js` | `groupParticipation/pt-notes.js`, `groupParticipation/pt-deleted.js` |
+| **learning-tools.html** | `customWordbanks/wordDb.js` and listed files; `customQuizzes/quiz.js`; `data/wordbanks/wordDb.js`; lists & reads `customData/werewolf/*.js`; lists `customData/sounds`; `user/class-groups.js` | `customWordbanks/<export>.json`, `customWordbanks/<file>.js`; `customData/werewolf/<role>.js` |
+| **manage-database.html** | Lists & reads any of: `customWordbanks`, `customQuotes`, `customDictations`, `customGrammarbanks`, `customGapfillbanks`, `customErrorbanks`, `customSentences`, `customStorybanks`, `customQuizzes` | Saves/deletes files in same targets; exports to OS file picker |
+| **file-manager.html** | Lists & reads `mindmaps/**`, `user/custom-data/**`; browses any target | Read-only browser — no writes |
+| **class-plan.html** | `classPlans/plans.js`, `user/config.js` | `classPlans/plans.js`, `user/config.js` |
+| **launcher.html** | `user/config.js`; lists `mindmaps/**`, `user/custom-data/**` (recent files) | None |
+
+**localStorage** (persistent, not Desktop API):
+- `cmt-general-config` — language + general settings (read by `i18n.js` on every page)
+- `cmt-cms-*` — Class Management state, including Time Machine snapshots (autosaved every 20 s)
+- Other `cmt-{page}-{key}` keys per tool for UI state that fits under ~5–10 MB
+
 ### Per-Page Permissions
 
 `PAGE_PERMISSIONS` in `electron-main.js` restricts which file targets each page may access. Missing entries fail silently — if a page can't read/write a target, check here first.

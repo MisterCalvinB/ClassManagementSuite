@@ -50,7 +50,7 @@
         Promise.resolve(window.__gsUserBootstrapPromise).catch(function(){}).then(function(){
           var _t = '';
           try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-          var label = _t || 'Collège Calvin';
+          var label = _t || '';
           var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
           document.title = label + ': Grade Sheet';
         });
@@ -1413,20 +1413,40 @@
       text-align: center;
       font-variant-numeric: slashed-zero;
     }
-
+    /* ── hamburger nav ── */
+    .hm-wrap{position:relative;margin-left:auto}
+    .hm-btn{background:none;border:1px solid #555;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;transition:border-color .12s}
+    .hm-btn:hover{border-color:#fff}
+    .hm-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1e1e1e;border:1px solid #444;border-radius:6px;min-width:200px;z-index:9999;padding:4px 0;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+    .hm-wrap.open .hm-menu{display:block}
+    .hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}
+    .hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}
+    .hm-sep{border:none;border-top:1px solid #333;margin:4px 0}
   </style>
 </head>
 <body>
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
-  <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;">Collège Calvin</span>
-  <a href="class-management.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🏫 Class Mgmt</a>
-  <a href="board.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🌐 Board</a>
-  <a href="learning-tools.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🎮 Learning Tools</a>
-  <a href="manage-database.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🗄️ Database</a>
-  <a href="grade-sheet.html" target="_blank" style="background:#fff;color:#111;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;text-decoration:none;border:2px solid #fff;" class="nav-link nav-active">📝 Grade Sheet</a>
-  <a href="participation-tracker.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">📊 Tracker</a>
-  <a href="data-location.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">⚙️ Data</a>
-  <button onclick="openCreditsModal()" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;background:none;cursor:pointer;font-family:inherit;" class="nav-link">ℹ️ Credits</button>
+  <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
+    <div class="hm-menu">
+      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
+      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
+      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
+      <a href="grade-sheet.html" class="nav-link hm-item nav-active">📝 Grade Sheet</a>
+      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
+      <hr class="hm-sep">
+      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
+      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <hr class="hm-sep">
+      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+    </div>
+  </div>
 </nav>
   <div class="app">
     <section id="screen-classes" class="screen panel">
@@ -3711,6 +3731,9 @@
       const ids = getDeletedClassIds();
       ids.add(classId);
       localStorage.setItem(DELETED_CLASS_IDS_KEY, JSON.stringify([...ids]));
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.saveJson('gradeSheet', 'deleted-class-ids-backup.json', [...ids]).catch(() => {});
+      }
     }
 
     function filterDeletedClasses(classes) {
@@ -3855,6 +3878,47 @@
 
       appState.classes = seeded;
       saveState();
+    }
+
+    // Sync appState.classes from CLASS_GROUPS on every boot.
+    // Creates any grade-sheet class not yet present for a non-archived group,
+    // and adds any students in CLASS_GROUPS that are not yet in the matching class.
+    // Only adds — never removes — so existing grade data is never touched.
+    function syncFromClassGroups() {
+      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return false;
+      const _cgMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      let changed = false;
+
+      for (const [groupName, groupStudents] of Object.entries(CLASS_GROUPS)) {
+        if (groupName === 'Teachers') continue;
+        if (_cgMeta[groupName] && _cgMeta[groupName].archived) continue;
+        if (!Array.isArray(groupStudents)) continue;
+
+        let classObj = appState.classes.find(c => c.name === groupName);
+        if (!classObj) {
+          const meta = _cgMeta[groupName] || {};
+          classObj = makeClass(groupName, [], String(meta.year || ''), String(meta.semester || ''), String(meta.level || ''));
+          appState.classes.push(classObj);
+          changed = true;
+        }
+
+        for (const cgName of groupStudents) {
+          if (!cgName || typeof cgName !== 'string') continue;
+          const upper = cgName.trim().toUpperCase();
+          const alreadyPresent = classObj.students.some(s => {
+            const first = (s.firstName || '').trim().toUpperCase();
+            const last = (s.lastName || '').trim().toUpperCase();
+            const full = last ? first + ' ' + last : first;
+            return full === upper || first === upper || last === upper;
+          });
+          if (!alreadyPresent) {
+            classObj.students.push(defaultStudent(classObj.students.length + 1, cgName));
+            changed = true;
+          }
+        }
+      }
+
+      return changed;
     }
 
     function showScreen(name) {
@@ -7572,7 +7636,15 @@
     // ── Boot ─────────────────────────────────────────────────────
     async function boot() {
       await initializeReferenceData();
+      if (window.Desktop && Desktop.isElectron() && !localStorage.getItem(DELETED_CLASS_IDS_KEY)) {
+        try {
+          const r = await Desktop.readJson('gradeSheet', 'deleted-class-ids-backup.json');
+          if (r && r.ok && Array.isArray(r.data) && r.data.length)
+            localStorage.setItem(DELETED_CLASS_IDS_KEY, JSON.stringify(r.data));
+        } catch (e) {}
+      }
       await loadState();
+      if (syncFromClassGroups()) saveState();
       wireEvents();
       renderClasses();
       showScreen("classes");

@@ -427,6 +427,99 @@
       border-top: 2px solid #000;
       margin: 8px 0 16px;
     }
+
+    /* ── Reset modal ──────────────────────────────── */
+    .reset-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+    }
+    .reset-modal {
+      background: #fff;
+      border: 2.5px solid #000;
+      border-radius: 12px;
+      padding: 32px 36px;
+      max-width: 540px;
+      width: 92%;
+      box-shadow: 6px 6px 0 #000;
+    }
+    .reset-modal h2 { font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+    .reset-modal-desc { font-size: 0.88rem; font-weight: 500; color: #333; line-height: 1.55; margin-bottom: 20px; }
+
+    .reset-folder-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .reset-folder-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
+    }
+    .reset-folder-item:hover { background: #f5f5f5; }
+    .reset-folder-item.checked { background: #000; color: #fff; }
+    .reset-folder-item input[type="checkbox"] {
+      width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px;
+      accent-color: #fff; cursor: pointer;
+    }
+    .reset-folder-item.checked input[type="checkbox"] { accent-color: #000; }
+    .reset-folder-item-body { flex: 1; min-width: 0; }
+    .reset-folder-label { font-size: 0.9rem; font-weight: 700; }
+    .reset-folder-desc  { font-size: 0.78rem; font-weight: 500; margin-top: 2px; opacity: 0.75; }
+
+    .reset-divider { border: none; border-top: 2px solid #000; margin: 10px 0; }
+
+    .reset-folder-item.everything { border-color: #c00; }
+    .reset-folder-item.everything.checked { background: #c00; color: #fff; border-color: #c00; }
+    .reset-folder-item.everything:hover { background: #fff0f0; }
+    .reset-folder-item.everything.checked:hover { background: #a00; }
+
+    .reset-confirm-input {
+      width: 100%;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .reset-confirm-input:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .reset-confirm-input.ready { border-color: #c00; box-shadow: 2px 2px 0 #c00; }
+
+    .btn-danger {
+      padding: 8px 16px;
+      border: 2px solid #c00;
+      border-radius: 6px;
+      background: #c00;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-danger:hover { background: #a00; border-color: #a00; }
+    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger:disabled:hover { background: #c00; border-color: #c00; }
+
+    .reset-selected-list {
+      background: #f5f5f5;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      line-height: 1.7;
+    }
   </style>
 </head>
 <body>
@@ -474,6 +567,8 @@
     </div>
     <h2 class="section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
     <div class="file-list" id="rfDocsList"></div>
+    <h2 class="section-heading" id="rfArchivedHeading" style="display:none" data-i18n="rfArchivedHeading">Archived</h2>
+    <div class="file-list" id="rfArchivedList"></div>
   </div>
 
   <!-- ══ BROWSE TAB ══════════════════════════════════════════════ -->
@@ -545,6 +640,15 @@
       </details>
     </div>
 
+    <!-- Reset App -->
+    <div class="sync-card" style="border-color:#c00;">
+      <h2 style="color:#c00;">Reset App</h2>
+      <p class="sync-card-desc">Permanently erase selected app data folders. A backup ZIP will be offered first.</p>
+      <div class="btn-row">
+        <button class="btn-danger" id="resetAppBtn">Reset App…</button>
+      </div>
+    </div>
+
     <div id="conflictSection" style="display:none">
       <h2 class="section-heading" data-i18n="fmConflictsHeading">Sync Conflicts</h2>
       <p style="font-size:0.85rem;font-weight:600;margin-bottom:12px;" data-i18n="fmConflictsDesc">Both sides have different versions of the files below. Choose which to keep.</p>
@@ -562,6 +666,58 @@
   </div>
 
 </div>
+
+<!-- ══ RESET APP MODAL ══════════════════════════════════════════════ -->
+<div id="resetOverlay" class="reset-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="reset-modal">
+    <div id="resetStep1">
+      <h2>Reset App</h2>
+      <p class="reset-modal-desc">This will permanently erase selected folders. <strong>This cannot be undone.</strong><br>We strongly recommend saving a backup ZIP first.</p>
+      <div class="btn-row">
+        <button class="btn" id="resetBackupBtn">Save Backup ZIP</button>
+        <div id="resetBackupStatus" style="font-size:0.83rem;font-weight:600;align-self:center;min-height:1.2em;"></div>
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn-outline" id="resetToStep2Btn">Skip, choose folders →</button>
+        <button class="btn-outline" id="resetCancelStep1Btn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="resetStep2" style="display:none;">
+      <h2>Choose folders to erase</h2>
+      <p class="reset-modal-desc">Check the folders you want to delete. Unchecked folders will be kept.</p>
+      <div class="reset-folder-list" id="resetFolderList"></div>
+      <hr class="reset-divider">
+      <div class="reset-folder-list">
+        <label class="reset-folder-item everything" id="resetEverythingItem">
+          <input type="checkbox" id="resetEverythingCb">
+          <div class="reset-folder-item-body">
+            <div class="reset-folder-label">Everything</div>
+            <div class="reset-folder-desc">All app data — settings, class rosters, and all folders above</div>
+          </div>
+        </label>
+      </div>
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="btn-danger" id="resetToStep3Btn" disabled>Erase Selected →</button>
+        <button class="btn-outline" id="resetBackStep2Btn">← Back</button>
+      </div>
+    </div>
+
+    <div id="resetStep3" style="display:none;">
+      <h2>Confirm erasure</h2>
+      <p class="reset-modal-desc">You are about to permanently erase:</p>
+      <div class="reset-selected-list" id="resetSelectedList"></div>
+      <p class="reset-modal-desc" style="margin-bottom:10px;">Type <strong>ERASE</strong> to confirm:</p>
+      <input type="text" class="reset-confirm-input" id="resetConfirmInput" placeholder="ERASE" autocomplete="off" spellcheck="false">
+      <div class="btn-row">
+        <button class="btn-danger" id="resetExecuteBtn" disabled>Erase Now</button>
+        <button class="btn-outline" id="resetBackStep3Btn">← Back</button>
+      </div>
+      <div id="resetExecStatus" style="font-size:0.85rem;font-weight:600;margin-top:8px;min-height:1.2em;"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 
 /* ════════════════════════════════════════════
@@ -755,6 +911,8 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
 
 var rfSessions = [];
 var rfDocs     = [];
+var rfArchivedSessions = [];
+var rfArchivedDocs     = [];
 var rfContentCache     = new Map();
 var rfSearchTimer      = null;
 var rfSearchGeneration = 0;
@@ -790,7 +948,7 @@ async function rfRunContentSearch() {
     rfRender(); return;
   }
   var gen = ++rfSearchGeneration;
-  var toRead = rfSessions.filter(function(f) {
+  var toRead = rfSessions.concat(rfArchivedSessions).filter(function(f) {
     return !rfContentCache.has(normPath(f.relativePath || f.filename));
   });
   if (toRead.length > 0) {
@@ -822,7 +980,7 @@ function rfSortFn(order) {
   return function(a,b){ return fileDateMs(b) - fileDateMs(a); };
 }
 
-function makeRfRow(file, isSession, snippet) {
+function makeRfRow(file, isSession, snippet, isArchived) {
   var row = document.createElement('div');
   row.className = 'file-row';
 
@@ -843,7 +1001,7 @@ function makeRfRow(file, isSession, snippet) {
   var meta = document.createElement('div');
   meta.className = 'file-meta';
   var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
-  meta.textContent = formatDate(fileDateMs(file)) + (kb ? ' · ' + kb : '');
+  meta.textContent = formatDate(fileDateMs(file)) + (kb ? ' · ' + kb : '') + (isArchived ? ' · Archived' : '');
   info.appendChild(meta);
 
   if (snippet) {
@@ -901,7 +1059,7 @@ function rfRender() {
 
   var uncachedCount = 0;
   if (search) {
-    rfSessions.forEach(function(f) {
+    rfSessions.concat(rfArchivedSessions).forEach(function(f) {
       if (!rfContentCache.has(normPath(f.relativePath || f.filename))) uncachedCount++;
     });
   }
@@ -930,8 +1088,28 @@ function rfRender() {
   });
   filteredD.sort(rfSortFn(sort));
 
+  var filteredAS = !search ? [] : (isDocFilter ? [] : rfArchivedSessions.filter(function(f) {
+    if (isSessFilter && f.target !== filter) return false;
+    var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
+    if (nameMatch) return true;
+    var key = normPath(f.relativePath || f.filename);
+    return rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1;
+  }).map(function(f) {
+    var snippet = '';
+    var cached = rfContentCache.get(normPath(f.relativePath || f.filename));
+    if (cached) snippet = rfGetSnippet(cached, search);
+    return { file: f, snippet: snippet };
+  }));
+  filteredAS.sort(function(a, b) { return rfSortFn(sort)(a.file, b.file); });
+
+  var filteredAD = !search ? [] : (isSessFilter ? [] : rfArchivedDocs.filter(function(f) {
+    if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
+    return f.filename.toLowerCase().indexOf(search) !== -1;
+  }));
+  filteredAD.sort(rfSortFn(sort));
+
   var rfList = document.getElementById('rfList');
-  if (!filteredS.length && !filteredD.length) {
+  if (!filteredS.length && !filteredD.length && !filteredAS.length && !filteredAD.length) {
     var noFilesIcon = uncachedCount > 0 ? '🔍' : '📭';
     var noFilesMsg  = uncachedCount > 0
       ? tt('rfNoFiles','No files found yet') + ' · ' + tt('rfSearchingContent','scanning content…')
@@ -939,16 +1117,24 @@ function rfRender() {
     rfList.innerHTML = '<div class="state-msg"><span class="state-icon">' + noFilesIcon + '</span>' + escHtml(noFilesMsg) + '</div>';
   } else {
     rfList.innerHTML = '';
-    filteredS.forEach(function(item) { rfList.appendChild(makeRfRow(item.file, true, item.snippet)); });
+    filteredS.forEach(function(item) { rfList.appendChild(makeRfRow(item.file, true, item.snippet, false)); });
   }
 
   var rfDH = document.getElementById('rfDocsHeading');
   var rfDL = document.getElementById('rfDocsList');
   rfDH.style.display = filteredD.length ? '' : 'none';
   rfDL.innerHTML = '';
-  filteredD.forEach(function(f) { rfDL.appendChild(makeRfRow(f, false, '')); });
+  filteredD.forEach(function(f) { rfDL.appendChild(makeRfRow(f, false, '', false)); });
 
-  var total = filteredS.length + filteredD.length;
+  var rfAH = document.getElementById('rfArchivedHeading');
+  var rfAL = document.getElementById('rfArchivedList');
+  var archivedCount = filteredAS.length + filteredAD.length;
+  rfAH.style.display = archivedCount ? '' : 'none';
+  rfAL.innerHTML = '';
+  filteredAS.forEach(function(item) { rfAL.appendChild(makeRfRow(item.file, true, item.snippet, true)); });
+  filteredAD.forEach(function(f) { rfAL.appendChild(makeRfRow(f, false, '', true)); });
+
+  var total = filteredS.length + filteredD.length + archivedCount;
   var countText = total + ' ' + tt(total === 1 ? 'rfFile' : 'rfFiles', total === 1 ? 'file' : 'files');
   if (search && uncachedCount > 0) countText += ' · scanning…';
   document.getElementById('rfCount').textContent = countText;
@@ -973,12 +1159,15 @@ async function loadRecent() {
   try {
     var r = await Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true });
     if (r && r.ok && Array.isArray(r.files)) {
-      rfSessions = r.files
-        .filter(function(f) {
-          var rel = normPath(f.relativePath || f.filename || '');
-          return rel.split('/').indexOf('archived') === -1;
-        })
-        .map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+      var allSessions = r.files.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+      rfSessions = allSessions.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        return rel.split('/').indexOf('archived') === -1;
+      });
+      rfArchivedSessions = allSessions.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        return rel.split('/').indexOf('archived') !== -1;
+      });
     }
   } catch(e) { console.warn('loadRecent sessions:', e); }
 
@@ -988,6 +1177,10 @@ async function loadRecent() {
       rfDocs = d.files.filter(function(f) {
         var rel = normPath(f.relativePath || f.filename || '');
         return rel.split('/').indexOf('archived') === -1;
+      });
+      rfArchivedDocs = d.files.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        return rel.split('/').indexOf('archived') !== -1;
       });
     }
   } catch(e) { console.warn('loadRecent docs:', e); }
@@ -1011,6 +1204,98 @@ var TARGET_LABELS = {
   gradeSheet:        'Grade Sheets',
   groupParticipation:'Participation'
 };
+
+function startFolderRename(row, folderName, nameEl, prefix) {
+  if (row.dataset.renaming === '1') return;
+  row.dataset.renaming = '1';
+  var oldPath = prefix + folderName;
+  var rnBtn = row.querySelector('.btn-rename');
+  var origBtnText = rnBtn ? rnBtn.textContent : '';
+  if (rnBtn) rnBtn.textContent = tt('fmSave', 'Save');
+
+  var inp = document.createElement('input');
+  inp.className = 'rename-input';
+  inp.type = 'text';
+  inp.value = folderName;
+  nameEl.textContent = '';
+  nameEl.appendChild(inp);
+
+  var warnEl = document.createElement('span');
+  warnEl.className = 'rename-warn';
+  nameEl.appendChild(warnEl);
+
+  var done = false;
+
+  function showWarn(msg) { warnEl.textContent = msg || ''; inp.classList.toggle('invalid', !!msg); }
+
+  function cancelFolderRename() {
+    if (done) return;
+    done = true;
+    nameEl.textContent = folderName;
+    row.dataset.renaming = '';
+    if (rnBtn) { rnBtn.textContent = origBtnText; rnBtn.onclick = null; }
+  }
+
+  function confirmFolderRename() {
+    if (done) return;
+    var newName = inp.value.trim();
+    if (!newName) { showWarn(tt('fmRenameEmpty', 'Name cannot be empty.')); return; }
+    if (newName === folderName) { cancelFolderRename(); return; }
+    if (/[/\\<>:"|?*\x00-\x1f]/.test(newName)) {
+      showWarn(tt('fmRenameInvalidChars', 'Name contains invalid characters.')); return;
+    }
+    done = true;
+    var newPath = prefix + newName;
+    Desktop.renameByPath(browseTarget, oldPath, newPath).then(function(res) {
+      if (res && res.ok) {
+        browseAllFiles.forEach(function(f) {
+          var rel = normPath(f.relativePath || f.filename || '');
+          if (rel === oldPath || rel.startsWith(oldPath + '/')) {
+            f.relativePath = newPath + rel.slice(oldPath.length);
+          }
+        });
+        row.dataset.renaming = '';
+        renderBrowse();
+      } else {
+        showWarn(tt('fmRenameFailed', 'Rename failed.'));
+        done = false;
+      }
+    }).catch(function(e) {
+      showWarn(tt('fmRenameFailed', 'Rename failed: ') + (e && e.message ? e.message : String(e)));
+      done = false;
+    });
+  }
+
+  if (rnBtn) rnBtn.onclick = function(e) { e.stopPropagation(); confirmFolderRename(); };
+  inp.addEventListener('input', function() { showWarn(''); });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmFolderRename();
+    if (e.key === 'Escape') cancelFolderRename();
+  });
+  inp.addEventListener('blur', function() { setTimeout(function() { if (!done) cancelFolderRename(); }, 180); });
+  inp.focus();
+  inp.select();
+}
+
+function deleteFolderConfirm(folderName, fileCount, prefix, row) {
+  var msg = 'Delete folder "' + folderName + '"?\n\nThis will permanently delete all ' +
+    fileCount + ' ' + (fileCount === 1 ? 'file' : 'files') + ' inside. This cannot be undone.';
+  if (!window.confirm(msg)) return;
+  var folderPath = prefix + folderName;
+  Desktop.deleteByPath(browseTarget, folderPath).then(function(res) {
+    if (res && res.ok) {
+      browseAllFiles = browseAllFiles.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        return rel !== folderPath && !rel.startsWith(folderPath + '/');
+      });
+      renderBrowse();
+    } else {
+      alert(tt('fmDeleteFailed', 'Delete failed.'));
+    }
+  }).catch(function(e) {
+    alert(tt('fmDeleteFailed', 'Delete failed: ') + (e && e.message ? e.message : String(e)));
+  });
+}
 
 function renderBreadcrumb() {
   var bc = document.getElementById('breadcrumb');
@@ -1094,14 +1379,17 @@ function renderBrowse() {
     folders.forEach(function(folder) {
       var row = document.createElement('div');
       row.className = 'folder-row';
+      row.style.cursor = 'default';
 
       var icon = document.createElement('span');
       icon.className = 'folder-icon';
       icon.textContent = '📁';
+      icon.style.cursor = 'pointer';
 
-      var name = document.createElement('span');
-      name.className = 'folder-name';
-      name.textContent = folder;
+      var nameEl = document.createElement('span');
+      nameEl.className = 'folder-name';
+      nameEl.textContent = folder;
+      nameEl.style.cursor = 'pointer';
 
       var cnt = document.createElement('span');
       cnt.className = 'folder-count';
@@ -1109,16 +1397,44 @@ function renderBrowse() {
       cnt.textContent = n + ' ' + tt(n === 1 ? 'rfFile' : 'rfFiles', n === 1 ? 'file' : 'files');
 
       row.appendChild(icon);
-      row.appendChild(name);
+      row.appendChild(nameEl);
       row.appendChild(cnt);
 
       (function(folderName) {
-        row.addEventListener('click', function() {
-          browsePath = prefix + folderName;
-          renderBrowse();
-          renderBreadcrumb();
-        });
+        icon.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
+        nameEl.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
+        cnt.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
       })(folder);
+
+      if (window.Desktop && Desktop.isElectron()) {
+        var acts = document.createElement('div');
+        acts.className = 'file-actions';
+
+        var rnBtn = document.createElement('button');
+        rnBtn.className = 'btn-rename';
+        rnBtn.textContent = tt('fmRename', 'Rename');
+        (function(folderName, ne) {
+          rnBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            startFolderRename(row, folderName, ne, prefix);
+          });
+        })(folder, nameEl);
+        acts.appendChild(rnBtn);
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn-action';
+        delBtn.style.cssText = 'color:#c00;border-color:#c00;';
+        delBtn.textContent = tt('fmDelete', 'Delete…');
+        (function(folderName) {
+          delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            deleteFolderConfirm(folderName, folderCounts[folderName], prefix, row);
+          });
+        })(folder);
+        acts.appendChild(delBtn);
+
+        row.appendChild(acts);
+      }
 
       list.appendChild(row);
     });
@@ -1563,6 +1879,205 @@ document.getElementById('cancelConflicts').addEventListener('click', function() 
 document.addEventListener('DOMContentLoaded', function() {
   if (typeof applyTranslations === 'function') applyTranslations();
   loadRecent();
+});
+
+/* ════════════════════════════════════════════
+   RESET APP MODAL
+   ════════════════════════════════════════════ */
+
+var RESET_FOLDER_DEFS = [
+  { id: 'mindmaps',           label: 'Board sessions',     desc: 'Constellation maps and board session saves' },
+  { id: 'grades',             label: 'Grades',             desc: 'Grade log records' },
+  { id: 'gradeSheet',         label: 'Grade sheets',       desc: 'Grade sheet documents' },
+  { id: 'groupParticipation', label: 'Participation logs', desc: 'Group participation tracking records' },
+  { id: 'customData',         label: 'Custom content',     desc: 'Wordbanks, books, dictations, quizzes and other custom data' },
+  { id: 'classPlans',         label: 'Class plans',        desc: 'Saved class plan documents' }
+];
+
+function resetShowStep(n) {
+  document.getElementById('resetStep1').style.display = n === 1 ? '' : 'none';
+  document.getElementById('resetStep2').style.display = n === 2 ? '' : 'none';
+  document.getElementById('resetStep3').style.display = n === 3 ? '' : 'none';
+}
+
+function resetGetSelectedFolders() {
+  if (document.getElementById('resetEverythingCb').checked) {
+    return ['user'];
+  }
+  return RESET_FOLDER_DEFS
+    .filter(function(d) { return document.getElementById('resetCb_' + d.id).checked; })
+    .map(function(d) { return d.id; });
+}
+
+function resetUpdateStep2Btn() {
+  var sel = resetGetSelectedFolders();
+  document.getElementById('resetToStep3Btn').disabled = sel.length === 0;
+}
+
+function openResetModal() {
+  // Build folder checklist
+  var list = document.getElementById('resetFolderList');
+  list.innerHTML = '';
+  RESET_FOLDER_DEFS.forEach(function(def) {
+    var lbl = document.createElement('label');
+    lbl.className = 'reset-folder-item';
+    lbl.htmlFor = 'resetCb_' + def.id;
+
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id   = 'resetCb_' + def.id;
+    cb.addEventListener('change', function() {
+      lbl.classList.toggle('checked', cb.checked);
+      resetUpdateStep2Btn();
+    });
+
+    var body = document.createElement('div');
+    body.className = 'reset-folder-item-body';
+    body.innerHTML = '<div class="reset-folder-label">' + escHtml(def.label) + '</div>' +
+                     '<div class="reset-folder-desc">'  + escHtml(def.desc)  + '</div>';
+
+    lbl.appendChild(cb);
+    lbl.appendChild(body);
+    list.appendChild(lbl);
+  });
+
+  // Reset "Everything" checkbox state
+  var everyCb   = document.getElementById('resetEverythingCb');
+  var everyItem = document.getElementById('resetEverythingItem');
+  everyCb.checked = false;
+  everyItem.classList.remove('checked');
+
+  document.getElementById('resetBackupStatus').textContent = '';
+  document.getElementById('resetConfirmInput').value = '';
+  document.getElementById('resetExecStatus').textContent = '';
+  document.getElementById('resetToStep3Btn').disabled = true;
+  document.getElementById('resetExecuteBtn').disabled = true;
+
+  resetShowStep(1);
+  document.getElementById('resetOverlay').style.display = 'flex';
+}
+
+function closeResetModal() {
+  document.getElementById('resetOverlay').style.display = 'none';
+}
+
+document.getElementById('resetEverythingCb').addEventListener('change', function() {
+  var everyItem = document.getElementById('resetEverythingItem');
+  everyItem.classList.toggle('checked', this.checked);
+  RESET_FOLDER_DEFS.forEach(function(def) {
+    var cb2 = document.getElementById('resetCb_' + def.id);
+    if (!cb2) return;
+    if (document.getElementById('resetEverythingCb').checked) {
+      cb2.checked = false;
+      cb2.disabled = true;
+      cb2.closest('.reset-folder-item').classList.remove('checked');
+    } else {
+      cb2.disabled = false;
+    }
+  });
+  resetUpdateStep2Btn();
+});
+
+document.getElementById('resetAppBtn').addEventListener('click', openResetModal);
+
+document.getElementById('resetCancelStep1Btn').addEventListener('click', closeResetModal);
+
+document.getElementById('resetOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeResetModal();
+});
+
+document.getElementById('resetBackupBtn').addEventListener('click', async function() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  this.disabled = true;
+  var st = document.getElementById('resetBackupStatus');
+  st.textContent = 'Saving…';
+  st.style.color = '';
+  try {
+    var r = await Desktop.backupZip();
+    if (r && r.ok) {
+      st.textContent = 'Backup saved.';
+      st.style.color = '#1a7f37';
+    } else if (r && r.canceled) {
+      st.textContent = '';
+    } else {
+      st.textContent = 'Backup failed.';
+      st.style.color = '#c00';
+    }
+  } catch(e) {
+    st.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+    st.style.color = '#c00';
+  } finally { this.disabled = false; }
+});
+
+document.getElementById('resetToStep2Btn').addEventListener('click', function() {
+  resetShowStep(2);
+});
+
+document.getElementById('resetBackStep2Btn').addEventListener('click', function() {
+  resetShowStep(1);
+});
+
+document.getElementById('resetToStep3Btn').addEventListener('click', function() {
+  var sel = resetGetSelectedFolders();
+  if (!sel.length) return;
+
+  var isEverything = sel[0] === 'user';
+  var lines = isEverything
+    ? ['Everything (all app data, settings, and rosters)']
+    : sel.map(function(id) {
+        var def = RESET_FOLDER_DEFS.find(function(d) { return d.id === id; });
+        return def ? def.label : id;
+      });
+
+  document.getElementById('resetSelectedList').innerHTML =
+    lines.map(function(l) { return '• ' + escHtml(l); }).join('<br>');
+
+  document.getElementById('resetConfirmInput').value = '';
+  document.getElementById('resetExecuteBtn').disabled = true;
+  document.getElementById('resetExecStatus').textContent = '';
+  resetShowStep(3);
+});
+
+document.getElementById('resetBackStep3Btn').addEventListener('click', function() {
+  resetShowStep(2);
+});
+
+document.getElementById('resetConfirmInput').addEventListener('input', function() {
+  var ok = this.value.trim().toUpperCase() === 'ERASE';
+  this.classList.toggle('ready', ok);
+  document.getElementById('resetExecuteBtn').disabled = !ok;
+});
+
+document.getElementById('resetExecuteBtn').addEventListener('click', async function() {
+  if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.resetFolders !== 'function') return;
+  var sel = resetGetSelectedFolders();
+  if (!sel.length) return;
+
+  this.disabled = true;
+  var backBtn = document.getElementById('resetBackStep3Btn');
+  backBtn.disabled = true;
+  var st = document.getElementById('resetExecStatus');
+  st.textContent = 'Erasing…';
+  st.style.color = '';
+
+  try {
+    var r = await Desktop.resetFolders(sel);
+    if (r && r.ok) {
+      st.textContent = 'Done. Selected folders have been erased.';
+      st.style.color = '#1a7f37';
+      setTimeout(function() { closeResetModal(); }, 1800);
+    } else {
+      st.textContent = 'Error: ' + (r && r.error ? r.error : 'Unknown error.');
+      st.style.color = '#c00';
+      this.disabled = false;
+      backBtn.disabled = false;
+    }
+  } catch(e) {
+    st.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+    st.style.color = '#c00';
+    this.disabled = false;
+    backBtn.disabled = false;
+  }
 });
 </script>
 </body>

@@ -370,6 +370,11 @@
     return getDesktopApi().restoreZip();
   }
 
+  async function resetFolders(targets) {
+    if (!isElectron()) return null;
+    return getDesktopApi().resetFolders({ targets: Array.isArray(targets) ? targets : [] });
+  }
+
   async function applyRestoreChoices(request) {
     if (!isElectron()) {
       return null;
@@ -465,6 +470,7 @@
     openHtml,
     printHtml,
     printPdf,
+    resetFolders,
     restoreZip,
     saveBlob,
     saveFiles,
@@ -502,9 +508,18 @@
     });
   }
 
+  function wireHamburger() {
+    const hm = document.getElementById('app-hamburger');
+    if (!hm) return;
+    document.addEventListener('click', function (e) {
+      if (!hm.contains(e.target)) hm.classList.remove('open');
+    });
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireAppNav);
+    document.addEventListener('DOMContentLoaded', function () { wireAppNav(); wireHamburger(); });
   } else {
     wireAppNav();
+    wireHamburger();
   }
 })();

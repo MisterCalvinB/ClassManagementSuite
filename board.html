@@ -8,7 +8,7 @@
     function applyBoardTitleFromConfig() {
       var _t = '';
       try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-      var label = _t || 'Collège Calvin';
+      var label = _t || '';
       var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
       document.title = label + ': Board';
     }
@@ -429,15 +429,27 @@
 </head>
 <body>
 <nav id="app-nav">
-  <span class="nav-brand">Collège Calvin</span>
-  <a href="class-management.html" target="_blank" class="nav-link">🏫 Class Mgmt</a>
-  <a href="board.html" target="_blank" class="nav-link nav-active">🌐 Board</a>
-  <a href="learning-tools.html" target="_blank" class="nav-link">🎮 Learning Tools</a>
-  <a href="manage-database.html" target="_blank" class="nav-link">🗄️ Database</a>
-  <a href="grade-sheet.html" target="_blank" class="nav-link">📝 Grade Sheet</a>
-  <a href="participation-tracker.html" target="_blank" class="nav-link">📊 Tracker</a>
-  <a href="data-location.html" target="_blank" class="nav-link">⚙️ Data</a>
-  <button onclick="openCreditsModal()" class="nav-link" style="background:none;border:none;cursor:pointer;font-family:inherit;">ℹ️ Credits</button>
+  <span class="nav-brand"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
+    <div class="hm-menu">
+      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
+      <a href="board.html" class="nav-link hm-item nav-active">🌐 Board</a>
+      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
+      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
+      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
+      <hr class="hm-sep">
+      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
+      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <hr class="hm-sep">
+      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+    </div>
+  </div>
 </nav>
 
 <div id="board-cms-timer-strip" aria-live="polite">
@@ -658,6 +670,7 @@
     <span class="con-ctx-icon-sep"></span>
     <button class="con-ctx-icon-btn" onclick="conCtxDuplicate()" title="Duplicate word">⧉</button>
     <button class="con-ctx-icon-btn" onclick="conCtxSplitNode()" title="Split word by spaces">✂</button>
+    <button class="con-ctx-icon-btn" id="con-ctx-star-btn" onclick="conCtxToggleStar()" title="Star in DB" style="display:none">☆</button>
     <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card">📖</button>
     <button class="con-ctx-icon-btn" id="con-ctx-db-btn" onclick="conCtxAddToDb()" title="Add to DB">➕</button>
     <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word">✏️</button>
@@ -965,6 +978,9 @@
         <option value="all">All Sources</option>
       </select>
       <input type="text" id="con-import-search" placeholder="Search…" oninput="conImportRender()">
+      <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="con-import-starred-only" onchange="conImportRender()"> ★ Starred only
+      </label>
       <button class="action-btn btn-grey" onclick="conImportSelectAll()">Select All</button>
       <button class="action-btn btn-grey" onclick="conImportClearSel()">Clear</button>
     </div>
@@ -2015,9 +2031,10 @@
     }
 
     // --- Array-aware helpers for definition / exampleSentence ---
-    function _firstVal(v) { return Array.isArray(v) ? (v[0] || '') : (v || ''); }
+    function _firstVal(v) { if (!Array.isArray(v)) return v || ''; if (!v.length) return ''; return v[Math.floor(Math.random() * v.length)]; }
     function _allVals(v) { return Array.isArray(v) ? v : (v ? [v] : []); }
     function _editableStr(v) { return Array.isArray(v) ? v.join('\n') : (v || ''); }
+    function _parseLines(s) { const lines = s.split('\n').map(x => x.trim()).filter(Boolean); return lines.length ? lines : []; }
     function _splitFrenchTranslations(value) {
       const parts = Array.isArray(value) ? value : [value || ''];
       return parts
@@ -2121,7 +2138,10 @@
       document.getElementById('det-theme').innerHTML = getItemThemes(item).map(t => `<span class="meta-badge">${t}</span>`).join(' ') || '<span class="meta-badge">—</span>';
       document.getElementById('det-level').textContent = (item.level || 'B2').toUpperCase();
       const _detSrcEl = document.getElementById('det-source');
-      if (_detSrcEl) { const _s = item._source || 'worddb'; _detSrcEl.textContent = _s === 'worddb' ? 'wordDb' : _s === 'custom' ? 'Custom' : _s; }
+      if (_detSrcEl) {
+        const _srcs = Array.isArray(item._sources) && item._sources.length ? item._sources : [item._source || 'worddb'];
+        _detSrcEl.innerHTML = _srcs.map(s => { const l = (s === 'worddb' || s === 'wordDb') ? 'wordDb' : s === 'custom' ? 'Custom' : s; return `<span class="meta-badge det-source-badge">${l}</span>`; }).join(' ');
+      }
       _detSetField(document.getElementById('det-def'), item.definition, false);
       _detSetField(document.getElementById('det-ex'), item.exampleSentence, true, t('noExample'));
 
@@ -3422,10 +3442,23 @@ function hideFailure() {
     function awGetCustomGaps()   { try { return JSON.parse(localStorage.getItem(AW_GAP_KEY))     || []; } catch { return []; } }
     function awGetCustomErrors() { try { return JSON.parse(localStorage.getItem(AW_ERROR_KEY))   || []; } catch { return []; } }
 
-    function awSaveCustomWords(w)  { localStorage.setItem(AW_STORAGE_KEY, JSON.stringify(w)); }
-    function awSaveCustomQuotes(q) { localStorage.setItem(AW_QUOTES_KEY,  JSON.stringify(q)); }
-    function awSaveCustomGaps(g)   { localStorage.setItem(AW_GAP_KEY,     JSON.stringify(g)); }
-    function awSaveCustomErrors(e) { localStorage.setItem(AW_ERROR_KEY,   JSON.stringify(e)); }
+    let _awFileSaveTimer = null;
+    function _awScheduleFileSave() {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      clearTimeout(_awFileSaveTimer);
+      _awFileSaveTimer = setTimeout(async () => {
+        try {
+          await Desktop.saveJson('customWordbanks',   'custom-words-backup.json',  awGetCustomWords());
+          await Desktop.saveJson('customQuotes',       'custom-quotes-backup.json', awGetCustomQuotes());
+          await Desktop.saveJson('customGapfillbanks', 'custom-gaps-backup.json',   awGetCustomGaps());
+          await Desktop.saveJson('customErrorbanks',   'custom-errors-backup.json', awGetCustomErrors());
+        } catch (e) {}
+      }, 400);
+    }
+    function awSaveCustomWords(w)  { localStorage.setItem(AW_STORAGE_KEY, JSON.stringify(w)); _awScheduleFileSave(); }
+    function awSaveCustomQuotes(q) { localStorage.setItem(AW_QUOTES_KEY,  JSON.stringify(q)); _awScheduleFileSave(); }
+    function awSaveCustomGaps(g)   { localStorage.setItem(AW_GAP_KEY,     JSON.stringify(g)); _awScheduleFileSave(); }
+    function awSaveCustomErrors(e) { localStorage.setItem(AW_ERROR_KEY,   JSON.stringify(e)); _awScheduleFileSave(); }
 
     function awLoadCustomWords() {
       const custom = awGetCustomWords(); if (!custom.length) return;
@@ -3442,6 +3475,7 @@ function hideFailure() {
       const wordIndex = new Map();
       vocabBank.forEach((w, idx) => {
         if (!w._source) w._source = 'worddb';
+        if (!Array.isArray(w._sources)) w._sources = [w._source];
         if (w && w.word) wordIndex.set(String(w.word).toLowerCase(), idx);
       });
       if (!window.Desktop || !Desktop.isElectron()) return;
@@ -3469,7 +3503,10 @@ function hideFailure() {
               const bi = wordIndex.has(key) ? wordIndex.get(key) : -1;
               if (bi !== -1) {
                 Object.assign(vocabBank[bi], w);
+                if (!Array.isArray(vocabBank[bi]._sources)) vocabBank[bi]._sources = [sourceId];
+                else if (!vocabBank[bi]._sources.includes(sourceId)) vocabBank[bi]._sources.push(sourceId);
               } else {
+                w._sources = [sourceId];
                 vocabBank.push(w);
                 wordIndex.set(key, vocabBank.length - 1);
               }
@@ -3574,8 +3611,8 @@ function hideFailure() {
       document.getElementById('aw-pos').value        = w.partOfSpeech || '';
       document.getElementById('aw-level').value      = w.level || '';
       document.getElementById('aw-theme').value      = getItemThemes(w).join(', ');
-      document.getElementById('aw-definition').value = w.definition || '';
-      document.getElementById('aw-example').value    = w.exampleSentence || '';
+      document.getElementById('aw-definition').value = _editableStr(w.definition);
+      document.getElementById('aw-example').value    = _editableStr(w.exampleSentence);
       document.getElementById('aw-synonyms').value   = (w.synonyms || []).join(', ');
       document.getElementById('aw-antonyms').value   = (w.antonyms || []).join(', ');
     }
@@ -3605,11 +3642,12 @@ function hideFailure() {
     function awSubmitForm() {
       const word = document.getElementById('aw-word').value.trim();
       const french = document.getElementById('aw-french').value.trim();
-      const definition = document.getElementById('aw-definition').value.trim();
+      const definition = _parseLines(document.getElementById('aw-definition').value);
+      const exampleSentence = _parseLines(document.getElementById('aw-example').value);
       if (!word)       { awSetFeedback('aw-form-feedback', '⚠ Word is required.', 'err'); return; }
       const themeRaw = document.getElementById('aw-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
-      const entry = { word, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
+      const entry = { word, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, definition, exampleSentence, synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
 
       // Register themes in vocabThemes
       const newThemeArr = Array.isArray(themeVal) ? themeVal : (themeVal ? [themeVal] : []);
@@ -3866,10 +3904,13 @@ function hideFailure() {
       const newAnt = inAnt.filter(a => !exAnt.map(x=>x.toLowerCase()).includes(a.toLowerCase()));
 
       // Determine which scalar fields would be filled by fill-empty
-      const fillableScalar = ['ipa','partOfSpeech','level','french','exampleSentence','definition'].filter(
+      const fillableScalar = ['ipa','partOfSpeech','level','french'].filter(
         k => !existing[k] && incoming[k]
       );
-      const hasFillable = fillableScalar.length > 0 || newSyn.length > 0 || newAnt.length > 0;
+      const fillableArrays = ['definition','exampleSentence'].filter(
+        k => !_allVals(existing[k]).length && _allVals(incoming[k]).length
+      );
+      const hasFillable = fillableScalar.length > 0 || fillableArrays.length > 0 || newSyn.length > 0 || newAnt.length > 0;
 
       // Show/hide Fill Empty button based on whether there's anything to fill
       const fillBtn = document.getElementById('aw-merge-fill-btn');
@@ -3907,7 +3948,7 @@ function hideFailure() {
       };
 
       // Build fill summary
-      const fillParts = [...fillableScalar];
+      const fillParts = [...fillableScalar, ...fillableArrays];
       if (newSyn.length) fillParts.push(`synonyms (+${newSyn.length})`);
       if (newAnt.length) fillParts.push(`antonyms (+${newAnt.length})`);
 
@@ -3933,8 +3974,8 @@ function hideFailure() {
             </tr>
             ${arrayRow('Synonyms', exSyn, inSyn, newSyn)}
             ${arrayRow('Antonyms', exAnt, inAnt, newAnt)}
-            ${row('Definition', (existing.definition||'').substring(0,80)+((existing.definition||'').length>80?'…':''), (incoming.definition||'').substring(0,80)+((incoming.definition||'').length>80?'…':''), 'definition')}
-            ${row('Example', (existing.exampleSentence||'').substring(0,80)+((existing.exampleSentence||'').length>80?'…':''), (incoming.exampleSentence||'').substring(0,80)+((incoming.exampleSentence||'').length>80?'…':''), 'exampleSentence')}
+            ${(function(){ const ex=_allVals(existing.definition).join(' / '), inc=_allVals(incoming.definition).join(' / '); return row('Definition', ex.substring(0,80)+(ex.length>80?'…':''), inc.substring(0,80)+(inc.length>80?'…':''), 'definition'); })()}
+            ${(function(){ const ex=_allVals(existing.exampleSentence).join(' / '), inc=_allVals(incoming.exampleSentence).join(' / '); return row('Example', ex.substring(0,80)+(ex.length>80?'…':''), inc.substring(0,80)+(inc.length>80?'…':''), 'exampleSentence'); })()}
           </tbody>
         </table>${hasFillable ? `<div style="padding:8px 14px;background:#f0faf0;border-top:1px solid #c3e6c3;font-size:0.78rem;color:#1a7a1a;font-weight:700;">🪄 "Fill Empty Fields" will add: ${fillParts.join(', ')}</div>` : ''}`;
 
@@ -3962,9 +4003,10 @@ function hideFailure() {
       const custom = awGetCustomWords();
       if (action === 'fill-empty') {
         // Copy scalar fields only if empty on existing
-        const scalarFields = ['ipa','partOfSpeech','level','french','exampleSentence','definition'];
+        const scalarFields = ['ipa','partOfSpeech','level','french'];
         let filled = false;
         scalarFields.forEach(k => { if (!existing[k] && incoming[k]) { existing[k] = incoming[k]; filled = true; } });
+        ['definition','exampleSentence'].forEach(k => { if (!_allVals(existing[k]).length && _allVals(incoming[k]).length) { existing[k] = incoming[k]; filled = true; } });
         // Always union-merge synonyms/antonyms — add any new entries from incoming
         if (incoming.synonyms && incoming.synonyms.length) {
           const before = (existing.synonyms || []).length;
@@ -3994,7 +4036,8 @@ function hideFailure() {
         if (incoming.synonyms) existing.synonyms = [...new Set([...(existing.synonyms||[]), ...incoming.synonyms])];
         if (incoming.antonyms) existing.antonyms = [...new Set([...(existing.antonyms||[]), ...incoming.antonyms])];
         // Fill in missing fields from incoming
-        ['ipa','partOfSpeech','level','exampleSentence'].forEach(k => { if (!existing[k] && incoming[k]) existing[k] = incoming[k]; });
+        ['ipa','partOfSpeech','level'].forEach(k => { if (!existing[k] && incoming[k]) existing[k] = incoming[k]; });
+        ['definition','exampleSentence'].forEach(k => { if (!_allVals(existing[k]).length && _allVals(incoming[k]).length) existing[k] = incoming[k]; });
         existing._custom = true;
         // Upsert into custom storage (covers both original DB words and already-custom words)
         const ci = custom.findIndex(w => w.word.toLowerCase() === existing.word.toLowerCase());
@@ -4116,7 +4159,8 @@ function hideFailure() {
       const wordLines = vocabBank.map(strip).map(w => {
         const themes = getItemThemes(w);
         const themeVal = themes.length > 1 ? themes : (themes[0] || '');
-        return `  { word: ${JSON.stringify(w.word)}, ipa: ${JSON.stringify(w.ipa || '')}, partOfSpeech: ${JSON.stringify(w.partOfSpeech || '')}, level: ${JSON.stringify(w.level || '')}, theme: ${JSON.stringify(themeVal)}, definition: ${JSON.stringify(w.definition || '')}, french: ${JSON.stringify(w.french || '')}, exampleSentence: ${JSON.stringify(w.exampleSentence || '')}, synonyms: ${JSON.stringify(w.synonyms || [])}, antonyms: ${JSON.stringify(w.antonyms || [])}, otherForms: ${JSON.stringify(w.otherForms || [])} }`;
+        const starredPart = w.starred ? `, starred: true` : '';
+        return `  { word: ${JSON.stringify(w.word)}, ipa: ${JSON.stringify(w.ipa || '')}, partOfSpeech: ${JSON.stringify(w.partOfSpeech || '')}, level: ${JSON.stringify(w.level || '')}, theme: ${JSON.stringify(themeVal)}, definition: ${JSON.stringify(_allVals(w.definition))}, french: ${JSON.stringify(w.french || '')}, exampleSentence: ${JSON.stringify(_allVals(w.exampleSentence))}, synonyms: ${JSON.stringify(w.synonyms || [])}, antonyms: ${JSON.stringify(w.antonyms || [])}, otherForms: ${JSON.stringify(w.otherForms || [])}${starredPart} }`;
       });
       const quoteLines = quoteBank.map(strip).map(q => `  ${JSON.stringify(q)}`);
       const gapLines = gapFillBank.map(strip).map(g => `  ${JSON.stringify(g)}`);
@@ -4224,7 +4268,7 @@ function hideFailure() {
         btnClearAll:'Clear All', btnImportBank:'📥 Import from Bank', btnExportPNG:'🖼 Export PNG', btnCopyPNG:'📋 Copy PNG',
         conInstructions:'System: right-click the board to add words (comma = separate, + = grouped, -- = linked chain) · Move: drag words and drop onto another word to group · Multi-select: Ctrl/Cmd+click, then right-click selection to align, distribute, or grid · Shortcuts: Ctrl/Cmd+G group, Ctrl/Cmd+A select all, Ctrl/Cmd+H hide/reveal, Delete/Backspace remove selection, Ctrl/Cmd+↑/↓ increase/decrease font size, Esc close menus, Ctrl/Cmd+Z undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+S save',
         helpTitle:'📖 How It Works',
-        helpSubtitle:'A complete guide to Collège Calvin — filters, games, tools, and team mode.',
+        helpSubtitle:'A complete guide — filters, games, tools, and team mode.',
         btnGotIt:"Got it — let's play!",
         helpSecFilters:'🎛 Filters',
         helpTipFilters1:'<strong>Level, Theme, Type</strong> — use these filters to narrow the word pool before starting any game. Select multiple values from any picker; only words matching <em>all active filters</em> will appear.',
@@ -4349,7 +4393,7 @@ function hideFailure() {
         btnClearAll:'Alles löschen', btnImportBank:'📥 Aus Wortbank importieren', btnExportPNG:'🖼 PNG exportieren', btnCopyPNG:'📋 PNG kopieren',
         conInstructions:'System: Rechtsklick auf das Board zum Hinzufügen (Komma = getrennte Wörter, + = gruppierte Wörter, -- = verknüpfte Kette) · Bewegen: Wörter ziehen und auf andere Wörter fallen lassen zum Gruppieren · Kürzel: Strg/Cmd+Klick Mehrfachauswahl, Strg/Cmd+G gruppieren, Entf/Backspace löschen, Esc Menüs schließen, Strg/Cmd+Y oder Strg/Cmd+Shift+Z wiederholen',
         helpTitle:'📖 Wie es funktioniert',
-        helpSubtitle:'Eine vollständige Anleitung zu Collège Calvin — Filter, Spiele, Werkzeuge und Team-Modus.',
+        helpSubtitle:'Eine vollständige Anleitung — Filter, Spiele, Werkzeuge und Team-Modus.',
         btnGotIt:"Verstanden — los geht's!",
         helpSecFilters:'🎛 Filter',
         helpTipFilters1:'<strong>Niveau, Thema, Wortart</strong> — verwende diese Filter, um den Wortpool vor einem Spiel einzugrenzen. Wähle mehrere Werte aus; nur Wörter, die <em>allen aktiven Filtern</em> entsprechen, werden angezeigt.',
@@ -4473,7 +4517,7 @@ function hideFailure() {
         btnClearAll:'Elimina Tutto', btnImportBank:'📥 Importa dalla Banca', btnExportPNG:'🖼 Esporta PNG', btnCopyPNG:'📋 Copia PNG',
         conInstructions:'Sistema: clic destro sulla lavagna per aggiungere parole (virgola = parole separate, + = parole raggruppate, -- = catena collegata) · Sposta: trascina le parole e rilasciale su un\'altra parola per raggruppare · Scorciatoie: Ctrl/Cmd+clic selezione multipla, Ctrl/Cmd+G raggruppa, Canc/Backspace elimina, Esc chiude i menu, Ctrl/Cmd+Y o Ctrl/Cmd+Shift+Z ripristina',
         helpTitle:'📖 Come Funziona',
-        helpSubtitle:'Una guida completa a Collège Calvin — filtri, giochi, strumenti e modalità a squadre.',
+        helpSubtitle:'Una guida completa — filtri, giochi, strumenti e modalità a squadre.',
         btnGotIt:'Capito — giochiamo!',
         helpSecFilters:'🎛 Filtri',
         helpTipFilters1:'<strong>Livello, Tema, Tipo</strong> — usa questi filtri per restringere il pool di parole prima di iniziare un gioco. Seleziona più valori da qualsiasi selettore; appariranno solo le parole che corrispondono a <em>tutti i filtri attivi</em>.',
@@ -4597,7 +4641,7 @@ function hideFailure() {
         btnClearAll:'Tout Effacer', btnImportBank:'📥 Importer de la Banque', btnExportPNG:'🖼 Exporter PNG', btnCopyPNG:'📋 Copier PNG',
         conInstructions:'Système : clic droit sur le tableau pour ajouter des mots (virgule = mots séparés, + = mots groupés, -- = chaîne liée) · Déplacer : glissez les mots et déposez-les sur un autre mot pour grouper · Raccourcis : Ctrl/Cmd+clic sélection multiple, Ctrl/Cmd+G grouper, Suppr/Retour arrière supprimer, Esc fermer les menus, Ctrl/Cmd+Y ou Ctrl/Cmd+Shift+Z rétablir',
         helpTitle:'📖 Comment ça Fonctionne',
-        helpSubtitle:'Un guide complet de Collège Calvin — filtres, jeux, outils et mode équipe.',
+        helpSubtitle:'Un guide complet — filtres, jeux, outils et mode équipe.',
         btnGotIt:'Compris — jouons !',
         helpSecFilters:'🎛 Filtres',
         helpTipFilters1:'<strong>Niveau, Thème, Type</strong> — utilisez ces filtres pour réduire le pool de mots avant de commencer un jeu. Sélectionnez plusieurs valeurs ; seuls les mots correspondant à <em>tous les filtres actifs</em> apparaîtront.',
@@ -4676,10 +4720,17 @@ function hideFailure() {
     const FS_MIN = 10;
     const FS_MAX = 26;
     let currentFontSize = (() => { try { return parseInt(localStorage.getItem('app_font_size')) || FS_DEFAULT; } catch(e){ return FS_DEFAULT; } })();
+    let _fontSizeSaveTimer = null;
     function applyFontSize(size) {
       currentFontSize = Math.min(FS_MAX, Math.max(FS_MIN, size));
       document.documentElement.style.fontSize = currentFontSize + 'px';
       try { localStorage.setItem('app_font_size', currentFontSize); } catch(e){}
+      if (window.Desktop && Desktop.isElectron()) {
+        clearTimeout(_fontSizeSaveTimer);
+        _fontSizeSaveTimer = setTimeout(() => {
+          Desktop.saveJson('user', 'ui-prefs.json', { fontSize: currentFontSize }).catch(() => {});
+        }, 400);
+      }
     }
     function adjustFontSize(delta) {
       if (delta === 0) applyFontSize(FS_DEFAULT);
@@ -4756,6 +4807,9 @@ function hideFailure() {
     }
     function mdbSaveDeleted(set) {
       try { localStorage.setItem(MDB_DELETED_KEY, JSON.stringify([...set])); } catch {}
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.saveJson('customWordbanks', 'deleted-words-backup.json', [...set]).catch(() => {});
+      }
     }
 
     let mdbSelectedWords  = new Set(); // Set of word strings currently checked
@@ -5012,7 +5066,7 @@ function hideFailure() {
               <span style="color:#bbb;">${themes}</span>
             </div>
           </div>
-          <div style="font-size:0.8rem;color:#bbb;font-style:italic;">${(w.definition||'').substring(0,80)}${(w.definition||'').length>80?'…':''}</div>
+          <div style="font-size:0.8rem;color:#bbb;font-style:italic;">${(d => d.substring(0,80)+(d.length>80?'…':''))(_firstVal(w.definition))}</div>
           <button class="mdb-word-del-btn" onclick="event.stopPropagation();mdbDeleteOne('${w.word.toLowerCase().replace(/'/g,"\\'")}')">🗑</button>
           <button class="mdb-word-edit-btn" onclick="event.stopPropagation();mdbOpenEditWord('${w.word.toLowerCase().replace(/'/g,"\\'")}')">✏️</button>
         `;
@@ -5140,8 +5194,8 @@ function hideFailure() {
       posEl.value = posVal;
       document.getElementById('mdb-edit-level').value      = (w.level || '').toLowerCase();
       document.getElementById('mdb-edit-theme').value      = getItemThemes(w).join(', ');
-      document.getElementById('mdb-edit-definition').value = w.definition || '';
-      document.getElementById('mdb-edit-example').value    = w.exampleSentence || '';
+      document.getElementById('mdb-edit-definition').value = _editableStr(w.definition);
+      document.getElementById('mdb-edit-example').value    = _editableStr(w.exampleSentence);
       document.getElementById('mdb-edit-synonyms').value   = (w.synonyms || []).join(', ');
       document.getElementById('mdb-edit-antonyms').value   = (w.antonyms || []).join(', ');
       document.getElementById('mdb-edit-feedback').textContent = '';
@@ -5157,9 +5211,10 @@ function hideFailure() {
     function mdbSaveEditWord() {
       if (!_mdbEditWordKey) return;
       const french     = document.getElementById('mdb-edit-french').value.trim();
-      const definition = document.getElementById('mdb-edit-definition').value.trim();
-      if (!french)     { mdbEditFeedback('⚠ French translation is required.', 'err'); return; }
-      if (!definition) { mdbEditFeedback('⚠ Definition is required.', 'err'); return; }
+      const definition = _parseLines(document.getElementById('mdb-edit-definition').value);
+      const exampleSentence = _parseLines(document.getElementById('mdb-edit-example').value);
+      if (!french)            { mdbEditFeedback('⚠ French translation is required.', 'err'); return; }
+      if (!definition.length) { mdbEditFeedback('⚠ Definition is required.', 'err'); return; }
 
       const themeRaw = document.getElementById('mdb-edit-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
@@ -5183,7 +5238,7 @@ function hideFailure() {
         level:           document.getElementById('mdb-edit-level').value || '',
         theme:           themeVal,
         definition,
-        exampleSentence: document.getElementById('mdb-edit-example').value.trim(),
+        exampleSentence,
         synonyms:        document.getElementById('mdb-edit-synonyms').value.split(',').map(s=>s.trim()).filter(Boolean),
         antonyms:        document.getElementById('mdb-edit-antonyms').value.split(',').map(s=>s.trim()).filter(Boolean),
       };
@@ -5465,7 +5520,7 @@ function hideFailure() {
             <div class="mdb-dup-item-details">
               ${w.level ? `<strong>${w.level.toUpperCase()}</strong> · ` : ''}<span style="color:#555;">Type: ${posVal}</span><br>
               <span style="color:#bbb;font-size:0.78rem;">Themes: ${themes}</span><br>
-              ${w.definition ? w.definition.substring(0,100) + (w.definition.length>100?'…':'') : '<em style="color:#ccc;">No definition</em>'}
+              ${_firstVal(w.definition) ? _firstVal(w.definition).substring(0,100) + (_firstVal(w.definition).length>100?'…':'') : '<em style="color:#ccc;">No definition</em>'}
             </div>
           </div>
           <button class="mdb-dup-keep-btn">Keep this</button>
@@ -12392,6 +12447,7 @@ function hideFailure() {
           if (e.button !== 0) return; // left button only
           if (e.target.closest('.con-node-resizer')) return; // let resizer handle it
           if (e.target.closest('.con-emoji-dot')) return; // let emoji dot handle it
+          if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
 
           // Phrase-group nodes are not individually draggable in move mode — delegate to the group
           if (conMode === 'move') {
@@ -13260,6 +13316,18 @@ function hideFailure() {
         if (cardBtn) cardBtn.style.display = dbWord ? '' : 'none';
   // DB button: show ✏️ if word already in vocabBank, ➕ if new
   if (dbBtn) dbBtn.innerHTML = dbWord ? '✏️<span class="con-ctx-icon-label">edit</span>' : '➕<span class="con-ctx-icon-label">DB</span>';
+  // Star button: show only when node has a db entry
+  const starBtn = document.getElementById('con-ctx-star-btn');
+  if (starBtn) {
+    if (dbWord) {
+      starBtn.style.display = '';
+      starBtn.textContent = dbWord.starred ? '★' : '☆';
+      starBtn.classList.toggle('active', !!dbWord.starred);
+      starBtn.title = dbWord.starred ? 'Unstar' : 'Star in DB';
+    } else {
+      starBtn.style.display = 'none';
+    }
+  }
 
         // Show/hide Remove-from-group button (and its separator)
         const rmGroupBtn = document.getElementById('con-ctx-rmgroup-btn');
@@ -13576,6 +13644,7 @@ function hideFailure() {
         // Replace node content with an input
         const _savedResizer  = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedStarBtn  = el.querySelector('.con-node-star-btn');
         el.innerHTML = '';
         el.style.minWidth = Math.max(el.offsetWidth, 80) + 'px';
         const inp = document.createElement('input');
@@ -13584,6 +13653,7 @@ function hideFailure() {
         el.appendChild(inp);
         if (_savedResizer)  el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedStarBtn)  el.appendChild(_savedStarBtn);
         inp.focus();
         inp.select();
         inp.addEventListener('mousedown', e => e.stopPropagation());
@@ -14158,6 +14228,7 @@ function hideFailure() {
         conSyncNodeLockState(node);
         conRenderNodeLabel(node);
         conAttachNodeEvents(id, el);
+        conAddNodeStarBtn(node);
         conSelect(id);
         return id;
       }
@@ -14926,12 +14997,14 @@ function hideFailure() {
         }
 
         const el = node.el;
-        // Preserve resize handle and emoji dot across innerHTML rebuilds
+        // Preserve resize handle, emoji dot, and star button across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedStarBtn = el.querySelector('.con-node-star-btn');
         node.el.innerHTML = wordRow + annLines;
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedStarBtn) el.appendChild(_savedStarBtn);
         // Keep node content vertically centred for all shapes
         node.el.style.display = 'inline-flex';
         node.el.style.flexDirection = 'column';
@@ -15018,6 +15091,102 @@ function hideFailure() {
         node.masked = !node.masked;
         node.el.classList.toggle('con-masked', node.masked);
       };
+
+      // ---- Star / unstar a node's DB entry ----
+      function conAddNodeStarBtn(nodeObj) {
+        if (typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) return;
+        if (nodeObj.el.querySelector('.con-node-star-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'con-node-star-btn' + (dbEntry.starred ? ' active' : '');
+        btn.textContent = dbEntry.starred ? '★' : '☆';
+        btn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+        btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+        btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); conToggleNodeStarDirect(nodeObj); });
+        nodeObj.el.appendChild(btn);
+      }
+      window.conAddNodeStarBtn = conAddNodeStarBtn;
+
+      function conSyncNodeStarState(nodeObj) {
+        const btn = nodeObj.el && nodeObj.el.querySelector('.con-node-star-btn');
+        if (!btn || typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) { btn.remove(); return; }
+        btn.textContent = dbEntry.starred ? '★' : '☆';
+        btn.classList.toggle('active', !!dbEntry.starred);
+        btn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+      }
+
+      async function conToggleNodeStarDirect(nodeObj) {
+        if (typeof vocabBank === 'undefined') return;
+        const dbEntry = nodeObj.dbWord
+          ? vocabBank.find(w => w.word === nodeObj.dbWord)
+          : vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(nodeObj.baseWord || '').toLowerCase());
+        if (!dbEntry) return;
+        dbEntry.starred = !dbEntry.starred;
+        // Sync all nodes referencing the same entry
+        conNodes.forEach(n => {
+          if ((n.dbWord && n.dbWord === dbEntry.word) ||
+              (!n.dbWord && stripParens((n.baseWord || '').toLowerCase()) === stripParens(dbEntry.word.toLowerCase()))) {
+            conSyncNodeStarState(n);
+          }
+        });
+        // Sync context menu star btn if open on this node
+        const ctxStarBtn = document.getElementById('con-ctx-star-btn');
+        if (ctxStarBtn && ctxStarBtn.style.display !== 'none' && conCtxNodeId === nodeObj.id) {
+          ctxStarBtn.textContent = dbEntry.starred ? '★' : '☆';
+          ctxStarBtn.classList.toggle('active', !!dbEntry.starred);
+          ctxStarBtn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
+        }
+        await conSaveVocabBankFile(dbEntry.word.toLowerCase());
+      }
+
+      window.conCtxToggleStar = async function() {
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        if (!node) return;
+        await conToggleNodeStarDirect(node);
+      };
+
+      async function conSaveVocabBankFile(wordKey) {
+        if (!window.Desktop || !Desktop.isElectron() || !wordKey) return;
+        try {
+          const result = await Desktop.listByPath('customWordbanks', '', { extensions: ['.js'] });
+          if (!result || !result.ok || !result.files) return;
+          for (const file of result.files) {
+            await _conUpdateStarredInFile(file, wordKey);
+          }
+        } catch(e) {}
+      }
+
+      async function _conUpdateStarredInFile(file, wordKey) {
+        const content = await Desktop.readByPath('customWordbanks', file.relativePath || file.filename);
+        if (!content || !content.ok || !content.content) return;
+        const varMatch = content.content.match(/\b(?:const|let|var)\s+(\w+)\s*=\s*\[/);
+        if (!varMatch) return;
+        const exportVar = varMatch[1];
+        let records;
+        try {
+          const fn = new Function(content.content + `\n; try { return ${exportVar}; } catch(e) { return []; }`);
+          records = fn();
+        } catch(e) { return; }
+        if (!Array.isArray(records)) return;
+        const idx = records.findIndex(w => w && w.word && w.word.toLowerCase() === wordKey);
+        if (idx === -1) return;
+        const vbEntry = (typeof vocabBank !== 'undefined') ? vocabBank.find(w => w.word && w.word.toLowerCase() === wordKey) : null;
+        const starred = vbEntry ? !!vbEntry.starred : false;
+        const cur = records[idx];
+        if (!!cur.starred === starred) return;
+        const updated = { ...cur };
+        if (starred) { updated.starred = true; } else { delete updated.starred; }
+        records[idx] = updated;
+        const newContent = `// ${file.filename}\nconst ${exportVar} = ${JSON.stringify(records, null, 2)};\n`;
+        try { await Desktop.saveText('customWordbanks', file.filename, newContent); } catch(e) {}
+      }
 
       window.conRevealAll = function() {
         conNodes.forEach(node => {
@@ -18052,6 +18221,38 @@ function hideFailure() {
           }
         } catch (e) { /* ignore */ }
       }
+      // Restore custom content and settings from backup files if localStorage is missing them
+      if (window.Desktop && Desktop.isElectron()) {
+        const _restoreArrIfEmpty = async (lsKey, target, file) => {
+          try {
+            if (localStorage.getItem(lsKey)) return;
+            const r = await Desktop.readJson(target, file);
+            if (r && r.ok && Array.isArray(r.data) && r.data.length)
+              localStorage.setItem(lsKey, JSON.stringify(r.data));
+          } catch (e) {}
+        };
+        await Promise.all([
+          _restoreArrIfEmpty(AW_STORAGE_KEY,  'customWordbanks',   'custom-words-backup.json'),
+          _restoreArrIfEmpty(AW_QUOTES_KEY,    'customQuotes',      'custom-quotes-backup.json'),
+          _restoreArrIfEmpty(AW_GAP_KEY,       'customGapfillbanks','custom-gaps-backup.json'),
+          _restoreArrIfEmpty(AW_ERROR_KEY,     'customErrorbanks',  'custom-errors-backup.json'),
+          _restoreArrIfEmpty(MDB_DELETED_KEY,  'customWordbanks',   'deleted-words-backup.json'),
+          (async () => {
+            try {
+              if (localStorage.getItem(BOARD_SAVED_SESSIONS_KEY)) return;
+              const r = await Desktop.readJson('user', 'board-sessions-backup.json');
+              if (r && r.ok && r.data) localStorage.setItem(BOARD_SAVED_SESSIONS_KEY, JSON.stringify(r.data));
+            } catch (e) {}
+          })(),
+          (async () => {
+            try {
+              if (localStorage.getItem('app_font_size')) return;
+              const r = await Desktop.readJson('user', 'ui-prefs.json');
+              if (r && r.ok && r.data && r.data.fontSize) applyFontSize(r.data.fontSize);
+            } catch (e) {}
+          })(),
+        ]);
+      }
       // Merge custom words from localStorage into vocabBank
       awLoadCustomWords();
       awLoadCustomQuotes();
@@ -18170,7 +18371,8 @@ function hideFailure() {
       const keyword = document.getElementById('con-import-keyword').value;
       const srcSel  = document.getElementById('con-import-source');
       const source  = srcSel ? srcSel.value : 'all';
-      const q       = document.getElementById('con-import-search').value.trim().toLowerCase();
+      const q           = document.getElementById('con-import-search').value.trim().toLowerCase();
+      const starredOnly = !!(document.getElementById('con-import-starred-only') && document.getElementById('con-import-starred-only').checked);
       return vocabBank.filter(item => {
         if (lvl     !== 'all' && (!item.level        || item.level.toLowerCase()        !== lvl))   return false;
         if (theme   !== 'all' && !getItemThemes(item).includes(theme)) return false;
@@ -18178,6 +18380,7 @@ function hideFailure() {
         if (keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
         if (source  !== 'all' && item._source !== source) return false;
         if (q && !wildcardTest(q, item.word, item.french, item.german, item.italian, item.english)) return false;
+        if (starredOnly && !item.starred) return false;
         return true;
       });
     }
@@ -18205,7 +18408,7 @@ function hideFailure() {
       const toRender = conImportFilteredItems.slice(start, end);
       toRender.forEach(item => {
         const chip = document.createElement('div');
-        chip.className = 'con-import-chip' + (conImportSelected.has(item.word) ? ' selected' : '');
+        chip.className = 'con-import-chip' + (conImportSelected.has(item.word) ? ' selected' : '') + (item.starred ? ' starred' : '');
         const _chipTrans = getTranslation(item);
         chip.innerHTML = item.word
           + (_chipTrans ? '<span class="chip-translation">(' + _chipTrans + ')</span>' : '');
@@ -20114,9 +20317,16 @@ function hideFailure() {
       return out;
     }
 
+    let _boardStoreSaveTimer = null;
     function boardTryWriteStore(store) {
       try {
         localStorage.setItem(BOARD_SAVED_SESSIONS_KEY, JSON.stringify(store));
+        if (window.Desktop && Desktop.isElectron()) {
+          clearTimeout(_boardStoreSaveTimer);
+          _boardStoreSaveTimer = setTimeout(() => {
+            Desktop.saveJson('user', 'board-sessions-backup.json', store).catch(() => {});
+          }, 1000);
+        }
         return true;
       } catch (e) {
         return false;
@@ -21827,6 +22037,8 @@ function hideFailure() {
         el.dataset.baseWord = n.baseWord || '';
         // Restore emoji badge/dot state if emoji was saved
         if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
+        // Attach star button if node has a db entry
+        if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
         // Restore masked state
         if (n.masked) {
           nodeObj.masked = true;

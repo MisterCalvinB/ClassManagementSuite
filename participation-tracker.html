@@ -48,7 +48,7 @@
         Promise.resolve(window.__ptUserBootstrapPromise).catch(function(){}).then(function(){
           var _t = '';
           try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-          var label = _t || 'Collège Calvin';
+          var label = _t || '';
           var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
           document.title = label + ': Participation Tracker';
         });
@@ -902,19 +902,40 @@
         .col-toggle-item input[type="checkbox"] { cursor: pointer; width: 13px; height: 13px; flex-shrink: 0; }
         .col-toggle-item.disabled-item { opacity: 0.5; cursor: default; }
         .col-toggle-item.disabled-item:hover { background: none; }
+        /* ── hamburger nav ── */
+        .hm-wrap{position:relative;margin-left:auto}
+        .hm-btn{background:none;border:1px solid #555;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;transition:border-color .12s}
+        .hm-btn:hover{border-color:#fff}
+        .hm-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1e1e1e;border:1px solid #444;border-radius:6px;min-width:200px;z-index:9999;padding:4px 0;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+        .hm-wrap.open .hm-menu{display:block}
+        .hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}
+        .hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}
+        .hm-sep{border:none;border-top:1px solid #333;margin:4px 0}
     </style>
 </head>
 <body>
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
-  <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;">Collège Calvin</span>
-  <a href="class-management.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🏫 Class Mgmt</a>
-  <a href="board.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🌐 Board</a>
-  <a href="learning-tools.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🎮 Learning Tools</a>
-  <a href="manage-database.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">🗄️ Database</a>
-  <a href="grade-sheet.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">📝 Grade Sheet</a>
-  <a href="participation-tracker.html" target="_blank" style="background:#fff;color:#111;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;text-decoration:none;border:2px solid #fff;" class="nav-link nav-active">📊 Tracker</a>
-  <a href="data-location.html" target="_blank" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;" class="nav-link">⚙️ Data</a>
-  <button onclick="openCreditsModal()" style="color:#ccc;text-decoration:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:0.85rem;border:2px solid transparent;background:none;cursor:pointer;font-family:inherit;" class="nav-link">ℹ️ Credits</button>
+  <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
+    <div class="hm-menu">
+      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
+      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
+      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
+      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
+      <a href="participation-tracker.html" class="nav-link hm-item nav-active">📊 Tracker</a>
+      <hr class="hm-sep">
+      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
+      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <hr class="hm-sep">
+      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+    </div>
+  </div>
 </nav>
     <div class="container">
         <h1>Participation Tracker</h1>
@@ -1289,7 +1310,8 @@
     <div id="colToggleMenu"></div>
 
     <!-- Import electron bridge and data files -->
-    <script src="user/log/group-participation/cms-db.js"></script>
+    <!-- In Electron mode the Desktop API is used instead; skip the legacy flat file to avoid a 404. -->
+    <script>if (!window.electronApi || !window.electronApi.isElectron) { document.write('\x3Cscript src="user\/log\/group-participation\/cms-db.js">\x3C\/script>'); }</script>
     <script>
         function cloneDbSessions(source) {
             try {
@@ -1682,6 +1704,45 @@
             }
 
             applySessionNormalization('startup');
+
+            // Apply tombstone (deleted sessions) and notes overlay
+            if (ELECTRON_AVAILABLE && window.Desktop) {
+                try {
+                    const tomb = await Desktop.readText('groupParticipation', 'pt-deleted.js');
+                    if (tomb?.ok && tomb.content) {
+                        const m = tomb.content.match(/window\.CMS_DELETED_SESSIONS\s*=\s*(\[[\s\S]*?\]);?/);
+                        if (m) {
+                            const deletedIds = new Set(JSON.parse(m[1]));
+                            if (deletedIds.size > 0) {
+                                const kept = DB_EXPORT.filter(s => !deletedIds.has(s.id));
+                                DB_EXPORT.splice(0, DB_EXPORT.length, ...kept);
+                                syncGlobalDbExport();
+                            }
+                        }
+                    }
+                } catch (e) {}
+                try {
+                    const np = await Desktop.readText('groupParticipation', 'pt-notes.js');
+                    if (np?.ok && np.content) {
+                        const m = np.content.match(/window\.CMS_NOTES_PATCH\s*=\s*(\{[\s\S]*\});?\s*$/);
+                        if (m) {
+                            const patch = JSON.parse(m[1]);
+                            DB_EXPORT.forEach(session => {
+                                const sp = patch[session.id];
+                                if (!sp) return;
+                                Object.values(session.groups || {}).forEach(students => {
+                                    students.forEach(student => {
+                                        if (Object.prototype.hasOwnProperty.call(sp, student.name)) {
+                                            student.notes = sp[student.name];
+                                        }
+                                    });
+                                });
+                            });
+                        }
+                    }
+                } catch (e) {}
+            }
+
             setupImportHandlers();
 
             if (DB_EXPORT.length === 0) {
@@ -2174,17 +2235,36 @@
             const groups = extractGroupsFromData();
             const container = document.getElementById('groupButtons');
             container.innerHTML = '';
+            const knownGroups = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
 
             groups.forEach(group => {
                 const btn = document.createElement('button');
                 const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[group] : null;
+                const isOrphaned = !knownGroups[group];
                 btn.className = 'group-btn';
                 btn.textContent = group;
                 if (meta && meta.archived) btn.style.opacity = '0.55';
+                if (isOrphaned) {
+                    btn.style.borderColor = '#e67e22';
+                    btn.title = 'This class no longer exists in your class list';
+                }
                 btn.addEventListener('click', function() {
                     selectGroup(group);
                 });
                 container.appendChild(btn);
+
+                if (isOrphaned) {
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'group-btn';
+                    delBtn.style.cssText = 'padding:5px 8px;border-color:#e67e22;color:#e67e22;margin-left:2px;';
+                    delBtn.title = 'Delete all data for "' + group + '"';
+                    delBtn.textContent = '🗑';
+                    delBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        openResetModal('group', group);
+                    });
+                    container.appendChild(delBtn);
+                }
             });
         }
 
@@ -3495,30 +3575,30 @@
 
         async function persistNotesToFile() {
             if (!ELECTRON_AVAILABLE) {
-                showMessage('✓ Notes saved (in-memory only - Electron not available)', 'success');
+                showMessage('✓ Notes saved (in-memory only)', 'success');
                 updateStudentDetails();
                 closeDetailModal();
                 return;
             }
 
-            syncGlobalDbExport();
-            const dataString = buildDbJsContent();
+            // Build notes patch: { sessionId: { studentName: noteText } }
+            const patch = {};
+            DB_EXPORT.forEach(session => {
+                Object.values(session.groups || {}).forEach(students => {
+                    students.forEach(student => {
+                        if (student.notes) {
+                            if (!patch[session.id]) patch[session.id] = {};
+                            patch[session.id][student.name] = student.notes;
+                        }
+                    });
+                });
+            });
 
             try {
-                const result = await window.electronApi.saveFile({
-                    target: 'groupParticipation',
-                    filename: 'cms-db.js',
-                    content: dataString,
-                    encoding: 'utf8'
-                });
-
-                if (result && result.success) {
-                    showMessage('✓ Notes saved to file successfully', 'success');
-                    updateStudentDetails();
-                    closeDetailModal();
-                } else {
-                    showMessage('✗ Failed to save notes: ' + (result?.error || 'Unknown error'), 'error');
-                }
+                await Desktop.saveText('groupParticipation', 'pt-notes.js', `window.CMS_NOTES_PATCH = ${JSON.stringify(patch, null, 2)};\n`);
+                showMessage('✓ Notes saved', 'success');
+                updateStudentDetails();
+                closeDetailModal();
             } catch (error) {
                 showMessage('✗ Error saving notes: ' + error.message, 'error');
             }
@@ -3682,26 +3762,65 @@
                 showMessage('✓ All data has been reset', 'success');
             }
 
-            await persistResetToFile();
+            await persistResetToFile(type, payload);
             currentStudentName = null;
             document.getElementById('studentDetailsArea').classList.add('hidden');
             document.getElementById('studentDetailTitle').classList.add('hidden');
+            populateGroups();
+            if (!currentGroupId || type === 'group') selectFirstGroup();
             updateDashboard();
         }
 
-        async function persistResetToFile() {
-            if (!ELECTRON_AVAILABLE) return;
-            syncGlobalDbExport();
-            const dataString = buildDbJsContent();
+        function groupNameToSafeDir(name) {
+            return String(name)
+                .replace(/[<>:"\/\\|?*]/g, '-')
+                .replace(/\s+/g, '_')
+                .replace(/^\.+/, '')
+                .trim() || '_class';
+        }
+
+        async function persistResetToFile(type, payload) {
+            if (!ELECTRON_AVAILABLE || !window.Desktop) return;
+            if (type === 'group') {
+                const safeDir = groupNameToSafeDir(payload);
+                try {
+                    await Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true });
+                } catch (e) {}
+                try {
+                    await Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true });
+                } catch (e) {}
+            } else if (type === 'session') {
+                await addSessionTombstone(payload);
+            } else {
+                // all: delete every group subfolder and clear overlay files
+                try {
+                    const listResult = await Desktop.listByPath('groupParticipation', '.', { extensions: ['.js'] });
+                    const subFolders = new Set(
+                        (listResult?.files || [])
+                            .filter(f => f.relativePath && f.relativePath.includes('/'))
+                            .map(f => f.relativePath.split('/')[0])
+                    );
+                    for (const folder of subFolders) {
+                        try { await Desktop.deleteByPath('groupParticipation', folder, { recursive: true, force: true }); } catch (e) {}
+                    }
+                } catch (e) {}
+                try { await Desktop.saveText('groupParticipation', 'pt-notes.js', 'window.CMS_NOTES_PATCH = {};\n'); } catch (e) {}
+                try { await Desktop.saveText('groupParticipation', 'pt-deleted.js', 'window.CMS_DELETED_SESSIONS = [];\n'); } catch (e) {}
+            }
+        }
+
+        async function addSessionTombstone(sessionId) {
             try {
-                await window.electronApi.saveFile({
-                    target: 'groupParticipation',
-                    filename: 'cms-db.js',
-                    content: dataString,
-                    encoding: 'utf8'
-                });
-            } catch (error) {
-                showMessage('✗ Error saving to file: ' + error.message, 'error');
+                let existing = [];
+                const result = await Desktop.readText('groupParticipation', 'pt-deleted.js');
+                if (result?.ok && result.content) {
+                    const m = result.content.match(/window\.CMS_DELETED_SESSIONS\s*=\s*(\[[\s\S]*?\]);?/);
+                    if (m) existing = JSON.parse(m[1]);
+                }
+                if (!existing.includes(sessionId)) existing.push(sessionId);
+                await Desktop.saveText('groupParticipation', 'pt-deleted.js', `window.CMS_DELETED_SESSIONS = ${JSON.stringify(existing)};\n`);
+            } catch (e) {
+                showMessage('✗ Error saving deletion: ' + e.message, 'error');
             }
         }
 

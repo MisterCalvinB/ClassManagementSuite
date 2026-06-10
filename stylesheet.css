@@ -13,6 +13,8 @@
     .game button.action-btn.btn-grey { padding: 4px !important; }
     .btn-orange { color: #fff !important; background: #c85a00 !important; border: 2px solid #c85a00 !important; }
     .btn-orange:hover { color: #c85a00 !important; background: #fff !important; }
+    .btn-yellow { color: #92400e !important; background: #fef3c7 !important; border: 2px solid #f5a623 !important; }
+    .btn-yellow:hover { background: #fde68a !important; }
 
     /* Learning Tools presentation button should always stay in a fixed spot. */
     #ww-present-btn,
@@ -2996,6 +2998,31 @@
     .con-emoji-dot:hover { opacity: 1 !important; background: #f3f4f6; }
     .con-emoji-dot.has-emoji { opacity: 1 !important; border-color: transparent; background: transparent; font-size:24px!important; }
 
+    /* -- Star button (top-left corner of DB-linked nodes) -- */
+    .con-node-star-btn {
+      position: absolute;
+      top: -9px; left: -9px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.92);
+      border: 1.5px solid #ddd;
+      font-size: 11px; line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      color: #ccc;
+      z-index: 25;
+      user-select: none;
+      transition: opacity 0.15s;
+    }
+    .con-node:hover .con-node-star-btn { display: flex; }
+    .con-node-star-btn.active { display: flex; color: #f59e0b; border-color: #f5a623; background: #fffbeb; }
+    .con-node-star-btn:hover { background: #f3f4f6 !important; }
+
+    /* Starred indicator on import chips */
+    .con-import-chip.starred::after { content: '★'; color: #f59e0b; font-size: 0.7em; margin-left: 3px; vertical-align: middle; }
 
     /* -- Emoji stickers (standalone draggable/resizable emoji on notes) -- */
     .wn-emoji-sticker {
@@ -3859,8 +3886,7 @@ h3 { color: #444; }
 
 /* DB Hub popup panel */
 #db-hub-popup,
-#settings-popup,
-#links-popup {
+#settings-popup {
     display: none;
     position: fixed;
     top: 44px;
@@ -3875,7 +3901,21 @@ h3 { color: #444; }
     max-width: 280px;
 }
 #db-hub-popup.open,
-#settings-popup.open,
+#settings-popup.open { display: block; }
+
+#links-popup {
+    display: none;
+    position: fixed;
+    top: 44px;
+    right: 12px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.45);
+    padding: 4px 0;
+    z-index: 3000;
+    min-width: 200px;
+}
 #links-popup.open { display: block; }
 
 .db-popup-header {
@@ -9655,3 +9695,13 @@ h1#main-title {
 .presentation-mode .roster-plan-view {
     margin-top: 0;
 }
+
+/* ── hamburger nav ── */
+.hm-wrap { position: relative; margin-left: auto; }
+.hm-btn { background: none; border: 1px solid #555; color: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; line-height: 1; transition: border-color .12s; }
+.hm-btn:hover { border-color: #fff; }
+.hm-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: #1e1e1e; border: 1px solid #444; border-radius: 6px; min-width: 200px; z-index: 9999; padding: 4px 0; box-shadow: 0 4px 16px rgba(0,0,0,.45); }
+.hm-wrap.open .hm-menu { display: block; }
+.hm-item { display: block; padding: 7px 16px; color: #ccc; text-decoration: none; font-size: .85rem; font-weight: 600; white-space: nowrap; background: none; border: none; cursor: pointer; font-family: inherit; width: 100%; text-align: left; box-sizing: border-box; }
+.hm-item:hover, .hm-item.nav-active { background: #2d2d2d; color: #fff; }
+.hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }

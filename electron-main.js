@@ -17,7 +17,6 @@ const PAGE_FILES = {
   learningDb2: 'manage-database2.html',
   learningTools: 'learning-tools.html',
   participationTracker: 'participation-tracker.html',
-  dataLocation: 'data-location.html',
   launcher: 'launcher.html',
   generalConfig: 'general-config.html',
   fileManager: 'file-manager.html',
@@ -40,16 +39,12 @@ const PAGE_ARG_MAP = {
   participationtracker: PAGE_FILES.participationTracker,
   participationtracking: PAGE_FILES.participationTracker,
   tracker: PAGE_FILES.participationTracker,
-  datalocation: PAGE_FILES.dataLocation,
-  datasettings: PAGE_FILES.dataLocation,
-  datafolder: PAGE_FILES.dataLocation,
   launcher: PAGE_FILES.launcher,
   home: PAGE_FILES.launcher,
   generalconfig: PAGE_FILES.generalConfig,
   config: PAGE_FILES.generalConfig,
   filemanager: PAGE_FILES.fileManager,
   files: PAGE_FILES.fileManager,
-  recentfiles: PAGE_FILES.fileManager,
   recent: PAGE_FILES.fileManager,
   howto: PAGE_FILES.howTo,
   help: PAGE_FILES.howTo,
@@ -71,7 +66,6 @@ const PAGE_LABELS = {
   [PAGE_FILES.learningDb2]: 'DB Manager v2',
   [PAGE_FILES.learningTools]: 'Learning Tools',
   [PAGE_FILES.participationTracker]: 'Participation Tracker',
-  [PAGE_FILES.dataLocation]: 'Data Location',
   [PAGE_FILES.launcher]: 'Launcher',
   [PAGE_FILES.generalConfig]: 'General Config',
   [PAGE_FILES.fileManager]: 'File Manager',
@@ -3837,6 +3831,31 @@ ipcMain.handle('app:duplicate-by-path', async (event, request = {}) => {
   };
 });
 
+// ── Reset folders ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } = {}) => {
+  const ALLOWED = new Set(['mindmaps', 'grades', 'gradeSheet', 'groupParticipation', 'customData', 'classPlans', 'user']);
+  const targets = getSaveTargets();
+  const writableRoot = path.resolve(getWritableRootDir());
+
+  for (const name of targetNames) {
+    if (!ALLOWED.has(name)) return { ok: false, error: `Unknown target: ${name}` };
+    const dir = targets[name];
+    if (!dir || !path.resolve(dir).startsWith(writableRoot)) return { ok: false, error: `Invalid path for target: ${name}` };
+  }
+
+  // If 'user' is included it already covers everything — no need to delete sub-folders separately
+  if (targetNames.includes('user')) {
+    await fs.rm(targets['user'], { recursive: true, force: true });
+    return { ok: true };
+  }
+
+  for (const name of targetNames) {
+    try { await fs.rm(targets[name], { recursive: true, force: true }); } catch {}
+  }
+  return { ok: true };
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -3868,10 +3887,8 @@ app.whenReady().then(async () => {
     console.error('Data initialization failed, opening app anyway:', error);
   }
 
-  // On first run (no data/log/user folders yet) open the data-location page
-  // unless the user explicitly launched with a specific page argument.
   if (firstRunDetected && initialPageFile === PAGE_FILES.classManagement) {
-    initialPageFile = PAGE_FILES.dataLocation;
+    initialPageFile = PAGE_FILES.generalConfig;
   }
 
   buildMenu();

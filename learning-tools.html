@@ -46,7 +46,7 @@
     function applyLearningToolsTitle() {
       var _t = '';
       try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-      var label = _t || 'Collège Calvin';
+      var label = _t || '';
       var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
       document.title = label + ': Learning Tools';
     }
@@ -59,15 +59,27 @@
 </head>
 <body>
 <nav id="app-nav">
-  <span class="nav-brand">Collège Calvin</span>
-  <a href="class-management.html" target="_blank" class="nav-link">🏫 Class Mgmt</a>
-  <a href="board.html" target="_blank" class="nav-link">🌐 Board</a>
-  <a href="learning-tools.html" target="_blank" class="nav-link nav-active">🎮 Learning Tools</a>
-  <a href="manage-database.html" target="_blank" class="nav-link">🗄️ Database</a>
-  <a href="grade-sheet.html" target="_blank" class="nav-link">📝 Grade Sheet</a>
-  <a href="participation-tracker.html" target="_blank" class="nav-link">📊 Tracker</a>
-  <a href="data-location.html" target="_blank" class="nav-link">⚙️ Data</a>
-  <button onclick="openCreditsModal()" class="nav-link" style="background:none;border:none;cursor:pointer;font-family:inherit;">ℹ️ Credits</button>
+  <span class="nav-brand"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
+    <div class="hm-menu">
+      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
+      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
+      <a href="learning-tools.html" class="nav-link hm-item nav-active">🎮 Learning Tools</a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
+      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
+      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
+      <hr class="hm-sep">
+      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
+      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <hr class="hm-sep">
+      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+    </div>
+  </div>
 </nav>
 
 <!-- Scroll to top button -->
@@ -255,7 +267,7 @@
     <div id="help-panel">
       <button class="help-close" onclick="closeHelp()">✕</button>
       <h2 data-i18n="helpTitle">📖 How It Works</h2>
-      <p class="help-subtitle" data-i18n="helpSubtitle">A complete guide to Collège Calvin — filters, games, tools, and team mode.</p>
+      <p class="help-subtitle" data-i18n="helpSubtitle">A complete guide — filters, games, tools, and team mode.</p>
 
       <div class="help-section">
         <div class="help-section-title" data-i18n="helpSecFilters">🎛 Filters</div>
@@ -766,6 +778,7 @@
       <div class="filter-col"><label class="filter-label" data-i18n="filterLength">Length</label><div class="theme-picker-wrap length-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Lengths</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterKeyword">Keyword</label><div class="theme-picker-wrap keyword-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Keywords</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label">Source</label><div class="theme-picker-wrap source-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Sources</button><div class="theme-picker-dropdown"></div></div></div>
+      <div class="filter-col"><label class="filter-label">Starred</label><button type="button" id="lt-starred-toggle" class="action-btn btn-grey" onclick="ltToggleStarredFilter()" style="padding:4px 10px;font-size:0.82rem;">☆ All</button></div>
       <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
     </div>
     <div id="team-setup">
@@ -3214,9 +3227,10 @@
     }
 
     // --- Array-aware helpers for definition / exampleSentence ---
-    function _firstVal(v) { return Array.isArray(v) ? (v[0] || '') : (v || ''); }
+    function _firstVal(v) { if (!Array.isArray(v)) return v || ''; if (!v.length) return ''; return v[Math.floor(Math.random() * v.length)]; }
     function _allVals(v) { return Array.isArray(v) ? v : (v ? [v] : []); }
     function _editableStr(v) { return Array.isArray(v) ? v.join('\n') : (v || ''); }
+    function _parseLines(s) { const lines = s.split('\n').map(x => x.trim()).filter(Boolean); return lines.length ? lines : []; }
     function _splitFrenchTranslations(value) {
       const parts = Array.isArray(value) ? value : [value || ''];
       return parts
@@ -3946,6 +3960,16 @@ function hideFailure() {
       return true;
     }
 
+    let ltStarredOnly = false;
+
+    function ltToggleStarredFilter() {
+      ltStarredOnly = !ltStarredOnly;
+      const btn = document.getElementById('lt-starred-toggle');
+      if (btn) { btn.textContent = ltStarredOnly ? '★ Starred' : '☆ All'; btn.classList.toggle('btn-yellow', ltStarredOnly); }
+      if (activeSection !== 'main-menu') refreshCurrentGame();
+      updateAllFilterCounts();
+    }
+
     function getFilteredBank() {
       const current = document.getElementById(activeSection);
       const lvls  = current.querySelector('.level-picker-wrap')   ? themePickerGetSelected(current.querySelector('.level-picker-wrap'))   : ['all'];
@@ -3964,7 +3988,8 @@ function hideFailure() {
         const lenM  = (lens.includes('all')  || (item.word && lens.includes(String(item.word.length))));
         const kwrdM = (kwrds.includes('all') || ((item.keywords || []).some(k => kwrds.includes(k))));
         const srcM  = (srcs.includes('all')  || (Array.isArray(item._sources) ? item._sources : item._source ? [item._source] : []).some(s => srcs.includes(s)));
-        return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && (!simple || isSimpleWord(item));
+        const starM = !ltStarredOnly || !!item.starred;
+        return lvlM && thmM && posM && letM && lenM && kwrdM && srcM && starM && (!simple || isSimpleWord(item));
       });
     }
 
@@ -4074,6 +4099,9 @@ function hideFailure() {
     function resetAllFilters() {
       usedWords.clear();
       document.querySelectorAll('.theme-picker-wrap').forEach(wrap => themePickerSetSelected(wrap, ['all']));
+      ltStarredOnly = false;
+      const starBtn = document.getElementById('lt-starred-toggle');
+      if (starBtn) { starBtn.textContent = '☆ All'; starBtn.classList.remove('btn-yellow'); }
       if (activeSection !== 'main-menu') refreshCurrentGame();
       updateAllFilterCounts();
     }
@@ -5839,7 +5867,7 @@ function renderSentenceWithGap(userInput) {
         });
       }
       const result = document.getElementById('ipa-result');
-      result.innerHTML = `❌ The answer was: <strong>${ipaWordObj.word}</strong><br><em style="font-size:0.9rem;color:#888;">${ipaWordObj.definition}</em>`;
+      result.innerHTML = `❌ The answer was: <strong>${ipaWordObj.word}</strong><br><em style="font-size:0.9rem;color:#888;">${_firstVal(ipaWordObj.definition)}</em>`;
       result.className = 'ipa-result-box show ipa-res-wrong';
       showExplanationBtn(ipaWordObj, 'ipa-result');
       document.getElementById('ipa-streak').textContent = ipaStreak;
@@ -5852,13 +5880,13 @@ function renderSentenceWithGap(userInput) {
         ipaScore += ipaHintUsed ? 5 : POINTS_WIN;
         ipaStreak++;
         awardPoints(ipaHintUsed ? 5 : POINTS_WIN);
-        result.innerHTML = `✅ <strong>Correct!</strong> That's <em>${ipaWordObj.word}</em><br><span style="font-size:0.88rem;color:#555;">/ ${ipaWordObj.ipa} / — ${ipaWordObj.definition}</span>`;
+        result.innerHTML = `✅ <strong>Correct!</strong> That's <em>${ipaWordObj.word}</em><br><span style="font-size:0.88rem;color:#555;">/ ${ipaWordObj.ipa} / — ${_firstVal(ipaWordObj.definition)}</span>`;
         result.className = 'ipa-result-box show ipa-res-correct';
         showSuccess(() => { nextTeamTurn(); initIpaGame(); });
       } else {
         ipaStreak = 0;
         awardPoints(POINTS_WRONG_PENALTY);
-        result.innerHTML = `❌ <strong>Not quite.</strong> The answer was <em>${ipaWordObj.word}</em><br><span style="font-size:0.88rem;color:#555;">/ ${ipaWordObj.ipa} / — ${ipaWordObj.definition}</span>`;
+        result.innerHTML = `❌ <strong>Not quite.</strong> The answer was <em>${ipaWordObj.word}</em><br><span style="font-size:0.88rem;color:#555;">/ ${ipaWordObj.ipa} / — ${_firstVal(ipaWordObj.definition)}</span>`;
         result.className = 'ipa-result-box show ipa-res-wrong';
         showFailure(`${t('theWordWas')} ${ipaWordObj.word}`, () => { nextTeamTurn(); });
       }
@@ -11738,8 +11766,8 @@ function renderSentenceWithGap(userInput) {
       document.getElementById('aw-pos').value        = w.partOfSpeech || '';
       document.getElementById('aw-level').value      = w.level || '';
       document.getElementById('aw-theme').value      = getItemThemes(w).join(', ');
-      document.getElementById('aw-definition').value = w.definition || '';
-      document.getElementById('aw-example').value    = w.exampleSentence || '';
+      document.getElementById('aw-definition').value = _editableStr(w.definition);
+      document.getElementById('aw-example').value    = _editableStr(w.exampleSentence);
       document.getElementById('aw-synonyms').value   = (w.synonyms || []).join(', ');
       document.getElementById('aw-antonyms').value   = (w.antonyms || []).join(', ');
     }
@@ -11806,11 +11834,12 @@ function renderSentenceWithGap(userInput) {
       const english = (document.getElementById('aw-english')?.value || '').trim() || word;
       const german  = (document.getElementById('aw-german')?.value  || '').trim();
       const italian = (document.getElementById('aw-italian')?.value || '').trim();
-      const definition = document.getElementById('aw-definition').value.trim();
+      const definition = _parseLines(document.getElementById('aw-definition').value);
+      const exampleSentence = _parseLines(document.getElementById('aw-example').value);
       if (!word)       { awSetFeedback('aw-form-feedback', '⚠ Word is required.', 'err'); return; }
       const themeRaw = document.getElementById('aw-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
-      const entry = { word, sourceLanguage: 'en', english, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, german, italian, definition, exampleSentence: document.getElementById('aw-example').value.trim()||'', synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
+      const entry = { word, sourceLanguage: 'en', english, ipa: document.getElementById('aw-ipa').value.trim()||'', partOfSpeech: document.getElementById('aw-pos').value||'', level: document.getElementById('aw-level').value||'', theme: themeVal, french, german, italian, definition, exampleSentence, synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
       if (awEditIdx >= 0) {
         const custom = awGetCustomWords(); const old = custom[awEditIdx];
         const bi = vocabBank.findIndex(v => v.word.toLowerCase() === old.word.toLowerCase() && v._custom);
@@ -12505,7 +12534,7 @@ function renderSentenceWithGap(userInput) {
         btnClearAll:'Clear All', btnImportBank:'📥 Import from Bank', btnExportPNG:'🖼 Export PNG',
         conInstructions:'Move: drag words · Connect: click two words to link them · Delete: click a word or line to remove it',
         helpTitle:'📖 How It Works',
-        helpSubtitle:'A complete guide to Collège Calvin — filters, games, tools, and team mode.',
+        helpSubtitle:'A complete guide — filters, games, tools, and team mode.',
         btnGotIt:"Got it — let's play!",
         helpSecFilters:'🎛 Filters',
         helpTipFilters1:'<strong>Level, Theme, Type</strong> — use these filters to narrow the word pool before starting any game. Select multiple values from any picker; only words matching <em>all active filters</em> will appear.',
@@ -12636,7 +12665,7 @@ function renderSentenceWithGap(userInput) {
         btnClearAll:'Alles löschen', btnImportBank:'📥 Aus Wortbank importieren', btnExportPNG:'🖼 PNG exportieren',
         conInstructions:'Bewegen: Wörter ziehen · Verbinden: zwei Wörter anklicken · Löschen: Wort oder Linie anklicken',
         helpTitle:'📖 Wie es funktioniert',
-        helpSubtitle:'Eine vollständige Anleitung zu Collège Calvin — Filter, Spiele, Werkzeuge und Team-Modus.',
+        helpSubtitle:'Eine vollständige Anleitung — Filter, Spiele, Werkzeuge und Team-Modus.',
         btnGotIt:"Verstanden — los geht's!",
         helpSecFilters:'🎛 Filter',
         helpTipFilters1:'<strong>Niveau, Thema, Wortart</strong> — verwende diese Filter, um den Wortpool vor einem Spiel einzugrenzen. Wähle mehrere Werte aus; nur Wörter, die <em>allen aktiven Filtern</em> entsprechen, werden angezeigt.',
@@ -12766,7 +12795,7 @@ function renderSentenceWithGap(userInput) {
         btnClearAll:'Elimina Tutto', btnImportBank:'📥 Importa dalla Banca', btnExportPNG:'🖼 Esporta PNG',
         conInstructions:'Sposta: trascina le parole · Collega: clicca due parole · Elimina: clicca una parola o linea',
         helpTitle:'📖 Come Funziona',
-        helpSubtitle:'Una guida completa a Collège Calvin — filtri, giochi, strumenti e modalità a squadre.',
+        helpSubtitle:'Una guida completa — filtri, giochi, strumenti e modalità a squadre.',
         btnGotIt:'Capito — giochiamo!',
         helpSecFilters:'🎛 Filtri',
         helpTipFilters1:'<strong>Livello, Tema, Tipo</strong> — usa questi filtri per restringere il pool di parole prima di iniziare un gioco. Seleziona più valori da qualsiasi selettore; appariranno solo le parole che corrispondono a <em>tutti i filtri attivi</em>.',
@@ -12896,7 +12925,7 @@ function renderSentenceWithGap(userInput) {
         btnClearAll:'Tout Effacer', btnImportBank:'📥 Importer de la Banque', btnExportPNG:'🖼 Exporter PNG',
         conInstructions:'Déplacer : glisser les mots · Connecter : cliquer deux mots · Supprimer : cliquer un mot ou une ligne',
         helpTitle:'📖 Comment ça Fonctionne',
-        helpSubtitle:'Un guide complet de Collège Calvin — filtres, jeux, outils et mode équipe.',
+        helpSubtitle:'Un guide complet — filtres, jeux, outils et mode équipe.',
         btnGotIt:'Compris — jouons !',
         helpSecFilters:'🎛 Filtres',
         helpTipFilters1:'<strong>Niveau, Thème, Type</strong> — utilisez ces filtres pour réduire le pool de mots avant de commencer un jeu. Sélectionnez plusieurs valeurs ; seuls les mots correspondant à <em>tous les filtres actifs</em> apparaîtront.',

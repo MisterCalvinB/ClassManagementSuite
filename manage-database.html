@@ -42,7 +42,7 @@
         Promise.resolve(window.__mdbBootstrapPromise).catch(function () {}).then(function () {
           var _t = '';
           try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-          document.title = (_t || 'Collège Calvin') + ': Manage Database';
+          document.title = (_t ? _t + ': ' : '') + 'Manage Database';
         });
       });
     })();
@@ -174,6 +174,13 @@
     .pill-loading { opacity: 0.65; }
     .pill-spin { font-size: 0.78rem; opacity: 0.6; animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .ld {
+      display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #ddd; border-top-color: #888;
+      animation: spin 0.7s linear infinite; vertical-align: middle; flex-shrink: 0;
+    }
+    .ld-sm { width: 10px; height: 10px; border-width: 1.5px; }
+    .ld-inline { display: inline-flex; align-items: center; gap: 6px; color: #999; font-size: 0.82rem; }
     .pill-pending { font-size: 0.78rem; color: #bbb; }
     .pill-err { font-size: 0.78rem; color: #c0392b; }
 
@@ -339,7 +346,16 @@
 </aside>
 
 <main id="main">
-  <div id="empty-state" class="center-msg">← Select a data type</div>
+  <div id="empty-state" class="center-msg" style="flex-direction:column;gap:20px;">
+    <div style="color:#bbb;font-size:0.95rem;font-weight:600;">← Select a data type</div>
+    <div style="width:min(520px,90%);display:flex;flex-direction:column;gap:6px;">
+      <div style="font-size:0.64rem;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:1px;">or search all databases</div>
+      <input type="text" id="mdb-global-search" placeholder="Search across all databases…"
+             oninput="mdbGlobalSearchDebounced(this.value)"
+             style="width:100%;padding:9px 13px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.9rem;outline:none;">
+      <div id="mdb-global-results" style="display:none;max-height:400px;overflow-y:auto;border:1.5px solid #eee;border-radius:5px;background:#fff;text-align:left;"></div>
+    </div>
+  </div>
 
   <div id="type-content" class="hidden">
     <div id="top-bar">
@@ -619,17 +635,59 @@ function getAllRecords() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// GLOBAL SEARCH CACHE  (populated lazily in the background)
+// _gsc[typeKey] is undefined until that type is fully scanned;
+// after scanning it is set to { filename: { records[], varName } }.
+// ─────────────────────────────────────────────────────────────────────
+const _gsc = {};
+
+function _parseRecords(content) {
+  const varMatch = content.match(/\b(?:const|let|var)\s+(\w+)\s*=\s*\[/);
+  if (!varMatch) return null;
+  try {
+    const fn = new Function(content + `\n;try{return ${varMatch[1]};}catch(e){return [];}`);
+    const data = fn();
+    return Array.isArray(data) ? data : null;
+  } catch (e) { return null; }
+}
+
+async function startBackgroundLoad() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  for (const def of TYPE_DEFS) {
+    try {
+      const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
+      S.counts[def.key] = list?.files?.length || 0;
+      updateSidebarCount(def.key);
+      if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
+      const typeFiles = {};
+      for (const fi of list.files) {
+        // Re-use anything already seeded by a user-triggered load
+        if (_gsc[def.key]?.[fi.filename]) { typeFiles[fi.filename] = _gsc[def.key][fi.filename]; continue; }
+        try {
+          // readJson parses in the main process — never blocks the renderer thread
+          // readText is a cheap regex-only operation needed for varName detection
+          const [jsonResult, rawResult] = await Promise.all([
+            Desktop.readJson(def.target, fi.filename),
+            Desktop.readText(def.target, fi.filename),
+          ]);
+          if (!jsonResult?.ok || !Array.isArray(jsonResult.data)) continue;
+          const varName = (rawResult?.ok && rawResult.content)
+            ? (detectVarName(rawResult.content) || VAR_NAME_DEFAULTS[def.key] || 'customData')
+            : (VAR_NAME_DEFAULTS[def.key] || 'customData');
+          typeFiles[fi.filename] = { records: jsonResult.data, varName };
+        } catch (e) {}
+      }
+      _gsc[def.key] = typeFiles;
+    } catch (e) { _gsc[def.key] = {}; }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────────────
 function init() {
   renderSidebar();
-  if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
-    TYPE_DEFS.forEach(def => {
-      Desktop.listFiles(def.target, { extensions: ['.js'] })
-        .then(r => { S.counts[def.key] = r?.files?.length || 0; updateSidebarCount(def.key); })
-        .catch(() => {});
-    });
-  }
+  setTimeout(startBackgroundLoad, 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -640,7 +698,7 @@ function renderSidebar() {
     <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
       <span class="type-icon">${d.icon}</span>
       <span class="type-label">${d.label}</span>
-      <span class="type-count" id="tc-${d.key}">–</span>
+      <span class="type-count" id="tc-${d.key}"><span class="ld ld-sm"></span></span>
     </div>`).join('');
 }
 function updateSidebarCount(key) {
@@ -672,7 +730,7 @@ async function selectType(key) {
   $('empty-state').classList.add('hidden');
   $('type-content').classList.remove('hidden');
   $('type-title').textContent = getTypeDef(key).label;
-  $('pills-row').innerHTML = '<span style="color:#bbb;font-size:0.82rem">Loading…</span>';
+  $('pills-row').innerHTML = '<span class="ld-inline"><span class="ld"></span>Loading…</span>';
   $('t-head').innerHTML = '';
   $('t-body').innerHTML = '';
   $('data-table').classList.add('hidden');
@@ -690,18 +748,28 @@ async function selectType(key) {
 
   const def = getTypeDef(key);
 
-  // Phase 1: list files instantly → show pills right away
-  const listResult = await Desktop.listFiles(def.target, { extensions: ['.js'] });
-  const freshFiles = (listResult?.ok && listResult.files?.length)
-    ? listResult.files.map(fi => ({ name: fi.filename, varName: null, records: [], status: 'pending', size: fi.size || 0 }))
-    : [];
-  const cached = typeCache[key] || [];
-  S.files = freshFiles.map(ff => cached.find(cf => cf.name === ff.name && cf.status === 'loaded') || ff);
+  const prevLoaded = typeCache[key] || [];
+  if (_gsc[key] !== undefined) {
+    // Cache has the file list — skip listFiles IPC entirely.
+    // Files stay pending so the user still picks which ones to view,
+    // but loadFileContent will satisfy them from cache with no IPC.
+    S.files = Object.keys(_gsc[key]).map(name => {
+      const prev = prevLoaded.find(f => f.name === name && f.status === 'loaded');
+      return prev || { name, varName: null, records: [], status: 'pending', size: 0 };
+    });
+  } else {
+    // Cache not yet warm — fall back to listFiles IPC
+    const listResult = await Desktop.listFiles(def.target, { extensions: ['.js'] });
+    const freshFiles = (listResult?.ok && listResult.files?.length)
+      ? listResult.files.map(fi => ({ name: fi.filename, varName: null, records: [], status: 'pending', size: fi.size || 0 }))
+      : [];
+    S.files = freshFiles.map(ff => prevLoaded.find(cf => cf.name === ff.name && cf.status === 'loaded') || ff);
+  }
+
   S.schema = buildSchema(getAllRecords());
   S.counts[key] = S.files.length;
   updateSidebarCount(key);
   renderFilePills();
-
   renderFilterBar();
   renderTable();
 }
@@ -712,6 +780,16 @@ async function selectType(key) {
 async function loadFileContent(fi, def) {
   const file = S.files[fi];
   if (file.status !== 'pending') return;
+
+  // Serve from background cache instantly — no IPC needed
+  const gscEntry = _gsc[S.typeKey]?.[file.name];
+  if (gscEntry) {
+    file.varName = gscEntry.varName;
+    file.records = gscEntry.records;
+    file.status = 'loaded';
+    return;
+  }
+
   file.status = 'loading';
   renderFilePills();
   try {
@@ -726,6 +804,8 @@ async function loadFileContent(fi, def) {
     if (json?.ok && Array.isArray(json.data)) {
       file.records = json.data;
       file.status = 'loaded';
+      if (!_gsc[S.typeKey]) _gsc[S.typeKey] = {};
+      _gsc[S.typeKey][file.name] = { records: file.records, varName: file.varName };
       return;
     }
 
@@ -743,6 +823,8 @@ async function loadFileContent(fi, def) {
     if (Array.isArray(data)) {
       file.records = data;
       file.status = 'loaded';
+      if (!_gsc[S.typeKey]) _gsc[S.typeKey] = {};
+      _gsc[S.typeKey][file.name] = { records: file.records, varName: file.varName };
     } else {
       throw new Error('Script did not yield an array');
     }
@@ -764,9 +846,12 @@ function buildSchema(records) {
     }
   }
 
+  const ALWAYS_LONG_ARRAYS = ['definition', 'exampleSentence'];
+
   return keyOrder.map(key => {
     const vals = records.map(r => r[key]).filter(v => v !== undefined && v !== null && v !== '');
     if (!vals.length) return { key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false };
+    if (ALWAYS_LONG_ARRAYS.includes(key)) return { key, type: 'array', isLong: false, longArray: true, uniqueVals: [], useSelect: false };
 
     let type = 'string';
     if (vals.every(v => typeof v === 'boolean')) type = 'boolean';
@@ -803,9 +888,16 @@ function getDisplayRecords() {
     }
   }
 
+  const hasAllSearch = !!(S.filters['_all'] || '').trim();
+  const srcSet = S.filters['_srcMulti'];
+  if (srcSet instanceof Set && srcSet.size > 0) {
+    rows = rows.filter(r => srcSet.has(r._src));
+  }
   for (const [key, val] of Object.entries(S.filters)) {
     if (!val) continue;
-    if (key === '_src') { rows = rows.filter(r => r._src === val); continue; }
+    if (key === '_src') { if (!hasAllSearch) rows = rows.filter(r => r._src === val); continue; }
+    if (key === '_srcMulti') continue;
+    if (key === '_starred') { rows = rows.filter(r => r.starred === true); continue; }
     if (key === '_all') {
       const lv = val.toLowerCase();
       rows = rows.filter(r => S.schema.some(f => {
@@ -857,10 +949,13 @@ function renderFilePills() {
     row.innerHTML = '<span style="color:#bbb;font-size:0.82rem">No files found.</span>';
     return;
   }
-  const activeSrc = S.filters['_src'] || '';
-  row.innerHTML = S.files.map((f, fi) => {
-    const isActive = activeSrc === f.name;
-    const statusBadge = f.status === 'loading' ? '<span class="pill-spin">⟳</span>'
+  const isWordbanks = S.typeKey === 'wordbanks';
+  const srcSet = (isWordbanks && S.filters['_srcMulti'] instanceof Set) ? S.filters['_srcMulti'] : null;
+  const activeSrc = (!isWordbanks && S.filters['_src']) || '';
+
+  let pills = S.files.map((f, fi) => {
+    const isActive = srcSet ? srcSet.has(f.name) : activeSrc === f.name;
+    const statusBadge = f.status === 'loading' ? '<span class="ld ld-sm"></span>'
       : f.status === 'error'   ? '<span class="pill-err" title="Failed to load">✕</span>'
       : f.status === 'pending' ? '<span class="pill-pending">…</span>'
       : `<span class="pill-cnt">${f.records.length}</span>`;
@@ -873,10 +968,41 @@ function renderFilePills() {
       ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})"  title="Delete file">🗑</button>` : ''}
     </div>`;
   }).join('');
+
+  if (isWordbanks && S.files.length > 1) {
+    const anySelected = srcSet && srcSet.size > 0;
+    const label = anySelected ? `Clear (${srcSet.size}/${S.files.length})` : 'Select All';
+    const btnStyle = anySelected
+      ? 'padding:3px 10px;border-radius:20px;border:1.5px solid #111;background:#111;color:#fff;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;'
+      : 'padding:3px 10px;border-radius:20px;border:1.5px dashed #bbb;background:#fff;color:#888;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;';
+    pills = `<button style="${btnStyle}" onclick="toggleAllSources()">${label}</button>` + pills;
+  }
+
+  row.innerHTML = pills;
 }
 
 async function toggleSource(filename) {
   const fi = S.files.findIndex(f => f.name === filename);
+  if (S.typeKey === 'wordbanks') {
+    if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+    const set = S.filters['_srcMulti'];
+    if (fi !== -1 && S.files[fi].status === 'pending') {
+      set.add(filename);
+      S.page = 0;
+      const def = getTypeDef(S.typeKey);
+      await loadFileContent(fi, def);
+      S.schema = buildSchema(getAllRecords());
+      renderFilePills();
+      renderFilterBar();
+      renderTable();
+      return;
+    }
+    if (set.has(filename)) set.delete(filename); else set.add(filename);
+    S.page = 0;
+    renderFilePills();
+    renderTable();
+    return;
+  }
   if (fi !== -1 && S.files[fi].status === 'pending') {
     S.filters['_src'] = filename;
     S.page = 0;
@@ -894,6 +1020,30 @@ async function toggleSource(filename) {
   renderTable();
 }
 
+async function toggleAllSources() {
+  if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+  const set = S.filters['_srcMulti'];
+  if (set.size > 0) {
+    set.clear();
+    S.page = 0;
+    renderFilePills();
+    renderTable();
+    return;
+  }
+  const def = getTypeDef(S.typeKey);
+  const pending = S.files.filter(f => f.status === 'pending');
+  S.files.forEach(f => set.add(f.name));
+  renderFilePills();
+  if (pending.length) {
+    await Promise.all(pending.map((f) => loadFileContent(S.files.indexOf(f), def)));
+    S.schema = buildSchema(getAllRecords());
+    renderFilePills();
+    renderFilterBar();
+  }
+  S.page = 0;
+  renderTable();
+}
+
 function renderFilterBar() {
   const bar = $('filter-bar');
   if (!S.typeKey) { bar.innerHTML = ''; return; }
@@ -901,7 +1051,7 @@ function renderFilterBar() {
   const allVal = S.filters['_all'] || '';
   let html = `<div class="fc">
     <span class="fl">All Fields</span>
-    <input type="text" value="${esc(allVal)}" placeholder="Search all…" oninput="setFilter('_all', this.value)" style="min-width:140px">
+    <input type="text" value="${esc(allVal)}" placeholder="Search all…" oninput="setAllFieldsFilter(this.value)" style="min-width:140px">
   </div>`;
 
   if (S.schema.length) {
@@ -933,6 +1083,14 @@ function renderFilterBar() {
     }
   }
 
+  const hasStarredField = S.schema.some(f => f.key === 'starred' && f.type === 'boolean');
+  if (hasStarredField) {
+    const starredActive = !!S.filters['_starred'];
+    html += `<div class="fc"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;font-size:0.82rem;">
+      <input type="checkbox" ${starredActive ? 'checked' : ''} onchange="setFilter('_starred', this.checked ? '1' : '')"> ⭐ Starred only
+    </label></div>`;
+  }
+
   html += `<div class="fc" style="align-self:flex-end">
     <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Reset</button></div>`;
 
@@ -942,6 +1100,24 @@ function renderFilterBar() {
 function setFilter(key, val) {
   S.filters[key] = val;
   S.page = 0;
+  renderTable();
+}
+
+async function setAllFieldsFilter(val) {
+  S.filters['_all'] = val;
+  S.page = 0;
+  if (val.trim() && S.typeKey) {
+    const def = getTypeDef(S.typeKey);
+    const hasPending = S.files.some(f => f.status === 'pending');
+    if (hasPending) {
+      await Promise.all(S.files.map((f, fi) =>
+        f.status === 'pending' ? loadFileContent(fi, def) : Promise.resolve()
+      ));
+      S.schema = buildSchema(getAllRecords());
+      renderFilePills();
+      renderFilterBar();
+    }
+  }
   renderTable();
 }
 
@@ -1048,6 +1224,7 @@ function renderTable() {
 }
 
 function renderCell(val, field) {
+  if (field.key === 'starred') return val ? '⭐' : '';
   if (val === undefined || val === null || val === '') return '<span class="cell-empty">—</span>';
   if (field.type === 'boolean') return val ? '✓' : '✗';
   if (field.type === 'number') return String(val);
@@ -1432,7 +1609,8 @@ async function doCreateFile() {
   const varName = VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
   const result = await Desktop.saveText(def.target, name, buildJsContent(varName, []));
   if (!result?.ok) { $('nf-err').textContent = result?.error || 'Failed to create file.'; return; }
-  S.files.push({ name, varName, records: [] });
+  S.files.push({ name, varName, records: [], status: 'loaded', size: 0 });
+  if (_gsc[S.typeKey]) _gsc[S.typeKey][name] = { records: [], varName };
   S.counts[S.typeKey] = S.files.length;
   updateSidebarCount(S.typeKey);
   closeNF();
@@ -1470,9 +1648,10 @@ async function deleteDBFile(fi) {
     if (!result?.ok) { alert(`Delete failed: ${result?.error || 'Unknown error'}`); return; }
   }
 
-  // Remove from session state and cache
+  // Remove from session state and caches
   S.files.splice(fi, 1);
   delete typeCache[S.typeKey];
+  if (_gsc[S.typeKey]) delete _gsc[S.typeKey][file.name];
   if (S.filters['_src'] === file.name) S.filters['_src'] = '';
   S.batchSel = new Set([...S.batchSel].filter(k => !k.startsWith(`${fi}:`)));
   S.counts[S.typeKey] = S.files.length;
@@ -1590,6 +1769,7 @@ async function doMerge() {
   S.counts[S.typeKey] = S.files.length;
   updateSidebarCount(S.typeKey);
   delete typeCache[S.typeKey];
+  delete _gsc[S.typeKey]; // will be re-populated by next search or background reload
   closeMerge();
   renderAll();
 }
@@ -1602,6 +1782,7 @@ async function saveFile(fi) {
   const def = getTypeDef(S.typeKey);
   const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
   if (!result?.ok) { alert(`Save failed: ${result?.error || 'Unknown error'}`); return false; }
+  if (_gsc[S.typeKey]) _gsc[S.typeKey][file.name] = { records: file.records.slice(), varName: file.varName };
   return true;
 }
 
@@ -2159,6 +2340,131 @@ async function deleteSelectedBatch() {
   S.schema = buildSchema(getAllRecords());
   closeBatchPanel();
   renderAll();
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GLOBAL SEARCH (no type selected)
+// ─────────────────────────────────────────────────────────────────────
+let _mdbGlobalTimer = null;
+
+function mdbGlobalSearchDebounced(q) {
+  clearTimeout(_mdbGlobalTimer);
+  _mdbGlobalTimer = setTimeout(() => mdbGlobalSearch(q), 280);
+}
+
+async function mdbGlobalSearch(q) {
+  const resultsEl = $('mdb-global-results');
+  if (!resultsEl) return;
+  const trimmed = q.trim();
+  if (!trimmed) { resultsEl.style.display = 'none'; return; }
+
+  resultsEl.style.display = '';
+  resultsEl.innerHTML = '<div style="padding:12px 14px;" class="ld-inline"><span class="ld"></span>Searching…</div>';
+
+  if (!window.Desktop || !Desktop.isElectron()) {
+    resultsEl.innerHTML = '<div style="padding:12px 14px;color:#999;font-size:0.82rem;">Not available outside the app.</div>';
+    return;
+  }
+
+  const lq = trimmed.toLowerCase();
+  const hits = [];
+
+  function searchRecords(records, typeKey, typeLabel, filename) {
+    for (let ri = 0; ri < records.length; ri++) {
+      const r = records[ri];
+      if (!r) continue;
+      const matched = Object.entries(r).some(([k, v]) => {
+        if (k.startsWith('_')) return false;
+        if (typeof v === 'string') return v.toLowerCase().includes(lq);
+        if (Array.isArray(v)) return v.some(el => String(el).toLowerCase().includes(lq));
+        return false;
+      });
+      if (matched) hits.push({ ...r, _typeKey: typeKey, _typeLabel: typeLabel, _file: filename, _recordIndex: ri });
+      if (hits.length >= 60) return true;
+    }
+    return false;
+  }
+
+  for (const def of TYPE_DEFS) {
+    try {
+      if (_gsc[def.key] !== undefined) {
+        // Cache warm — no I/O needed
+        for (const [filename, fileData] of Object.entries(_gsc[def.key])) {
+          if (searchRecords(fileData.records, def.key, def.label, filename)) break;
+        }
+      } else {
+        // Cache cold — load on demand and populate for future searches
+        const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
+        if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
+        const typeFiles = {};
+        for (const fi of list.files) {
+          const raw = await Desktop.readText(def.target, fi.filename);
+          if (!raw?.ok || !raw.content) continue;
+          const varName = detectVarName(raw.content) || VAR_NAME_DEFAULTS[def.key] || 'customData';
+          const records = _parseRecords(raw.content);
+          if (!records) continue;
+          typeFiles[fi.filename] = { records, varName };
+          if (searchRecords(records, def.key, def.label, fi.filename)) break;
+        }
+        _gsc[def.key] = typeFiles;
+      }
+    } catch (e) {}
+    if (hits.length >= 60) break;
+  }
+
+  if (!hits.length) {
+    resultsEl.innerHTML = '<div style="padding:12px 14px;color:#999;font-size:0.82rem;">No results found.</div>';
+    return;
+  }
+
+  const rows = hits.map(r => {
+    const primary = r.word || r.sentence || r.quote || r.correct || Object.values(r).find(v => typeof v === 'string' && !String(v).startsWith('_')) || '';
+    const secondary = (Array.isArray(r.definition) ? r.definition[0] : r.definition) || r.french || r.theme || r.author || r.erroneous || '';
+    return `<div data-type-key="${esc(r._typeKey)}" data-filename="${esc(r._file)}" data-record-index="${r._recordIndex}" style="display:flex;gap:10px;align-items:baseline;padding:7px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openGlobalResult(this.dataset.typeKey,this.dataset.filename,+this.dataset.recordIndex)" onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''">
+      <span style="flex:1;min-width:0;font-weight:700;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(String(primary))}">${esc(String(primary))}</span>
+      <span style="color:#666;font-size:0.78rem;flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(String(secondary||'').slice(0,200))}">${esc(String(secondary||'').slice(0,80))}</span>
+      <span style="color:#bbb;font-size:0.71rem;white-space:nowrap;flex-shrink:0;">${esc(r._typeLabel)} · ${esc(r._file)}</span>
+    </div>`;
+  }).join('');
+
+  const cap = hits.length >= 60 ? ' (first 60)' : '';
+  resultsEl.innerHTML = `<div style="padding:5px 14px;font-size:0.71rem;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.7px;border-bottom:1px solid #eee;">${hits.length} result${hits.length !== 1 ? 's' : ''}${cap}</div>${rows}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// GLOBAL SEARCH → OPEN FOR EDIT
+// ─────────────────────────────────────────────────────────────────────
+async function openGlobalResult(typeKey, filename, recordIndex) {
+  $('mdb-global-results').style.display = 'none';
+  $('mdb-global-search').value = '';
+
+  if (S.typeKey !== typeKey) await selectType(typeKey);
+
+  let fi = S.files.findIndex(f => f.name === filename);
+  if (fi === -1) return;
+
+  if (S.files[fi].status === 'pending') {
+    const def = getTypeDef(typeKey);
+    await loadFileContent(fi, def);
+    S.schema = buildSchema(getAllRecords());
+    renderFilePills();
+    renderFilterBar();
+    renderTable();
+  }
+
+  if (S.files[fi].status !== 'loaded') return;
+
+  // Make the file visible in the pills
+  if (typeKey === 'wordbanks') {
+    if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
+    S.filters['_srcMulti'].add(filename);
+  } else {
+    S.filters['_src'] = filename;
+  }
+  renderFilePills();
+  renderTable();
+
+  openEdit(fi, recordIndex);
 }
 
 // ─────────────────────────────────────────────────────────────────────

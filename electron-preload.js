@@ -87,6 +87,9 @@ const exposedApi = {
   applyRestoreChoices(request) {
     return invoke('app:apply-restore-choices', request);
   },
+  resetFolders(request) {
+    return invoke('app:reset-folders', request);
+  },
   getDataLocation() {
     return invoke('app:get-data-location');
   },

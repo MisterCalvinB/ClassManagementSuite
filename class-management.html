@@ -145,7 +145,7 @@
             <span>📱 Remote</span>
             <span id="remote-connected-badge" style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
         </button>
-        <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool">🔗 Links</button>
+        <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool">☰</button>
         <div id="cm-lang-switcher" style="display:flex;align-items:center;gap:0;border:1px solid #ccc;border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:2px;">
             <button onclick="setLang('en')" id="lang-btn-en" title="English" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-radius:0;background:#111;color:#fff;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">EN</button>
             <button onclick="setLang('fr')" id="lang-btn-fr" title="Français" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">FR</button>
@@ -379,34 +379,20 @@
 </div>
 <!-- Links popup -->
 <div id="links-popup">
-    <div class="db-popup-header">
-        <span class="db-popup-title">🔗 Links</span>
-        <button class="db-popup-close" onclick="closeLinksPopup()">✕</button>
-    </div>
-    <button class="db-popup-btn" onclick="openAppLink('board.html')">
-        <span class="db-popup-btn-icon">🌐</span>
-        <span class="db-popup-btn-text"><strong>Board</strong><small>Constellation &amp; mindmapping</small></span>
-    </button>
-    <button class="db-popup-btn" onclick="openAppLink('learning-tools.html')">
-        <span class="db-popup-btn-icon">🎮</span>
-        <span class="db-popup-btn-text"><strong>Learning Tools</strong><small>Vocabulary &amp; exercises</small></span>
-    </button>
-    <button class="db-popup-btn" onclick="openAppLink('manage-database.html')">
-        <span class="db-popup-btn-icon">🗄️</span>
-        <span class="db-popup-btn-text"><strong>Database</strong><small>Manage word database</small></span>
-    </button>
-    <button class="db-popup-btn" onclick="openAppLink('grade-sheet.html')">
-        <span class="db-popup-btn-icon">📝</span>
-        <span class="db-popup-btn-text"><strong>Grade Sheet</strong><small>Class grades &amp; results</small></span>
-    </button>
-    <button class="db-popup-btn" onclick="openAppLink('participation-tracker.html')">
-        <span class="db-popup-btn-icon">📊</span>
-        <span class="db-popup-btn-text"><strong>Tracker</strong><small>Participation overview</small></span>
-    </button>
-    <button class="db-popup-btn" onclick="openAppLink('data-location.html')">
-        <span class="db-popup-btn-icon">⚙️</span>
-        <span class="db-popup-btn-text"><strong>Data Location</strong><small>Manage data &amp; backup folder</small></span>
-    </button>
+    <button class="hm-item" onclick="openAppLink('board.html')">🌐 Board</button>
+    <button class="hm-item" onclick="openAppLink('learning-tools.html')">🎮 Learning Tools</button>
+    <button class="hm-item" onclick="openAppLink('manage-database.html')">🗄️ Database</button>
+    <button class="hm-item" onclick="openAppLink('grade-sheet.html')">📝 Grade Sheet</button>
+    <button class="hm-item" onclick="openAppLink('participation-tracker.html')">📊 Tracker</button>
+    <hr class="hm-sep">
+    <button class="hm-item" onclick="openAppLink('group-editor.html')">✏️ Group Editor</button>
+    <button class="hm-item" onclick="openAppLink('class-plan.html')">📐 Class Plan</button>
+    <button class="hm-item" onclick="openAppLink('schedule-maker.html')">📆 Schedule Maker</button>
+    <button class="hm-item" onclick="openAppLink('file-manager.html')">📁 File Manager</button>
+    <hr class="hm-sep">
+    <button class="hm-item" onclick="openAppLink('general-config.html')">⚙️ General Config</button>
+    <button class="hm-item" onclick="openAppLink('launcher.html')">🏠 Launcher</button>
+    <button class="hm-item" onclick="openCreditsModal()">ℹ️ Credits</button>
 </div>
 <div id="startup-load-banner">
     <span class="startup-banner-icon">📁</span>
@@ -2823,6 +2809,8 @@
             return;
         }
 
+        const deletedGroups = Object.keys(rawData).filter(g => !(g in updated));
+
         rawData = updated;
         rawMeta = updatedMeta;
         applyGroupEditsInMemory();
@@ -2831,6 +2819,18 @@
         if (!result?.ok) {
             alert('Save failed: ' + (result?.error || 'Unable to save class-groups.js'));
             return;
+        }
+
+        if (window.Desktop && deletedGroups.length > 0) {
+            for (const group of deletedGroups) {
+                const safeDir = group
+                    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+                    .replace(/\s+/g, '_')
+                    .replace(/^\.+/, '')
+                    .trim() || '_class';
+                try { await window.Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true }); } catch (e) {}
+                try { await window.Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true }); } catch (e) {}
+            }
         }
 
         const saveBtn = document.querySelector('#edit-groups-modal button[onclick*="saveGroupsToFile"]');
@@ -10095,7 +10095,7 @@ function saveNameDisplayMode(value) {
 }
 
 function _applyAppTitle() {
-    let label = 'Coll\u00e8ge Calvin';
+    let label = '';
     try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch {}
     const titleEl = document.getElementById('main-title');
     if (titleEl) titleEl.textContent = label + ': Class Management';
