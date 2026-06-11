@@ -16,6 +16,7 @@
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
+| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, custom CSS stylesheets, templates, and PDF export |
 | `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
 
 All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
@@ -728,5 +729,72 @@ Before applying a sync, a modal lists every file that differs between source and
 - Keep newer
 - Keep source
 - Keep target
+
+---
+
+## document-editor.html
+
+**Document Editor** — a dual-pane Markdown editor with live KaTeX maths rendering, custom CSS stylesheets, document/template management, and PDF export.
+
+### Layout
+
+The window is divided into three horizontal regions:
+
+1. **Nav bar** — New · Open · Save · Save As · Templates ▾ · Export PDF · hamburger menu (Launcher).
+2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
+3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
+
+### Markdown & Maths
+
+Write standard [GitHub Flavored Markdown](https://github.github.com/gfm/). Maths is rendered by KaTeX:
+
+| Syntax | Rendering |
+|---|---|
+| `$...$` | Inline maths |
+| `$$...$$` | Display (block) maths |
+
+### Documents
+
+Files are saved as `.md` under `custom-data/document-editor/docs/`.
+
+| Action | How |
+|---|---|
+| **New** | Clears the editor (prompts if unsaved changes) |
+| **Open** | Modal list of saved documents; click Open or Delete |
+| **Save** | Saves under current name; prompts for a filename if new |
+| **Save As** | Always prompts for a new filename |
+| Ctrl+S | Save | Ctrl+N | New | Ctrl+O | Open |
+
+### Templates
+
+Templates are `.md` files under `custom-data/document-editor/templates/`. Use the **Templates ▾** dropdown to:
+
+- **Open template…** — insert a template into the editor (replaces current content).
+- **Save as template…** — save the current editor content as a named template.
+
+### CSS Panel
+
+The top panel exposes three ways to customise how the preview looks:
+
+| Control | Purpose |
+|---|---|
+| **Stylesheet picker** | Select, create (New), save, or delete a `.css` file stored under `custom-data/document-editor/stylesheets/` |
+| **Quick Rule builder** | Type a CSS selector, choose a property from the dropdown, type a value, press **+ Add** — the rule is appended to the CSS editor and applied immediately |
+| **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw content of the active stylesheet; changes apply to the preview in real time |
+
+Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
+
+### PDF Export
+
+Click **Export PDF** to render the current preview (including custom CSS and KaTeX fonts) as a PDF and save it via the system save dialog.
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+S | Save document |
+| Ctrl+N | New document |
+| Ctrl+O | Open document |
+| Esc | Close open modal |
 
 Bulk-action buttons let you apply one strategy to all files at once. A search bar and status filter narrow the list when many files are involved.

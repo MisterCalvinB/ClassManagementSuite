@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manage Database</title>
+  <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script>
     (function () {
@@ -651,6 +652,27 @@ function _parseRecords(content) {
   } catch (e) { return null; }
 }
 
+// Unified file reader: tries fast JSON parse first, falls back to JS eval via _parseRecords.
+// Handles both clean JSON-style files and JS files with unquoted keys or template literals.
+async function readRecords(target, filename, typeKey) {
+  const [jsonResult, rawResult] = await Promise.all([
+    Desktop.readJson(target, filename),
+    Desktop.readText(target, filename),
+  ]);
+  const content = rawResult?.ok ? rawResult.content : null;
+  const varName = content
+    ? (detectVarName(content) || VAR_NAME_DEFAULTS[typeKey] || 'customData')
+    : (VAR_NAME_DEFAULTS[typeKey] || 'customData');
+  if (jsonResult?.ok && Array.isArray(jsonResult.data)) {
+    return { records: jsonResult.data, varName };
+  }
+  if (content) {
+    const records = _parseRecords(content);
+    if (records) return { records, varName };
+  }
+  return null;
+}
+
 async function startBackgroundLoad() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   for (const def of TYPE_DEFS) {
@@ -664,17 +686,8 @@ async function startBackgroundLoad() {
         // Re-use anything already seeded by a user-triggered load
         if (_gsc[def.key]?.[fi.filename]) { typeFiles[fi.filename] = _gsc[def.key][fi.filename]; continue; }
         try {
-          // readJson parses in the main process — never blocks the renderer thread
-          // readText is a cheap regex-only operation needed for varName detection
-          const [jsonResult, rawResult] = await Promise.all([
-            Desktop.readJson(def.target, fi.filename),
-            Desktop.readText(def.target, fi.filename),
-          ]);
-          if (!jsonResult?.ok || !Array.isArray(jsonResult.data)) continue;
-          const varName = (rawResult?.ok && rawResult.content)
-            ? (detectVarName(rawResult.content) || VAR_NAME_DEFAULTS[def.key] || 'customData')
-            : (VAR_NAME_DEFAULTS[def.key] || 'customData');
-          typeFiles[fi.filename] = { records: jsonResult.data, varName };
+          const result = await readRecords(def.target, fi.filename, def.key);
+          if (result) typeFiles[fi.filename] = result;
         } catch (e) {}
       }
       _gsc[def.key] = typeFiles;
@@ -793,41 +806,13 @@ async function loadFileContent(fi, def) {
   file.status = 'loading';
   renderFilePills();
   try {
-    const raw = await Desktop.readText(def.target, file.name);
-    if (!raw?.ok) throw new Error(raw?.error || 'Read failed');
-
-    const content = raw.content;
-    file.varName = detectVarName(content) || VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
-
-    // Fast path: try JSON parsing (works for files with fully-quoted keys)
-    const json = await Desktop.readJson(def.target, file.name);
-    if (json?.ok && Array.isArray(json.data)) {
-      file.records = json.data;
-      file.status = 'loaded';
-      if (!_gsc[S.typeKey]) _gsc[S.typeKey] = {};
-      _gsc[S.typeKey][file.name] = { records: file.records, varName: file.varName };
-      return;
-    }
-
-    // Fallback: inject the script and read the variable — handles unquoted JS object keys
-    const varName = file.varName;
-    const tmpKey = '__dbm2_' + fi + '_' + Date.now();
-    const s = document.createElement('script');
-    s.text = `(function(){\n${content}\ntry{window['${tmpKey}']=${varName};}catch(e){}})();`;
-    document.head.appendChild(s);
-    if (s.parentNode) s.parentNode.removeChild(s);
-
-    const data = window[tmpKey];
-    delete window[tmpKey];
-
-    if (Array.isArray(data)) {
-      file.records = data;
-      file.status = 'loaded';
-      if (!_gsc[S.typeKey]) _gsc[S.typeKey] = {};
-      _gsc[S.typeKey][file.name] = { records: file.records, varName: file.varName };
-    } else {
-      throw new Error('Script did not yield an array');
-    }
+    const result = await readRecords(def.target, file.name, S.typeKey);
+    if (!result) throw new Error('Could not parse file');
+    file.varName = result.varName;
+    file.records = result.records;
+    file.status = 'loaded';
+    if (!_gsc[S.typeKey]) _gsc[S.typeKey] = {};
+    _gsc[S.typeKey][file.name] = { records: file.records, varName: file.varName };
   } catch (err) {
     file.status = 'error';
     console.warn('Failed to load', file.name, err);

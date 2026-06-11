@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>How To — Class Management Tools</title>
+  <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -671,6 +672,20 @@
           <button class="sidebar-child" data-accordion="acc-sm-order" onclick="navToAccordion('schedule-maker','acc-sm-order')"><span class="sidebar-child-dot"></span>Student Order</button>
           <button class="sidebar-child" data-accordion="acc-sm-timing" onclick="navToAccordion('schedule-maker','acc-sm-timing')"><span class="sidebar-child-dot"></span>Timing Model</button>
           <button class="sidebar-child" data-accordion="acc-sm-output" onclick="navToAccordion('schedule-maker','acc-sm-output')"><span class="sidebar-child-dot"></span>Output &amp; Save</button>
+        </div>
+      </div>
+      <div class="sidebar-item" id="nav-document-editor">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="document-editor" onclick="navTo('document-editor')">
+            <span>✍️</span> Document Editor
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-document-editor')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-de-editor" onclick="navToAccordion('document-editor','acc-de-editor')"><span class="sidebar-child-dot"></span>Editor &amp; Preview</button>
+          <button class="sidebar-child" data-accordion="acc-de-css" onclick="navToAccordion('document-editor','acc-de-css')"><span class="sidebar-child-dot"></span>CSS Panel</button>
+          <button class="sidebar-child" data-accordion="acc-de-docs" onclick="navToAccordion('document-editor','acc-de-docs')"><span class="sidebar-child-dot"></span>Documents &amp; Templates</button>
+          <button class="sidebar-child" data-accordion="acc-de-pdf" onclick="navToAccordion('document-editor','acc-de-pdf')"><span class="sidebar-child-dot"></span>PDF Export</button>
         </div>
       </div>
 
@@ -1745,6 +1760,79 @@
 
     </section>
 
+    <!-- ═══ DOCUMENT EDITOR ══════════════════════════════════ -->
+    <section class="tool-section" id="document-editor">
+      <div class="tool-header">
+        <span class="tool-icon">✍️</span>
+        <h2>Document Editor</h2>
+        <button class="open-tool-btn" onclick="openTool('document-editor.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        A dual-pane Markdown editor with live KaTeX maths rendering, custom CSS stylesheets, document and template management, and PDF export. Write on the left; see the formatted output on the right.
+      </p>
+
+      <div class="accordion" id="acc-de-editor">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-editor')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Editor &amp; Preview</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>The window is split into a <strong>Markdown editor</strong> (left) and a <strong>live preview</strong> (right). Drag the vertical divider to resize either pane.</p>
+          <p style="margin-top:.7em">Write standard <strong>GitHub Flavored Markdown</strong> with two maths extensions:</p>
+          <ul>
+            <li><code>$…$</code> — inline maths (KaTeX)</li>
+            <li><code>$$…$$</code> — display (block) maths (KaTeX)</li>
+          </ul>
+          <div class="tip"><strong>Shortcuts:</strong> Ctrl+S saves · Ctrl+N new document · Ctrl+O open document · Esc closes any open modal.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-de-css">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-css')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">CSS Panel</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>The top panel lets you control the visual appearance of the preview. It has three parts:</p>
+          <ul>
+            <li><strong>Stylesheet picker</strong> — select a saved <code>.css</code> file. Use <em>New / Save / Delete</em> to manage stylesheet files stored in <code>custom-data/document-editor/stylesheets/</code>.</li>
+            <li><strong>Quick Rule builder</strong> — type a selector, choose a CSS property from the dropdown, type a value, and press <strong>+ Add</strong>. The rule is appended to the CSS editor and applied to the preview immediately.</li>
+            <li><strong>CSS Editor ▾</strong> — click to expand a full Monaco CSS editor showing the active stylesheet. Changes are applied live. Click <em>Save</em> to persist them.</li>
+          </ul>
+          <div class="tip">Use <code>.doc-preview</code> as a root selector to scope your rules to the preview area, e.g. <code>.doc-preview h1 { color: #2c3e50; }</code>.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-de-docs">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-docs')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Documents &amp; Templates</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p><strong>Documents</strong> are <code>.md</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
+          <ul>
+            <li><strong>New</strong> — clear the editor for a new document (prompts if unsaved changes exist).</li>
+            <li><strong>Open</strong> — shows a list of saved documents. Click <em>Open</em> to load or <em>Del</em> to delete.</li>
+            <li><strong>Save</strong> — saves under the current filename; asks for a name if the document is new.</li>
+            <li><strong>Save As</strong> — always prompts for a filename.</li>
+          </ul>
+          <p style="margin-top:.7em"><strong>Templates</strong> are <code>.md</code> files under <code>custom-data/document-editor/templates/</code>. Use the <strong>Templates ▾</strong> dropdown to load a template into the editor or save the current content as a new template.</p>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-de-pdf">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-pdf')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">PDF Export</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Click <strong>Export PDF</strong> in the nav bar. The current preview — including KaTeX maths, custom CSS, and default document styles — is rendered and the system save dialog opens. Choose a folder and filename to save the PDF.</p>
+          <div class="tip">The PDF captures exactly what is visible in the preview pane, so apply your stylesheet before exporting.</div>
+        </div></div>
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -1903,7 +1991,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker'];
+  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','document-editor'];
 
   function onScroll() {
     var y = window.scrollY + 80;

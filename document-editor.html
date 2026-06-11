@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Editor</title>
+  <link rel="stylesheet" href="modules/katex/dist/katex.min.css">
+  <link rel="stylesheet" href="modules/lexend/lexend.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f4f4f4;
+      color: #111;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Nav ───────────────────────────────────────────── */
+    #app-nav {
+      background: #111;
+      color: #fff;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 44px;
+      flex-shrink: 0;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+    .nav-brand {
+      font-weight: 900;
+      font-size: .9rem;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+    .nav-sep { width: 1px; height: 22px; background: #444; margin: 0 4px; flex-shrink: 0; }
+    .nav-btn {
+      background: none;
+      border: 1px solid #555;
+      color: #ddd;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 600;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: border-color .12s, color .12s;
+    }
+    .nav-btn:hover { border-color: #fff; color: #fff; }
+    .nav-btn.nav-btn-primary { background: #fff; color: #111; border-color: #fff; }
+    .nav-btn.nav-btn-primary:hover { background: #ddd; }
+    #doc-name-indicator {
+      margin-left: auto;
+      font-size: .78rem;
+      font-weight: 600;
+      color: #aaa;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+    #doc-name-indicator.modified::after { content: ' *'; color: #f90; }
+
+    /* ── Hamburger ─────────────────────────────────────── */
+    .hm-wrap { position: relative; }
+    .hm-btn {
+      background: none;
+      border: 1px solid #555;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      transition: border-color .12s;
+    }
+    .hm-btn:hover { border-color: #fff; }
+    .hm-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 6px;
+      min-width: 180px;
+      z-index: 9999;
+      padding: 4px 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,.45);
+    }
+    .hm-wrap.open .hm-menu { display: block; }
+    .hm-item {
+      display: block;
+      padding: 7px 16px;
+      color: #ccc;
+      text-decoration: none;
+      font-size: .85rem;
+      font-weight: 600;
+      white-space: nowrap;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      text-align: left;
+    }
+    .hm-item:hover { background: #2d2d2d; color: #fff; }
+    .hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
+
+    /* ── CSS Panel ─────────────────────────────────────── */
+    #css-panel {
+      background: #fff;
+      border-bottom: 2px solid #ddd;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    #css-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      flex-wrap: wrap;
+      min-height: 44px;
+    }
+    .cp-label {
+      font-size: .7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: #666;
+      white-space: nowrap;
+    }
+    .cp-sep { width: 1px; height: 20px; background: #ddd; margin: 0 2px; flex-shrink: 0; }
+    .cp-btn {
+      background: #fff;
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: .77rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      color: #333;
+      transition: border-color .1s, background .1s;
+    }
+    .cp-btn:hover { border-color: #000; background: #f5f5f5; }
+    .cp-btn.cp-btn-danger:hover { border-color: #c00; color: #c00; }
+    #stylesheet-select {
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-family: inherit;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #333;
+      background: #fff;
+      cursor: pointer;
+      max-width: 180px;
+    }
+    #stylesheet-select:focus { outline: none; border-color: #000; }
+    #rule-selector, #rule-value {
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-family: inherit;
+      font-size: .8rem;
+      color: #333;
+      background: #fff;
+      transition: border-color .1s;
+    }
+    #rule-selector { width: 110px; }
+    #rule-value { width: 120px; }
+    #rule-selector:focus, #rule-value:focus { outline: none; border-color: #000; }
+    #rule-property {
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 7px;
+      font-family: inherit;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #333;
+      background: #fff;
+      cursor: pointer;
+      max-width: 150px;
+    }
+    #rule-property:focus { outline: none; border-color: #000; }
+    #btn-toggle-css-editor {
+      margin-left: auto;
+      background: #f0f0f0;
+      border: 1.5px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: .77rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      color: #555;
+      transition: border-color .1s;
+    }
+    #btn-toggle-css-editor:hover { border-color: #000; color: #000; }
+    #css-editor-wrapper {
+      display: none;
+      height: 160px;
+      border-top: 1px solid #e0e0e0;
+      flex-shrink: 0;
+    }
+    #css-editor-wrapper.visible { display: block; }
+    #css-editor-container { width: 100%; height: 100%; }
+
+    /* ── Main split ─────────────────────────────────────── */
+    #main-split {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+    #editor-pane {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-width: 100px;
+    }
+    #md-editor-container { flex: 1; min-height: 0; }
+    #split-divider {
+      width: 5px;
+      cursor: col-resize;
+      background: #ddd;
+      flex-shrink: 0;
+      transition: background .1s;
+      position: relative;
+      z-index: 10;
+    }
+    #split-divider:hover, #split-divider.dragging { background: #999; }
+    #preview-pane {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-width: 100px;
+      background: #f0f0f0;
+    }
+    #preview-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 0 40px;
+    }
+
+    /* ── Preview document styles ────────────────────────── */
+    .doc-preview {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 32px 40px;
+      background: #fff;
+      min-height: 100%;
+      line-height: 1.65;
+      color: #1a1a1a;
+      font-size: 15px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }
+    .doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 1px solid #eee; }
+    .doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }
+    .doc-preview h4 { font-size: 1em; font-weight: 700; margin: .8em 0 .3em; }
+    .doc-preview h5, .doc-preview h6 { font-size: .9em; font-weight: 700; margin: .8em 0 .3em; color: #444; }
+    .doc-preview p { margin: 0 0 1em; }
+    .doc-preview ul, .doc-preview ol { padding-left: 2em; margin: 0 0 1em; }
+    .doc-preview li { margin: .25em 0; }
+    .doc-preview pre {
+      background: #f6f8fa;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 0 0 1em;
+      font-size: .88em;
+    }
+    .doc-preview code {
+      background: rgba(27,31,35,.07);
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: .9em;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+    .doc-preview pre code { background: none; padding: 0; font-size: inherit; }
+    .doc-preview blockquote {
+      border-left: 4px solid #dfe2e5;
+      padding: 2px 16px;
+      color: #6a737d;
+      margin: 0 0 1em;
+    }
+    .doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }
+    .doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }
+    .doc-preview th { background: #f6f8fa; font-weight: 700; }
+    .doc-preview tr:nth-child(even) td { background: #fafbfc; }
+    .doc-preview img { max-width: 100%; border-radius: 4px; }
+    .doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }
+    .doc-preview a { color: #0366d6; text-decoration: none; }
+    .doc-preview a:hover { text-decoration: underline; }
+    .math-display { margin: 1em 0; overflow-x: auto; text-align: center; }
+    .math-error { color: #c00; font-size: .85em; }
+    .render-error { color: #c00; background: #fff0f0; border: 1px solid #fcc; border-radius: 4px; padding: 8px 12px; }
+
+    /* ── Full-page preview overlay ──────────────────────── */
+    #full-preview-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3000;
+      background: #d0d0d0;
+      display: flex;
+      flex-direction: column;
+    }
+    #full-preview-overlay[hidden] { display: none; }
+    #full-preview-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #1a1a1a;
+      color: #fff;
+      flex-shrink: 0;
+      font-size: .88rem;
+      font-weight: 700;
+    }
+    #full-preview-bar-title { font-size: .9rem; letter-spacing: .03em; opacity: .85; }
+    #btn-close-preview {
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,.5);
+      color: #fff;
+      border-radius: 4px;
+      padding: 4px 14px;
+      font-family: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .02em;
+    }
+    #btn-close-preview:hover { background: rgba(255,255,255,.15); border-color: #fff; }
+    #full-preview-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 36px 16px 60px;
+    }
+    #full-preview-content.doc-preview {
+      box-shadow: 0 4px 24px rgba(0,0,0,.18);
+    }
+
+    /* ── Modals ─────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.4);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay[hidden] { display: none; }
+    .modal-box {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #000;
+      min-width: 340px;
+      max-width: 600px;
+      width: 90vw;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-box.modal-narrow { max-width: 380px; }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 12px;
+      border-bottom: 2px solid #000;
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 1.05rem; font-weight: 800; }
+    .modal-close-btn {
+      background: #fff;
+      border: 1.5px solid #000;
+      border-radius: 5px;
+      padding: 3px 9px;
+      font-size: .88rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .1s, color .1s;
+    }
+    .modal-close-btn:hover { background: #000; color: #fff; }
+    .modal-body { padding: 16px 18px 18px; overflow-y: auto; flex: 1; }
+    .modal-label {
+      display: block;
+      font-size: .72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 5px;
+      color: #333;
+    }
+    .modal-input {
+      width: 100%;
+      border: 2px solid #000;
+      border-radius: 5px;
+      padding: 7px 10px;
+      font-family: inherit;
+      font-size: .9rem;
+      color: #000;
+      background: #fff;
+      margin-bottom: 14px;
+    }
+    .modal-input:focus { outline: none; box-shadow: 2px 2px 0 #000; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .modal-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #000;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #000;
+      color: #fff;
+      transition: background .1s, color .1s;
+    }
+    .modal-btn:hover { background: #333; }
+    .modal-btn.modal-btn-cancel { background: #fff; color: #000; }
+    .modal-btn.modal-btn-cancel:hover { background: #f0f0f0; }
+    .modal-empty {
+      text-align: center;
+      padding: 30px 20px;
+      font-size: .9rem;
+      color: #777;
+      font-weight: 600;
+    }
+    .file-list { display: flex; flex-direction: column; gap: 6px; }
+    .file-row {
+      border: 2px solid #e0e0e0;
+      border-radius: 7px;
+      padding: 9px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color .1s, box-shadow .1s;
+    }
+    .file-row:hover { border-color: #000; box-shadow: 2px 2px 0 #000; }
+    .file-row-name {
+      flex: 1;
+      font-size: .88rem;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-row-btn {
+      flex-shrink: 0;
+      background: #000;
+      color: #fff;
+      border: 2px solid #000;
+      border-radius: 5px;
+      padding: 4px 11px;
+      font-size: .78rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .1s, color .1s;
+    }
+    .file-row-btn:hover { background: #333; }
+    .file-row-btn-outline { background: #fff; color: #000; }
+    .file-row-btn-outline:hover { background: #f0f0f0; }
+    .file-row-btn-del { background: #fff; color: #c00; border-color: #c00; }
+    .file-row-btn-del:hover { background: #ffeaea; }
+    .modal-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .modal-toolbar-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .1s, color .1s;
+    }
+    .modal-toolbar-btn:hover { background: #000; color: #fff; }
+
+    /* ── Toast ──────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: #1a1a1a;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: .82rem;
+      font-weight: 700;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0;
+      transition: transform .25s, opacity .25s;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Page Layout popup ──────────────────────────────── */
+    #page-layout-wrap { position: relative; }
+    #page-layout-popup {
+      display: none;
+      position: absolute;
+      top: calc(100% + 7px);
+      left: 0;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 9px;
+      box-shadow: 4px 4px 0 rgba(0,0,0,.18);
+      padding: 0;
+      width: 290px;
+      z-index: 3000;
+      font-size: .82rem;
+      overflow: hidden;
+    }
+    #page-layout-popup.open { display: block; }
+    .pl-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 12px 8px; border-bottom: 2px solid #000; background: #111; color: #fff;
+    }
+    .pl-header-title { font-weight: 800; font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; }
+    .pl-close {
+      background: none; border: 1px solid #555; color: #ccc; border-radius: 4px;
+      padding: 1px 7px; cursor: pointer; font-size: .82rem; font-weight: 700; font-family: inherit;
+    }
+    .pl-close:hover { border-color: #fff; color: #fff; }
+    .pl-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+    .pl-section-label {
+      font-size: .68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .6px; color: #777; margin-bottom: 5px;
+    }
+    .pl-row { display: flex; gap: 8px; align-items: center; }
+    .pl-orient-btn {
+      flex: 1; padding: 6px 8px; border: 2px solid #ccc; border-radius: 5px;
+      background: #fff; color: #555; font-size: .78rem; font-weight: 700;
+      cursor: pointer; font-family: inherit; text-align: center;
+      transition: border-color .1s, background .1s, color .1s;
+    }
+    .pl-orient-btn.active { border-color: #000; background: #000; color: #fff; }
+    .pl-orient-btn:not(.active):hover { border-color: #666; color: #111; }
+    .pl-select {
+      width: 100%; border: 1.5px solid #ccc; border-radius: 4px; padding: 5px 7px;
+      font-family: inherit; font-size: .8rem; font-weight: 600; color: #333;
+      background: #fff; cursor: pointer;
+    }
+    .pl-select:focus { outline: none; border-color: #000; }
+    .pl-custom-dims {
+      display: flex; gap: 6px; align-items: center; margin-top: 5px;
+    }
+    .pl-custom-dims label { font-size: .75rem; font-weight: 700; color: #555; white-space: nowrap; }
+    .pl-dim-input {
+      width: 64px; border: 1.5px solid #ccc; border-radius: 4px;
+      padding: 4px 6px; font-family: inherit; font-size: .8rem; text-align: right;
+    }
+    .pl-dim-input:focus { outline: none; border-color: #000; }
+    .pl-dim-unit { font-size: .72rem; color: #888; }
+    .pl-margins-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto;
+      gap: 4px 6px; align-items: center; margin-top: 5px;
+    }
+    .pl-margin-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .pl-margin-cell.center-col { justify-self: center; }
+    .pl-margin-label { font-size: .65rem; font-weight: 700; color: #888; text-transform: uppercase; }
+    .pl-margin-input {
+      width: 54px; border: 1.5px solid #ccc; border-radius: 4px;
+      padding: 3px 5px; font-family: inherit; font-size: .8rem; text-align: right;
+    }
+    .pl-margin-input:focus { outline: none; border-color: #000; }
+    .pl-margin-spacer { /* empty grid cell */ }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────────── -->
+<nav id="app-nav">
+  <span class="nav-brand">Document Editor</span>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" id="btn-new-doc" title="New document (Ctrl+N)">New</button>
+  <button class="nav-btn" id="btn-open-doc" title="Open document">Open</button>
+  <button class="nav-btn nav-btn-primary" id="btn-save-doc" title="Save (Ctrl+S)">Save</button>
+  <button class="nav-btn" id="btn-save-as-doc" title="Save as new file">Save As</button>
+  <div class="nav-sep"></div>
+  <div class="hm-wrap" id="templates-dd-wrap">
+    <button class="nav-btn hm-btn" id="btn-templates-dd" style="font-size:.8rem">Templates ▾</button>
+    <div class="hm-menu" id="templates-menu">
+      <button class="hm-item" id="btn-open-template">Open template…</button>
+      <button class="hm-item" id="btn-save-as-template">Save as template…</button>
+    </div>
+  </div>
+  <div class="nav-sep"></div>
+  <div id="page-layout-wrap">
+    <button class="nav-btn" id="btn-page-layout" title="Page layout (size, orientation, margins)">Page Layout ▾</button>
+    <div id="page-layout-popup">
+      <div class="pl-header">
+        <span class="pl-header-title">Page Layout</span>
+        <button class="pl-close" id="pl-close-btn">✕</button>
+      </div>
+      <div class="pl-body">
+
+        <div>
+          <div class="pl-section-label">Orientation</div>
+          <div class="pl-row">
+            <button class="pl-orient-btn active" id="pl-portrait" data-orient="portrait">▯ Portrait</button>
+            <button class="pl-orient-btn" id="pl-landscape" data-orient="landscape">▭ Landscape</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="pl-section-label">Paper size</div>
+          <select class="pl-select" id="pl-size">
+            <option value="A4">A4  (210 × 297 mm)</option>
+            <option value="A3">A3  (297 × 420 mm)</option>
+            <option value="A5">A5  (148 × 210 mm)</option>
+            <option value="Letter">Letter  (216 × 279 mm)</option>
+            <option value="Legal">Legal  (216 × 356 mm)</option>
+            <option value="Custom">Custom…</option>
+          </select>
+          <div class="pl-custom-dims" id="pl-custom-dims" style="display:none">
+            <label>W</label>
+            <input class="pl-dim-input" type="number" id="pl-custom-w" min="50" max="1200" value="210">
+            <span class="pl-dim-unit">mm</span>
+            <label>H</label>
+            <input class="pl-dim-input" type="number" id="pl-custom-h" min="50" max="1200" value="297">
+            <span class="pl-dim-unit">mm</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="pl-section-label">Margins</div>
+          <select class="pl-select" id="pl-margin-preset" style="margin-bottom:6px">
+            <option value="Normal">Normal  (25 mm)</option>
+            <option value="Narrow">Narrow  (13 mm)</option>
+            <option value="Wide">Wide  (25 mm top/bottom, 38 mm sides)</option>
+            <option value="Minimal">Minimal  (10 mm)</option>
+            <option value="None">None  (0 mm)</option>
+            <option value="Custom">Custom…</option>
+          </select>
+          <div class="pl-margins-grid">
+            <div class="pl-margin-spacer"></div>
+            <div class="pl-margin-cell center-col">
+              <span class="pl-margin-label">Top</span>
+              <input class="pl-margin-input" type="number" id="pl-mt" min="0" max="100" step="0.5" value="25">
+            </div>
+            <div class="pl-margin-spacer"></div>
+            <div class="pl-margin-cell">
+              <span class="pl-margin-label">Left</span>
+              <input class="pl-margin-input" type="number" id="pl-ml" min="0" max="100" step="0.5" value="25">
+            </div>
+            <div class="pl-margin-spacer"></div>
+            <div class="pl-margin-cell">
+              <span class="pl-margin-label">Right</span>
+              <input class="pl-margin-input" type="number" id="pl-mr" min="0" max="100" step="0.5" value="25">
+            </div>
+            <div class="pl-margin-spacer"></div>
+            <div class="pl-margin-cell center-col">
+              <span class="pl-margin-label">Bottom</span>
+              <input class="pl-margin-input" type="number" id="pl-mb" min="0" max="100" step="0.5" value="25">
+            </div>
+            <div class="pl-margin-spacer"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="pl-section-label">Typography</div>
+          <select class="pl-select" id="pl-font-family" style="margin-bottom:5px">
+            <option value="'Segoe UI', system-ui, sans-serif">Segoe UI (default)</option>
+            <option value="'Lexend', sans-serif">Lexend</option>
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="Garamond, 'EB Garamond', serif">Garamond</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="'Calibri', sans-serif">Calibri</option>
+            <option value="'Palatino Linotype', Palatino, serif">Palatino</option>
+            <option value="'Courier New', Courier, monospace">Courier New</option>
+          </select>
+          <div class="pl-custom-dims">
+            <label>Size</label>
+            <input class="pl-dim-input" type="number" id="pl-font-size" min="6" max="72" step="0.5" value="11">
+            <span class="pl-dim-unit">pt</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div class="nav-sep"></div>
+  <button class="nav-btn" id="btn-export-pdf" title="Export to PDF">Export PDF</button>
+  <button class="nav-btn" id="btn-preview" title="Full-page preview">Preview</button>
+  <div class="nav-sep"></div>
+  <div class="hm-wrap" id="main-hm-wrap">
+    <button class="hm-btn" id="main-hm-btn">☰</button>
+    <div class="hm-menu">
+      <button class="hm-item" id="btn-goto-launcher">← Launcher</button>
+    </div>
+  </div>
+  <span id="doc-name-indicator">Untitled</span>
+</nav>
+
+<!-- ── Full-page preview overlay ───────────────────────── -->
+<div id="full-preview-overlay" hidden>
+  <div id="full-preview-bar">
+    <span id="full-preview-bar-title">Preview</span>
+    <button id="btn-close-preview">✕ Close  (Esc)</button>
+  </div>
+  <div id="full-preview-scroll">
+    <style id="full-preview-custom-css"></style>
+    <div id="full-preview-content" class="doc-preview"></div>
+  </div>
+</div>
+
+<!-- ── CSS Panel ────────────────────────────────────────── -->
+<div id="css-panel">
+  <div id="css-panel-header">
+    <span class="cp-label">Stylesheet</span>
+    <select id="stylesheet-select" title="Active stylesheet">
+      <option value="">— none —</option>
+    </select>
+    <button class="cp-btn" id="btn-new-ss" title="New stylesheet">New</button>
+    <button class="cp-btn" id="btn-save-ss" title="Save stylesheet">Save</button>
+    <button class="cp-btn cp-btn-danger" id="btn-delete-ss" title="Delete stylesheet">Delete</button>
+
+    <span class="cp-sep"></span>
+    <span class="cp-label">Quick Rule</span>
+    <input id="rule-selector" type="text" placeholder=".selector" title="CSS selector (e.g. .my-class, h1, #id)">
+    <select id="rule-property" title="CSS property">
+      <option value="color">color</option>
+      <option value="background-color">background-color</option>
+      <option value="font-size">font-size</option>
+      <option value="font-weight">font-weight</option>
+      <option value="font-style">font-style</option>
+      <option value="font-family">font-family</option>
+      <option value="text-align">text-align</option>
+      <option value="text-decoration">text-decoration</option>
+      <option value="text-transform">text-transform</option>
+      <option value="line-height">line-height</option>
+      <option value="letter-spacing">letter-spacing</option>
+      <option value="margin">margin</option>
+      <option value="margin-top">margin-top</option>
+      <option value="margin-bottom">margin-bottom</option>
+      <option value="padding">padding</option>
+      <option value="padding-top">padding-top</option>
+      <option value="padding-bottom">padding-bottom</option>
+      <option value="border">border</option>
+      <option value="border-radius">border-radius</option>
+      <option value="border-left">border-left</option>
+      <option value="box-shadow">box-shadow</option>
+      <option value="background">background</option>
+      <option value="opacity">opacity</option>
+      <option value="display">display</option>
+      <option value="width">width</option>
+      <option value="max-width">max-width</option>
+      <option value="min-width">min-width</option>
+      <option value="height">height</option>
+    </select>
+    <span class="cp-label" style="color:#999">:</span>
+    <input id="rule-value" type="text" placeholder="value" title="CSS value">
+    <button class="cp-btn" id="btn-add-rule" style="background:#111;color:#fff;border-color:#111">+ Add</button>
+
+    <button id="btn-toggle-css-editor">CSS Editor ▾</button>
+  </div>
+  <div id="css-editor-wrapper">
+    <div id="css-editor-container"></div>
+  </div>
+</div>
+
+<!-- ── Main split ────────────────────────────────────────── -->
+<div id="main-split">
+  <div id="editor-pane">
+    <div id="md-editor-container"></div>
+  </div>
+  <div id="split-divider"></div>
+  <div id="preview-pane">
+    <div id="preview-scroll">
+      <style id="page-layout-style"></style>
+      <style id="custom-css-style"></style>
+      <div id="preview-content" class="doc-preview"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── File modal ────────────────────────────────────────── -->
+<div id="file-modal" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" id="file-modal-title">Open Document</span>
+      <button class="modal-close-btn" id="file-modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="file-modal-body">
+    </div>
+  </div>
+</div>
+
+<!-- ── Save modal ────────────────────────────────────────── -->
+<div id="save-modal" class="modal-overlay" hidden>
+  <div class="modal-box modal-narrow">
+    <div class="modal-header">
+      <span class="modal-title" id="save-modal-title">Save As</span>
+      <button class="modal-close-btn" id="save-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="modal-label" id="save-modal-label">Filename</label>
+      <input class="modal-input" id="save-filename-input" type="text" placeholder="my-document.md" autocomplete="off" spellcheck="false">
+      <div class="modal-actions">
+        <button class="modal-btn" id="btn-save-confirm">Save</button>
+        <button class="modal-btn modal-btn-cancel" id="btn-save-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── Scripts ──────────────────────────────────────────── -->
+<!-- KaTeX and marked must load BEFORE Monaco's loader.js, which creates a
+     global define() (AMD). If they load after, their UMD wrappers detect AMD
+     and register via define() instead of setting window globals. -->
+<script src="modules/katex/dist/katex.min.js"></script>
+<script src="modules/marked/marked.umd.js"></script>
+<script>
+  (function() {
+    const ASSETS_PATH = './modules/monaco-editor/min/vs/assets/';
+    window.MonacoEnvironment = {
+      getWorkerUrl(moduleId, label) {
+        if (label === 'css' || label === 'less' || label === 'scss') {
+          return ASSETS_PATH + 'css.worker-HnVq6Ewq.js';
+        }
+        return ASSETS_PATH + 'editor.worker-Be8ye1pW.js';
+      }
+    };
+  })();
+</script>
+<script src="modules/monaco-editor/min/vs/loader.js"></script>
+<script src="electron-bridge.js"></script>
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────
+let mdEditor = null;
+let cssEditor = null;
+let currentDocName = null;
+let currentStylesheetName = null;
+let cssEditorVisible = false;
+let splitFraction = 0.5;
+let renderTimer = null;
+let saveModalCallback = null;
+let fileModalMode = null;
+let docModified = false;
+let cssModified = false;
+
+// ── Marked + KaTeX setup ─────────────────────────────────
+function setupMarked() {
+  marked.use({
+    breaks: true,
+    gfm: true,
+    extensions: [
+      {
+        name: 'math-block',
+        level: 'block',
+        start(src) { return src.indexOf('$$'); },
+        tokenizer(src) {
+          const m = src.match(/^\$\$([\s\S]+?)\$\$/);
+          if (m) return { type: 'math-block', raw: m[0], math: m[1].trim() };
+        },
+        renderer(token) {
+          try {
+            return '<div class="math-display">' +
+              katex.renderToString(token.math, { displayMode: true, throwOnError: false }) +
+              '</div>\n';
+          } catch(e) {
+            return '<div class="math-error">' + escHtml(String(e.message)) + '</div>\n';
+          }
+        }
+      },
+      {
+        name: 'math-inline',
+        level: 'inline',
+        start(src) { return src.indexOf('$'); },
+        tokenizer(src) {
+          if (src.startsWith('$$')) return;
+          const m = src.match(/^\$([^\$\n]+?)\$/);
+          if (m) return { type: 'math-inline', raw: m[0], math: m[1] };
+        },
+        renderer(token) {
+          try {
+            return katex.renderToString(token.math, { displayMode: false, throwOnError: false });
+          } catch(e) {
+            return '<code>' + escHtml(token.math) + '</code>';
+          }
+        }
+      }
+    ]
+  });
+}
+
+function renderPreview() {
+  if (!mdEditor) return;
+  try {
+    const html = marked.parse(mdEditor.getValue());
+    document.getElementById('preview-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('preview-content').innerHTML =
+      '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
+  }
+}
+
+function scheduleRender() {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(renderPreview, 150);
+}
+
+// ── Monaco init ──────────────────────────────────────────
+require.config({ paths: { vs: './modules/monaco-editor/min/vs' } });
+
+require(['vs/editor/editor.main'], function() {
+  mdEditor = monaco.editor.create(
+    document.getElementById('md-editor-container'),
+    {
+      value: '',
+      language: 'markdown',
+      theme: 'vs',
+      wordWrap: 'on',
+      minimap: { enabled: false },
+      fontSize: 14,
+      lineNumbers: 'on',
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+      tabSize: 2,
+      renderWhitespace: 'none',
+    }
+  );
+
+  cssEditor = monaco.editor.create(
+    document.getElementById('css-editor-container'),
+    {
+      value: '',
+      language: 'css',
+      theme: 'vs',
+      minimap: { enabled: false },
+      fontSize: 13,
+      lineNumbers: 'off',
+      scrollBeyondLastLine: false,
+      automaticLayout: true,
+    }
+  );
+
+  mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
+  mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyN, newDoc);
+
+  mdEditor.onDidChangeModelContent(function() {
+    docModified = true;
+    updateDocIndicator();
+    scheduleRender();
+  });
+
+  cssEditor.onDidChangeModelContent(function() {
+    cssModified = true;
+    document.getElementById('custom-css-style').textContent = cssEditor.getValue();
+  });
+
+  renderPreview();
+  loadPersistedState();
+});
+
+// ── Document management ──────────────────────────────────
+async function refreshDocList() {
+  if (!window.Desktop || !Desktop.isElectron()) return [];
+  try {
+    const r = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md'] });
+    return (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+  } catch(e) { return []; }
+}
+
+async function openDocModal() {
+  const files = await refreshDocList();
+  fileModalMode = 'open-doc';
+  document.getElementById('file-modal-title').textContent = 'Open Document';
+  const body = document.getElementById('file-modal-body');
+  if (!files.length) {
+    body.innerHTML = '<div class="modal-empty">No saved documents yet.<br>Use <strong>Save</strong> to create one.</div>';
+  } else {
+    body.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'file-list';
+    files.forEach(f => {
+      const name = f.filename || f.relativePath || '';
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      row.innerHTML = '<span class="file-row-name">' + escHtml(name) + '</span>';
+      const openBtn = document.createElement('button');
+      openBtn.className = 'file-row-btn';
+      openBtn.textContent = 'Open';
+      openBtn.onclick = () => loadDoc(name);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'file-row-btn file-row-btn-del';
+      delBtn.textContent = 'Del';
+      delBtn.onclick = async () => {
+        if (!confirm('Delete "' + name + '"?')) return;
+        await Desktop.deleteByPath('docEditorDocs', name);
+        await Desktop.deleteByPath('docEditorDocs', name + '.json').catch(() => {});
+        openDocModal();
+      };
+      row.appendChild(openBtn);
+      row.appendChild(delBtn);
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+  }
+  showModal('file-modal');
+}
+
+async function loadDoc(filename) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const r = await Desktop.readByPath('docEditorDocs', filename);
+    if (r && r.ok) {
+      mdEditor.setValue(r.content || '');
+      currentDocName = filename;
+      docModified = false;
+      updateDocIndicator();
+      hideModal('file-modal');
+      // Restore associated stylesheet
+      try {
+        const metaR = await Desktop.readByPath('docEditorDocs', filename + '.json');
+        if (metaR && metaR.ok && metaR.content) {
+          const meta = JSON.parse(metaR.content);
+          const ss = meta.stylesheet || null;
+          const sel = document.getElementById('stylesheet-select');
+          if (ss && [...sel.options].some(o => o.value === ss)) {
+            sel.value = ss;
+            await loadStylesheet(ss);
+            localStorage.setItem('cmt-doceditor-last-ss', ss);
+          } else if (!ss) {
+            sel.value = '';
+            currentStylesheetName = null;
+            cssEditor && cssEditor.setValue('');
+            document.getElementById('custom-css-style').textContent = '';
+            cssModified = false;
+          }
+        }
+      } catch(e) {}
+      renderPreview();
+    }
+  } catch(e) { showToast('Could not load: ' + e.message, true); }
+}
+
+async function saveDoc() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast('File saving requires the Electron app.', true);
+    return;
+  }
+  if (currentDocName) {
+    await doSaveDoc(currentDocName);
+  } else {
+    openSaveModal('Save Document', '.md', async name => {
+      if (!name.endsWith('.md')) name += '.md';
+      await doSaveDoc(name);
+    });
+  }
+}
+
+async function saveDocAs() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  openSaveModal('Save Document As', '.md', async name => {
+    if (!name.endsWith('.md')) name += '.md';
+    await doSaveDoc(name);
+  });
+}
+
+async function doSaveDoc(filename) {
+  if (!mdEditor) return;
+  try {
+    const r = await Desktop.saveText('docEditorDocs', filename, mdEditor.getValue());
+    if (r && r.ok) {
+      currentDocName = filename;
+      docModified = false;
+      updateDocIndicator();
+      hideModal('save-modal');
+      showToast('Saved: ' + filename);
+      // Save stylesheet reference alongside the document
+      const meta = JSON.stringify({ stylesheet: currentStylesheetName || null });
+      await Desktop.saveText('docEditorDocs', filename + '.json', meta);
+    } else {
+      showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'), true);
+    }
+  } catch(e) { showToast('Save error: ' + e.message, true); }
+}
+
+function newDoc() {
+  if (docModified && mdEditor && mdEditor.getValue().trim()) {
+    if (!confirm('Discard unsaved changes?')) return;
+  }
+  mdEditor && mdEditor.setValue('');
+  currentDocName = null;
+  docModified = false;
+  updateDocIndicator();
+}
+
+// ── Template management ──────────────────────────────────
+async function refreshTemplateList() {
+  if (!window.Desktop || !Desktop.isElectron()) return [];
+  try {
+    const r = await Desktop.listByPath('docEditorTemplates', '', { extensions: ['.md'] });
+    return (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+  } catch(e) { return []; }
+}
+
+async function openTemplateModal() {
+  const files = await refreshTemplateList();
+  document.getElementById('file-modal-title').textContent = 'Templates';
+  const body = document.getElementById('file-modal-body');
+  body.innerHTML = '';
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'modal-toolbar';
+  const saveTemplBtn = document.createElement('button');
+  saveTemplBtn.className = 'modal-toolbar-btn';
+  saveTemplBtn.textContent = '+ Save current doc as template';
+  saveTemplBtn.onclick = saveAsTemplate;
+  toolbar.appendChild(saveTemplBtn);
+  body.appendChild(toolbar);
+
+  if (!files.length) {
+    const empty = document.createElement('div');
+    empty.className = 'modal-empty';
+    empty.textContent = 'No templates yet.';
+    body.appendChild(empty);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'file-list';
+    files.forEach(f => {
+      const name = f.filename || f.relativePath || '';
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      row.innerHTML = '<span class="file-row-name">' + escHtml(name) + '</span>';
+      const useBtn = document.createElement('button');
+      useBtn.className = 'file-row-btn';
+      useBtn.textContent = 'Use';
+      useBtn.onclick = () => loadTemplate(name);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'file-row-btn file-row-btn-del';
+      delBtn.textContent = 'Del';
+      delBtn.onclick = async () => {
+        if (!confirm('Delete template "' + name + '"?')) return;
+        await Desktop.deleteByPath('docEditorTemplates', name);
+        openTemplateModal();
+      };
+      row.appendChild(useBtn);
+      row.appendChild(delBtn);
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+  }
+  showModal('file-modal');
+}
+
+async function loadTemplate(filename) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  if (docModified && mdEditor && mdEditor.getValue().trim()) {
+    if (!confirm('Load template? Unsaved changes will be lost.')) return;
+  }
+  try {
+    const r = await Desktop.readByPath('docEditorTemplates', filename);
+    if (r && r.ok) {
+      mdEditor.setValue(r.content || '');
+      currentDocName = null;
+      docModified = false;
+      updateDocIndicator();
+      hideModal('file-modal');
+      renderPreview();
+      showToast('Template loaded');
+    }
+  } catch(e) { showToast('Could not load template: ' + e.message, true); }
+}
+
+function saveAsTemplate() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  openSaveModal('Save as Template', '.md', async name => {
+    if (!name.endsWith('.md')) name += '.md';
+    try {
+      const r = await Desktop.saveText('docEditorTemplates', name, mdEditor.getValue());
+      if (r && r.ok) {
+        hideModal('save-modal');
+        hideModal('file-modal');
+        showToast('Template saved: ' + name);
+      } else {
+        showToast('Save failed', true);
+      }
+    } catch(e) { showToast('Error: ' + e.message, true); }
+  });
+}
+
+// ── Stylesheet management ────────────────────────────────
+async function refreshStylesheetList() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const r = await Desktop.listByPath('docEditorStylesheets', '', { extensions: ['.css'] });
+    const files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+    const sel = document.getElementById('stylesheet-select');
+    const prev = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    files.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.filename || f.relativePath;
+      opt.textContent = f.filename || f.relativePath;
+      sel.appendChild(opt);
+    });
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  } catch(e) {}
+}
+
+async function onStylesheetChange() {
+  const val = document.getElementById('stylesheet-select').value;
+  if (!val) {
+    currentStylesheetName = null;
+    cssEditor && cssEditor.setValue('');
+    document.getElementById('custom-css-style').textContent = '';
+    cssModified = false;
+    return;
+  }
+  await loadStylesheet(val);
+}
+
+async function loadStylesheet(filename) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const r = await Desktop.readByPath('docEditorStylesheets', filename);
+    if (r && r.ok) {
+      currentStylesheetName = filename;
+      cssEditor && cssEditor.setValue(r.content || '');
+      document.getElementById('custom-css-style').textContent = r.content || '';
+      cssModified = false;
+    }
+  } catch(e) { showToast('Could not load stylesheet: ' + e.message, true); }
+}
+
+async function newStylesheet() {
+  openSaveModal('New Stylesheet', '.css', async name => {
+    if (!name.endsWith('.css')) name += '.css';
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    try {
+      const initial = '/* Custom styles for Document Editor */\n\n.doc-preview {\n  /* override preview defaults here */\n}\n';
+      const r = await Desktop.saveText('docEditorStylesheets', name, initial);
+      if (r && r.ok) {
+        await refreshStylesheetList();
+        document.getElementById('stylesheet-select').value = name;
+        currentStylesheetName = name;
+        cssEditor && cssEditor.setValue(initial);
+        document.getElementById('custom-css-style').textContent = initial;
+        cssModified = false;
+        hideModal('save-modal');
+        showToast('Stylesheet created: ' + name);
+      }
+    } catch(e) { showToast('Error: ' + e.message, true); }
+  });
+}
+
+async function saveStylesheet() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  if (!currentStylesheetName) {
+    await newStylesheet();
+    return;
+  }
+  const css = cssEditor ? cssEditor.getValue() : '';
+  try {
+    const r = await Desktop.saveText('docEditorStylesheets', currentStylesheetName, css);
+    if (r && r.ok) {
+      cssModified = false;
+      showToast('Stylesheet saved');
+    } else {
+      showToast('Save failed', true);
+    }
+  } catch(e) { showToast('Error: ' + e.message, true); }
+}
+
+async function deleteStylesheet() {
+  if (!currentStylesheetName) return;
+  if (!confirm('Delete stylesheet "' + currentStylesheetName + '"?')) return;
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    await Desktop.deleteByPath('docEditorStylesheets', currentStylesheetName);
+    currentStylesheetName = null;
+    cssEditor && cssEditor.setValue('');
+    document.getElementById('custom-css-style').textContent = '';
+    document.getElementById('stylesheet-select').value = '';
+    cssModified = false;
+    await refreshStylesheetList();
+    showToast('Stylesheet deleted');
+  } catch(e) { showToast('Error: ' + e.message, true); }
+}
+
+// ── CSS Rule Builder ──────────────────────────────────────
+function addCssRule() {
+  const selector = document.getElementById('rule-selector').value.trim();
+  const property = document.getElementById('rule-property').value;
+  const value = document.getElementById('rule-value').value.trim();
+  if (!selector || !value) {
+    showToast('Selector and value are required.', true);
+    return;
+  }
+  const rule = '\n' + selector + ' {\n  ' + property + ': ' + value + ';\n}\n';
+  if (cssEditor) {
+    cssEditor.setValue(cssEditor.getValue() + rule);
+  }
+  document.getElementById('rule-value').value = '';
+  document.getElementById('rule-selector').focus();
+  // Open CSS editor if not visible
+  if (!cssEditorVisible) toggleCssEditor();
+  showToast('Rule added');
+}
+
+// ── PDF Export ────────────────────────────────────────────
+async function exportPdf() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    alert('PDF export requires the Electron desktop app.');
+    return;
+  }
+
+  showToast('Preparing PDF…');
+
+  let katexCssLink = '';
+  try {
+    const r = await Desktop.resolvePath('app', 'modules/katex/dist/katex.min.css');
+    if (r && r.path) {
+      const fwd = r.path.replace(/\\/g, '/');
+      const normalized = fwd.startsWith('/') ? fwd : '/' + fwd;
+      katexCssLink = '<link rel="stylesheet" href="' + encodeURI('file://' + normalized) + '">';
+    }
+  } catch(e) {}
+
+  const customCss = cssEditor ? cssEditor.getValue() : '';
+  const previewContent = document.getElementById('preview-content').innerHTML;
+  const m = pageLayout.margins;
+  const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
+
+  const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+  const pdfFontSize   = (pageLayout.fontSize || 11) + 'pt';
+  const defaultPreviewCss =
+    '@page { size: auto; margin: ' + marginCss + '; }\n' +
+    'body { margin: 0; padding: 0; background: #fff; }\n' +
+    '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
+    '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
+    '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 1px solid #eee; }\n' +
+    '.doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }\n' +
+    '.doc-preview h4 { font-size: 1em; font-weight: 700; margin: .8em 0 .3em; }\n' +
+    '.doc-preview p { margin: 0 0 1em; }\n' +
+    '.doc-preview ul, .doc-preview ol { padding-left: 2em; margin: 0 0 1em; }\n' +
+    '.doc-preview li { margin: .25em 0; }\n' +
+    '.doc-preview pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 0 0 1em; font-size: .88em; }\n' +
+    '.doc-preview code { background: rgba(27,31,35,.07); padding: 2px 5px; border-radius: 3px; font-size: .9em; font-family: \'Consolas\',\'Courier New\',monospace; }\n' +
+    '.doc-preview pre code { background: none; padding: 0; }\n' +
+    '.doc-preview blockquote { border-left: 4px solid #dfe2e5; padding: 2px 16px; color: #6a737d; margin: 0 0 1em; }\n' +
+    '.doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }\n' +
+    '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
+    '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
+    '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
+    '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n';
+
+  const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+    katexCssLink + '\n' +
+    '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+    defaultPreviewCss + '\n' + customCss + '\n</style>\n' +
+    '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
+
+  // Build pdfOptions for Electron printToPDF
+  const pdfSize = pageLayout.size === 'Custom'
+    ? { width: Math.round(pageLayout.customW * 1000), height: Math.round(pageLayout.customH * 1000) }
+    : (pageLayout.orientation === 'landscape'
+        ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
+        : pageLayout.size);
+
+  const pdfOptions = {
+    landscape: pageLayout.orientation === 'landscape',
+    pageSize: pdfSize,
+    margins: {
+      marginType: 'none'   // margins handled entirely by @page CSS
+    }
+  };
+
+  const defaultName = (currentDocName || 'document').replace(/\.md$/, '') + '.pdf';
+  const result = await Desktop.printPdf({ html, defaultName, pdfOptions });
+  if (result && !result.ok && !result.canceled) {
+    showToast('PDF export failed: ' + (result.error || 'unknown'), true);
+  } else if (result && result.ok) {
+    showToast('PDF exported');
+  }
+}
+
+// ── Page Layout ───────────────────────────────────────────
+const PAGE_SIZES = {
+  A4:     { w: 210,  h: 297  },
+  A3:     { w: 297,  h: 420  },
+  A5:     { w: 148,  h: 210  },
+  Letter: { w: 216,  h: 279  },
+  Legal:  { w: 216,  h: 356  },
+};
+
+const MARGIN_PRESETS = {
+  Normal:  { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
+  Narrow:  { top: 12.7, right: 12.7, bottom: 12.7, left: 12.7 },
+  Wide:    { top: 25.4, right: 38.1, bottom: 25.4, left: 38.1 },
+  Minimal: { top: 10,   right: 10,   bottom: 10,   left: 10   },
+  None:    { top: 0,    right: 0,    bottom: 0,    left: 0    },
+};
+
+let pageLayout = {
+  orientation: 'portrait',
+  size: 'A4',
+  customW: 210,
+  customH: 297,
+  margins: { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 },
+  fontFamily: "'Segoe UI', system-ui, sans-serif",
+  fontSize: 11
+};
+
+function getPageDims() {
+  let w, h;
+  if (pageLayout.size === 'Custom') {
+    w = pageLayout.customW;
+    h = pageLayout.customH;
+  } else {
+    const d = PAGE_SIZES[pageLayout.size] || PAGE_SIZES.A4;
+    w = d.w; h = d.h;
+  }
+  return pageLayout.orientation === 'landscape' ? { w: h, h: w } : { w, h };
+}
+
+function applyPageLayoutToPreview() {
+  const MM2PX = 3.7795;
+  const PT2PX = 1.3333;
+  const dims = getPageDims();
+  const m = pageLayout.margins;
+  const ff = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+  const fs = (pageLayout.fontSize || 11) * PT2PX;
+  document.getElementById('page-layout-style').textContent =
+    '.doc-preview{' +
+    'max-width:' + (dims.w * MM2PX) + 'px!important;' +
+    'padding:' + (m.top*MM2PX) + 'px ' + (m.right*MM2PX) + 'px ' +
+                  (m.bottom*MM2PX) + 'px ' + (m.left*MM2PX) + 'px!important;' +
+    'font-family:' + ff + '!important;' +
+    'font-size:' + fs + 'px!important;' +
+    '}';
+}
+
+function showFullPreview() {
+  const overlay = document.getElementById('full-preview-overlay');
+  const content = document.getElementById('full-preview-content');
+
+  // Copy rendered HTML from the live preview pane
+  content.innerHTML = document.getElementById('preview-content').innerHTML;
+
+  // Apply active custom CSS
+  document.getElementById('full-preview-custom-css').textContent =
+    cssEditor ? cssEditor.getValue() : document.getElementById('custom-css-style').textContent;
+
+  // Apply page layout (paper width + margins) as inline style
+  const MM2PX = 3.7795;
+  const dims = getPageDims();
+  const m = pageLayout.margins;
+  content.style.width      = (dims.w * MM2PX) + 'px';
+  content.style.maxWidth   = '100%';
+  content.style.minHeight  = (dims.h * MM2PX) + 'px';
+  content.style.padding    = (m.top*MM2PX)+'px '+(m.right*MM2PX)+'px '+(m.bottom*MM2PX)+'px '+(m.left*MM2PX)+'px';
+  content.style.margin     = '0 auto';
+  content.style.fontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+  content.style.fontSize   = ((pageLayout.fontSize || 11) * 1.3333) + 'px';
+
+  // Update title bar
+  const docTitle = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  document.getElementById('full-preview-bar-title').textContent = 'Preview — ' + docTitle;
+
+  overlay.removeAttribute('hidden');
+}
+
+function hideFullPreview() {
+  document.getElementById('full-preview-overlay').setAttribute('hidden', '');
+}
+
+function savePageLayout() {
+  try { localStorage.setItem('cmt-doceditor-layout', JSON.stringify(pageLayout)); } catch(e) {}
+}
+
+function loadPageLayout() {
+  try {
+    const s = localStorage.getItem('cmt-doceditor-layout');
+    if (s) Object.assign(pageLayout, JSON.parse(s));
+  } catch(e) {}
+}
+
+function syncPopupToState() {
+  document.getElementById('pl-portrait').classList.toggle('active', pageLayout.orientation === 'portrait');
+  document.getElementById('pl-landscape').classList.toggle('active', pageLayout.orientation === 'landscape');
+  document.getElementById('pl-size').value = pageLayout.size;
+  const isCustom = pageLayout.size === 'Custom';
+  document.getElementById('pl-custom-dims').style.display = isCustom ? 'flex' : 'none';
+  document.getElementById('pl-custom-w').value = pageLayout.customW;
+  document.getElementById('pl-custom-h').value = pageLayout.customH;
+  document.getElementById('pl-mt').value = round1(pageLayout.margins.top);
+  document.getElementById('pl-mr').value = round1(pageLayout.margins.right);
+  document.getElementById('pl-mb').value = round1(pageLayout.margins.bottom);
+  document.getElementById('pl-ml').value = round1(pageLayout.margins.left);
+  // Detect preset
+  const m = pageLayout.margins;
+  const preset = Object.keys(MARGIN_PRESETS).find(k => {
+    const p = MARGIN_PRESETS[k];
+    return Math.abs(p.top-m.top)<0.2 && Math.abs(p.right-m.right)<0.2 &&
+           Math.abs(p.bottom-m.bottom)<0.2 && Math.abs(p.left-m.left)<0.2;
+  });
+  document.getElementById('pl-margin-preset').value = preset || 'Custom';
+  document.getElementById('pl-font-family').value = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+  document.getElementById('pl-font-size').value   = pageLayout.fontSize   || 11;
+}
+
+function round1(v) { return Math.round(v * 10) / 10; }
+
+function initPageLayoutPopup() {
+  loadPageLayout();
+  syncPopupToState();
+  applyPageLayoutToPreview();
+
+  const popup = document.getElementById('page-layout-popup');
+  const wrap  = document.getElementById('page-layout-wrap');
+
+  document.getElementById('btn-page-layout').addEventListener('click', function(e) {
+    e.stopPropagation();
+    popup.classList.toggle('open');
+  });
+  document.getElementById('pl-close-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    popup.classList.remove('open');
+  });
+  document.addEventListener('click', function(e) {
+    if (!wrap.contains(e.target)) popup.classList.remove('open');
+  });
+
+  // Orientation buttons
+  document.getElementById('pl-portrait').addEventListener('click', function() {
+    pageLayout.orientation = 'portrait';
+    syncPopupToState();
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+  document.getElementById('pl-landscape').addEventListener('click', function() {
+    pageLayout.orientation = 'landscape';
+    syncPopupToState();
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+
+  // Paper size select
+  document.getElementById('pl-size').addEventListener('change', function() {
+    pageLayout.size = this.value;
+    if (this.value !== 'Custom' && PAGE_SIZES[this.value]) {
+      pageLayout.customW = PAGE_SIZES[this.value].w;
+      pageLayout.customH = PAGE_SIZES[this.value].h;
+    }
+    syncPopupToState();
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+
+  // Custom dimensions
+  function onCustomDim() {
+    pageLayout.customW = parseFloat(document.getElementById('pl-custom-w').value) || 210;
+    pageLayout.customH = parseFloat(document.getElementById('pl-custom-h').value) || 297;
+    applyPageLayoutToPreview();
+    savePageLayout();
+  }
+  document.getElementById('pl-custom-w').addEventListener('change', onCustomDim);
+  document.getElementById('pl-custom-h').addEventListener('change', onCustomDim);
+
+  // Margin preset
+  document.getElementById('pl-margin-preset').addEventListener('change', function() {
+    if (this.value === 'Custom') return;
+    const p = MARGIN_PRESETS[this.value];
+    if (p) {
+      pageLayout.margins = { ...p };
+      syncPopupToState();
+      applyPageLayoutToPreview();
+      savePageLayout();
+    }
+  });
+
+  // Individual margin inputs
+  function onMarginInput() {
+    pageLayout.margins.top    = parseFloat(document.getElementById('pl-mt').value) || 0;
+    pageLayout.margins.right  = parseFloat(document.getElementById('pl-mr').value) || 0;
+    pageLayout.margins.bottom = parseFloat(document.getElementById('pl-mb').value) || 0;
+    pageLayout.margins.left   = parseFloat(document.getElementById('pl-ml').value) || 0;
+    document.getElementById('pl-margin-preset').value = 'Custom';
+    applyPageLayoutToPreview();
+    savePageLayout();
+  }
+  ['pl-mt','pl-mr','pl-mb','pl-ml'].forEach(id =>
+    document.getElementById(id).addEventListener('change', onMarginInput)
+  );
+
+  // Typography
+  document.getElementById('pl-font-family').addEventListener('change', function() {
+    pageLayout.fontFamily = this.value;
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+  document.getElementById('pl-font-size').addEventListener('change', function() {
+    pageLayout.fontSize = parseFloat(this.value) || 11;
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+}
+
+// ── Split pane drag ───────────────────────────────────────
+function initSplitDivider() {
+  const divider = document.getElementById('split-divider');
+  const container = document.getElementById('main-split');
+  let dragging = false;
+
+  divider.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    dragging = true;
+    divider.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    const rect = container.getBoundingClientRect();
+    const frac = Math.max(0.15, Math.min(0.85, (e.clientX - rect.left) / rect.width));
+    splitFraction = frac;
+    applySplit();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    divider.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    saveSplitState();
+  });
+}
+
+function applySplit() {
+  document.getElementById('editor-pane').style.width = (splitFraction * 100) + '%';
+  document.getElementById('preview-pane').style.width = ((1 - splitFraction) * 100) + '%';
+}
+
+// ── CSS Panel toggle ──────────────────────────────────────
+function toggleCssEditor() {
+  cssEditorVisible = !cssEditorVisible;
+  const wrapper = document.getElementById('css-editor-wrapper');
+  const btn = document.getElementById('btn-toggle-css-editor');
+  wrapper.classList.toggle('visible', cssEditorVisible);
+  btn.textContent = cssEditorVisible ? 'CSS Editor ▲' : 'CSS Editor ▾';
+  if (cssEditorVisible && cssEditor) {
+    setTimeout(() => cssEditor.layout(), 30);
+  }
+}
+
+// ── Persistence ───────────────────────────────────────────
+function saveSplitState() {
+  try { localStorage.setItem('cmt-doceditor-split', String(splitFraction)); } catch(e) {}
+}
+
+async function loadPersistedState() {
+  try {
+    const s = localStorage.getItem('cmt-doceditor-split');
+    if (s) splitFraction = Math.max(0.15, Math.min(0.85, parseFloat(s) || 0.5));
+  } catch(e) {}
+  applySplit();
+  await refreshStylesheetList();
+  const lastSS = localStorage.getItem('cmt-doceditor-last-ss');
+  if (lastSS) {
+    const sel = document.getElementById('stylesheet-select');
+    if ([...sel.options].some(o => o.value === lastSS)) {
+      sel.value = lastSS;
+      await loadStylesheet(lastSS);
+    }
+  }
+}
+
+// ── Modals ────────────────────────────────────────────────
+function showModal(id) {
+  const el = document.getElementById(id);
+  el.removeAttribute('hidden');
+}
+
+function hideModal(id) {
+  document.getElementById(id).setAttribute('hidden', '');
+}
+
+function openSaveModal(title, ext, callback) {
+  document.getElementById('save-modal-title').textContent = title;
+  document.getElementById('save-modal-label').textContent = 'Filename (' + ext + ')';
+  document.getElementById('save-filename-input').value = '';
+  saveModalCallback = callback;
+  showModal('save-modal');
+  setTimeout(() => document.getElementById('save-filename-input').focus(), 40);
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+let toastTimer = null;
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? '#c00' : '#1a1a1a';
+  el.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function updateDocIndicator() {
+  const el = document.getElementById('doc-name-indicator');
+  const name = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  el.textContent = name;
+  document.title = name + ' — Document Editor';
+  el.classList.toggle('modified', docModified);
+}
+
+function goToLauncher() {
+  if (window.Desktop && Desktop.isElectron()) {
+    Desktop.goToLauncher();
+  } else {
+    window.location.href = 'launcher.html';
+  }
+}
+
+// ── DOM init ──────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  setupMarked();
+  initSplitDivider();
+  initPageLayoutPopup();
+
+  document.getElementById('btn-new-doc').addEventListener('click', newDoc);
+  document.getElementById('btn-open-doc').addEventListener('click', openDocModal);
+  document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
+  document.getElementById('btn-save-as-doc').addEventListener('click', saveDocAs);
+  document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
+  document.getElementById('btn-preview').addEventListener('click', showFullPreview);
+  document.getElementById('btn-close-preview').addEventListener('click', hideFullPreview);
+  document.getElementById('btn-toggle-css-editor').addEventListener('click', toggleCssEditor);
+  document.getElementById('btn-new-ss').addEventListener('click', newStylesheet);
+  document.getElementById('btn-save-ss').addEventListener('click', saveStylesheet);
+  document.getElementById('btn-delete-ss').addEventListener('click', deleteStylesheet);
+  document.getElementById('stylesheet-select').addEventListener('change', function() {
+    const val = this.value;
+    if (val) localStorage.setItem('cmt-doceditor-last-ss', val);
+    else localStorage.removeItem('cmt-doceditor-last-ss');
+    onStylesheetChange();
+  });
+  document.getElementById('btn-add-rule').addEventListener('click', addCssRule);
+  document.getElementById('rule-value').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') addCssRule();
+  });
+
+  // Templates dropdown
+  const tmplWrap = document.getElementById('templates-dd-wrap');
+  document.getElementById('btn-templates-dd').addEventListener('click', function(e) {
+    e.stopPropagation();
+    tmplWrap.classList.toggle('open');
+  });
+  document.getElementById('btn-open-template').addEventListener('click', function() {
+    tmplWrap.classList.remove('open');
+    openTemplateModal();
+  });
+  document.getElementById('btn-save-as-template').addEventListener('click', function() {
+    tmplWrap.classList.remove('open');
+    saveAsTemplate();
+  });
+
+  // Hamburger
+  const hmWrap = document.getElementById('main-hm-wrap');
+  document.getElementById('main-hm-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    hmWrap.classList.toggle('open');
+  });
+  document.getElementById('btn-goto-launcher').addEventListener('click', goToLauncher);
+  document.addEventListener('click', function() {
+    hmWrap.classList.remove('open');
+    tmplWrap.classList.remove('open');
+  });
+
+  // Save modal
+  document.getElementById('btn-save-confirm').addEventListener('click', function() {
+    const name = document.getElementById('save-filename-input').value.trim();
+    if (!name) { showToast('Enter a filename', true); return; }
+    if (saveModalCallback) saveModalCallback(name);
+  });
+  document.getElementById('btn-save-cancel').addEventListener('click', () => hideModal('save-modal'));
+  document.getElementById('save-modal-close').addEventListener('click', () => hideModal('save-modal'));
+  document.getElementById('save-filename-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('btn-save-confirm').click();
+    if (e.key === 'Escape') hideModal('save-modal');
+  });
+
+  // File modal
+  document.getElementById('file-modal-close').addEventListener('click', () => hideModal('file-modal'));
+  document.getElementById('file-modal').addEventListener('click', function(e) {
+    if (e.target === this) hideModal('file-modal');
+  });
+  document.getElementById('save-modal').addEventListener('click', function(e) {
+    if (e.target === this) hideModal('save-modal');
+  });
+
+  // Global keyboard shortcuts
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveDoc(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newDoc(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); openDocModal(); }
+    if (e.key === 'Escape') {
+      hideModal('file-modal');
+      hideModal('save-modal');
+      hideFullPreview();
+    }
+  });
+
+  updateDocIndicator();
+});
+</script>
+</body>
+</html>

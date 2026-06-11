@@ -58,6 +58,8 @@
       app_fileManager_desc: 'Browse, rename, and sync your data files.',
       app_classPlan_title: 'Class Plan',
       app_classPlan_desc: 'Design and manage seating plans with grid, U-shape, and pod desk layouts. Assign students by drag-and-drop.',
+      app_documentEditor_title: 'Document Editor',
+      app_documentEditor_desc: 'Write Markdown with LaTeX math (KaTeX), custom CSS stylesheets, templates, and PDF export.',
 
       // File Manager
       fmTitle: 'File Manager',
@@ -352,6 +354,8 @@
       app_fileManager_desc: 'Parcourez, renommez et synchronisez vos fichiers de données.',
       app_classPlan_title: 'Plan de classe',
       app_classPlan_desc: 'Créez et gérez des plans de salle avec dispositions en grille, en U et en îlots. Assignez les élèves par glisser-déposer.',
+      app_documentEditor_title: 'Éditeur de documents',
+      app_documentEditor_desc: 'Rédigez en Markdown avec des formules LaTeX (KaTeX), des feuilles de style CSS personnalisées, des modèles et l\'export PDF.',
 
       // File Manager
       fmTitle: 'Gestionnaire de fichiers',

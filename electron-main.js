@@ -23,7 +23,8 @@ const PAGE_FILES = {
   howTo: 'how-to.html',
   credits: 'credits.html',
   scheduleMaker: 'schedule-maker.html',
-  classPlan: 'class-plan.html'
+  classPlan: 'class-plan.html',
+  documentEditor: 'document-editor.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -54,7 +55,11 @@ const PAGE_ARG_MAP = {
   schedule: PAGE_FILES.scheduleMaker,
   classplan: PAGE_FILES.classPlan,
   plan: PAGE_FILES.classPlan,
-  classp: PAGE_FILES.classPlan
+  classp: PAGE_FILES.classPlan,
+  documenteditor: PAGE_FILES.documentEditor,
+  doceditor: PAGE_FILES.documentEditor,
+  markdownkatex: PAGE_FILES.documentEditor,
+  markdown: PAGE_FILES.documentEditor
 };
 
 const PAGE_LABELS = {
@@ -72,7 +77,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.howTo]: 'How To',
   [PAGE_FILES.credits]: 'Credits',
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
-  [PAGE_FILES.classPlan]: 'Class Plan'
+  [PAGE_FILES.classPlan]: 'Class Plan',
+  [PAGE_FILES.documentEditor]: 'Document Editor'
 };
 
 function getDefaultWritableRootDir() {
@@ -172,7 +178,10 @@ function getSaveTargets() {
     customStorybanks: path.join(writableRoot, 'user/custom-data/storybanks'),
     customSounds: path.join(writableRoot, 'user/custom-data/custom-sounds'),
     customWordbanks: path.join(writableRoot, 'user/custom-data/wordbanks'),
-    classPlans: path.join(writableRoot, 'user/class-plans')
+    classPlans: path.join(writableRoot, 'user/class-plans'),
+    docEditorDocs: path.join(writableRoot, 'user/document-editor/docs'),
+    docEditorStylesheets: path.join(writableRoot, 'user/document-editor/stylesheets'),
+    docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates')
   };
 }
 
@@ -191,11 +200,12 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
-  [PAGE_FILES.classPlan]: new Set(['user', 'classPlans'])
+  [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'user', 'app'])
 };
 
 let mainWindow;
@@ -3003,7 +3013,8 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
       })();
     `, true);
 
-    const pdfOptions = { printBackground: true, landscape: false, marginsType: 0 };
+    const reqOpts = (request.pdfOptions && typeof request.pdfOptions === 'object') ? request.pdfOptions : {};
+    const pdfOptions = Object.assign({ landscape: false, pageSize: 'A4', marginsType: 0 }, reqOpts, { printBackground: true });
     const pdfBuffer = await win.webContents.printToPDF(pdfOptions);
 
     // Ask user where to save
