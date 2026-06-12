@@ -181,7 +181,8 @@ function getSaveTargets() {
     classPlans: path.join(writableRoot, 'user/class-plans'),
     docEditorDocs: path.join(writableRoot, 'user/document-editor/docs'),
     docEditorStylesheets: path.join(writableRoot, 'user/document-editor/stylesheets'),
-    docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates')
+    docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates'),
+    docEditorSettings: path.join(writableRoot, 'user/document-editor')
   };
 }
 
@@ -205,7 +206,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'user', 'app'])
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app'])
 };
 
 let mainWindow;
@@ -3866,6 +3867,350 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
   }
   return { ok: true };
 });
+
+// ── DOCX Export ───────────────────────────────────────────────────────────────
+{
+  const { Marked } = require('marked');
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
+          WidthType, BorderStyle, AlignmentType, ExternalHyperlink,
+          LevelFormat, convertMillimetersToTwip } = require('docx');
+
+  const _markedDocx = (() => {
+    const m = new Marked({ gfm: true, breaks: true });
+    m.use({ extensions: [
+      { name: 'math-block', level: 'block',
+        start(src) { return src.indexOf('$$'); },
+        tokenizer(src) {
+          const mt = src.match(/^\$\$([\s\S]+?)\$\$/);
+          if (mt) return { type: 'math-block', raw: mt[0], math: mt[1].trim() };
+        }
+      },
+      { name: 'math-inline', level: 'inline',
+        start(src) { return src.indexOf('$'); },
+        tokenizer(src) {
+          if (src.startsWith('$$')) return;
+          const mt = src.match(/^\$([^\$\n]+?)\$/);
+          if (mt) return { type: 'math-inline', raw: mt[0], math: mt[1] };
+        }
+      }
+    ]});
+    return m;
+  })();
+
+  const MM2T = mm => Math.round(convertMillimetersToTwip(mm));
+
+  function parseCssColor(str) {
+    if (!str) return null;
+    const s = str.trim();
+    const h6 = s.match(/^#([0-9a-fA-F]{6})$/);  if (h6) return h6[1].toUpperCase();
+    const h3 = s.match(/^#([0-9a-fA-F]{3})$/);  if (h3) return h3[1].split('').map(c=>c+c).join('').toUpperCase();
+    const h8 = s.match(/^#([0-9a-fA-F]{8})$/);  if (h8) return h8[1].slice(0,6).toUpperCase();
+    const rgb = s.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (rgb) return [rgb[1],rgb[2],rgb[3]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('').toUpperCase();
+    const named = { black:'000000', white:'FFFFFF', red:'FF0000', blue:'0000FF', green:'008000',
+                    gray:'808080', grey:'808080', navy:'000080', maroon:'800000', silver:'C0C0C0' };
+    return named[s.toLowerCase()] || null;
+  }
+
+  function parseCssLineHeight(str) {
+    if (!str) return null;
+    const num = str.trim().match(/^(\d+\.?\d*)(?:em)?$/);
+    if (num) return Math.round(parseFloat(num[1]) * 240);
+    const pct = str.trim().match(/^(\d+\.?\d*)%$/);
+    if (pct) return Math.round(parseFloat(pct[1]) / 100 * 240);
+    return null;
+  }
+
+  function parseCssFontSize(str, fallback) {
+    if (!str) return fallback;
+    const pt  = str.match(/^(\d+\.?\d*)pt$/i);  if (pt)  return parseFloat(pt[1]);
+    const px  = str.match(/^(\d+\.?\d*)px$/i);  if (px)  return Math.round(parseFloat(px[1]) * 0.75);
+    const num = str.match(/^(\d+\.?\d*)$/);      if (num) return parseFloat(num[1]);
+    return fallback;
+  }
+
+  const PAGE_SIZES_MM_DOCX = {
+    A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 }, A5: { w: 148, h: 210 },
+    Letter: { w: 215.9, h: 279.4 }, Legal: { w: 215.9, h: 355.6 }
+  };
+
+  function docxInlineRuns(tokens, ctx, extra = {}) {
+    const out = [];
+    for (const tok of tokens) {
+      switch (tok.type) {
+        case 'text': {
+          if (tok.tokens && tok.tokens.length) {
+            out.push(...docxInlineRuns(tok.tokens, ctx, extra));
+          } else {
+            const t = String(tok.text || tok.raw || '');
+            if (t) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, ...extra, text: t }));
+          }
+          break;
+        }
+        case 'strong':
+          out.push(...docxInlineRuns(tok.tokens || [], ctx, { ...extra, bold: true }));
+          break;
+        case 'em':
+          out.push(...docxInlineRuns(tok.tokens || [], ctx, { ...extra, italics: true }));
+          break;
+        case 'del':
+          out.push(...docxInlineRuns(tok.tokens || [], ctx, { ...extra, strike: true }));
+          break;
+        case 'codespan':
+          out.push(new TextRun({ font: 'Courier New', size: Math.round(ctx.halfPt * 0.9), color: '24292E', ...extra, text: String(tok.text || tok.raw || '') }));
+          break;
+        case 'link': {
+          try {
+            const lr = docxInlineRuns(
+              tok.tokens || [{ type: 'text', text: tok.text || '', raw: tok.text || '' }],
+              ctx, { ...extra, color: '0969DA', underline: { type: 'single' } }
+            );
+            out.push(new ExternalHyperlink({ link: String(tok.href || '#'), children: lr }));
+          } catch {
+            const t = String(tok.text || '');
+            if (t) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, ...extra, text: t }));
+          }
+          break;
+        }
+        case 'image': {
+          const alt = String(tok.text || '');
+          if (alt) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, italics: true, color: '888888', ...extra, text: '[' + alt + ']' }));
+          break;
+        }
+        case 'br':
+          out.push(new TextRun({ break: 1 }));
+          break;
+        case 'escape': {
+          const t = String(tok.text || '');
+          if (t) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, ...extra, text: t }));
+          break;
+        }
+        case 'math-inline':
+          out.push(new TextRun({ font: 'Courier New', size: ctx.halfPt, color: '555555', ...extra, text: '$' + tok.math + '$' }));
+          break;
+        case 'html': {
+          const plain = String(tok.raw || '').replace(/<[^>]+>/g, '');
+          if (plain.trim()) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, ...extra, text: plain }));
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
+  function docxListItemRuns(itemTokens, ctx) {
+    for (const tok of itemTokens) {
+      if (tok.type === 'text' || tok.type === 'paragraph') {
+        return docxInlineRuns(tok.tokens || [{ type: 'text', text: tok.text, raw: tok.text }], ctx, ctx.bodyRun);
+      }
+    }
+    return [];
+  }
+
+  function docxListToBlocks(listTok, ctx, level) {
+    const out = [];
+    let orderedRef = null;
+    if (listTok.ordered) {
+      orderedRef = 'ol-' + (ctx.numConfigs.length + 1);
+      ctx.numConfigs.push({
+        reference: orderedRef,
+        levels: [0, 1, 2, 3].map(l => ({
+          level: l, format: LevelFormat.DECIMAL, text: '%' + (l + 1) + '.',
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: MM2T(10 + l * 10), hanging: MM2T(6) } } }
+        }))
+      });
+    }
+    for (const item of listTok.items) {
+      const runs = docxListItemRuns(item.tokens || [], ctx);
+      out.push(new Paragraph({
+        children: runs.length ? runs : [new TextRun({ text: '', font: ctx.font })],
+        ...(listTok.ordered
+          ? { numbering: { reference: orderedRef, level } }
+          : { bullet: { level } }),
+        ...(ctx.lineSpacing ? { spacing: { line: ctx.lineSpacing, lineRule: 'auto' } } : {})
+      }));
+      for (const sub of item.tokens || []) {
+        if (sub.type === 'list') out.push(...docxListToBlocks(sub, ctx, level + 1));
+      }
+    }
+    return out;
+  }
+
+  function docxBlockTokens(tokens, ctx, bq = false) {
+    const borderSpec = { style: BorderStyle.SINGLE, size: 4, color: 'DFE2E5' };
+    const out = [];
+    for (const tok of tokens) {
+      switch (tok.type) {
+        case 'space': break;
+        case 'heading': {
+          // Sizes (half-points) and bold matching the preview CSS em scaling
+          const hLevels   = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3,
+                             HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
+          const hScale    = [2.0, 1.5, 1.17, 1.0, 1.0, 1.0];
+          const hBold     = [true, true, true, true, false, false];
+          const hBefore   = [320, 280, 240, 200, 160, 160];
+          const hAfter    = [80,  80,  60,  60,  40,  40];
+          const d = Math.min(tok.depth - 1, 5);
+          const hSize = Math.round(ctx.halfPt * hScale[d]);
+          // Headings use explicit bold+size but inherit font; no body color override
+          const runExtra = { bold: hBold[d], size: hSize };
+          const hSpacing = { before: hBefore[d], after: hAfter[d] };
+          if (ctx.lineSpacing) { hSpacing.line = ctx.lineSpacing; hSpacing.lineRule = 'auto'; }
+          const paraProps = {
+            heading: hLevels[d],
+            children: docxInlineRuns(tok.tokens || [], ctx, runExtra),
+            spacing: hSpacing
+          };
+          if (d < 2) {
+            paraProps.border = { bottom: { style: BorderStyle.SINGLE, size: d === 0 ? 8 : 4, color: 'EEEEEE', space: 4 } };
+          }
+          out.push(new Paragraph(paraProps));
+          break;
+        }
+        case 'paragraph': {
+          const pSpacing = bq ? { before: 40, after: 40 } : { after: 200 };
+          if (ctx.lineSpacing) { pSpacing.line = ctx.lineSpacing; pSpacing.lineRule = 'auto'; }
+          const props = {
+            children: docxInlineRuns(tok.tokens || [], ctx, ctx.bodyRun),
+            spacing: pSpacing
+          };
+          if (bq) {
+            props.indent = { left: MM2T(8) };
+            props.border = { left: { style: BorderStyle.SINGLE, size: 12, color: 'DFE2E5', space: 6 } };
+          }
+          out.push(new Paragraph(props));
+          break;
+        }
+        case 'blockquote':
+          out.push(...docxBlockTokens(tok.tokens || [], ctx, true));
+          break;
+        case 'code': {
+          const lines = String(tok.text).split('\n');
+          const runs = [];
+          for (let i = 0; i < lines.length; i++) {
+            if (i > 0) runs.push(new TextRun({ break: 1 }));
+            runs.push(new TextRun({ text: lines[i] || '', font: 'Courier New', size: Math.round(ctx.halfPt * 0.9), color: '24292E' }));
+          }
+          out.push(new Paragraph({
+            children: runs,
+            shading: { type: 'clear', color: 'auto', fill: 'F6F8FA' },
+            border: {
+              top:    { style: BorderStyle.SINGLE, size: 4, color: 'E1E4E8', space: 4 },
+              bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E1E4E8', space: 4 },
+              left:   { style: BorderStyle.SINGLE, size: 4, color: 'E1E4E8', space: 4 },
+              right:  { style: BorderStyle.SINGLE, size: 4, color: 'E1E4E8', space: 4 },
+            },
+            indent: { left: MM2T(4), right: MM2T(4) },
+            spacing: { before: 160, after: 160 }
+          }));
+          break;
+        }
+        case 'list':
+          out.push(...docxListToBlocks(tok, ctx, 0));
+          break;
+        case 'table': {
+          const nCols = tok.header.length;
+          const colPct = Math.floor(10000 / nCols);
+          out.push(new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: { top: borderSpec, bottom: borderSpec, left: borderSpec, right: borderSpec,
+                       insideH: borderSpec, insideV: borderSpec },
+            rows: [
+              new TableRow({
+                tableHeader: true,
+                children: tok.header.map(cell => new TableCell({
+                  width: { size: colPct, type: WidthType.PERCENTAGE },
+                  shading: { type: 'clear', color: 'auto', fill: 'F6F8FA' },
+                  children: [new Paragraph({
+                    children: docxInlineRuns(cell.tokens || [], ctx, { ...ctx.bodyRun, bold: true }),
+                    alignment: cell.align === 'center' ? AlignmentType.CENTER : cell.align === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT
+                  })]
+                }))
+              }),
+              ...tok.rows.map(row => new TableRow({
+                children: row.map(cell => new TableCell({
+                  width: { size: colPct, type: WidthType.PERCENTAGE },
+                  children: [new Paragraph({
+                    children: docxInlineRuns(cell.tokens || [], ctx, ctx.bodyRun),
+                    alignment: cell.align === 'center' ? AlignmentType.CENTER : cell.align === 'right' ? AlignmentType.RIGHT : AlignmentType.LEFT
+                  })]
+                }))
+              }))
+            ]
+          }));
+          break;
+        }
+        case 'hr':
+          out.push(new Paragraph({
+            children: [],
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'EEEEEE', space: 4 } },
+            spacing: { before: 240, after: 240 }
+          }));
+          break;
+        case 'math-block':
+          out.push(new Paragraph({
+            children: [new TextRun({ text: '$$' + tok.math + '$$', font: 'Courier New', size: ctx.halfPt, color: '555555' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 160, after: 160 }
+          }));
+          break;
+      }
+    }
+    return out;
+  }
+
+  ipcMain.handle('app:export-docx', async (event, request = {}) => {
+    try {
+      const cleanFont = String(request.fontFamily || 'Segoe UI')
+        .split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Segoe UI';
+      const ptSize = parseCssFontSize(String(request.fontSize || ''), Number(request.fontSize) || 11);
+      const halfPt = Math.round(ptSize * 2);
+      const margins = request.margins || { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 };
+      const pmm = PAGE_SIZES_MM_DOCX[request.size] || PAGE_SIZES_MM_DOCX.A4;
+      const landscape = request.orientation === 'landscape';
+      const pageW = MM2T(landscape ? pmm.h : pmm.w);
+      const pageH = MM2T(landscape ? pmm.w : pmm.h);
+
+      const bodyColor   = parseCssColor(request.color);
+      const lineSpacing = parseCssLineHeight(request.lineHeight);
+      const bodyRun = { ...(bodyColor ? { color: bodyColor } : {}) };
+      const ctx = { font: cleanFont, halfPt, numConfigs: [], bodyRun, lineSpacing };
+      const tokens = _markedDocx.lexer(String(request.markdown || ''));
+      const children = docxBlockTokens(tokens, ctx);
+      if (!children.length) children.push(new Paragraph({ children: [] }));
+
+      const doc = new Document({
+        numbering: ctx.numConfigs.length ? { config: ctx.numConfigs } : undefined,
+        sections: [{
+          properties: {
+            page: {
+              size: { width: pageW, height: pageH },
+              margin: { top: MM2T(margins.top), right: MM2T(margins.right), bottom: MM2T(margins.bottom), left: MM2T(margins.left) }
+            }
+          },
+          children
+        }]
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
+        ? request.defaultName.trim().replace(/\.md$/, '')
+        : 'document';
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Save as DOCX',
+        defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
+        filters: [{ name: 'Word Document', extensions: ['docx'] }]
+      });
+      if (canceled || !filePath) return { ok: false, canceled: true };
+      await fs.writeFile(filePath, buffer);
+      return { ok: true };
+    } catch (err) {
+      console.error('export-docx failed', err);
+      return { ok: false, error: String(err && err.message ? err.message : err) };
+    }
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 

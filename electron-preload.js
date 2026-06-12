@@ -60,6 +60,9 @@ const exposedApi = {
   printPdf(request) {
     return invoke('app:print-pdf', request);
   },
+  exportDocx(request) {
+    return invoke('app:export-docx', request);
+  },
   renameFile(request) {
     return invoke('app:rename-file', request);
   },

@@ -356,6 +356,11 @@
     return getDesktopApi().printPdf(request);
   }
 
+  async function exportDocx(request) {
+    if (!isElectron()) return null;
+    return getDesktopApi().exportDocx(request);
+  }
+
   async function backupZip() {
     if (!isElectron()) {
       return null;
@@ -470,6 +475,7 @@
     openHtml,
     printHtml,
     printPdf,
+    exportDocx,
     resetFolders,
     restoreZip,
     saveBlob,
