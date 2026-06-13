@@ -181,6 +181,139 @@
       color: #fff;
     }
 
+    /* ── Card drag handle ───────────────────────────────── */
+    .card-drag-handle {
+      color: #ccc;
+      font-size: 0.95rem;
+      cursor: grab;
+      padding: 4px 6px;
+      border-radius: 4px;
+      user-select: none;
+      line-height: 1;
+      transition: color 0.1s;
+      flex-shrink: 0;
+    }
+    .card-drag-handle:hover { color: #888; }
+    .card-drag-handle:active { cursor: grabbing; }
+    .app-card.is-dragging { opacity: 0.35; }
+
+    /* ── Sections ───────────────────────────────────────── */
+    .sections-container {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+      padding: 2px 0;
+    }
+
+    .section-drag-handle {
+      color: #ccc;
+      font-size: 1rem;
+      cursor: grab;
+      padding: 2px 5px;
+      border-radius: 4px;
+      user-select: none;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.1s;
+    }
+    .section-drag-handle:hover { color: #777; }
+    .section-drag-handle:active { cursor: grabbing; }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: #555;
+      flex: 1;
+      outline: none;
+      border: 1.5px solid transparent;
+      background: transparent;
+      padding: 3px 6px;
+      border-radius: 4px;
+      min-width: 30px;
+      cursor: text;
+      transition: border-color 0.1s, background 0.1s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .section-title:focus {
+      border-color: #ccc;
+      background: #f8f8f8;
+      color: #000;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .section-title:empty::before {
+      content: attr(data-placeholder);
+      color: #bbb;
+      font-weight: 600;
+    }
+
+    .section-delete-btn {
+      flex-shrink: 0;
+      background: none;
+      border: 1.5px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      color: #bbb;
+      padding: 2px 6px;
+      font-family: inherit;
+      transition: color 0.15s, border-color 0.15s;
+      opacity: 0;
+    }
+    .app-section:hover .section-delete-btn { opacity: 1; }
+    .section-delete-btn:hover { color: #000; border-color: #000; }
+
+    .section-add-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px 20px;
+      background: none;
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #bbb;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .section-add-btn:hover { border-color: #888; color: #555; }
+
+    /* ── Drag states ────────────────────────────────────── */
+    .app-section.is-dragging { opacity: 0.4; }
+
+    .drag-placeholder {
+      background: #f6f6f6;
+      border: 2px dashed #ccc;
+      border-radius: 10px;
+      min-height: 110px;
+      pointer-events: none;
+    }
+
+    .section-drop-line {
+      height: 3px;
+      background: #000;
+      border-radius: 2px;
+      margin: -4px 0;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
     /* ── Modal overlay ─────────────────────────────────── */
     .lm-overlay {
       display: none;
@@ -373,7 +506,8 @@
       <button class="l-header-btn" onclick="openModal('credits.html')" title="Credits" data-i18n="btnHeaderCredits">ℹ️ Credits</button>
     </div>
   </header>
-  <div class="apps-grid" id="appsGrid"></div>
+  <div id="sectionsContainer" class="sections-container"></div>
+  <button id="addSectionBtn" class="section-add-btn" data-i18n="sectionAddBtn">+ Add Section</button>
 </div>
 
 <div id="launcherModal" class="lm-overlay">
@@ -514,6 +648,287 @@
     }
   ];
 
+  // ── Group (section) data ────────────────────────────────
+  var DEFAULT_GROUPS = [
+    { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'] },
+    { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['participationTracker', 'gradeSheet', 'groupEditor', 'classPlan'] },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'documentEditor', 'scheduleMaker'] },
+    { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig', 'fileManager'] }
+  ];
+
+  function getGroups() {
+    try {
+      var raw = localStorage.getItem('cmt-launcher-groups');
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  function saveGroups(groups) {
+    localStorage.setItem('cmt-launcher-groups', JSON.stringify(groups));
+  }
+
+  function resolveGroups() {
+    var groups = getGroups();
+    if (!groups) {
+      groups = DEFAULT_GROUPS.map(function(dg) {
+        return { id: dg.id, label: (typeof t === 'function' ? t(dg.labelKey) : dg.labelKey), cardIds: dg.cardIds.slice() };
+      });
+    }
+    var allIds = APPS.map(function(a) { return a.id; });
+    var validIds = {};
+    allIds.forEach(function(id) { validIds[id] = true; });
+    var assigned = {};
+    groups.forEach(function(g) { g.cardIds.forEach(function(id) { assigned[id] = true; }); });
+    var unassigned = allIds.filter(function(id) { return !assigned[id]; });
+    if (unassigned.length && groups.length) groups[groups.length - 1].cardIds = groups[groups.length - 1].cardIds.concat(unassigned);
+    groups.forEach(function(g) { g.cardIds = g.cardIds.filter(function(id) { return validIds[id]; }); });
+    return groups;
+  }
+
+  function genGroupId() {
+    return 'grp-' + Math.random().toString(36).slice(2, 9);
+  }
+
+  // ── Drag state ──────────────────────────────────────────
+  var dragState        = null;
+  var draggedEl        = null;
+  var dragPlaceholder  = null;
+  var sectionDropLine  = null;
+  var dropBeforeSection = null;
+
+  // ── Render sections ─────────────────────────────────────
+  function renderSections() {
+    closePopup();
+    var container = document.getElementById('sectionsContainer');
+    container.innerHTML = '';
+    var groups = resolveGroups();
+    groups.forEach(function(group) { container.appendChild(buildSection(group)); });
+    setupSectionContainerDrag(container);
+  }
+
+  function buildSection(group) {
+    var appMap = {};
+    APPS.forEach(function(a) { appMap[a.id] = a; });
+
+    var section = document.createElement('div');
+    section.className = 'app-section';
+    section.dataset.sectionId = group.id;
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'section-header';
+
+    var handle = document.createElement('span');
+    handle.className = 'section-drag-handle';
+    handle.textContent = '⠿';
+    handle.title = typeof t === 'function' ? t('sectionDragHandleTitle') : 'Drag to reorder';
+    handle.setAttribute('aria-hidden', 'true');
+
+    var title = document.createElement('span');
+    title.className = 'section-title';
+    title.contentEditable = 'true';
+    title.textContent = group.label;
+    title.setAttribute('data-placeholder', typeof t === 'function' ? t('sectionNamePlaceholder') : 'Section name');
+    title.spellcheck = false;
+    title.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    title.addEventListener('dragstart', function(e) { e.stopPropagation(); e.preventDefault(); });
+    title.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+      if (e.key === 'Escape') { this.textContent = group.label; this.blur(); }
+    });
+    title.addEventListener('blur', function() {
+      var newLabel = this.textContent.trim();
+      if (!newLabel) { this.textContent = group.label; return; }
+      group.label = newLabel;
+      var groups = resolveGroups();
+      var g = groups.find(function(g) { return g.id === group.id; });
+      if (g) { g.label = newLabel; saveGroups(groups); }
+    });
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'section-delete-btn';
+    deleteBtn.title = typeof t === 'function' ? t('sectionDeleteTitle') : 'Delete section';
+    deleteBtn.textContent = '✕';
+    deleteBtn.addEventListener('click', function() {
+      var groups = resolveGroups();
+      var g = groups.find(function(g) { return g.id === group.id; });
+      if (!g) return;
+      if (g.cardIds.length > 0) {
+        header.style.transition = 'background 0.1s';
+        header.style.background = '#fee2e2';
+        title.title = typeof t === 'function' ? t('sectionNotEmptyHint') : 'Move all cards out before deleting';
+        setTimeout(function() { header.style.background = ''; header.style.transition = ''; title.title = ''; }, 800);
+        return;
+      }
+      var newGroups = groups.filter(function(g) { return g.id !== group.id; });
+      if (!newGroups.length) return;
+      saveGroups(newGroups);
+      renderSections();
+    });
+
+    header.appendChild(handle);
+    header.appendChild(title);
+    header.appendChild(deleteBtn);
+    setupSectionHandleDrag(handle, section, group.id);
+
+    // Grid
+    var grid = document.createElement('div');
+    grid.className = 'apps-grid section-grid';
+    grid.dataset.sectionId = group.id;
+    group.cardIds.forEach(function(id) {
+      var app = appMap[id];
+      if (app) grid.appendChild(buildCard(app));
+    });
+    setupGridDrag(grid, group.id);
+
+    section.appendChild(header);
+    section.appendChild(grid);
+    return section;
+  }
+
+  // ── Card drag ───────────────────────────────────────────
+  function setupCardHandleDrag(handle, card, appId) {
+    var _ok = false;
+    handle.addEventListener('mousedown', function() { _ok = true; });
+    card.addEventListener('dragstart', function(e) {
+      if (!_ok) { e.preventDefault(); return; }
+      _ok = false;
+      e.stopPropagation();
+      var sectionEl = card.closest('.app-section');
+      dragState = { type: 'card', appId: appId, fromSectionId: sectionEl ? sectionEl.dataset.sectionId : null };
+      draggedEl = card;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', appId);
+      dragPlaceholder = document.createElement('div');
+      dragPlaceholder.className = 'drag-placeholder';
+      requestAnimationFrame(function() { card.classList.add('is-dragging'); });
+    });
+    card.addEventListener('dragend', function() {
+      _ok = false;
+      card.classList.remove('is-dragging');
+      if (dragPlaceholder) { dragPlaceholder.remove(); dragPlaceholder = null; }
+      dragState = null;
+      draggedEl = null;
+    });
+  }
+
+  function findInsertionCard(grid, clientX, clientY) {
+    var cards = Array.from(grid.querySelectorAll('.app-card:not(.is-dragging):not(.drag-placeholder)'));
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].getBoundingClientRect();
+      var midY = r.top + r.height / 2;
+      var midX = r.left + r.width / 2;
+      if (Math.abs(clientY - midY) < r.height / 2 && clientX < midX) return cards[i];
+      if (clientY < midY) return cards[i];
+    }
+    return null;
+  }
+
+  function setupGridDrag(grid, sectionId) {
+    grid.addEventListener('dragover', function(e) {
+      if (!dragState || dragState.type !== 'card') return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!dragPlaceholder) return;
+      var insertBefore = findInsertionCard(grid, e.clientX, e.clientY);
+      if (insertBefore) grid.insertBefore(dragPlaceholder, insertBefore);
+      else grid.appendChild(dragPlaceholder);
+    });
+    grid.addEventListener('drop', function(e) {
+      if (!dragState || dragState.type !== 'card') return;
+      e.preventDefault();
+      var insertBeforeId = null;
+      if (dragPlaceholder && dragPlaceholder.parentNode === grid && dragPlaceholder.nextElementSibling) {
+        insertBeforeId = dragPlaceholder.nextElementSibling.dataset.id;
+      }
+      var appId = dragState.appId;
+      var groups = resolveGroups();
+      groups.forEach(function(g) {
+        var i = g.cardIds.indexOf(appId);
+        if (i !== -1) g.cardIds.splice(i, 1);
+      });
+      var toGroup = groups.find(function(g) { return g.id === sectionId; });
+      if (toGroup) {
+        if (insertBeforeId) {
+          var bi = toGroup.cardIds.indexOf(insertBeforeId);
+          if (bi !== -1) toGroup.cardIds.splice(bi, 0, appId);
+          else toGroup.cardIds.push(appId);
+        } else {
+          toGroup.cardIds.push(appId);
+        }
+      }
+      saveGroups(groups);
+      renderSections();
+    });
+  }
+
+  // ── Section drag ────────────────────────────────────────
+  function setupSectionHandleDrag(handle, sectionEl, sectionId) {
+    var _ok = false;
+    sectionEl.draggable = true;
+    handle.addEventListener('mousedown', function() { _ok = true; });
+    sectionEl.addEventListener('dragstart', function(e) {
+      if (!_ok) { e.preventDefault(); return; }
+      _ok = false;
+      dragState = { type: 'section', sectionId: sectionId };
+      draggedEl = sectionEl;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', sectionId);
+      requestAnimationFrame(function() { sectionEl.classList.add('is-dragging'); });
+    });
+    sectionEl.addEventListener('dragend', function() {
+      _ok = false;
+      sectionEl.classList.remove('is-dragging');
+      if (sectionDropLine) { sectionDropLine.remove(); sectionDropLine = null; }
+      dropBeforeSection = null;
+      dragState = null;
+      draggedEl = null;
+    });
+  }
+
+  function setupSectionContainerDrag(container) {
+    container.addEventListener('dragover', function(e) {
+      if (!dragState || dragState.type !== 'section') return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!sectionDropLine) {
+        sectionDropLine = document.createElement('div');
+        sectionDropLine.className = 'section-drop-line';
+      }
+      var sections = Array.from(container.querySelectorAll('.app-section:not(.is-dragging)'));
+      dropBeforeSection = null;
+      for (var i = 0; i < sections.length; i++) {
+        var r = sections[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { dropBeforeSection = sections[i]; break; }
+      }
+      if (dropBeforeSection) container.insertBefore(sectionDropLine, dropBeforeSection);
+      else container.appendChild(sectionDropLine);
+    });
+    container.addEventListener('drop', function(e) {
+      if (!dragState || dragState.type !== 'section') return;
+      e.preventDefault();
+      var sectionId = dragState.sectionId;
+      var groups = resolveGroups();
+      var draggedGroup = groups.find(function(g) { return g.id === sectionId; });
+      if (!draggedGroup) return;
+      var newGroups = groups.filter(function(g) { return g.id !== sectionId; });
+      var insertIdx = newGroups.length;
+      if (dropBeforeSection) {
+        var beforeId = dropBeforeSection.dataset.sectionId;
+        var bi = newGroups.findIndex(function(g) { return g.id === beforeId; });
+        if (bi !== -1) insertIdx = bi;
+      }
+      newGroups.splice(insertIdx, 0, draggedGroup);
+      saveGroups(newGroups);
+      renderSections();
+    });
+    container.addEventListener('dragleave', function(e) {
+      if (!sectionDropLine) return;
+      if (!container.contains(e.relatedTarget)) { sectionDropLine.remove(); sectionDropLine = null; }
+    });
+  }
+
   function getCardConfig(id) {
     try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
   }
@@ -561,6 +976,7 @@
 
     const card = document.createElement('div');
     card.className = 'app-card';
+    card.draggable = true;
     card.dataset.id = app.id;
 
     const gearTitle = typeof t === 'function' ? t('cfgGearTitle') : 'Card settings';
@@ -571,11 +987,14 @@
         '<div class="card-desc">' + escHtml(localDesc) + '</div>' +
       '</div>' +
       '<div class="card-footer">' +
+        '<span class="card-drag-handle" aria-hidden="true">⠿</span>' +
         '<button class="card-gear-btn" title="' + escHtml(gearTitle) + '" aria-label="' + escHtml(gearTitle) + '">⚙</button>' +
       '</div>';
 
     const cardBody = card.querySelector('.card-body');
-    const gearBtn = card.querySelector('.card-gear-btn');
+    const gearBtn  = card.querySelector('.card-gear-btn');
+    const dragHdl  = card.querySelector('.card-drag-handle');
+    setupCardHandleDrag(dragHdl, card, app.id);
 
     cardBody.addEventListener('click', function () {
       if (app.modal) {
@@ -992,8 +1411,29 @@
     popup.querySelector('.cfg-pos-select').addEventListener('change',  persistPopupConfig);
 
     applyTitle();
-    const grid = document.getElementById('appsGrid');
-    APPS.forEach(function (app) { grid.appendChild(buildCard(app)); });
+    renderSections();
+
+    document.getElementById('addSectionBtn').addEventListener('click', function() {
+      var groups = resolveGroups();
+      var label = typeof t === 'function' ? t('sectionNewLabel') : 'New Section';
+      groups.push({ id: genGroupId(), label: label, cardIds: [] });
+      saveGroups(groups);
+      renderSections();
+      requestAnimationFrame(function() {
+        var sections = document.querySelectorAll('.app-section');
+        var last = sections[sections.length - 1];
+        if (last) {
+          var titleEl = last.querySelector('.section-title');
+          if (titleEl) {
+            titleEl.focus();
+            var range = document.createRange();
+            range.selectNodeContents(titleEl);
+            var sel = window.getSelection();
+            if (sel) { sel.removeAllRanges(); sel.addRange(range); }
+          }
+        }
+      });
+    });
 
     window.addEventListener('storage', function (e) {
       if (e.key === 'cmt-general-config') applyTitle();

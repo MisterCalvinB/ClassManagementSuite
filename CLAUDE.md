@@ -109,6 +109,19 @@ Requires changes in five places in `electron-main.js`: `PAGE_FILES`, `PAGE_ARG_M
 
 `i18n.js` covers EN, FR, DE, IT. UI strings use `data-i18n` attributes; active language is in `localStorage['cmt-general-config'].language`.
 
+**Every user-visible string must be i18n'd.** When adding or modifying UI, follow these rules without exception:
+
+1. **HTML text** — use a `data-i18n` attribute instead of hardcoded text:
+   ```html
+   <button data-i18n="save">Save</button>
+   ```
+2. **Dynamic strings** — call `t('key')` (or the page's equivalent i18n helper) rather than string literals.
+3. **New keys** — add the key in all four languages (`en`, `fr`, `de`, `it`) to `i18n.js`. Never add a key to only one language.
+4. **Placeholders & tooltips** — `data-i18n-placeholder` / `data-i18n-title` attributes exist for these; use them.
+5. **Never** leave bare English text in HTML or JS for anything the user will see.
+
+Hardcoded English strings are a bug. Treat missing translations the same way you would treat a missing required argument.
+
 Vocabulary word objects carry translations in all four languages. Use the `getTranslation(word)` helper (available in all main HTML files) to get the translation matching the active UI language:
 
 ```javascript

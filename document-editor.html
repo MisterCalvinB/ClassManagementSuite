@@ -692,6 +692,68 @@
       font-family: 'Consolas', monospace; font-size: .9em;
     }
     .prefs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
+
+    /* ── Table insert picker ──────────────────────────────── */
+    #table-insert-wrap { position: relative; }
+    #table-grid-popup {
+      display: none;
+      position: absolute;
+      top: calc(100% + 7px);
+      left: 0;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 9px;
+      box-shadow: 4px 4px 0 rgba(0,0,0,.18);
+      padding: 10px 10px 8px;
+      z-index: 3000;
+      user-select: none;
+    }
+    #table-grid-popup.open { display: block; }
+    .tg-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 22px);
+      gap: 3px;
+      margin-bottom: 6px;
+    }
+    .tg-cell {
+      width: 22px; height: 22px;
+      border: 1.5px solid #ccc;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: border-color .08s, background .08s;
+    }
+    .tg-cell.active { border-color: #000; background: #e8eef8; }
+    .tg-label {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #555;
+      text-align: center;
+    }
+
+    /* ── Image drop overlay ───────────────────────────────── */
+    #main-split { position: relative; }
+    #img-drop-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 4000;
+      background: rgba(0, 80, 220, 0.07);
+      border: 3px dashed #0050dc;
+      border-radius: 4px;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    #img-drop-overlay.active { display: flex; pointer-events: all; }
+    .img-drop-msg {
+      background: rgba(0,80,220,.88);
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -705,6 +767,16 @@
   <button class="nav-btn nav-btn-primary" id="btn-save-doc" title="Save (Ctrl+S)">Save</button>
   <button class="nav-btn" id="btn-save-as-doc" title="Save as new file">Save As</button>
   <button class="nav-btn" id="btn-save-all-doc" title="Save document + stylesheet together in the same folder (Ctrl+Shift+S)">Save All</button>
+  <div class="nav-sep"></div>
+  <div id="table-insert-wrap">
+    <button class="nav-btn" id="btn-insert-table" title="Insert table">Table ▾</button>
+    <div id="table-grid-popup">
+      <div class="tg-grid" id="tg-grid"></div>
+      <div class="tg-label" id="tg-label">—</div>
+    </div>
+  </div>
+  <button class="nav-btn" id="btn-insert-image" title="Insert image from file">Image</button>
+  <input type="file" id="image-file-input" accept="image/*" style="display:none">
   <div class="nav-sep"></div>
   <div class="hm-wrap" id="templates-dd-wrap">
     <button class="nav-btn hm-btn" id="btn-templates-dd" style="font-size:.8rem">Templates ▾</button>
@@ -911,6 +983,7 @@
 
 <!-- ── Main split ────────────────────────────────────────── -->
 <div id="main-split">
+  <div id="img-drop-overlay"><div class="img-drop-msg">Drop image to embed</div></div>
   <div id="editor-pane">
     <div id="md-editor-container"></div>
   </div>
@@ -1065,6 +1138,128 @@ function renderPreview() {
 function scheduleRender() {
   if (renderTimer) clearTimeout(renderTimer);
   renderTimer = setTimeout(renderPreview, 150);
+}
+
+// ── Insert text at editor cursor ──────────────────────────
+function insertTextAtCursor(text) {
+  if (!mdEditor) return;
+  const sel = mdEditor.getSelection();
+  mdEditor.executeEdits('user-insert', [{ range: sel, text, forceMoveMarkers: true }]);
+  mdEditor.focus();
+}
+
+// ── Table insert ──────────────────────────────────────────
+function insertTable(cols, rows) {
+  const header = '| ' + Array.from({length: cols}, (_, i) => 'Col ' + (i + 1)).join(' | ') + ' |';
+  const sep    = '| ' + Array.from({length: cols}, () => '---').join(' | ') + ' |';
+  const row    = '| ' + Array.from({length: cols}, () => '   ').join(' | ') + ' |';
+  const lines  = [header, sep, ...Array.from({length: rows}, () => row)];
+  insertTextAtCursor('\n' + lines.join('\n') + '\n');
+}
+
+function initTablePicker() {
+  const grid  = document.getElementById('tg-grid');
+  const label = document.getElementById('tg-label');
+  const COLS = 6, ROWS = 6;
+
+  for (let r = 1; r <= ROWS; r++) {
+    for (let c = 1; c <= COLS; c++) {
+      const cell = document.createElement('span');
+      cell.className = 'tg-cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      grid.appendChild(cell);
+    }
+  }
+
+  grid.addEventListener('mousemove', function(e) {
+    const cell = e.target.closest('.tg-cell');
+    if (!cell) return;
+    const hr = +cell.dataset.r, hc = +cell.dataset.c;
+    label.textContent = hc + ' × ' + hr + ' table';
+    grid.querySelectorAll('.tg-cell').forEach(el => {
+      el.classList.toggle('active', +el.dataset.r <= hr && +el.dataset.c <= hc);
+    });
+  });
+
+  grid.addEventListener('mouseleave', function() {
+    grid.querySelectorAll('.tg-cell').forEach(el => el.classList.remove('active'));
+    label.textContent = '—';
+  });
+
+  grid.addEventListener('click', function(e) {
+    const cell = e.target.closest('.tg-cell');
+    if (!cell) return;
+    const rows = +cell.dataset.r, cols = +cell.dataset.c;
+    document.getElementById('table-insert-wrap').classList.remove('open');
+    insertTable(cols, rows);
+  });
+}
+
+// ── Image insert ──────────────────────────────────────────
+function pathToFileUrl(absPath) {
+  const normalized = absPath.replace(/\\/g, '/');
+  return normalized.startsWith('/') ? 'file://' + normalized : 'file:///' + normalized;
+}
+
+async function embedImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const name = (file.name.replace(/\s+/g, '_').replace(/[^\w.\-]/g, '')) || 'image';
+
+  if (window.Desktop && Desktop.isElectron()) {
+    try {
+      const r = await Desktop.saveBlob('docEditorDocs', name, file);
+      if (r && r.ok) {
+        const url = (r.file && r.file.path) ? pathToFileUrl(r.file.path) : name;
+        insertTextAtCursor('\n![' + name + '](' + url + ')\n');
+        showToast('Image saved: ' + name);
+      } else {
+        showToast('Image save failed: ' + (r && r.error ? r.error : 'unknown'), true);
+      }
+    } catch(e) {
+      showToast('Image error: ' + e.message, true);
+    }
+  } else {
+    // Non-Electron fallback: embed as base64
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      insertTextAtCursor('\n![' + name + '](' + ev.target.result + ')\n');
+      showToast('Image embedded');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function initImageDrop() {
+  const overlay   = document.getElementById('img-drop-overlay');
+  const mainSplit = document.getElementById('main-split');
+  let dragDepth   = 0;
+
+  mainSplit.addEventListener('dragenter', function(e) {
+    const dt = e.dataTransfer;
+    if (!dt || ![...dt.types].includes('Files')) return;
+    e.preventDefault();
+    dragDepth++;
+    overlay.classList.add('active');
+  });
+
+  mainSplit.addEventListener('dragleave', function() {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) overlay.classList.remove('active');
+  });
+
+  mainSplit.addEventListener('dragover', function(e) {
+    if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
+  });
+
+  mainSplit.addEventListener('drop', function(e) {
+    dragDepth = 0;
+    overlay.classList.remove('active');
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (!files || !files.length) return;
+    const imgFile = Array.from(files).find(f => f.type.startsWith('image/'));
+    if (imgFile) { e.preventDefault(); embedImageFile(imgFile); }
+  });
 }
 
 // ── Monaco init ──────────────────────────────────────────
@@ -1263,6 +1458,19 @@ async function doSaveDoc(filename) {
       showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'), true);
     }
   } catch(e) { showToast('Save error: ' + e.message, true); }
+}
+
+async function autosaveDoc() {
+  if (!currentDocName || !docModified || !mdEditor || !window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue());
+    if (r && r.ok) {
+      docModified = false;
+      updateDocIndicator();
+      const meta = JSON.stringify({ stylesheet: currentStylesheetName || null });
+      await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta);
+    }
+  } catch(e) { /* silent */ }
 }
 
 async function saveAll() {
@@ -2820,6 +3028,7 @@ function bindPrefsEvents() {
 
 // ── DOM init ──────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
+  setInterval(autosaveDoc, 60000);
   setupMarked();
   initSplitDivider();
   initPageLayoutPopup();
@@ -2878,6 +3087,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('click', function() {
     hmWrap.classList.remove('open');
     tmplWrap.classList.remove('open');
+    document.getElementById('table-insert-wrap').classList.remove('open');
   });
 
   // Save modal
@@ -2915,6 +3125,26 @@ window.addEventListener('DOMContentLoaded', function() {
       hideFullPreview();
     }
   });
+
+  // Table picker
+  document.getElementById('btn-insert-table').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('table-insert-wrap').classList.toggle('open');
+  });
+
+  // Image toolbar button
+  document.getElementById('btn-insert-image').addEventListener('click', function() {
+    document.getElementById('image-file-input').click();
+  });
+  document.getElementById('image-file-input').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      embedImageFile(this.files[0]);
+      this.value = '';
+    }
+  });
+
+  initTablePicker();
+  initImageDrop();
 
   updateDocIndicator();
 });

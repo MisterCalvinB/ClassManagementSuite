@@ -426,6 +426,75 @@
    0%, 100% { outline-color: #2563eb; }
    50% { outline-color: #93c5fd; }
  }
+
+ /* ── CONSTELLATION TABLES ──────────────────────────────────────── */
+ .con-table-el {
+   position: absolute; z-index: 500; background: #fff;
+   border: 1.5px solid #111; border-radius: 4px;
+   box-shadow: 2px 2px 0 rgba(0,0,0,0.12);
+   user-select: none; cursor: default; font-family: inherit;
+ }
+ .con-table-bar {
+   display: flex; align-items: center; gap: 4px;
+   padding: 3px 6px; background: #111; color: #fff;
+   border-radius: 3px 3px 0 0; cursor: move;
+   font-size: 0.72rem; font-weight: 700;
+   height: 24px; box-sizing: border-box; flex-shrink: 0;
+ }
+ .con-table-el.tbl-locked .con-table-bar { cursor: default; }
+ .con-table-drag-icon { cursor: move; opacity: 0.55; flex-shrink: 0; }
+ .con-table-el.tbl-locked .con-table-drag-icon { cursor: default; }
+ .con-table-title { flex: 1; font-size: 0.68rem; opacity: 0.7; overflow: hidden; white-space: nowrap; }
+ .con-table-header-toggle {
+   display: flex; align-items: center; gap: 3px;
+   font-size: 0.65rem; font-weight: 600; cursor: pointer;
+   opacity: 0.85; white-space: nowrap; flex-shrink: 0;
+ }
+ .con-table-header-toggle input { accent-color: #aaa; cursor: pointer; width: 11px; height: 11px; }
+ .con-table-bar-btn {
+   background: none; border: 1px solid rgba(255,255,255,0.35);
+   color: #fff; cursor: pointer; font-size: 0.72rem;
+   padding: 1px 4px; border-radius: 3px; line-height: 1; flex-shrink: 0;
+ }
+ .con-table-bar-btn:hover { background: rgba(255,255,255,0.18); border-color: #fff; }
+ .con-table-grid-wrap { position: relative; overflow: hidden; }
+ .con-table-grid { display: grid; }
+ .con-table-cell {
+   position: relative; overflow: hidden; box-sizing: border-box;
+   border-right: 1px solid #bbb; border-bottom: 1px solid #bbb;
+   border-top: 1px solid #bbb; border-left: 1px solid #bbb;
+   background: #fff;
+ }
+ .con-table-cell.tbl-header { background: #e8e8e8; }
+ .con-table-cell-text {
+   width: 100%; height: 100%; padding: 3px 5px;
+   outline: none; font-family: inherit; font-size: 14px;
+   box-sizing: border-box; white-space: pre-wrap; word-break: break-word;
+   overflow: auto; cursor: text; line-height: 1.35;
+   background: transparent; color: inherit; display: block;
+ }
+ .con-table-cell-text:focus { background: rgba(0,100,255,0.03); }
+ .con-table-cell .con-node {
+   position: relative !important; left: auto !important; top: auto !important;
+   display: inline-block !important; margin: 2px !important;
+   max-width: calc(100% - 4px) !important; cursor: pointer !important;
+ }
+ .con-table-col-resizer {
+   position: absolute; top: 0; width: 6px; cursor: col-resize;
+   z-index: 10; background: transparent;
+ }
+ .con-table-col-resizer:hover { background: rgba(0,120,255,0.25); }
+ .con-table-row-resizer {
+   position: absolute; left: 0; height: 6px; cursor: row-resize;
+   z-index: 10; background: transparent;
+ }
+ .con-table-row-resizer:hover { background: rgba(0,120,255,0.25); }
+ .con-table-resizer {
+   position: absolute; right: 0; bottom: 0; width: 10px; height: 10px;
+   border-right: 2px solid #999; border-bottom: 2px solid #999;
+   cursor: nwse-resize;
+ }
+ .con-table-drop-highlight { outline: 2px solid #2563eb; outline-offset: -2px; }
 </style>
 </head>
 <body>
@@ -707,6 +776,17 @@
   <div class="con-ctx-item" onclick="conBoardCtxOpenStudentNote()">👥 Student Input Note</div>
   <div class="con-ctx-item" onclick="conBoardCtxImportText()">📂 Import Text</div>
   <div class="con-ctx-item" onclick="conBoardCtxAddMask()">▭ Add Mask</div>
+  <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
+    <span style="font-size:0.82rem; flex-shrink:0; color:#222;">⊞</span>
+    <input type="number" id="con-board-ctx-table-rows" min="1" max="20" value="2"
+           onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
+           style="width:40px; padding:4px 5px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:14px; outline:none; text-align:center;">
+    <span style="font-size:0.82rem; color:#555;">×</span>
+    <input type="number" id="con-board-ctx-table-cols" min="1" max="20" value="4"
+           onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
+           style="width:40px; padding:4px 5px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:14px; outline:none; text-align:center;">
+    <button onclick="conBoardCtxAddTable()" style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">Add Table</button>
+  </div>
   <div class="con-ctx-item" onclick="conBoardCtxCreateGroup()">⬡ Add Group</div>
     <div class="con-ctx-sep"></div>
     <div style="padding:4px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
@@ -736,6 +816,36 @@
   <div class="con-ctx-item" onclick="conBoardCtxClose();laserToggle();">⬤ Laser</div>
   <div class="con-ctx-sep"></div>
   <div class="con-ctx-item" onclick="conBoardCtxClose()" style="color:#888;font-weight:600;">✕ Cancel</div>
+</div>
+
+<!-- Table context menu -->
+<div id="con-table-ctx-menu" style="position:fixed;z-index:9200;background:#fff;border:1.5px solid #111;border-radius:5px;box-shadow:2px 2px 0 #ccc;min-width:210px;padding:3px 0;display:none;flex-direction:column;font-family:inherit;">
+  <div class="con-ctx-title" id="con-table-ctx-title">Table</div>
+  <div class="con-ctx-item" onclick="conTableCtxAddRowAbove()">↑ Add row above</div>
+  <div class="con-ctx-item" onclick="conTableCtxAddRowBelow()">↓ Add row below</div>
+  <div class="con-ctx-item" onclick="conTableCtxAddColLeft()">← Add column left</div>
+  <div class="con-ctx-item" onclick="conTableCtxAddColRight()">→ Add column right</div>
+  <div class="con-ctx-sep"></div>
+  <div class="con-ctx-item" id="con-table-ctx-del-row" onclick="conTableCtxRemoveRow()">✕ Remove this row</div>
+  <div class="con-ctx-item" id="con-table-ctx-del-col" onclick="conTableCtxRemoveCol()">✕ Remove this column</div>
+  <div class="con-ctx-sep"></div>
+  <div style="padding:3px 10px 2px;font-size:0.65rem;font-weight:900;text-transform:uppercase;color:#aaa;letter-spacing:0.7px;">Cell style</div>
+  <div style="padding:3px 10px 6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <label style="font-size:0.72rem;color:#555;display:flex;align-items:center;gap:3px;">Bg<input type="color" id="con-table-ctx-cell-bg" value="#ffffff" style="width:28px;height:20px;border:1px solid #ddd;border-radius:3px;cursor:pointer;padding:0;" oninput="conTableCtxApplyCellBg(this.value)"></label>
+    <label style="font-size:0.72rem;color:#555;display:flex;align-items:center;gap:3px;">Text<input type="color" id="con-table-ctx-cell-color" value="#111111" style="width:28px;height:20px;border:1px solid #ddd;border-radius:3px;cursor:pointer;padding:0;" oninput="conTableCtxApplyCellColor(this.value)"></label>
+    <label style="font-size:0.72rem;color:#555;display:flex;align-items:center;gap:3px;">px<input type="number" id="con-table-ctx-cell-fs" min="8" max="72" value="14" style="width:38px;padding:1px 3px;border:1px solid #ddd;border-radius:3px;font-size:0.72rem;font-family:inherit;" oninput="conTableCtxApplyCellFs(this.value)"></label>
+  </div>
+  <div style="padding:0 10px 6px;display:flex;gap:4px;align-items:center;">
+    <button onclick="conTableCtxCellAlign('left')"   style="padding:2px 7px;border:1.5px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;font-size:0.8rem;font-family:inherit;" title="Left">≡←</button>
+    <button onclick="conTableCtxCellAlign('center')" style="padding:2px 7px;border:1.5px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;font-size:0.8rem;font-family:inherit;" title="Center">≡</button>
+    <button onclick="conTableCtxCellAlign('right')"  style="padding:2px 7px;border:1.5px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;font-size:0.8rem;font-family:inherit;" title="Right">→≡</button>
+    <button onclick="conTableCtxClearCell()" style="padding:2px 7px;border:1.5px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;font-size:0.72rem;font-family:inherit;margin-left:auto;" title="Clear cell content">🗑 Clear</button>
+  </div>
+  <div class="con-ctx-sep"></div>
+  <div class="con-ctx-item" id="con-table-ctx-lock-btn" onclick="conTableCtxToggleLock()">🔓 Lock</div>
+  <div class="con-ctx-item" style="color:#c0392b;font-weight:700;" onclick="conTableCtxDelete()">🗑 Delete table</div>
+  <div class="con-ctx-sep"></div>
+  <div class="con-ctx-item" onclick="conTableCtxClose()" style="color:#888;font-weight:600;">✕ Close</div>
 </div>
 
 <!-- Mask rectangle context menu -->
@@ -1197,6 +1307,7 @@
           <button class="action-btn btn-grey" onclick="conCompactNodes()" title="Compact words — pull closer together without overlapping">⇠ Compact</button>
           <button class="action-btn btn-grey" onclick="conToggleMaskAll()" title="Hide all words (or reveal if already hidden)">👁 Hide/Show</button>
           <button class="action-btn btn-grey" onclick="conAddMask()" title="Add a movable mask rectangle">▭ Mask</button>
+          <button class="action-btn btn-grey" data-i18n="btnAddTable" onclick="conAddTableDialog()" title="Add an editable table to the board">⊞ Table</button>
           <button class="action-btn btn-grey" onclick="conBoardCtxCreateGroup(true)" title="Add an empty group">⬡ Group</button>
           <button class="action-btn btn-grey" id="con-snap-toggle-btn" onclick="conToggleSnap()" title="Toggle snap-to-align when dragging nodes (hold Alt to bypass snap temporarily)">📐 Snap</button>
         </div>
@@ -4266,7 +4377,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Export CSV', btnExportTXT:'⬇ Export JSON',
         clickWord:'Click a word to see its full details and example sentence.',
         btnReference:'📖 Reference', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Browse by Topic',
-        btnClearAll:'Clear All', btnImportBank:'📥 Import from Bank', btnExportPNG:'🖼 Export PNG', btnCopyPNG:'📋 Copy PNG',
+        btnClearAll:'Clear All', btnImportBank:'📥 Import from Bank', btnExportPNG:'🖼 Export PNG', btnCopyPNG:'📋 Copy PNG', btnAddTable:'⊞ Table',
         conInstructions:'System: right-click the board to add words (comma = separate, + = grouped, -- = linked chain) · Move: drag words and drop onto another word to group · Multi-select: Ctrl/Cmd+click, then right-click selection to align, distribute, or grid · Shortcuts: Ctrl/Cmd+G group, Ctrl/Cmd+A select all, Ctrl/Cmd+H hide/reveal, Delete/Backspace remove selection, Ctrl/Cmd+↑/↓ increase/decrease font size, Esc close menus, Ctrl/Cmd+Z undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+S save',
         helpTitle:'📖 How It Works',
         helpSubtitle:'A complete guide — filters, games, tools, and team mode.',
@@ -4391,7 +4502,7 @@ function hideFailure() {
         btnExportCSV:'⬇ CSV exportieren', btnExportTXT:'⬇ JSON exportieren',
         clickWord:'Klicke ein Wort für Details und einen Beispielsatz.',
         btnReference:'📖 Referenz', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Nach Thema',
-        btnClearAll:'Alles löschen', btnImportBank:'📥 Aus Wortbank importieren', btnExportPNG:'🖼 PNG exportieren', btnCopyPNG:'📋 PNG kopieren',
+        btnClearAll:'Alles löschen', btnImportBank:'📥 Aus Wortbank importieren', btnExportPNG:'🖼 PNG exportieren', btnCopyPNG:'📋 PNG kopieren', btnAddTable:'⊞ Tabelle',
         conInstructions:'System: Rechtsklick auf das Board zum Hinzufügen (Komma = getrennte Wörter, + = gruppierte Wörter, -- = verknüpfte Kette) · Bewegen: Wörter ziehen und auf andere Wörter fallen lassen zum Gruppieren · Kürzel: Strg/Cmd+Klick Mehrfachauswahl, Strg/Cmd+G gruppieren, Entf/Backspace löschen, Esc Menüs schließen, Strg/Cmd+Y oder Strg/Cmd+Shift+Z wiederholen',
         helpTitle:'📖 Wie es funktioniert',
         helpSubtitle:'Eine vollständige Anleitung — Filter, Spiele, Werkzeuge und Team-Modus.',
@@ -4515,7 +4626,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Esporta CSV', btnExportTXT:'⬇ Esporta JSON',
         clickWord:'Clicca una parola per vedere tutti i dettagli e un esempio.',
         btnReference:'📖 Riferimento', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Per Argomento',
-        btnClearAll:'Elimina Tutto', btnImportBank:'📥 Importa dalla Banca', btnExportPNG:'🖼 Esporta PNG', btnCopyPNG:'📋 Copia PNG',
+        btnClearAll:'Elimina Tutto', btnImportBank:'📥 Importa dalla Banca', btnExportPNG:'🖼 Esporta PNG', btnCopyPNG:'📋 Copia PNG', btnAddTable:'⊞ Tabella',
         conInstructions:'Sistema: clic destro sulla lavagna per aggiungere parole (virgola = parole separate, + = parole raggruppate, -- = catena collegata) · Sposta: trascina le parole e rilasciale su un\'altra parola per raggruppare · Scorciatoie: Ctrl/Cmd+clic selezione multipla, Ctrl/Cmd+G raggruppa, Canc/Backspace elimina, Esc chiude i menu, Ctrl/Cmd+Y o Ctrl/Cmd+Shift+Z ripristina',
         helpTitle:'📖 Come Funziona',
         helpSubtitle:'Una guida completa — filtri, giochi, strumenti e modalità a squadre.',
@@ -4639,7 +4750,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Exporter CSV', btnExportTXT:'⬇ Exporter JSON',
         clickWord:'Cliquez sur un mot pour voir ses détails complets et sa phrase d\'exemple.',
         btnReference:'📖 Référence', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Par Thème',
-        btnClearAll:'Tout Effacer', btnImportBank:'📥 Importer de la Banque', btnExportPNG:'🖼 Exporter PNG', btnCopyPNG:'📋 Copier PNG',
+        btnClearAll:'Tout Effacer', btnImportBank:'📥 Importer de la Banque', btnExportPNG:'🖼 Exporter PNG', btnCopyPNG:'📋 Copier PNG', btnAddTable:'⊞ Tableau',
         conInstructions:'Système : clic droit sur le tableau pour ajouter des mots (virgule = mots séparés, + = mots groupés, -- = chaîne liée) · Déplacer : glissez les mots et déposez-les sur un autre mot pour grouper · Raccourcis : Ctrl/Cmd+clic sélection multiple, Ctrl/Cmd+G grouper, Suppr/Retour arrière supprimer, Esc fermer les menus, Ctrl/Cmd+Y ou Ctrl/Cmd+Shift+Z rétablir',
         helpTitle:'📖 Comment ça Fonctionne',
         helpSubtitle:'Un guide complet — filtres, jeux, outils et mode équipe.',
@@ -6261,6 +6372,7 @@ function hideFailure() {
         masks: [],
         notes: [],
         drawings: [],
+        tables: [],
         media: [],
         backgroundPdf: null,
         boardBg: null,
@@ -8709,6 +8821,630 @@ function hideFailure() {
         const menu = document.getElementById('con-mask-ctx-menu');
         if (menu) menu.style.display = 'none';
       };
+
+      // ================================================================
+      // CONSTELLATION TABLES
+      // ================================================================
+      (function() {
+        let conTables = [];
+        let _conTblNextId = 1;
+        let _conTblCtxId  = null;
+        let _conTblCtxRow = -1;
+        let _conTblCtxCol = -1;
+
+        function _brd() { return document.getElementById('constellation-board'); }
+        function _tblById(id) { return conTables.find(t => t.id === id) || null; }
+        function _cell(tbl, r, c) { return tbl.cells[r * tbl.cols + c] || null; }
+        function _defaultCell() {
+          return { type: 'text', text: '', nodeData: null, bg: null, color: null, fontSize: null, textAlign: 'left', bold: false, italic: false };
+        }
+        function _colOffset(tbl, c) { let x = 0; for (let i = 0; i < c; i++) x += tbl.colWidths[i] || 80; return x; }
+        function _rowOffset(tbl, r) { let y = 0; for (let i = 0; i < r; i++) y += tbl.rowHeights[i] || 36; return y; }
+        function _totalW(tbl) { return tbl.colWidths.reduce((s, w) => s + w, 0); }
+        function _totalH(tbl) { return tbl.rowHeights.reduce((s, h) => s + h, 0); }
+        const _BAR_H = 24;
+
+        function _applyGridStyle(tbl) {
+          const g = tbl.el && tbl.el.querySelector('.con-table-grid');
+          if (!g) return;
+          g.style.gridTemplateColumns = tbl.colWidths.map(w => w + 'px').join(' ');
+          g.style.gridTemplateRows    = tbl.rowHeights.map(h => h + 'px').join(' ');
+          const wrap = tbl.el.querySelector('.con-table-grid-wrap');
+          if (wrap) { wrap.style.width = _totalW(tbl) + 'px'; wrap.style.height = _totalH(tbl) + 'px'; }
+        }
+
+        function _applyCellStyle(tbl, r, c) {
+          const gridEl = tbl.el && tbl.el.querySelector('.con-table-grid');
+          if (!gridEl) return;
+          const cellEl = gridEl.querySelector(`.con-table-cell[data-row="${r}"][data-col="${c}"]`);
+          const cell   = _cell(tbl, r, c);
+          if (!cellEl || !cell) return;
+          cellEl.style.background = cell.bg || tbl.defaultBg || '#ffffff';
+          if (tbl.hasHeader && r === 0) cellEl.classList.add('tbl-header');
+          else cellEl.classList.remove('tbl-header');
+          const textEl = cellEl.querySelector('.con-table-cell-text');
+          if (textEl) {
+            textEl.style.color      = cell.color    || tbl.defaultColor || '#111111';
+            textEl.style.fontSize   = (cell.fontSize || tbl.defaultFontSize || 14) + 'px';
+            textEl.style.textAlign  = cell.textAlign || 'left';
+            textEl.style.fontWeight = cell.bold   ? '700' : '';
+            textEl.style.fontStyle  = cell.italic ? 'italic' : '';
+          }
+        }
+
+        function _renderCellContent(tbl, r, c) {
+          const gridEl = tbl.el && tbl.el.querySelector('.con-table-grid');
+          if (!gridEl) return;
+          const cellEl = gridEl.querySelector(`.con-table-cell[data-row="${r}"][data-col="${c}"]`);
+          const cell   = _cell(tbl, r, c);
+          if (!cellEl || !cell) return;
+          cellEl.innerHTML = '';
+          if (cell.type === 'node' && cell.nodeData) {
+            const nd  = cell.nodeData;
+            const nel = document.createElement('div');
+            nel.className = 'con-node';
+            nel.style.cssText = 'position:relative;left:auto;top:auto;display:inline-block;margin:2px;cursor:pointer;';
+            if (nd.bg)     nel.style.background  = nd.bg;
+            if (nd.color)  nel.style.color        = nd.color;
+            if (nd.border) nel.style.borderColor  = nd.border;
+            if (nd.fontSize) nel.style.fontSize   = nd.fontSize;
+            nel.textContent = nd.baseWord || '';
+            nel.addEventListener('contextmenu', function(e) {
+              e.preventDefault(); e.stopPropagation();
+              window._boardCtxNoteX = tbl.x + _colOffset(tbl, c) + 20;
+              window._boardCtxNoteY = tbl.y + _BAR_H + _rowOffset(tbl, r) + 10;
+              if (window.conCtxOpen) {
+                const fakeNode = { id: nd.id || '_tbln', el: nel, x: tbl.x, y: tbl.y,
+                  baseWord: nd.baseWord || '', dbWord: nd.dbWord || null, locked: false, fmt: {} };
+                window.conCtxOpen(e, fakeNode.id, fakeNode);
+              }
+            });
+            nel.addEventListener('click', function(e) { e.stopPropagation(); });
+            cellEl.appendChild(nel);
+          } else {
+            const te = document.createElement('div');
+            te.className = 'con-table-cell-text';
+            te.textContent = cell.text || '';
+            te.contentEditable = 'false';
+            te.addEventListener('click', function(e) {
+              e.stopPropagation();
+              if (!tbl.locked) { te.contentEditable = 'true'; te.focus(); }
+            });
+            te.addEventListener('blur', function() {
+              cell.text = te.textContent || '';
+              te.contentEditable = 'false';
+            });
+            te.addEventListener('keydown', function(e) { e.stopPropagation(); });
+            cellEl.appendChild(te);
+          }
+          _applyCellStyle(tbl, r, c);
+        }
+
+        function _rebuildResizers(tbl) {
+          const wrap = tbl.el && tbl.el.querySelector('.con-table-grid-wrap');
+          if (!wrap) return;
+          wrap.querySelectorAll('.con-table-col-resizer, .con-table-row-resizer').forEach(el => el.remove());
+          let xAcc = 0;
+          for (let c = 0; c < tbl.cols - 1; c++) {
+            xAcc += tbl.colWidths[c] || 80;
+            const h = document.createElement('div');
+            h.className = 'con-table-col-resizer';
+            h.style.left = (xAcc - 3) + 'px';
+            h.style.height = _totalH(tbl) + 'px';
+            wrap.appendChild(h);
+            (function(col, startXAcc) {
+              let drag = false, sx = 0, sw = 0;
+              h.addEventListener('mousedown', function(e) {
+                if (e.button !== 0 || tbl.locked) return;
+                e.preventDefault(); e.stopPropagation();
+                drag = true; sx = e.clientX; sw = tbl.colWidths[col] || 80;
+                conPushUndo();
+              });
+              document.addEventListener('mousemove', function(e) {
+                if (!drag) return;
+                tbl.colWidths[col] = Math.max(30, sw + (e.clientX - sx));
+                _applyGridStyle(tbl); _rebuildResizers(tbl);
+              });
+              document.addEventListener('mouseup', function() { drag = false; });
+            })(c, xAcc);
+          }
+          let yAcc = 0;
+          for (let r = 0; r < tbl.rows - 1; r++) {
+            yAcc += tbl.rowHeights[r] || 36;
+            const h = document.createElement('div');
+            h.className = 'con-table-row-resizer';
+            h.style.top = (yAcc - 3) + 'px';
+            h.style.width = _totalW(tbl) + 'px';
+            wrap.appendChild(h);
+            (function(row) {
+              let drag = false, sy = 0, sh = 0;
+              h.addEventListener('mousedown', function(e) {
+                if (e.button !== 0 || tbl.locked) return;
+                e.preventDefault(); e.stopPropagation();
+                drag = true; sy = e.clientY; sh = tbl.rowHeights[row] || 36;
+                conPushUndo();
+              });
+              document.addEventListener('mousemove', function(e) {
+                if (!drag) return;
+                tbl.rowHeights[row] = Math.max(24, sh + (e.clientY - sy));
+                _applyGridStyle(tbl); _rebuildResizers(tbl);
+              });
+              document.addEventListener('mouseup', function() { drag = false; });
+            })(r);
+          }
+        }
+
+        function _rebuildDOM(tbl) {
+          if (tbl.el) tbl.el.remove();
+          tbl.el = null;
+          _buildDOM(tbl);
+        }
+
+        function _buildDOM(tbl) {
+          const brd = _brd();
+          if (!brd) return;
+          const el = document.createElement('div');
+          el.className = 'con-table-el';
+          if (tbl.locked) el.classList.add('tbl-locked');
+          el.dataset.tid = tbl.id;
+          el.style.left = tbl.x + 'px';
+          el.style.top  = tbl.y + 'px';
+          tbl.el = el;
+
+          // Bar
+          const bar = document.createElement('div');
+          bar.className = 'con-table-bar';
+          const dragIcon = document.createElement('span');
+          dragIcon.className = 'con-table-drag-icon'; dragIcon.textContent = '⠿';
+          bar.appendChild(dragIcon);
+          const titleEl = document.createElement('span');
+          titleEl.className = 'con-table-title'; titleEl.textContent = 'Table';
+          bar.appendChild(titleEl);
+          const hdrLabel = document.createElement('label');
+          hdrLabel.className = 'con-table-header-toggle';
+          const hdrCb = document.createElement('input');
+          hdrCb.type = 'checkbox'; hdrCb.checked = !!tbl.hasHeader;
+          hdrCb.addEventListener('change', function() {
+            conPushUndo(); tbl.hasHeader = hdrCb.checked;
+            for (let c = 0; c < tbl.cols; c++) _applyCellStyle(tbl, 0, c);
+          });
+          hdrLabel.appendChild(hdrCb); hdrLabel.appendChild(document.createTextNode(' Header'));
+          bar.appendChild(hdrLabel);
+          const lockBtn = document.createElement('button');
+          lockBtn.className = 'con-table-bar-btn'; lockBtn.title = 'Lock/unlock';
+          lockBtn.textContent = tbl.locked ? '🔒' : '🔓';
+          lockBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); conPushUndo();
+            tbl.locked = !tbl.locked;
+            lockBtn.textContent = tbl.locked ? '🔒' : '🔓';
+            if (tbl.locked) el.classList.add('tbl-locked'); else el.classList.remove('tbl-locked');
+          });
+          bar.appendChild(lockBtn);
+          const delBtn = document.createElement('button');
+          delBtn.className = 'con-table-bar-btn'; delBtn.title = 'Delete table'; delBtn.textContent = '✕';
+          delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!confirm('Delete this table?')) return;
+            conPushUndo(); _deleteTable(tbl.id);
+          });
+          bar.appendChild(delBtn);
+          el.appendChild(bar);
+
+          // Grid wrapper
+          const wrap = document.createElement('div');
+          wrap.className = 'con-table-grid-wrap';
+          wrap.style.width  = _totalW(tbl) + 'px';
+          wrap.style.height = _totalH(tbl) + 'px';
+          const grid = document.createElement('div');
+          grid.className = 'con-table-grid';
+          grid.style.gridTemplateColumns = tbl.colWidths.map(w => w + 'px').join(' ');
+          grid.style.gridTemplateRows    = tbl.rowHeights.map(h => h + 'px').join(' ');
+          for (let r = 0; r < tbl.rows; r++) {
+            for (let c = 0; c < tbl.cols; c++) {
+              const cellEl = document.createElement('div');
+              cellEl.className = 'con-table-cell';
+              cellEl.dataset.row = r; cellEl.dataset.col = c;
+              grid.appendChild(cellEl);
+            }
+          }
+          wrap.appendChild(grid);
+          el.appendChild(wrap);
+
+          // Corner resizer
+          const resizer = document.createElement('div');
+          resizer.className = 'con-table-resizer';
+          el.appendChild(resizer);
+
+          // Populate cells
+          for (let r = 0; r < tbl.rows; r++)
+            for (let c = 0; c < tbl.cols; c++) _renderCellContent(tbl, r, c);
+
+          _rebuildResizers(tbl);
+          brd.appendChild(el);
+
+          // Drag (bar)
+          let _drag = false, _ox = 0, _oy = 0, _sx = 0, _sy = 0, _pre = null;
+          bar.addEventListener('mousedown', function(e) {
+            if (e.button !== 0 || tbl.locked) return;
+            if (e.target.closest('.con-table-header-toggle, .con-table-bar-btn')) return;
+            e.preventDefault(); e.stopPropagation();
+            _drag = false; _sx = e.clientX; _sy = e.clientY; _ox = tbl.x; _oy = tbl.y; _pre = null;
+          });
+          document.addEventListener('mousemove', function(e) {
+            if (!_sx && !_sy) return;
+            if (e.buttons === 0) { _sx = 0; _sy = 0; return; }
+            const dx = e.clientX - _sx, dy = e.clientY - _sy;
+            if (!_drag && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+              _drag = true; _pre = typeof conBuildPageSnapshot === 'function' ? conBuildPageSnapshot() : null;
+            }
+            if (!_drag) return;
+            tbl.x = Math.max(0, _ox + dx); tbl.y = Math.max(0, _oy + dy);
+            el.style.left = tbl.x + 'px'; el.style.top = tbl.y + 'px';
+          });
+          document.addEventListener('mouseup', function() {
+            if (_drag && _pre) { conPushUndo(_pre); }
+            _drag = false; _sx = 0; _sy = 0; _pre = null;
+          });
+
+          // Corner resize
+          let _rs = false, _rsx = 0, _rsy = 0, _rcw = [], _rrh = [];
+          resizer.addEventListener('mousedown', function(e) {
+            if (e.button !== 0 || tbl.locked) return;
+            e.preventDefault(); e.stopPropagation();
+            _rs = true; _rsx = e.clientX; _rsy = e.clientY;
+            _rcw = [...tbl.colWidths]; _rrh = [...tbl.rowHeights]; conPushUndo();
+          });
+          document.addEventListener('mousemove', function(e) {
+            if (!_rs) return;
+            const dx = e.clientX - _rsx, dy = e.clientY - _rsy;
+            const oldW = _rcw.reduce((s, w) => s + w, 0);
+            const oldH = _rrh.reduce((s, h) => s + h, 0);
+            const nw = Math.max(tbl.cols * 30, oldW + dx);
+            const nh = Math.max(tbl.rows * 24, oldH + dy);
+            tbl.colWidths  = _rcw.map(w => Math.max(30, Math.round(w * nw / oldW)));
+            tbl.rowHeights = _rrh.map(h => Math.max(24, Math.round(h * nh / oldH)));
+            _applyGridStyle(tbl); _rebuildResizers(tbl);
+          });
+          document.addEventListener('mouseup', function() { _rs = false; });
+
+          // Right-click on table
+          el.addEventListener('contextmenu', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            const ce = e.target.closest('.con-table-cell');
+            _conTblCtxOpen(e, tbl.id, ce ? parseInt(ce.dataset.row) : -1, ce ? parseInt(ce.dataset.col) : -1);
+          });
+
+          // Hover highlight for node drop
+          grid.addEventListener('mouseover', function(e) {
+            if (!window._conTblDraggingNodeId) return;
+            const ce = e.target.closest('.con-table-cell');
+            grid.querySelectorAll('.con-table-drop-highlight').forEach(x => x.classList.remove('con-table-drop-highlight'));
+            if (ce) ce.classList.add('con-table-drop-highlight');
+          });
+          grid.addEventListener('mouseleave', function() {
+            grid.querySelectorAll('.con-table-drop-highlight').forEach(x => x.classList.remove('con-table-drop-highlight'));
+          });
+        }
+
+        // ── Context menu ─────────────────────────────────────────────────
+        function _conTblCtxOpen(e, tid, row, col) {
+          _conTblCtxId = tid; _conTblCtxRow = row; _conTblCtxCol = col;
+          const tbl  = _tblById(tid);
+          const menu = document.getElementById('con-table-ctx-menu');
+          if (!menu || !tbl) return;
+          const titleEl = document.getElementById('con-table-ctx-title');
+          if (titleEl) titleEl.textContent = (row >= 0 && col >= 0) ? 'Table · cell (' + row + ',' + col + ')' : 'Table';
+          const delR = document.getElementById('con-table-ctx-del-row');
+          const delC = document.getElementById('con-table-ctx-del-col');
+          if (delR) delR.style.display = tbl.rows > 1 ? '' : 'none';
+          if (delC) delC.style.display = tbl.cols > 1 ? '' : 'none';
+          const lb = document.getElementById('con-table-ctx-lock-btn');
+          if (lb) lb.textContent = tbl.locked ? '🔒 Unlock' : '🔓 Lock';
+          if (row >= 0 && col >= 0) {
+            const cell = _cell(tbl, row, col);
+            if (cell) {
+              const bg = document.getElementById('con-table-ctx-cell-bg');
+              const fg = document.getElementById('con-table-ctx-cell-color');
+              const fs = document.getElementById('con-table-ctx-cell-fs');
+              if (bg) bg.value = cell.bg || tbl.defaultBg || '#ffffff';
+              if (fg) fg.value = cell.color || tbl.defaultColor || '#111111';
+              if (fs) fs.value = String(cell.fontSize || tbl.defaultFontSize || 14);
+            }
+          }
+          menu.style.display = 'flex';
+          const mw = menu.offsetWidth || 210, mh = menu.offsetHeight || 300;
+          let mx = e.clientX, my = e.clientY;
+          if (mx + mw > window.innerWidth  - 8) mx = window.innerWidth  - mw - 8;
+          if (my + mh > window.innerHeight - 8) my = window.innerHeight - mh - 8;
+          menu.style.left = mx + 'px'; menu.style.top = my + 'px';
+          setTimeout(() => document.addEventListener('mousedown', _ctxOutside, { once: true }), 0);
+        }
+        function _ctxOutside(e) {
+          const m = document.getElementById('con-table-ctx-menu');
+          if (m && !m.contains(e.target)) window.conTableCtxClose();
+        }
+
+        window.conTableCtxClose = function() {
+          const m = document.getElementById('con-table-ctx-menu');
+          if (m) m.style.display = 'none';
+          document.removeEventListener('mousedown', _ctxOutside);
+        };
+        window.conTableCtxAddRowAbove = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo();
+          const r = Math.max(0, _conTblCtxRow >= 0 ? _conTblCtxRow : 0);
+          t.rowHeights.splice(r, 0, 36);
+          t.cells.splice(r * t.cols, 0, ...Array.from({length: t.cols}, _defaultCell));
+          t.rows++; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxAddRowBelow = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo();
+          const r = (_conTblCtxRow >= 0 ? _conTblCtxRow : t.rows - 1) + 1;
+          t.rowHeights.splice(r, 0, 36);
+          t.cells.splice(r * t.cols, 0, ...Array.from({length: t.cols}, _defaultCell));
+          t.rows++; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxAddColLeft = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo();
+          const ins = Math.max(0, _conTblCtxCol >= 0 ? _conTblCtxCol : 0);
+          t.colWidths.splice(ins, 0, 80);
+          const oldC = t.cols, newC = t.cols + 1;
+          const nc = [];
+          for (let r = 0; r < t.rows; r++)
+            for (let c = 0; c < newC; c++)
+              nc.push(c === ins ? _defaultCell() : (t.cells[r * oldC + (c < ins ? c : c - 1)] || _defaultCell()));
+          t.cells = nc; t.cols = newC; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxAddColRight = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo();
+          const ins = (_conTblCtxCol >= 0 ? _conTblCtxCol : t.cols - 1) + 1;
+          t.colWidths.splice(ins, 0, 80);
+          const oldC = t.cols, newC = t.cols + 1;
+          const nc = [];
+          for (let r = 0; r < t.rows; r++)
+            for (let c = 0; c < newC; c++)
+              nc.push(c === ins ? _defaultCell() : (t.cells[r * oldC + (c < ins ? c : c - 1)] || _defaultCell()));
+          t.cells = nc; t.cols = newC; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxRemoveRow = function() {
+          const t = _tblById(_conTblCtxId); if (!t || t.rows <= 1) return;
+          conPushUndo();
+          const r = Math.max(0, Math.min(t.rows - 1, _conTblCtxRow >= 0 ? _conTblCtxRow : t.rows - 1));
+          for (let c = 0; c < t.cols; c++) { const cell = _cell(t, r, c); if (cell && cell.type === 'node') _restoreNodeFromCell(t, r, c); }
+          t.rowHeights.splice(r, 1);
+          t.cells.splice(r * t.cols, t.cols);
+          t.rows--; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxRemoveCol = function() {
+          const t = _tblById(_conTblCtxId); if (!t || t.cols <= 1) return;
+          conPushUndo();
+          const col = Math.max(0, Math.min(t.cols - 1, _conTblCtxCol >= 0 ? _conTblCtxCol : t.cols - 1));
+          for (let r = 0; r < t.rows; r++) { const cell = _cell(t, r, col); if (cell && cell.type === 'node') _restoreNodeFromCell(t, r, col); }
+          t.colWidths.splice(col, 1);
+          const oldC = t.cols, nc = [];
+          for (let r = 0; r < t.rows; r++)
+            for (let c = 0; c < oldC; c++)
+              if (c !== col) nc.push(t.cells[r * oldC + c] || _defaultCell());
+          t.cells = nc; t.cols = oldC - 1; _rebuildDOM(t); window.conTableCtxClose();
+        };
+        window.conTableCtxApplyCellBg = function(v) {
+          const t = _tblById(_conTblCtxId); if (!t || _conTblCtxRow < 0) return;
+          const cell = _cell(t, _conTblCtxRow, _conTblCtxCol); if (!cell) return;
+          cell.bg = v; _applyCellStyle(t, _conTblCtxRow, _conTblCtxCol);
+        };
+        window.conTableCtxApplyCellColor = function(v) {
+          const t = _tblById(_conTblCtxId); if (!t || _conTblCtxRow < 0) return;
+          const cell = _cell(t, _conTblCtxRow, _conTblCtxCol); if (!cell) return;
+          cell.color = v; _applyCellStyle(t, _conTblCtxRow, _conTblCtxCol);
+        };
+        window.conTableCtxApplyCellFs = function(v) {
+          const t = _tblById(_conTblCtxId); if (!t || _conTblCtxRow < 0) return;
+          const cell = _cell(t, _conTblCtxRow, _conTblCtxCol); if (!cell) return;
+          cell.fontSize = parseInt(v) || null; _applyCellStyle(t, _conTblCtxRow, _conTblCtxCol);
+        };
+        window.conTableCtxCellAlign = function(align) {
+          const t = _tblById(_conTblCtxId); if (!t || _conTblCtxRow < 0) return;
+          const cell = _cell(t, _conTblCtxRow, _conTblCtxCol); if (!cell) return;
+          cell.textAlign = align; _applyCellStyle(t, _conTblCtxRow, _conTblCtxCol); window.conTableCtxClose();
+        };
+        window.conTableCtxClearCell = function() {
+          const t = _tblById(_conTblCtxId); if (!t || _conTblCtxRow < 0) return;
+          conPushUndo();
+          const cell = _cell(t, _conTblCtxRow, _conTblCtxCol); if (!cell) return;
+          if (cell.type === 'node') _restoreNodeFromCell(t, _conTblCtxRow, _conTblCtxCol);
+          cell.type = 'text'; cell.text = ''; cell.nodeData = null;
+          _renderCellContent(t, _conTblCtxRow, _conTblCtxCol); window.conTableCtxClose();
+        };
+        window.conTableCtxToggleLock = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo(); t.locked = !t.locked;
+          if (t.el) {
+            if (t.locked) t.el.classList.add('tbl-locked'); else t.el.classList.remove('tbl-locked');
+            const lb = t.el.querySelector('.con-table-bar-btn[title="Lock/unlock"]');
+            if (lb) lb.textContent = t.locked ? '🔒' : '🔓';
+          }
+          const mb = document.getElementById('con-table-ctx-lock-btn');
+          if (mb) mb.textContent = t.locked ? '🔒 Unlock' : '🔓 Lock';
+          window.conTableCtxClose();
+        };
+        window.conTableCtxDelete = function() {
+          const t = _tblById(_conTblCtxId); if (!t) return;
+          conPushUndo(); _deleteTable(t.id); window.conTableCtxClose();
+        };
+
+        // ── Node ↔ cell helpers ──────────────────────────────────────────
+        function _restoreNodeFromCell(tbl, r, c) {
+          const cell = _cell(tbl, r, c);
+          if (!cell || cell.type !== 'node' || !cell.nodeData) return;
+          const nd = cell.nodeData;
+          const brd = _brd(); if (!brd) return;
+          const nel = document.createElement('div');
+          nel.className = 'con-node';
+          nel.id = nd.id || ('cn_r' + Date.now());
+          nel.style.left = (tbl.x + 20) + 'px'; nel.style.top = (tbl.y + 20) + 'px';
+          if (nd.bg)     nel.style.background  = nd.bg;
+          if (nd.color)  nel.style.color        = nd.color;
+          if (nd.border) nel.style.borderColor  = nd.border;
+          if (nd.fontSize) nel.style.fontSize   = nd.fontSize;
+          nel.textContent = nd.baseWord || '';
+          brd.appendChild(nel);
+          const nodeObj = {
+            id: nel.id, el: nel, x: tbl.x + 20, y: tbl.y + 20,
+            baseWord: nd.baseWord || '', dbWord: nd.dbWord || null,
+            locked: false, fmt: {}
+          };
+          const nodes = window.conGetNodes ? window.conGetNodes() : [];
+          nodes.push(nodeObj);
+          if (window.conAttachNode) window.conAttachNode(nel.id, nel);
+          if (window.conRenderNodeLabel) window.conRenderNodeLabel(nodeObj);
+          cell.type = 'text'; cell.text = ''; cell.nodeData = null;
+        }
+
+        function _deleteTable(id) {
+          const idx = conTables.findIndex(t => t.id === id); if (idx < 0) return;
+          const t = conTables[idx];
+          t.cells.forEach((cell, i) => {
+            if (cell.type === 'node' && cell.nodeData) {
+              _restoreNodeFromCell(t, Math.floor(i / t.cols), i % t.cols);
+            }
+          });
+          if (t.el) t.el.remove();
+          conTables.splice(idx, 1);
+        }
+
+        // Called from node onUp handler to drop a node into a table cell
+        window._conDropNodeToCell = function(nodeId, tblId, r, c) {
+          const tbl = _tblById(tblId); if (!tbl) return;
+          const nodes = window.conGetNodes ? window.conGetNodes() : [];
+          const ni = nodes.findIndex(n => n.id === nodeId); if (ni < 0) return;
+          const node = nodes[ni];
+          // Snapshot was already pushed before drag started
+          const nd = {
+            id: node.id, baseWord: node.baseWord || '',
+            dbWord: node.dbWord || null,
+            bg:     node.el ? (node.el.style.background  || '') : '',
+            color:  node.el ? (node.el.style.color        || '') : '',
+            border: node.el ? (node.el.style.borderColor  || '') : '',
+            fontSize: node.fontSize || '16px'
+          };
+          if (node.el && node.el.parentNode) node.el.parentNode.removeChild(node.el);
+          nodes.splice(ni, 1);
+          const cell = _cell(tbl, r, c); if (!cell) return;
+          cell.type = 'node'; cell.nodeData = nd; cell.text = '';
+          _renderCellContent(tbl, r, c);
+          // Remove edges referencing this node
+          if (window.conGetEdges) {
+            const edges = window.conGetEdges();
+            for (let i = edges.length - 1; i >= 0; i--) {
+              if (edges[i].a === nodeId || edges[i].b === nodeId) {
+                if (edges[i].g) edges[i].g.remove();
+                edges.splice(i, 1);
+              }
+            }
+            if (window.conRedrawEdges) window.conRedrawEdges();
+          }
+        };
+
+        // ── Public API ────────────────────────────────────────────────────
+        window.conGetTables = function() { return conTables; };
+
+        window.conTablesClear = function() {
+          conTables.forEach(t => { if (t.el) t.el.remove(); });
+          conTables = []; _conTblNextId = 1; _conTblCtxId = null;
+          const m = document.getElementById('con-table-ctx-menu');
+          if (m) m.style.display = 'none';
+        };
+
+        window.conSerializeTables = function() {
+          return conTables.map(t => ({
+            id: t.id, x: t.x, y: t.y, rows: t.rows, cols: t.cols,
+            colWidths:  [...t.colWidths], rowHeights: [...t.rowHeights],
+            locked: !!t.locked, hasHeader: !!t.hasHeader,
+            defaultFontSize: t.defaultFontSize || 14,
+            defaultBg: t.defaultBg || '#ffffff', defaultColor: t.defaultColor || '#111111',
+            defaultBorderColor: t.defaultBorderColor || '#aaaaaa',
+            defaultBorderWidth: t.defaultBorderWidth || 1,
+            cells: t.cells.map(c => ({
+              type: c.type || 'text', text: c.text || '',
+              nodeData: c.nodeData || null,
+              bg: c.bg || null, color: c.color || null,
+              fontSize: c.fontSize || null, textAlign: c.textAlign || 'left',
+              bold: !!c.bold, italic: !!c.italic
+            }))
+          }));
+        };
+
+        window.conAddTableFromData = function(data) {
+          const brd = _brd(); if (!brd) return null;
+          const src = data || {};
+          const id  = (typeof src.id === 'string' && src.id.trim()) ? src.id.trim() : ('ctbl-' + (_conTblNextId++));
+          const nm  = id.match(/\d+$/);
+          if (nm) _conTblNextId = Math.max(_conTblNextId, parseInt(nm[0]) + 1);
+          const rows = Math.max(1, Number(src.rows) || 2);
+          const cols = Math.max(1, Number(src.cols) || 2);
+          const tbl = {
+            id, x: Number(src.x) || 60, y: Number(src.y) || 60, rows, cols,
+            colWidths:  (Array.isArray(src.colWidths)  && src.colWidths.length  === cols)  ? [...src.colWidths]  : Array(cols).fill(100),
+            rowHeights: (Array.isArray(src.rowHeights) && src.rowHeights.length === rows) ? [...src.rowHeights] : Array(rows).fill(36),
+            locked: !!src.locked, hasHeader: !!src.hasHeader,
+            defaultFontSize: Number(src.defaultFontSize) || 14,
+            defaultBg: src.defaultBg || '#ffffff', defaultColor: src.defaultColor || '#111111',
+            defaultBorderColor: src.defaultBorderColor || '#aaaaaa',
+            defaultBorderWidth: Number(src.defaultBorderWidth) || 1,
+            cells: [], el: null
+          };
+          const sc = Array.isArray(src.cells) ? src.cells : [];
+          for (let i = 0; i < rows * cols; i++) {
+            const s = sc[i] || {};
+            tbl.cells.push({ type: s.type || 'text', text: s.text || '', nodeData: s.nodeData || null,
+              bg: s.bg || null, color: s.color || null, fontSize: s.fontSize || null,
+              textAlign: s.textAlign || 'left', bold: !!s.bold, italic: !!s.italic });
+          }
+          conTables.push(tbl);
+          _buildDOM(tbl);
+          return tbl;
+        };
+
+        window.conAddTable = function(x, y, rows, cols) {
+          const brd = _brd(); if (!brd) return;
+          const px = Number.isFinite(x) ? x : Math.max(24, Math.round(brd.clientWidth  / 2) - 200);
+          const py = Number.isFinite(y) ? y : Math.max(24, Math.round(brd.clientHeight / 2) - 80);
+          conPushUndo();
+          window.conAddTableFromData({ x: px, y: py,
+            rows: Math.max(1, Number(rows) || 2), cols: Math.max(1, Number(cols) || 4) });
+        };
+
+        window.conAddTableDialog = function() {
+          const raw = prompt('Rows × Columns (e.g. 3×4):', '2×4');
+          if (!raw) return;
+          const m = raw.match(/(\d+)\s*[x×,\-]\s*(\d+)/i);
+          const rows = m ? Math.max(1, Math.min(20, parseInt(m[1]))) : 2;
+          const cols = m ? Math.max(1, Math.min(20, parseInt(m[2]))) : 4;
+          const brd  = _brd();
+          window.conAddTable(
+            brd ? Math.max(24, Math.round(brd.clientWidth  / 2) - cols * 50) : 60,
+            brd ? Math.max(24, Math.round(brd.clientHeight / 2) - rows * 18) : 60,
+            rows, cols
+          );
+        };
+
+        window.conBoardCtxAddTable = function() {
+          const x    = Number(window._boardCtxNoteX) || 60;
+          const y    = Number(window._boardCtxNoteY) || 60;
+          const rInp = document.getElementById('con-board-ctx-table-rows');
+          const cInp = document.getElementById('con-board-ctx-table-cols');
+          const rows = Math.max(1, Math.min(20, parseInt(rInp ? rInp.value : 2) || 2));
+          const cols = Math.max(1, Math.min(20, parseInt(cInp ? cInp.value : 4) || 4));
+          conBoardCtxClose();
+          window.conAddTable(x, y, rows, cols);
+        };
+
+        // Track node drag for drop-to-cell highlighting
+        window._conTblDraggingNodeId = null;
+      })();
 
       // ================================================================
       // FREEHAND DRAWING ANNOTATIONS
@@ -12531,6 +13267,7 @@ function hideFailure() {
             ny = Math.max(0, Math.min(brd.clientHeight - el.offsetHeight, ny));
             if (!dragging && Math.abs(e.clientX - startX) < 3 && Math.abs(e.clientY - startY) < 3) return;
             dragging = true;
+            window._conTblDraggingNodeId = id;
             if (groupSnap) {
               groupSnap.forEach(({ n, dx, dy }) => {
                 n.x = Math.max(0, Math.min(brd.clientWidth  - n.el.offsetWidth,  nx + dx));
@@ -12677,6 +13414,8 @@ function hideFailure() {
             // Clear snap lines and drop-target highlights
             document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
             conNodes.forEach(n => n.el.classList.remove('con-drop-target'));
+            window._conTblDraggingNodeId = null;
+            document.querySelectorAll('.con-table-drop-highlight').forEach(x => x.classList.remove('con-table-drop-highlight'));
 
             if (dragging && _preDragSnap) conPushUndo(_preDragSnap);
             if (dragging && !groupSnap) {
@@ -12718,6 +13457,25 @@ function hideFailure() {
                   requestAnimationFrame(() => {
                     conGroupRefit(hitGroup);
                   });
+                } else if (window._conDropNodeToCell) {
+                  // Check if dropped inside a table cell
+                  const _dropTables = window.conGetTables ? window.conGetTables() : [];
+                  outer: for (const _dt of _dropTables) {
+                    let _rAcc = _dt.y + 24; // 24 = bar height
+                    for (let _dr = 0; _dr < _dt.rows; _dr++) {
+                      let _cAcc = _dt.x;
+                      for (let _dc = 0; _dc < _dt.cols; _dc++) {
+                        const _cw = _dt.colWidths[_dc] || 80;
+                        const _rh = _dt.rowHeights[_dr] || 36;
+                        if (cx >= _cAcc && cx < _cAcc + _cw && cy >= _rAcc && cy < _rAcc + _rh) {
+                          window._conDropNodeToCell(id, _dt.id, _dr, _dc);
+                          break outer;
+                        }
+                        _cAcc += _cw;
+                      }
+                      _rAcc += _dt.rowHeights[_dr] || 36;
+                    }
+                  }
                 }
               }
             }
@@ -14200,6 +14958,10 @@ function hideFailure() {
         if (inp) inp.value = '';
         const noteInp = document.getElementById('con-board-ctx-note-input');
         if (noteInp) noteInp.value = '';
+        const tblRows = document.getElementById('con-board-ctx-table-rows');
+        if (tblRows) tblRows.value = '2';
+        const tblCols = document.getElementById('con-board-ctx-table-cols');
+        if (tblCols) tblCols.value = '4';
         _pendingConnectSrcId = null;
         _pendingConnectType  = 'none';
         // Reset title back to default
@@ -17128,6 +17890,8 @@ function hideFailure() {
           if (e.target.closest('.con-node')) return;
           // If clicking on a mask rectangle, let mask handler deal with it
           if (e.target.closest('.con-mask-rect')) return;
+          // If clicking on a table, let table handler deal with it
+          if (e.target.closest('.con-table-el')) return;
           // If clicking on inserted media, let media controls handle it
           if (e.target.closest('.con-media-item')) return;
           // Board right-click: show add-word menu at cursor position
@@ -20600,7 +21364,8 @@ function hideFailure() {
         })(),
         boardBg: _conBoardBg ? { attachmentId: String(_conBoardBg.attachmentId || ''), pageNumber: Math.max(1, Number(_conBoardBg.pageNumber) || 1) } : null,
         boardBgColor: _conBoardBgColor || null,
-        boardBackgroundColor: _conBoardBgColor || null
+        boardBackgroundColor: _conBoardBgColor || null,
+        tables: window.conSerializeTables ? window.conSerializeTables() : []
       };
     }
 
@@ -21220,6 +21985,61 @@ function hideFailure() {
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    }
+
+    async function conExportPNG() {
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      const nodes = brd.querySelectorAll('.con-node');
+      const tables = brd.querySelectorAll('.con-table-el');
+      const notes  = brd.querySelectorAll('.con-word-note');
+      if (!nodes.length && !tables.length && !notes.length) { alert('Nothing on the board to export.'); return; }
+      try {
+        const canvas = await html2canvas(brd, {
+          backgroundColor: '#ffffff',
+          scale: window.devicePixelRatio || 1,
+          useCORS: true,
+          allowTaint: true,
+          logging: false
+        });
+        canvas.toBlob(function(blob) {
+          if (!blob) { alert('PNG export failed.'); return; }
+          const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
+          const filename = titleVal.replace(/[\/\\?*:|"<>]/g, '-') + '.png';
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename;
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }, 'image/png');
+      } catch(err) {
+        console.error('[conExportPNG]', err);
+        alert('PNG export failed: ' + err.message);
+      }
+    }
+
+    async function conCopyPNG() {
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      try {
+        const canvas = await html2canvas(brd, {
+          backgroundColor: '#ffffff',
+          scale: window.devicePixelRatio || 1,
+          useCORS: true, allowTaint: true, logging: false
+        });
+        canvas.toBlob(async function(blob) {
+          if (!blob) { alert('Copy PNG failed.'); return; }
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            if (typeof mdbToast === 'function') mdbToast('📋 Board copied to clipboard.');
+          } catch(e) {
+            alert('Clipboard write failed: ' + e.message);
+          }
+        }, 'image/png');
+      } catch(err) {
+        console.error('[conCopyPNG]', err);
+        alert('Copy PNG failed: ' + err.message);
+      }
     }
 
     // Offer CSV or PDF export. PDF exports only the words/definitions table (printable HTML -> print/save as PDF).
@@ -21911,6 +22731,7 @@ function hideFailure() {
             notes:    p.notes    || [],
             drawings: p.drawings || [],
             shapes:   p.shapes   || [],
+            tables:   p.tables   || [],
             media: p.media || [],
             backgroundPdf: p.backgroundPdf || null,
             boardBg: p.boardBg || null,
@@ -21931,6 +22752,7 @@ function hideFailure() {
             notes:       pageData.notes,
             drawings:    pageData.drawings,
             shapes:      pageData.shapes,
+            tables:      pageData.tables || [],
             media:       pageData.media || [],
             backgroundPdf: pageData.backgroundPdf || null,
             boardBg: pageData.boardBg || null,
@@ -21959,6 +22781,7 @@ function hideFailure() {
       if (window.conMasksClear) window.conMasksClear();
       if (window.conNotesClear) window.conNotesClear();
       if (window.conDrawingsClear) window.conDrawingsClear();
+      if (window.conTablesClear) window.conTablesClear();
       if (!isMirrorSync && window.conMediaClear) window.conMediaClear();
       conPageBackgroundPdf = null;
       conRenderPagePdfBackground({ silent: true });
@@ -22121,6 +22944,11 @@ function hideFailure() {
       if (window.conShapesClear) window.conShapesClear();
       (data.shapes || []).forEach(s => {
         if (window.conShapeFromData) window.conShapeFromData(s);
+      });
+
+      // Restore tables
+      (data.tables || []).forEach(t => {
+        if (window.conAddTableFromData) window.conAddTableFromData(t);
       });
 
       conRestoreMediaItems(data.media || []);

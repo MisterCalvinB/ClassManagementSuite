@@ -4148,6 +4148,32 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
             spacing: { before: 240, after: 240 }
           }));
           break;
+        case 'html': {
+          const rawHtml = String(tok.raw || '');
+          const withBreaks = rawHtml
+            .replace(/<br\s*\/?>\s*\n?/gi, '\n')
+            .replace(/<\/p>/gi, '\n').replace(/<\/div>/gi, '\n')
+            .replace(/<\/h[1-6]>/gi, '\n').replace(/<\/li>/gi, '\n');
+          const plain = withBreaks.replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+            .trim();
+          if (plain) {
+            for (const block of plain.split(/\n{2,}/)) {
+              const lines = block.trim().split('\n').filter(l => l.trim());
+              if (!lines.length) continue;
+              const runs = [];
+              for (let i = 0; i < lines.length; i++) {
+                if (i > 0) runs.push(new TextRun({ break: 1 }));
+                runs.push(new TextRun({ font: ctx.font, size: ctx.halfPt, ...ctx.bodyRun, text: lines[i].trim() }));
+              }
+              const pSpacing = { after: 200 };
+              if (ctx.lineSpacing) { pSpacing.line = ctx.lineSpacing; pSpacing.lineRule = 'auto'; }
+              out.push(new Paragraph({ children: runs, spacing: pSpacing }));
+            }
+          }
+          break;
+        }
         case 'math-block':
           out.push(new Paragraph({
             children: [new TextRun({ text: '$$' + tok.math + '$$', font: 'Courier New', size: ctx.halfPt, color: '555555' })],

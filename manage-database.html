@@ -6,6 +6,7 @@
   <title>Manage Database</title>
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -43,7 +44,7 @@
         Promise.resolve(window.__mdbBootstrapPromise).catch(function () {}).then(function () {
           var _t = '';
           try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-          document.title = (_t ? _t + ': ' : '') + 'Manage Database';
+          document.title = (_t ? _t + ': ' : '') + (window.t ? t('mdbPageTitle') : 'Manage Database');
         });
       });
     })();
@@ -342,16 +343,16 @@
 <body>
 
 <aside id="sidebar">
-  <div class="sb-hd">Data Types</div>
+  <div class="sb-hd" data-i18n="mdbDataTypes">Data Types</div>
   <div id="type-list"></div>
 </aside>
 
 <main id="main">
   <div id="empty-state" class="center-msg" style="flex-direction:column;gap:20px;">
-    <div style="color:#bbb;font-size:0.95rem;font-weight:600;">← Select a data type</div>
+    <div style="color:#bbb;font-size:0.95rem;font-weight:600;" data-i18n="mdbSelectType">← Select a data type</div>
     <div style="width:min(520px,90%);display:flex;flex-direction:column;gap:6px;">
-      <div style="font-size:0.64rem;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:1px;">or search all databases</div>
-      <input type="text" id="mdb-global-search" placeholder="Search across all databases…"
+      <div style="font-size:0.64rem;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:1px;" data-i18n="mdbSearchAllLabel">or search all databases</div>
+      <input type="text" id="mdb-global-search" data-i18n-placeholder="mdbSearchAllPlaceholder" placeholder="Search across all databases…"
              oninput="mdbGlobalSearchDebounced(this.value)"
              style="width:100%;padding:9px 13px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.9rem;outline:none;">
       <div id="mdb-global-results" style="display:none;max-height:400px;overflow-y:auto;border:1.5px solid #eee;border-radius:5px;background:#fff;text-align:left;"></div>
@@ -363,18 +364,18 @@
       <div id="top-row">
         <h1 id="type-title"></h1>
         <div id="actions-row">
-          <button class="btn btn-primary" onclick="openAdd()">+ Add Record</button>
-          <button class="btn btn-secondary" onclick="openNewFile()">+ New File</button>
-          <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)" style="display:none">📋 AI Prompt</button>
+          <button class="btn btn-primary" onclick="openAdd()" data-i18n="mdbBtnAddRecord">+ Add Record</button>
+          <button class="btn btn-secondary" onclick="openNewFile()" data-i18n="mdbBtnNewFile">+ New File</button>
+          <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)" style="display:none" data-i18n="mdbBtnAiPrompt">📋 AI Prompt</button>
           <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()" style="display:none"></button>
-          <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()" style="display:none">Remove Dupes</button>
-          <button class="btn btn-secondary btn-sm" id="merge-btn" onclick="openMerge()" style="display:none">⊕ Merge Files</button>
-          <button class="btn btn-secondary btn-sm" id="export-csv-btn" onclick="exportCSV()" style="display:none">⬇ CSV</button>
-          <button class="btn btn-secondary btn-sm" id="export-pdf-btn" onclick="exportPDF()" style="display:none">🖨 Print PDF</button>
-          <button class="btn btn-secondary btn-sm" id="batch-select-all-btn" onclick="batchSelectAll()" style="display:none">☑ Select All</button>
-          <button class="btn btn-secondary btn-sm" id="batch-clear-btn" onclick="batchClearSelection()" style="display:none">✕ Clear</button>
-          <button class="btn btn-secondary btn-sm" id="batch-edit-btn" onclick="toggleBatchPanel()" style="display:none" disabled>🛠 Batch Edit</button>
-          <button class="btn btn-danger btn-sm" id="batch-del-btn" onclick="deleteSelectedBatch()" style="display:none" disabled>🗑 Del Selected</button>
+          <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()" style="display:none" data-i18n="mdbBtnRemoveDupes">Remove Dupes</button>
+          <button class="btn btn-secondary btn-sm" id="merge-btn" onclick="openMerge()" style="display:none" data-i18n="mdbBtnMergeFiles">⊕ Merge Files</button>
+          <button class="btn btn-secondary btn-sm" id="export-csv-btn" onclick="exportCSV()" style="display:none" data-i18n="mdbBtnExportCsv">⬇ CSV</button>
+          <button class="btn btn-secondary btn-sm" id="export-pdf-btn" onclick="exportPDF()" style="display:none" data-i18n="mdbBtnPrintPdf">🖨 Print PDF</button>
+          <button class="btn btn-secondary btn-sm" id="batch-select-all-btn" onclick="batchSelectAll()" style="display:none" data-i18n="mdbBtnSelectAll">☑ Select All</button>
+          <button class="btn btn-secondary btn-sm" id="batch-clear-btn" onclick="batchClearSelection()" style="display:none" data-i18n="mdbBtnClear">✕ Clear</button>
+          <button class="btn btn-secondary btn-sm" id="batch-edit-btn" onclick="toggleBatchPanel()" style="display:none" disabled data-i18n="mdbBtnBatchEdit">🛠 Batch Edit</button>
+          <button class="btn btn-danger btn-sm" id="batch-del-btn" onclick="deleteSelectedBatch()" style="display:none" disabled data-i18n="mdbBtnDelSelected">🗑 Del Selected</button>
           <span id="batch-count" class="rec-count" style="display:none"></span>
           <span id="rec-count" class="rec-count"></span>
         </div>
@@ -385,32 +386,32 @@
     <div id="filter-bar"></div>
 
     <div id="batch-panel" class="hidden">
-      <div style="font-size:0.82rem;color:#555;margin-bottom:8px;">Themes &amp; keywords are <em>added</em>; part of speech &amp; level are <em>replaced</em> (leave blank to keep existing).</div>
+      <div style="font-size:0.82rem;color:#555;margin-bottom:8px;" data-i18n="mdbBatchHint">Themes &amp; keywords are <em>added</em>; part of speech &amp; level are <em>replaced</em> (leave blank to keep existing).</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div style="flex:1;min-width:150px;">
-          <label class="form-lbl" for="be-theme">Theme(s)</label>
-          <input type="text" id="be-theme" placeholder="e.g. Character, Emotions" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
+          <label class="form-lbl" for="be-theme" data-i18n="mdbBatchTheme">Theme(s)</label>
+          <input type="text" id="be-theme" data-i18n-placeholder="mdbBatchThemePlaceholder" placeholder="e.g. Character, Emotions" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
         </div>
         <div style="flex:1;min-width:150px;">
-          <label class="form-lbl" for="be-keywords">Keyword(s)</label>
-          <input type="text" id="be-keywords" placeholder="e.g. lesson1, revision" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
+          <label class="form-lbl" for="be-keywords" data-i18n="mdbBatchKeywords">Keyword(s)</label>
+          <input type="text" id="be-keywords" data-i18n-placeholder="mdbBatchKeywordsPlaceholder" placeholder="e.g. lesson1, revision" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
         </div>
         <div style="flex:0 1 120px;">
-          <label class="form-lbl" for="be-pos">Part of Speech</label>
-          <input type="text" id="be-pos" placeholder="e.g. noun" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
+          <label class="form-lbl" for="be-pos" data-i18n="mdbBatchPos">Part of Speech</label>
+          <input type="text" id="be-pos" data-i18n-placeholder="mdbBatchPosPlaceholder" placeholder="e.g. noun" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
         </div>
         <div style="flex:0 1 80px;">
-          <label class="form-lbl" for="be-level">Level</label>
-          <input type="text" id="be-level" placeholder="e.g. B2" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
+          <label class="form-lbl" for="be-level" data-i18n="mdbBatchLevel">Level</label>
+          <input type="text" id="be-level" data-i18n-placeholder="mdbBatchLevelPlaceholder" placeholder="e.g. B2" style="width:100%;padding:6px 10px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.85rem;">
         </div>
-        <div><button class="btn btn-primary" onclick="applyBatchEdit()">✅ Apply</button></div>
+        <div><button class="btn btn-primary" onclick="applyBatchEdit()" data-i18n="mdbBtnApply">✅ Apply</button></div>
       </div>
       <div id="batch-feedback" style="margin-top:8px;font-size:0.82rem;color:#666;"></div>
     </div>
 
     <div id="table-wrap">
-      <div id="empty-rows" class="center-msg hidden">No records match the current filters.</div>
-      <div id="no-selection" class="center-msg">Click a file above to load it.</div>
+      <div id="empty-rows" class="center-msg hidden" data-i18n="mdbEmptyRows">No records match the current filters.</div>
+      <div id="no-selection" class="center-msg" data-i18n="mdbNoSelection">Click a file above to load it.</div>
       <table id="data-table" class="hidden">
         <thead id="t-head"></thead>
         <tbody id="t-body"></tbody>
@@ -419,10 +420,10 @@
     </div>
     <div id="pagination" class="hidden">
       <span class="pg-info" id="pg-info"></span>
-      <button class="pg-btn" id="pg-prev" onclick="changePage(-1)">← Prev</button>
-      <button class="pg-btn" id="pg-next" onclick="changePage(1)">Next →</button>
+      <button class="pg-btn" id="pg-prev" onclick="changePage(-1)" data-i18n="mdbPagPrev">← Prev</button>
+      <button class="pg-btn" id="pg-next" onclick="changePage(1)" data-i18n="mdbPagNext">Next →</button>
       <label style="font-size:0.78rem;color:#888;display:flex;align-items:center;gap:5px;margin-left:10px;">
-        Per page
+        <span data-i18n="mdbPerPage">Per page</span>
         <select id="page-size-sel" onchange="setPageSize(this.value)" style="border:1.5px solid #bbb;border-radius:4px;padding:2px 6px;font-family:inherit;font-size:0.78rem;background:#fff;">
           <option value="50">50</option>
           <option value="100">100</option>
@@ -439,13 +440,13 @@
 <div id="edit-bg" class="modal-bg hidden" onclick="if(event.target===this)closeEdit()">
   <div class="modal">
     <div class="modal-hd">
-      <span id="edit-title">Record</span>
+      <span id="edit-title" data-i18n="mdbEditModalTitle">Record</span>
       <button class="modal-x" onclick="closeEdit()">✕</button>
     </div>
     <div class="modal-bd" id="edit-body"></div>
     <div class="modal-ft">
-      <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitEdit()">Save</button>
+      <button class="btn btn-secondary" onclick="closeEdit()" data-i18n="mdbBtnCancel">Cancel</button>
+      <button class="btn btn-primary" onclick="submitEdit()" data-i18n="mdbBtnSave">Save</button>
     </div>
   </div>
 </div>
@@ -453,11 +454,11 @@
 <!-- Delete Confirm -->
 <div id="del-bg" class="modal-bg hidden">
   <div class="modal modal-sm">
-    <div class="modal-hd">Delete Record</div>
-    <div class="modal-bd"><p style="line-height:1.5">This will permanently remove the record from its file. Continue?</p></div>
+    <div class="modal-hd" data-i18n="mdbDelModalTitle">Delete Record</div>
+    <div class="modal-bd"><p style="line-height:1.5" data-i18n="mdbDelModalText">This will permanently remove the record from its file. Continue?</p></div>
     <div class="modal-ft">
-      <button class="btn btn-secondary" onclick="closeDel()">Cancel</button>
-      <button class="btn btn-danger" onclick="doDel()">Delete</button>
+      <button class="btn btn-secondary" onclick="closeDel()" data-i18n="mdbBtnCancel">Cancel</button>
+      <button class="btn btn-danger" onclick="doDel()" data-i18n="mdbBtnDelete">Delete</button>
     </div>
   </div>
 </div>
@@ -466,32 +467,32 @@
 <div id="merge-bg" class="modal-bg hidden" onclick="if(event.target===this)closeMerge()">
   <div class="modal modal-sm">
     <div class="modal-hd">
-      <span>Merge Files</span>
+      <span data-i18n="mdbMergeModalTitle">Merge Files</span>
       <button class="modal-x" onclick="closeMerge()">✕</button>
     </div>
     <div class="modal-bd">
       <div class="form-field">
-        <label class="form-lbl">Files to merge</label>
+        <label class="form-lbl" data-i18n="mdbMergeFilesLabel">Files to merge</label>
         <div id="merge-checklist" style="display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;border:1.5px solid #ccc;border-radius:5px;padding:8px 10px;background:#fff;"></div>
         <div id="merge-info" style="font-size:0.78rem;color:#888;margin-top:4px;"></div>
       </div>
 
       <div class="form-field">
-        <label class="form-lbl">Save merged records to</label>
+        <label class="form-lbl" data-i18n="mdbMergeSaveToLabel">Save merged records to</label>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="merge-target" value="existing" onchange="updateMergeTarget()" checked>
-            Existing file
+            <span data-i18n="mdbMergeExistingFile">Existing file</span>
           </label>
           <div id="merge-existing-wrap" style="padding-left:20px;">
             <select id="merge-target-file" style="width:100%;border:1.5px solid #ccc;border-radius:5px;padding:5px 8px;font-family:inherit;font-size:0.85rem;background:#fff;"></select>
           </div>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
             <input type="radio" name="merge-target" value="new" onchange="updateMergeTarget()">
-            New file
+            <span data-i18n="mdbMergeNewFile">New file</span>
           </label>
           <div id="merge-new-wrap" class="hidden" style="padding-left:20px;">
-            <input type="text" id="merge-new-name" placeholder="e.g. merged.js" style="width:100%;border:1.5px solid #ccc;border-radius:5px;padding:5px 8px;font-family:inherit;font-size:0.85rem;">
+            <input type="text" id="merge-new-name" data-i18n-placeholder="mdbMergeNewPlaceholder" placeholder="e.g. merged.js" style="width:100%;border:1.5px solid #ccc;border-radius:5px;padding:5px 8px;font-family:inherit;font-size:0.85rem;">
           </div>
         </div>
       </div>
@@ -499,14 +500,14 @@
       <div style="padding-top:10px;border-top:1px solid #eee;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
           <input type="checkbox" id="merge-dedup" checked>
-          Remove duplicate records after merging
+          <span data-i18n="mdbMergeDedup">Remove duplicate records after merging</span>
         </label>
       </div>
       <div id="merge-err" class="form-err" style="margin-top:8px;"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-secondary" onclick="closeMerge()">Cancel</button>
-      <button class="btn btn-danger" onclick="doMerge()">Merge &amp; Save</button>
+      <button class="btn btn-secondary" onclick="closeMerge()" data-i18n="mdbBtnCancel">Cancel</button>
+      <button class="btn btn-danger" onclick="doMerge()" data-i18n="mdbBtnMergeSave">Merge &amp; Save</button>
     </div>
   </div>
 </div>
@@ -515,19 +516,19 @@
 <div id="nf-bg" class="modal-bg hidden" onclick="if(event.target===this)closeNF()">
   <div class="modal modal-sm">
     <div class="modal-hd">
-      <span>New File</span>
+      <span data-i18n="mdbNfModalTitle">New File</span>
       <button class="modal-x" onclick="closeNF()">✕</button>
     </div>
     <div class="modal-bd">
       <div class="form-field">
-        <label class="form-lbl">File name</label>
-        <input type="text" id="nf-name" placeholder="e.g. my-words.js" onkeydown="if(event.key==='Enter')doCreateFile()">
+        <label class="form-lbl" data-i18n="mdbNfFileNameLabel">File name</label>
+        <input type="text" id="nf-name" data-i18n-placeholder="mdbNfPlaceholder" placeholder="e.g. my-words.js" onkeydown="if(event.key==='Enter')doCreateFile()">
         <div id="nf-err" class="form-err"></div>
       </div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-secondary" onclick="closeNF()">Cancel</button>
-      <button class="btn btn-primary" onclick="doCreateFile()">Create</button>
+      <button class="btn btn-secondary" onclick="closeNF()" data-i18n="mdbBtnCancel">Cancel</button>
+      <button class="btn btn-primary" onclick="doCreateFile()" data-i18n="mdbBtnCreate">Create</button>
     </div>
   </div>
 </div>
@@ -536,19 +537,19 @@
 <div id="col-picker-bg" class="modal-bg hidden" onclick="if(event.target===this)closeColPicker()">
   <div class="modal modal-sm">
     <div class="modal-hd">
-      <span id="col-picker-title">Select columns</span>
+      <span id="col-picker-title" data-i18n="mdbColPickerTitleDefault">Select columns</span>
       <button class="modal-x" onclick="closeColPicker()">✕</button>
     </div>
     <div class="modal-bd">
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(true)">All</button>
-        <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(false)">None</button>
+        <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(true)" data-i18n="mdbBtnAll">All</button>
+        <button class="btn btn-secondary btn-sm" onclick="colPickerToggleAll(false)" data-i18n="mdbBtnNone">None</button>
       </div>
       <div id="col-picker-list" style="display:flex;flex-direction:column;gap:7px;"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-secondary" onclick="closeColPicker()">Cancel</button>
-      <button class="btn btn-primary" id="col-picker-confirm" onclick="colPickerConfirm()">Export</button>
+      <button class="btn btn-secondary" onclick="closeColPicker()" data-i18n="mdbBtnCancel">Cancel</button>
+      <button class="btn btn-primary" id="col-picker-confirm" onclick="colPickerConfirm()" data-i18n="mdbBtnExport">Export</button>
     </div>
   </div>
 </div>
@@ -558,15 +559,15 @@
 // CONFIG
 // ─────────────────────────────────────────────────────────────────────
 const TYPE_DEFS = [
-  { key: 'wordbanks',     label: 'Word Banks',   icon: '📚', target: 'customWordbanks',    defaultView: 'chips' },
-  { key: 'quotebanks',    label: 'Quotes',       icon: '💬', target: 'customQuotes',       defaultView: 'table' },
-  { key: 'dictations',    label: 'Dictations',   icon: '🎤', target: 'customDictations',   defaultView: 'table' },
-  { key: 'grammarbanks',  label: 'Grammar',      icon: '📐', target: 'customGrammarbanks', defaultView: 'table' },
-  { key: 'gapfillbanks',  label: 'Gap Fill',     icon: '🔲', target: 'customGapfillbanks', defaultView: 'table' },
-  { key: 'errorbanks',    label: 'Error Banks',  icon: '🚨', target: 'customErrorbanks',   defaultView: 'table' },
-  { key: 'sentencebanks', label: 'Sentences',    icon: '✏️', target: 'customSentences',   defaultView: 'chips' },
-  { key: 'storybanks',    label: 'Stories',      icon: '📖', target: 'customStorybanks',   defaultView: 'table' },
-  { key: 'quizzes',       label: 'Quizzes',      icon: '❓', target: 'customQuizzes',      defaultView: 'table' },
+  { key: 'wordbanks',     labelKey: 'mdbTypeWordBanks',   icon: '📚', target: 'customWordbanks',    defaultView: 'chips' },
+  { key: 'quotebanks',    labelKey: 'mdbTypeQuotes',      icon: '💬', target: 'customQuotes',       defaultView: 'table' },
+  { key: 'dictations',    labelKey: 'mdbTypeDictations',  icon: '🎤', target: 'customDictations',   defaultView: 'table' },
+  { key: 'grammarbanks',  labelKey: 'mdbTypeGrammar',     icon: '📐', target: 'customGrammarbanks', defaultView: 'table' },
+  { key: 'gapfillbanks',  labelKey: 'mdbTypeGapFill',     icon: '🔲', target: 'customGapfillbanks', defaultView: 'table' },
+  { key: 'errorbanks',    labelKey: 'mdbTypeErrorBanks',  icon: '🚨', target: 'customErrorbanks',   defaultView: 'table' },
+  { key: 'sentencebanks', labelKey: 'mdbTypeSentences',   icon: '✏️', target: 'customSentences',   defaultView: 'chips' },
+  { key: 'storybanks',    labelKey: 'mdbTypeStories',     icon: '📖', target: 'customStorybanks',   defaultView: 'table' },
+  { key: 'quizzes',       labelKey: 'mdbTypeQuizzes',     icon: '❓', target: 'customQuizzes',      defaultView: 'table' },
 ];
 
 const VAR_NAME_DEFAULTS = {
@@ -699,6 +700,7 @@ async function startBackgroundLoad() {
 // INIT
 // ─────────────────────────────────────────────────────────────────────
 function init() {
+  if (window.applyTranslations) applyTranslations();
   renderSidebar();
   setTimeout(startBackgroundLoad, 0);
 }
@@ -710,7 +712,7 @@ function renderSidebar() {
   $('type-list').innerHTML = TYPE_DEFS.map(d => `
     <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
       <span class="type-icon">${d.icon}</span>
-      <span class="type-label">${d.label}</span>
+      <span class="type-label">${t(d.labelKey)}</span>
       <span class="type-count" id="tc-${d.key}"><span class="ld ld-sm"></span></span>
     </div>`).join('');
 }
@@ -742,8 +744,8 @@ async function selectType(key) {
   setSidebarActive(key);
   $('empty-state').classList.add('hidden');
   $('type-content').classList.remove('hidden');
-  $('type-title').textContent = getTypeDef(key).label;
-  $('pills-row').innerHTML = '<span class="ld-inline"><span class="ld"></span>Loading…</span>';
+  $('type-title').textContent = t(getTypeDef(key).labelKey);
+  $('pills-row').innerHTML = `<span class="ld-inline"><span class="ld"></span>${t('mdbLoading')}</span>`;
   $('t-head').innerHTML = '';
   $('t-body').innerHTML = '';
   $('data-table').classList.add('hidden');
@@ -752,7 +754,7 @@ async function selectType(key) {
   renderFilterBar();
 
   if (typeof Desktop === 'undefined' || !Desktop.isElectron()) {
-    $('pills-row').innerHTML = '<span style="color:#c0392b;font-size:0.82rem">Requires Electron app.</span>';
+    $('pills-row').innerHTML = `<span style="color:#c0392b;font-size:0.82rem">${t('mdbRequiresElectron')}</span>`;
     return;
   }
 
@@ -931,7 +933,7 @@ function renderAll() {
 function renderFilePills() {
   const row = $('pills-row');
   if (!S.files.length) {
-    row.innerHTML = '<span style="color:#bbb;font-size:0.82rem">No files found.</span>';
+    row.innerHTML = `<span style="color:#bbb;font-size:0.82rem">${t('mdbNoFilesFound')}</span>`;
     return;
   }
   const isWordbanks = S.typeKey === 'wordbanks';
@@ -949,14 +951,14 @@ function renderFilePills() {
     return `<div class="file-pill${isActive ? ' pill-active' : ''}${f.status === 'loading' ? ' pill-loading' : ''}" onclick="toggleSource('${esc(f.name)}')">
       <span class="pill-nm">${esc(f.name)}</span>
       ${statusBadge}
-      ${canDl  ? `<button class="pill-dl"  onclick="event.stopPropagation();downloadFile(${fi})"  title="Download">⬇</button>` : ''}
-      ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})"  title="Delete file">🗑</button>` : ''}
+      ${canDl  ? `<button class="pill-dl"  onclick="event.stopPropagation();downloadFile(${fi})"  title="${t('mdbTitleDownload')}">⬇</button>` : ''}
+      ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})"  title="${t('mdbTitleDeleteFile')}">🗑</button>` : ''}
     </div>`;
   }).join('');
 
   if (isWordbanks && S.files.length > 1) {
     const anySelected = srcSet && srcSet.size > 0;
-    const label = anySelected ? `Clear (${srcSet.size}/${S.files.length})` : 'Select All';
+    const label = anySelected ? tFmt('mdbClearSrc', {n: srcSet.size, total: S.files.length}) : t('mdbSelectAllSrc');
     const btnStyle = anySelected
       ? 'padding:3px 10px;border-radius:20px;border:1.5px solid #111;background:#111;color:#fff;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;'
       : 'padding:3px 10px;border-radius:20px;border:1.5px dashed #bbb;background:#fff;color:#888;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;';
@@ -1035,8 +1037,8 @@ function renderFilterBar() {
 
   const allVal = S.filters['_all'] || '';
   let html = `<div class="fc">
-    <span class="fl">All Fields</span>
-    <input type="text" value="${esc(allVal)}" placeholder="Search all…" oninput="setAllFieldsFilter(this.value)" style="min-width:140px">
+    <span class="fl">${t('mdbFilterAllFields')}</span>
+    <input type="text" value="${esc(allVal)}" placeholder="${t('mdbFilterSearchAll')}" oninput="setAllFieldsFilter(this.value)" style="min-width:140px">
   </div>`;
 
   if (S.schema.length) {
@@ -1056,13 +1058,13 @@ function renderFilterBar() {
         html += `<div class="fc">
           <span class="fl">${esc(cap(field.key))}</span>
           <select onchange="setFilter('${field.key}', this.value)">
-            <option value=""${!val ? ' selected' : ''}>All</option>
+            <option value=""${!val ? ' selected' : ''}>${t('mdbFilterAll')}</option>
             ${field.uniqueVals.map(v => `<option value="${esc(v)}"${val === v ? ' selected' : ''}>${esc(v) || '(empty)'}</option>`).join('')}
           </select></div>`;
       } else {
         html += `<div class="fc">
           <span class="fl">${esc(cap(field.key))}</span>
-          <input type="text" value="${esc(val)}" placeholder="Filter…" oninput="setFilter('${field.key}', this.value)">
+          <input type="text" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" oninput="setFilter('${field.key}', this.value)">
           </div>`;
       }
     }
@@ -1072,12 +1074,12 @@ function renderFilterBar() {
   if (hasStarredField) {
     const starredActive = !!S.filters['_starred'];
     html += `<div class="fc"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;font-size:0.82rem;">
-      <input type="checkbox" ${starredActive ? 'checked' : ''} onchange="setFilter('_starred', this.checked ? '1' : '')"> ⭐ Starred only
+      <input type="checkbox" ${starredActive ? 'checked' : ''} onchange="setFilter('_starred', this.checked ? '1' : '')"> ${t('mdbStarredOnly')}
     </label></div>`;
   }
 
   html += `<div class="fc" style="align-self:flex-end">
-    <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Reset</button></div>`;
+    <button class="btn btn-secondary btn-sm" onclick="resetFilters()">${t('mdbFilterReset')}</button></div>`;
 
   bar.innerHTML = html;
 }
@@ -1165,9 +1167,9 @@ function renderTable() {
   pg.classList.remove('hidden');
   if (!isAll && totalPages > 1) {
     const end = Math.min(start + effectiveSize, allRows.length);
-    $('pg-info').textContent = `Showing ${start + 1}–${end} of ${allRows.length}`;
+    $('pg-info').textContent = tFmt('mdbShowing', {start: start + 1, end, total: allRows.length});
   } else {
-    $('pg-info').textContent = `${allRows.length} record${allRows.length !== 1 ? 's' : ''}`;
+    $('pg-info').textContent = allRows.length === 1 ? t('mdbRecord1') : tFmt('mdbRecordN', {n: allRows.length});
   }
   $('pg-prev').disabled = isAll || S.page === 0;
   $('pg-next').disabled = isAll || S.page >= totalPages - 1;
@@ -1184,13 +1186,13 @@ function renderTable() {
   const isBatchMode = S.typeKey === 'wordbanks';
 
   thead.innerHTML = `<tr>
-    ${isBatchMode ? `<th class="th-act" style="width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" onchange="handleBatchCheckAll(this)" title="Select all on page"></th>` : ''}
+    ${isBatchMode ? `<th class="th-act" style="width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
     ${tableCols.map(f => {
       const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
       return `<th class="${cls}" onclick="setSort('${f.key}')">${esc(cap(f.key))}</th>`;
     }).join('')}
-    ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">Source</th>` : ''}
-    <th class="th-act">Actions</th>
+    ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">${t('mdbColSource')}</th>` : ''}
+    <th class="th-act">${t('mdbColActions')}</th>
   </tr>`;
 
   tbody.innerHTML = rows.map(row => {
@@ -1201,8 +1203,8 @@ function renderTable() {
       ${tableCols.map(f => `<td>${renderCell(row[f.key], f)}</td>`).join('')}
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
-        <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})">Del</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})">${t('mdbBtnEdit')}</button>
+        <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})">${t('mdbBtnDel')}</button>
       </td>
     </tr>`;
   }).join('');
@@ -1229,8 +1231,11 @@ function updateCount(shown) {
   const total = getAllRecords().length;
   const pending = S.files.filter(f => f.status === 'pending' || f.status === 'loading').length;
   const el = $('rec-count');
-  const suffix = pending ? ` (${pending} loading…)` : '';
-  el.textContent = (shown === total ? `${total} records` : `${shown} / ${total}`) + suffix;
+  const suffix = pending ? tFmt('mdbLoadingCount', {n: pending}) : '';
+  const countText = shown === total
+    ? (total === 1 ? t('mdbRecord1') : tFmt('mdbRecordN', {n: total}))
+    : tFmt('mdbShowingFiltered', {shown, total});
+  el.textContent = countText + suffix;
 }
 
 function toggleViewMode() {
@@ -1243,12 +1248,12 @@ function updateViewToggleBtn() {
   const btn = $('view-toggle-btn');
   if (!S.typeKey) { btn.style.display = 'none'; return; }
   btn.style.display = '';
-  btn.textContent = S.viewMode === 'chips' ? '⊞ Table' : '⬡ Chips';
+  btn.textContent = S.viewMode === 'chips' ? t('mdbViewTable') : t('mdbViewChips');
 }
 
 async function deduplicateRecords() {
   const loaded = S.files.filter(f => f.status === 'loaded');
-  if (!loaded.length) { alert('No files loaded.'); return; }
+  if (!loaded.length) { alert(t('mdbAlertNoFilesLoaded')); return; }
 
   let totalRemoved = 0;
   const toSave = [];
@@ -1266,10 +1271,15 @@ async function deduplicateRecords() {
     if (removed > 0) { totalRemoved += removed; toSave.push({ fi, file, deduped }); }
   }
 
-  if (!totalRemoved) { alert('No duplicate entries found.'); return; }
+  if (!totalRemoved) { alert(t('mdbAlertNoDupes')); return; }
 
-  const msg = `Found ${totalRemoved} duplicate ${totalRemoved === 1 ? 'entry' : 'entries'} across ${toSave.length} ${toSave.length === 1 ? 'file' : 'files'}. Remove them?`;
-  if (!confirm(msg)) return;
+  const dedupMsg = tFmt('mdbConfirmDedup', {
+    n: totalRemoved,
+    entry: totalRemoved === 1 ? t('mdbEntry') : t('mdbEntries'),
+    m: toSave.length,
+    file: toSave.length === 1 ? t('mdbDupeFile') : t('mdbDupeFiles'),
+  });
+  if (!confirm(dedupMsg)) return;
 
   for (const { fi, file, deduped } of toSave) {
     file.records = deduped;
@@ -1308,7 +1318,7 @@ function renderChips(rows) {
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
         ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
       </div>
-      <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="Delete">×</button>
+      <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}">×</button>
     </div>`;
   }).join('');
 }
@@ -1343,7 +1353,7 @@ function openEdit(fi, ri) {
   S.editFI = fi;
   S.editRI = ri;
   const rec = S.files[fi].records[ri];
-  $('edit-title').textContent = `Edit — ${S.files[fi].name}`;
+  $('edit-title').textContent = tFmt('mdbEditRecord', {filename: S.files[fi].name});
   $('edit-body').innerHTML = buildForm(rec, S.schema, fi, false);
   $('edit-bg').classList.remove('hidden');
 }
@@ -1353,7 +1363,7 @@ function openAdd() {
   S.editMode = 'add';
   S.editFI = null;
   S.editRI = null;
-  $('edit-title').textContent = 'Add Record';
+  $('edit-title').textContent = t('mdbAddRecord');
   $('edit-body').innerHTML = buildForm({}, S.schema, null, true);
   $('edit-bg').classList.remove('hidden');
 }
@@ -1370,16 +1380,16 @@ function buildFieldInputHtml(field, rec) {
     if (field.longArray) {
       const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
       input = `<textarea id="${id}" rows="4">${escHtml(sv)}</textarea>
-               <div class="form-hint">One item per line</div>`;
+               <div class="form-hint">${t('mdbHintOnePerLine')}</div>`;
     } else {
       const sv = Array.isArray(val) ? val.join(', ') : String(val ?? '');
       input = `<input type="text" id="${id}" value="${esc(sv)}">
-               <div class="form-hint">Comma-separated values</div>`;
+               <div class="form-hint">${t('mdbHintCommaSep')}</div>`;
     }
   } else if (field.type === 'object') {
     const sv = val !== undefined ? JSON.stringify(val, null, 2) : '';
     input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
-             <div class="form-hint">JSON format</div>`;
+             <div class="form-hint">${t('mdbHintJsonFormat')}</div>`;
   } else if (field.isLong) {
     input = `<textarea id="${id}" rows="3">${escHtml(String(val ?? ''))}</textarea>`;
   } else {
@@ -1397,14 +1407,14 @@ function buildForm(rec, schema, fi, isAdd) {
   if (isAdd) {
     // Tab bar
     html += `<div style="display:flex;margin-bottom:14px;border:1.5px solid #bbb;border-radius:5px;overflow:hidden;">
-      <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;">Single</button>
-      <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;">Bulk JSON</button>
+      <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;">${t('mdbTabSingle')}</button>
+      <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;">${t('mdbTabBulkJson')}</button>
     </div>`;
 
     // File selector (shared)
     if (S.files.length > 0) {
       html += `<div class="form-field">
-        <label class="form-lbl">Add to file</label>
+        <label class="form-lbl">${t('mdbAddToFile')}</label>
         <select id="ff-_target">${S.files.map((f, i) => `<option value="${i}">${esc(f.name)}</option>`).join('')}</select>
       </div>`;
     }
@@ -1413,9 +1423,9 @@ function buildForm(rec, schema, fi, isAdd) {
     html += `<div id="tab-single-content">`;
     if (!schema.length) {
       html += `<div class="form-field">
-        <label class="form-lbl">Record (JSON)</label>
+        <label class="form-lbl">${t('mdbRecordJson')}</label>
         <textarea id="ff-_raw" rows="8">${escHtml('{}')}</textarea>
-        <div class="form-hint">Enter a valid JSON object</div>
+        <div class="form-hint">${t('mdbHintValidJson')}</div>
       </div>`;
     } else {
       for (const field of schema) html += buildFieldInputHtml(field, {});
@@ -1425,9 +1435,9 @@ function buildForm(rec, schema, fi, isAdd) {
     // Bulk tab (hidden by default)
     html += `<div id="tab-bulk-content" class="hidden">
       <div class="form-field">
-        <label class="form-lbl">JSON Array</label>
+        <label class="form-lbl">${t('mdbJsonArray')}</label>
         <textarea id="ff-_bulk" rows="13" placeholder='[\n  {"field": "value"},\n  {"field": "value"}\n]' style="font-family:monospace;font-size:0.8rem"></textarea>
-        <div class="form-hint">Paste a JSON array of objects — all will be added to the selected file.</div>
+        <div class="form-hint">${t('mdbHintBulkAdd')}</div>
         <div id="bulk-err" class="form-err"></div>
       </div>
     </div>`;
@@ -1437,13 +1447,13 @@ function buildForm(rec, schema, fi, isAdd) {
 
   // Edit mode
   if (fi !== null) {
-    html += `<div class="form-source">File: <strong>${esc(S.files[fi].name)}</strong></div>`;
+    html += `<div class="form-source">${t('mdbFilePrefix')}<strong>${esc(S.files[fi].name)}</strong></div>`;
   }
   if (!schema.length) {
     html += `<div class="form-field">
-      <label class="form-lbl">Record (JSON)</label>
+      <label class="form-lbl">${t('mdbRecordJson')}</label>
       <textarea id="ff-_raw" rows="8">${escHtml(JSON.stringify(rec, null, 2) || '{}')}</textarea>
-      <div class="form-hint">Enter a valid JSON object</div>
+      <div class="form-hint">${t('mdbHintValidJson')}</div>
     </div>`;
     return html;
   }
@@ -1474,7 +1484,7 @@ async function submitEdit() {
     if (S.files[fi].status === 'pending') {
       await loadFileContent(fi, getTypeDef(S.typeKey));
       if (S.files[fi].status !== 'loaded') {
-        alert('Failed to load the target file. Cannot add records.');
+        alert(t('mdbAlertLoadTargetFailed'));
         return;
       }
     }
@@ -1502,7 +1512,7 @@ async function submitEdit() {
     let values;
     if (rawEl) {
       try { values = JSON.parse(rawEl.value); }
-      catch { alert('Invalid JSON.'); return; }
+      catch { alert(t('mdbAlertInvalidJson')); return; }
     } else {
       values = readFormValues(S.schema);
     }
@@ -1513,7 +1523,7 @@ async function submitEdit() {
     let values;
     if (rawEl) {
       try { values = JSON.parse(rawEl.value); }
-      catch { alert('Invalid JSON.'); return; }
+      catch { alert(t('mdbAlertInvalidJson')); return; }
     } else {
       values = readFormValues(S.schema);
     }
@@ -1588,12 +1598,12 @@ function closeNF() { $('nf-bg').classList.add('hidden'); }
 
 async function doCreateFile() {
   let name = $('nf-name').value.trim();
-  if (!name) { $('nf-err').textContent = 'Enter a file name.'; return; }
+  if (!name) { $('nf-err').textContent = t('mdbErrEnterFileName'); return; }
   if (!name.endsWith('.js')) name += '.js';
   const def = getTypeDef(S.typeKey);
   const varName = VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
   const result = await Desktop.saveText(def.target, name, buildJsContent(varName, []));
-  if (!result?.ok) { $('nf-err').textContent = result?.error || 'Failed to create file.'; return; }
+  if (!result?.ok) { $('nf-err').textContent = result?.error || t('mdbErrFailedCreate'); return; }
   S.files.push({ name, varName, records: [], status: 'loaded', size: 0 });
   if (_gsc[S.typeKey]) _gsc[S.typeKey][name] = { records: [], varName };
   S.counts[S.typeKey] = S.files.length;
@@ -1625,12 +1635,12 @@ async function downloadFile(fi) {
 async function deleteDBFile(fi) {
   const file = S.files[fi];
   if (!file) return;
-  if (!confirm(`Permanently delete "${file.name}"?\n\nThis cannot be undone.`)) return;
+  if (!confirm(tFmt('mdbConfirmDeleteFile', {name: file.name}))) return;
 
   if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
     const def = getTypeDef(S.typeKey);
     const result = await Desktop.deleteFile(def.target, file.name);
-    if (!result?.ok) { alert(`Delete failed: ${result?.error || 'Unknown error'}`); return; }
+    if (!result?.ok) { alert(t('mdbErrDeleteFailed') + (result?.error || '')); return; }
   }
 
   // Remove from session state and caches
@@ -1650,14 +1660,14 @@ async function deleteDBFile(fi) {
 // ─────────────────────────────────────────────────────────────────────
 function openMerge() {
   const loaded = S.files.filter(f => f.status === 'loaded');
-  if (loaded.length < 2) { alert('Load at least 2 files to merge them.'); return; }
+  if (loaded.length < 2) { alert(t('mdbAlertLoad2Files')); return; }
 
   $('merge-checklist').innerHTML = loaded.map(f => {
     const fi = S.files.indexOf(f);
     return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
       <input type="checkbox" class="merge-file-cb" value="${fi}" checked onchange="updateMergeInfo()">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
-      <span style="font-size:0.75rem;color:#999;flex-shrink:0;">${f.records.length} rec</span>
+      <span style="font-size:0.75rem;color:#999;flex-shrink:0;">${f.records.length}</span>
     </label>`;
   }).join('');
 
@@ -1678,8 +1688,8 @@ function updateMergeInfo() {
   const checked = [...document.querySelectorAll('.merge-file-cb:checked')];
   const total = checked.reduce((s, cb) => s + (S.files[Number(cb.value)]?.records.length || 0), 0);
   $('merge-info').textContent = checked.length
-    ? `${checked.length} file${checked.length !== 1 ? 's' : ''} · ${total} total records`
-    : 'Select at least 2 files.';
+    ? tFmt(checked.length === 1 ? 'mdbMergeInfo1' : 'mdbMergeInfoN', {n: checked.length, total})
+    : t('mdbMergeInfoSelect');
 
   // Sync the "existing file" dropdown to only show checked files
   const sel = $('merge-target-file');
@@ -1707,15 +1717,15 @@ async function doMerge() {
   const err = $('merge-err');
   const def = getTypeDef(S.typeKey);
 
-  if (checkedFis.length < 2) { err.textContent = 'Select at least 2 files to merge.'; return; }
+  if (checkedFis.length < 2) { err.textContent = t('mdbErrSelect2Files'); return; }
   const loaded = checkedFis.map(fi => S.files[fi]);
 
   let targetFi, targetName, targetVarName;
   if (isNew) {
     let name = $('merge-new-name').value.trim();
-    if (!name) { err.textContent = 'Enter a file name.'; return; }
+    if (!name) { err.textContent = t('mdbErrEnterFileName'); return; }
     if (!name.endsWith('.js')) name += '.js';
-    if (S.files.find(f => f.name === name)) { err.textContent = 'A file with that name already exists.'; return; }
+    if (S.files.find(f => f.name === name)) { err.textContent = t('mdbErrMergeFileExists'); return; }
     targetFi = -1;
     targetName = name;
     targetVarName = VAR_NAME_DEFAULTS[S.typeKey] || 'customData';
@@ -1736,7 +1746,7 @@ async function doMerge() {
 
   if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
     const saveResult = await Desktop.saveText(def.target, targetName, buildJsContent(targetVarName, combined));
-    if (!saveResult?.ok) { err.textContent = `Save failed: ${saveResult?.error || 'Unknown error'}`; return; }
+    if (!saveResult?.ok) { err.textContent = t('mdbErrMergeSaveFailed') + (saveResult?.error || ''); return; }
 
     const toDelete = isNew ? loaded : loaded.filter(f => S.files.indexOf(f) !== targetFi);
     for (const f of toDelete) {
@@ -1766,7 +1776,7 @@ async function saveFile(fi) {
   const file = S.files[fi];
   const def = getTypeDef(S.typeKey);
   const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
-  if (!result?.ok) { alert(`Save failed: ${result?.error || 'Unknown error'}`); return false; }
+  if (!result?.ok) { alert(t('mdbErrSaveFailed') + (result?.error || '')); return false; }
   if (_gsc[S.typeKey]) _gsc[S.typeKey][file.name] = { records: file.records.slice(), varName: file.varName };
   return true;
 }
@@ -1994,7 +2004,7 @@ function copyAIPrompt(btn) {
   if (!template) return;
   const markCopied = () => {
     const orig = btn.textContent;
-    btn.textContent = '✓ Copied!';
+    btn.textContent = t('mdbAiCopied');
     setTimeout(() => { btn.textContent = orig; }, 1800);
   };
   navigator.clipboard.writeText(template).then(markCopied).catch(() => markCopied());
@@ -2033,7 +2043,7 @@ let _colPickerCallback = null;
 
 function openColPicker(mode) {
   const rows = getDisplayRecords();
-  if (!rows.length) { alert('No records to export.'); return; }
+  if (!rows.length) { alert(t('mdbAlertNoRecords')); return; }
 
   const isPdf     = mode === 'pdf';
   const cols      = isPdf ? S.schema.filter(f => f.type !== 'object') : S.schema;
@@ -2055,12 +2065,12 @@ function openColPicker(mode) {
     lbl.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:#888;';
     lbl.innerHTML = `<input type="checkbox" value="_src" checked
         style="width:15px;height:15px;accent-color:#111;cursor:pointer;flex-shrink:0;">
-      <span>Source <em style="font-size:0.8em;">(file name)</em></span>`;
+      <span>${t('mdbSourceFileLabel')}</span>`;
     list.appendChild(lbl);
   }
 
-  document.getElementById('col-picker-title').textContent   = isPdf ? 'Print PDF — select columns' : 'Export CSV — select columns';
-  document.getElementById('col-picker-confirm').textContent = isPdf ? 'Print PDF' : 'Export CSV';
+  document.getElementById('col-picker-title').textContent   = isPdf ? t('mdbColPickerPdfTitle') : t('mdbColPickerCsvTitle');
+  document.getElementById('col-picker-confirm').textContent = isPdf ? t('mdbBtnPrintPdfConfirm') : t('mdbBtnExportCsvConfirm');
 
   _colPickerCallback = function (selectedKeys) {
     if (isPdf) doExportPDF(rows, selectedKeys);
@@ -2081,7 +2091,7 @@ function colPickerToggleAll(checked) {
 
 function colPickerConfirm() {
   const keys = [...document.querySelectorAll('#col-picker-list input[type="checkbox"]:checked')].map(cb => cb.value);
-  if (!keys.length) { alert('Select at least one column.'); return; }
+  if (!keys.length) { alert(t('mdbAlertSelectColumn')); return; }
   const cb = _colPickerCallback;
   closeColPicker();
   if (cb) cb(keys);
@@ -2095,13 +2105,13 @@ function doExportCSV(rows, selectedKeys) {
   const header  = cols.map(f => cap(f.key));
   const csvRows = [header, ...rows.map(row => cols.map(f => exportCellValue(row[f.key], f)))];
   const csv     = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const label   = (getTypeDef(S.typeKey)?.label || S.typeKey).toLowerCase().replace(/\s+/g, '_');
+  const label   = (getTypeDef(S.typeKey) ? t(getTypeDef(S.typeKey).labelKey) : S.typeKey).toLowerCase().replace(/\s+/g, '_');
   downloadExportFile(`${label}_${exportTimestamp()}.csv`, csv, 'text/csv');
 }
 
 function doExportPDF(rows, selectedKeys) {
   const typeDef   = getTypeDef(S.typeKey);
-  const label     = typeDef?.label || S.typeKey;
+  const label     = typeDef ? t(typeDef.labelKey) : S.typeKey;
   const ts        = exportTimestamp();
   const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
   const inclSrc   = multiFile && selectedKeys.includes('_src');
@@ -2239,7 +2249,7 @@ function updateBatchUI() {
   if (editBtn) { editBtn.style.display = show ? '' : 'none'; editBtn.disabled = count === 0; }
   if (delBtn)  { delBtn.style.display  = show ? '' : 'none'; delBtn.disabled  = count === 0; }
   const countEl = $('batch-count');
-  if (countEl) countEl.textContent = count > 0 ? `${count} selected` : '';
+  if (countEl) countEl.textContent = count > 0 ? tFmt('mdbNSelected', {n: count}) : '';
   if (!show) closeBatchPanel();
 }
 
@@ -2259,7 +2269,7 @@ function closeBatchPanel() {
 async function applyBatchEdit() {
   const fb = $('batch-feedback');
   const selected = [...S.batchSel];
-  if (!selected.length) { if (fb) fb.textContent = '⚠ Select at least one record first.'; return; }
+  if (!selected.length) { if (fb) fb.textContent = t('mdbBatchWarnSelect'); return; }
 
   const newThemes   = parseCsvList($('be-theme')?.value || '');
   const newKeywords = parseCsvList($('be-keywords')?.value || '');
@@ -2267,7 +2277,7 @@ async function applyBatchEdit() {
   const newLevel    = ($('be-level')?.value || '').trim().toUpperCase();
 
   if (!newThemes.length && !newKeywords.length && !newPos && !newLevel) {
-    if (fb) fb.textContent = '⚠ Enter at least one field to apply.';
+    if (fb) fb.textContent = t('mdbBatchWarnField');
     return;
   }
 
@@ -2297,14 +2307,14 @@ async function applyBatchEdit() {
 
   S.schema = buildSchema(getAllRecords());
   renderAll();
-  if (fb) fb.textContent = `✓ Updated ${updated} record${updated !== 1 ? 's' : ''}.`;
+  if (fb) fb.textContent = tFmt('mdbBatchUpdated', {n: updated});
 }
 
 async function deleteSelectedBatch() {
   const selected = [...S.batchSel];
   if (!selected.length) return;
   const count = selected.length;
-  if (!confirm(`Permanently delete ${count} selected record${count !== 1 ? 's' : ''}?`)) return;
+  if (!confirm(tFmt('mdbConfirmDeleteBatch', {n: count}))) return;
 
   const byFile = {};
   for (const key of selected) {
@@ -2344,10 +2354,10 @@ async function mdbGlobalSearch(q) {
   if (!trimmed) { resultsEl.style.display = 'none'; return; }
 
   resultsEl.style.display = '';
-  resultsEl.innerHTML = '<div style="padding:12px 14px;" class="ld-inline"><span class="ld"></span>Searching…</div>';
+  resultsEl.innerHTML = `<div style="padding:12px 14px;" class="ld-inline"><span class="ld"></span>${t('mdbSearching')}</div>`;
 
   if (!window.Desktop || !Desktop.isElectron()) {
-    resultsEl.innerHTML = '<div style="padding:12px 14px;color:#999;font-size:0.82rem;">Not available outside the app.</div>';
+    resultsEl.innerHTML = `<div style="padding:12px 14px;color:#999;font-size:0.82rem;">${t('mdbNotAvailableOutside')}</div>`;
     return;
   }
 
@@ -2375,7 +2385,7 @@ async function mdbGlobalSearch(q) {
       if (_gsc[def.key] !== undefined) {
         // Cache warm — no I/O needed
         for (const [filename, fileData] of Object.entries(_gsc[def.key])) {
-          if (searchRecords(fileData.records, def.key, def.label, filename)) break;
+          if (searchRecords(fileData.records, def.key, t(def.labelKey), filename)) break;
         }
       } else {
         // Cache cold — load on demand and populate for future searches
@@ -2389,7 +2399,7 @@ async function mdbGlobalSearch(q) {
           const records = _parseRecords(raw.content);
           if (!records) continue;
           typeFiles[fi.filename] = { records, varName };
-          if (searchRecords(records, def.key, def.label, fi.filename)) break;
+          if (searchRecords(records, def.key, t(def.labelKey), fi.filename)) break;
         }
         _gsc[def.key] = typeFiles;
       }
@@ -2398,7 +2408,7 @@ async function mdbGlobalSearch(q) {
   }
 
   if (!hits.length) {
-    resultsEl.innerHTML = '<div style="padding:12px 14px;color:#999;font-size:0.82rem;">No results found.</div>';
+    resultsEl.innerHTML = `<div style="padding:12px 14px;color:#999;font-size:0.82rem;">${t('mdbNoResultsFound')}</div>`;
     return;
   }
 
@@ -2412,8 +2422,9 @@ async function mdbGlobalSearch(q) {
     </div>`;
   }).join('');
 
-  const cap = hits.length >= 60 ? ' (first 60)' : '';
-  resultsEl.innerHTML = `<div style="padding:5px 14px;font-size:0.71rem;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.7px;border-bottom:1px solid #eee;">${hits.length} result${hits.length !== 1 ? 's' : ''}${cap}</div>${rows}`;
+  const capSuffix = hits.length >= 60 ? ' ' + t('mdbResultsFirst60') : '';
+  const countLabel = hits.length === 1 ? t('mdbNResult') : tFmt('mdbNResults', {n: hits.length});
+  resultsEl.innerHTML = `<div style="padding:5px 14px;font-size:0.71rem;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.7px;border-bottom:1px solid #eee;">${countLabel}${capSuffix}</div>${rows}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────

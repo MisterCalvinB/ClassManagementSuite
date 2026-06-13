@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Class Plan</title>
   <link rel="stylesheet" href="modules/lexend/lexend.css">
+  <script src="i18n.js"></script>
   <script src="electron-bridge.js"></script>
   <script>
   (function () {
@@ -350,8 +351,8 @@
   <div id="plans-sidebar">
     <div id="sidebar-header">
       <select id="group-sel" onchange="onGroupChange(this.value)"></select>
-      <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#fff;color:#e67e22;border:1.5px solid #e67e22;border-radius:5px;font-size:.8rem;font-weight:600;cursor:pointer;" onclick="deleteOrphanedGroup()">🗑 Delete orphaned group</button>
-      <button id="new-plan-btn" onclick="openNewPlanConfig()">+ New Plan</button>
+      <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#fff;color:#e67e22;border:1.5px solid #e67e22;border-radius:5px;font-size:.8rem;font-weight:600;cursor:pointer;" onclick="deleteOrphanedGroup()" data-i18n="cpBtnDelete">🗑 Delete orphaned group</button>
+      <button id="new-plan-btn" onclick="openNewPlanConfig()" data-i18n="cpNewPlan">+ New Plan</button>
     </div>
     <div id="sidebar-body">
       <div id="plans-list"></div>
@@ -363,7 +364,7 @@
 
     <div id="empty-state">
       <div class="es-icon">🪑</div>
-      <div class="es-text">Select a plan or create one to get started.</div>
+      <div class="es-text" data-i18n="cpEmptyState">Select a plan or create one to get started.</div>
     </div>
 
     <div id="editor-main">
@@ -372,16 +373,16 @@
           onblur="onNameBlur(this)"></span>
         <span id="editor-plan-meta"></span>
         <div id="editor-actions">
-          <button class="btn-ghost" onclick="randomAssign()">🎲 Random</button>
-          <button class="btn-ghost" onclick="editPlanSettings()">⚙ Settings</button>
-          <button class="btn-ghost" onclick="printCurrentPlan()">🖨 Print</button>
-          <button class="btn-solid" id="save-btn" onclick="manualSave()">Save</button>
+          <button class="btn-ghost" onclick="randomAssign()" data-i18n="cpRandom">🎲 Random</button>
+          <button class="btn-ghost" onclick="editPlanSettings()" data-i18n="cpSettings">⚙ Settings</button>
+          <button class="btn-ghost" onclick="printCurrentPlan()" data-i18n="cpPrint">🖨 Print</button>
+          <button class="btn-solid" id="save-btn" onclick="manualSave()" data-i18n="cpSave">Save</button>
         </div>
       </div>
 
       <div id="editor-body">
         <div id="students-panel">
-          <div class="students-label">Students</div>
+          <div class="students-label" data-i18n="cpStudents">Students</div>
           <div id="student-chips"></div>
         </div>
         <div id="grid-wrap">
@@ -399,31 +400,31 @@
 <div id="cfg-modal" class="modal-overlay" onclick="if(event.target===this)closeCfgModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeCfgModal()">&times;</button>
-    <div id="cfg-title" class="modal-title">New Plan</div>
+    <div id="cfg-title" class="modal-title" data-i18n="cpModalTitleNew">New Plan</div>
     <input type="hidden" id="cfg-edit-id">
 
-    <label class="form-label">Class</label>
+    <label class="form-label" data-i18n="cpLabelClass">Class</label>
     <select id="cfg-group" class="form-input"></select>
 
-    <label class="form-label">Plan name</label>
-    <input type="text" id="cfg-name" class="form-input" placeholder="e.g. Normal Seating" maxlength="60">
+    <label class="form-label" data-i18n="cpLabelPlanName">Plan name</label>
+    <input type="text" id="cfg-name" class="form-input" data-i18n-placeholder="cpPlaceholderPlanName" placeholder="e.g. Normal Seating" maxlength="60">
 
-    <label class="form-label">Layout type</label>
+    <label class="form-label" data-i18n="cpLabelLayout">Layout type</label>
     <div class="layout-btns">
-      <div class="layout-btn active" data-lt="grid" onclick="selectLayoutType('grid')">⬛ Grid</div>
-      <div class="layout-btn" data-lt="ushape" onclick="selectLayoutType('ushape')">🔲 U-Shape</div>
-      <div class="layout-btn" data-lt="pods" onclick="selectLayoutType('pods')">⊞ Pods</div>
+      <div class="layout-btn active" data-lt="grid" onclick="selectLayoutType('grid')" data-i18n="cpLayoutGrid">⬛ Grid</div>
+      <div class="layout-btn" data-lt="ushape" onclick="selectLayoutType('ushape')" data-i18n="cpLayoutUShape">🔲 U-Shape</div>
+      <div class="layout-btn" data-lt="pods" onclick="selectLayoutType('pods')" data-i18n="cpLayoutPods">⊞ Pods</div>
     </div>
 
     <!-- Grid dims -->
     <div id="sec-grid" class="layout-section visible">
       <div class="dim-row">
         <div class="dim-group">
-          <label class="form-label">Rows</label>
+          <label class="form-label" data-i18n="cpLabelRows">Rows</label>
           <input type="number" id="cfg-rows" class="form-input" min="1" max="12" value="4">
         </div>
         <div class="dim-group">
-          <label class="form-label">Columns</label>
+          <label class="form-label" data-i18n="cpLabelCols">Columns</label>
           <input type="number" id="cfg-cols" class="form-input" min="1" max="14" value="5">
         </div>
       </div>
@@ -433,11 +434,11 @@
     <div id="sec-ushape" class="layout-section">
       <div class="dim-row">
         <div class="dim-group">
-          <label class="form-label">Width (top row desks)</label>
+          <label class="form-label" data-i18n="cpLabelUWidth">Width (top row desks)</label>
           <input type="number" id="cfg-uwidth" class="form-input" min="3" max="20" value="6">
         </div>
         <div class="dim-group">
-          <label class="form-label">Depth (arm length)</label>
+          <label class="form-label" data-i18n="cpLabelUDepth">Depth (arm length)</label>
           <input type="number" id="cfg-udepth" class="form-input" min="1" max="10" value="3">
         </div>
       </div>
@@ -445,52 +446,52 @@
 
     <!-- Pods dims -->
     <div id="sec-pods" class="layout-section">
-      <label class="form-label" style="margin-top:10px;">Desks per pod</label>
+      <label class="form-label" style="margin-top:10px;" data-i18n="cpLabelDesksPerPod">Desks per pod</label>
       <div class="dim-row">
         <div class="dim-group">
-          <label class="form-label">Rows</label>
+          <label class="form-label" data-i18n="cpLabelRows">Rows</label>
           <input type="number" id="cfg-pod-rows" class="form-input" min="1" max="6" value="2">
         </div>
         <div class="dim-group">
-          <label class="form-label">Columns</label>
+          <label class="form-label" data-i18n="cpLabelCols">Columns</label>
           <input type="number" id="cfg-pod-cols" class="form-input" min="1" max="6" value="3">
         </div>
       </div>
-      <label class="form-label" style="margin-top:10px;">Pods in room</label>
+      <label class="form-label" style="margin-top:10px;" data-i18n="cpLabelPodsInRoom">Pods in room</label>
       <div class="dim-row">
         <div class="dim-group">
-          <label class="form-label">Rows of pods</label>
+          <label class="form-label" data-i18n="cpLabelRowsOfPods">Rows of pods</label>
           <input type="number" id="cfg-room-rows" class="form-input" min="1" max="8" value="2">
         </div>
         <div class="dim-group">
-          <label class="form-label">Columns of pods</label>
+          <label class="form-label" data-i18n="cpLabelColsOfPods">Columns of pods</label>
           <input type="number" id="cfg-room-cols" class="form-input" min="1" max="8" value="3">
         </div>
       </div>
     </div>
 
-    <label class="form-label">Room number</label>
-    <input type="text" id="cfg-room" class="form-input" placeholder="e.g. B204" maxlength="30">
+    <label class="form-label" data-i18n="cpLabelRoom">Room number</label>
+    <input type="text" id="cfg-room" class="form-input" data-i18n-placeholder="cpPlaceholderRoom" placeholder="e.g. B204" maxlength="30">
 
-    <label class="form-label">Name display on desks</label>
+    <label class="form-label" data-i18n="cpLabelNameDisplay">Name display on desks</label>
     <select id="cfg-name-display" class="form-input">
-      <option value="full">First + Last name</option>
-      <option value="first">First name only</option>
-      <option value="last">Last name only</option>
+      <option value="full" data-i18n="cpNameFull">First + Last name</option>
+      <option value="first" data-i18n="cpNameFirst">First name only</option>
+      <option value="last" data-i18n="cpNameLast">Last name only</option>
     </select>
 
-    <label class="form-label">Weekly schedule</label>
+    <label class="form-label" data-i18n="cpLabelSchedule">Weekly schedule</label>
     <div id="cfg-schedule-slots"></div>
-    <button class="add-slot-btn" onclick="addScheduleSlot()">+ Add slot</button>
+    <button class="add-slot-btn" onclick="addScheduleSlot()" data-i18n="cpAddSlot">+ Add slot</button>
 
     <div style="margin-top:13px;display:flex;align-items:center;gap:8px;">
       <input type="checkbox" id="cfg-temp" style="width:16px;height:16px;cursor:pointer;">
-      <label for="cfg-temp" style="font-size:.82rem;color:#555;cursor:pointer;">Temporary plan (one-off activity)</label>
+      <label for="cfg-temp" style="font-size:.82rem;color:#555;cursor:pointer;" data-i18n="cpLabelTemp">Temporary plan (one-off activity)</label>
     </div>
 
     <div class="modal-actions">
-      <button class="btn-ghost" style="background:#fff;" onclick="closeCfgModal()">Cancel</button>
-      <button class="btn-solid" onclick="confirmPlanConfig()">Open Editor →</button>
+      <button class="btn-ghost" style="background:#fff;" onclick="closeCfgModal()" data-i18n="cpBtnCancel">Cancel</button>
+      <button class="btn-solid" onclick="confirmPlanConfig()" data-i18n="cpBtnOpenEditor">Open Editor →</button>
     </div>
   </div>
 </div>
@@ -500,8 +501,8 @@
   <div id="cp-confirm-box">
     <div id="cp-confirm-msg"></div>
     <div id="cp-confirm-btns">
-      <button class="btn-ghost" style="background:#fff;" onclick="_cfmCancel()">Cancel</button>
-      <button class="btn-solid" onclick="_cfmOk()">Confirm</button>
+      <button class="btn-ghost" style="background:#fff;" onclick="_cfmCancel()" data-i18n="cpBtnCancel">Cancel</button>
+      <button class="btn-solid" onclick="_cfmOk()" data-i18n="cpBtnConfirm">Confirm</button>
     </div>
   </div>
 </div>
@@ -525,6 +526,7 @@ let _dirty = false;
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function () {
   try { await window.__cpBootstrap; } catch (e) {}
+  applyTranslations();
   buildStudentGroups();
   loadPlansFromGlobals();
   renderGroupSelector();
@@ -628,7 +630,7 @@ function renderGroupSelector() {
   const sel = document.getElementById('group-sel');
   const groups = mergeGroupKeys();
   if (!groups.length) {
-    sel.innerHTML = '<option value="">— No groups —</option>';
+    sel.innerHTML = '<option value="">' + t('cpNoGroups') + '</option>';
     updateOrphanDeleteBtn();
     return;
   }
@@ -664,7 +666,7 @@ function onGroupChange(group) {
 function deleteOrphanedGroup() {
   if (!selectedGroup || !isOrphanedGroup(selectedGroup)) return;
   const group = selectedGroup;
-  showConfirm('Delete all plans for "' + group + '"? This cannot be undone.', async function () {
+  showConfirm(tFmt('cpConfirmDeleteGroup', { name: group }), async function () {
     delete classPlans[group];
     renderGroupSelector();
     const groups = mergeGroupKeys();
@@ -679,9 +681,9 @@ function deleteOrphanedGroup() {
       const plansContent = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';';
       await Desktop.saveText('classPlans', 'plans.js', plansContent);
       await syncToConfigJs();
-      toast('Group deleted');
+      toast(t('cpToastGroupDeleted'));
     } catch (e) {
-      toast('Error saving: ' + e.message);
+      toast(t('cpToastErrorSaving') + e.message);
     }
   });
 }
@@ -691,7 +693,7 @@ function renderPlansList() {
   const list = document.getElementById('plans-list');
   const plans = classPlans[selectedGroup] || [];
   if (!plans.length) {
-    list.innerHTML = '<div style="color:#bbb;font-size:.8rem;padding:6px 2px;">No plans yet.</div>';
+    list.innerHTML = '<div style="color:#bbb;font-size:.8rem;padding:6px 2px;">' + t('cpNoPlans') + '</div>';
     return;
   }
   list.innerHTML = '';
@@ -704,12 +706,12 @@ function renderPlansList() {
       '<div class="plan-card-name">' + esc(plan.name) + '</div>' +
       (meta ? '<div class="plan-card-meta">' + esc(meta) + '</div>' : '') +
       '<div class="plan-card-badges">' +
-        (plan.isActive ? '<span class="badge-active">Active</span>' : '') +
-        (plan.isTemporary ? '<span class="badge-temp">Temp</span>' : '') +
+        (plan.isActive ? '<span class="badge-active">' + t('cpBadgeActive') + '</span>' : '') +
+        (plan.isTemporary ? '<span class="badge-temp">' + t('cpBadgeTemp') + '</span>' : '') +
       '</div>' +
       '<div class="plan-card-actions">' +
-        '<button class="pca-btn" onclick="event.stopPropagation();editPlanById(\'' + esc(plan.id) + '\')">Settings</button>' +
-        (!plan.isActive ? '<button class="pca-btn" onclick="event.stopPropagation();setActivePlan(\'' + esc(plan.id) + '\')">Set Active</button>' : '') +
+        '<button class="pca-btn" onclick="event.stopPropagation();editPlanById(\'' + esc(plan.id) + '\')">' + t('cpBtnCardSettings') + '</button>' +
+        (!plan.isActive ? '<button class="pca-btn" onclick="event.stopPropagation();setActivePlan(\'' + esc(plan.id) + '\')">' + t('cpBtnSetActive') + '</button>' : '') +
         '<button class="pca-btn" onclick="event.stopPropagation();printPlanById(\'' + esc(plan.id) + '\')">🖨</button>' +
         '<button class="pca-btn danger" onclick="event.stopPropagation();deletePlanById(\'' + esc(plan.id) + '\')">✕</button>' +
       '</div>';
@@ -818,7 +820,7 @@ function buildDeskGrid(plan) {
   teacherRow.id = 'cp-teacher-row';
   const teacherDesk = document.createElement('div');
   teacherDesk.id = 'cp-teacher-desk';
-  teacherDesk.textContent = '🖥 Teacher';
+  teacherDesk.textContent = t('cpTeacherDesk');
   teacherRow.appendChild(teacherDesk);
   wrap.appendChild(teacherRow);
 }
@@ -980,10 +982,10 @@ function buildGridControls(plan) {
   bar.innerHTML = '';
   if (!plan.layoutType || plan.layoutType === 'grid') {
     bar.innerHTML =
-      '<button class="gc-btn" onclick="gridRemoveRow()">− Row</button>' +
-      '<button class="gc-btn" onclick="gridAddRow()">+ Row</button>' +
-      '<button class="gc-btn" onclick="gridRemoveCol()">− Col</button>' +
-      '<button class="gc-btn" onclick="gridAddCol()">+ Col</button>';
+      '<button class="gc-btn" onclick="gridRemoveRow()">' + t('cpGridMinusRow') + '</button>' +
+      '<button class="gc-btn" onclick="gridAddRow()">' + t('cpGridPlusRow') + '</button>' +
+      '<button class="gc-btn" onclick="gridRemoveCol()">' + t('cpGridMinusCol') + '</button>' +
+      '<button class="gc-btn" onclick="gridAddCol()">' + t('cpGridPlusCol') + '</button>';
   }
 }
 
@@ -1009,7 +1011,7 @@ function gridRemoveRow() {
     schedAutoSave(p); buildEditor(p);
   };
   seated.length
-    ? showConfirm('Remove last row? ' + seated.length + ' student(s) will be unplaced.', doRemove)
+    ? showConfirm(tFmt('cpConfirmRemoveRow', { n: seated.length }), doRemove)
     : doRemove();
 }
 
@@ -1036,7 +1038,7 @@ function gridRemoveCol() {
     schedAutoSave(p); buildEditor(p);
   };
   seated.length
-    ? showConfirm('Remove last column? ' + seated.length + ' student(s) will be unplaced.', doRemove)
+    ? showConfirm(tFmt('cpConfirmRemoveCol', { n: seated.length }), doRemove)
     : doRemove();
 }
 
@@ -1045,7 +1047,7 @@ function randomAssign() {
   const plan = selectedPlan;
   if (!plan) return;
   const students = studentGroups[selectedGroup] || [];
-  if (!students.length) { toast('No students in this group.'); return; }
+  if (!students.length) { toast(t('cpToastNoStudents')); return; }
   const doAssign = function () {
     const shuffled = students.slice().sort(function () { return Math.random() - 0.5; });
     const ids = getAllSeatIds(plan);
@@ -1054,10 +1056,10 @@ function randomAssign() {
     });
     schedAutoSave(plan);
     buildEditor(plan);
-    toast('Seats randomly assigned');
+    toast(t('cpToastSeatsAssigned'));
   };
   (plan.seats || []).length
-    ? showConfirm('Randomly assign all students? Current seating will be replaced.', doAssign)
+    ? showConfirm(t('cpConfirmRandom'), doAssign)
     : doAssign();
 }
 
@@ -1104,7 +1106,7 @@ async function doSave(showFeedback) {
   }
 
   if (!window.Desktop || !Desktop.isElectron()) {
-    if (showFeedback) toast('Running in browser — files not saved.');
+    if (showFeedback) toast(t('cpToastBrowserNoSave'));
     return;
   }
 
@@ -1117,10 +1119,10 @@ async function doSave(showFeedback) {
     await syncToConfigJs();
 
     markSaved();
-    if (showFeedback) toast('✅ Plan saved.');
+    if (showFeedback) toast(t('cpToastPlanSaved'));
     renderPlansList();
   } catch (e) {
-    if (showFeedback) toast('Error saving: ' + (e.message || e));
+    if (showFeedback) toast(t('cpToastErrorSaving') + (e.message || e));
   }
 }
 
@@ -1167,20 +1169,20 @@ function toConfigSeats(plan) {
 function markDirty() {
   _dirty = true;
   const btn = document.getElementById('save-btn');
-  if (btn) btn.textContent = 'Save *';
+  if (btn) btn.textContent = t('cpSaveDirty');
 }
 
 function markSaved() {
   _dirty = false;
   const btn = document.getElementById('save-btn');
-  if (btn) btn.textContent = 'Save';
+  if (btn) btn.textContent = t('cpSave');
 }
 
 // ── Config modal ──────────────────────────────────────────────────────────────
 function openNewPlanConfig() {
-  if (!selectedGroup) { toast('Select a class group first.'); return; }
+  if (!selectedGroup) { toast(t('cpToastSelectGroup')); return; }
 
-  document.getElementById('cfg-title').textContent = 'New Plan';
+  document.getElementById('cfg-title').textContent = t('cpModalTitleNew');
   document.getElementById('cfg-edit-id').value = '';
   document.getElementById('cfg-name').value = 'Seating Plan';
   document.getElementById('cfg-rows').value = 4;
@@ -1217,7 +1219,7 @@ function editPlanById(planId) {
   const plan = getPlanById(planId);
   if (!plan) return;
 
-  document.getElementById('cfg-title').textContent = 'Edit Plan';
+  document.getElementById('cfg-title').textContent = t('cpModalTitleEdit');
   document.getElementById('cfg-edit-id').value = plan.id;
   document.getElementById('cfg-name').value = plan.name;
   document.getElementById('cfg-room').value = plan.roomNumber || '';
@@ -1264,9 +1266,9 @@ function selectLayoutType(lt) {
 
 function confirmPlanConfig() {
   const name = document.getElementById('cfg-name').value.trim();
-  if (!name) { toast('Enter a plan name.'); return; }
+  if (!name) { toast(t('cpToastEnterName')); return; }
   const group = document.getElementById('cfg-group').value;
-  if (!group) { toast('Select a class.'); return; }
+  if (!group) { toast(t('cpToastSelectClass')); return; }
 
   const editId = document.getElementById('cfg-edit-id').value;
   const room = document.getElementById('cfg-room').value.trim();
@@ -1357,7 +1359,7 @@ function deletePlanById(planId) {
   const plans = classPlans[selectedGroup] || [];
   const idx = plans.findIndex(function (p) { return p.id === planId; });
   if (idx === -1) return;
-  showConfirm('Delete plan "' + plans[idx].name + '"?', function () {
+  showConfirm(tFmt('cpConfirmDeletePlan', { name: plans[idx].name }), function () {
     plans.splice(idx, 1);
     if (plans.length && !plans.find(function (p) { return p.isActive; })) plans[0].isActive = true;
     if (selectedPlan && selectedPlan.id === planId) showEmptyState();
@@ -1487,7 +1489,7 @@ function buildPrintHtml(plan) {
 
   const teacherDeskHtml = '<div style="margin-top:18px;text-align:right;">' +
     '<span style="display:inline-block;background:#2a2a2a;color:#fff;padding:6px 22px;border-radius:5px;' +
-    'font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;min-width:110px;">🖥 Teacher</span></div>';
+    'font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;min-width:110px;">' + esc(t('cpTeacherDesk')) + '</span></div>';
 
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(plan.name) + '</title>' +
     '<style>body{font-family:Arial,sans-serif;margin:1cm;color:#111;}' +
