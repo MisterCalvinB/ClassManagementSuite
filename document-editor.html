@@ -115,6 +115,143 @@
     .hm-item:hover { background: #2d2d2d; color: #fff; }
     .hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
 
+    /* ── Book import dropdown ──────────────────────────── */
+    #de-book-select {
+      background: #222;
+      color: #ddd;
+      border: 1px solid #555;
+      border-radius: 4px;
+      font-size: .8rem;
+      font-weight: 600;
+      font-family: inherit;
+      padding: 4px 6px;
+      cursor: pointer;
+      max-width: 150px;
+    }
+    #de-book-select:hover { border-color: #fff; }
+
+    /* ── Book text picker modal ────────────────────────── */
+    #de-book-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+    }
+    #de-book-overlay.active { display: flex; }
+    #de-book-modal {
+      background: #fff;
+      border-radius: 8px;
+      width: 700px;
+      max-width: 95vw;
+      height: 72vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+    #de-book-modal-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+      background: #fafafa;
+    }
+    #de-book-modal-title { font-weight: 700; flex: 1; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #de-book-modal-hint { font-size: .78rem; color: #888; white-space: nowrap; }
+    #de-book-modal-insert {
+      background: #111; color: #fff; border: none;
+      border-radius: 4px; padding: 5px 14px; cursor: pointer;
+      font-size: .82rem; font-weight: 700; font-family: inherit;
+      white-space: nowrap;
+    }
+    #de-book-modal-insert:hover { background: #333; }
+    #de-book-modal-insert:disabled { opacity: .35; cursor: default; }
+    #de-book-modal-close {
+      background: none; border: 1px solid #ccc; border-radius: 4px;
+      padding: 4px 9px; font-size: .82rem; cursor: pointer; color: #555;
+      font-family: inherit;
+    }
+    #de-book-modal-close:hover { border-color: #999; color: #111; }
+    #de-book-text-wrap {
+      position: relative;
+      flex: 1;
+      overflow: hidden;
+    }
+    #de-book-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      padding: 16px 18px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: .88rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow: hidden;
+      color: #111;
+      background: #fff;
+    }
+    #de-book-modal-backdrop mark {
+      background: #ffe566;
+      border-radius: 2px;
+      color: inherit;
+    }
+    #de-book-modal-backdrop mark.de-current {
+      background: #ff9500;
+      color: #fff;
+    }
+    #de-book-modal-text {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 16px 18px;
+      box-sizing: border-box;
+      resize: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: .88rem;
+      line-height: 1.7;
+      outline: none;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      color: transparent;
+      caret-color: #111;
+      background: transparent;
+    }
+    #de-book-modal-search-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #f5f5f5;
+      flex-shrink: 0;
+    }
+    #de-book-search-input {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: .83rem;
+      font-family: inherit;
+      outline: none;
+    }
+    #de-book-search-input:focus { border-color: #555; }
+    .de-book-search-nav {
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 3px 9px; cursor: pointer; font-size: .82rem;
+      font-family: inherit; line-height: 1.4;
+    }
+    .de-book-search-nav:hover { border-color: #555; }
+    .de-book-search-nav:disabled { opacity: .35; cursor: default; }
+    #de-book-search-count { font-size: .78rem; color: #777; white-space: nowrap; min-width: 60px; }
+
     /* ── CSS Panel ─────────────────────────────────────── */
     #css-panel {
       background: #fff;
@@ -497,6 +634,23 @@
       transition: background .1s, color .1s;
     }
     .modal-toolbar-btn:hover { background: #000; color: #fff; }
+    .modal-box-history { max-width: 580px; }
+    #hist-preview-pane {
+      margin-top: 12px;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: .78rem;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: #333;
+      background: #f8f8f8;
+      max-height: 160px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
+    }
+    #hist-preview-pane.visible { display: block; }
 
     /* ── Toast ──────────────────────────────────────────── */
     #toast {
@@ -708,7 +862,7 @@
       z-index: 3000;
       user-select: none;
     }
-    #table-grid-popup.open { display: block; }
+    #table-insert-wrap.open #table-grid-popup { display: block; }
     .tg-grid {
       display: grid;
       grid-template-columns: repeat(6, 22px);
@@ -767,6 +921,7 @@
   <button class="nav-btn nav-btn-primary" id="btn-save-doc" title="Save (Ctrl+S)">Save</button>
   <button class="nav-btn" id="btn-save-as-doc" title="Save as new file">Save As</button>
   <button class="nav-btn" id="btn-save-all-doc" title="Save document + stylesheet together in the same folder (Ctrl+Shift+S)">Save All</button>
+  <button class="nav-btn" id="btn-doc-history" title="Browse and restore previous versions of this document">History</button>
   <div class="nav-sep"></div>
   <div id="table-insert-wrap">
     <button class="nav-btn" id="btn-insert-table" title="Insert table">Table ▾</button>
@@ -777,6 +932,9 @@
   </div>
   <button class="nav-btn" id="btn-insert-image" title="Insert image from file">Image</button>
   <input type="file" id="image-file-input" accept="image/*" style="display:none">
+  <select id="de-book-select" title="Insert text from Books folder at cursor" onchange="deBookLoadSelected()" style="display:none">
+    <option value="">📂 Books…</option>
+  </select>
   <div class="nav-sep"></div>
   <div class="hm-wrap" id="templates-dd-wrap">
     <button class="nav-btn hm-btn" id="btn-templates-dd" style="font-size:.8rem">Templates ▾</button>
@@ -926,6 +1084,28 @@
   </div>
 </div>
 
+<!-- ── Book text picker modal ───────────────────────────── -->
+<div id="de-book-overlay" onclick="if(event.target===this)deBookCloseModal()">
+  <div id="de-book-modal">
+    <div id="de-book-modal-header">
+      <span id="de-book-modal-title">📂 Book</span>
+      <span id="de-book-modal-hint">Select text, then click Insert</span>
+      <button id="de-book-modal-insert" onclick="deBookInsertSelection()" disabled>Insert selection</button>
+      <button id="de-book-modal-close" onclick="deBookCloseModal()">✕ Close</button>
+    </div>
+    <div id="de-book-modal-search-row">
+      <input id="de-book-search-input" type="text" placeholder="Search in book…" oninput="deBookSearchRun()" onkeydown="deBookSearchKey(event)">
+      <button class="de-book-search-nav" id="de-book-search-prev" onclick="deBookSearchStep(-1)" disabled>▲</button>
+      <button class="de-book-search-nav" id="de-book-search-next" onclick="deBookSearchStep(1)" disabled>▼</button>
+      <span id="de-book-search-count"></span>
+    </div>
+    <div id="de-book-text-wrap">
+      <div id="de-book-modal-backdrop" aria-hidden="true"></div>
+      <textarea id="de-book-modal-text" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
 <!-- ── CSS Panel ────────────────────────────────────────── -->
 <div id="css-panel">
   <div id="css-panel-header">
@@ -1027,6 +1207,17 @@
   </div>
 </div>
 
+<!-- ── History modal ─────────────────────────────────────── -->
+<div id="history-modal" class="modal-overlay" hidden>
+  <div class="modal-box modal-box-history">
+    <div class="modal-header">
+      <span class="modal-title" id="history-modal-title">Version History</span>
+      <button class="modal-close-btn" id="history-modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="history-modal-body"></div>
+  </div>
+</div>
+
 <!-- ── Settings modal ───────────────────────────────────── -->
 <div id="settings-modal" class="modal-overlay" hidden>
   <div class="modal-box stg-box">
@@ -1070,7 +1261,10 @@
 let mdEditor = null;
 let cssEditor = null;
 let currentDocName = null;
+let currentDocSubdir = null; // null = flat file; string = folder basename (e.g. 'my-doc')
 let currentStylesheetName = null;
+let currentEditTarget = null;   // non-null when editing a file from an external target
+let currentEditRelPath = null;
 let cssEditorVisible = false;
 let splitFraction = 0.5;
 let renderTimer = null;
@@ -1128,7 +1322,9 @@ function renderPreview() {
   if (!mdEditor) return;
   try {
     const html = marked.parse(mdEditor.getValue());
-    document.getElementById('preview-content').innerHTML = html;
+    const container = document.getElementById('preview-content');
+    container.innerHTML = html;
+    fixPreviewImages(container);
   } catch(e) {
     document.getElementById('preview-content').innerHTML =
       '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
@@ -1146,6 +1342,321 @@ function insertTextAtCursor(text) {
   const sel = mdEditor.getSelection();
   mdEditor.executeEdits('user-insert', [{ range: sel, text, forceMoveMarkers: true }]);
   mdEditor.focus();
+}
+
+// ── Book text import ─────────────────────────────────────
+function deBookHtmlToText(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  tmp.querySelectorAll('p,div,br,h1,h2,h3,h4,h5,h6,li,tr,blockquote').forEach(el => {
+    el.insertAdjacentText('afterend', '\n');
+  });
+  tmp.querySelectorAll('script,style,noscript').forEach(el => el.remove());
+  return tmp.innerText
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function deZipParse(arrayBuffer) {
+  const buf = new Uint8Array(arrayBuffer);
+  const view = new DataView(arrayBuffer);
+  const u16 = o => view.getUint16(o, true);
+  const u32 = o => view.getUint32(o, true);
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+    if (u32(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd === -1) throw new Error('Not a valid ZIP/EPUB file.');
+  const cdOffset = u32(eocd + 16);
+  const cdCount  = u16(eocd + 10);
+  const entries = [];
+  let pos = cdOffset;
+  for (let i = 0; i < cdCount; i++) {
+    if (u32(pos) !== 0x02014b50) break;
+    const compMethod  = u16(pos + 10);
+    const compSize    = u32(pos + 20);
+    const nameLen     = u16(pos + 28);
+    const extraLen    = u16(pos + 30);
+    const commentLen  = u16(pos + 32);
+    const localOffset = u32(pos + 42);
+    const name        = new TextDecoder('utf-8').decode(buf.slice(pos + 46, pos + 46 + nameLen));
+    entries.push({ name, compMethod, compSize, localOffset });
+    pos += 46 + nameLen + extraLen + commentLen;
+  }
+  return { entries, buf, view, u16, u32 };
+}
+
+async function deDecompressDeflate(compressedBytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  const reader = ds.readable.getReader();
+  writer.write(compressedBytes);
+  writer.close();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out;
+}
+
+async function deEpubExtractText(arrayBuffer) {
+  const zip = deZipParse(arrayBuffer);
+  const { buf, view, u16, u32 } = zip;
+  async function extractBytes(entry) {
+    const lh = entry.localOffset;
+    const lNameLen  = u16(lh + 26);
+    const lExtraLen = u16(lh + 28);
+    const dataStart = lh + 30 + lNameLen + lExtraLen;
+    const compressed = buf.slice(dataStart, dataStart + entry.compSize);
+    if (entry.compMethod === 0) return compressed;
+    if (entry.compMethod === 8) return await deDecompressDeflate(compressed);
+    throw new Error('Unsupported compression: ' + entry.compMethod);
+  }
+  async function extractText(entry) {
+    return new TextDecoder('utf-8').decode(await extractBytes(entry));
+  }
+  const containerEntry = zip.entries.find(e => e.name === 'META-INF/container.xml');
+  let opfPath = null;
+  if (containerEntry) {
+    const m = (await extractText(containerEntry)).match(/full-path="([^"]+\.opf)"/i);
+    if (m) opfPath = m[1];
+  }
+  let orderedHtmlEntries = [];
+  if (opfPath) {
+    const opfEntry = zip.entries.find(e => e.name === opfPath);
+    if (opfEntry) {
+      const opfXml = await extractText(opfEntry);
+      const manifest = {};
+      const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+      let mm;
+      const manifestRe = /<item[^>]+id="([^"]+)"[^>]+href="([^"]+)"[^>]*>/gi;
+      while ((mm = manifestRe.exec(opfXml)) !== null) manifest[mm[1]] = opfDir + mm[2];
+      const spineRe = /<itemref[^>]+idref="([^"]+)"/gi;
+      let sm;
+      while ((sm = spineRe.exec(opfXml)) !== null) {
+        const href = manifest[sm[1]];
+        if (href) {
+          const e = zip.entries.find(en => en.name === href || en.name === href.replace(/^\//, ''));
+          if (e) orderedHtmlEntries.push(e);
+        }
+      }
+    }
+  }
+  if (!orderedHtmlEntries.length) {
+    orderedHtmlEntries = zip.entries.filter(e =>
+      /\.(xhtml|html|htm)$/i.test(e.name) && !e.name.includes('toc') && !e.name.includes('nav')
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const parts = [];
+  for (const entry of orderedHtmlEntries) parts.push(deBookHtmlToText(await extractText(entry)));
+  return parts.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function deBookPopulateDropdown() {
+  const sel = document.getElementById('de-book-select');
+  if (!sel) return;
+  if (!(window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.listFiles === 'function')) return;
+  try {
+    const result = await Desktop.listFiles('customBooks', { extensions: ['.epub', '.html', '.htm', '.xhtml', '.txt'] });
+    const files = result && result.ok && Array.isArray(result.files) ? result.files : [];
+    if (!files.length) return;
+    files.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = file.relativePath || file.filename;
+      opt.textContent = String(file.filename).replace(/\.(epub|html?|xhtml|txt)$/i, '');
+      sel.appendChild(opt);
+    });
+    sel.style.display = '';
+  } catch(e) {
+    console.warn('Could not list customBooks:', e);
+  }
+}
+
+async function deBookLoadSelected() {
+  const sel = document.getElementById('de-book-select');
+  if (!sel || !sel.value) return;
+  const relativePath = sel.value;
+  const label = sel.options[sel.selectedIndex].textContent;
+  sel.disabled = true;
+  try {
+    const result = await Desktop.readByPath('customBooks', relativePath, { encoding: 'base64' });
+    if (!result || !result.ok || !result.content) throw new Error(result && result.error ? result.error : 'Could not read file.');
+    const binary = atob(result.content);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const lp = relativePath.toLowerCase();
+    let text;
+    if (lp.endsWith('.epub')) {
+      text = await deEpubExtractText(bytes.buffer);
+    } else {
+      const rawText = new TextDecoder('utf-8').decode(bytes);
+      text = (lp.endsWith('.html') || lp.endsWith('.htm') || lp.endsWith('.xhtml'))
+        ? deBookHtmlToText(rawText)
+        : rawText.trim();
+    }
+    if (!text) throw new Error('No readable text found.');
+    deBookOpenModal(text, label);
+  } catch(e) {
+    showToast('Could not load book: ' + e.message, true);
+  } finally {
+    sel.disabled = false;
+    sel.value = '';
+  }
+}
+
+let _deBookSearchMatches = [];
+let _deBookSearchIdx = -1;
+
+function deBookOpenModal(text, label) {
+  document.getElementById('de-book-modal-title').textContent = '📂 ' + label;
+  const ta = document.getElementById('de-book-modal-text');
+  ta.value = text;
+  ta.onselect = ta.onmouseup = ta.onkeyup = deBookUpdateInsertBtn;
+  ta.onscroll = deBookSyncScroll;
+  document.getElementById('de-book-modal-backdrop').textContent = text;
+  document.getElementById('de-book-modal-insert').disabled = true;
+  document.getElementById('de-book-search-input').value = '';
+  document.getElementById('de-book-search-count').textContent = '';
+  document.getElementById('de-book-search-prev').disabled = true;
+  document.getElementById('de-book-search-next').disabled = true;
+  _deBookSearchMatches = [];
+  _deBookSearchIdx = -1;
+  document.getElementById('de-book-overlay').classList.add('active');
+  document.getElementById('de-book-search-input').focus();
+}
+
+function deBookUpdateInsertBtn() {
+  const ta = document.getElementById('de-book-modal-text');
+  document.getElementById('de-book-modal-insert').disabled = ta.selectionStart === ta.selectionEnd;
+}
+
+function deBookSearchRun() {
+  const query = document.getElementById('de-book-search-input').value;
+  const ta = document.getElementById('de-book-modal-text');
+  const countEl = document.getElementById('de-book-search-count');
+  _deBookSearchMatches = [];
+  _deBookSearchIdx = -1;
+  if (!query) {
+    countEl.textContent = '';
+    document.getElementById('de-book-search-prev').disabled = true;
+    document.getElementById('de-book-search-next').disabled = true;
+    return;
+  }
+  const text = ta.value;
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  let pos = 0;
+  while (true) {
+    const idx = lower.indexOf(q, pos);
+    if (idx === -1) break;
+    _deBookSearchMatches.push(idx);
+    pos = idx + 1;
+  }
+  const hasMatches = _deBookSearchMatches.length > 0;
+  document.getElementById('de-book-search-prev').disabled = !hasMatches;
+  document.getElementById('de-book-search-next').disabled = !hasMatches;
+  if (hasMatches) {
+    _deBookSearchIdx = 0;
+    deBookSearchHighlight(query.length);
+  } else {
+    countEl.textContent = 'No matches';
+    deBookUpdateBackdrop();
+  }
+}
+
+function deBookSearchStep(dir) {
+  if (!_deBookSearchMatches.length) return;
+  _deBookSearchIdx = (_deBookSearchIdx + dir + _deBookSearchMatches.length) % _deBookSearchMatches.length;
+  const query = document.getElementById('de-book-search-input').value;
+  deBookSearchHighlight(query.length);
+}
+
+function deBookEscHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function deBookSyncScroll() {
+  const ta = document.getElementById('de-book-modal-text');
+  document.getElementById('de-book-modal-backdrop').scrollTop = ta.scrollTop;
+}
+
+function deBookUpdateBackdrop() {
+  const ta = document.getElementById('de-book-modal-text');
+  const bd = document.getElementById('de-book-modal-backdrop');
+  if (!_deBookSearchMatches.length) {
+    bd.textContent = ta.value;
+    return;
+  }
+  const text = ta.value;
+  const qLen = document.getElementById('de-book-search-input').value.length;
+  let html = '';
+  let pos = 0;
+  _deBookSearchMatches.forEach((start, i) => {
+    html += deBookEscHtml(text.substring(pos, start));
+    const cls = i === _deBookSearchIdx ? ' class="de-current"' : '';
+    html += '<mark' + cls + '>' + deBookEscHtml(text.substring(start, start + qLen)) + '</mark>';
+    pos = start + qLen;
+  });
+  html += deBookEscHtml(text.substring(pos));
+  bd.innerHTML = html;
+  bd.scrollTop = ta.scrollTop;
+}
+
+function deBookScrollToPos(pos) {
+  const ta = document.getElementById('de-book-modal-text');
+  const style = window.getComputedStyle(ta);
+  const mirror = document.createElement('div');
+  mirror.style.cssText =
+    'position:absolute;visibility:hidden;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;' +
+    'width:' + ta.clientWidth + 'px;' +
+    'padding:' + style.padding + ';' +
+    'font:' + style.font + ';' +
+    'line-height:' + style.lineHeight + ';';
+  mirror.textContent = ta.value.substring(0, pos);
+  document.body.appendChild(mirror);
+  const top = mirror.scrollHeight;
+  document.body.removeChild(mirror);
+  ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
+  document.getElementById('de-book-modal-backdrop').scrollTop = ta.scrollTop;
+}
+
+function deBookSearchHighlight(len) {
+  const ta = document.getElementById('de-book-modal-text');
+  const start = _deBookSearchMatches[_deBookSearchIdx];
+  ta.setSelectionRange(start, start + len);
+  deBookScrollToPos(start);
+  deBookUpdateBackdrop();
+  deBookUpdateInsertBtn();
+  document.getElementById('de-book-search-count').textContent =
+    (_deBookSearchIdx + 1) + ' / ' + _deBookSearchMatches.length;
+}
+
+function deBookSearchKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    deBookSearchStep(e.shiftKey ? -1 : 1);
+  }
+}
+
+function deBookInsertSelection() {
+  const ta = document.getElementById('de-book-modal-text');
+  const selected = ta.value.substring(ta.selectionStart, ta.selectionEnd).trim();
+  if (!selected) return;
+  insertTextAtCursor(selected);
+  deBookCloseModal();
+  showToast('Text inserted');
+}
+
+function deBookCloseModal() {
+  document.getElementById('de-book-overlay').classList.remove('active');
 }
 
 // ── Table insert ──────────────────────────────────────────
@@ -1197,9 +1708,29 @@ function initTablePicker() {
 }
 
 // ── Image insert ──────────────────────────────────────────
-function pathToFileUrl(absPath) {
-  const normalized = absPath.replace(/\\/g, '/');
-  return normalized.startsWith('/') ? 'file://' + normalized : 'file:///' + normalized;
+const IMAGE_MIME_MAP = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  bmp: 'image/bmp', avif: 'image/avif'
+};
+
+async function fixPreviewImages(container) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  const imgs = container.querySelectorAll('img[src]');
+  await Promise.all([...imgs].map(async (img) => {
+    const src = img.getAttribute('src');
+    if (!src || src.startsWith('data:') || src.startsWith('http://') ||
+        src.startsWith('https://') || src.startsWith('//')) return;
+    const filename = decodeURIComponent(src.replace(/\?.*$/, '').split('/').pop());
+    if (!filename) return;
+    try {
+      const r = await Desktop.readByPath('docEditorDocs', filename, { encoding: 'base64' });
+      if (r && r.content) {
+        const ext = filename.split('.').pop().toLowerCase();
+        img.src = 'data:' + (IMAGE_MIME_MAP[ext] || 'image/jpeg') + ';base64,' + r.content;
+      }
+    } catch(e) {}
+  }));
 }
 
 async function embedImageFile(file) {
@@ -1208,10 +1739,10 @@ async function embedImageFile(file) {
 
   if (window.Desktop && Desktop.isElectron()) {
     try {
-      const r = await Desktop.saveBlob('docEditorDocs', name, file);
+      const r = await Desktop.saveBlob('docEditorDocs', name, file, currentDocSubdir);
       if (r && r.ok) {
-        const url = (r.file && r.file.path) ? pathToFileUrl(r.file.path) : name;
-        insertTextAtCursor('\n![' + name + '](' + url + ')\n');
+        const filename = (r.file && r.file.filename) ? r.file.filename : name;
+        insertTextAtCursor('\n![' + name + '](' + filename + ')\n');
         showToast('Image saved: ' + name);
       } else {
         showToast('Image save failed: ' + (r && r.error ? r.error : 'unknown'), true);
@@ -1325,6 +1856,7 @@ require(['vs/editor/editor.main'], function() {
 
   renderPreview();
   loadPersistedState();
+  openFromQueryParams();
 });
 
 // ── Document management ──────────────────────────────────
@@ -1332,7 +1864,15 @@ async function refreshDocList() {
   if (!window.Desktop || !Desktop.isElectron()) return [];
   try {
     const r = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md'] });
-    return (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+    if (!r || !r.ok || !Array.isArray(r.files)) return [];
+    return r.files.filter(f => {
+      const rp = f.relativePath || '';
+      if (rp.startsWith('history/')) return false;
+      const parts = rp.split('/');
+      if (parts.length === 1) return true; // flat doc
+      if (parts.length === 2) return parts[1] === parts[0] + '.md'; // my-doc/my-doc.md only
+      return false;
+    });
   } catch(e) { return []; }
 }
 
@@ -1348,21 +1888,27 @@ async function openDocModal() {
     const list = document.createElement('div');
     list.className = 'file-list';
     files.forEach(f => {
-      const name = f.filename || f.relativePath || '';
+      const rp = f.relativePath || f.filename || '';
+      const displayName = f.filename || rp;
+      const isFolder = rp.includes('/');
       const row = document.createElement('div');
       row.className = 'file-row';
-      row.innerHTML = '<span class="file-row-name">' + escHtml(name) + '</span>';
+      row.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>';
       const openBtn = document.createElement('button');
       openBtn.className = 'file-row-btn';
       openBtn.textContent = 'Open';
-      openBtn.onclick = () => loadDoc(name);
+      openBtn.onclick = () => loadDoc(rp);
       const delBtn = document.createElement('button');
       delBtn.className = 'file-row-btn file-row-btn-del';
       delBtn.textContent = 'Del';
       delBtn.onclick = async () => {
-        if (!confirm('Delete "' + name + '"?')) return;
-        await Desktop.deleteByPath('docEditorDocs', name);
-        await Desktop.deleteByPath('docEditorDocs', name + '.json').catch(() => {});
+        if (!confirm('Delete "' + displayName + '"?')) return;
+        if (isFolder) {
+          await Desktop.deleteByPath('docEditorDocs', rp.split('/')[0]).catch(() => {});
+        } else {
+          await Desktop.deleteByPath('docEditorDocs', rp).catch(() => {});
+          await Desktop.deleteByPath('docEditorDocs', rp + '.json').catch(() => {});
+        }
         openDocModal();
       };
       row.appendChild(openBtn);
@@ -1374,26 +1920,29 @@ async function openDocModal() {
   showModal('file-modal');
 }
 
-async function loadDoc(filename) {
+async function loadDoc(relativePath) {
   if (!window.Desktop || !Desktop.isElectron()) return;
   try {
-    const r = await Desktop.readByPath('docEditorDocs', filename);
+    const r = await Desktop.readByPath('docEditorDocs', relativePath);
     if (r && r.ok) {
       mdEditor.setValue(r.content || '');
-      currentDocName = filename;
+      const parts = relativePath.split('/');
+      currentDocName = parts[parts.length - 1];
+      currentDocSubdir = parts.length > 1 ? parts[0] : null;
       docModified = false;
       updateDocIndicator();
       hideModal('file-modal');
       // Restore associated stylesheet
       try {
-        const metaR = await Desktop.readByPath('docEditorDocs', filename + '.json');
+        const metaR = await Desktop.readByPath('docEditorDocs', relativePath + '.json');
         if (metaR && metaR.ok && metaR.content) {
           const meta = JSON.parse(metaR.content);
           const ss = meta.stylesheet || null;
           const sel = document.getElementById('stylesheet-select');
           if (ss && meta.stylesheetInDocs) {
-            // Co-located stylesheet saved alongside the document
-            const cssR = await Desktop.readByPath('docEditorDocs', ss).catch(() => null);
+            // Co-located stylesheet — may be inside doc's folder
+            const cssPath = currentDocSubdir ? currentDocSubdir + '/' + ss : ss;
+            const cssR = await Desktop.readByPath('docEditorDocs', cssPath).catch(() => null);
             const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
             cssEditor && cssEditor.setValue(cssContent);
             document.getElementById('custom-css-style').textContent = cssContent;
@@ -1418,12 +1967,59 @@ async function loadDoc(filename) {
   } catch(e) { showToast('Could not load: ' + e.message, true); }
 }
 
+async function openFromQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const target = params.get('editTarget');
+  const relPath = params.get('editRelPath');
+  if (target && relPath) await loadExternalDoc(target, relPath);
+}
+
+async function loadExternalDoc(target, relPath) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const r = await Desktop.readByPath(target, relPath);
+    if (r && r.ok) {
+      mdEditor.setValue(r.content || '');
+      const parts = relPath.split('/');
+      currentDocName = parts[parts.length - 1];
+      currentDocSubdir = null;
+      currentEditTarget = target;
+      currentEditRelPath = relPath;
+      docModified = false;
+      updateDocIndicator();
+      renderPreview();
+    } else {
+      showToast('Could not open file from ' + target + ': ' + relPath, true);
+    }
+  } catch(e) { showToast('Could not load: ' + e.message, true); }
+}
+
+async function saveExternalDoc() {
+  const content = mdEditor.getValue();
+  const relPath = currentEditRelPath;
+  const lastSlash = relPath.lastIndexOf('/');
+  const filename = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
+  const subdir = lastSlash >= 0 ? relPath.slice(0, lastSlash) : null;
+  try {
+    const r = await Desktop.saveText(currentEditTarget, filename, content, subdir);
+    if (r && r.ok) {
+      docModified = false;
+      updateDocIndicator();
+      showToast('Saved: ' + filename);
+    } else {
+      showToast('Save failed.', true);
+    }
+  } catch(e) { showToast('Save error: ' + e.message, true); }
+}
+
 async function saveDoc() {
   if (!window.Desktop || !Desktop.isElectron()) {
     showToast('File saving requires the Electron app.', true);
     return;
   }
-  if (currentDocName) {
+  if (currentEditTarget && currentEditRelPath) {
+    await saveExternalDoc();
+  } else if (currentDocName) {
     await doSaveDoc(currentDocName);
   } else {
     openSaveModal('Save Document', '.md', async name => {
@@ -1444,16 +2040,40 @@ async function saveDocAs() {
 async function doSaveDoc(filename) {
   if (!mdEditor) return;
   try {
-    const r = await Desktop.saveText('docEditorDocs', filename, mdEditor.getValue());
+    const content = mdEditor.getValue();
+    const hasCSS = !!currentStylesheetName;
+    const newSubdir = filename.replace(/\.md$/i, '');
+    const wasFlat = currentDocSubdir === null && currentDocName === filename;
+
+    const r = await Desktop.saveText('docEditorDocs', filename, content, newSubdir);
     if (r && r.ok) {
+      // Migrate flat → folder: delete old flat files
+      if (wasFlat && newSubdir) {
+        await Desktop.deleteByPath('docEditorDocs', filename).catch(() => {});
+        await Desktop.deleteByPath('docEditorDocs', filename + '.json').catch(() => {});
+        const oldPaired = parsePairedSS(currentStylesheetName);
+        if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
+      }
+      // Bundle CSS into folder when CSS is active
+      const cssFilename = filename.replace(/\.md$/i, '') + '.css';
+      if (newSubdir && hasCSS) {
+        const cssContent = cssEditor ? cssEditor.getValue() : '';
+        await Desktop.saveText('docEditorDocs', cssFilename, cssContent, newSubdir);
+        cssModified = false;
+        injectPairedSSOption(cssFilename);
+        currentStylesheetName = '@docs@' + cssFilename;
+        document.getElementById('custom-css-style').textContent = cssContent;
+      }
       currentDocName = filename;
+      currentDocSubdir = newSubdir;
       docModified = false;
       updateDocIndicator();
       hideModal('save-modal');
+      const metaSS = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
+      const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(newSubdir && hasCSS) });
+      await Desktop.saveText('docEditorDocs', filename + '.json', meta, newSubdir);
       showToast('Saved: ' + filename);
-      // Save stylesheet reference alongside the document
-      const meta = JSON.stringify({ stylesheet: currentStylesheetName || null });
-      await Desktop.saveText('docEditorDocs', filename + '.json', meta);
+      saveHistorySnapshot(filename, content);
     } else {
       showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'), true);
     }
@@ -1463,12 +2083,14 @@ async function doSaveDoc(filename) {
 async function autosaveDoc() {
   if (!currentDocName || !docModified || !mdEditor || !window.Desktop || !Desktop.isElectron()) return;
   try {
-    const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue());
+    const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue(), currentDocSubdir);
     if (r && r.ok) {
       docModified = false;
       updateDocIndicator();
-      const meta = JSON.stringify({ stylesheet: currentStylesheetName || null });
-      await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta);
+      const paired = parsePairedSS(currentStylesheetName);
+      const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.md$/i, '') + '.css' : (currentStylesheetName || null);
+      const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(currentDocSubdir && paired) });
+      await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta, currentDocSubdir);
     }
   } catch(e) { /* silent */ }
 }
@@ -1491,21 +2113,35 @@ async function saveAll() {
 async function doSaveAll(filename) {
   if (!mdEditor) return;
   const cssFilename = filename.replace(/\.md$/, '') + '.css';
+  const content = mdEditor.getValue();
   const css = cssEditor ? cssEditor.getValue() : '';
+  const newSubdir = filename.replace(/\.md$/i, ''); // Save All always creates a folder
+  const wasFlat = currentDocSubdir === null && currentDocName === filename;
   try {
     const [docR, cssR] = await Promise.all([
-      Desktop.saveText('docEditorDocs', filename, mdEditor.getValue()),
-      Desktop.saveText('docEditorDocs', cssFilename, css)
+      Desktop.saveText('docEditorDocs', filename, content, newSubdir),
+      Desktop.saveText('docEditorDocs', cssFilename, css, newSubdir)
     ]);
     if (docR && docR.ok && cssR && cssR.ok) {
+      if (wasFlat) {
+        await Desktop.deleteByPath('docEditorDocs', filename).catch(() => {});
+        await Desktop.deleteByPath('docEditorDocs', filename + '.json').catch(() => {});
+        const oldPaired = parsePairedSS(currentStylesheetName);
+        if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
+      }
       currentDocName = filename;
+      currentDocSubdir = newSubdir;
       docModified = false;
       cssModified = false;
       updateDocIndicator();
       hideModal('save-modal');
       const meta = JSON.stringify({ stylesheet: cssFilename, stylesheetInDocs: true });
-      await Desktop.saveText('docEditorDocs', filename + '.json', meta);
+      await Desktop.saveText('docEditorDocs', filename + '.json', meta, newSubdir);
+      injectPairedSSOption(cssFilename);
+      currentStylesheetName = '@docs@' + cssFilename;
+      document.getElementById('custom-css-style').textContent = css;
       showToast('Saved: ' + filename + ' + ' + cssFilename);
+      saveHistorySnapshot(filename, content);
     } else {
       showToast('Save failed', true);
     }
@@ -1518,6 +2154,9 @@ function newDoc() {
   }
   mdEditor && mdEditor.setValue('');
   currentDocName = null;
+  currentDocSubdir = null;
+  currentEditTarget = null;
+  currentEditRelPath = null;
   docModified = false;
   updateDocIndicator();
   if (currentStylesheetName && parsePairedSS(currentStylesheetName)) {
@@ -1530,12 +2169,154 @@ function newDoc() {
   }
 }
 
+// ── Version history ──────────────────────────────────────
+function makeHistoryFilename(docFilename) {
+  const base = docFilename.replace(/\.md$/i, '');
+  const now = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+  return `${base}.v${ts}.md`;
+}
+
+function formatHistoryDate(filename) {
+  const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.md$/i);
+  if (!m) return filename;
+  const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
+  return dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+    + ' — ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+async function saveHistorySnapshot(filename, content) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    const subdir = 'history/' + filename.replace(/\.md$/i, '');
+    await Desktop.saveText('docEditorDocs', makeHistoryFilename(filename), content, subdir);
+    const listed = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md'], recursive: false });
+    if (listed && listed.ok && Array.isArray(listed.files) && listed.files.length > 30) {
+      const sorted = listed.files.slice().sort((a, b) => (a.mtimeMs || 0) - (b.mtimeMs || 0));
+      for (const f of sorted.slice(0, sorted.length - 30)) {
+        await Desktop.deleteByPath('docEditorDocs', f.relativePath).catch(() => {});
+      }
+    }
+  } catch(e) { /* silent — history is best-effort */ }
+}
+
+async function openHistoryModal() {
+  if (!currentDocName) {
+    showToast('Save the document first to view its history.', true);
+    return;
+  }
+  const subdir = 'history/' + currentDocName.replace(/\.md$/i, '');
+  document.getElementById('history-modal-title').textContent = 'Version History — ' + currentDocName;
+  const body = document.getElementById('history-modal-body');
+  body.innerHTML = '<div class="modal-empty">Loading…</div>';
+  showModal('history-modal');
+
+  let files = [];
+  try {
+    const r = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md'], recursive: false });
+    files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+  } catch(e) {}
+
+  files.sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0));
+
+  if (!files.length) {
+    body.innerHTML = '<div class="modal-empty">No saved versions yet.<br>Versions are created on every manual save.</div>';
+    return;
+  }
+
+  body.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'file-list';
+
+  const preview = document.createElement('pre');
+  preview.id = 'hist-preview-pane';
+
+  files.forEach(f => {
+    const rp = f.relativePath || '';
+    const row = document.createElement('div');
+    row.className = 'file-row';
+
+    const label = document.createElement('span');
+    label.className = 'file-row-name';
+    label.textContent = formatHistoryDate(f.filename || rp);
+
+    const size = document.createElement('span');
+    size.style.cssText = 'font-size:.75rem;color:#888;white-space:nowrap;flex-shrink:0;';
+    size.textContent = f.size ? (Math.ceil(f.size / 1024) + ' KB') : '';
+
+    const previewBtn = document.createElement('button');
+    previewBtn.className = 'file-row-btn file-row-btn-outline';
+    previewBtn.textContent = 'Preview';
+    previewBtn.onclick = async () => {
+      previewBtn.textContent = '…';
+      try {
+        const r = await Desktop.readByPath('docEditorDocs', rp);
+        if (r && r.ok) {
+          preview.textContent = r.content || '';
+          preview.classList.add('visible');
+          preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } catch(e) {}
+      previewBtn.textContent = 'Preview';
+    };
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.className = 'file-row-btn';
+    restoreBtn.textContent = 'Restore';
+    restoreBtn.onclick = async () => {
+      if (docModified && !confirm('Discard unsaved changes and restore this version?')) return;
+      try {
+        const r = await Desktop.readByPath('docEditorDocs', rp);
+        if (r && r.ok) {
+          mdEditor.setValue(r.content || '');
+          docModified = true;
+          updateDocIndicator();
+          hideModal('history-modal');
+          showToast('Version restored — save to keep it.');
+        }
+      } catch(e) { showToast('Could not restore: ' + e.message, true); }
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'file-row-btn file-row-btn-del';
+    delBtn.textContent = 'Del';
+    delBtn.onclick = async () => {
+      if (!confirm('Delete this version?')) return;
+      try {
+        await Desktop.deleteByPath('docEditorDocs', rp);
+        row.remove();
+        if (!list.children.length) {
+          body.innerHTML = '<div class="modal-empty">No saved versions yet.<br>Versions are created on every manual save.</div>';
+        }
+      } catch(e) { showToast('Could not delete: ' + e.message, true); }
+    };
+
+    row.appendChild(label);
+    row.appendChild(size);
+    row.appendChild(previewBtn);
+    row.appendChild(restoreBtn);
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+
+  body.appendChild(list);
+  body.appendChild(preview);
+}
+
 // ── Template management ──────────────────────────────────
 async function refreshTemplateList() {
   if (!window.Desktop || !Desktop.isElectron()) return [];
   try {
-    const r = await Desktop.listByPath('docEditorTemplates', '', { extensions: ['.md'] });
-    return (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+    const r = await Desktop.listByPath('docEditorTemplates', '', { extensions: ['.md'], recursive: true });
+    if (!r || !r.ok || !Array.isArray(r.files)) return [];
+    return r.files.filter(f => {
+      const rp = f.relativePath || '';
+      const parts = rp.split('/');
+      if (parts.length === 1) return true;
+      if (parts.length === 2) return parts[1] === parts[0] + '.md';
+      return false;
+    });
   } catch(e) { return []; }
 }
 
@@ -1563,20 +2344,24 @@ async function openTemplateModal() {
     const list = document.createElement('div');
     list.className = 'file-list';
     files.forEach(f => {
-      const name = f.filename || f.relativePath || '';
+      const relativePath = f.relativePath || f.filename || '';
+      const parts = relativePath.split('/');
+      const displayName = parts.length > 1 ? parts[0] : relativePath.replace(/\.md$/i, '');
+      const loadPath = relativePath;
+      const deletePath = parts.length > 1 ? parts[0] : relativePath;
       const row = document.createElement('div');
       row.className = 'file-row';
-      row.innerHTML = '<span class="file-row-name">' + escHtml(name) + '</span>';
+      row.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>';
       const useBtn = document.createElement('button');
       useBtn.className = 'file-row-btn';
       useBtn.textContent = 'Use';
-      useBtn.onclick = () => loadTemplate(name);
+      useBtn.onclick = () => loadTemplate(loadPath);
       const delBtn = document.createElement('button');
       delBtn.className = 'file-row-btn file-row-btn-del';
       delBtn.textContent = 'Del';
       delBtn.onclick = async () => {
-        if (!confirm('Delete template "' + name + '"?')) return;
-        await Desktop.deleteByPath('docEditorTemplates', name);
+        if (!confirm('Delete template "' + displayName + '"?')) return;
+        await Desktop.deleteByPath('docEditorTemplates', deletePath);
         openTemplateModal();
       };
       row.appendChild(useBtn);
@@ -1598,6 +2383,7 @@ async function loadTemplate(filename) {
     if (r && r.ok) {
       mdEditor.setValue(r.content || '');
       currentDocName = null;
+      currentDocSubdir = null;
       docModified = false;
       updateDocIndicator();
       hideModal('file-modal');
@@ -1627,10 +2413,13 @@ async function saveAsTemplate() {
       letter-spacing:.5px;color:#666;margin-bottom:8px">Existing — click to overwrite</div>
       <div class="file-list">`;
     files.forEach(f => {
-      const name = f.filename || f.relativePath || '';
+      const rp = f.relativePath || f.filename || '';
+      const rparts = rp.split('/');
+      const displayName = rparts.length > 1 ? rparts[0] : rp.replace(/\.md$/i, '');
+      const selectName = (f.filename || '').replace(/\.md$/i, '');
       html += `<div class="file-row">
-        <span class="file-row-name">${escHtml(name)}</span>
-        <button class="file-row-btn file-row-btn-outline" data-name="${escHtml(name)}">Select</button>
+        <span class="file-row-name">${escHtml(displayName)}</span>
+        <button class="file-row-btn file-row-btn-outline" data-name="${escHtml(selectName)}">Select</button>
       </div>`;
     });
     html += '</div>';
@@ -1646,7 +2435,8 @@ async function saveAsTemplate() {
     if (!name) { showToast('Enter a filename', true); return; }
     if (!name.endsWith('.md')) name += '.md';
     try {
-      const r = await Desktop.saveText('docEditorTemplates', name, mdEditor.getValue());
+      const subdir = name.replace(/\.md$/i, '');
+      const r = await Desktop.saveText('docEditorTemplates', name, mdEditor.getValue(), subdir);
       if (r && r.ok) {
         hideModal('file-modal');
         showToast('Template saved: ' + name);
@@ -1721,7 +2511,8 @@ async function onStylesheetChange() {
   const paired = parsePairedSS(val);
   if (paired) {
     currentStylesheetName = val;
-    const cssR = await Desktop.readByPath('docEditorDocs', paired).catch(() => null);
+    const cssPath = currentDocSubdir ? currentDocSubdir + '/' + paired : paired;
+    const cssR = await Desktop.readByPath('docEditorDocs', cssPath).catch(() => null);
     const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
     cssEditor && cssEditor.setValue(cssContent);
     document.getElementById('custom-css-style').textContent = cssContent;
@@ -2033,6 +2824,7 @@ function showFullPreview() {
 
   // Copy rendered HTML from the live preview pane
   content.innerHTML = document.getElementById('preview-content').innerHTML;
+  fixPreviewImages(content);
 
   // Apply active custom CSS
   document.getElementById('full-preview-custom-css').textContent =
@@ -3038,6 +3830,11 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
   document.getElementById('btn-save-as-doc').addEventListener('click', saveDocAs);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);
+  document.getElementById('btn-doc-history').addEventListener('click', openHistoryModal);
+  document.getElementById('history-modal-close').addEventListener('click', () => hideModal('history-modal'));
+  document.getElementById('history-modal').addEventListener('click', function(e) {
+    if (e.target === this) hideModal('history-modal');
+  });
   document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
   document.getElementById('btn-export-docx').addEventListener('click', exportDocx);
   document.getElementById('btn-preview').addEventListener('click', showFullPreview);
@@ -3122,7 +3919,9 @@ window.addEventListener('DOMContentLoaded', function() {
       hideModal('file-modal');
       hideModal('save-modal');
       hideModal('settings-modal');
+      hideModal('history-modal');
       hideFullPreview();
+      deBookCloseModal();
     }
   });
 
@@ -3145,6 +3944,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
   initTablePicker();
   initImageDrop();
+  deBookPopulateDropdown();
 
   updateDocIndicator();
 });

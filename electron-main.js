@@ -160,10 +160,10 @@ function getSaveTargets() {
     user: path.join(writableRoot, 'user'),
     data: customDataRoot,
     gradeSheet: path.join(writableRoot, 'user/log/grade-sheet'),
-    grades: path.join(writableRoot, 'user/log/grades'),
-    groupParticipation: path.join(writableRoot, 'user/log/group-participation'),
-    mindmaps: path.join(writableRoot, 'user/log/constellation'),
-    constellationTemplates: path.join(writableRoot, 'user/log/constellation/templates'),
+    grades: path.join(writableRoot, 'user/grades'),
+    groupParticipation: path.join(writableRoot, 'user/group-participation'),
+    mindmaps: path.join(writableRoot, 'user/mindmaps'),
+    constellationTemplates: path.join(writableRoot, 'user/mindmaps/templates'),
     textualAnalyses: path.join(writableRoot, 'user/log/textual-analyses'),
     notes: path.join(writableRoot, 'user/log/notes'),
     customData: customDataRoot,
@@ -206,7 +206,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app'])
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation'])
 };
 
 let mainWindow;
@@ -1051,6 +1051,26 @@ async function collectConflicts(sourceDir, destinationDir, relativePrefix = '') 
     }
   }
   return conflicts;
+}
+
+async function migrateLogFolders() {
+  const writableRoot = getWritableRootDir();
+  const migrations = [
+    { from: path.join(writableRoot, 'user/log/grades'),              to: path.join(writableRoot, 'user/grades') },
+    { from: path.join(writableRoot, 'user/log/group-participation'), to: path.join(writableRoot, 'user/group-participation') },
+    { from: path.join(writableRoot, 'user/log/constellation'),       to: path.join(writableRoot, 'user/mindmaps') },
+  ];
+  for (const { from, to } of migrations) {
+    try { await fs.access(from); } catch { continue; }
+    let newExists = false;
+    try { await fs.access(to); newExists = true; } catch {}
+    if (newExists) {
+      await copyMissingTree(from, to);
+      await fs.rm(from, { recursive: true, force: true });
+    } else {
+      await fs.rename(from, to);
+    }
+  }
 }
 
 async function ensureWritableSeedData() {
@@ -4261,6 +4281,12 @@ app.whenReady().then(async () => {
     session.defaultSession.setSpellCheckerLanguages(['en-GB', 'fr-FR']);
   } catch (error) {
     console.warn('Could not set spell checker languages:', error.message);
+  }
+
+  try {
+    await migrateLogFolders();
+  } catch (error) {
+    console.error('Log folder migration failed:', error);
   }
 
   try {

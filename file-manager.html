@@ -1518,6 +1518,21 @@ function makeBrowseRow(file) {
     })(file);
     acts.appendChild(nativeBtn);
 
+    // Edit in Document Editor (markdown files only)
+    if (/\.md$/i.test(file.filename)) {
+      var editBtn = document.createElement('button');
+      editBtn.className = 'btn-action';
+      editBtn.textContent = tt('fmEditInDocEditor', 'Edit in Doc Editor');
+      (function(f) {
+        editBtn.addEventListener('click', function() {
+          Desktop.openTool('document-editor.html', {
+            query: { editTarget: f.target, editRelPath: f.relativePath || f.filename }
+          });
+        });
+      })(file);
+      acts.appendChild(editBtn);
+    }
+
     // Duplicate
     var dupBtn = document.createElement('button');
     dupBtn.className = 'btn-action';

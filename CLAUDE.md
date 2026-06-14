@@ -6,6 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before implementing any non-trivial feature or change, ask clarifying questions and offer concrete suggestions to make sure the intent is understood. For example: propose two or three specific approaches with trade-offs, flag assumptions about scope or behaviour, and confirm which files or tools are in scope. Only proceed once the direction is clear.
 
+## No Silent Deletions
+
+Never remove a function, method, event listener, UI element, or feature without explicit user approval. Before deleting anything:
+
+1. Stop and present a numbered list of every item that would be removed, including:
+   - The function/element name
+   - What it does (one sentence)
+   - Which file and approximate line it lives in
+2. Wait for the user to confirm the list before proceeding.
+
+This applies even when a removal seems obviously safe (dead code, apparent duplicates, refactoring). If in doubt, keep it and ask.
+
 ## Documentation Maintenance
 
 Whenever a user-facing feature, tool, setting, or behavior changes, update both:
@@ -63,9 +75,9 @@ Desktop.openSplit({ pageFile1: 'class-management.html', pageFile2: 'participatio
 user              → {writableRoot}/user
 data              → {writableRoot}/user/custom-data
 gradeSheet        → .../user/log/grade-sheet
-grades            → .../user/log/grades
-groupParticipation→ .../user/log/group-participation
-mindmaps          → .../user/log/constellation
+grades            → .../user/grades
+groupParticipation→ .../user/group-participation
+mindmaps          → .../user/mindmaps
 customWordbanks   → .../custom-data/wordbanks
 customBooks       → .../custom-data/books
 customDictations  → .../custom-data/dictations

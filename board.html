@@ -772,7 +772,6 @@
     <button onclick="conBoardCtxConfirmNote()" title="Add note"
             style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">📌</button>
   </div>
-  <div class="con-ctx-item" onclick="conBoardCtxFocusNoteInput()">📌 Add Note</div>
   <div class="con-ctx-item" onclick="conBoardCtxOpenStudentNote()">👥 Student Input Note</div>
   <div class="con-ctx-item" onclick="conBoardCtxImportText()">📂 Import Text</div>
   <div class="con-ctx-item" onclick="conBoardCtxAddMask()">▭ Add Mask</div>
@@ -1434,7 +1433,118 @@
 
 
 
+  <!-- Student Input Note popup -->
+  <div id="note-student-overlay" onclick="if(event.target===this)noteStudentPopupClose()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100040;align-items:center;justify-content:center;padding:14px;">
+    <div style="width:min(760px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;border:2px solid #111;border-radius:10px;box-shadow:0 20px 42px rgba(0,0,0,0.28);padding:12px 12px 10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="font-size:1.05rem;font-weight:800;">👥 Student Input Note</div>
+        <button class="action-btn btn-grey" onclick="noteStudentPopupClose()" style="margin-left:auto;padding:3px 10px;">✕</button>
+      </div>
+      <div style="font-size:0.84rem;color:#475569;margin-bottom:10px;">Students join from a phone, pick their class/name, and send text that is added after their name in this note.</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+        <div>
+          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Class group</label>
+          <select id="note-student-class" class="search-input" style="width:100%;"></select>
+        </div>
+        <div>
+          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Title</label>
+          <input id="note-student-title" class="search-input" type="text" maxlength="80" placeholder="Student notes" />
+        </div>
+        <div>
+          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Server URL</label>
+          <input id="note-student-server" class="search-input" type="text" placeholder="http://localhost:8787" oninput="noteStudentRefreshAddressPreview()" />
+        </div>
+        <div>
+          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Room id</label>
+          <input id="note-student-noteid" class="search-input" type="text" readonly />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+        <button class="action-btn btn-blue" id="note-student-connect-btn" onclick="noteStudentConnect()">Connect &amp; Open Room</button>
+        <button class="action-btn btn-grey" id="note-student-disconnect-btn" onclick="noteStudentDisconnect()">Disconnect</button>
+        <button class="action-btn btn-grey" onclick="noteStudentCopyJoinUrl()">Copy Join URL</button>
+      </div>
+      <div id="note-student-status" style="margin-top:8px;font-size:0.88rem;color:#475569;">Disconnected.</div>
+      <div style="margin-top:8px;padding:8px;border:1px solid #dbeafe;border-radius:8px;background:#f8fbff;">
+        <div style="font-size:0.72rem;font-weight:800;color:#1e3a8a;letter-spacing:0.02em;text-transform:uppercase;">Connection targets</div>
+        <div style="margin-top:4px;font-size:0.8rem;color:#334155;line-height:1.3;">
+          Host app (local):<br>
+          <strong id="note-student-host-url" style="word-break:break-all;">-</strong>
+        </div>
+        <div style="margin-top:6px;font-size:0.8rem;color:#334155;line-height:1.3;">
+          Student join (LAN/QR):<br>
+          <strong id="note-student-public-url" style="word-break:break-all;">-</strong>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed #d1d5db;">
+        <div style="font-size:0.83rem;color:#334155;line-height:1.35;">
+          Join URL:<br>
+          <strong id="note-student-join-url" style="word-break:break-all;">-</strong>
+        </div>
+        <img id="note-student-qr" alt="Student note QR" width="128" height="128" style="display:none;border:1px solid #d1d5db;border-radius:8px;padding:4px;background:#fff;" />
+      </div>
+    </div>
+  </div>
+
   <!-- TA HTML/EPUB Import Modal -->
+  <div id="ta-import-overlay" onclick="if(event.target===this)taCloseImport()">
+    <div id="ta-import-modal">
+      <div id="ta-imp-header">
+        <span id="ta-imp-header-title">📂 Import Book</span>
+        <button onclick="taCloseImport()" title="Close">✕</button>
+      </div>
+      <div id="ta-imp-body">
+        <div id="ta-imp-controls">
+          <div id="ta-imp-file-zone">
+            <input type="file" id="ta-imp-file-input" accept=".html,.htm,.epub,.txt,.xhtml"
+                   style="display:none" onchange="taImportFileLoaded(event)">
+            <div id="ta-imp-file-icon">📄</div>
+            <div id="ta-imp-file-name">No file chosen</div>
+            <button class="action-btn btn-grey" style="font-size:0.82rem;padding:6px 12px;width:100%;"
+                    onclick="document.getElementById('ta-imp-file-input').click()">Choose file…</button>
+            <div id="ta-imp-file-or" style="display:none">or</div>
+            <select id="ta-imp-book-shortcut" style="display:none" onchange="taImportLoadShortcutBook()">
+              <option value="">Books folder…</option>
+            </select>
+            <div id="ta-imp-char-count"></div>
+          </div>
+          <div id="ta-imp-range-section">
+            <div class="ta-imp-section-label">Text range <span class="ta-imp-optional">(optional)</span></div>
+            <div class="ta-imp-range-row">
+              <div class="ta-imp-range-col">
+                <label class="ta-imp-range-label">From</label>
+                <input id="ta-imp-start" class="ta-imp-field" type="text"
+                       placeholder="e.g. Chapter 1" oninput="taImportPreview()">
+              </div>
+              <div class="ta-imp-range-arrow">→</div>
+              <div class="ta-imp-range-col">
+                <label class="ta-imp-range-label">To</label>
+                <input id="ta-imp-end" class="ta-imp-field" type="text"
+                       placeholder="e.g. The End" oninput="taImportPreview()">
+              </div>
+            </div>
+          </div>
+          <div id="ta-imp-confirm-banner">
+            <span id="ta-imp-confirm-banner-msg"></span>
+            <div class="ta-imp-confirm-banner-btns">
+              <button class="action-btn btn-grey" onclick="taImportBannerCancel()">Cancel</button>
+              <button class="action-btn" onclick="taImportBannerOk()">Import anyway</button>
+            </div>
+          </div>
+        </div>
+        <div id="ta-imp-preview-col">
+          <div class="ta-imp-section-label" style="margin-bottom:8px;flex-shrink:0;">Preview</div>
+          <div id="ta-imp-preview" onmouseup="taImportCheckSelection()">Load a file to begin…</div>
+          <button id="ta-imp-sel-btn" onclick="taImportImportSelection()" style="display:none;">⬆ Import selection</button>
+        </div>
+      </div>
+      <div class="ta-imp-footer">
+        <button class="action-btn btn-grey" onclick="taCloseImport()">Cancel</button>
+        <button class="action-btn" id="ta-imp-confirm-btn" onclick="taImportConfirm()" disabled>📖 Import</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Word-note style popup -->
   <div id="wn-style-overlay" onclick="wnStyleClose(event)">
     <div id="wn-style-popup">
@@ -2651,6 +2761,7 @@ function hideFailure() {
     if (!suppressNextOutsideClick) return;
     suppressNextOutsideClick = false;
     if (isEditableTarget(e.target)) return;
+    if (e.target.closest && e.target.closest('#wn-style-popup, #wn-style-overlay')) return;
     e.stopImmediatePropagation();
     e.stopPropagation();
   }, true);
@@ -19576,6 +19687,12 @@ function hideFailure() {
 
 
 
+    // ── Stubs for variables from the removed textual-analysis section ──
+    let taWordNotes = [];
+    let taLines    = [];
+    function taFindToken() { return null; }
+    function taGetTitle()  { return ''; }
+
     // ================================================================
     // CONSTELLATION — FREE-FLOATING NOTES
     // ================================================================
@@ -19805,6 +19922,1224 @@ function hideFailure() {
       if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
       return true;
     }
+
+    // ── Note style popup — constants, state, and all wn* functions ────
+
+    const WN_COLORS = [
+      'rgb(0, 0, 255)', // blue
+      'rgb(0, 255, 0)', // green
+      'rgb(0,0,0)', // black
+      'rgb(255, 0, 0)', // red
+      'rgb(255, 0, 255)', // magenta
+      'yellow', // yellow
+      'orange', // orange
+      'brown', // brown
+      'gray' // gray
+    ];
+    const WN_BGS = [
+      'rgba(255, 255, 255, .95)', // white
+      'rgba(254, 243, 199, .95)', // light yellow
+      'rgba(220, 252, 231, .95)', // light green
+      'rgba(224, 242, 254, .95)', // light blue
+      'rgba(252, 231, 243, .95)', // light pink
+      'rgba(238, 238, 238, .95)', // light gray
+      'rgba(214, 183, 170, .3)'  // light brown
+    ];
+    const WN_HIGHLIGHT_COLORS = [
+      'rgb(255 229 0)', // pastel yellow
+      '#b3ffb3', // pastel green
+      '#b3f0ff', // pastel cyan
+      '#ffc299', // pastel orange
+      'rgb(255 190 226)', // pastel pink
+      'transparent', // transparent
+      'black', // black
+    ];
+    window.WN_COLORS = WN_COLORS;
+    window.WN_BGS = WN_BGS;
+    window.WN_HIGHLIGHT_COLORS = WN_HIGHLIGHT_COLORS;
+    const WN_BORDER_SWATCHES = ['#111111','#555555','#dc2626','#ea580c','#d97706','#16a34a','#0d9488','#2563eb','#0284c7','#7c3aed','#db2777'];
+    window.WN_BORDER_SWATCHES = WN_BORDER_SWATCHES;
+    const WN_SIZE_MIN = 4, WN_SIZE_MAX = 72;
+
+    let _wnActiveNote = null;
+    let _wnSavedSelectionRange = null;
+    let _wnPopupWordMeta = null;
+    let _wnOverlayOpenTime = 0;
+
+    function wnNormalizeLookupWord(raw) {
+      const text = String(raw || '').trim().toLowerCase();
+      if (!text) return '';
+      const m = text.match(/[a-zA-ZÀ-ÖØ-öø-ÿ][a-zA-ZÀ-ÖØ-öø-ÿ''-]*/);
+      return m ? m[0].replace(/[']/g, "'") : '';
+    }
+
+    function wnFindDbEntryForWord(word) {
+      if (!word || typeof vocabBank === 'undefined') return null;
+      const key = String(word).toLowerCase();
+      const exact = vocabBank.find(v => v && v.word && String(v.word).toLowerCase() === key);
+      if (exact) return exact;
+      return vocabBank.find(v => {
+        if (!v) return false;
+        if (Array.isArray(v.otherForms)) {
+          return v.otherForms.some(f => String(f || '').toLowerCase() === key);
+        }
+        if (typeof v.otherForms === 'string') {
+          return v.otherForms.split(/[,;/]+/).map(s => s.trim().toLowerCase()).includes(key);
+        }
+        return false;
+      }) || null;
+    }
+
+    function wnGetSelectedTextInsideEditor(editor) {
+      if (!editor) return '';
+      if (editor.tagName === 'TEXTAREA') {
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        if (!Number.isInteger(start) || !Number.isInteger(end) || end <= start) return '';
+        return String(editor.value || '').slice(start, end).trim();
+      }
+      const sel = window.getSelection && window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return '';
+      const range = sel.getRangeAt(0);
+      const anc = range.commonAncestorContainer;
+      if (!(editor === anc || editor.contains(anc))) return '';
+      return String(sel.toString() || '').trim();
+    }
+
+    function wnResolveWordMetaFromNoteContext(noteEl) {
+      if (!noteEl) return null;
+      const editor = noteEl.querySelector('.wn-note-editor, textarea');
+      if (!editor) return null;
+      const selectedText = wnGetSelectedTextInsideEditor(editor);
+      const lookupWord = wnNormalizeLookupWord(selectedText);
+      if (!lookupWord) return null;
+      const entry = wnFindDbEntryForWord(lookupWord);
+      if (!entry) return null;
+      const defs = (typeof _allVals === 'function') ? _allVals(entry.definition) : (Array.isArray(entry.definition) ? entry.definition : [entry.definition]);
+      const frVals = (typeof _splitFrenchTranslations === 'function') ? _splitFrenchTranslations(entry.french) : (Array.isArray(entry.french) ? entry.french : [entry.french]);
+      return {
+        word: entry.word || lookupWord,
+        ipa: String(entry.ipa || '').trim(),
+        french: frVals.filter(Boolean).slice(0, 3).join(', '),
+        definition: String((defs.filter(Boolean)[0] || '')).trim()
+      };
+    }
+
+    function wnRenderPopupWordMeta(meta) {
+      const box = document.getElementById('wn-sp-wordmeta');
+      if (!box) return;
+      if (!meta) { box.style.display = 'none'; return; }
+
+      function bindCopy(el, value) {
+        if (!el) return;
+        const copyText = String(value || '').trim();
+        el.classList.add('wn-sp-copyable');
+        el.title = copyText ? 'Click to copy' : 'Nothing to copy';
+        el.onclick = async (ev) => {
+          ev.stopPropagation();
+          if (!copyText || copyText === '—') return;
+          let ok = false;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(copyText); ok = true; }
+          } catch (_) {}
+          if (!ok) {
+            try {
+              const tmp = document.createElement('textarea');
+              tmp.value = copyText; tmp.style.position = 'fixed'; tmp.style.opacity = '0';
+              document.body.appendChild(tmp); tmp.focus(); tmp.select();
+              ok = document.execCommand('copy'); tmp.remove();
+            } catch (_) {}
+          }
+          if (!ok) return;
+          const prev = el.textContent; el.textContent = 'Copied';
+          setTimeout(() => { el.textContent = prev; }, 600);
+        };
+      }
+
+      const wordEl = document.getElementById('wn-sp-wordmeta-word');
+      const ipaEl  = document.getElementById('wn-sp-wordmeta-ipa');
+      const frEl   = document.getElementById('wn-sp-wordmeta-fr');
+      const defEl  = document.getElementById('wn-sp-wordmeta-def');
+      if (wordEl) wordEl.textContent = meta.word || '';
+      if (ipaEl)  ipaEl.textContent  = meta.ipa ? `/ ${meta.ipa} /` : '—';
+      if (frEl)   frEl.textContent   = meta.french || '—';
+      if (defEl)  defEl.textContent  = meta.definition || '—';
+      bindCopy(wordEl, meta.word || '');
+      bindCopy(ipaEl, meta.ipa || '');
+      bindCopy(frEl, meta.french || '');
+      bindCopy(defEl, meta.definition || '');
+      box.style.display = '';
+    }
+
+    function wnStyleOpen(noteData, anchorEl, triggerEvent, wordMeta) {
+      {
+        const prevNoteEl = document.querySelector(
+          `.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`
+        );
+        if (prevNoteEl) {
+          const prevEditor = prevNoteEl.querySelector('.wn-note-editor, textarea');
+          if (prevEditor) wnRememberSelection(prevEditor);
+        }
+      }
+      _wnActiveNote = noteData;
+      _wnPopupWordMeta = wordMeta || null;
+      _wnOverlayOpenTime = Date.now();
+      const overlay = document.getElementById('wn-style-overlay');
+      const popup   = document.getElementById('wn-style-popup');
+      wnRenderPopupWordMeta(_wnPopupWordMeta);
+
+      const presetBtns = document.getElementById('wn-sp-preset-btns');
+      if (presetBtns) {
+        presetBtns.innerHTML = '';
+        const presets = (window.conGetNotePresets ? window.conGetNotePresets() : []);
+        const activePreset = noteData.preset || null;
+        presets.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'con-preset-btn' + (p.key === activePreset ? ' active' : '');
+          btn.dataset.presetKey = p.key;
+          btn.title = p.label;
+          btn.textContent = p.key;
+          btn.style.background   = p.bg;
+          btn.style.color        = p.color;
+          btn.style.borderColor  = p.borderColor;
+          btn.style.borderWidth  = (p.borderWidth || 2) + 'px';
+          btn.style.borderStyle  = p.borderStyle || 'solid';
+          if (p.highlight) btn.style.boxShadow = `0 0 0 2px ${p.highlight}`;
+          if (p.fmt) {
+            btn.style.fontWeight     = p.fmt.bold      ? 'bold'   : '';
+            btn.style.fontStyle      = p.fmt.italic    ? 'italic' : '';
+            btn.style.textDecoration = [p.fmt.underline ? 'underline' : '', p.fmt.strike ? 'line-through' : ''].filter(Boolean).join(' ') || '';
+          }
+          btn.addEventListener('mousedown', e => e.preventDefault());
+          btn.onclick = () => { wnApplyNotePreset(p.key); wnStyleDismiss(); };
+          presetBtns.appendChild(btn);
+        });
+        const presetRow = document.getElementById('wn-sp-preset-row');
+        if (presetRow) presetRow.style.display = presets.length ? '' : 'none';
+      }
+
+      const colEl = document.getElementById('wn-sp-colors');
+      colEl.innerHTML = '';
+      WN_COLORS.forEach(c => {
+        const s = document.createElement('span');
+        s.className = 'wn-sp-swatch' + (noteData.color === c ? ' active' : '');
+        s.style.background = c;
+        s.style.border = c === '#ffffff' ? '2px solid #ccc' : '';
+        s.title = c;
+        s.addEventListener('mousedown', e => e.preventDefault());
+        s.onclick = () => {
+          if (!wnApplySelectionCommand('foreColor', c)) {
+            noteData.color = c;
+            noteData._applyStyle && noteData._applyStyle();
+          }
+          wnStyleRefresh();
+          window.getSelection().removeAllRanges();
+          wnStyleDismiss();
+        };
+        colEl.appendChild(s);
+      });
+
+      const bgEl = document.getElementById('wn-sp-bgs');
+      bgEl.innerHTML = '';
+      WN_BGS.forEach(c => {
+        const s = document.createElement('span');
+        s.className = 'wn-sp-swatch' + (noteData.bg === c ? ' active' : '');
+        s.style.background = c === 'transparent' ? 'repeating-linear-gradient(45deg,#ccc,#ccc 3px,#fff 3px,#fff 6px)' : c;
+        s.style.border = '2px solid #ddd';
+        s.title = c;
+        s.onclick = () => { noteData.bg = c; noteData._applyStyle && noteData._applyStyle(); wnStyleRefresh(); window.getSelection().removeAllRanges(); wnStyleDismiss(); };
+        bgEl.appendChild(s);
+      });
+
+      const hlEl = document.getElementById('wn-sp-highlights');
+      hlEl.innerHTML = '';
+      WN_HIGHLIGHT_COLORS.forEach(c => {
+        const s = document.createElement('span');
+        s.className = 'wn-sp-swatch';
+        if (c === '__blink__') {
+          s.style.background = '#ffa0a0';
+          s.style.animation = 'wn-blink-hl-anim 3s ease-in-out infinite';
+          s.title = 'Blinking highlight';
+        } else {
+          s.style.background = c;
+          s.title = 'Highlight ' + c;
+        }
+        s.style.border = '2px solid #ddd';
+        s.addEventListener('mousedown', e => e.preventDefault());
+        s.onclick = () => { wnStyleApplyHighlight(c); window.getSelection().removeAllRanges(); wnStyleDismiss(); };
+        hlEl.appendChild(s);
+      });
+
+      const borderColEl = document.getElementById('wn-sp-border-colors');
+      if (borderColEl) {
+        borderColEl.innerHTML = '';
+        (WN_BORDER_SWATCHES || []).forEach(c => {
+          const s = document.createElement('span');
+          s.className = 'wn-sp-swatch' + (noteData.borderColor === c ? ' active' : '');
+          s.style.background = c;
+          s.style.border = '3px solid ' + c;
+          if (noteData.borderColor === c) s.style.outline = '2px solid #111';
+          s.title = 'Border: ' + c;
+          s.onclick = () => {
+            wnStyleSetBorderColor(c);
+            const picker = document.getElementById('wn-sp-border-color');
+            if (picker && /^#[0-9a-fA-F]{6}$/.test(c)) picker.value = c;
+            wnStyleRefresh();
+          };
+          borderColEl.appendChild(s);
+        });
+      }
+
+      const szSlider = document.getElementById('wn-sp-size-slider');
+      const szVal    = document.getElementById('wn-sp-size-val');
+      szSlider.min   = WN_SIZE_MIN;
+      szSlider.max   = WN_SIZE_MAX;
+      szSlider.value = noteData.fontSize;
+      szVal.textContent = noteData.fontSize + 'px';
+
+      const bwSlider = document.getElementById('wn-sp-border-width');
+      const bwVal    = document.getElementById('wn-sp-border-width-val');
+      if (bwSlider) { bwSlider.value = noteData.borderWidth || 0; }
+      if (bwVal)    { bwVal.textContent = (noteData.borderWidth || 0) + 'px'; }
+      const bcPicker = document.getElementById('wn-sp-border-color');
+      if (bcPicker) { bcPicker.value = (noteData.borderColor && /^#[0-9a-fA-F]{6}$/.test(noteData.borderColor)) ? noteData.borderColor : '#111111'; }
+      const curBs = noteData.borderStyle || '';
+      ['solid','dashed','dotted','double'].forEach(s => {
+        const btn = document.getElementById('wn-sp-bs-' + s);
+        if (btn) btn.classList.toggle('active', curBs === s);
+      });
+
+      document.getElementById('wn-sp-bold').classList.toggle('active', !!noteData.bold);
+      document.getElementById('wn-sp-italic').classList.toggle('active', !!noteData.italic);
+      document.getElementById('wn-sp-underline').classList.toggle('active', !!noteData.underline);
+      document.getElementById('wn-sp-strike').classList.toggle('active', !!noteData.strike);
+      const lockBtn = document.getElementById('wn-sp-lock-btn');
+      if (lockBtn) { lockBtn.textContent = noteData.locked ? '🔒 Unlock' : '🔓 Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
+      const hideBtn = document.getElementById('wn-sp-hide-btn');
+      if (hideBtn) hideBtn.textContent = noteData.hidden ? '👁 Reveal note' : '👁 Hide note';
+      const blinkBtn = document.getElementById('wn-sp-blink-btn');
+      if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
+      const openInputBtn = document.getElementById('wn-sp-open-input-btn');
+      const stopInputBtn = document.getElementById('wn-sp-stop-input-btn');
+      if (stopInputBtn) {
+        const activeNoteEl = noteData && noteData.id
+          ? document.querySelector(`.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`)
+          : null;
+        const isStudentInput = !!noteData.studentInput || !!(activeNoteEl && activeNoteEl.classList.contains('student-input'));
+        stopInputBtn.style.display = isStudentInput ? '' : 'none';
+        if (openInputBtn) openInputBtn.style.display = isStudentInput ? '' : 'none';
+      }
+
+      _wnPopupDragged = false;
+      overlay.classList.add('active');
+      const pw = popup.offsetWidth  || 260;
+      const ph = popup.offsetHeight || 340;
+      const MARGIN = 12;
+      {
+        if (triggerEvent && Number.isFinite(triggerEvent.clientX) && Number.isFinite(triggerEvent.clientY)) {
+          let left = triggerEvent.clientX + 10;
+          let top  = triggerEvent.clientY + 8;
+          if (left + pw > window.innerWidth  - MARGIN) left = triggerEvent.clientX - pw - 10;
+          if (top  + ph > window.innerHeight - MARGIN) top  = window.innerHeight - ph - MARGIN;
+          if (left < MARGIN) left = MARGIN;
+          if (top  < MARGIN) top  = MARGIN;
+          popup.style.left = left + 'px';
+          popup.style.top  = top  + 'px';
+          return;
+        }
+        let noteEl = null;
+        if (anchorEl && anchorEl !== document.body && anchorEl.getBoundingClientRect
+            && (anchorEl.classList.contains('ta-word-note') || anchorEl.classList.contains('con-word-note'))) {
+          noteEl = anchorEl;
+        }
+        if (!noteEl && noteData && noteData.id) {
+          noteEl = document.querySelector(`.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`);
+        }
+        if (noteEl) {
+          const rect = noteEl.getBoundingClientRect();
+          let left = rect.right + 10;
+          let top  = rect.top;
+          if (left + pw > window.innerWidth  - MARGIN) left = rect.left - pw - 10;
+          if (left < MARGIN) left = Math.min(rect.right + 10, window.innerWidth - pw - MARGIN);
+          if (top  + ph > window.innerHeight - MARGIN) top  = window.innerHeight - ph - MARGIN;
+          if (top  < MARGIN) top  = MARGIN;
+          popup.style.left = left + 'px';
+          popup.style.top  = top  + 'px';
+        } else {
+          popup.style.left = (window.innerWidth  / 2 - pw / 2) + 'px';
+          popup.style.top  = (window.innerHeight / 2 - ph / 2) + 'px';
+        }
+      }
+    }
+
+    let _wnPopupDragged = false;
+    (function() {
+      const popup = document.getElementById('wn-style-popup');
+      const handle = popup.querySelector('h4');
+      let dragging = false, ox = 0, oy = 0;
+      handle.addEventListener('mousedown', e => {
+        if (e.target.tagName === 'BUTTON') return;
+        dragging = true; _wnPopupDragged = true;
+        ox = e.clientX - popup.offsetLeft;
+        oy = e.clientY - popup.offsetTop;
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        popup.style.left = (e.clientX - ox) + 'px';
+        popup.style.top  = (e.clientY - oy) + 'px';
+      });
+      document.addEventListener('mouseup', () => { dragging = false; });
+    })();
+
+    function conGetNotePresets() {
+      const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const saved = Array.isArray(bc.notePresets) && bc.notePresets.length ? bc.notePresets : null;
+      if (!saved) return [];
+      return saved.map(p => ({
+        key:         String(p.key         || '').trim(),
+        label:       String(p.label       || p.key || '').trim(),
+        bg:          String(p.bg          || '#ffffff'),
+        color:       String(p.color       || '#111111'),
+        borderColor: String(p.borderColor || '#111111'),
+        borderWidth: Number(p.borderWidth || 0),
+        borderStyle: String(p.borderStyle || 'solid'),
+        fontFamily:  String(p.fontFamily  || ''),
+        fontSize:    (p.fontSize != null && p.fontSize !== '') ? Number(p.fontSize) : null,
+        fmt: p.fmt && typeof p.fmt === 'object' ? {
+          bold: !!p.fmt.bold, italic: !!p.fmt.italic, underline: !!p.fmt.underline, strike: !!p.fmt.strike
+        } : { bold: false, italic: false, underline: false, strike: false }
+      }));
+    }
+    window.conGetNotePresets = conGetNotePresets;
+
+    function wnApplyNotePreset(presetKey) {
+      const nd = _wnActiveNote;
+      if (!nd) return;
+      const preset = conGetNotePresets().find(p => p.key === presetKey);
+      if (!preset) return;
+      nd.bg = preset.bg; nd.color = preset.color;
+      nd.borderColor = preset.borderColor; nd.borderWidth = preset.borderWidth || 0; nd.borderStyle = preset.borderStyle || 'solid';
+      nd.bold = !!(preset.fmt && preset.fmt.bold); nd.italic = !!(preset.fmt && preset.fmt.italic);
+      nd.underline = !!(preset.fmt && preset.fmt.underline); nd.strike = !!(preset.fmt && preset.fmt.strike);
+      if (preset.fontFamily !== undefined) nd.fontFamily = preset.fontFamily || '';
+      if (preset.fontSize != null) nd.fontSize = Number(preset.fontSize);
+      nd.preset = preset.key;
+      if (nd._applyStyle) nd._applyStyle();
+    }
+
+    let _notePresetEditorDraft = [];
+    function _wnEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+    function _wnSafeHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s || '') ? s : '#ffffff'; }
+
+    function noteOpenPresetEditor() {
+      _notePresetEditorDraft = conGetNotePresets().map(p => ({ ...p }));
+      _notePresetEditorRender();
+      document.getElementById('note-preset-editor-overlay').classList.add('active');
+    }
+    window.noteOpenPresetEditor = noteOpenPresetEditor;
+
+    function noteClosePresetEditor() {
+      document.getElementById('note-preset-editor-overlay').classList.remove('active');
+    }
+    window.noteClosePresetEditor = noteClosePresetEditor;
+
+    function _notePresetEditorRender() {
+      const list = document.getElementById('note-preset-editor-list');
+      if (!list) return;
+      list.innerHTML = '';
+      const hdr = document.createElement('div');
+      hdr.className = 'con-preset-editor-labels';
+      hdr.innerHTML = '<span></span><span>Key</span><span>Label</span><span title="Background">BG</span><span title="Text colour">Txt</span><span title="Border colour">Bdr</span><span title="Border width (px)">W</span><span title="Border style">Style</span><span title="Font family">Font</span><span title="Font size in px (blank = unchanged)">Size</span><span title="Text formatting">Fmt</span><span></span>';
+      list.appendChild(hdr);
+      _notePresetEditorDraft.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'con-preset-editor-row';
+        row.draggable = true;
+        row.innerHTML = `
+          <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
+          <input type="text" class="pe-key" value="${_wnEsc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
+          <input type="text" class="pe-label" value="${_wnEsc(p.label)}" maxlength="24" placeholder="Label" title="Tooltip / full name">
+          <input type="color" class="pe-bg"    value="${_wnSafeHex(p.bg)}"          title="Background colour">
+          <input type="color" class="pe-color" value="${_wnSafeHex(p.color)}"       title="Text colour">
+          <input type="color" class="pe-bdr"   value="${_wnSafeHex(p.borderColor)}" title="Border colour">
+          <input type="number" class="pe-bw" min="0" max="10" value="${p.borderWidth || 0}" title="Border width (px)" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+          <select class="pe-bs" title="Border style">
+            <option value="solid"  ${p.borderStyle==='solid'?'selected':''}>solid</option>
+            <option value="dashed" ${p.borderStyle==='dashed'?'selected':''}>dashed</option>
+            <option value="dotted" ${p.borderStyle==='dotted'?'selected':''}>dotted</option>
+            <option value="double" ${p.borderStyle==='double'?'selected':''}>double</option>
+          </select>
+          <div class="pe-font-wrap"></div>
+          <input type="number" class="pe-fs" min="6" max="72" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="Font size in px (leave blank to keep unchanged)" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+          <div class="pe-fmt-btns">
+            <button class="pe-fmt-btn${p.fmt.bold?' active':''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="Bold"><b>B</b></button>
+            <button class="pe-fmt-btn${p.fmt.italic?' active':''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="Italic"><i>I</i></button>
+            <button class="pe-fmt-btn${p.fmt.underline?' active':''}" data-fmt="under" onclick="this.classList.toggle('active')" title="Underline"><u>U</u></button>
+            <button class="pe-fmt-btn${p.fmt.strike?' active':''}" data-fmt="strike" onclick="this.classList.toggle('active')" title="Strikethrough"><s>S</s></button>
+          </div>
+          <button class="con-preset-editor-del-btn" title="Remove this preset" onclick="notePresetEditorDeleteRow(${i})">🗑</button>
+        `;
+        const fontWrap = row.querySelector('.pe-font-wrap');
+        if (fontWrap && typeof _bcBuildFontSelect === 'function') {
+          const fsel = _bcBuildFontSelect('', p.fontFamily || '', '');
+          fsel.className = 'pe-font';
+          fsel.title = 'Font family (blank = default)';
+          fsel.style.cssText = 'width:100%;font-size:0.72rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;font-family:inherit;';
+          fontWrap.appendChild(fsel);
+        }
+        list.appendChild(row);
+      });
+      const addBtn = document.getElementById('note-preset-add-btn');
+      if (addBtn) addBtn.disabled = _notePresetEditorDraft.length >= 15;
+      _notePresetEditorEnableDrag(list);
+    }
+
+    function _notePresetEditorFlushDOM() {
+      const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
+      const flushed = [];
+      rows.forEach(row => {
+        const key = (row.querySelector('.pe-key').value || '').trim();
+        const label = (row.querySelector('.pe-label').value || key).trim();
+        if (!key) return;
+        const bg = row.querySelector('.pe-bg').value || '#ffffff';
+        const color = row.querySelector('.pe-color').value || '#111111';
+        const borderColor = row.querySelector('.pe-bdr').value || '#111111';
+        const borderWidth = Math.max(0, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 0));
+        const borderStyle = row.querySelector('.pe-bs').value || 'solid';
+        const fmtBtns = row.querySelector('.pe-fmt-btns');
+        const fmt = {
+          bold:      fmtBtns ? fmtBtns.querySelector('[data-fmt="bold"]').classList.contains('active')   : false,
+          italic:    fmtBtns ? fmtBtns.querySelector('[data-fmt="italic"]').classList.contains('active') : false,
+          underline: fmtBtns ? fmtBtns.querySelector('[data-fmt="under"]').classList.contains('active')  : false,
+          strike:    fmtBtns ? fmtBtns.querySelector('[data-fmt="strike"]').classList.contains('active') : false
+        };
+        const fontSel = row.querySelector('.pe-font');
+        const fontFamily = fontSel ? (fontSel.value || '') : '';
+        const fsInput = row.querySelector('.pe-fs');
+        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(72, parseInt(fsInput.value))) : null;
+        flushed.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
+      });
+      if (flushed.length > 0) _notePresetEditorDraft = flushed;
+    }
+
+    window.notePresetEditorDeleteRow = function(i) {
+      _notePresetEditorFlushDOM();
+      _notePresetEditorDraft.splice(i, 1);
+      _notePresetEditorRender();
+    };
+
+    function _notePresetEditorEnableDrag(list) {
+      let dragSrc = null;
+      list.querySelectorAll('.con-preset-editor-row').forEach(row => {
+        const handle = row.querySelector('.pe-drag-handle');
+        if (handle) {
+          handle.addEventListener('mousedown', () => { row.draggable = true; });
+          handle.addEventListener('mouseup',   () => { row.draggable = false; });
+        }
+        row.addEventListener('dragstart', e => { dragSrc = row; e.dataTransfer.effectAllowed = 'move'; row.classList.add('pe-row-dragging'); });
+        row.addEventListener('dragend', () => { row.classList.remove('pe-row-dragging'); list.querySelectorAll('.con-preset-editor-row').forEach(r => r.classList.remove('pe-row-drag-over')); dragSrc = null; });
+        row.addEventListener('dragover', e => { e.preventDefault(); if (dragSrc && dragSrc !== row) row.classList.add('pe-row-drag-over'); });
+        row.addEventListener('dragleave', () => row.classList.remove('pe-row-drag-over'));
+        row.addEventListener('drop', e => {
+          e.preventDefault(); row.classList.remove('pe-row-drag-over');
+          if (!dragSrc || dragSrc === row) return;
+          const rows = Array.from(list.querySelectorAll('.con-preset-editor-row'));
+          const fromIdx = rows.indexOf(dragSrc), toIdx = rows.indexOf(row);
+          if (fromIdx < 0 || toIdx < 0) return;
+          _notePresetEditorFlushDOM();
+          const [moved] = _notePresetEditorDraft.splice(fromIdx, 1);
+          _notePresetEditorDraft.splice(toIdx, 0, moved);
+          _notePresetEditorRender();
+        });
+      });
+    }
+
+    window.notePresetEditorAddRow = function() {
+      if (_notePresetEditorDraft.length >= 15) return;
+      _notePresetEditorFlushDOM();
+      _notePresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 0, borderStyle: 'solid', fontFamily: '', fontSize: null, fmt: { bold: false, italic: false, underline: false, strike: false } });
+      _notePresetEditorRender();
+      const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
+      const last = rows[rows.length - 1];
+      if (last) { const kf = last.querySelector('.pe-key'); if (kf) kf.focus(); }
+    };
+
+    window.notePresetEditorSave = async function() {
+      const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
+      const result = [];
+      rows.forEach(row => {
+        const key = (row.querySelector('.pe-key').value || '').trim();
+        const label = (row.querySelector('.pe-label').value || key).trim();
+        const bg = row.querySelector('.pe-bg').value || '#ffffff';
+        const color = row.querySelector('.pe-color').value || '#111111';
+        const borderColor = row.querySelector('.pe-bdr').value || '#111111';
+        const borderWidth = Math.max(0, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 0));
+        const borderStyle = row.querySelector('.pe-bs').value || 'solid';
+        const fmtBtns = row.querySelector('.pe-fmt-btns');
+        const fmt = {
+          bold:      fmtBtns ? fmtBtns.querySelector('[data-fmt="bold"]').classList.contains('active')   : false,
+          italic:    fmtBtns ? fmtBtns.querySelector('[data-fmt="italic"]').classList.contains('active') : false,
+          underline: fmtBtns ? fmtBtns.querySelector('[data-fmt="under"]').classList.contains('active')  : false,
+          strike:    fmtBtns ? fmtBtns.querySelector('[data-fmt="strike"]').classList.contains('active') : false
+        };
+        if (!key) return;
+        const fontSel = row.querySelector('.pe-font');
+        const fontFamily = fontSel ? (fontSel.value || '') : '';
+        const fsInput = row.querySelector('.pe-fs');
+        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(72, parseInt(fsInput.value))) : null;
+        result.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
+      });
+      const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      bc.notePresets = result;
+      window.BOARD_CONFIG = bc;
+      const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
+      if (window.Desktop && typeof Desktop.saveText === 'function') {
+        try { await Desktop.saveText('user', 'board-config.js', lines); mdbToast('✅ Note presets saved to board-config.js'); }
+        catch (err) { mdbToast('⚠️ Could not save: ' + (err && err.message ? err.message : String(err))); }
+      } else {
+        const blob = new Blob([lines], { type: 'text/javascript' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = 'board-config.js'; a.click();
+        URL.revokeObjectURL(url);
+        mdbToast('📥 board-config.js downloaded — replace the file in user/');
+      }
+      noteClosePresetEditor();
+    };
+
+    function wnStyleRefresh() {
+      if (!_wnActiveNote) return;
+      const noteEl = wnGetNoteElementById(_wnActiveNote.id);
+      wnStyleOpen(_wnActiveNote, noteEl || document.body, undefined, _wnPopupWordMeta);
+    }
+
+    let _wnCtxNoteData = null;
+
+    function wnCtxOpen(noteData, noteEl, e) {
+      _wnCtxNoteData = noteData;
+      const menu = document.getElementById('wn-ctx-menu');
+      if (!menu) return;
+      const title = document.getElementById('wn-ctx-title');
+      const hideItem = document.getElementById('wn-ctx-hide-item');
+      const snippet = (noteData.text || '').trim().slice(0, 28) || 'Note';
+      if (title) title.textContent = snippet + (noteData.text && noteData.text.length > 28 ? '…' : '');
+      if (hideItem) hideItem.textContent = noteData.hidden ? '👁 Reveal note' : '👁 Hide note';
+      menu.classList.add('visible');
+      const MARGIN = 10;
+      const mw = menu.offsetWidth || 170, mh = menu.offsetHeight || 120;
+      let x = e.clientX + 6, y = e.clientY + 6;
+      if (x + mw > window.innerWidth  - MARGIN) x = e.clientX - mw - 6;
+      if (y + mh > window.innerHeight - MARGIN) y = e.clientY - mh - 6;
+      menu.style.left = Math.max(MARGIN, x) + 'px';
+      menu.style.top  = Math.max(MARGIN, y) + 'px';
+    }
+
+    function wnCtxClose() {
+      _wnCtxNoteData = null;
+      const menu = document.getElementById('wn-ctx-menu');
+      if (menu) menu.classList.remove('visible');
+    }
+
+    function wnCtxStyle() {
+      const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return;
+      wnStyleOpen(nd, wnGetNoteElementById(nd.id) || document.body);
+    }
+    function wnCtxDuplicate() {
+      const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return;
+      if (nd.id && nd.id.startsWith('cn')) { if (window.conPushUndo) window.conPushUndo(); conDuplicateNoteData(nd, 28, 22); }
+    }
+    function wnCtxDelete() {
+      const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return; wnDeleteNoteData(nd);
+    }
+    function wnCtxToggleHide() {
+      const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return;
+      nd.hidden = !nd.hidden;
+      if (nd._applyStyle) nd._applyStyle();
+      wnApplyHiddenState(nd, wnGetNoteElementById(nd.id));
+    }
+
+    function wnStyleEditNote() {
+      if (!_wnActiveNote) return;
+      const nd = _wnActiveNote; wnStyleDismiss(); wnFocusNoteData(nd);
+    }
+    function wnStyleBlink() {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.blink = !_wnActiveNote.blink;
+      const noteEl = wnGetNoteElementById(_wnActiveNote.id);
+      if (noteEl) noteEl.classList.toggle('wn-blink', !!_wnActiveNote.blink);
+      const blinkBtn = document.getElementById('wn-sp-blink-btn');
+      if (blinkBtn) blinkBtn.classList.toggle('active', !!_wnActiveNote.blink);
+    }
+    function wnStyleDeleteNote() {
+      if (!_wnActiveNote) return; const nd = _wnActiveNote; wnStyleDismiss(); wnDeleteNoteData(nd);
+    }
+    function wnStyleStopStudentInput() {
+      if (!_wnActiveNote) return;
+      if (typeof noteStudentStopInputForNote === 'function') noteStudentStopInputForNote(_wnActiveNote);
+      wnStyleDismiss();
+    }
+    function wnStyleOpenStudentInput() {
+      if (!_wnActiveNote) return;
+      if (typeof noteStudentSetInputClass === 'function') noteStudentSetInputClass(_wnActiveNote, true);
+      if (_wnActiveNote.id && typeof _noteStudentHub !== 'undefined') _noteStudentHub.constellationNoteId = _wnActiveNote.id;
+      wnStyleDismiss();
+      if (typeof noteStudentPopupOpen === 'function') noteStudentPopupOpen();
+    }
+    function wnStyleDuplicateNote() {
+      if (!_wnActiveNote || !_wnActiveNote.id || !_wnActiveNote.id.startsWith('cn')) return;
+      const nd = _wnActiveNote; wnStyleDismiss();
+      if (window.conPushUndo) window.conPushUndo();
+      conDuplicateNoteData(nd, 28, 22);
+    }
+
+    function wnStyleSplitNote() {
+      if (!_wnActiveNote) return;
+      const nd = _wnActiveNote;
+      if (!nd.id || !nd.id.startsWith('cn')) return;
+      const noteEl = wnGetNoteElementById(nd.id);
+      if (!noteEl) return;
+      const editor = noteEl.querySelector('.wn-note-editor, textarea');
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      const savedRange = _wnSavedSelectionRange;
+      let beforeHTML = editor.innerHTML, afterHTML = '';
+      if (savedRange && (editor === savedRange.commonAncestorContainer || editor.contains(savedRange.commonAncestorContainer))) {
+        const fragToHTML = frag => { const d = document.createElement('div'); d.appendChild(frag); return d.innerHTML; };
+        const r1 = document.createRange();
+        r1.selectNodeContents(editor); r1.setEnd(savedRange.startContainer, savedRange.startOffset);
+        beforeHTML = fragToHTML(r1.cloneContents());
+        const r2 = document.createRange();
+        r2.selectNodeContents(editor); r2.setStart(savedRange.endContainer, savedRange.endOffset);
+        afterHTML = fragToHTML(r2.cloneContents());
+      }
+      const trimBr = h => h.replace(/^(\s*<br\s*\/?>\s*)+|(\s*<br\s*\/?>\s*)+$/gi, '').trim();
+      beforeHTML = trimBr(beforeHTML); afterHTML = trimBr(afterHTML);
+      if (window.conPushUndo) window.conPushUndo();
+      wnStyleDismiss();
+      editor.innerHTML = beforeHTML;
+      wnSyncNoteDataFromEditor(nd, editor);
+      if (nd._applyStyle) nd._applyStyle();
+      const zoom = window.conGetZoom ? window.conGetZoom() : 1;
+      const belowY = Math.round(nd.y + noteEl.offsetHeight / Math.max(0.5, zoom) + 8);
+      const newId = 'cnn' + (conNoteNextId++);
+      const clone = Object.assign({}, nd, { id: newId, y: belowY, html: afterHTML, text: '', manualSize: false, width: null, height: null });
+      delete clone._applyStyle;
+      conNotes.push(clone);
+      conNoteBuild(clone);
+      if (clone.nodeId) {
+        const linkedNode = conGetNodes().find(n => n.id === clone.nodeId);
+        if (linkedNode && linkedNode.el) linkedNode.el.classList.add('has-con-note');
+      }
+      const newEditor = document.querySelector(`.con-word-note[data-id="${newId}"] .wn-note-editor`);
+      if (newEditor) setTimeout(() => newEditor.focus(), 0);
+    }
+
+    function wnStyleToggleLock() {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.locked = !_wnActiveNote.locked;
+      const lockBtn = document.getElementById('wn-sp-lock-btn');
+      if (lockBtn) lockBtn.textContent = _wnActiveNote.locked ? '🔒 Unlock' : '🔓 Lock';
+    }
+    function wnStyleToggleHide() {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.hidden = !_wnActiveNote.hidden;
+      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      wnApplyHiddenState(_wnActiveNote, wnGetNoteElementById(_wnActiveNote.id));
+      const hideBtn = document.getElementById('wn-sp-hide-btn');
+      if (hideBtn) hideBtn.textContent = _wnActiveNote.hidden ? '👁 Reveal note' : '👁 Hide note';
+    }
+
+    function wnStyleFitText() {
+      if (!_wnActiveNote) return;
+      const nd = _wnActiveNote;
+      const noteEl = wnGetNoteElementById(nd.id);
+      if (!noteEl) return;
+      const ta = noteEl.querySelector('.wn-note-editor, textarea');
+      if (!ta) return;
+      const zoom = (nd.id && nd.id.startsWith('cn') && window.conGetZoom) ? window.conGetZoom() : 1;
+      const boxW = Math.max(80, Math.round(noteEl.offsetWidth  / Math.max(0.5, zoom)));
+      const boxH = Math.max(40, Math.round(noteEl.offsetHeight / Math.max(0.5, zoom)));
+      nd.manualSize = true; nd.width = boxW; nd.height = boxH;
+      wnApplyStoredSize(noteEl, ta, nd, zoom);
+      const _fitInlineEls = [];
+      ta.querySelectorAll('[style*="font-size"]').forEach(el => {
+        const match = el.style.fontSize.match(/^([\d.]+)px$/);
+        if (match) _fitInlineEls.push({ el, ratio: parseFloat(match[1]) / ((nd.fontSize || 1) * zoom) });
+      });
+      let lo = 6, hi = 120, best = 6;
+      while (lo <= hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        ta.style.fontSize = (mid * zoom) + 'px';
+        _fitInlineEls.forEach(({ el, ratio }) => { el.style.fontSize = (mid * ratio * zoom) + 'px'; });
+        if (ta.scrollHeight <= ta.clientHeight) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      _fitInlineEls.forEach(({ el, ratio }) => { el.style.fontSize = (best * ratio * zoom) + 'px'; });
+      if (_fitInlineEls.length > 0) wnSyncNoteDataFromEditor(nd, ta);
+      nd.fontSize = best;
+      if (nd._applyStyle) nd._applyStyle();
+      nd.width = boxW; nd.height = boxH;
+      wnApplyStoredSize(noteEl, ta, nd, zoom);
+      wnStyleRefresh();
+    }
+
+    function wnInsertList(type) {
+      if (!_wnActiveNote) return;
+      const editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
+      editor.focus();
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand(type, false, null);
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+    }
+
+    function wnDecorateChecklistCheckbox(cb, noteData, editor) {
+      if (!cb || cb.dataset.wnCbInit === '1') return cb;
+      cb.type = 'checkbox';
+      cb.setAttribute('contenteditable', 'false');
+      if (!cb.style.marginRight) cb.style.marginRight = '4px';
+      if (!cb.style.cursor) cb.style.cursor = 'pointer';
+      if (!cb.style.verticalAlign) cb.style.verticalAlign = 'middle';
+      cb.addEventListener('mousedown', e => e.stopPropagation());
+      cb.addEventListener('click', e => e.stopPropagation());
+      cb.addEventListener('change', () => { if (noteData && editor) wnSyncNoteDataFromEditor(noteData, editor); });
+      cb.dataset.wnCbInit = '1';
+      return cb;
+    }
+    function wnCreateChecklistCheckbox(noteData, editor) {
+      const cb = document.createElement('input'); cb.type = 'checkbox';
+      return wnDecorateChecklistCheckbox(cb, noteData, editor);
+    }
+    function wnCreateChecklistListItem(noteData, editor) {
+      const li = document.createElement('li');
+      const cb = wnCreateChecklistCheckbox(noteData, editor);
+      const spaceNode = document.createTextNode(' ');
+      li.appendChild(cb); li.appendChild(spaceNode);
+      return { li, cb, spaceNode };
+    }
+
+    function wnNormalizeChecklistLists(editor, noteData) {
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      editor.querySelectorAll('ul').forEach(ul => {
+        const hasChecklistSignals = ul.matches('[data-checkbox-list]') || !!ul.querySelector('input[type="checkbox"]');
+        if (!hasChecklistSignals) return;
+        ul.dataset.checkboxList = 'true';
+        ul.style.listStyleType = 'none';
+        ul.style.paddingLeft = '4px';
+        Array.from(ul.children).forEach(li => {
+          if (!li || li.tagName !== 'LI') return;
+          let cb = li.querySelector('input[type="checkbox"]');
+          if (!cb) {
+            cb = wnCreateChecklistCheckbox(noteData, editor);
+            li.insertBefore(cb, li.firstChild);
+            li.insertBefore(document.createTextNode(' '), cb.nextSibling);
+            return;
+          }
+          cb = wnDecorateChecklistCheckbox(cb, noteData, editor);
+          if (cb.parentNode !== li) li.insertBefore(cb, li.firstChild);
+          const afterCb = cb.nextSibling;
+          if (!afterCb || afterCb.nodeType !== Node.TEXT_NODE) {
+            li.insertBefore(document.createTextNode(' '), cb.nextSibling);
+          } else if (!/^\s/.test(afterCb.nodeValue || '')) {
+            afterCb.nodeValue = ' ' + afterCb.nodeValue;
+          }
+        });
+      });
+      if (noteData) wnSyncNoteDataFromEditor(noteData, editor);
+    }
+
+    function wnInsertCheckboxList() {
+      if (!_wnActiveNote) return;
+      const editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
+      editor.focus();
+      editor.querySelectorAll('ul').forEach(ul => ul.setAttribute('data-pre-existing', '1'));
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('insertUnorderedList', false, null);
+      const newUls = [...editor.querySelectorAll('ul')].filter(ul => !ul.hasAttribute('data-pre-existing'));
+      let targetLi = null;
+      newUls.forEach(ul => {
+        ul.dataset.checkboxList = 'true';
+        ul.style.listStyleType = 'none'; ul.style.paddingLeft = '4px';
+        ul.querySelectorAll('li').forEach(li => {
+          if (!li.querySelector('input[type="checkbox"]')) {
+            const cb = wnCreateChecklistCheckbox(_wnActiveNote, editor);
+            li.insertBefore(cb, li.firstChild);
+            const spaceNode = document.createTextNode(' ');
+            li.insertBefore(spaceNode, cb.nextSibling);
+            if (!targetLi) targetLi = li;
+          }
+        });
+      });
+      editor.querySelectorAll('ul[data-pre-existing]').forEach(ul => ul.removeAttribute('data-pre-existing'));
+      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      if (targetLi) {
+        const liRef = targetLi;
+        setTimeout(() => {
+          editor.focus();
+          const cb = liRef.querySelector('input[type="checkbox"]');
+          const spaceNode = cb ? cb.nextSibling : null;
+          const sel = window.getSelection();
+          if (sel) {
+            const r = document.createRange();
+            if (spaceNode && spaceNode.nodeType === Node.TEXT_NODE) { r.setStart(spaceNode, spaceNode.length); }
+            else if (cb) { r.setStartAfter(cb); } else { return; }
+            r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
+            wnRememberSelection(editor);
+          }
+        }, 0);
+      }
+    }
+
+    function wnStyleToggle(prop) {
+      if (!_wnActiveNote) return;
+      if (prop === 'bold' || prop === 'italic' || prop === 'underline' || prop === 'strike') {
+        const cmd = prop === 'bold' ? 'bold' : (prop === 'italic' ? 'italic' : (prop === 'underline' ? 'underline' : 'strikeThrough'));
+        if (wnApplySelectionCommand(cmd)) return;
+      }
+      _wnActiveNote[prop] = !_wnActiveNote[prop];
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+      document.getElementById('wn-sp-' + prop).classList.toggle('active', !!_wnActiveNote[prop]);
+    }
+
+    function wnStyleSetSize(sizePx) {
+      if (!_wnActiveNote) return;
+      const value = Math.max(WN_SIZE_MIN, Math.min(WN_SIZE_MAX, Number(sizePx) || _wnActiveNote.fontSize || 16));
+      document.getElementById('wn-sp-size-val').textContent = value + 'px';
+      if (wnApplySelectionCommand('fontSize', '7')) {
+        const editor = wnGetActiveEditor();
+        if (editor) {
+          editor.querySelectorAll('font[size="7"]').forEach(node => { node.removeAttribute('size'); node.style.fontSize = value + 'px'; });
+          wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+          _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+        }
+        return;
+      }
+      const oldBase = _wnActiveNote.fontSize || value;
+      if (oldBase !== value) {
+        const zoom = (window.conGetZoom && _wnActiveNote.id && _wnActiveNote.id.startsWith('cn')) ? window.conGetZoom() : 1;
+        const editor = wnGetActiveEditor();
+        if (editor) {
+          editor.querySelectorAll('[style*="font-size"]').forEach(el => {
+            const match = el.style.fontSize.match(/^([\d.]+)px$/);
+            if (match) el.style.fontSize = Math.round(value * (parseFloat(match[1]) / (oldBase * zoom)) * zoom) + 'px';
+          });
+          wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+        }
+      }
+      _wnActiveNote.fontSize = value;
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+    }
+
+    function wnUnwrapBlinkHlSpans(spans) {
+      let unwrapped = false;
+      spans.forEach(span => {
+        if (!span.parentNode) return;
+        const parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span); unwrapped = true;
+      });
+      return unwrapped;
+    }
+    function wnUnwrapBlinkHlInSelection(editor) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+      const range = sel.getRangeAt(0);
+      const spans = Array.from(editor.querySelectorAll('.wn-blink-hl')).filter(sp => { try { return range.intersectsNode(sp); } catch(e) { return false; } });
+      return wnUnwrapBlinkHlSpans(spans);
+    }
+
+    function wnStyleApplyHighlight(color) {
+      if (!_wnActiveNote || !color) return;
+      if (color === '__blink__') {
+        const editor = wnGetActiveEditor();
+        if (!editor || editor.tagName === 'TEXTAREA') return;
+        if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
+        if (!wnSelectionInside(editor)) return;
+        editor.focus();
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+        if (wnUnwrapBlinkHlInSelection(editor)) {
+          wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+          if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        const frag = range.extractContents();
+        const span = document.createElement('span');
+        span.className = 'wn-blink-hl'; span.appendChild(frag); range.insertNode(span);
+        sel.removeAllRanges();
+        wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+        if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+        return;
+      }
+      if (wnApplySelectionCommand('hiliteColor', color)) return;
+      wnApplySelectionCommand('backColor', color);
+    }
+
+    function wnStyleSetBorderWidth(val) {
+      if (!_wnActiveNote) return;
+      const w = Math.max(0, Math.min(8, Number(val) || 0));
+      _wnActiveNote.borderWidth = w > 0 ? w : null;
+      if (!_wnActiveNote.borderStyle && w > 0) _wnActiveNote.borderStyle = 'solid';
+      if (!_wnActiveNote.borderColor && w > 0) _wnActiveNote.borderColor = '#111111';
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+    }
+    function wnStyleSetBorderStyle(style) {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.borderStyle = style;
+      if (!_wnActiveNote.borderWidth) _wnActiveNote.borderWidth = 1;
+      if (!_wnActiveNote.borderColor) _wnActiveNote.borderColor = '#111111';
+      const bwSlider = document.getElementById('wn-sp-border-width');
+      const bwVal    = document.getElementById('wn-sp-border-width-val');
+      if (bwSlider && Number(bwSlider.value) === 0) { bwSlider.value = 1; if (bwVal) bwVal.textContent = '1px'; }
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+      ['solid','dashed','dotted','double'].forEach(s => {
+        const btn = document.getElementById('wn-sp-bs-' + s);
+        if (btn) btn.classList.toggle('active', s === style);
+      });
+    }
+    function wnStyleSetBorderColor(color) {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.borderColor = color;
+      if (!_wnActiveNote.borderWidth) _wnActiveNote.borderWidth = 1;
+      if (!_wnActiveNote.borderStyle) _wnActiveNote.borderStyle = 'solid';
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+    }
+
+    function wnStyleClearSelectedFormat() {
+      if (!_wnActiveNote) return;
+      const cleared = wnClearSelectionFormattingPreserveFontSize();
+      if (!cleared) { const editor = wnGetActiveEditor(); if (editor) wnNoteHandleCtrlSpace(editor); }
+    }
+    function wnClearSelectionFormattingPreserveFontSize() {
+      if (!_wnActiveNote) return false;
+      const editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') return false;
+      if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
+      if (!wnSelectionInside(editor)) return false;
+      editor.focus();
+      const sel = window.getSelection();
+      const blinkSpansToRemove = (sel && sel.rangeCount > 0 && !sel.isCollapsed)
+        ? Array.from(editor.querySelectorAll('.wn-blink-hl')).filter(sp => { try { return sel.getRangeAt(0).intersectsNode(sp); } catch(e) { return false; } })
+        : [];
+      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+      const savedFontSize = _wnActiveNote.fontSize;
+      document.execCommand('styleWithCSS', false, true);
+      if (document.queryCommandState('bold')) document.execCommand('bold', false, null);
+      if (document.queryCommandState('italic')) document.execCommand('italic', false, null);
+      if (document.queryCommandState('underline')) document.execCommand('underline', false, null);
+      if (document.queryCommandState('strikethrough')) document.execCommand('strikethrough', false, null);
+      wnUnwrapBlinkHlSpans(blinkSpansToRemove);
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+      _wnActiveNote.fontSize = savedFontSize;
+      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      return true;
+    }
+
+    function wnNoteHandleSpace(ta, noteData) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      if (!range.collapsed || !ta.contains(range.startContainer)) return false;
+      const BLOCK_TAGS = new Set(['li','p','div','h1','h2','h3','h4','h5','h6','blockquote']);
+      let block = range.startContainer;
+      while (block && block !== ta) {
+        if (block.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(block.nodeName.toLowerCase())) break;
+        block = block.parentNode;
+      }
+      if (!block || block === ta) block = ta;
+      const r = document.createRange();
+      try { r.setStart(block, 0); } catch(e) { return false; }
+      r.setEnd(range.startContainer, range.startOffset);
+      const shortcut = String(r.toString() || '').trim();
+      const isUnordered = shortcut === '*' || shortcut === '-';
+      const isOrdered = /^1[\.)]$/.test(shortcut) || /^[a-zA-Z][\.)]$/.test(shortcut);
+      const isChecklist = shortcut === '[]' || shortcut === '[ ]';
+      if (isUnordered || isOrdered || isChecklist) {
+        const delRange = document.createRange();
+        delRange.setStart(block, 0); delRange.setEnd(range.startContainer, range.startOffset);
+        sel.removeAllRanges(); sel.addRange(delRange);
+        document.execCommand('delete', false, null);
+        if (isChecklist) {
+          document.execCommand('insertUnorderedList', false, null);
+          const curSel = window.getSelection();
+          if (curSel && curSel.rangeCount) {
+            let n = curSel.getRangeAt(0).startContainer;
+            if (n.nodeType === Node.TEXT_NODE) n = n.parentElement;
+            const curLi = n ? n.closest('li') : null;
+            const list = curLi ? curLi.closest('ul') : null;
+            if (list) {
+              list.dataset.checkboxList = 'true'; list.style.listStyleType = 'none'; list.style.paddingLeft = '4px';
+              Array.from(list.children).forEach(li => {
+                if (!li || li.tagName !== 'LI') return;
+                if (!li.querySelector('input[type="checkbox"]')) {
+                  const cb = wnCreateChecklistCheckbox(noteData || _wnActiveNote, ta);
+                  li.insertBefore(cb, li.firstChild);
+                  li.insertBefore(document.createTextNode(' '), cb.nextSibling);
+                }
+              });
+            }
+          }
+        } else {
+          document.execCommand(isUnordered ? 'insertUnorderedList' : 'insertOrderedList', false, null);
+          wnApplyListMarkerStyleFromShortcut(ta, shortcut);
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function wnIsListItemEffectivelyEmpty(li, isChecklist) {
+      if (!li) return true;
+      const clone = li.cloneNode(true);
+      if (isChecklist) clone.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.remove());
+      clone.querySelectorAll('br').forEach(br => br.remove());
+      if (clone.querySelector('ul,ol')) return false;
+      return String(clone.textContent || '').replace(/ /g,' ').replace(/​/g,'').trim().length === 0;
+    }
+
+    function wnSetCaretAtNodeStart(node) {
+      const sel = window.getSelection(); if (!sel || !node) return;
+      const r = document.createRange(); r.setStart(node, 0); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+    function wnSetCaretAtNodeEnd(node) {
+      const sel = window.getSelection(); if (!sel || !node) return;
+      const r = document.createRange(); r.selectNodeContents(node); r.collapse(false);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+    function wnSetCaretAtChecklistItemStart(li) {
+      if (!li) return;
+      const cb = li.querySelector('input[type="checkbox"]');
+      const afterCb = cb ? cb.nextSibling : null;
+      wnSetCaretAtNodeStart((afterCb && afterCb.nodeType === Node.TEXT_NODE) ? afterCb : li);
+    }
+
+    function wnHandleListKeydown(ta, noteData, e) {
+      if (!e || (e.key !== 'Enter' && e.key !== 'Backspace')) return false;
+      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return false;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return false;
+      const range = sel.getRangeAt(0);
+      let node = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const curLi = node ? node.closest('li') : null;
+      if (!curLi || !ta.contains(curLi)) return false;
+      const list = curLi.closest('ul,ol');
+      if (!list || !ta.contains(list)) return false;
+      const isChecklist = list.matches('ul[data-checkbox-list]');
+      const isEmpty = wnIsListItemEffectivelyEmpty(curLi, isChecklist);
+
+      if (e.key === 'Enter') {
+        if (isChecklist) {
+          e.preventDefault(); e.stopPropagation();
+          if (isEmpty) {
+            const prevLi = curLi.previousElementSibling, nextLi = curLi.nextElementSibling;
+            curLi.remove();
+            if (!list.querySelector('li')) {
+              const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
+              list.after(exitLine); list.remove(); wnSetCaretAtNodeStart(exitLine);
+            } else if (nextLi && nextLi.matches('li')) { wnSetCaretAtChecklistItemStart(nextLi); }
+            else if (prevLi && prevLi.matches('li')) {
+              const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
+              list.after(exitLine); wnSetCaretAtNodeStart(exitLine);
+            }
+          } else {
+            const created = wnCreateChecklistListItem(noteData, ta);
+            curLi.after(created.li); wnSetCaretAtNodeStart(created.spaceNode);
+          }
+          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        }
+        if (isEmpty) {
+          e.preventDefault(); e.stopPropagation();
+          document.execCommand('outdent', false, null);
+          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        }
+        return false;
+      }
+
+      if (e.key === 'Backspace' && range.collapsed) {
+        const prefix = document.createRange();
+        prefix.setStart(curLi, 0); prefix.setEnd(range.startContainer, range.startOffset);
+        if (prefix.toString().replace(/ /g,' ').trim().length !== 0) return false;
+        if (isChecklist && isEmpty) {
+          e.preventDefault(); e.stopPropagation();
+          const prevLi = curLi.previousElementSibling, nextLi = curLi.nextElementSibling;
+          curLi.remove();
+          if (!list.querySelector('li')) {
+            const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
+            list.after(exitLine); list.remove(); wnSetCaretAtNodeStart(exitLine);
+          } else if (prevLi && prevLi.matches('li')) { wnSetCaretAtNodeEnd(prevLi); }
+          else if (nextLi && nextLi.matches('li')) { wnSetCaretAtChecklistItemStart(nextLi); }
+          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        }
+        if (!isChecklist && isEmpty) {
+          e.preventDefault(); e.stopPropagation();
+          document.execCommand('outdent', false, null);
+          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        }
+      }
+      return false;
+    }
+
+    function wnApplyListMarkerStyleFromShortcut(editor, shortcut) {
+      if (!editor) return;
+      const sel = window.getSelection(); if (!sel || sel.rangeCount === 0) return;
+      let node = sel.anchorNode; if (!node) return;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+      if (!node || !node.closest) return;
+      const list = node.closest('ul,ol'); if (!list || !editor.contains(list)) return;
+      list.classList.remove('wn-list-dash', 'wn-list-decimal-paren', 'wn-list-alpha-dot', 'wn-list-alpha-paren');
+      if (list.tagName === 'UL') { if (shortcut === '-') list.classList.add('wn-list-dash'); return; }
+      const s = shortcut.toLowerCase();
+      if (s === '1)') list.classList.add('wn-list-decimal-paren');
+      else if (s === 'a.') list.classList.add('wn-list-alpha-dot');
+      else if (s === 'a)') list.classList.add('wn-list-alpha-paren');
+    }
+
+    function wnNoteHandleCtrlSpace(editor) {
+      if (!editor) return;
+      const noteEl = editor.closest('.con-word-note, .ta-word-note');
+      if (!noteEl) return;
+      const noteId = noteEl.dataset.id; if (!noteId) return;
+      let noteData = conNotes.find(n => n.id === noteId);
+      if (!noteData) noteData = taWordNotes.find(n => n.id === noteId);
+      if (!noteData) return;
+      const sel = window.getSelection();
+      const hasSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(editor);
+      if (hasSelection) {
+        wnClearSelectionFormattingPreserveFontSize();
+      } else {
+        editor.querySelectorAll('*').forEach(el => {
+          el.style.color = ''; el.style.backgroundColor = ''; el.style.fontSize = '';
+          el.style.fontWeight = ''; el.style.fontStyle = ''; el.style.textDecoration = '';
+        });
+        wnUnwrapBlinkHlSpans(Array.from(editor.querySelectorAll('.wn-blink-hl')));
+        editor.style.color = ''; editor.style.backgroundColor = ''; editor.style.fontSize = '';
+        editor.style.fontWeight = ''; editor.style.fontStyle = '';
+        noteData.color = '#111111'; noteData.bg = '#ffffff'; noteData.fontSize = 26;
+        noteData.bold = false; noteData.italic = false; noteData.underline = false; noteData.strike = false;
+        if (noteData._applyStyle) noteData._applyStyle();
+      }
+    }
+
+    function wnStyleClose(e) {
+      if (Date.now() - _wnOverlayOpenTime < 200) return;
+      if (e && e.target !== document.getElementById('wn-style-overlay')) return;
+      wnStyleDismiss();
+    }
+    function wnStyleDismiss() {
+      document.getElementById('wn-style-overlay').classList.remove('active');
+      _wnPopupDragged = false; _wnPopupWordMeta = null; _wnActiveNote = null;
+    }
+
+    // ── End restored wn* functions ────────────────────────────────────
 
     // Add a blank note at centre of the board (toolbar button)
     window.conNoteAdd = function(x, y, initialText) {
@@ -20733,6 +22068,409 @@ function hideFailure() {
       const confirmBtn = document.getElementById('ta-imp-confirm-btn');
       if (confirmBtn) confirmBtn.textContent = '📝 Import into Constellation';
     };
+
+    // ── Student Input Note ─────────────────────────────────────────────
+
+    const _noteStudentHub = {
+      ws: null, connected: false, noteId: '', classGroup: '', title: '',
+      joinUrl: '', constellationNoteId: '', qrAttachmentByNoteId: {}, serverPrimed: false
+    };
+
+    function noteStudentSetStatus(text, isError) {
+      const el = document.getElementById('note-student-status');
+      if (!el) return;
+      el.textContent = String(text || '');
+      el.style.color = isError ? '#b91c1c' : '#475569';
+    }
+
+    function noteStudentMakeId() {
+      return 'sn-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+    }
+
+    function noteStudentApplyUiState() {
+      const connectBtn = document.getElementById('note-student-connect-btn');
+      const disconnectBtn = document.getElementById('note-student-disconnect-btn');
+      const classSel = document.getElementById('note-student-class');
+      const titleInput = document.getElementById('note-student-title');
+      const serverInput = document.getElementById('note-student-server');
+      if (connectBtn) connectBtn.disabled = _noteStudentHub.connected;
+      if (disconnectBtn) disconnectBtn.disabled = !_noteStudentHub.connected;
+      if (classSel) classSel.disabled = _noteStudentHub.connected;
+      if (titleInput) titleInput.disabled = _noteStudentHub.connected;
+      if (serverInput) serverInput.disabled = _noteStudentHub.connected;
+    }
+
+    function noteStudentFillClassOptions() {
+      const sel = document.getElementById('note-student-class');
+      if (!sel) return;
+      sel.innerHTML = '';
+      const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
+        ? Object.keys(CLASS_GROUPS)
+            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => a.localeCompare(b))
+        : [];
+      if (!keys.length) {
+        const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No classes found'; sel.appendChild(opt); return;
+      }
+      keys.forEach(key => {
+        const opt = document.createElement('option'); opt.value = key; opt.textContent = key; sel.appendChild(opt);
+      });
+      if (typeof activeClassGroup !== 'undefined' && activeClassGroup && keys.includes(activeClassGroup)) sel.value = activeClassGroup;
+    }
+
+    function noteStudentBuildWsUrl(baseInput) {
+      let base = String(baseInput || '').trim();
+      if (!base || /^file:/i.test(base)) base = 'http://127.0.0.1:8787';
+      if (!/^https?:\/\//i.test(base) && !/^wss?:\/\//i.test(base)) base = 'http://' + base;
+      if (/^wss?:\/\//i.test(base)) { const clean = base.replace(/\/+$/, ''); return /\/note-ws$/i.test(clean) ? clean : (clean + '/note-ws'); }
+      const u = new URL(base); const proto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+      return proto + '//' + u.host + '/note-ws';
+    }
+
+    function noteStudentBuildJoinUrl(baseInput, noteId, classGroup) {
+      let base = String(baseInput || '').trim();
+      if (!base || /^file:/i.test(base)) base = 'http://127.0.0.1:8787';
+      if (!/^https?:\/\//i.test(base)) { if (/^wss?:\/\//i.test(base)) base = base.replace(/^ws:/i,'http:').replace(/^wss:/i,'https:'); else base = 'http://' + base; }
+      const u = new URL(base); const out = new URL('/student-note-player.html', u.origin);
+      out.searchParams.set('note', String(noteId || ''));
+      if (classGroup) out.searchParams.set('class', String(classGroup));
+      return out.toString();
+    }
+
+    function noteStudentBuildHttpBase(baseInput) {
+      let base = String(baseInput || '').trim();
+      if (!base || /^file:/i.test(base)) base = 'http://127.0.0.1:8787';
+      if (/^wss?:\/\//i.test(base)) base = base.replace(/^ws:/i,'http:').replace(/^wss:/i,'https:');
+      else if (!/^https?:\/\//i.test(base)) base = 'http://' + base;
+      return new URL(base).origin;
+    }
+
+    function noteStudentUpdateJoinDisplay() {
+      const serverInput = document.getElementById('note-student-server');
+      const joinEl = document.getElementById('note-student-join-url');
+      const hostEl = document.getElementById('note-student-host-url');
+      const publicEl = document.getElementById('note-student-public-url');
+      const qrEl = document.getElementById('note-student-qr');
+      let hostBase = '-';
+      try { hostBase = noteStudentBuildHttpBase(serverInput ? serverInput.value : ''); } catch (_) { hostBase = '-'; }
+      if (hostEl) hostEl.textContent = hostBase;
+      if (publicEl) publicEl.textContent = _noteStudentHub.joinUrl || '-';
+      if (joinEl) joinEl.textContent = _noteStudentHub.joinUrl || '-';
+      if (!qrEl) return;
+      if (!_noteStudentHub.joinUrl) {
+        qrEl.style.display = 'none'; qrEl.removeAttribute('src'); qrEl.onclick = null; qrEl.style.cursor = ''; qrEl.title = 'Student note QR'; return;
+      }
+      qrEl.style.display = 'inline-block';
+      qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=128x128&margin=6&data=' + encodeURIComponent(_noteStudentHub.joinUrl);
+      qrEl.onclick = noteStudentCopyQrToBoard; qrEl.style.cursor = 'copy'; qrEl.title = 'Click to copy and paste this QR next to the note';
+    }
+
+    window.noteStudentRefreshAddressPreview = function() { noteStudentUpdateJoinDisplay(); };
+
+    function noteStudentPopupOpen() {
+      if (typeof conBoardCtxClose === 'function') conBoardCtxClose();
+      noteStudentFillClassOptions();
+      const overlay = document.getElementById('note-student-overlay');
+      const titleInput = document.getElementById('note-student-title');
+      const serverInput = document.getElementById('note-student-server');
+      const roomInput = document.getElementById('note-student-noteid');
+      if (titleInput && !String(titleInput.value || '').trim()) titleInput.value = 'Student notes';
+      if (serverInput && !String(serverInput.value || '').trim()) serverInput.value = 'http://127.0.0.1:8787';
+      if (!_noteStudentHub.noteId) _noteStudentHub.noteId = noteStudentMakeId();
+      if (roomInput) roomInput.value = _noteStudentHub.noteId;
+      noteStudentApplyUiState();
+      noteStudentUpdateJoinDisplay();
+      noteStudentSetStatus(_noteStudentHub.connected ? 'Connected and waiting for student submissions.' : 'Preparing local server automatically...', false);
+      if (overlay) overlay.style.display = 'flex';
+      noteStudentPrimeServerAuto().then(() => {
+        if (_noteStudentHub.connected) return;
+        noteStudentSetStatus('Local server is ready. Click Connect & Open Room.', false);
+      }).catch(() => {
+        if (_noteStudentHub.connected) return;
+        noteStudentSetStatus('Could not auto-start local server. Enter server URL and connect.', true);
+      });
+    }
+
+    function noteStudentPopupClose() {
+      const overlay = document.getElementById('note-student-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    window.conBoardCtxOpenStudentNote = function() {
+      if (typeof conBoardCtxClose === 'function') conBoardCtxClose();
+      noteStudentPopupOpen();
+    };
+
+    function noteStudentBaseFromServerInfo(serverInfo) {
+      if (!serverInfo || typeof serverInfo !== 'object') return '';
+      if (serverInfo.playerUrl) return String(serverInfo.playerUrl).replace(/\/quiz-player\.html$/i, '');
+      const ip = String(serverInfo.ip || '').trim(); const port = Number(serverInfo.port) || 0;
+      if (!ip || !port) return ''; return 'http://' + ip + ':' + port;
+    }
+
+    function noteStudentLocalBaseFromServerInfo(serverInfo) {
+      const port = Number(serverInfo && serverInfo.port) || 8787;
+      return 'http://127.0.0.1:' + port;
+    }
+
+    function noteStudentWait(ms) { return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0))); }
+
+    function noteStudentProbeWsUrl(wsUrl) {
+      return new Promise((resolve) => {
+        let done = false; let ws = null;
+        const finish = function(ok) { if (done) return; done = true; try { if (ws) ws.close(); } catch (_) {} resolve(!!ok); };
+        try { ws = new WebSocket(wsUrl); } catch (_) { finish(false); return; }
+        const t = setTimeout(() => finish(false), 2000);
+        ws.onopen = function() { clearTimeout(t); finish(true); };
+        ws.onerror = function() { clearTimeout(t); finish(false); };
+        ws.onclose = function() { clearTimeout(t); if (!done) finish(false); };
+      });
+    }
+
+    async function noteStudentProbeNoteWs(baseUrl, attempts, waitMs) {
+      let wsUrl = ''; try { wsUrl = noteStudentBuildWsUrl(baseUrl); } catch (_) { return false; }
+      const total = Math.max(1, Number(attempts) || 1); const delay = Math.max(0, Number(waitMs) || 0);
+      for (let i = 0; i < total; i++) { const ok = await noteStudentProbeWsUrl(wsUrl); if (ok) return true; if (i < total - 1 && delay > 0) await noteStudentWait(delay); }
+      return false;
+    }
+
+    async function noteStudentEnsureServerForElectron() {
+      if (!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron())) return null;
+      if (!(window.Desktop && typeof Desktop.quizServerStart === 'function')) return null;
+      const candidatePorts = [8787, 8788];
+      for (let i = 0; i < candidatePorts.length; i++) {
+        const port = candidatePorts[i]; let res = null;
+        try { res = await Desktop.quizServerStart(port); } catch (_) { res = null; }
+        if (!res || res.ok === false) continue;
+        await noteStudentWait(250);
+        const baseUrl = noteStudentBaseFromServerInfo(res); if (!baseUrl) continue;
+        const localBaseUrl = noteStudentLocalBaseFromServerInfo(res);
+        const wsOk = await noteStudentProbeNoteWs(localBaseUrl, 3, 250);
+        if (wsOk) return Object.assign({}, res, { baseUrl: localBaseUrl, publicBaseUrl: baseUrl });
+        if (window.Desktop && typeof Desktop.quizServerStop === 'function') { try { await Desktop.quizServerStop(); } catch (_) {} await noteStudentWait(250); }
+      }
+      return null;
+    }
+
+    async function noteStudentPrimeServerAuto() {
+      if (_noteStudentHub.serverPrimed) return null;
+      const serverInfo = await noteStudentEnsureServerForElectron();
+      _noteStudentHub.serverPrimed = !!serverInfo;
+      const serverInput = document.getElementById('note-student-server');
+      if (serverInfo && serverInput) {
+        const localBase = String(serverInfo.baseUrl || noteStudentLocalBaseFromServerInfo(serverInfo) || '').trim();
+        if (localBase) serverInput.value = localBase;
+      }
+      return serverInfo;
+    }
+
+    function noteStudentNormalizeStudentKey(name) { return String(name || '').trim().toLowerCase(); }
+
+    function noteStudentBuildInitialConstellationText() {
+      const lines = [];
+      const title = (_noteStudentHub.title || 'Student notes') + (_noteStudentHub.classGroup ? (' (' + _noteStudentHub.classGroup + ')') : '');
+      lines.push(title);
+      if (_noteStudentHub.joinUrl) lines.push('Join: ' + _noteStudentHub.joinUrl);
+      lines.push('');
+      const classList = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS && _noteStudentHub.classGroup && Array.isArray(CLASS_GROUPS[_noteStudentHub.classGroup]))
+        ? CLASS_GROUPS[_noteStudentHub.classGroup] : [];
+      classList.map(name => String(name || '').trim()).filter(Boolean).forEach(name => lines.push(name + ': '));
+      return lines.join('\n').trim();
+    }
+
+    function noteStudentSetInputClass(noteData, enabled) {
+      if (!noteData || !noteData.id) return;
+      noteData.studentInput = !!enabled;
+      const noteEl = document.querySelector(`.con-word-note[data-id="${noteData.id}"]`);
+      if (noteEl) noteEl.classList.toggle('student-input', !!enabled);
+    }
+
+    function noteStudentEnsureConstellationNote() {
+      let noteData = null;
+      if (_noteStudentHub.constellationNoteId && typeof conGetNotes === 'function') {
+        noteData = conGetNotes().find(n => n.id === _noteStudentHub.constellationNoteId) || null;
+      }
+      if (noteData) { noteStudentSetInputClass(noteData, true); return noteData; }
+      const x = Number(window._boardCtxNoteX) || 60; const y = Number(window._boardCtxNoteY) || 60;
+      if (typeof conCreateTextNote !== 'function') return null;
+      noteData = conCreateTextNote(noteStudentBuildInitialConstellationText(), x, y, { fontSize: 24 });
+      if (!noteData) return null;
+      _noteStudentHub.constellationNoteId = noteData.id;
+      noteStudentSetInputClass(noteData, true);
+      return noteData;
+    }
+
+    function noteStudentApplyConstellationText(noteData, text) {
+      if (!noteData) return;
+      const clean = String(text || '');
+      noteData.text = clean; noteData.html = '';
+      const editor = document.querySelector(`.con-word-note[data-id="${noteData.id}"] .wn-note-editor`);
+      if (editor) {
+        editor.textContent = clean;
+        if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      }
+    }
+
+    function noteStudentStopInputForNote(noteData) {
+      if (!noteData || !noteData.id) return;
+      noteStudentSetInputClass(noteData, true);
+      if (String(_noteStudentHub.constellationNoteId || '') === String(noteData.id)) {
+        noteStudentDisconnect({ quiet: true });
+        _noteStudentHub.joinUrl = '';
+        noteStudentUpdateJoinDisplay();
+        noteStudentSetStatus('Student input stopped for this note.', false);
+      }
+    }
+
+    function noteStudentAddSubmission(payload) {
+      const name = String((payload && payload.studentName) || 'Student').trim() || 'Student';
+      const text = String((payload && payload.text) || '').trim();
+      if (!text) return;
+      const noteData = noteStudentEnsureConstellationNote();
+      if (!noteData) return;
+      const currentText = String(noteData.text || '').replace(/\r/g, '');
+      const lines = currentText ? currentText.split('\n') : [];
+      const lowerName = noteStudentNormalizeStudentKey(name);
+      let lineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const ln = String(lines[i] || ''); const colon = ln.indexOf(':'); if (colon < 0) continue;
+        const candidate = noteStudentNormalizeStudentKey(ln.slice(0, colon));
+        if (candidate === lowerName) { lineIndex = i; break; }
+      }
+      if (lineIndex < 0) {
+        lines.push(name + ': ' + text);
+      } else {
+        const existing = String(lines[lineIndex] || '');
+        const head = existing.split(':')[0] + ': ';
+        const tail = existing.slice(existing.indexOf(':') + 1).trim();
+        lines[lineIndex] = head + (tail ? (tail + ' | ' + text) : text);
+      }
+      noteStudentApplyConstellationText(noteData, lines.join('\n'));
+    }
+
+    function noteStudentHandleMessage(msg) {
+      if (!msg || typeof msg.type !== 'string') return;
+      if (msg.type === 'welcome') {
+        noteStudentSetStatus('Connected as host. Opening room...', false);
+      } else if (msg.type === 'note_host_opened') {
+        const payload = msg.payload || {};
+        _noteStudentHub.noteId = String(payload.noteId || _noteStudentHub.noteId || '');
+        _noteStudentHub.classGroup = String(payload.classGroup || _noteStudentHub.classGroup || '');
+        _noteStudentHub.title = String(payload.title || _noteStudentHub.title || 'Student notes');
+        const roomInput = document.getElementById('note-student-noteid');
+        if (roomInput) roomInput.value = _noteStudentHub.noteId;
+        const noteData = noteStudentEnsureConstellationNote();
+        if (noteData) {
+          const lines = String(noteData.text || '').replace(/\r/g, '').split('\n');
+          if (lines.length > 0) lines[0] = (_noteStudentHub.title || 'Student notes') + (_noteStudentHub.classGroup ? (' (' + _noteStudentHub.classGroup + ')') : '');
+          if (lines.length > 1 && lines[1].startsWith('Join: ')) lines[1] = 'Join: ' + (_noteStudentHub.joinUrl || '');
+          noteStudentApplyConstellationText(noteData, lines.join('\n'));
+        }
+        noteStudentSetStatus('Room open in Constellation. Students can submit now.', false);
+      } else if (msg.type === 'note_submission') {
+        noteStudentAddSubmission(msg.payload || {});
+        noteStudentSetStatus('New submission received.', false);
+      } else if (msg.type === 'error') {
+        noteStudentSetStatus(String(msg.message || 'Server error'), true);
+      }
+    }
+
+    function noteStudentDisconnect(options) {
+      const quiet = !!(options && options.quiet);
+      if (_noteStudentHub.ws) { try { _noteStudentHub.ws.close(); } catch (_) {} }
+      _noteStudentHub.ws = null; _noteStudentHub.connected = false;
+      noteStudentApplyUiState();
+      if (!quiet) noteStudentSetStatus('Disconnected.', true);
+    }
+
+    async function noteStudentConnect() {
+      const classSel = document.getElementById('note-student-class');
+      const titleInput = document.getElementById('note-student-title');
+      const serverInput = document.getElementById('note-student-server');
+      const roomInput = document.getElementById('note-student-noteid');
+      if (!classSel || !titleInput || !serverInput || !roomInput) return;
+      const classGroup = String(classSel.value || '').trim();
+      const title = String(titleInput.value || '').trim() || 'Student notes';
+      if (!classGroup) { noteStudentSetStatus('Select a class group first.', true); return; }
+      noteStudentSetStatus('Preparing server...', false);
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      const electronServer = await noteStudentEnsureServerForElectron();
+      if (electronServer) {
+        const base = String(electronServer.baseUrl || noteStudentLocalBaseFromServerInfo(electronServer) || '').trim();
+        if (base) serverInput.value = base;
+      } else if (isElectron) { noteStudentSetStatus('Could not start local note server. Please retry.', true); return; }
+      let wsUrl = '';
+      try { wsUrl = noteStudentBuildWsUrl(serverInput.value); } catch (_) { noteStudentSetStatus('Invalid server URL.', true); return; }
+      if (!_noteStudentHub.noteId) _noteStudentHub.noteId = noteStudentMakeId();
+      _noteStudentHub.classGroup = classGroup; _noteStudentHub.title = title;
+      const joinBase = (electronServer && electronServer.publicBaseUrl) ? electronServer.publicBaseUrl : serverInput.value;
+      _noteStudentHub.joinUrl = noteStudentBuildJoinUrl(joinBase, _noteStudentHub.noteId, classGroup);
+      roomInput.value = _noteStudentHub.noteId;
+      noteStudentUpdateJoinDisplay();
+      noteStudentDisconnect({ quiet: true });
+      let ws;
+      try { ws = new WebSocket(wsUrl); } catch (_) { noteStudentSetStatus('Could not open websocket.', true); return; }
+      _noteStudentHub.ws = ws;
+      ws.onopen = function() {
+        _noteStudentHub.connected = true; noteStudentApplyUiState(); noteStudentSetStatus('Connected. Opening room...', false);
+        ws.send(JSON.stringify({ type: 'hello', role: 'note-host', name: 'Teacher' }));
+        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: _noteStudentHub.classGroup, title: _noteStudentHub.title } }));
+      };
+      ws.onmessage = function(event) { let msg = null; try { msg = JSON.parse(event.data); } catch (_) { return; } noteStudentHandleMessage(msg); };
+      ws.onerror = function() { noteStudentSetStatus('Websocket error.', true); };
+      ws.onclose = function() {
+        const hadConnection = !!_noteStudentHub.connected;
+        _noteStudentHub.connected = false; _noteStudentHub.ws = null; noteStudentApplyUiState();
+        noteStudentSetStatus(hadConnection ? 'Connection closed.' : 'Connection closed before opening room. Check server URL/port and retry.', true);
+      };
+    }
+
+    function noteStudentCopyJoinUrl() {
+      const url = String(_noteStudentHub.joinUrl || '').trim();
+      if (!url) { noteStudentSetStatus('No join URL yet. Connect first.', true); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => noteStudentSetStatus('Join URL copied to clipboard.', false)).catch(() => noteStudentSetStatus('Could not copy URL.', true));
+        return;
+      }
+      noteStudentSetStatus('Clipboard API unavailable in this browser.', true);
+    }
+
+    async function noteStudentCopyQrToBoard() {
+      const qrEl = document.getElementById('note-student-qr');
+      if (!qrEl || !qrEl.src || qrEl.style.display === 'none') { noteStudentSetStatus('QR code is not ready yet.', true); return; }
+      let copied = false;
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const qrBlobForClipboard = await fetch(qrEl.src).then(r => r.blob());
+          await navigator.clipboard.write([new ClipboardItem({ [qrBlobForClipboard.type || 'image/png']: qrBlobForClipboard })]);
+          copied = true;
+        }
+      } catch (_) {}
+      let qrBlob; try { qrBlob = await fetch(qrEl.src).then(r => r.blob()); } catch (_) { noteStudentSetStatus('Could not fetch QR image.', true); return; }
+      if (!qrBlob) { noteStudentSetStatus('Could not create QR image.', true); return; }
+      const noteData = noteStudentEnsureConstellationNote();
+      const noteIdKey = noteData && noteData.id ? String(noteData.id) : '';
+      if (noteIdKey) {
+        const prevAttachmentId = String((_noteStudentHub.qrAttachmentByNoteId && _noteStudentHub.qrAttachmentByNoteId[noteIdKey]) || '').trim();
+        if (prevAttachmentId && typeof conRemoveAttachmentFromCurrentPage === 'function') conRemoveAttachmentFromCurrentPage(prevAttachmentId, { silent: true });
+      }
+      const pngFile = new File([qrBlob], 'student-note-qr.png', { type: 'image/png' });
+      if (!Number.isFinite(_conAttachmentCounter)) _conAttachmentCounter = 0;
+      _conAttachmentCounter += 1;
+      const attachmentId = 'att_' + _conAttachmentCounter;
+      conAttachments.push({ id: attachmentId, name: pngFile.name, mime: 'image/png', kind: 'pics', size: pngFile.size, file: pngFile, relativePath: '' });
+      if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+      if (noteIdKey) {
+        if (!_noteStudentHub.qrAttachmentByNoteId || typeof _noteStudentHub.qrAttachmentByNoteId !== 'object') _noteStudentHub.qrAttachmentByNoteId = {};
+        _noteStudentHub.qrAttachmentByNoteId[noteIdKey] = attachmentId;
+      }
+      const pos = {};
+      if (noteData) { const noteX = Number(noteData.x) || 60; const noteY = Number(noteData.y) || 60; const noteW = Math.max(120, Number(noteData.width) || 220); pos.x = noteX + noteW + 18; pos.y = noteY; }
+      if (typeof window.conInsertAttachmentById === 'function') await window.conInsertAttachmentById(attachmentId, Object.assign({ silent: true }, pos));
+      noteStudentSetStatus(copied ? 'QR copied and pasted next to the note.' : 'QR pasted next to the note.', false);
+    }
+
+    // ── End Student Input Note ─────────────────────────────────────────
 
     window.conCreateTextNote = function(text, x, y, opts) {
       const noteText = String(text || '').trim();
@@ -22428,12 +24166,465 @@ function hideFailure() {
       };
     }
 
+    // ── Canvas / export helpers (restored from git) ───────────────────
+
+    function conCanvasFontFromStyles(styles, fallbackFamily) {
+      const fontStyle = styles.fontStyle || 'normal';
+      const fontWeight = styles.fontWeight || '400';
+      const fontSize = styles.fontSize || '16px';
+      const fontFamily = styles.fontFamily || fallbackFamily || '"Segoe UI", Arial, sans-serif';
+      return `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
+    }
+
+    function conGetPrimaryTextNode(el) {
+      return [...el.childNodes].find(child => {
+        if (child.nodeType === Node.TEXT_NODE) return !!child.textContent.trim();
+        return !(child.classList && child.classList.contains('con-node-ann'));
+      }) || null;
+    }
+
+    function conGetNodeWordText(node, el) {
+      const baseWord = node.baseWord || el.dataset.baseWord;
+      if (baseWord) return baseWord.trim();
+      let wordText = '';
+      el.childNodes.forEach(child => { if (child.nodeType === Node.TEXT_NODE) wordText += child.textContent; });
+      if (!wordText.trim()) { const primary = conGetPrimaryTextNode(el); wordText = primary ? primary.textContent : el.textContent; }
+      return wordText.trim();
+    }
+
+    function conGetRelativeTextCenterY(el, target, fallbackHeight) {
+      if (!target) return fallbackHeight / 2;
+      if (target.nodeType === Node.ELEMENT_NODE) {
+        const nodeRect = el.getBoundingClientRect(); const targetRect = target.getBoundingClientRect();
+        return (targetRect.top - nodeRect.top) + (targetRect.height / 2);
+      }
+      const range = document.createRange(); range.selectNodeContents(target);
+      const rect = range.getBoundingClientRect();
+      if (!rect.height) return fallbackHeight / 2;
+      const nodeRect = el.getBoundingClientRect();
+      return (rect.top - nodeRect.top) + (rect.height / 2);
+    }
+
+    function conDrawNodeLabelToCanvas(ctx, node, pad, color) {
+      const el = node.el; const nx = node.x; const ny = node.y; const nw = el.offsetWidth; const nh = el.offsetHeight;
+      const primaryTextNode = conGetPrimaryTextNode(el);
+      const wordStyles = primaryTextNode && primaryTextNode.nodeType === Node.ELEMENT_NODE ? getComputedStyle(primaryTextNode) : getComputedStyle(el);
+      const fmt = node.fmt || {};
+      const fontWeight = fmt.bold   ? 'bold'   : (wordStyles.fontWeight || '400');
+      const fontStyle  = fmt.italic ? 'italic' : (wordStyles.fontStyle  || 'normal');
+      const fontSize   = wordStyles.fontSize   || '14px';
+      const fontFamily = wordStyles.fontFamily || '"Segoe UI", Arial, sans-serif';
+      ctx.fillStyle = wordStyles.color || color;
+      ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 1;
+      const wordText = conGetNodeWordText(node, el);
+      const wordCenterY = pad + ny + conGetRelativeTextCenterY(el, primaryTextNode, nh);
+      if (wordText) {
+        const wordLines = wordText.includes('//') ? wordText.split('//').map(s => s.trim()) : null;
+        const fsPx = parseFloat(fontSize) || 14; const lineH = fsPx * 1.25;
+        const renderLines = wordLines || [wordText];
+        const lineStartY = wordLines ? wordCenterY - ((renderLines.length - 1) * lineH) / 2 : wordCenterY;
+        renderLines.forEach((line, li) => {
+          const lineY = lineStartY + li * lineH;
+          if (node.textStrokeWidth > 0 && node.textStrokeColor) {
+            ctx.save(); ctx.strokeStyle = node.textStrokeColor; ctx.lineWidth = node.textStrokeWidth * 2; ctx.lineJoin = 'round';
+            ctx.strokeText(line, pad + nx + nw / 2, lineY); ctx.restore();
+          }
+          ctx.fillText(line, pad + nx + nw / 2, lineY);
+          if (fmt.underline || fmt.strike) {
+            const metrics = ctx.measureText(line); const tw = metrics.width; const tx = pad + nx + nw / 2 - tw / 2;
+            ctx.save(); ctx.strokeStyle = wordStyles.color || color; ctx.lineWidth = Math.max(1, fsPx / 14); ctx.setLineDash([]);
+            if (fmt.underline) { ctx.beginPath(); ctx.moveTo(tx, lineY + fsPx * 0.55); ctx.lineTo(tx + tw, lineY + fsPx * 0.55); ctx.stroke(); }
+            if (fmt.strike)    { ctx.beginPath(); ctx.moveTo(tx, lineY); ctx.lineTo(tx + tw, lineY); ctx.stroke(); }
+            ctx.restore();
+          }
+        });
+      }
+      const anns = el.querySelectorAll('.con-node-ann');
+      anns.forEach(ann => {
+        const text = ann.textContent.trim(); if (!text) return;
+        const annStyles = getComputedStyle(ann); const annOpacity = parseFloat(annStyles.opacity);
+        const annRect = ann.getBoundingClientRect(); const nodeRect = el.getBoundingClientRect();
+        ctx.font = conCanvasFontFromStyles(annStyles, '"Segoe UI", Arial, sans-serif');
+        ctx.fillStyle = annStyles.color || color;
+        ctx.globalAlpha = Number.isFinite(annOpacity) ? annOpacity : 1;
+        ctx.fillText(text, pad + nx + nw / 2, pad + ny + (annRect.top - nodeRect.top) + (annRect.height / 2));
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function canvasWrapText(ctx, text, maxWidth) {
+      const result = [];
+      for (const paragraph of text.split('\n')) {
+        const words = paragraph.split(' '); let line = '';
+        for (const word of words) {
+          const test = line ? line + ' ' + word : word;
+          if (ctx.measureText(test).width > maxWidth && line) { result.push(line); line = word; } else { line = test; }
+        }
+        result.push(line);
+      }
+      return result;
+    }
+
+    function _conCanvasRichNote(ctx, note, x, y, w, h) {
+      if (note.classList.contains('wn-note-hidden')) return;
+      const editor = note.querySelector('.wn-note-editor, textarea');
+      if (!editor) return;
+      const noteCS = getComputedStyle(note);
+      const baseFontPx = parseFloat(note.style.fontSize) || parseFloat(noteCS.fontSize) || 14;
+      const baseColor = note.style.color || noteCS.color || '#111111';
+      const rawLH = parseFloat(note.style.lineHeight || noteCS.lineHeight);
+      const lineh = (Number.isFinite(rawLH) && rawLH >= baseFontPx * 0.8) ? rawLH : baseFontPx * 1.45;
+      const padX = 6, padY = 6; const contentW = w - padX * 2;
+      if (editor.tagName === 'TEXTAREA') {
+        const txt = (editor.value || '').trim(); if (!txt) return;
+        ctx.fillStyle = baseColor; ctx.font = `normal 400 ${baseFontPx}px "Segoe UI", Arial, sans-serif`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        canvasWrapText(ctx, txt, contentW).forEach((line, i) => { ctx.fillText(line, x + padX, y + padY + i * lineh); });
+        return;
+      }
+      const segs = [];
+      const noteIsBold = note.style.fontWeight === '700' || note.style.fontWeight === 'bold';
+      const noteIsItalic = note.style.fontStyle === 'italic';
+      const noteTD = note.style.textDecoration || '';
+      function _walkNote(node, st) {
+        if (node.nodeType === Node.TEXT_NODE) { if (node.textContent) segs.push({ ...st, text: node.textContent }); return; }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'br') { segs.push({ br: true }); return; }
+        if (node.classList && node.classList.contains('con-emoji-dot')) return;
+        const cs = getComputedStyle(node); const ns = { ...st };
+        const fw = parseInt(cs.fontWeight) || 0;
+        if (fw >= 600 || cs.fontWeight === 'bold') ns.bold = true;
+        if (cs.fontStyle === 'italic' || cs.fontStyle === 'oblique') ns.italic = true;
+        const td = node.style.textDecoration || cs.textDecoration || '';
+        if (td.includes('underline')) ns.underline = true;
+        if (td.includes('line-through')) ns.strike = true;
+        const ibg = node.style.backgroundColor;
+        if (ibg && ibg !== 'transparent' && ibg !== '' && !/^rgba\(0,\s*0,\s*0,\s*0\)$/.test(ibg)) ns.bgColor = ibg;
+        const ic = node.style.color; if (ic && ic !== '' && ic !== 'inherit') ns.color = ic;
+        const fsPx = parseFloat(cs.fontSize); if (Number.isFinite(fsPx) && fsPx > 0) ns.fontSize = fsPx;
+        if (tag === 'li') {
+          if (segs.length > 0 && !segs[segs.length - 1].br) segs.push({ br: true });
+          const listEl = node.closest('ol, ul'); const isOrdered = listEl && listEl.tagName.toLowerCase() === 'ol';
+          let marker; if (isOrdered) { let idx = 1; let prev = node.previousElementSibling; while (prev) { if (prev.tagName.toLowerCase() === 'li') idx++; prev = prev.previousElementSibling; } marker = idx + '. '; } else { marker = '• '; }
+          segs.push({ ...ns, text: marker }); node.childNodes.forEach(c => _walkNote(c, { ...ns, indent: true })); return;
+        }
+        node.childNodes.forEach(c => _walkNote(c, ns));
+        if ((tag === 'div' || tag === 'p') && node !== editor && node.nextSibling) segs.push({ br: true });
+        if ((tag === 'ul' || tag === 'ol') && node.nextSibling) segs.push({ br: true });
+      }
+      _walkNote(editor, { bold: noteIsBold, italic: noteIsItalic, underline: noteTD.includes('underline'), strike: noteTD.includes('line-through'), color: baseColor, bgColor: null, fontSize: baseFontPx });
+      while (segs.length && segs[segs.length - 1].br) segs.pop();
+      function _segFont(s) { return `${s.italic ? 'italic' : 'normal'} ${s.bold ? 'bold' : 'normal'} ${s.fontSize || baseFontPx}px "Segoe UI", Arial, sans-serif`; }
+      const paras = [[]];
+      segs.forEach(s => { if (s.br) { paras.push([]); return; } (s.text.match(/\S+|\s+/g) || []).forEach(tok => paras[paras.length - 1].push({ word: tok, seg: s })); });
+      const lines = [];
+      paras.forEach(para => {
+        if (!para.length) { lines.push([]); return; }
+        let curLine = [], curW = 0;
+        para.forEach(item => {
+          ctx.font = _segFont(item.seg); const tw = ctx.measureText(item.word).width; const isWs = /^\s+$/.test(item.word);
+          if (!isWs && curW + tw > contentW && curLine.length > 0) { lines.push(curLine); curLine = [item]; curW = tw; } else { curLine.push(item); curW += tw; }
+        });
+        if (curLine.length) lines.push(curLine);
+      });
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+      let cy = y + padY; const maxY = y + h - padY;
+      lines.forEach(line => {
+        if (cy + lineh > maxY) return;
+        let trimLine = [...line]; while (trimLine.length && /^\s+$/.test(trimLine[trimLine.length - 1].word)) trimLine.pop();
+        let cx = x + padX;
+        trimLine.forEach(item => {
+          ctx.font = _segFont(item.seg); const tw = ctx.measureText(item.word).width; const fsPx = item.seg.fontSize || baseFontPx;
+          const textTop = cy + Math.max(0, (lineh - fsPx) / 2);
+          if (item.seg.bgColor) { ctx.fillStyle = item.seg.bgColor; ctx.fillRect(cx, cy, tw, lineh); }
+          ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = item.seg.color || baseColor; ctx.fillText(item.word, cx, textTop);
+          if (item.seg.underline) { ctx.save(); ctx.strokeStyle = item.seg.color || baseColor; ctx.lineWidth = 1; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(cx, textTop + fsPx + 1); ctx.lineTo(cx + tw, textTop + fsPx + 1); ctx.stroke(); ctx.restore(); }
+          if (item.seg.strike)    { ctx.save(); ctx.strokeStyle = item.seg.color || baseColor; ctx.lineWidth = 1; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(cx, textTop + fsPx * 0.55); ctx.lineTo(cx + tw, textTop + fsPx * 0.55); ctx.stroke(); ctx.restore(); }
+          cx += tw;
+        });
+        cy += lineh;
+      });
+      ctx.restore();
+    }
+
+    function conNormalizeNodeShapeSafe(shape) {
+      const normalized = String(shape || '').trim().toLowerCase();
+      if (normalized === 'losange' || normalized === 'triangle') return 'rectangle';
+      return ['oval', 'circle', 'square', 'rectangle'].includes(normalized) ? normalized : 'rectangle';
+    }
+
+    function conCanvasTraceNodePath(ctx, x, y, w, h, shape) {
+      const normalized = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(shape) : conNormalizeNodeShapeSafe(shape));
+      ctx.beginPath();
+      if (normalized === 'circle' || normalized === 'oval') {
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      } else {
+        const r = 4;
+        ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+      }
+    }
+
+    function conCanvasTraceRoundedRect(ctx, x, y, w, h, r) {
+      const rr = Math.max(0, Math.min(r || 0, Math.min(w, h) / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y); ctx.lineTo(x + w - rr, y); ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+      ctx.lineTo(x + w, y + h - rr); ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+      ctx.lineTo(x + rr, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+      ctx.lineTo(x, y + rr); ctx.quadraticCurveTo(x, y, x + rr, y); ctx.closePath();
+    }
+
+    function conDrawMediaWidgetsToCanvas(ctx, PAD) {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      const widgets = Array.from(board.querySelectorAll('.con-media-item'));
+      widgets.forEach(wrap => {
+        const x = PAD + wrap.offsetLeft; const y = PAD + wrap.offsetTop;
+        const w = Math.max(1, wrap.offsetWidth); const h = Math.max(1, wrap.offsetHeight);
+        if (w < 2 || h < 2) return;
+        const wrapStyles = getComputedStyle(wrap);
+        const radius = parseFloat(wrapStyles.borderTopLeftRadius) || 7;
+        const borderW = parseFloat(wrapStyles.borderWidth) || 1.5;
+        const borderColor = wrapStyles.borderColor || '#444';
+        const bgColor = wrapStyles.backgroundColor || '#ffffff';
+        ctx.save(); conCanvasTraceRoundedRect(ctx, x, y, w, h, radius); ctx.fillStyle = bgColor; ctx.fill(); ctx.strokeStyle = borderColor; ctx.lineWidth = borderW; ctx.stroke(); ctx.restore();
+        const header = wrap.querySelector('.con-media-header');
+        const headerH = header ? Math.max(0, header.offsetHeight) : 0;
+        if (headerH > 0) {
+          const hs = header ? getComputedStyle(header) : null;
+          const headerBg = hs ? (hs.backgroundColor || '#f2f2f2') : '#f2f2f2';
+          const headerFg = hs ? (hs.color || '#222') : '#222';
+          const headerFontSize = hs ? (parseFloat(hs.fontSize) || 11) : 11;
+          const headerWeight = hs ? (hs.fontWeight || '700') : '700';
+          ctx.save(); conCanvasTraceRoundedRect(ctx, x, y, w, Math.min(headerH, h), radius); ctx.clip(); ctx.fillStyle = headerBg; ctx.fillRect(x, y, w, Math.min(headerH, h)); ctx.restore();
+          if (header) {
+            const rawTitle = String(header.textContent || '').replace(/\s*✕\s*/g, ' ').trim();
+            if (rawTitle) {
+              ctx.save(); ctx.rect(x + 6, y, Math.max(1, w - 30), Math.min(headerH, h)); ctx.clip();
+              ctx.fillStyle = headerFg; ctx.font = `${headerWeight} ${Math.max(9, headerFontSize)}px "Segoe UI", Arial, sans-serif`;
+              ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(rawTitle, x + 6, y + Math.min(headerH, h) / 2); ctx.restore();
+            }
+          }
+        }
+        const content = wrap.querySelector('.con-media-content'); if (!content) return;
+        const contentX = x + content.offsetLeft; const contentY = y + content.offsetTop;
+        const contentW = Math.max(1, content.offsetWidth); const contentH = Math.max(1, content.offsetHeight);
+        const contentStyles = getComputedStyle(content);
+        ctx.save(); ctx.fillStyle = contentStyles.backgroundColor || '#fafafa'; ctx.fillRect(contentX, contentY, contentW, contentH);
+        ctx.beginPath(); ctx.rect(contentX, contentY, contentW, contentH); ctx.clip();
+        const kind = wrap.classList.contains('con-media-kind-pdf') ? 'pdf' : wrap.classList.contains('con-media-kind-pics') ? 'pics' : wrap.classList.contains('con-media-kind-videos') ? 'videos' : wrap.classList.contains('con-media-kind-sounds') ? 'sounds' : '';
+        const drawSource = src => {
+          try {
+            if (!src) return false;
+            if (src.tagName === 'IMG' && (!src.complete || !src.naturalWidth || !src.naturalHeight)) return false;
+            if (src.tagName === 'VIDEO' && (!src.videoWidth || !src.videoHeight)) return false;
+            if (src.tagName === 'CANVAS' && (!src.width || !src.height)) return false;
+            const sw = src.tagName === 'IMG' ? src.naturalWidth : (src.tagName === 'VIDEO' ? src.videoWidth : src.width);
+            const sh = src.tagName === 'IMG' ? src.naturalHeight : (src.tagName === 'VIDEO' ? src.videoHeight : src.height);
+            if (!sw || !sh) return false;
+            const srcRect = src.getBoundingClientRect(); const contentRect = content.getBoundingClientRect();
+            const relX = srcRect.left - contentRect.left; const relY = srcRect.top - contentRect.top;
+            const dw = srcRect.width; const dh = srcRect.height; if (!dw || !dh) return false;
+            ctx.drawImage(src, contentX + relX, contentY + relY, dw, dh); return true;
+          } catch { return false; }
+        };
+        let drawn = false;
+        if (kind === 'pdf') { drawn = drawSource(wrap.querySelector('canvas.con-media-pdf-canvas')); } else { drawn = drawSource(wrap.querySelector('.con-media-asset')); }
+        if (!drawn && kind === 'sounds') { ctx.fillStyle = '#4b5563'; ctx.font = '700 16px "Segoe UI", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('AUDIO', contentX + contentW / 2, contentY + contentH / 2); }
+        ctx.restore();
+      });
+    }
+
+    async function _conBuildBoardCanvas() {
+      const board = document.getElementById('constellation-board');
+      if (!board) return null;
+      const nodes = window.conGetNodes ? window.conGetNodes() : [];
+      const bw = board.scrollWidth; const bh = board.scrollHeight;
+      const PAD = 24; const scale = Math.max(window.devicePixelRatio || 1, 2);
+      const canvas = document.createElement('canvas');
+      canvas.width  = (bw + PAD * 2) * scale;
+      canvas.height = (bh + PAD * 2) * scale;
+      const ctx = canvas.getContext('2d'); ctx.scale(scale, scale);
+      ctx.fillStyle = _conBoardBgColor || '#ffffff'; ctx.fillRect(0, 0, bw + PAD * 2, bh + PAD * 2);
+      if (_conBoardBg && _conBoardBg._cachedDataUrl) {
+        await new Promise(resolve => { const img = new Image(); img.onload = () => { ctx.drawImage(img, PAD, PAD, _conBoardBg._cachedW, _conBoardBg._cachedH); resolve(); }; img.onerror = resolve; img.src = _conBoardBg._cachedDataUrl; });
+      }
+      ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
+      const svgEl = document.getElementById('constellation-svg');
+      if (svgEl) {
+        svgEl.querySelectorAll('.con-line-group').forEach(grp => {
+          const line = grp.querySelector('.con-line'); if (!line) return;
+          const x1 = parseFloat(line.getAttribute('x1')); const y1 = parseFloat(line.getAttribute('y1'));
+          const x2 = parseFloat(line.getAttribute('x2')); const y2 = parseFloat(line.getAttribute('y2'));
+          ctx.strokeStyle = line.style.stroke || '#111111';
+          ctx.lineWidth = parseFloat(line.style.strokeWidth) || parseFloat(line.getAttribute('stroke-width')) || 2;
+          const markerEnd = line.getAttribute('marker-end'); const markerStart = line.getAttribute('marker-start');
+          const dx = x2 - x1, dy = y2 - y1; const dist = Math.sqrt(dx * dx + dy * dy);
+          ctx.beginPath(); ctx.moveTo(PAD + x1, PAD + y1); ctx.lineTo(PAD + x2, PAD + y2); ctx.stroke();
+          const aw = 9, ah = 6;
+          if (markerEnd && dist > 1) { const angle = Math.atan2(dy, dx); ctx.save(); ctx.translate(PAD + x2, PAD + y2); ctx.rotate(angle); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-aw, -ah / 2); ctx.lineTo(-aw, ah / 2); ctx.closePath(); ctx.fill(); ctx.restore(); }
+          if (markerStart && dist > 1) { const angle = Math.atan2(dy, dx); ctx.save(); ctx.translate(PAD + x1, PAD + y1); ctx.rotate(angle + Math.PI); ctx.fillStyle = '#444'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-aw, -ah / 2); ctx.lineTo(-aw, ah / 2); ctx.closePath(); ctx.fill(); ctx.restore(); }
+          const labelEl = grp.querySelector('.con-line-label');
+          if (labelEl && labelEl.textContent.trim()) {
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2; const angle = Math.atan2(y2 - y1, x2 - x1);
+            const a = (angle > Math.PI / 2 || angle < -Math.PI / 2) ? angle + Math.PI : angle;
+            const labelStyles = getComputedStyle(labelEl); const dy2 = parseFloat(labelEl.getAttribute('dy') || '-5');
+            const strokeWidth = parseFloat(labelStyles.strokeWidth);
+            ctx.save(); ctx.translate(PAD + mx, PAD + my); ctx.rotate(a);
+            ctx.font = conCanvasFontFromStyles(labelStyles, '"Segoe UI", Arial, sans-serif');
+            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            ctx.strokeStyle = labelStyles.stroke || 'rgba(255,255,255,0.85)'; ctx.lineWidth = Number.isFinite(strokeWidth) ? strokeWidth : 4; ctx.lineJoin = 'round';
+            ctx.strokeText(labelEl.textContent.trim(), 0, Number.isFinite(dy2) ? dy2 : -5);
+            ctx.fillStyle = labelStyles.fill || '#333'; ctx.fillText(labelEl.textContent.trim(), 0, Number.isFinite(dy2) ? dy2 : -5); ctx.restore();
+          }
+        });
+      }
+      document.querySelectorAll('.con-group').forEach(grp => {
+        const rx = grp.offsetLeft; const ry = grp.offsetTop; const rw = grp.offsetWidth; const rh = grp.offsetHeight;
+        ctx.fillStyle = grp.style.background || '#f3f4f6'; const r = 8;
+        ctx.beginPath(); ctx.moveTo(PAD+rx+r,PAD+ry); ctx.lineTo(PAD+rx+rw-r,PAD+ry); ctx.quadraticCurveTo(PAD+rx+rw,PAD+ry,PAD+rx+rw,PAD+ry+r); ctx.lineTo(PAD+rx+rw,PAD+ry+rh-r); ctx.quadraticCurveTo(PAD+rx+rw,PAD+ry+rh,PAD+rx+rw-r,PAD+ry+rh); ctx.lineTo(PAD+rx+r,PAD+ry+rh); ctx.quadraticCurveTo(PAD+rx,PAD+ry+rh,PAD+rx,PAD+ry+rh-r); ctx.lineTo(PAD+rx,PAD+ry+r); ctx.quadraticCurveTo(PAD+rx,PAD+ry,PAD+rx+r,PAD+ry); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = grp.style.borderColor || '#aaa'; ctx.lineWidth = 2; ctx.stroke();
+        const titleEl = grp.querySelector('.con-group-title');
+        if (titleEl && titleEl.textContent.trim() && titleEl.style.display !== 'none') {
+          const tx = rx+titleEl.offsetLeft; const ty = ry+titleEl.offsetTop; const tw = titleEl.offsetWidth; const th = titleEl.offsetHeight;
+          const borderColor = titleEl.style.borderColor || grp.style.borderColor || '#aaa';
+          const textColor = titleEl.style.color || grp.style.borderColor || '#333';
+          const bgColor = grp.style.background || '#f3f4f6'; const tr = 4;
+          ctx.fillStyle = bgColor;
+          ctx.beginPath(); ctx.moveTo(PAD+tx+tr,PAD+ty); ctx.lineTo(PAD+tx+tw-tr,PAD+ty); ctx.quadraticCurveTo(PAD+tx+tw,PAD+ty,PAD+tx+tw,PAD+ty+tr); ctx.lineTo(PAD+tx+tw,PAD+ty+th-tr); ctx.quadraticCurveTo(PAD+tx+tw,PAD+ty+th,PAD+tx+tw-tr,PAD+ty+th); ctx.lineTo(PAD+tx+tr,PAD+ty+th); ctx.quadraticCurveTo(PAD+tx,PAD+ty+th,PAD+tx,PAD+ty+th-tr); ctx.lineTo(PAD+tx,PAD+ty+tr); ctx.quadraticCurveTo(PAD+tx,PAD+ty,PAD+tx+tr,PAD+ty); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = borderColor; ctx.lineWidth = 2; ctx.stroke();
+          ctx.fillStyle = textColor;
+          const _titleFontPx = parseFloat(titleEl.style.fontSize) || parseFloat(getComputedStyle(titleEl).fontSize) || 11;
+          ctx.font = `bold ${_titleFontPx}px "Segoe UI", Arial, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.save(); ctx.rect(PAD+tx+2,PAD+ty,tw-4,th); ctx.clip(); ctx.fillText(titleEl.textContent.trim(),PAD+tx+7,PAD+ty+th/2); ctx.restore();
+        }
+      });
+      (window.conGetShapes ? window.conGetShapes() : []).forEach(s => {
+        const sw = s.thickness || 2; const op = Number.isFinite(s.opacity) ? s.opacity : 1; const color = s.color || '#333333'; const fill = s.fillColor || 'none';
+        ctx.save(); ctx.globalAlpha = op; ctx.strokeStyle = color; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const dashStyle = s.dashStyle || 'solid';
+        if (dashStyle === 'dashed') ctx.setLineDash([sw*4,sw*2]); else if (dashStyle === 'dotted') ctx.setLineDash([sw*0.5,sw*2.5]); else ctx.setLineDash([]);
+        if (s.type === 'rect') { if (fill !== 'none') { ctx.fillStyle = fill; ctx.fillRect(PAD+s.x,PAD+s.y,s.w,s.h); } ctx.strokeRect(PAD+s.x,PAD+s.y,s.w,s.h); }
+        else if (s.type === 'circle' || s.type === 'ellipse') { const cx = PAD+s.x+s.w/2, cy = PAD+s.y+s.h/2; ctx.beginPath(); ctx.ellipse(cx,cy,Math.max(0.5,s.w/2),Math.max(0.5,s.h/2),0,0,Math.PI*2); if (fill !== 'none') { ctx.fillStyle = fill; ctx.fill(); } ctx.stroke(); }
+        else if (s.type === 'diamond') { const cx = PAD+s.x+s.w/2, mid_y = PAD+s.y+s.h/2; ctx.beginPath(); ctx.moveTo(cx,PAD+s.y); ctx.lineTo(PAD+s.x+s.w,mid_y); ctx.lineTo(cx,PAD+s.y+s.h); ctx.lineTo(PAD+s.x,mid_y); ctx.closePath(); if (fill !== 'none') { ctx.fillStyle = fill; ctx.fill(); } ctx.stroke(); }
+        else if (s.type === 'line') { ctx.beginPath(); ctx.moveTo(PAD+s.lx1,PAD+s.ly1); ctx.lineTo(PAD+s.lx2,PAD+s.ly2); ctx.stroke(); }
+        else if (s.type === 'arrow') { const adx=s.lx2-s.lx1,ady=s.ly2-s.ly1; const dist=Math.sqrt(adx*adx+ady*ady); if (dist>1) { const angle=Math.atan2(ady,adx); const ahPx=s.arrowheadSize||Math.max(8,sw*2.5); const aw=Math.min(ahPx,40),ah=aw*0.6; ctx.beginPath(); ctx.moveTo(PAD+s.lx1,PAD+s.ly1); ctx.lineTo(PAD+s.lx2-Math.cos(angle)*sw,PAD+s.ly2-Math.sin(angle)*sw); ctx.stroke(); ctx.setLineDash([]); ctx.save(); ctx.translate(PAD+s.lx2,PAD+s.ly2); ctx.rotate(angle); ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-aw,-ah/2); ctx.lineTo(-aw,ah/2); ctx.closePath(); ctx.fill(); ctx.restore(); } }
+        else if (s.type === 'polygon' && s.pts && s.pts.length >= 2) { ctx.beginPath(); ctx.moveTo(PAD+s.pts[0].x,PAD+s.pts[0].y); for (let i=1;i<s.pts.length;i++) ctx.lineTo(PAD+s.pts[i].x,PAD+s.pts[i].y); ctx.closePath(); if (fill !== 'none') { ctx.fillStyle=fill; ctx.fill(); } ctx.stroke(); }
+        ctx.restore();
+      });
+      nodes.forEach(n => {
+        const el = n.el; const nx = n.x, ny = n.y; const nw = el.offsetWidth, nh = el.offsetHeight;
+        const bg = el.style.background || '#ffffff'; const color = el.style.color || '#111111'; const border = el.style.borderColor || '#111111';
+        const shape = n.shape || (el.dataset && el.dataset.shape);
+        const bw2 = (n.borderWidth != null ? n.borderWidth : parseInt(el.style.borderWidth)) || 2;
+        const bs = n.borderStyle || el.style.borderStyle || 'solid';
+        if (n.highlight) { ctx.save(); ctx.strokeStyle=n.highlight; ctx.lineWidth=4; ctx.globalAlpha=0.85; ctx.setLineDash([]); conCanvasTraceNodePath(ctx,PAD+nx-3,PAD+ny-3,nw+6,nh+6,shape); ctx.stroke(); ctx.globalAlpha=1; ctx.restore(); }
+        ctx.shadowColor='rgba(0,0,0,0.15)'; ctx.shadowBlur=4; ctx.shadowOffsetX=2; ctx.shadowOffsetY=2; ctx.fillStyle=bg; conCanvasTraceNodePath(ctx,PAD+nx,PAD+ny,nw,nh,shape); ctx.fill();
+        ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+        ctx.strokeStyle=border; ctx.lineWidth=bw2;
+        if (bs==='dashed') ctx.setLineDash([Math.max(4,bw2*3),Math.max(3,bw2*2)]); else if (bs==='dotted') ctx.setLineDash([bw2,Math.max(2,bw2*2)]); else ctx.setLineDash([]);
+        conCanvasTraceNodePath(ctx,PAD+nx,PAD+ny,nw,nh,shape); ctx.stroke();
+        if (bs==='double' && bw2>=2) { ctx.lineWidth=Math.max(1,bw2-2); ctx.setLineDash([]); const inset=Math.max(2,bw2); conCanvasTraceNodePath(ctx,PAD+nx+inset,PAD+ny+inset,nw-inset*2,nh-inset*2,shape); ctx.stroke(); }
+        ctx.setLineDash([]); conDrawNodeLabelToCanvas(ctx,n,PAD,color);
+        if (n.emoji) { const dotEl=el.querySelector('.con-emoji-dot'); if (dotEl) { const dr=dotEl.getBoundingClientRect(); const er=el.getBoundingClientRect(); const dx=dr.left-er.left+dr.width/2; const dy=dr.top-er.top+dr.height/2; const dotFontPx=parseFloat(getComputedStyle(dotEl).fontSize)||11; ctx.font=`${dotFontPx}px "Segoe UI",Arial,sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(n.emoji,PAD+nx+dx,PAD+ny+dy); } }
+      });
+      conDrawMediaWidgetsToCanvas(ctx, PAD);
+      document.querySelectorAll('#constellation-board .con-word-note').forEach(note => {
+        const nx=note.offsetLeft; const ny=note.offsetTop; const nw=note.offsetWidth; const nh=note.offsetHeight;
+        const bg=note.style.background||'#ffffff'; const border=note.style.borderColor||'#cdc9c9';
+        const noteBW=parseInt(note.style.borderWidth)||1; const noteBS=note.style.borderStyle||'solid';
+        ctx.fillStyle=bg; ctx.strokeStyle=border; ctx.lineWidth=noteBW; const r=4;
+        ctx.beginPath(); ctx.moveTo(PAD+nx+r,PAD+ny); ctx.lineTo(PAD+nx+nw-r,PAD+ny); ctx.quadraticCurveTo(PAD+nx+nw,PAD+ny,PAD+nx+nw,PAD+ny+r); ctx.lineTo(PAD+nx+nw,PAD+ny+nh-r); ctx.quadraticCurveTo(PAD+nx+nw,PAD+ny+nh,PAD+nx+nw-r,PAD+ny+nh); ctx.lineTo(PAD+nx+r,PAD+ny+nh); ctx.quadraticCurveTo(PAD+nx,PAD+ny+nh,PAD+nx,PAD+ny+nh-r); ctx.lineTo(PAD+nx,PAD+ny+r); ctx.quadraticCurveTo(PAD+nx,PAD+ny,PAD+nx+r,PAD+ny); ctx.closePath(); ctx.fill();
+        if (noteBS==='dashed') ctx.setLineDash([6,3]); else if (noteBS==='dotted') ctx.setLineDash([2,3]); else ctx.setLineDash([]);
+        ctx.stroke(); ctx.setLineDash([]);
+        _conCanvasRichNote(ctx, note, PAD+nx, PAD+ny, nw, nh);
+        const noteMeta=(typeof conNotes!=='undefined')?conNotes.find(m=>m.id===note.dataset.id):null;
+        if (noteMeta && noteMeta.emoji) { const dotEl=note.querySelector('.con-emoji-dot'); if (dotEl) { const _noteRect=note.getBoundingClientRect(); const dr=dotEl.getBoundingClientRect(); const dx=dr.left-_noteRect.left+dr.width/2; const dy=dr.top-_noteRect.top+dr.height/2; const dotFontPx=parseFloat(getComputedStyle(dotEl).fontSize)||11; ctx.font=`${dotFontPx}px "Segoe UI",Arial,sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(noteMeta.emoji,PAD+nx+dx,PAD+ny+dy); } }
+      });
+      (window.conGetDrawings ? window.conGetDrawings() : []).forEach(d => {
+        if (!d.points || d.points.length < 2) return;
+        ctx.save(); ctx.strokeStyle=d.color||'#e53935'; ctx.lineWidth=d.thickness||4; ctx.lineCap='round'; ctx.lineJoin='round';
+        ctx.beginPath(); ctx.moveTo(PAD+d.x+d.points[0].x,PAD+d.y+d.points[0].y);
+        for (let i=1;i<d.points.length;i++) ctx.lineTo(PAD+d.x+d.points[i].x,PAD+d.y+d.points[i].y);
+        ctx.stroke(); ctx.restore();
+      });
+      (window.conGetMasks ? window.conGetMasks() : []).forEach(mask => {
+        if (!mask || !mask.el) return;
+        const mx=mask.el.offsetLeft; const my=mask.el.offsetTop; const mw=mask.el.offsetWidth; const mh=mask.el.offsetHeight;
+        const bg=mask.color||'#111111'; const op=Math.max(0.05,Math.min(1,Number(mask.opacity)||parseFloat(mask.el.style.opacity)||0.95));
+        ctx.save(); ctx.globalAlpha=op; ctx.fillStyle=bg; ctx.fillRect(PAD+mx,PAD+my,mw,mh); ctx.restore();
+      });
+      const now = new Date();
+      const ts = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'  '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+      ctx.font='500 11px "Segoe UI",Arial,sans-serif'; ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.textAlign='right'; ctx.textBaseline='bottom';
+      ctx.fillText(ts, bw+PAD*2-8, bh+PAD*2-6);
+      return { canvas, now };
+    }
+
+    async function conExportPNG() {
+      const result = await _conBuildBoardCanvas(); if (!result) return;
+      const { canvas, now } = result;
+      canvas.toBlob(blob => {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = applyClassPrefixToFilename('constellation_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.png');
+        a.click(); URL.revokeObjectURL(a.href);
+      }, 'image/png');
+    }
+
+    async function conCopyPNG() {
+      const result = await _conBuildBoardCanvas(); if (!result) return;
+      const { canvas } = result;
+      canvas.toBlob(async blob => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+          const btn = document.querySelector('[onclick="conCopyPNG()"]');
+          if (btn) { const o=btn.textContent; btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent=o, 1800); }
+        } catch(err) { mdbToast('⚠️ Clipboard write failed — try Export PNG instead.'); }
+      }, 'image/png');
+    }
+
+    async function conExportPagesPDF() {
+      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      const allPages = conPageSnapshots.slice();
+      const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'constellation';
+      function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+      const displayTitle = escapeHtml(titleVal);
+      const origIndex = conCurrentPageIndex; const dataUrls = [];
+      for (let i = 0; i < allPages.length; i++) {
+        _conRestorePageToBoard(allPages[i]);
+        await new Promise(r => setTimeout(r, 80));
+        const res = await _conBuildBoardCanvas();
+        if (res) dataUrls.push(res.canvas.toDataURL('image/png'));
+      }
+      _conRestorePageToBoard(allPages[origIndex]);
+      const imgTags = dataUrls.map((url, i) => `<div class="pg"><img src="${url}" alt="Page ${i + 1}"></div>`).join('\n');
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
+      const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+        Desktop.printPdf({ html, defaultName: safeTitle + '_pages.pdf' }).then(result => {
+          if (!result.ok && !result.canceled) mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+        }).catch(err => { mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err))); });
+      } else {
+        let iframe = document.getElementById('con-pages-pdf-iframe');
+        if (!iframe) { iframe = document.createElement('iframe'); iframe.id = 'con-pages-pdf-iframe'; iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px'; document.body.appendChild(iframe); }
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open(); doc.write(html); doc.close();
+        setTimeout(() => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) {} }, 500);
+      }
+    }
+
+    // ── End canvas / export helpers ───────────────────────────────────
+
     // Save a PNG snapshot of the current board state for a given page index.
     // Writes to mindmaps/<folderName>/page-snapshots/page-NNN.png (fire-and-forget).
-    function conSaveCurrentPageSnapshotPng(pageIndex) {
+    async function conSaveCurrentPageSnapshotPng(pageIndex) {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
       if (!_conCurrentFolderName) return;
-      const result = _conBuildBoardCanvas();
+      const result = await _conBuildBoardCanvas();
       if (!result) return;
       const dataUrl = result.canvas.toDataURL('image/png');
       const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
@@ -22515,6 +24706,7 @@ function hideFailure() {
               boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
               boardSetAutosaveFingerprint('constellation', saved.data);
               mdbToast('✅ Saved: ' + saved.folderName + '/' + saved.filename);
+              conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             })
             .catch(error => {
               mdbToast('⚠️ Could not save Constellation folder: ' + (error && error.message ? error.message : String(error)));
@@ -22530,6 +24722,7 @@ function hideFailure() {
             boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
             boardSetAutosaveFingerprint('constellation', saved.data);
             mdbToast('✅ Saved: ' + saved.folderName + '/' + saved.filename);
+            conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             return saved.filename;
           }
         });
@@ -22544,6 +24737,146 @@ function hideFailure() {
       }
 
       sfnOpen(filename, blob, 'mindmaps', savedName => { if (savedName) _conCurrentFileName = savedName; });
+    }
+
+    function conFormatVersionDate(filename) {
+      const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.js$/i);
+      if (!m) return filename;
+      const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
+      return dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+        + ' — ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    async function conSaveHistorySnapshot(folderName, filename, data) {
+      if (!(window.Desktop && Desktop.isElectron())) return;
+      try {
+        const base = boardStripJsonExt(filename);
+        const now = new Date();
+        const p = n => String(n).padStart(2, '0');
+        const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
+        const histFilename = `${base}.v${ts}.js`;
+        const content = boardBuildSessionFileContent(data, 'CONSTELLATION_SESSION_EXPORT');
+        await Desktop.saveFiles('mindmaps', [{ filename: histFilename, subdir: folderName + '/history', content, encoding: 'utf8' }]);
+        if (typeof Desktop.listByPath === 'function') {
+          const listed = await Desktop.listByPath('mindmaps', folderName + '/history', { extensions: ['.js', '.json'], recursive: false });
+          const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+          if (vFiles.length > 20) {
+            const sorted = vFiles.slice().sort((a, b) => (a.mtimeMs || 0) - (b.mtimeMs || 0));
+            for (const f of sorted.slice(0, sorted.length - 20)) {
+              await Desktop.deleteByPath('mindmaps', f.relativePath).catch(() => {});
+            }
+          }
+        }
+      } catch(e) { /* silent — history is best-effort */ }
+    }
+
+    function conGetVersionModal() {
+      let modal = document.getElementById('con-version-history-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'con-version-history-modal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;';
+        modal.innerHTML = '<div style="background:#fff;border-radius:10px;max-width:520px;width:93%;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.35);">'
+          + '<div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #e0e0e0;">'
+          + '<span id="con-version-history-title" style="flex:1;font-size:.95rem;font-weight:800;"></span>'
+          + '<button onclick="document.getElementById(\'con-version-history-modal\').style.display=\'none\'" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:2px 8px;color:#666;line-height:1;">✕</button>'
+          + '</div>'
+          + '<div id="con-version-history-body" style="overflow-y:auto;flex:1;min-height:80px;"></div>'
+          + '</div>';
+        modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+        document.body.appendChild(modal);
+      }
+      return modal;
+    }
+
+    async function conShowVersionHistory(entry) {
+      if (!entry || entry.target !== 'mindmaps') return;
+      const relPath = historyEntryRelativePath(entry);
+      const folderName = relPath.includes('/') ? relPath.split('/')[0] : boardStripJsonExt(entry.filename || '');
+      if (!folderName) return;
+
+      const modal = conGetVersionModal();
+      const title = document.getElementById('con-version-history-title');
+      const body = document.getElementById('con-version-history-body');
+      title.textContent = 'Version History — ' + (entry.baseName || entry.filename);
+      body.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:.85rem;">Loading versions…</div>';
+      modal.style.display = 'flex';
+
+      let files = [];
+      try {
+        if (typeof Desktop.listByPath === 'function') {
+          const r = await Desktop.listByPath('mindmaps', folderName + '/history', { extensions: ['.js', '.json'], recursive: false });
+          files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+        }
+      } catch(e) {}
+
+      files.sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0));
+
+      if (!files.length) {
+        body.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:.85rem;">No saved versions yet.<br>Versions are created on every manual save.</div>';
+        return;
+      }
+
+      body.innerHTML = '';
+      const list = document.createElement('div');
+      list.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:12px;';
+
+      files.forEach(f => {
+        const rp = f.relativePath || '';
+        const fname = f.filename || rp.split('/').pop() || '';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;border:1.5px solid #e0e0e0;border-radius:7px;padding:8px 12px;';
+
+        const label = document.createElement('span');
+        label.style.cssText = 'flex:1;font-size:.83rem;font-weight:600;';
+        label.textContent = conFormatVersionDate(fname);
+
+        const size = document.createElement('span');
+        size.style.cssText = 'font-size:.72rem;color:#999;white-space:nowrap;flex-shrink:0;';
+        size.textContent = f.size ? historyFormatSize(f.size) : '';
+
+        const restoreBtn = document.createElement('button');
+        restoreBtn.className = 'action-btn btn-grey';
+        restoreBtn.textContent = 'Restore';
+        restoreBtn.onclick = async () => {
+          if (!confirm('Restore this version? The current board content will be replaced.')) return;
+          try {
+            const r = await Desktop.readByPath('mindmaps', rp);
+            if (!r || !r.ok || !r.content) throw new Error('Could not read version file.');
+            const data = boardParseSessionText(r.content);
+            if (!data || (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation'))) {
+              throw new Error('File does not look like a Constellation session.');
+            }
+            _conRestoreSession(data);
+            boardSetSessionFileMetaFromData('constellation', data);
+            boardSetAutosaveFingerprint('constellation', data);
+            modal.style.display = 'none';
+            mdbToast('✅ Version restored — save to keep the changes.');
+          } catch(e) { mdbToast('⚠️ Could not restore: ' + (e && e.message ? e.message : String(e))); }
+        };
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'action-btn btn-red';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = async () => {
+          if (!confirm('Delete this version?')) return;
+          try {
+            await Desktop.deleteByPath('mindmaps', rp);
+            row.remove();
+            if (!list.children.length) {
+              body.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:.85rem;">No saved versions.</div>';
+            }
+          } catch(e) { mdbToast('⚠️ Could not delete version.'); }
+        };
+
+        row.appendChild(label);
+        row.appendChild(size);
+        row.appendChild(restoreBtn);
+        row.appendChild(delBtn);
+        list.appendChild(row);
+      });
+
+      body.appendChild(list);
     }
 
     function conLoadSession(event) {
@@ -23777,6 +26110,13 @@ function hideFailure() {
           archiveBtn.onclick = () => historyArchiveEntry(entry);
           actionTd.appendChild(openBtn);
           actionTd.appendChild(openNewBtn);
+          if (entry.target === 'mindmaps') {
+            const versionsBtn = document.createElement('button');
+            versionsBtn.className = 'action-btn btn-grey';
+            versionsBtn.textContent = 'Versions';
+            versionsBtn.onclick = () => conShowVersionHistory(entry);
+            actionTd.appendChild(versionsBtn);
+          }
           actionTd.appendChild(previewBtn);
           actionTd.appendChild(renameBtn);
           actionTd.appendChild(duplicateBtn);
@@ -24895,10 +27235,461 @@ function hideFailure() {
       }
     }
 
+    // ---- HTML / EPUB Import core ----
+    let _taImportRawText = '';
+    let _taImportBooks = [];
+    let _taImportBannerCallback = null;
+    window._conImportTextCallback = null;
+
+    function taImportApplyText(text, fileLabel) {
+      _taImportRawText = text;
+      document.getElementById('ta-imp-file-name').textContent = fileLabel || 'Imported text';
+      document.getElementById('ta-imp-file-zone').classList.add('has-file');
+      document.getElementById('ta-imp-char-count').textContent =
+        _taImportRawText.length.toLocaleString() + ' chars of plain text';
+      taImportPreview();
+    }
+
+    async function taImportPopulateBookShortcuts() {
+      const select = document.getElementById('ta-imp-book-shortcut');
+      if (!select) return;
+      _taImportBooks = [];
+      select.innerHTML = '<option value="">Books folder…</option>';
+      select.style.display = 'none';
+      const canList = !!(window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.listFiles === 'function');
+      if (!canList) return;
+      try {
+        const result = await Desktop.listFiles('customBooks', { extensions: ['.epub', '.html', '.htm', '.xhtml', '.txt'] });
+        const files = result && result.ok && Array.isArray(result.files) ? result.files : [];
+        if (!files.length) return;
+        _taImportBooks = files.map(file => ({
+          fileName: file.filename,
+          relativePath: file.relativePath || file.filename,
+          label: String(file.filename || '').replace(/\.(epub|html?|xhtml|txt)$/i, '')
+        }));
+        _taImportBooks.forEach(book => {
+          const option = document.createElement('option');
+          option.value = book.relativePath;
+          option.textContent = book.label || book.fileName;
+          select.appendChild(option);
+        });
+        select.style.display = 'block';
+        const orEl = document.getElementById('ta-imp-file-or');
+        if (orEl) orEl.style.display = '';
+      } catch (error) {
+        console.warn('Could not list customBooks for import shortcuts:', error);
+      }
+    }
+
+    async function taImportLoadShortcutBook() {
+      const select = document.getElementById('ta-imp-book-shortcut');
+      if (!select || !select.value) return;
+      const selectedPath = select.value;
+      const selectedBook = _taImportBooks.find(book => book.relativePath === selectedPath);
+      const label = selectedBook ? selectedBook.label : select.options[select.selectedIndex].textContent;
+      try {
+        select.disabled = true;
+        document.getElementById('ta-imp-file-input').value = '';
+        document.getElementById('ta-imp-preview').textContent = 'Loading ' + label + '…';
+        document.getElementById('ta-imp-preview').className = '';
+        const lowerPath = selectedPath.toLowerCase();
+        const result = await Desktop.readByPath('customBooks', selectedPath, { encoding: 'base64' });
+        if (!result || !result.ok || !result.content) throw new Error(result && result.error ? result.error : 'Could not read book file.');
+        const binary = atob(result.content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        let text;
+        if (lowerPath.endsWith('.epub')) {
+          text = await taEpubExtractTextAsync(bytes.buffer);
+        } else {
+          text = taImportHtmlToText(new TextDecoder('utf-8').decode(bytes));
+        }
+        if (!text) throw new Error('The selected book did not produce readable text.');
+        taImportApplyText(text, selectedBook ? selectedBook.fileName : label);
+      } catch (error) {
+        document.getElementById('ta-imp-preview').textContent = '⚠ Could not load book: ' + (error && error.message ? error.message : String(error));
+        document.getElementById('ta-imp-preview').className = 'no-match';
+      } finally {
+        select.disabled = false;
+      }
+    }
+
+    function taOpenImport() {
+      searchOpenImport();
+      document.getElementById('ta-imp-confirm-btn').onclick = taImportConfirm;
+    }
+
+    function taCloseImport() {
+      document.getElementById('ta-import-overlay').classList.remove('active');
+      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
+      _taImportBannerCallback = null;
+      window._conImportTextCallback = null;
+      _taManualSelection = null;
+      const selBtn = document.getElementById('ta-imp-sel-btn');
+      if (selBtn) selBtn.style.display = 'none';
+    }
+
+    function taImportFileLoaded(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+      document.getElementById('ta-imp-book-shortcut').value = '';
+      document.getElementById('ta-imp-preview').textContent = 'Reading file…';
+      document.getElementById('ta-imp-preview').className = '';
+      const isEpub = file.name.toLowerCase().endsWith('.epub');
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          if (isEpub) {
+            _taImportRawText = taEpubExtractText(e.target.result);
+            if (!_taImportRawText) {
+              document.getElementById('ta-imp-file-name').textContent = file.name;
+              document.getElementById('ta-imp-file-zone').classList.add('has-file');
+            }
+          } else {
+            taImportApplyText(taImportHtmlToText(e.target.result), file.name);
+          }
+        } catch(err) {
+          document.getElementById('ta-imp-preview').textContent = '⚠ Could not read file: ' + err.message;
+          document.getElementById('ta-imp-preview').className = 'no-match';
+        }
+      };
+      if (isEpub) reader.readAsArrayBuffer(file);
+      else reader.readAsText(file, 'UTF-8');
+    }
+
+    // ---- ZIP / EPUB extraction ----
+    function taZipParse(arrayBuffer) {
+      const buf = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+      const u16 = o => view.getUint16(o, true);
+      const u32 = o => view.getUint32(o, true);
+      let eocd = -1;
+      for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65558); i--) {
+        if (u32(i) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd === -1) throw new Error('Not a valid ZIP/EPUB file.');
+      const cdOffset = u32(eocd + 16);
+      const cdCount  = u16(eocd + 10);
+      const entries = [];
+      let pos = cdOffset;
+      for (let i = 0; i < cdCount; i++) {
+        if (u32(pos) !== 0x02014b50) break;
+        const compMethod  = u16(pos + 10);
+        const compSize    = u32(pos + 20);
+        const nameLen     = u16(pos + 28);
+        const extraLen    = u16(pos + 30);
+        const commentLen  = u16(pos + 32);
+        const localOffset = u32(pos + 42);
+        const name        = new TextDecoder('utf-8').decode(buf.slice(pos + 46, pos + 46 + nameLen));
+        entries.push({ name, compMethod, compSize, localOffset });
+        pos += 46 + nameLen + extraLen + commentLen;
+      }
+      return { entries, buf, view, u16, u32 };
+    }
+
+    async function taDecompressDeflate(compressedBytes) {
+      const ds = new DecompressionStream('deflate-raw');
+      const writer = ds.writable.getWriter();
+      const reader = ds.readable.getReader();
+      writer.write(compressedBytes);
+      writer.close();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const total = chunks.reduce((s, c) => s + c.length, 0);
+      const out = new Uint8Array(total);
+      let off = 0;
+      for (const c of chunks) { out.set(c, off); off += c.length; }
+      return out;
+    }
+
+    async function taEpubExtractTextAsync(arrayBuffer) {
+      const zip = taZipParse(arrayBuffer);
+      const { buf, view, u16, u32 } = zip;
+      async function extractBytes(entry) {
+        const lh = entry.localOffset;
+        const lNameLen  = u16(lh + 26);
+        const lExtraLen = u16(lh + 28);
+        const dataStart = lh + 30 + lNameLen + lExtraLen;
+        const compressed = buf.slice(dataStart, dataStart + entry.compSize);
+        if (entry.compMethod === 0) return compressed;
+        if (entry.compMethod === 8) return await taDecompressDeflate(compressed);
+        throw new Error('Unsupported compression: ' + entry.compMethod);
+      }
+      async function extractText(entry) {
+        return new TextDecoder('utf-8').decode(await extractBytes(entry));
+      }
+      const containerEntry = zip.entries.find(e => e.name === 'META-INF/container.xml');
+      let opfPath = null;
+      if (containerEntry) {
+        const m = (await extractText(containerEntry)).match(/full-path="([^"]+\.opf)"/i);
+        if (m) opfPath = m[1];
+      }
+      let orderedHtmlEntries = [];
+      if (opfPath) {
+        const opfEntry = zip.entries.find(e => e.name === opfPath);
+        if (opfEntry) {
+          const opfXml = await extractText(opfEntry);
+          const manifest = {};
+          const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+          let mm;
+          const manifestRe = /<item[^>]+id="([^"]+)"[^>]+href="([^"]+)"[^>]*>/gi;
+          while ((mm = manifestRe.exec(opfXml)) !== null) manifest[mm[1]] = opfDir + mm[2];
+          const spineRe = /<itemref[^>]+idref="([^"]+)"/gi;
+          let sm;
+          while ((sm = spineRe.exec(opfXml)) !== null) {
+            const href = manifest[sm[1]];
+            if (href) {
+              const e = zip.entries.find(en => en.name === href || en.name === href.replace(/^\//, ''));
+              if (e) orderedHtmlEntries.push(e);
+            }
+          }
+        }
+      }
+      if (!orderedHtmlEntries.length) {
+        orderedHtmlEntries = zip.entries.filter(e =>
+          /\.(xhtml|html|htm)$/i.test(e.name) && !e.name.includes('toc') && !e.name.includes('nav')
+        ).sort((a, b) => a.name.localeCompare(b.name));
+      }
+      const parts = [];
+      for (const entry of orderedHtmlEntries) parts.push(taImportHtmlToText(await extractText(entry)));
+      return parts.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    function taEpubExtractText(arrayBuffer) {
+      taEpubExtractTextAsync(arrayBuffer).then(text => {
+        taImportApplyText(text, document.getElementById('ta-imp-file-name').textContent);
+      }).catch(err => {
+        document.getElementById('ta-imp-preview').textContent = '⚠ EPUB error: ' + err.message;
+        document.getElementById('ta-imp-preview').className = 'no-match';
+      });
+      return '';
+    }
+
+    function taImportHtmlToText(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      tmp.querySelectorAll('p, div, br, h1, h2, h3, h4, h5, h6, li, tr, blockquote').forEach(el => {
+        el.insertAdjacentText('afterend', '\n');
+      });
+      tmp.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+      return tmp.innerText
+        .replace(/\r\n/g, '\n')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    function taImportNormalizeForMatch(str) {
+      return (str || '').toLowerCase().replace(/[\p{P}\p{S}\s]+/gu, '');
+    }
+
+    function taImportNormalizedIndexMap(str) {
+      const map = [];
+      let normalized = '';
+      let offset = 0;
+      for (const ch of (str || '')) {
+        if (!/[\p{P}\p{S}\s]/u.test(ch)) { normalized += ch.toLowerCase(); map.push(offset); }
+        offset += ch.length;
+      }
+      return { normalized, map };
+    }
+
+    function taImportFindMatchRange(haystack, needle, fromOriginalIndex = 0) {
+      const normalizedNeedle = taImportNormalizeForMatch(needle);
+      if (!normalizedNeedle) return null;
+      const scoped = (haystack || '').slice(fromOriginalIndex);
+      const { normalized, map } = taImportNormalizedIndexMap(scoped);
+      const normIndex = normalized.indexOf(normalizedNeedle);
+      if (normIndex === -1) return null;
+      return {
+        start: fromOriginalIndex + map[normIndex],
+        end:   fromOriginalIndex + map[normIndex + normalizedNeedle.length - 1] + 1
+      };
+    }
+
+    function taImportGetRange() {
+      if (!_taImportRawText) return null;
+      const startStr = document.getElementById('ta-imp-start').value;
+      const endStr   = document.getElementById('ta-imp-end').value;
+      let startIndex = 0, endIndex = _taImportRawText.length;
+      let hasExplicitStart = false;
+      if (taImportNormalizeForMatch(startStr)) {
+        const m = taImportFindMatchRange(_taImportRawText, startStr, 0);
+        if (!m) return null;
+        startIndex = m.start;
+        hasExplicitStart = true;
+      }
+      if (taImportNormalizeForMatch(endStr)) {
+        const m = taImportFindMatchRange(_taImportRawText, endStr, startIndex);
+        if (!m) return null;
+        endIndex = m.end;
+      }
+      const text = _taImportRawText.slice(startIndex, endIndex).trim();
+      return text ? { text, startIndex, endIndex, hasExplicitStart } : null;
+    }
+
+    function taImportExtract() {
+      const r = taImportGetRange();
+      return r ? r.text : null;
+    }
+
+    let _taManualSelection = null;
+
+    function _taEsc(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function taImportPreview() {
+      const prev = document.getElementById('ta-imp-preview');
+      const btn  = document.getElementById('ta-imp-confirm-btn');
+      _taManualSelection = null;
+      const selBtn = document.getElementById('ta-imp-sel-btn');
+      if (selBtn) selBtn.style.display = 'none';
+
+      if (!_taImportRawText) {
+        prev.textContent = 'Load a file to begin…';
+        prev.className = '';
+        btn.disabled = true;
+        return;
+      }
+
+      const s = document.getElementById('ta-imp-start').value;
+      const e = document.getElementById('ta-imp-end').value;
+      const range = taImportGetRange();
+
+      if (!range) {
+        const hasStart = !taImportNormalizeForMatch(s) || !!taImportFindMatchRange(_taImportRawText, s, 0);
+        if (!s && !e) {
+          prev.textContent = _taImportRawText.slice(0, 2000) + (_taImportRawText.length > 2000 ? '…' : '');
+          prev.className = '';
+          btn.disabled = false;
+        } else {
+          prev.textContent = !hasStart ? '⚠ Start string not found in text.' : '⚠ End string not found after start.';
+          prev.className = 'no-match';
+          btn.disabled = true;
+        }
+        return;
+      }
+
+      // Find exact raw-text positions of delimiter strings
+      const startMatchPos = taImportNormalizeForMatch(s) ? taImportFindMatchRange(_taImportRawText, s, 0) : null;
+      const endMatchPos   = taImportNormalizeForMatch(e) ? taImportFindMatchRange(_taImportRawText, e, range.startIndex) : null;
+
+      // Window: show from (startIndex - 300) to (endIndex or startIndex + 2000)
+      const windowStart = startMatchPos ? Math.max(0, startMatchPos.start - 300) : range.startIndex;
+      const windowEnd   = endMatchPos   ? endMatchPos.end : Math.min(range.endIndex, windowStart + 2500);
+
+      // Build highlighted HTML by walking through the window, inserting marks at delimiter positions
+      const segments = []; // [{from, to, type}] sorted by position
+      if (startMatchPos) segments.push({ from: startMatchPos.start, to: startMatchPos.end, type: 'start' });
+      if (endMatchPos && endMatchPos.start < windowEnd) segments.push({ from: endMatchPos.start, to: endMatchPos.end, type: 'end' });
+      segments.sort((a, b) => a.from - b.from);
+
+      let html = windowStart > 0 ? '<span class="ta-imp-ell">…</span>' : '';
+      let cur = windowStart;
+
+      for (const seg of segments) {
+        if (seg.from < cur) continue; // overlapping, skip
+        // Plain text before this segment
+        if (seg.from > cur) html += _taEsc(_taImportRawText.slice(cur, seg.from));
+        // If this is the start delimiter, insert a separator after it
+        const cls = seg.type === 'start' ? 'ta-hl-start' : 'ta-hl-end';
+        html += '<mark class="' + cls + '">' + _taEsc(_taImportRawText.slice(seg.from, seg.to)) + '</mark>';
+        if (seg.type === 'start') html += '<span class="ta-imp-sep-line">\n── start of import ──\n</span>';
+        cur = seg.to;
+      }
+      // Remaining plain text
+      if (cur < windowEnd) html += _taEsc(_taImportRawText.slice(cur, windowEnd));
+      if (windowEnd < range.endIndex) html += '<span class="ta-imp-ell">…</span>';
+
+      prev.innerHTML = html;
+      prev.className = 'has-match';
+      btn.disabled = false;
+    }
+
+    function taImportCheckSelection() {
+      const sel = window.getSelection();
+      const prev = document.getElementById('ta-imp-preview');
+      const selBtn = document.getElementById('ta-imp-sel-btn');
+      if (!sel || !prev || !selBtn) return;
+      const text = sel.toString().trim();
+      if (text && !sel.isCollapsed && prev.contains(sel.anchorNode) && prev.contains(sel.focusNode)) {
+        _taManualSelection = text;
+        selBtn.style.display = 'block';
+      } else {
+        _taManualSelection = null;
+        selBtn.style.display = 'none';
+      }
+    }
+
+    function taImportImportSelection() {
+      const text = _taManualSelection;
+      if (!text) return;
+      if (window._conImportTextCallback) {
+        window._conImportTextCallback(text);
+        taCloseImport();
+        mdbToast('📝 Selection imported into Constellation.');
+      } else {
+        const fileName = document.getElementById('ta-imp-file-name').textContent;
+        searchApplyBookText(text, fileName + ' (selection)', '');
+        taCloseImport();
+        mdbToast('📖 Selection imported. You can now search for words.');
+      }
+    }
+
+    function taImportShowBanner(msg, onOk) {
+      _taImportBannerCallback = onOk;
+      document.getElementById('ta-imp-confirm-banner-msg').textContent = msg;
+      document.getElementById('ta-imp-confirm-banner').classList.add('active');
+    }
+    function taImportBannerOk() {
+      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
+      if (_taImportBannerCallback) { _taImportBannerCallback(); _taImportBannerCallback = null; }
+    }
+    function taImportBannerCancel() {
+      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
+      _taImportBannerCallback = null;
+    }
+
+    function taImportConfirm() {
+      const s = document.getElementById('ta-imp-start').value;
+      const e = document.getElementById('ta-imp-end').value;
+      if (!s && !e) {
+        const chars = _taImportRawText ? _taImportRawText.length : 0;
+        const label = chars >= 1000000 ? (chars / 1000000).toFixed(1) + ' M chars'
+                    : chars >= 1000    ? Math.round(chars / 1000) + ' k chars'
+                    : chars + ' chars';
+        taImportShowBanner('No range defined — the entire file (' + label + ') will be loaded.', () => {
+          const text = _taImportRawText;
+          if (window._conImportTextCallback) {
+            window._conImportTextCallback(text);
+            taCloseImport();
+            mdbToast('📝 Text imported into Constellation.');
+          }
+        });
+        return;
+      }
+      const text = taImportExtract();
+      if (!text) return;
+      if (window._conImportTextCallback) {
+        window._conImportTextCallback(text);
+        taCloseImport();
+        mdbToast('📝 Text imported into Constellation.');
+      }
+    }
+
     function searchOpenImport() {
       document.getElementById('ta-imp-file-input').value = '';
-      document.getElementById('ta-imp-book-shortcut').value = '';
+      const bsEl = document.getElementById('ta-imp-book-shortcut');
+      if (bsEl) { bsEl.value = ''; bsEl.style.display = 'none'; }
+      const orEl = document.getElementById('ta-imp-file-or');
+      if (orEl) orEl.style.display = 'none';
       document.getElementById('ta-imp-file-name').textContent = 'No file chosen';
+      document.getElementById('ta-imp-file-zone').classList.remove('has-file');
       document.getElementById('ta-imp-start').value = '';
       document.getElementById('ta-imp-end').value = '';
       document.getElementById('ta-imp-preview').textContent = 'Load a file to begin…';
@@ -24907,6 +27698,7 @@ function hideFailure() {
       document.getElementById('ta-imp-confirm-btn').disabled = true;
       _taImportRawText = '';
       document.getElementById('ta-imp-confirm-btn').textContent = '📖 Import Book';
+      document.getElementById('ta-imp-confirm-btn').onclick = searchImportConfirm;
       document.getElementById('ta-import-overlay').classList.add('active');
       taImportPopulateBookShortcuts();
     }
