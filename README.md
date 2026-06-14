@@ -740,7 +740,13 @@ Before applying a sync, a modal lists every file that differs between source and
 
 The window is divided into three horizontal regions:
 
-1. **Nav bar** — New · Open · Save · Save As · Templates ▾ · Export PDF · hamburger menu (Launcher).
+1. **Nav bar** — grouped into hover menus:
+   - **File ▾** — New, Open, Save, Save As, Save All, History
+   - **Insert ▾** — Table, Image, Books (import text from the books folder)
+   - **Format ▾** — Open template, Save as template, Page Layout
+   - **Export ▾** — Export PDF, Export DOCX, Preview
+   - **⚙ Settings** — snippets, shortcuts, triggers, preferences
+   - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
 3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
 
@@ -767,10 +773,18 @@ Files are saved as `.md` under `custom-data/document-editor/docs/`.
 
 ### Templates
 
-Templates are `.md` files under `custom-data/document-editor/templates/`. Use the **Templates ▾** dropdown to:
+Templates are `.md` files under `custom-data/document-editor/templates/`. Use the **Format ▾** menu to:
 
 - **Open template…** — insert a template into the editor (replaces current content).
 - **Save as template…** — save the current editor content as a named template.
+
+### Book Text Import
+
+The **Insert ▾ → Books** dropdown lists all files in `custom-data/books/` (`.epub`, `.html`, `.txt`). Selecting a book opens a picker modal:
+
+- The full book text is displayed in a scrollable area.
+- Use the **search bar** to find a passage — type to see the match count, then press **Enter** or **▼/▲** to jump to each match (highlighted by browser selection).
+- Select the text you want (adjust the selection with Shift+click or Shift+arrows), then click **Insert selection** to paste it at the editor cursor.
 
 ### CSS Panel
 

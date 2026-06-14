@@ -115,20 +115,64 @@
     .hm-item:hover { background: #2d2d2d; color: #fff; }
     .hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
 
-    /* ── Book import dropdown ──────────────────────────── */
+    /* ── Nav hover groups ──────────────────────────────── */
+    .nav-group { position: relative; display: flex; align-items: center; }
+    .nav-group-popup {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 190px;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      padding: 4px 0;
+      z-index: 8000;
+      box-shadow: 0 6px 20px rgba(0,0,0,.5);
+    }
+    .nav-group:hover .nav-group-popup { display: block; }
+    .nav-pop-item {
+      display: block;
+      width: 100%;
+      padding: 7px 14px;
+      background: none;
+      border: none;
+      color: #ccc;
+      text-align: left;
+      cursor: pointer;
+      font-size: .8rem;
+      font-family: inherit;
+      font-weight: 500;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+    .nav-pop-item:hover { background: #2d2d2d; color: #fff; }
+    .nav-pop-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
+    .nav-pop-hint {
+      float: right;
+      margin-left: 20px;
+      color: #666;
+      font-size: .72rem;
+      font-weight: 400;
+    }
+
+    /* ── Book import dropdown (inside Insert popup) ────── */
     #de-book-select {
-      background: #222;
-      color: #ddd;
-      border: 1px solid #555;
+      display: block;
+      width: calc(100% - 16px);
+      margin: 4px 8px 6px;
+      background: #2a2a2a;
+      color: #ccc;
+      border: 1px solid #444;
       border-radius: 4px;
       font-size: .8rem;
-      font-weight: 600;
+      font-weight: 500;
       font-family: inherit;
-      padding: 4px 6px;
+      padding: 5px 7px;
       cursor: pointer;
-      max-width: 150px;
     }
-    #de-book-select:hover { border-color: #fff; }
+    #de-book-select:hover { border-color: #888; color: #fff; }
 
     /* ── Book text picker modal ────────────────────────── */
     #de-book-overlay {
@@ -177,52 +221,12 @@
       font-family: inherit;
     }
     #de-book-modal-close:hover { border-color: #999; color: #111; }
-    #de-book-text-wrap {
-      position: relative;
-      flex: 1;
-      overflow: hidden;
-    }
-    #de-book-modal-backdrop {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      padding: 16px 18px;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      font-size: .88rem;
-      line-height: 1.7;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      overflow: hidden;
-      color: #111;
-      background: #fff;
-    }
-    #de-book-modal-backdrop mark {
-      background: #ffe566;
-      border-radius: 2px;
-      color: inherit;
-    }
-    #de-book-modal-backdrop mark.de-current {
-      background: #ff9500;
-      color: #fff;
-    }
     #de-book-modal-text {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      padding: 16px 18px;
-      box-sizing: border-box;
-      resize: none;
+      flex: 1; border: none; padding: 16px 18px; resize: none;
       font-family: 'Segoe UI', system-ui, sans-serif;
-      font-size: .88rem;
-      line-height: 1.7;
-      outline: none;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      color: transparent;
-      caret-color: #111;
-      background: transparent;
+      font-size: .88rem; line-height: 1.7; outline: none;
+      overflow-y: auto; white-space: pre-wrap; color: #111;
+      background: #fff;
     }
     #de-book-modal-search-row {
       display: flex;
@@ -675,8 +679,8 @@
     #page-layout-wrap { position: relative; }
     #page-layout-popup {
       display: none;
-      position: absolute;
-      top: calc(100% + 7px);
+      position: fixed;
+      top: 44px;
       left: 0;
       background: #fff;
       border: 2px solid #000;
@@ -852,8 +856,8 @@
     #table-grid-popup {
       display: none;
       position: absolute;
-      top: calc(100% + 7px);
-      left: 0;
+      top: 0;
+      left: 100%;
       background: #fff;
       border: 2px solid #000;
       border-radius: 9px;
@@ -916,36 +920,51 @@
 <nav id="app-nav">
   <span class="nav-brand">Document Editor</span>
   <div class="nav-sep"></div>
-  <button class="nav-btn" id="btn-new-doc" title="New document (Ctrl+N)">New</button>
-  <button class="nav-btn" id="btn-open-doc" title="Open document">Open</button>
-  <button class="nav-btn nav-btn-primary" id="btn-save-doc" title="Save (Ctrl+S)">Save</button>
-  <button class="nav-btn" id="btn-save-as-doc" title="Save as new file">Save As</button>
-  <button class="nav-btn" id="btn-save-all-doc" title="Save document + stylesheet together in the same folder (Ctrl+Shift+S)">Save All</button>
-  <button class="nav-btn" id="btn-doc-history" title="Browse and restore previous versions of this document">History</button>
-  <div class="nav-sep"></div>
-  <div id="table-insert-wrap">
-    <button class="nav-btn" id="btn-insert-table" title="Insert table">Table ▾</button>
-    <div id="table-grid-popup">
-      <div class="tg-grid" id="tg-grid"></div>
-      <div class="tg-label" id="tg-label">—</div>
+
+  <!-- File group -->
+  <div class="nav-group">
+    <button class="nav-btn">File ▾</button>
+    <div class="nav-group-popup">
+      <button class="nav-pop-item" id="btn-new-doc">New <span class="nav-pop-hint">Ctrl+N</span></button>
+      <button class="nav-pop-item" id="btn-open-doc">Open <span class="nav-pop-hint">Ctrl+O</span></button>
+      <hr class="nav-pop-sep">
+      <button class="nav-pop-item" id="btn-save-doc">Save <span class="nav-pop-hint">Ctrl+S</span></button>
+      <button class="nav-pop-item" id="btn-save-as-doc">Save As…</button>
+      <button class="nav-pop-item" id="btn-save-all-doc">Save All <span class="nav-pop-hint">Ctrl+⇧S</span></button>
+      <hr class="nav-pop-sep">
+      <button class="nav-pop-item" id="btn-doc-history">History</button>
     </div>
   </div>
-  <button class="nav-btn" id="btn-insert-image" title="Insert image from file">Image</button>
-  <input type="file" id="image-file-input" accept="image/*" style="display:none">
-  <select id="de-book-select" title="Insert text from Books folder at cursor" onchange="deBookLoadSelected()" style="display:none">
-    <option value="">📂 Books…</option>
-  </select>
-  <div class="nav-sep"></div>
-  <div class="hm-wrap" id="templates-dd-wrap">
-    <button class="nav-btn hm-btn" id="btn-templates-dd" style="font-size:.8rem">Templates ▾</button>
-    <div class="hm-menu" id="templates-menu">
-      <button class="hm-item" id="btn-open-template">Open template…</button>
-      <button class="hm-item" id="btn-save-as-template">Save as template…</button>
+
+  <!-- Insert group -->
+  <div class="nav-group">
+    <button class="nav-btn">Insert ▾</button>
+    <div class="nav-group-popup">
+      <div id="table-insert-wrap">
+        <button class="nav-pop-item" id="btn-insert-table">Table…</button>
+        <div id="table-grid-popup">
+          <div class="tg-grid" id="tg-grid"></div>
+          <div class="tg-label" id="tg-label">—</div>
+        </div>
+      </div>
+      <button class="nav-pop-item" id="btn-insert-image">Image</button>
+      <input type="file" id="image-file-input" accept="image/*" style="display:none">
+      <hr class="nav-pop-sep">
+      <select id="de-book-select" title="Insert text from Books folder at cursor" onchange="deBookLoadSelected()" style="display:none">
+        <option value="">📂 Books…</option>
+      </select>
     </div>
   </div>
-  <div class="nav-sep"></div>
-  <div id="page-layout-wrap">
-    <button class="nav-btn" id="btn-page-layout" title="Page layout (size, orientation, margins)">Page Layout ▾</button>
+
+  <!-- Format group -->
+  <div class="nav-group">
+    <button class="nav-btn">Format ▾</button>
+    <div class="nav-group-popup">
+      <button class="nav-pop-item" id="btn-open-template">Open template…</button>
+      <button class="nav-pop-item" id="btn-save-as-template">Save as template…</button>
+      <hr class="nav-pop-sep">
+      <div id="page-layout-wrap">
+        <button class="nav-pop-item" id="btn-page-layout">Page Layout…</button>
     <div id="page-layout-popup">
       <div class="pl-header">
         <span class="pl-header-title">Page Layout</span>
@@ -1055,13 +1074,23 @@
 
       </div>
     </div>
+      </div><!-- /page-layout-wrap -->
+    </div><!-- /Format popup -->
+  </div><!-- /Format group -->
+
+  <!-- Export group -->
+  <div class="nav-group">
+    <button class="nav-btn">Export ▾</button>
+    <div class="nav-group-popup">
+      <button class="nav-pop-item" id="btn-export-pdf">Export PDF</button>
+      <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
+      <hr class="nav-pop-sep">
+      <button class="nav-pop-item" id="btn-preview">Preview</button>
+    </div>
   </div>
+
   <div class="nav-sep"></div>
-  <button class="nav-btn" id="btn-export-pdf" title="Export to PDF">Export PDF</button>
-  <button class="nav-btn" id="btn-export-docx" title="Export to DOCX (Word)">Export DOCX</button>
-  <button class="nav-btn" id="btn-preview" title="Full-page preview">Preview</button>
-  <div class="nav-sep"></div>
-  <button class="nav-btn" id="btn-editor-settings" title="Editor settings: snippets, shortcuts, triggers, preferences">Settings</button>
+  <button class="nav-btn" id="btn-editor-settings" title="Editor settings">⚙ Settings</button>
   <div class="nav-sep"></div>
   <div class="hm-wrap" id="main-hm-wrap">
     <button class="hm-btn" id="main-hm-btn">☰</button>
@@ -1099,10 +1128,7 @@
       <button class="de-book-search-nav" id="de-book-search-next" onclick="deBookSearchStep(1)" disabled>▼</button>
       <span id="de-book-search-count"></span>
     </div>
-    <div id="de-book-text-wrap">
-      <div id="de-book-modal-backdrop" aria-hidden="true"></div>
-      <textarea id="de-book-modal-text" readonly spellcheck="false"></textarea>
-    </div>
+    <textarea id="de-book-modal-text" readonly spellcheck="false"></textarea>
   </div>
 </div>
 
@@ -1520,8 +1546,9 @@ function deBookOpenModal(text, label) {
   const ta = document.getElementById('de-book-modal-text');
   ta.value = text;
   ta.onselect = ta.onmouseup = ta.onkeyup = deBookUpdateInsertBtn;
-  ta.onscroll = deBookSyncScroll;
-  document.getElementById('de-book-modal-backdrop').textContent = text;
+  ta.onkeydown = function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); deBookSearchStep(e.shiftKey ? -1 : 1); }
+  };
   document.getElementById('de-book-modal-insert').disabled = true;
   document.getElementById('de-book-search-input').value = '';
   document.getElementById('de-book-search-count').textContent = '';
@@ -1566,9 +1593,9 @@ function deBookSearchRun() {
   if (hasMatches) {
     _deBookSearchIdx = 0;
     deBookSearchHighlight(query.length);
+    countEl.textContent = _deBookSearchMatches.length + ' match' + (_deBookSearchMatches.length !== 1 ? 'es' : '') + ' — press Enter ↵';
   } else {
     countEl.textContent = 'No matches';
-    deBookUpdateBackdrop();
   }
 }
 
@@ -1577,37 +1604,7 @@ function deBookSearchStep(dir) {
   _deBookSearchIdx = (_deBookSearchIdx + dir + _deBookSearchMatches.length) % _deBookSearchMatches.length;
   const query = document.getElementById('de-book-search-input').value;
   deBookSearchHighlight(query.length);
-}
-
-function deBookEscHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function deBookSyncScroll() {
-  const ta = document.getElementById('de-book-modal-text');
-  document.getElementById('de-book-modal-backdrop').scrollTop = ta.scrollTop;
-}
-
-function deBookUpdateBackdrop() {
-  const ta = document.getElementById('de-book-modal-text');
-  const bd = document.getElementById('de-book-modal-backdrop');
-  if (!_deBookSearchMatches.length) {
-    bd.textContent = ta.value;
-    return;
-  }
-  const text = ta.value;
-  const qLen = document.getElementById('de-book-search-input').value.length;
-  let html = '';
-  let pos = 0;
-  _deBookSearchMatches.forEach((start, i) => {
-    html += deBookEscHtml(text.substring(pos, start));
-    const cls = i === _deBookSearchIdx ? ' class="de-current"' : '';
-    html += '<mark' + cls + '>' + deBookEscHtml(text.substring(start, start + qLen)) + '</mark>';
-    pos = start + qLen;
-  });
-  html += deBookEscHtml(text.substring(pos));
-  bd.innerHTML = html;
-  bd.scrollTop = ta.scrollTop;
+  document.getElementById('de-book-modal-text').focus();
 }
 
 function deBookScrollToPos(pos) {
@@ -1625,7 +1622,6 @@ function deBookScrollToPos(pos) {
   const top = mirror.scrollHeight;
   document.body.removeChild(mirror);
   ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
-  document.getElementById('de-book-modal-backdrop').scrollTop = ta.scrollTop;
 }
 
 function deBookSearchHighlight(len) {
@@ -1633,7 +1629,6 @@ function deBookSearchHighlight(len) {
   const start = _deBookSearchMatches[_deBookSearchIdx];
   ta.setSelectionRange(start, start + len);
   deBookScrollToPos(start);
-  deBookUpdateBackdrop();
   deBookUpdateInsertBtn();
   document.getElementById('de-book-search-count').textContent =
     (_deBookSearchIdx + 1) + ' / ' + _deBookSearchMatches.length;
@@ -2899,18 +2894,23 @@ function initPageLayoutPopup() {
   applyPageLayoutToPreview();
 
   const popup = document.getElementById('page-layout-popup');
-  const wrap  = document.getElementById('page-layout-wrap');
 
   document.getElementById('btn-page-layout').addEventListener('click', function(e) {
     e.stopPropagation();
     popup.classList.toggle('open');
+    if (popup.classList.contains('open')) {
+      const rect = this.getBoundingClientRect();
+      popup.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
+    }
   });
   document.getElementById('pl-close-btn').addEventListener('click', function(e) {
     e.stopPropagation();
     popup.classList.remove('open');
   });
   document.addEventListener('click', function(e) {
-    if (!wrap.contains(e.target)) popup.classList.remove('open');
+    if (!popup.contains(e.target) && e.target.id !== 'btn-page-layout') {
+      popup.classList.remove('open');
+    }
   });
 
   // Orientation buttons
@@ -3859,20 +3859,9 @@ window.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Enter') addCssRule();
   });
 
-  // Templates dropdown
-  const tmplWrap = document.getElementById('templates-dd-wrap');
-  document.getElementById('btn-templates-dd').addEventListener('click', function(e) {
-    e.stopPropagation();
-    tmplWrap.classList.toggle('open');
-  });
-  document.getElementById('btn-open-template').addEventListener('click', function() {
-    tmplWrap.classList.remove('open');
-    openTemplateModal();
-  });
-  document.getElementById('btn-save-as-template').addEventListener('click', function() {
-    tmplWrap.classList.remove('open');
-    saveAsTemplate();
-  });
+  // Templates (now plain items in Format group)
+  document.getElementById('btn-open-template').addEventListener('click', openTemplateModal);
+  document.getElementById('btn-save-as-template').addEventListener('click', saveAsTemplate);
 
   // Hamburger
   const hmWrap = document.getElementById('main-hm-wrap');
@@ -3883,7 +3872,6 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-goto-launcher').addEventListener('click', goToLauncher);
   document.addEventListener('click', function() {
     hmWrap.classList.remove('open');
-    tmplWrap.classList.remove('open');
     document.getElementById('table-insert-wrap').classList.remove('open');
   });
 
