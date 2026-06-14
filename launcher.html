@@ -503,6 +503,7 @@
     <div class="l-header-actions">
       <button class="l-header-btn" onclick="openModal('general-config.html')" title="General settings" data-i18n="btnHeaderConfig">⚙ Config</button>
       <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app" data-i18n="btnHeaderHowTo">? How To</button>
+      <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n="btnHeaderSync">⟳ Sync</button>
       <button class="l-header-btn" onclick="openModal('credits.html')" title="Credits" data-i18n="btnHeaderCredits">ℹ️ Credits</button>
     </div>
   </header>
@@ -1096,6 +1097,11 @@
   // ── iframe modal (credits, general-config) ──────────────
   var MODAL_WIDE   = { 'general-config.html': true };
   var MODAL_HEIGHT = { 'credits.html': '200px', 'general-config.html': '86vh' };
+
+  function openModalAndSync() {
+    sessionStorage.setItem('cmt-auto-sync', '1');
+    openModal('general-config.html');
+  }
 
   function openModal(src) {
     var overlay = document.getElementById('launcherModal');

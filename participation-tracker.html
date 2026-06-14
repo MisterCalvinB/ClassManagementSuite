@@ -919,24 +919,24 @@
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" data-i18n-aria="navOpenMenu" aria-label="Open menu">☰</button>
     <div class="hm-menu">
-      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
-      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
-      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
-      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
-      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
-      <a href="participation-tracker.html" class="nav-link hm-item nav-active">📊 Tracker</a>
+      <a href="class-management.html" class="nav-link hm-item">🏫 <span data-i18n="app_classManagement_title">Class Management</span></a>
+      <a href="board.html" class="nav-link hm-item">🌐 <span data-i18n="app_board_title">Board</span></a>
+      <a href="learning-tools.html" class="nav-link hm-item">🎮 <span data-i18n="app_learningTools_title">Learning Tools</span></a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ <span data-i18n="app_manageDatabase_title">Database</span></a>
+      <a href="grade-sheet.html" class="nav-link hm-item">📝 <span data-i18n="app_gradeSheet_title">Grade Sheet</span></a>
+      <a href="participation-tracker.html" class="nav-link hm-item nav-active">📊 <span data-i18n="app_participationTracker_title">Tracker</span></a>
       <hr class="hm-sep">
-      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
-      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
-      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
-      <a href="document-editor.html" class="nav-link hm-item">📄 Document Editor</a>
-      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <a href="group-editor.html" class="nav-link hm-item">✏️ <span data-i18n="app_groupEditor_title">Group Editor</span></a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 <span data-i18n="app_classPlan_title">Class Plan</span></a>
+      <a href="schedule-maker.html" class="nav-link hm-item">📆 <span data-i18n="app_scheduleMaker_title">Schedule Maker</span></a>
+      <a href="document-editor.html" class="nav-link hm-item">📄 <span data-i18n="app_documentEditor_title">Document Editor</span></a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 <span data-i18n="app_fileManager_title">File Manager</span></a>
       <hr class="hm-sep">
-      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
-      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
-      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <a href="general-config.html" class="nav-link hm-item">⚙️ <span data-i18n="app_generalConfig_title">General Config</span></a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 <span data-i18n="app_launcher_title">Launcher</span></a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ <span data-i18n="app_credits_title">Credits</span></a>
     </div>
   </div>
 </nav>
@@ -1648,6 +1648,7 @@
 
         // Initialize app
         async function initializeApp() {
+            if (typeof applyTranslations === 'function') applyTranslations();
             await Promise.resolve(window.__ptUserBootstrapPromise).catch(function () {});
             // Check if electron is available
             ELECTRON_AVAILABLE = !!(window.electronApi && window.electronApi.isElectron);
@@ -2303,14 +2304,14 @@
                 const m = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[groupId]) ? CLASS_GROUPS_META[groupId] : null;
                 const chips = [];
                 if (m && m.year)     chips.push(`<span class="group-meta-chip">${m.year}</span>`);
-                if (m && m.semester) chips.push(`<span class="group-meta-chip">Semester ${m.semester}</span>`);
-                if (m && m.level)    chips.push(`<span class="group-meta-chip">Level ${m.level}</span>`);
+                if (m && m.semester) chips.push(`<span class="group-meta-chip">${t('ptSemesterPrefix')}${m.semester}</span>`);
+                if (m && m.level)    chips.push(`<span class="group-meta-chip">${t('ptLevelPrefix')}${m.level}</span>`);
                 const halfGroups = getGroupHalfGroups(groupId);
                 if (halfGroups) {
                     const halves = Object.keys(halfGroups).sort();
                     chips.push('<span style="margin-left:6px;font-weight:700;color:#666;">½:</span>');
                     const allActive = !currentHalfGroup ? 'active' : '';
-                    chips.push(`<button class="half-group-btn group-btn ${allActive}" data-half="" onclick="selectHalfGroup(null)" style="padding:2px 10px;font-size:12px;">All</button>`);
+                    chips.push(`<button class="half-group-btn group-btn ${allActive}" data-half="" onclick="selectHalfGroup(null)" style="padding:2px 10px;font-size:12px;">${t('ptHalfAll')}</button>`);
                     halves.forEach(h => {
                         chips.push(`<button class="half-group-btn group-btn" data-half="${h}" onclick="selectHalfGroup('${h}')" style="padding:2px 10px;font-size:12px;">${h}</button>`);
                     });
@@ -2886,7 +2887,7 @@
 
             tfoot.innerHTML = `
                 <tr>
-                    <td><strong>Class Total</strong></td>
+                    <td><strong>${t('ptClassTotal')}</strong></td>
                     <td>${formatSummaryNumber(summary.totals.sessions)}</td>
                     <td>${formatSummaryNumber(summary.totals.picks)}</td>
                     <td>${formatSummaryNumber(summary.totals.absent)}</td>
@@ -2907,7 +2908,7 @@
                     <td>—</td>
                 </tr>
                 <tr>
-                    <td><strong>Class Avg</strong></td>
+                    <td><strong>${t('ptClassAvg')}</strong></td>
                     <td>${summary.averages.sessions.toFixed(2)}</td>
                     <td>${summary.averages.picks.toFixed(2)}</td>
                     <td>${summary.averages.absent.toFixed(2)}</td>
@@ -2981,14 +2982,14 @@
                     <td style="color: #2ca02c; font-weight: 600;">${data.badgePositive}</td>
                     <td style="color: #d62728; font-weight: 600;">${data.badgeNegative}</td>
                     <td>${formatBadges(data.badges)}</td>
-                    <td><span title="${teamRoleText.replace(/"/g, '&quot;')}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${teamRolePreview}` : '(none)'}</span></td>
+                    <td><span title="${teamRoleText.replace(/"/g, '&quot;')}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${teamRolePreview}` : t('ptNone')}</span></td>
                     <td><span title="${notesText.replace(/"/g, '&quot;')}" class="notes-preview ${data.notes ? '' : 'empty'}">${notesPreview}</span></td>
                     <td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>
                     <td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>
                     <td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>
                     <td style="color: ${netRatio >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${netRatio >= 0 ? '+' : ''}${netRatio.toFixed(2)}</td>
                     <td style="font-weight: 600; color: ${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '#888' : (bd === 0 ? '#2ca02c' : (g / bd >= 1 ? '#2ca02c' : '#d62728')); })()};">${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '—' : (bd === 0 ? '∞' : (g / bd).toFixed(2)); })()}</td>
-                    <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? 'Improving trend' : computeTrend(data.sessionNets) === 'down' ? 'Declining trend' : 'Stable / not enough data'}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
+                    <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? t('ptTrendImproving') : computeTrend(data.sessionNets) === 'down' ? t('ptTrendDeclining') : t('ptTrendStable')}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
                 `;
                 row.addEventListener('click', () => {
                     currentStudentName = data.name;
@@ -3386,35 +3387,35 @@
             const detailStats = document.getElementById('studentDetailStats');
             detailStats.innerHTML = `
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Sessions Recorded</div>
+                    <div class="detail-stat-label">${t('ptStatsSessionsRecorded')}</div>
                     <div class="detail-stat-value">${total}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Times Picked</div>
+                    <div class="detail-stat-label">${t('ptStatsTimesPicked')}</div>
                     <div class="detail-stat-value">${picks}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Absent</div>
+                    <div class="detail-stat-label">${t('ptStatsAbsent')}</div>
                     <div class="detail-stat-value">${absent}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Net Points</div>
+                    <div class="detail-stat-label">${t('ptStatsNetPoints')}</div>
                     <div class="detail-stat-value" style="color: ${(pluses + teamPluses) - (minuses + teamMinuses) >= 0 ? '#2ca02c' : '#d62728'}">${(pluses + teamPluses) - (minuses + teamMinuses)}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Team Points (T+/T-)</div>
+                    <div class="detail-stat-label">${t('ptStatsTeamPts')}</div>
                     <div class="detail-stat-value" style="color: #444">${teamPluses} / ${teamMinuses}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Badges Earned</div>
+                    <div class="detail-stat-label">${t('ptStatsBadgesEarned')}</div>
                     <div class="detail-stat-value" style="color: #7a5a00">${badges}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Positive Badges</div>
+                    <div class="detail-stat-label">${t('ptStatsPosBadges')}</div>
                     <div class="detail-stat-value" style="color: #2ca02c">${badgePositive}</div>
                 </div>
                 <div class="detail-stat">
-                    <div class="detail-stat-label">Negative Badges</div>
+                    <div class="detail-stat-label">${t('ptStatsNegBadges')}</div>
                     <div class="detail-stat-value" style="color: #d62728">${badgeNegative}</div>
                 </div>
             `;
@@ -3876,7 +3877,7 @@
 <!-- Credits Modal -->
 <div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" title="Close">✕</button>
+    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" data-i18n-title="gsToptClose" title="Close">✕</button>
     <iframe src="credits.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
   </div>
 </div>
