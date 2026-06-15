@@ -656,24 +656,6 @@
     }
     #hist-preview-pane.visible { display: block; }
 
-    /* ── Toast ──────────────────────────────────────────── */
-    #toast {
-      position: fixed;
-      bottom: 18px;
-      left: 50%;
-      transform: translateX(-50%) translateY(60px);
-      background: #1a1a1a;
-      color: #fff;
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: .82rem;
-      font-weight: 700;
-      z-index: 9999;
-      pointer-events: none;
-      opacity: 0;
-      transition: transform .25s, opacity .25s;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
     /* ── Page Layout popup ──────────────────────────────── */
     #page-layout-wrap { position: relative; }
@@ -1096,6 +1078,14 @@
     <button class="hm-btn" id="main-hm-btn">☰</button>
     <div class="hm-menu">
       <button class="hm-item" id="btn-goto-launcher">← Launcher</button>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
+      </div>
     </div>
   </div>
   <span id="doc-name-indicator">Untitled</span>
@@ -1256,13 +1246,12 @@
   </div>
 </div>
 
-<!-- ── Toast ─────────────────────────────────────────────── -->
-<div id="toast"></div>
-
 <!-- ── Scripts ──────────────────────────────────────────── -->
 <!-- KaTeX and marked must load BEFORE Monaco's loader.js, which creates a
      global define() (AMD). If they load after, their UMD wrappers detect AMD
      and register via define() instead of setting window globals. -->
+<script src="i18n.js"></script>
+<script src="dialogs.js"></script>
 <script src="modules/katex/dist/katex.min.js"></script>
 <script src="modules/marked/marked.umd.js"></script>
 <script>
@@ -1897,7 +1886,7 @@ async function openDocModal() {
       delBtn.className = 'file-row-btn file-row-btn-del';
       delBtn.textContent = 'Del';
       delBtn.onclick = async () => {
-        if (!confirm('Delete "' + displayName + '"?')) return;
+        if (!await showConfirm('Delete "' + displayName + '"?')) return;
         if (isFolder) {
           await Desktop.deleteByPath('docEditorDocs', rp.split('/')[0]).catch(() => {});
         } else {
@@ -2143,9 +2132,9 @@ async function doSaveAll(filename) {
   } catch(e) { showToast('Save error: ' + e.message, true); }
 }
 
-function newDoc() {
+async function newDoc() {
   if (docModified && mdEditor && mdEditor.getValue().trim()) {
-    if (!confirm('Discard unsaved changes?')) return;
+    if (!await showConfirm('Discard unsaved changes?')) return;
   }
   mdEditor && mdEditor.setValue('');
   currentDocName = null;
@@ -2260,7 +2249,7 @@ async function openHistoryModal() {
     restoreBtn.className = 'file-row-btn';
     restoreBtn.textContent = 'Restore';
     restoreBtn.onclick = async () => {
-      if (docModified && !confirm('Discard unsaved changes and restore this version?')) return;
+      if (docModified && !await showConfirm('Discard unsaved changes and restore this version?')) return;
       try {
         const r = await Desktop.readByPath('docEditorDocs', rp);
         if (r && r.ok) {
@@ -2277,7 +2266,7 @@ async function openHistoryModal() {
     delBtn.className = 'file-row-btn file-row-btn-del';
     delBtn.textContent = 'Del';
     delBtn.onclick = async () => {
-      if (!confirm('Delete this version?')) return;
+      if (!await showConfirm('Delete this version?')) return;
       try {
         await Desktop.deleteByPath('docEditorDocs', rp);
         row.remove();
@@ -2355,7 +2344,7 @@ async function openTemplateModal() {
       delBtn.className = 'file-row-btn file-row-btn-del';
       delBtn.textContent = 'Del';
       delBtn.onclick = async () => {
-        if (!confirm('Delete template "' + displayName + '"?')) return;
+        if (!await showConfirm('Delete template "' + displayName + '"?')) return;
         await Desktop.deleteByPath('docEditorTemplates', deletePath);
         openTemplateModal();
       };
@@ -2371,7 +2360,7 @@ async function openTemplateModal() {
 async function loadTemplate(filename) {
   if (!window.Desktop || !Desktop.isElectron()) return;
   if (docModified && mdEditor && mdEditor.getValue().trim()) {
-    if (!confirm('Load template? Unsaved changes will be lost.')) return;
+    if (!await showConfirm('Load template? Unsaved changes will be lost.')) return;
   }
   try {
     const r = await Desktop.readByPath('docEditorTemplates', filename);
@@ -2576,7 +2565,7 @@ async function deleteStylesheet() {
   if (!currentStylesheetName) return;
   const paired = parsePairedSS(currentStylesheetName);
   const displayName = paired || currentStylesheetName;
-  if (!confirm('Delete stylesheet "' + displayName + '"?')) return;
+  if (!await showConfirm('Delete stylesheet "' + displayName + '"?')) return;
   if (!window.Desktop || !Desktop.isElectron()) return;
   const target = paired ? 'docEditorDocs' : 'docEditorStylesheets';
   try {
@@ -2615,7 +2604,7 @@ function addCssRule() {
 // ── PDF Export ────────────────────────────────────────────
 async function exportPdf() {
   if (!window.Desktop || !Desktop.isElectron()) {
-    alert('PDF export requires the Electron desktop app.');
+    showToast('PDF export requires the Electron desktop app.', true);
     return;
   }
 
@@ -2732,7 +2721,7 @@ function extractDocxStylesFromCss(css) {
 
 async function exportDocx() {
   if (!window.Desktop || !Desktop.isElectron()) {
-    alert('DOCX export requires the Electron desktop app.');
+    showToast('DOCX export requires the Electron desktop app.', true);
     return;
   }
   showToast('Preparing DOCX…');
@@ -3102,15 +3091,6 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-let toastTimer = null;
-function showToast(msg, isError) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.background = isError ? '#c00' : '#1a1a1a';
-  el.classList.add('show');
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
-}
 
 function updateDocIndicator() {
   const el = document.getElementById('doc-name-indicator');
@@ -3820,6 +3800,7 @@ function bindPrefsEvents() {
 
 // ── DOM init ──────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
+  if (typeof applyTranslations === 'function') applyTranslations();
   setInterval(autosaveDoc, 60000);
   setupMarked();
   initSplitDivider();

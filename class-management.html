@@ -6,6 +6,7 @@
     <title>Class Management</title>
     <link rel="stylesheet" href="modules/lexend/lexend.css">
     <script src="electron-bridge.js"></script>
+    <script src="dialogs.js"></script>
     <script>
     (function () {
         function injectClassicScript(source, name) {
@@ -148,7 +149,8 @@
         </button>
         <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool" data-i18n-title="links_btn_title">☰</button>
         <div id="cm-lang-switcher" style="display:flex;align-items:center;gap:0;border:1px solid #ccc;border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:2px;">
-            <button onclick="setLang('en')" id="lang-btn-en" title="English" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-radius:0;background:#111;color:#fff;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">EN</button>
+            <button onclick="setLang(null)" id="lang-btn-auto" title="Auto (global)" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">Auto</button>
+            <button onclick="setLang('en')" id="lang-btn-en" title="English" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">EN</button>
             <button onclick="setLang('fr')" id="lang-btn-fr" title="Français" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">FR</button>
             <button onclick="setLang('de')" id="lang-btn-de" title="Deutsch" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">DE</button>
             <button onclick="setLang('it')" id="lang-btn-it" title="Italiano" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">IT</button>
@@ -395,6 +397,14 @@
     <button class="hm-item" onclick="openAppLink('general-config.html')">⚙️ General Config</button>
     <button class="hm-item" onclick="openAppLink('launcher.html')">🏠 Launcher</button>
     <button class="hm-item" onclick="openCreditsModal()">ℹ️ Credits</button>
+    <hr class="hm-sep">
+    <div class="hm-lang-row">
+      <button class="hm-lang-btn" data-lang="auto" onclick="setLang(null)">Auto</button>
+      <button class="hm-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+      <button class="hm-lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+      <button class="hm-lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
+      <button class="hm-lang-btn" data-lang="it" onclick="setLang('it')">IT</button>
+    </div>
 </div>
 <div id="startup-load-banner">
     <span class="startup-banner-icon">📁</span>
@@ -712,28 +722,6 @@
     <div class="role-change-list" id="role-change-list"></div>
 </div>
 
-<!-- CUSTOM PROMPT MODAL -->
-<div class="modal-overlay" id="custom-prompt-modal" style="display:none;" onclick="cancelCustomPrompt()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
-        <p id="custom-prompt-label" style="font-weight:700; font-size:1rem; margin:0 0 12px 0;"></p>
-        <input type="text" id="custom-prompt-input" style="width:100%; padding:9px 10px; border:2px solid #ccc; border-radius:5px; font-size:1rem; box-sizing:border-box;" />
-        <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
-            <button onclick="cancelCustomPrompt()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:8px 18px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="btn_cancel">Cancel</button>
-            <button onclick="confirmCustomPrompt()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 18px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="btn_ok">OK</button>
-        </div>
-    </div>
-</div>
-
-<!-- CUSTOM CONFIRM MODAL -->
-<div class="modal-overlay" id="custom-confirm-modal" style="display:none;" onclick="cancelCustomConfirm()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;">
-        <p id="custom-confirm-label" style="font-weight:700; font-size:1rem; margin:0 0 16px 0; white-space:pre-line;"></p>
-        <div style="display:flex; gap:8px; margin-top:4px; justify-content:flex-end;">
-            <button onclick="cancelCustomConfirm()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:8px 18px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="btn_cancel">Cancel</button>
-            <button onclick="okCustomConfirm()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 18px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="btn_ok">OK</button>
-        </div>
-    </div>
-</div>
 
 <!-- STUDENT STATS POPUP (singleton) -->
 <div id="student-stats-popup" class="student-stats-popup">
@@ -2018,63 +2006,28 @@
         return persistSettingsToUserFile();
     }
 
-    // ---- Custom prompt (replaces native prompt(), unsupported in Electron) ----
-    let _promptCallback = null;
+    // showConfirm / showPrompt — callback-based wrappers around the shared
+    // Promise-based dialogs.js versions. All existing call sites continue to
+    // work unchanged; the functions also return the Promise so await works too.
+    //
+    // Uses window._dlgShowConfirm / window._dlgShowPrompt (private aliases set
+    // by dialogs.js) to avoid the hoisting trap: function declarations are
+    // hoisted before any assignment runs, so saving window.showConfirm into a
+    // variable at this scope would just capture the hoisted local function.
+    function showConfirm(message, onOk, onCancel) {
+        const p = window._dlgShowConfirm(message);
+        p.then(function(ok) {
+            if (ok) { if (onOk) onOk(); }
+            else    { if (onCancel) onCancel(); }
+        });
+        return p;
+    }
 
     function showPrompt(message, defaultValue, callback) {
-        _promptCallback = callback;
-        document.getElementById('custom-prompt-label').textContent = message;
-        const input = document.getElementById('custom-prompt-input');
-        input.value = defaultValue != null ? defaultValue : '';
-        document.getElementById('custom-prompt-modal').style.display = 'flex';
-        setTimeout(() => { input.focus(); input.select(); }, 50);
-        input.onkeydown = function(e) {
-            if (e.key === 'Enter')  confirmCustomPrompt();
-            if (e.key === 'Escape') cancelCustomPrompt();
-        };
+        const p = window._dlgShowPrompt(message, defaultValue);
+        p.then(function(val) { if (callback) callback(val); });
+        return p;
     }
-
-    function confirmCustomPrompt() {
-        const val = document.getElementById('custom-prompt-input').value;
-        document.getElementById('custom-prompt-modal').style.display = 'none';
-        if (_promptCallback) { const cb = _promptCallback; _promptCallback = null; cb(val); }
-    }
-
-    function cancelCustomPrompt() {
-        document.getElementById('custom-prompt-modal').style.display = 'none';
-        if (_promptCallback) { const cb = _promptCallback; _promptCallback = null; cb(null); }
-    }
-    // ---- End custom prompt ----
-
-    // ---- Custom confirm (replaces native confirm(), unsupported in Electron) ----
-    let _confirmOkCallback = null;
-    let _confirmCancelCallback = null;
-
-    function showConfirm(message, onOk, onCancel) {
-        _confirmOkCallback = onOk || null;
-        _confirmCancelCallback = onCancel || null;
-        document.getElementById('custom-confirm-label').textContent = message;
-        document.getElementById('custom-confirm-modal').style.display = 'flex';
-        setTimeout(() => {
-            const okBtn = document.querySelector('#custom-confirm-modal button:last-child');
-            if (okBtn) okBtn.focus();
-        }, 50);
-    }
-
-    function okCustomConfirm() {
-        document.getElementById('custom-confirm-modal').style.display = 'none';
-        const cb = _confirmOkCallback;
-        _confirmOkCallback = null; _confirmCancelCallback = null;
-        if (cb) cb();
-    }
-
-    function cancelCustomConfirm() {
-        document.getElementById('custom-confirm-modal').style.display = 'none';
-        const cb = _confirmCancelCallback;
-        _confirmOkCallback = null; _confirmCancelCallback = null;
-        if (cb) cb();
-    }
-    // ---- End custom confirm ----
 
     // Build studentGroups from rawData (called after script load)
     function buildStudentGroups() {
@@ -2092,6 +2045,63 @@
                 }));
             }
         });
+    }
+
+    function _plannerTimeAdd(timeStr, mins) {
+        var p = timeStr.split(':'), total = parseInt(p[0]) * 60 + parseInt(p[1]) + mins;
+        return String(Math.floor(total / 60) % 24).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+    }
+
+    async function autoSelectPlannerGroup() {
+        try {
+            if (!window.Desktop || !Desktop.isElectron()) return;
+            var r = await Desktop.readText('user', 'planner-config.js');
+            if (!r || !r.ok || !r.content) return;
+
+            // Parse planner config without eval — strip comment lines, slice from the assignment
+            var prefix = 'window.PLANNER_CONFIG = ';
+            var body = r.content.split('\n').filter(function (l) { return !l.trim().startsWith('//'); }).join('\n');
+            var startIdx = body.indexOf(prefix);
+            if (startIdx === -1) return;
+            var plannerCfg = JSON.parse(body.slice(startIdx + prefix.length).trim().replace(/;\s*$/, ''));
+            if (!plannerCfg || !plannerCfg.classes) return;
+
+            // Current day and time
+            var now = new Date();
+            var dow = now.getDay();
+            var nowTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            var todayStr = now.toISOString().slice(0, 10);
+
+            // Check active semester dates and holidays
+            var semesters = plannerCfg.semesters || [];
+            var activeSem = semesters.find(function (s) { return s.id === plannerCfg.activeSemesterId; }) || semesters[0];
+            if (activeSem) {
+                if (activeSem.semesterStart && todayStr < activeSem.semesterStart) return;
+                if (activeSem.semesterEnd   && todayStr > activeSem.semesterEnd)   return;
+                var onHoliday = (activeSem.holidays || []).some(function (h) {
+                    return h.date && todayStr >= h.date && todayStr <= (h.dateTo || h.date);
+                });
+                if (onHoliday) return;
+            }
+
+            // Find first class whose schedule slot covers now
+            var classes = plannerCfg.classes;
+            var matched = Object.keys(classes).find(function (cid) {
+                if (rawMeta[cid] && rawMeta[cid].archived) return false;
+                return (classes[cid].schedule || []).some(function (slot) {
+                    if (parseInt(slot.day) !== dow) return false;
+                    var start = slot.time || '';
+                    var end   = slot.timeEnd || (start ? _plannerTimeAdd(start, 60) : '');
+                    return start && nowTime >= start && nowTime <= end;
+                });
+            });
+
+            if (matched && rawData[matched] && !selectedGroupName) {
+                selectGroup(matched, null, null);
+            }
+        } catch (e) {
+            console.warn('planner auto-select:', e);
+        }
     }
 
     async function initApp() {
@@ -2129,6 +2139,7 @@
         if (_ndmRadio) _ndmRadio.checked = true;
         renderCustomActionButtons();
         renderCustomButtonsModalEditor();
+        await autoSelectPlannerGroup();
     }
 
     initApp().catch(error => {
@@ -2250,7 +2261,7 @@
         // Save updated meta to class-groups.js
         const result = await persistGroupsToUserFile(rawData, rawMeta);
         if (!result?.ok && result?.mode !== 'download') {
-            alert('Failed to save archive status: ' + (result?.error || 'unknown error'));
+            showToast('Failed to save archive status: ' + (result?.error || 'unknown error'), true);
             delete rawMeta[groupName].archived;
             return;
         }
@@ -2297,7 +2308,7 @@
 
         const result = await persistGroupsToUserFile(rawData, rawMeta);
         if (!result?.ok && result?.mode !== 'download') {
-            alert('Failed to save unarchive status: ' + (result?.error || 'unknown error'));
+            showToast('Failed to save unarchive status: ' + (result?.error || 'unknown error'), true);
             rawMeta[groupName].archived = true;
             return;
         }
@@ -2415,7 +2426,7 @@
             applyGroupEditsInMemory();
             const result = await persistGroupsToUserFile(updated, updatedMeta);
             if (!result?.ok) {
-                alert('Save failed: ' + (result?.error || 'Unable to save class-groups.js'));
+                showToast('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
             }
         }
     }
@@ -2588,7 +2599,7 @@
     function addNewGroupRow() {
         const nameVal = document.getElementById('new-group-name').value.trim();
         const studentsVal = document.getElementById('new-group-students').value.trim();
-        if (!nameVal) { alert('Please enter a group name.'); return; }
+        if (!nameVal) { showToast('Please enter a group name.'); return; }
 
         const body = document.getElementById('edit-groups-body');
         const row = document.createElement('div');
@@ -2804,10 +2815,45 @@
         return { ok: true, mode: 'download' };
     }
 
+    async function syncGradeSheetRenames(renames) {
+        if (!window.Desktop || !Desktop.isElectron() || !renames.length) return;
+        try {
+            const listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+            if (!listResult?.ok || !Array.isArray(listResult.files)) return;
+            const classFiles = listResult.files.filter(f => f.filename === '_class.js');
+            for (const { oldName, newName } of renames) {
+                for (const cf of classFiles) {
+                    const res = await Desktop.readByPath('grades', cf.relativePath);
+                    if (!res?.content) continue;
+                    const match = res.content.match(/"className"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+                    if (!match || match[1] !== oldName) continue;
+                    const patched = res.content.replace(
+                        /"className"\s*:\s*"(?:[^"\\]|\\.)*"/,
+                        `"className": ${JSON.stringify(newName)}`
+                    );
+                    const parts = cf.relativePath.split('/');
+                    const subdir = parts.length > 1 ? parts.slice(0, -1).join('/') : undefined;
+                    await Desktop.saveText('grades', '_class.js', patched, subdir);
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn('syncGradeSheetRenames failed:', e);
+        }
+    }
+
     async function saveGroupsToFile() {
+        const renames = [];
+        document.querySelectorAll('#edit-groups-body .eg-row').forEach(row => {
+            const oldName = row.dataset.group || '';
+            const nameInput = row.querySelector('.eg-row-name');
+            const newName = nameInput ? nameInput.value.trim() : '';
+            if (oldName && newName && oldName !== newName) renames.push({ oldName, newName });
+        });
+
         const { groups: updated, meta: updatedMeta } = collectGroupEdits();
         if (Object.keys(updated).length === 0) {
-            alert('No groups to save.');
+            showToast('No groups to save.');
             return;
         }
 
@@ -2819,9 +2865,11 @@
 
         const result = await persistGroupsToUserFile(updated, updatedMeta);
         if (!result?.ok) {
-            alert('Save failed: ' + (result?.error || 'Unable to save class-groups.js'));
+            showToast('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
             return;
         }
+
+        await syncGradeSheetRenames(renames);
 
         if (window.Desktop && deletedGroups.length > 0) {
             for (const group of deletedGroups) {
@@ -2944,7 +2992,7 @@
 
     function deleteTeamDefinition(index) {
         if (teamColors.length <= 1) {
-            alert('At least one team must remain.');
+            showToast('At least one team must remain.');
             return;
         }
 
@@ -2976,7 +3024,7 @@
 
         const result = await persistTeamSettings();
         if (!result?.ok) {
-            alert('Save failed: ' + (result?.error || 'Unable to save config.js'));
+            showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
             return;
         }
 
@@ -3119,7 +3167,7 @@
 
         const result = await persistBadgeSettings();
         if (!result?.ok) {
-            alert('Save failed: ' + (result?.error || 'Unable to save config.js'));
+            showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
             return;
         }
 
@@ -3282,7 +3330,7 @@
                 ? `🔊 ${availableSoundFiles.length} sound file${availableSoundFiles.length === 1 ? '' : 's'} found in user/custom-data/sounds`
                 : '🔊 No sound files found in user/custom-data/sounds yet';
             if (typeof mdbToast === 'function') mdbToast(message);
-            else alert(message);
+            else showToast(message);
         }
 
         const filesChanged = !areSoundFileListsEqual(previousFiles, availableSoundFiles);
@@ -3666,12 +3714,12 @@
                 audio.play().catch(e => {
                     console.warn('Cannot play test sound:', e);
                     stopTestSound(slotKey);
-                    alert('That sound could not be played. Check the file name.');
+                    showToast('That sound could not be played. Check the file name.', true);
                 });
                 audio.addEventListener('ended', () => stopTestSound(slotKey));
             }).catch(e => {
                 console.warn('Cannot resolve sound URL:', e);
-                alert('That sound could not be played. Check the file name.');
+                showToast('That sound could not be played. Check the file name.', true);
             });
             return;
         }
@@ -3684,7 +3732,7 @@
         });
         soundSettings[slotKey] = previous;
         if (played === false) {
-            alert('That sound could not be played. Check the file name or JS code.');
+            showToast('That sound could not be played. Check the file name or JS code.', true);
             return;
         }
 
@@ -3722,7 +3770,7 @@
 
         const result = await persistSettingsToUserFile();
         if (!result?.ok) {
-            alert('Save failed: ' + (result?.error || 'Unable to save config.js'));
+            showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
             return;
         }
 
@@ -3735,7 +3783,7 @@
         renderEditSoundsModal();
         const result = await persistSettingsToUserFile();
         if (!result?.ok) {
-            alert('Reset failed: ' + (result?.error || 'Unable to save config.js'));
+            showToast('Reset failed: ' + (result?.error || 'Unable to save config.js'), true);
             return;
         }
         if (typeof mdbToast === 'function') mdbToast('🔊 Default sounds restored');
@@ -3750,7 +3798,7 @@
 
 function openResultsRankingModal() {
     if (!selectedGroupName) {
-        alert("Please select a group first!");
+        showToast("Please select a group first!");
         return;
     }
     renderRanking();
@@ -3930,7 +3978,7 @@ function reshuffleTeams() {
     const activeStudents = students.filter(s => !s.isAbsent);
 
     if (activeStudents.length === 0) {
-        alert('No present students available for teams.');
+        showToast('No present students available for teams.');
         return;
     }
 
@@ -3970,7 +4018,7 @@ function reshuffleTeams() {
 
  function createTeams() {
     if (!selectedGroupName) {
-        alert("Please select a group first!");
+        showToast("Please select a group first!");
         return;
     }
     document.getElementById('team-modal').style.display = 'flex';
@@ -3984,7 +4032,7 @@ function closeTeamModal() {
 
 function processTeamCreation(value, mode) {
     if (!selectedGroupName) {
-        alert("Please select a group first!");
+        showToast("Please select a group first!");
         return;
     }
 
@@ -4000,7 +4048,7 @@ function processTeamCreation(value, mode) {
     activeStudents.forEach(s => delete s.teamId);
 
     if (activeStudents.length === 0) {
-        alert('No present students available for teams.');
+        showToast('No present students available for teams.');
         return;
     }
 
@@ -4277,7 +4325,7 @@ async function loadRolesLibrary(forceReload = false) {
 
 async function openRolesModal(mode = 'assignment') {
     if (mode !== 'settings' && !selectedGroupName) {
-        alert('Please select a group first!');
+        showToast('Please select a group first!');
         return;
     }
 
@@ -4307,7 +4355,7 @@ function getAssignedRolesForSelectedGroup() {
 
 function reassignRolesFromUtility() {
     if (!selectedGroupName) {
-        alert('Please select a group first!');
+        showToast('Please select a group first!');
         return;
     }
 
@@ -4317,7 +4365,7 @@ function reassignRolesFromUtility() {
     }
 
     if (activeRolePool.length === 0) {
-        alert('No roles are available yet. Open Roles first to create or select some.');
+        showToast('No roles are available yet. Open Roles first to create or select some.');
         return;
     }
 
@@ -4326,7 +4374,7 @@ function reassignRolesFromUtility() {
 
 function clearAssignedRolesFromUtility() {
     if (!selectedGroupName) {
-        alert('Please select a group first!');
+        showToast('Please select a group first!');
         return;
     }
 
@@ -4354,7 +4402,7 @@ function clearAssignedRolesFromUtility() {
 
 async function openAssignedRolesInfo() {
     if (!selectedGroupName) {
-        alert('Please select a group first!');
+        showToast('Please select a group first!');
         return;
     }
 
@@ -4433,7 +4481,7 @@ async function saveRolesFromOverlay() {
         mdbToast('✅ Roles saved to config.js');
         console.log('config.js saved successfully');
     } else {
-        alert('Save failed: ' + (result?.error || 'Unable to save config.js'));
+        showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
     }
 }
 
@@ -4580,7 +4628,7 @@ function getShuffledArray(items) {
 
 function assignRandomRanks() {
     if (!selectedGroupName) {
-        alert(t('alert_select_group'));
+        showToast(t('alert_select_group'));
         return;
     }
 
@@ -4592,7 +4640,7 @@ function assignRandomRanks() {
     });
 
     if (activeStudents.length === 0) {
-        alert(t('alert_no_present_ranks'));
+        showToast(t('alert_no_present_ranks'));
         return;
     }
 
@@ -4634,7 +4682,7 @@ function assignRandomRanks() {
 }
 
 function assignRoles() {
-    if (activeRolePool.length === 0) { alert("Select at least one role!"); return; }
+    if (activeRolePool.length === 0) { showToast("Select at least one role!"); return; }
     const students = studentGroups[selectedGroupName];
     
     if (currentTeamsActive) {
@@ -4676,12 +4724,12 @@ function handleRoleDropdownChange(selectEl, index) {
 
 function assignRoles() {
     if (!selectedGroupName) {
-        alert("Please select a group first!");
+        showToast("Please select a group first!");
         return;
     }
 
     if (activeRolePool.length === 0) {
-        alert("Please select at least one role from the list!");
+        showToast("Please select at least one role from the list!");
         return;
     }
 
@@ -4697,7 +4745,7 @@ function assignRoles() {
     });
 
     if (activeStudents.length === 0) {
-        alert('No present students to assign roles to.');
+        showToast('No present students to assign roles to.');
         return;
     }
 
@@ -4772,7 +4820,7 @@ function clearAllRoles() {
 // Open the role-change popup for a single student (manual role assignment)
 async function openRoleChangePopup(studentId) {
     console.log('openRoleChangePopup called, studentId:', studentId, 'rosterContextStudentId:', rosterContextStudentId, 'selectedGroupName:', selectedGroupName);
-    if (!selectedGroupName) { alert('Please select a group first!'); return; }
+    if (!selectedGroupName) { showToast('Please select a group first!'); return; }
 
     await loadRolesLibrary();
 
@@ -4790,7 +4838,7 @@ async function openRoleChangePopup(studentId) {
     }
     if (!student) {
         console.log('openRoleChangePopup: student not found for id', studentId);
-        alert('Student not found.');
+        showToast('Student not found.');
         return;
     }
 
@@ -4840,7 +4888,7 @@ function setStudentRole(studentOrId, role) {
         if (!isNaN(idx) && students[idx]) student = students[idx];
         if (!student) student = students.find(s => s.id == id || s.studentId == id || s.name == id);
     }
-    if (!student) { alert('Student not found.'); return; }
+    if (!student) { showToast('Student not found.'); return; }
 
     const previousRole = student.role || '';
     if (role == null) {
@@ -5150,7 +5198,7 @@ function copyRosterPlainText() {
     });
 
     const text = lines.join('\n');
-    navigator.clipboard.writeText(text).then(function() { alert(t('alert_data_copied')); });
+    navigator.clipboard.writeText(text).then(function() { showToast(t('alert_data_copied')); });
 }
 
 function handleRosterContextAction(action) {
@@ -5833,7 +5881,7 @@ function changeStudentRole(id) {
 }
 
 function addStudentToGroup() {
-    if (!selectedGroupName) { alert('Please select a group first!'); return; }
+    if (!selectedGroupName) { showToast('Please select a group first!'); return; }
     showPrompt('Enter student name:', '', function(name) {
     if (!name || !name.trim()) return;
     const trimmed = name.trim().toUpperCase();
@@ -5874,7 +5922,7 @@ function addStudentToGroup() {
 
     function copyData() {
         if (!selectedGroupName) {
-            alert(t('alert_select_group'));
+            showToast(t('alert_select_group'));
             return;
         }
         let text = "Student Name\tPluses\tMinuses\tTeam Pluses\tTeam Minuses\tScore\tBadges\tNotes\n";
@@ -5886,12 +5934,12 @@ function addStudentToGroup() {
             const totalScore = ((s.pluses || 0) + teamPluses) - ((s.minuses || 0) + teamMinuses);
             text += `${s.name}\t${s.pluses || 0}\t${s.minuses || 0}\t${teamPluses}\t${teamMinuses}\t${totalScore}\t${badges}\t${notes}\n`;
         });
-        navigator.clipboard.writeText(text).then(() => alert(t('alert_data_copied')));
+        navigator.clipboard.writeText(text).then(() => showToast(t('alert_data_copied')));
     }
 
 function exportToCSV() {
         if (!selectedGroupName) {
-            alert('Please select a group first!');
+            showToast('Please select a group first!');
             return;
         }
         let csv = 'Student Name,Pluses,Minuses,TeamPluses,TeamMinuses,Score,Badges,Notes\n';
@@ -6165,7 +6213,7 @@ function exportToCSV() {
 
         const result = await persistSettingsToUserFile();
         if (result && !result.ok && result.mode !== 'download') {
-            alert('Save failed: ' + (result.error || 'Unable to save config.js'));
+            showToast('Save failed: ' + (result.error || 'Unable to save config.js'), true);
             return;
         }
 
@@ -6190,7 +6238,7 @@ function exportToCSV() {
             ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
             : null;
         const pool = studentGroups[selectedGroupName].filter(s => !s.isPicked && !s.isAbsent && (!halfNames || halfNames.includes(s.name)));
-        if (pool.length === 0) { alert("Everyone has been called!"); return; }
+        if (pool.length === 0) { showToast("Everyone has been called!"); return; }
         // Flagged students get 3x weight so they are more likely to be picked first
         const FLAG_PICK_WEIGHT = 3;
         const weightedPool = pool.flatMap(s => s.isFlagged ? Array(FLAG_PICK_WEIGHT).fill(s) : [s]);
@@ -7196,7 +7244,7 @@ async function toggleWhiteNoise() {
             if (!ok) {
                 whiteNoisePlaying = false;
                 if (typeof mdbToast === 'function') mdbToast('🎵 Pick a timer background audio file in Edit Sounds first');
-                else alert('Pick a timer background audio file in Edit Sounds first.');
+                else showToast('Pick a timer background audio file in Edit Sounds first.');
             }
         } else {
             _ensureNoiseNodes(_noiseType);
@@ -7322,7 +7370,7 @@ async function overlaySetNoise(type) {
                 if (!ok) {
                     whiteNoisePlaying = false;
                     if (typeof mdbToast === 'function') mdbToast('🎵 Pick a timer background audio file in Edit Sounds first');
-                    else alert('Pick a timer background audio file in Edit Sounds first.');
+                    else showToast('Pick a timer background audio file in Edit Sounds first.');
                 }
             } else {
                 _ensureNoiseNodes(_noiseType);
@@ -7695,7 +7743,7 @@ function startCountdown() {
     const minutes = parseInt(minutesInput.value) || 0;
     const totalMs = (hours * 3600 + minutes * 60) * 1000;
 
-    if (totalMs <= 0) { alert('Please set a valid time'); return; }
+    if (totalMs <= 0) { showToast('Please set a valid time'); return; }
 
     // Sync legacy hidden inputs for fullscreen overlay
     document.getElementById('timer-minutes').value = hours * 60 + minutes;
@@ -9331,7 +9379,7 @@ function saveDb(sessions) {
             console.warn('Could not persist DB to disk:', error);
         });
     } catch(e) {
-        alert('Could not save to database: ' + e.message);
+        showToast('Could not save to database: ' + e.message, true);
     }
 }
 
@@ -9342,9 +9390,9 @@ function clearDbLocalStorage() {
             dbAutosaveLastSavedAt = null;
             updateDbSessionCountLabel();
             updateDbAutosaveStatusLabel();
-            alert('Local DB cleared.');
+            showToast('Local DB cleared.');
         } catch (e) {
-            alert('Could not clear local DB: ' + e.message);
+            showToast('Could not clear local DB: ' + e.message, true);
         }
     });
 }
@@ -9441,12 +9489,12 @@ function hydrateLiveStateFromLatestTodaySession() {
 
 function saveToDb() {
     if (!selectedGroupName) {
-        alert('Please select a group first before saving.');
+        showToast('Please select a group first before saving.');
         return;
     }
 
     if (!groupHasInteraction(selectedGroupName)) {
-        alert('This class has no interactions yet, so it was not saved.');
+        showToast('This class has no interactions yet, so it was not saved.');
         return;
     }
 
@@ -9458,7 +9506,7 @@ function saveToDb() {
     // Save only groups with interactions
     const snapshot = buildInteractionSnapshot(studentGroups);
     if (!snapshot[selectedGroupName]) {
-        alert('This class has no interactions yet, so it was not saved.');
+        showToast('This class has no interactions yet, so it was not saved.');
         return;
     }
 
@@ -9515,7 +9563,7 @@ function groupHasInteraction(gName) {
 function saveAllToDb() {
     const allGroups = Object.keys(studentGroups);
     if (allGroups.length === 0) {
-        alert('No groups found to save.');
+        showToast('No groups found to save.');
         return;
     }
 
@@ -9524,7 +9572,7 @@ function saveAllToDb() {
     const skippedCount = allGroups.length - groupsToSave.length;
 
     if (groupsToSave.length === 0) {
-        alert('No classes have any interactions to save yet.');
+        showToast('No classes have any interactions to save yet.');
         return;
     }
 
@@ -9896,7 +9944,7 @@ function applyTimeMachineToNow(index, e) {
     // Count how many groups from the snapshot exist in the live state
     const matchingGroups = Object.keys(session.groups).filter(g => targetGroups[g]);
     if (matchingGroups.length === 0) {
-        alert('No matching groups found in the current session.\nThe saved snapshot belongs to a different class.');
+        showToast('No matching groups found in the current session.\nThe saved snapshot belongs to a different class.');
         return;
     }
 
@@ -9965,14 +10013,14 @@ function deleteTimeMachineSession(index, e) {
     if (!s) return;
 
     if (s._tmSource !== 'local') {
-        alert('This session comes from log storage and is read-only in Time Machine.\n\nDelete it directly from the log folder if needed.');
+        showToast('This session comes from log storage and is read-only in Time Machine.\n\nDelete it directly from the log folder if needed.');
         return;
     }
 
     const localSessions = getDb();
     const localIndex = localSessions.findIndex(item => String(item && item.id) === String(s.id));
     if (localIndex === -1) {
-        alert('This session is no longer present in local DB.');
+        showToast('This session is no longer present in local DB.');
         return;
     }
 
@@ -10200,7 +10248,7 @@ function exportDb() {
         .map(sanitizeSessionForInteractionExport)
         .filter(Boolean);
     if (sessions.length === 0) {
-        alert('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
+        showToast('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
         return;
     }
 
@@ -10227,7 +10275,7 @@ async function saveDbToFile() {
         .map(sanitizeSessionForInteractionExport)
         .filter(Boolean);
     if (sessions.length === 0) {
-        alert('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
+        showToast('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
         return;
     }
 
@@ -10492,11 +10540,11 @@ async function importDb(event) {
         let msg = `✓ Import successful!\n${merged.length} session(s) now in database.`;
         if (loaded.loadedFileCount > 1) msg += `\nLoaded ${loaded.loadedFileCount} files.`;
         if (loaded.skippedFiles.length > 0) msg += `\nSkipped ${loaded.skippedFiles.length} invalid file(s).`;
-        alert(msg);
+        showToast(msg);
         updateDbSessionCountLabel();
         syncDbAutosaveBaseline();
     } catch(err) {
-        alert('Import failed: ' + err.message + '\n\nMake sure you are importing a file exported from this app.');
+        showToast('Import failed: ' + err.message, true);
     }
 
     // Reset file input so the same file/folder can be re-imported if needed
@@ -10546,7 +10594,7 @@ async function startupLoadDbFolder() {
             return;
         } catch (err) {
             if (err.name === 'AbortError') return; // user cancelled
-            alert('Could not load DB folder: ' + err.message);
+            showToast('Could not load DB folder: ' + err.message, true);
             return;
         }
     }
@@ -10558,7 +10606,7 @@ async function startupLoadDbFolder() {
         return;
     }
 
-    alert('Folder loading is not supported in this browser. Use Load Files instead.');
+    showToast('Folder loading is not supported in this browser. Use Load Files instead.');
 }
 
 async function startupImportDbFromInput(event) {
@@ -10570,7 +10618,7 @@ async function startupImportDbFromInput(event) {
         _applyStartupDbSessions(loaded.sessions, loaded);
         dismissStartupBanner();
     } catch (err) {
-        alert('Could not load DB file: ' + err.message);
+        showToast('Could not load DB file: ' + err.message, true);
     }
 
     event.target.value = '';
@@ -12163,7 +12211,7 @@ const I18N = {
   }
 };
 
-let currentLang = (function(){ try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
+let currentLang = (function(){ try { var ov = localStorage.getItem('cmt-lang-class-management'); if (ov) return ov; var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
 
 function t(key, vars) {
   const dict = I18N[currentLang] || I18N.en;
@@ -12175,20 +12223,36 @@ function t(key, vars) {
 }
 
 function setLang(lang) {
-  if (!I18N[lang]) return;
-  currentLang = lang;
-  try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.language = lang; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch(e){}
-  // Update switcher button styles
+  if (lang === null || lang === 'auto') {
+    try { localStorage.removeItem('cmt-lang-class-management'); } catch(e){}
+    try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); currentLang = c.language || 'en'; } catch(e){ currentLang = 'en'; }
+  } else {
+    if (!I18N[lang]) return;
+    currentLang = lang;
+    try { localStorage.setItem('cmt-lang-class-management', lang); } catch(e){}
+  }
+  _updateCMLangBtns();
+  applyLang();
+}
+
+function _updateCMLangBtns() {
+  const override = localStorage.getItem('cmt-lang-class-management');
   ['en','fr','de','it'].forEach(l => {
     const btn = document.getElementById('lang-btn-' + l);
     if (!btn) return;
-    if (l === lang) {
-      btn.style.background = '#111'; btn.style.color = '#fff';
-    } else {
-      btn.style.background = '#f5f5f5'; btn.style.color = '#555';
-    }
+    const isActive = l === currentLang && !!override;
+    btn.style.background = isActive ? '#111' : '#f5f5f5';
+    btn.style.color = isActive ? '#fff' : '#555';
   });
-  applyLang();
+  const autoBtn = document.getElementById('lang-btn-auto');
+  if (autoBtn) {
+    autoBtn.style.background = !override ? '#111' : '#f5f5f5';
+    autoBtn.style.color = !override ? '#fff' : '#555';
+  }
+  document.querySelectorAll('.hm-lang-btn').forEach(b => {
+    const dl = b.getAttribute('data-lang');
+    b.classList.toggle('active', dl === 'auto' ? !override : dl === override);
+  });
 }
 
 function renderHelpModal() {
@@ -12650,6 +12714,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // It gets set by JS elsewhere; we don't interfere here.
 
   // Apply initial lang
+  _updateCMLangBtns();
   applyLang();
 });
 </script>
@@ -14128,15 +14193,15 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
 
   // ── Start / stop server ────────────────────────────────────
   window._remoteStartServer = function () {
-    if (!window.Desktop || !window.Desktop.isElectron()) { alert('Desktop API not available.'); return; }
+    if (!window.Desktop || !window.Desktop.isElectron()) { showToast('Desktop API not available.', true); return; }
     var port = parseInt(document.getElementById('remote-port-input').value, 10) || 7823;
     window.Desktop.remoteStart(port).then(function (res) {
       if (res && res.ok) {
         _showServerOn(res);
       } else {
-        alert('Could not start remote server: ' + (res && res.error ? res.error : 'Unknown error'));
+        showToast('Could not start remote server: ' + (res && res.error ? res.error : 'Unknown error'), true);
       }
-    }).catch(function (e) { alert('Error: ' + e.message); });
+    }).catch(function (e) { showToast('Error: ' + e.message, true); });
   };
 
   window._remoteStopServer = function () {
@@ -14154,9 +14219,9 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
     }
   };
 
-  window._remoteNewToken = function () {
+  window._remoteNewToken = async function () {
     if (!window.Desktop || !window.Desktop.isElectron()) return;
-    if (!confirm('Generate a new token? Connected phones will be disconnected.')) return;
+    if (!await showConfirm('Generate a new token? Connected phones will be disconnected.')) return;
     window.Desktop.remoteNewToken().then(function (res) {
       if (res && res.ok) {
         var url = 'http://' + res.ip + ':' + res.port + '/?t=' + res.token;

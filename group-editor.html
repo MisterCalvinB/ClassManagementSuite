@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="i18n.js"></script>
+  <script src="dialogs.js"></script>
   <link rel="stylesheet" href="stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -335,6 +336,14 @@
       <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
       <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
       <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -941,7 +950,7 @@
   // ── Add new group row ────────────────────────────────────────
   function addNewGroupRow() {
     const nameVal = document.getElementById('new-group-name').value.trim();
-    if (!nameVal) { alert(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.'); return; }
+    if (!nameVal) { showToast(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.'); return; }
 
     const studentsText = document.getElementById('new-group-students').value.trim();
     const students = studentsText ? parseNamesText(studentsText) : [];
@@ -1098,11 +1107,47 @@
     renderGroupsList();
   }
 
+  // ── Sync grade-sheet _class.js files after group renames ─────
+  async function syncGradeSheetRenames(renames) {
+    if (!window.Desktop || !Desktop.isElectron() || !renames.length) return;
+    try {
+      const listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+      if (!listResult?.ok || !Array.isArray(listResult.files)) return;
+      const classFiles = listResult.files.filter(f => f.filename === '_class.js');
+      for (const { oldName, newName } of renames) {
+        for (const cf of classFiles) {
+          const res = await Desktop.readByPath('grades', cf.relativePath);
+          if (!res?.content) continue;
+          const match = res.content.match(/"className"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          if (!match || match[1] !== oldName) continue;
+          const updated = res.content.replace(
+            /"className"\s*:\s*"(?:[^"\\]|\\.)*"/,
+            `"className": ${JSON.stringify(newName)}`
+          );
+          const parts = cf.relativePath.split('/');
+          const subdir = parts.length > 1 ? parts.slice(0, -1).join('/') : undefined;
+          await Desktop.saveText('grades', '_class.js', updated, subdir);
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('syncGradeSheetRenames failed:', e);
+    }
+  }
+
   // ── Save ─────────────────────────────────────────────────────
   async function saveGroupsToFile() {
+    const renames = [];
+    document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
+      const oldName = row.dataset.group || '';
+      const nameInput = row.querySelector('.eg-row-name');
+      const newName = nameInput ? nameInput.value.trim() : '';
+      if (oldName && newName && oldName !== newName) renames.push({ oldName, newName });
+    });
+
     const { groups: updated, meta: updatedMeta } = collectGroupEdits();
     if (Object.keys(updated).length === 0) {
-      alert(typeof t === 'function' ? t('geNoGroupsToSave') : 'No groups to save.');
+      showToast(typeof t === 'function' ? t('geNoGroupsToSave') : 'No groups to save.');
       return;
     }
 
@@ -1114,6 +1159,8 @@
       showNotice((typeof t === 'function' ? t('geSaveFailed') : 'Save failed:') + ' ' + (result?.error || 'Unable to save class-groups.js'), true);
       return;
     }
+
+    await syncGradeSheetRenames(renames);
 
     const saveBtn = document.getElementById('ge-save-btn');
     const orig = saveBtn.textContent;
@@ -1136,7 +1183,7 @@
   function exportCsv() {
     const { groups, meta } = collectGroupEdits();
     if (Object.keys(groups).length === 0) {
-      alert('No groups to export.');
+      showToast('No groups to export.');
       return;
     }
 

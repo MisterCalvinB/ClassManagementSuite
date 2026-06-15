@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="modules/lexend/lexend.css">
     <script src="i18n.js"></script>
         <script src="electron-bridge.js"></script>
+        <script src="dialogs.js"></script>
         <script>
         (function () {
             function injectClassicScript(source, name) {
@@ -937,6 +938,14 @@
       <a href="general-config.html" class="nav-link hm-item">⚙️ <span data-i18n="app_generalConfig_title">General Config</span></a>
       <a href="launcher.html" class="nav-link hm-item">🏠 <span data-i18n="app_launcher_title">Launcher</span></a>
       <a href="credits.html" class="nav-link hm-item">ℹ️ <span data-i18n="app_credits_title">Credits</span></a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -1977,7 +1986,7 @@
             return result.stats;
         }
 
-        function resolveAppendImportConflicts(existingSessions, importedSessions) {
+        async function resolveAppendImportConflicts(existingSessions, importedSessions) {
             const existing = cloneSessions(existingSessions);
             const incoming = cloneSessions(importedSessions);
             const stats = {
@@ -1987,11 +1996,11 @@
                 prompts: 0
             };
 
-            incoming.forEach(importedSession => {
+            for (const importedSession of incoming) {
                 if (!importedSession.groups) importedSession.groups = {};
 
                 const sessionDate = getSessionDate(importedSession);
-                Object.keys(importedSession.groups).forEach(groupId => {
+                for (const groupId of Object.keys(importedSession.groups)) {
                     const importedGroupData = importedSession.groups[groupId];
                     const conflicts = existing.filter(existingSession =>
                         getSessionDate(existingSession) === sessionDate &&
@@ -1999,7 +2008,7 @@
                         existingSession.groups[groupId]
                     );
 
-                    if (conflicts.length === 0) return;
+                    if (conflicts.length === 0) continue;
 
                     const identicalConflict = conflicts.some(existingSession =>
                         areEqualByData(existingSession.groups[groupId], importedGroupData)
@@ -2008,11 +2017,11 @@
                     if (identicalConflict) {
                         delete importedSession.groups[groupId];
                         stats.skippedIdentical++;
-                        return;
+                        continue;
                     }
 
                     stats.prompts++;
-                    const keepImported = window.confirm(
+                    const keepImported = await showConfirm(
                         tFmt('ptConfirmImportConflict', { groupId, sessionDate, n: conflicts.length })
                     );
 
@@ -2025,8 +2034,8 @@
                         delete importedSession.groups[groupId];
                         stats.keptExisting++;
                     }
-                });
-            });
+                }
+            }
 
             const merged = [
                 ...existing.filter(hasGroups),
@@ -2101,7 +2110,7 @@
             pendingImportData = null;
         }
 
-        function confirmImportAndMerge() {
+        async function confirmImportAndMerge() {
             const strategy = document.querySelector('input[name="mergeStrategy"]:checked').value;
 
             if (!pendingImportData || pendingImportData.length === 0) {
@@ -2118,7 +2127,7 @@
                 showMessage(`✓ Replaced with ${pendingImportData.length} sessions${dedupeNote}`, 'success');
             } else {
                 // Append strategy with per group/date conflict resolution
-                const mergeResult = resolveAppendImportConflicts(DB_EXPORT, pendingImportData);
+                const mergeResult = await resolveAppendImportConflicts(DB_EXPORT, pendingImportData);
                 DB_EXPORT.splice(0, DB_EXPORT.length, ...mergeResult.merged);
                 const normalizationStats = applySessionNormalization('import-append');
 

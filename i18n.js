@@ -1,7 +1,13 @@
 // Shared i18n module for Class Management Tools.
-// Reads language from cmt-general-config.language (default: 'fr').
+// Reads language from cmt-lang-{page} (per-page override) or cmt-general-config.language (default: 'fr').
 (function () {
   'use strict';
+
+  (function injectHmLangStyles() {
+    var s = document.createElement('style');
+    s.textContent = '.hm-lang-row{display:flex;gap:4px;padding:6px 12px}.hm-lang-btn{flex:1;background:none;border:1px solid #444;color:#aaa;padding:3px 2px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}.hm-lang-btn:hover{border-color:#999;color:#eee}.hm-lang-btn.active{background:#3a3a3a;color:#fff;border-color:#888}';
+    document.head.appendChild(s);
+  })();
 
   var STRINGS = {
     en: {
@@ -13,6 +19,7 @@
       loading: 'Loading…',
       notSet: 'Not set',
       navOpenMenu: 'Open menu',
+      langAuto: 'Auto',
 
       // Launcher header
       launcherSubtitle: 'Select a tool to get started',
@@ -960,6 +967,111 @@
       mdbTitleDeleteFile: 'Delete file',
       mdbTitleDelete: 'Delete',
       mdbTitleSelectAllPage: 'Select all on page',
+
+      // Planner
+      app_planner_title: 'Planner',
+      app_planner_desc: 'Plan your semester: schedule lessons, tests, and assignments by class with ICS export.',
+      pl_title: 'Planner',
+      pl_subtitle: 'Plan your semester, schedule lessons, tests, and assignments.',
+      pl_btnSemester: 'Semester',
+      pl_weekLabel: 'Week {n} of {total}',
+      pl_weekCount: '{n} weeks',
+      pl_semDefault: 'Semester 1',
+      pl_addSemTitle: 'Add Semester',
+      pl_editSemTitle: 'Edit Semester',
+      pl_semLabel: 'Label',
+      pl_semLabelPlaceholder: 'e.g. Autumn 2026',
+      pl_btnAddSem: '+ Semester',
+      pl_deleteSem: 'Delete Semester',
+      pl_confirmDeleteSem: 'Delete this semester? Entries remain but semester dates and holidays will be removed.',
+      pl_gsLinked: 'Linked to Grade Sheet',
+      pl_gsWriteOk: '✓ Test added to Grade Sheet',
+      pl_gsUpdated: '✓ Grade Sheet test updated',
+      pl_gsNoClass: 'No Grade Sheet class named "{cls}" found — name a class to match in Grade Sheet.',
+      pl_gsSlotsFull: 'All 8 test slots are taken in Grade Sheet for "{cls}".',
+      pl_confirmDeleteTest: 'Delete this test entry? This will also erase the linked test file in Grade Sheet (scores will be lost if any were entered).',
+      pl_schedEndTime: 'Until',
+      pl_holidayEnd: 'Until',
+      pl_btnClasses: 'Classes',
+      pl_btnAddEntry: '+ Add Entry',
+      pl_btnExport: 'Export',
+      pl_exportTitle: 'Export Planner',
+      pl_exportIcsLabel: 'ICS Calendar',
+      pl_exportIcsDesc: 'Import into Google / Apple Calendar (.ics)',
+      pl_exportMdLabel: 'Markdown',
+      pl_exportMdDesc: 'Structured plain-text document (.md)',
+      pl_exportCsvLabel: 'CSV Table',
+      pl_exportCsvDesc: 'Spreadsheet-ready data (.csv)',
+      pl_exportPdfLabel: 'PDF',
+      pl_exportPdfDesc: 'Print-ready document (.pdf)',
+      pl_btnExportIcs: 'Export .ics',
+      pl_allClasses: 'All Classes',
+      pl_showPast: 'Show past',
+      pl_hidePast: 'Hide past',
+      pl_viewTable: 'Table',
+      pl_viewList: 'List',
+      pl_semNotSet: 'Semester not configured.',
+      pl_semNotSetHint: 'Click "Semester" to set start and end dates.',
+      pl_noEntries: 'No sessions for this period.',
+      pl_noEntriesHint: 'Add entries or configure class schedules.',
+      pl_emptySlot: 'No plan yet',
+      pl_conflictWarning: 'Test conflict: {n} tests on this date',
+      pl_missingPart: 'No participation data recorded for this class',
+      pl_semModalTitle: 'Semester Setup',
+      pl_semStart: 'Semester start',
+      pl_semEnd: 'Semester end',
+      pl_holidays: 'Holidays',
+      pl_addHoliday: '+ Add Holiday',
+      pl_holidayLabelPlaceholder: 'e.g. Autumn Break',
+      pl_classModalTitle: 'Class Setup',
+      pl_selectClass: 'Select a class',
+      pl_classColor: 'Color',
+      pl_classYear: 'Year',
+      pl_classYearPlaceholder: 'e.g. 2025-2026',
+      pl_classSem1: 'Semester 1',
+      pl_classSem2: 'Semester 2',
+      pl_customColor: 'Custom',
+      pl_schedule: 'Weekly Schedule',
+      pl_addScheduleSlot: '+ Add slot',
+      pl_objectives: 'Learning Objectives',
+      pl_addObjective: '+ Add Objective',
+      pl_objectivePlaceholder: 'e.g. Students will be able to…',
+      pl_noClasses: 'No class groups found. Create classes in Group Editor first.',
+      pl_daySun: 'Sun',
+      pl_dayMon: 'Mon',
+      pl_dayTue: 'Tue',
+      pl_dayWed: 'Wed',
+      pl_dayThu: 'Thu',
+      pl_dayFri: 'Fri',
+      pl_daySat: 'Sat',
+      pl_entryModalAdd: 'Add Entry',
+      pl_entryModalEdit: 'Edit Entry',
+      pl_entryClass: 'Class',
+      pl_entryDate: 'Date',
+      pl_entryTime: 'Time',
+      pl_entryType: 'Type',
+      pl_entryTopic: 'Topic',
+      pl_entryObjective: 'Objective',
+      pl_objectiveOther: 'Other / custom',
+      pl_entryReadings: 'Readings / Materials',
+      pl_entryActivities: 'In-class Activities',
+      pl_entryHomework: 'Homework',
+      pl_entryNotes: 'Notes / Reminders',
+      pl_typeLesson: 'Lesson',
+      pl_typeTest: 'Test',
+      pl_typeAssignment: 'Assignment Due',
+      pl_typeHoliday: 'Holiday',
+      pl_btnSaveEntry: 'Save Entry',
+      pl_btnDuplicate: 'Duplicate',
+      pl_entryModalDuplicate: 'Duplicate Entry',
+      pl_btnDeleteEntry: 'Delete Entry',
+      pl_icsTitle: 'ICS Export',
+      pl_icsDesc: 'Export a calendar file containing all sessions, tests, and due dates.',
+      pl_icsFilter: 'Filter by class (optional)',
+      pl_icsAllClasses: 'All classes',
+      pl_btnDownloadIcs: 'Download .ics',
+      pl_icsSemStart: 'Semester Start',
+      pl_icsSemEnd: 'Semester End',
     },
 
     fr: {
@@ -971,6 +1083,7 @@
       loading: 'Chargement…',
       notSet: 'Non défini',
       navOpenMenu: 'Ouvrir le menu',
+      langAuto: 'Auto',
 
       // Launcher header
       launcherSubtitle: 'Sélectionnez un outil pour commencer',
@@ -1918,14 +2031,142 @@
       mdbTitleDeleteFile: 'Supprimer le fichier',
       mdbTitleDelete: 'Supprimer',
       mdbTitleSelectAllPage: 'Tout sélectionner sur cette page',
+
+      // Planner
+      app_planner_title: 'Planificateur de cours',
+      app_planner_desc: 'Planifiez votre semestre : cours, évaluations et devoirs par classe avec export ICS.',
+      pl_title: 'Planificateur',
+      pl_subtitle: 'Planifiez votre semestre, les cours, évaluations et devoirs.',
+      pl_btnSemester: 'Semestre',
+      pl_weekLabel: 'Semaine {n} sur {total}',
+      pl_weekCount: '{n} semaines',
+      pl_semDefault: 'Semestre 1',
+      pl_addSemTitle: 'Ajouter un semestre',
+      pl_editSemTitle: 'Modifier le semestre',
+      pl_semLabel: 'Nom',
+      pl_semLabelPlaceholder: 'ex. Automne 2026',
+      pl_btnAddSem: '+ Semestre',
+      pl_deleteSem: 'Supprimer ce semestre',
+      pl_confirmDeleteSem: 'Supprimer ce semestre ? Les entrées sont conservées, mais les dates et congés seront effacés.',
+      pl_gsLinked: 'Lié à la feuille de notes',
+      pl_gsWriteOk: '✓ Évaluation ajoutée dans la feuille de notes',
+      pl_gsUpdated: '✓ Évaluation mise à jour dans la feuille de notes',
+      pl_gsNoClass: 'Aucune classe « {cls} » trouvée dans la feuille de notes — le nom doit correspondre exactement.',
+      pl_gsSlotsFull: 'Les 8 créneaux d\'évaluation sont utilisés pour « {cls} » dans la feuille de notes.',
+      pl_confirmDeleteTest: 'Supprimer cette évaluation ? Le fichier lié dans la feuille de notes sera également effacé (les notes saisies seront perdues).',
+      pl_schedEndTime: 'Jusqu\'à',
+      pl_holidayEnd: 'Jusqu\'au',
+      pl_btnClasses: 'Classes',
+      pl_btnAddEntry: '+ Ajouter',
+      pl_btnExport: 'Exporter',
+      pl_exportTitle: 'Exporter le planificateur',
+      pl_exportIcsLabel: 'Calendrier ICS',
+      pl_exportIcsDesc: 'Import Google / Apple Calendar (.ics)',
+      pl_exportMdLabel: 'Markdown',
+      pl_exportMdDesc: 'Document texte structuré (.md)',
+      pl_exportCsvLabel: 'Tableau CSV',
+      pl_exportCsvDesc: 'Données pour tableur (.csv)',
+      pl_exportPdfLabel: 'PDF',
+      pl_exportPdfDesc: 'Document prêt à imprimer (.pdf)',
+      pl_btnExportIcs: 'Exporter .ics',
+      pl_allClasses: 'Toutes les classes',
+      pl_showPast: 'Voir le passé',
+      pl_hidePast: 'Masquer le passé',
+      pl_viewTable: 'Tableau',
+      pl_viewList: 'Liste',
+      pl_semNotSet: 'Semestre non configuré.',
+      pl_semNotSetHint: 'Cliquez sur « Semestre » pour définir les dates de début et de fin.',
+      pl_noEntries: 'Aucune séance pour cette période.',
+      pl_noEntriesHint: 'Ajoutez des entrées ou configurez les emplois du temps.',
+      pl_emptySlot: 'Pas encore de plan',
+      pl_conflictWarning: 'Conflit : {n} évaluations prévues le même jour',
+      pl_missingPart: 'Aucune donnée de participation enregistrée pour cette classe',
+      pl_semModalTitle: 'Configuration du semestre',
+      pl_semStart: 'Début du semestre',
+      pl_semEnd: 'Fin du semestre',
+      pl_holidays: 'Congés / vacances',
+      pl_addHoliday: '+ Ajouter un congé',
+      pl_holidayLabelPlaceholder: 'ex. Vacances de Toussaint',
+      pl_classModalTitle: 'Configuration des classes',
+      pl_selectClass: 'Sélectionner une classe',
+      pl_classColor: 'Couleur',
+      pl_classYear: 'Année',
+      pl_classYearPlaceholder: 'ex. 2025-2026',
+      pl_classSem1: 'Semestre 1',
+      pl_classSem2: 'Semestre 2',
+      pl_customColor: 'Personnalisé',
+      pl_schedule: 'Emploi du temps hebdomadaire',
+      pl_addScheduleSlot: '+ Ajouter un créneau',
+      pl_objectives: 'Objectifs pédagogiques',
+      pl_addObjective: '+ Ajouter un objectif',
+      pl_objectivePlaceholder: 'ex. Les élèves seront capables de…',
+      pl_noClasses: 'Aucun groupe trouvé. Créez des classes dans l\'éditeur de groupes.',
+      pl_daySun: 'Dim',
+      pl_dayMon: 'Lun',
+      pl_dayTue: 'Mar',
+      pl_dayWed: 'Mer',
+      pl_dayThu: 'Jeu',
+      pl_dayFri: 'Ven',
+      pl_daySat: 'Sam',
+      pl_entryModalAdd: 'Ajouter une entrée',
+      pl_entryModalEdit: 'Modifier l\'entrée',
+      pl_entryClass: 'Classe',
+      pl_entryDate: 'Date',
+      pl_entryTime: 'Heure',
+      pl_entryType: 'Type',
+      pl_entryTopic: 'Sujet',
+      pl_entryObjective: 'Objectif',
+      pl_objectiveOther: 'Autre / personnalisé',
+      pl_entryReadings: 'Lectures / Supports',
+      pl_entryActivities: 'Activités en classe',
+      pl_entryHomework: 'Devoirs',
+      pl_entryNotes: 'Notes / Rappels',
+      pl_typeLesson: 'Cours',
+      pl_typeTest: 'Évaluation',
+      pl_typeAssignment: 'Devoir à rendre',
+      pl_typeHoliday: 'Congé',
+      pl_btnSaveEntry: 'Enregistrer',
+      pl_btnDuplicate: 'Dupliquer',
+      pl_entryModalDuplicate: 'Dupliquer l\'entrée',
+      pl_btnDeleteEntry: 'Supprimer l\'entrée',
+      pl_icsTitle: 'Export ICS',
+      pl_icsDesc: 'Exporter un fichier calendrier avec toutes les séances, évaluations et échéances.',
+      pl_icsFilter: 'Filtrer par classe (optionnel)',
+      pl_icsAllClasses: 'Toutes les classes',
+      pl_btnDownloadIcs: 'Télécharger .ics',
+      pl_icsSemStart: 'Début du semestre',
+      pl_icsSemEnd: 'Fin du semestre',
     }
   };
 
+  function _pageKey() {
+    return (location.pathname.split('/').pop() || 'launcher').replace('.html', '') || 'launcher';
+  }
+
   window.getLang = function () {
     try {
+      var override = localStorage.getItem('cmt-lang-' + _pageKey());
+      if (override) return override;
       var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
       return cfg.language || 'fr';
     } catch (e) { return 'fr'; }
+  };
+
+  window.setPageLang = function (lang) {
+    if (lang) {
+      localStorage.setItem('cmt-lang-' + _pageKey(), lang);
+    } else {
+      localStorage.removeItem('cmt-lang-' + _pageKey());
+    }
+    applyTranslations();
+  };
+
+  window.updateLangButtons = function () {
+    var override = localStorage.getItem('cmt-lang-' + _pageKey());
+    document.querySelectorAll('.hm-lang-btn').forEach(function (btn) {
+      var dl = btn.getAttribute('data-lang');
+      btn.classList.toggle('active', dl === 'auto' ? !override : dl === override);
+    });
   };
 
   window.t = function (key) {
@@ -1964,5 +2205,6 @@
     document.querySelectorAll('[data-i18n-label]').forEach(function (el) {
       el.setAttribute('label', t(el.getAttribute('data-i18n-label')));
     });
+    updateLangButtons();
   };
 })();

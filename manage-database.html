@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="i18n.js"></script>
+  <script src="dialogs.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -373,6 +374,14 @@
       <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
       <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
       <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -1289,7 +1298,7 @@ function updateViewToggleBtn() {
 
 async function deduplicateRecords() {
   const loaded = S.files.filter(f => f.status === 'loaded');
-  if (!loaded.length) { alert(t('mdbAlertNoFilesLoaded')); return; }
+  if (!loaded.length) { showToast(t('mdbAlertNoFilesLoaded')); return; }
 
   let totalRemoved = 0;
   const toSave = [];
@@ -1307,7 +1316,7 @@ async function deduplicateRecords() {
     if (removed > 0) { totalRemoved += removed; toSave.push({ fi, file, deduped }); }
   }
 
-  if (!totalRemoved) { alert(t('mdbAlertNoDupes')); return; }
+  if (!totalRemoved) { showToast(t('mdbAlertNoDupes')); return; }
 
   const dedupMsg = tFmt('mdbConfirmDedup', {
     n: totalRemoved,
@@ -1315,7 +1324,7 @@ async function deduplicateRecords() {
     m: toSave.length,
     file: toSave.length === 1 ? t('mdbDupeFile') : t('mdbDupeFiles'),
   });
-  if (!confirm(dedupMsg)) return;
+  if (!await showConfirm(dedupMsg)) return;
 
   for (const { fi, file, deduped } of toSave) {
     file.records = deduped;
@@ -1520,7 +1529,7 @@ async function submitEdit() {
     if (S.files[fi].status === 'pending') {
       await loadFileContent(fi, getTypeDef(S.typeKey));
       if (S.files[fi].status !== 'loaded') {
-        alert(t('mdbAlertLoadTargetFailed'));
+        showToast(t('mdbAlertLoadTargetFailed'), true);
         return;
       }
     }
@@ -1548,7 +1557,7 @@ async function submitEdit() {
     let values;
     if (rawEl) {
       try { values = JSON.parse(rawEl.value); }
-      catch { alert(t('mdbAlertInvalidJson')); return; }
+      catch { showToast(t('mdbAlertInvalidJson'), true); return; }
     } else {
       values = readFormValues(S.schema);
     }
@@ -1559,7 +1568,7 @@ async function submitEdit() {
     let values;
     if (rawEl) {
       try { values = JSON.parse(rawEl.value); }
-      catch { alert(t('mdbAlertInvalidJson')); return; }
+      catch { showToast(t('mdbAlertInvalidJson'), true); return; }
     } else {
       values = readFormValues(S.schema);
     }
@@ -1671,12 +1680,12 @@ async function downloadFile(fi) {
 async function deleteDBFile(fi) {
   const file = S.files[fi];
   if (!file) return;
-  if (!confirm(tFmt('mdbConfirmDeleteFile', {name: file.name}))) return;
+  if (!await showConfirm(tFmt('mdbConfirmDeleteFile', {name: file.name}))) return;
 
   if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
     const def = getTypeDef(S.typeKey);
     const result = await Desktop.deleteFile(def.target, file.name);
-    if (!result?.ok) { alert(t('mdbErrDeleteFailed') + (result?.error || '')); return; }
+    if (!result?.ok) { showToast(t('mdbErrDeleteFailed') + (result?.error || ''), true); return; }
   }
 
   // Remove from session state and caches
@@ -1696,7 +1705,7 @@ async function deleteDBFile(fi) {
 // ─────────────────────────────────────────────────────────────────────
 function openMerge() {
   const loaded = S.files.filter(f => f.status === 'loaded');
-  if (loaded.length < 2) { alert(t('mdbAlertLoad2Files')); return; }
+  if (loaded.length < 2) { showToast(t('mdbAlertLoad2Files')); return; }
 
   $('merge-checklist').innerHTML = loaded.map(f => {
     const fi = S.files.indexOf(f);
@@ -1812,7 +1821,7 @@ async function saveFile(fi) {
   const file = S.files[fi];
   const def = getTypeDef(S.typeKey);
   const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
-  if (!result?.ok) { alert(t('mdbErrSaveFailed') + (result?.error || '')); return false; }
+  if (!result?.ok) { showToast(t('mdbErrSaveFailed') + (result?.error || ''), true); return false; }
   if (_gsc[S.typeKey]) _gsc[S.typeKey][file.name] = { records: file.records.slice(), varName: file.varName };
   return true;
 }
@@ -2079,7 +2088,7 @@ let _colPickerCallback = null;
 
 function openColPicker(mode) {
   const rows = getDisplayRecords();
-  if (!rows.length) { alert(t('mdbAlertNoRecords')); return; }
+  if (!rows.length) { showToast(t('mdbAlertNoRecords')); return; }
 
   const isPdf     = mode === 'pdf';
   const cols      = isPdf ? S.schema.filter(f => f.type !== 'object') : S.schema;
@@ -2127,7 +2136,7 @@ function colPickerToggleAll(checked) {
 
 function colPickerConfirm() {
   const keys = [...document.querySelectorAll('#col-picker-list input[type="checkbox"]:checked')].map(cb => cb.value);
-  if (!keys.length) { alert(t('mdbAlertSelectColumn')); return; }
+  if (!keys.length) { showToast(t('mdbAlertSelectColumn')); return; }
   const cb = _colPickerCallback;
   closeColPicker();
   if (cb) cb(keys);
@@ -2350,7 +2359,7 @@ async function deleteSelectedBatch() {
   const selected = [...S.batchSel];
   if (!selected.length) return;
   const count = selected.length;
-  if (!confirm(tFmt('mdbConfirmDeleteBatch', {n: count}))) return;
+  if (!await showConfirm(tFmt('mdbConfirmDeleteBatch', {n: count}))) return;
 
   const byFile = {};
   for (const key of selected) {

@@ -6,6 +6,7 @@
   <title>Learning Tools</title>
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
+  <script src="dialogs.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -80,6 +81,14 @@
       <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
       <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
       <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setLang(null)">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setLang('it')">IT</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -377,10 +386,11 @@
     </div>
   </div>
   <div id="lang-switcher">
-    <button class="lang-btn active" id="lang-en" onclick="setLang('en')">EN</button>
-    <button class="lang-btn" id="lang-de" onclick="setLang('de')">DE</button>
-    <button class="lang-btn" id="lang-it" onclick="setLang('it')">IT</button>
-    <button class="lang-btn" id="lang-fr" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" id="lang-auto" data-lang="auto" onclick="setLang(null)">Auto</button>
+    <button class="lang-btn" id="lang-en" data-lang="en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="lang-de" data-lang="de" onclick="setLang('de')">DE</button>
+    <button class="lang-btn" id="lang-it" data-lang="it" onclick="setLang('it')">IT</button>
+    <button class="lang-btn" id="lang-fr" data-lang="fr" onclick="setLang('fr')">FR</button>
   </div>
 
   <div id="font-size-control">
@@ -8231,7 +8241,7 @@ function renderSentenceWithGap(userInput) {
       const opts = options && typeof options === 'object' ? options : {};
       const groupStudents = wwGetGroupStudents(wwCurrentGroup);
       if (!groupStudents.length) {
-        if (opts.notifyIfMissing) alert('Select a class first.');
+        if (opts.notifyIfMissing) showToast('Select a class first.');
         return;
       }
 
@@ -8679,7 +8689,7 @@ function renderSentenceWithGap(userInput) {
         if (!result || !result.ok) {
           if (notifyIfMissing) {
             wwSetStatus('No external roles found', false);
-            alert('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js');
+            showToast('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js', true);
           }
           return false;
         }
@@ -8690,7 +8700,7 @@ function renderSentenceWithGap(userInput) {
           if (!res.ok) {
             if (notifyIfMissing) {
               wwSetStatus('No external roles found', false);
-              alert('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js');
+              showToast('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js', true);
             }
             return false;
           }
@@ -8698,7 +8708,7 @@ function renderSentenceWithGap(userInput) {
         } catch (e) {
           if (notifyIfMissing) {
             wwSetStatus('No external roles found', false);
-            alert('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js');
+            showToast('No werewolf roles file was found in user/custom-data/werewolf/werewolves-roles.js', true);
           }
           return false;
         }
@@ -8710,7 +8720,7 @@ function renderSentenceWithGap(userInput) {
       } catch (e) {
         if (notifyIfMissing) {
           wwSetStatus('Invalid roles file', false);
-          alert('Saved werewolf roles file is invalid.');
+          showToast('Saved werewolf roles file is invalid.', true);
         }
         return false;
       }
@@ -8718,7 +8728,7 @@ function renderSentenceWithGap(userInput) {
       if (!parsedRoles.length) {
         if (notifyIfMissing) {
           wwSetStatus('No roles in roles file', false);
-          alert('Saved werewolf roles file is empty or invalid.');
+          showToast('Saved werewolf roles file is empty or invalid.', true);
         }
         return false;
       }
@@ -8731,7 +8741,7 @@ function renderSentenceWithGap(userInput) {
 
     async function wwSaveCustomConfig() {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function')) {
-        alert('Werewolf setup save is available in Electron only.');
+        showToast('Werewolf setup save is available in Electron only.', true);
         return;
       }
 
@@ -8746,13 +8756,13 @@ function renderSentenceWithGap(userInput) {
         wwSetStatus('Saved setup as ' + pickedLeaf, true);
       } else {
         wwSetStatus('Save failed', false);
-        alert((result && result.error) || 'Unable to save werewolf custom file.');
+        showToast((result && result.error) || 'Unable to save werewolf custom file.', true);
       }
     }
 
     async function wwLoadCustomConfig(notifyIfMissing) {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
-        if (notifyIfMissing) alert('Werewolf setup load is available in Electron only.');
+        if (notifyIfMissing) showToast('Werewolf setup load is available in Electron only.', true);
         return;
       }
 
@@ -8761,7 +8771,7 @@ function renderSentenceWithGap(userInput) {
         const pickedLeaf = await wwPickSetupDbLeaf('load');
         if (pickedLeaf === '__none__') {
           wwSetStatus('No saved setup found', false);
-          alert('No werewolf setup databases found in user/custom-data/werewolf.');
+          showToast('No werewolf setup databases found in user/custom-data/werewolf.', true);
           return;
         }
         if (!pickedLeaf) return;
@@ -8771,7 +8781,7 @@ function renderSentenceWithGap(userInput) {
       const result = await Desktop.readByPath('customData', relativePath, { encoding: 'utf8' });
       if (!result || !result.ok) {
         if (notifyIfMissing) wwSetStatus('No saved setup found', false);
-        if (notifyIfMissing) alert('Selected werewolf setup file could not be read.');
+        if (notifyIfMissing) showToast('Selected werewolf setup file could not be read.', true);
         return;
       }
 
@@ -8780,12 +8790,12 @@ function renderSentenceWithGap(userInput) {
         parsed = wwParseCustomConfigSource(result.content || '');
       } catch (e) {
         if (notifyIfMissing) wwSetStatus('Invalid saved setup', false);
-        if (notifyIfMissing) alert('Saved werewolf setup is invalid.');
+        if (notifyIfMissing) showToast('Saved werewolf setup is invalid.', true);
         return;
       }
       if (!parsed) {
         if (notifyIfMissing) wwSetStatus('Invalid saved setup', false);
-        if (notifyIfMissing) alert('Saved werewolf setup is invalid.');
+        if (notifyIfMissing) showToast('Saved werewolf setup is invalid.', true);
         return;
       }
 
@@ -10616,12 +10626,12 @@ function renderSentenceWithGap(userInput) {
           if (theme !== 'all' && !getItemThemes(t).includes(theme))  return false;
           return true;
         });
-        if (filtered.length === 0) { alert('Please select a text first.'); return; }
+        if (filtered.length === 0) { showToast('Please select a text first.'); return; }
         dictSelectedId = filtered[Math.floor(Math.random() * filtered.length)].id;
       }
 
       const entry = bank.find(t => t.id === dictSelectedId);
-      if (!entry) { alert('Text not found. Please try again.'); return; }
+      if (!entry) { showToast('Text not found. Please try again.', true); return; }
 
       dictChecked = false;
       dictHiddenWords = [];
@@ -10894,7 +10904,7 @@ function renderSentenceWithGap(userInput) {
       const svg   = document.getElementById('constellation-svg');
       const nodes = document.querySelectorAll('.con-node');
 
-      if (nodes.length === 0) { alert('Add some words to the constellation first!'); return; }
+      if (nodes.length === 0) { showToast('Add some words to the constellation first!'); return; }
 
       const bw = board.clientWidth;
       const bh = board.clientHeight;
@@ -12293,35 +12303,35 @@ function renderSentenceWithGap(userInput) {
       </tr>`).join('');
     }
 
-    function awDeleteWord(idx) {
+    async function awDeleteWord(idx) {
       const custom = awGetCustomWords(); const word = custom[idx]; if (!word) return;
-      if (!confirm(`Remove "${word.word}"?`)) return;
+      if (!await showConfirm(`Remove "${word.word}"?`)) return;
       const bi = vocabBank.findIndex(w => w.word.toLowerCase()===word.word.toLowerCase()&&w._custom); if(bi!==-1) vocabBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomWords(custom); populateAllThemeMenus(); awRenderManageWords(); awRenderManage();
     }
-    function awDeleteQuote(idx) {
+    async function awDeleteQuote(idx) {
       const custom = awGetCustomQuotes(); const q = custom[idx]; if (!q) return;
-      if (!confirm(`Remove this quote by ${q.author}?`)) return;
+      if (!await showConfirm(`Remove this quote by ${q.author}?`)) return;
       const bi = quoteBank.findIndex(v => v.quote.toLowerCase()===q.quote.toLowerCase()&&v._custom); if(bi!==-1) quoteBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomQuotes(custom); awRenderManageQuotes(); awRenderManage();
     }
-    function awDeleteGap(idx) {
+    async function awDeleteGap(idx) {
       const custom = awGetCustomGaps(); const g = custom[idx]; if (!g) return;
-      if (!confirm('Remove this gap fill sentence?')) return;
+      if (!await showConfirm('Remove this gap fill sentence?')) return;
       const bi = gapFillBank.findIndex(v => v.sentence.toLowerCase()===g.sentence.toLowerCase()&&v._custom); if(bi!==-1) gapFillBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomGaps(custom); awRenderManageGaps(); awRenderManage();
     }
-    function awDeleteError(idx) {
+    async function awDeleteError(idx) {
       const custom = awGetCustomErrors(); const e = custom[idx]; if (!e) return;
-      if (!confirm('Remove this error pair?')) return;
+      if (!await showConfirm('Remove this error pair?')) return;
       const bi = errorBank.findIndex(v => v.correct.toLowerCase()===e.correct.toLowerCase()&&v._custom); if(bi!==-1) errorBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomErrors(custom); awRenderManageErrors(); awRenderManage();
     }
 
-    function awDeleteAll() {
+    async function awDeleteAll() {
       const total = awGetCustomWords().length + awGetCustomQuotes().length + awGetCustomGaps().length + awGetCustomErrors().length;
       if (!total) return;
-      if (!confirm(`Delete all ${total} custom items? This cannot be undone.`)) return;
+      if (!await showConfirm(`Delete all ${total} custom items? This cannot be undone.`)) return;
       awGetCustomWords().forEach(w  => { const bi=vocabBank.findIndex(v=>v.word.toLowerCase()===w.word.toLowerCase()&&v._custom);   if(bi!==-1)vocabBank.splice(bi,1); });
       awGetCustomQuotes().forEach(q => { const bi=quoteBank.findIndex(v=>v.quote.toLowerCase()===q.quote.toLowerCase()&&v._custom);  if(bi!==-1)quoteBank.splice(bi,1); });
       awGetCustomGaps().forEach(g   => { const bi=gapFillBank.findIndex(v=>v.sentence.toLowerCase()===g.sentence.toLowerCase()&&v._custom); if(bi!==-1)gapFillBank.splice(bi,1); });
@@ -12359,7 +12369,7 @@ function renderSentenceWithGap(userInput) {
           { filename: 'gapFillBank.js', content: files.gapFillBank },
           { filename: 'errorBank.js', content: files.errorBank }
         ]);
-        alert('Database files saved to the data folder.');
+        showToast('Database files saved to the data folder.');
         return;
       }
 
@@ -12467,7 +12477,7 @@ function renderSentenceWithGap(userInput) {
     // ================================================================
     // i18n — EN / DE / IT
     // ================================================================
-    let currentLang = (function(){ try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
+    let currentLang = (function(){ try { var ov = localStorage.getItem('cmt-lang-learning-tools'); if (ov) return ov; var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch(e){ return 'en'; }})();
 
     function getTranslation(w, lang) {
       const l = lang || currentLang;
@@ -13019,10 +13029,27 @@ function renderSentenceWithGap(userInput) {
     applyFontSize(currentFontSize);
 
     function setLang(lang) {
-      currentLang = lang;
-      try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.language = lang; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch(e){}
-      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + lang));
+      if (lang === null || lang === 'auto') {
+        try { localStorage.removeItem('cmt-lang-learning-tools'); } catch(e){}
+        try { const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); currentLang = cfg.language || 'en'; } catch(e){ currentLang = 'en'; }
+      } else {
+        currentLang = lang;
+        try { localStorage.setItem('cmt-lang-learning-tools', lang); } catch(e){}
+      }
+      _updateLTLangBtns();
       applyLang();
+    }
+
+    function _updateLTLangBtns() {
+      const override = localStorage.getItem('cmt-lang-learning-tools');
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        const dl = b.getAttribute('data-lang');
+        b.classList.toggle('active', dl === 'auto' ? !override : dl === currentLang && !!override);
+      });
+      document.querySelectorAll('.hm-lang-btn').forEach(b => {
+        const dl = b.getAttribute('data-lang');
+        b.classList.toggle('active', dl === 'auto' ? !override : dl === override);
+      });
     }
 
     function applyLang() {
@@ -13128,7 +13155,7 @@ function renderSentenceWithGap(userInput) {
       updateAllFilterCounts();
       installPresentationButtons();
       initClassGroupSelector();
-      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + currentLang));
+      _updateLTLangBtns();
 
       // Defer heavy custom-data merge until after initial UI setup.
       setTimeout(() => {

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="i18n.js"></script>
+  <script src="dialogs.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1027,7 +1028,7 @@ function makeRfRow(file, isSession, snippet, isArchived) {
     (function(f) {
       openBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) {
-          alert(tt('rfElectronRequired','Requires Electron app.')); return;
+          showToast(tt('rfElectronRequired','Requires Electron app.'), true); return;
         }
         Desktop.openTool('board.html', {
           query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename }
@@ -1284,10 +1285,10 @@ function startFolderRename(row, folderName, nameEl, prefix) {
   inp.select();
 }
 
-function deleteFolderConfirm(folderName, fileCount, prefix, row) {
+async function deleteFolderConfirm(folderName, fileCount, prefix, row) {
   var msg = 'Delete folder "' + folderName + '"?\n\nThis will permanently delete all ' +
     fileCount + ' ' + (fileCount === 1 ? 'file' : 'files') + ' inside. This cannot be undone.';
-  if (!window.confirm(msg)) return;
+  if (!await showConfirm(msg)) return;
   var folderPath = prefix + folderName;
   Desktop.deleteByPath(browseTarget, folderPath).then(function(res) {
     if (res && res.ok) {
@@ -1297,10 +1298,10 @@ function deleteFolderConfirm(folderName, fileCount, prefix, row) {
       });
       renderBrowse();
     } else {
-      alert(tt('fmDeleteFailed', 'Delete failed.'));
+      showToast(tt('fmDeleteFailed', 'Delete failed.'), true);
     }
   }).catch(function(e) {
-    alert(tt('fmDeleteFailed', 'Delete failed: ') + (e && e.message ? e.message : String(e)));
+    showToast(tt('fmDeleteFailed', 'Delete failed: ') + (e && e.message ? e.message : String(e)), true);
   });
 }
 
@@ -1513,7 +1514,7 @@ function makeBrowseRow(file) {
     (function(f) {
       nativeBtn.addEventListener('click', async function() {
         var res = await Desktop.openNative(f.target, f.relativePath || f.filename);
-        if (res && !res.ok) alert(tt('fmOpenNativeFailed','Could not open file:') + ' ' + (res.error || ''));
+        if (res && !res.ok) showToast(tt('fmOpenNativeFailed','Could not open file:') + ' ' + (res.error || ''), true);
       });
     })(file);
     acts.appendChild(nativeBtn);
@@ -1553,10 +1554,10 @@ function makeBrowseRow(file) {
             var newRow = makeBrowseRow(newFile);
             row.parentNode.insertBefore(newRow, row.nextSibling);
           } else {
-            alert(tt('fmDuplicateFailed','Duplicate failed.'));
+            showToast(tt('fmDuplicateFailed','Duplicate failed.'), true);
           }
         } catch(e) {
-          alert(tt('fmDuplicateFailed','Duplicate failed:') + ' ' + (e && e.message ? e.message : String(e)));
+          showToast(tt('fmDuplicateFailed','Duplicate failed:') + ' ' + (e && e.message ? e.message : String(e)), true);
         } finally { dBtn.disabled = false; }
       });
     })(file, dupBtn);

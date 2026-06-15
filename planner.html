@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planner</title>
+  <link rel="stylesheet" href="modules/lexend/lexend.css">
+  <script src="electron-bridge.js"></script>
+  <script src="i18n.js"></script>
+  <script>
+  (function () {
+    function injectScript(src, name) {
+      var s = document.createElement('script');
+      s.text = String(src || '') + '\n//# sourceURL=' + (name || 'injected');
+      document.head.appendChild(s); document.head.removeChild(s);
+    }
+    window.__plannerBoot = (async function () {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      async function load(target, file) {
+        try {
+          var r = await Desktop.readText(target, file);
+          if (r && r.ok) injectScript(r.content, target + '/' + file);
+        } catch (e) {}
+      }
+      await load('user', 'class-groups.js');
+      await load('user', 'planner-config.js');
+      await load('user', 'planner-entries.js');
+    })();
+  })();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #ececec; color: #111;
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* ── Nav ── */
+    #app-nav {
+      background: #111; color: #fff; padding: 0 16px;
+      display: flex; align-items: center; gap: 16px; height: 44px; flex-shrink: 0;
+    }
+    .nav-brand { font-weight: 900; font-size: .95rem; letter-spacing: 1px; text-transform: uppercase; }
+    .hm-wrap { position: relative; margin-left: auto; }
+    .hm-btn { background: none; border: 1px solid #555; color: #fff; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; line-height: 1; }
+    .hm-btn:hover { border-color: #fff; }
+    .hm-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: #1e1e1e; border: 1px solid #444; border-radius: 6px; min-width: 200px; z-index: 9999; padding: 4px 0; box-shadow: 0 4px 16px rgba(0,0,0,.45); }
+    .hm-wrap.open .hm-menu { display: block; }
+    .hm-item { display: block; padding: 7px 16px; color: #ccc; text-decoration: none; font-size: .85rem; font-weight: 600; white-space: nowrap; background: none; border: none; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
+    .hm-item:hover, .hm-item.nav-active { background: #2d2d2d; color: #fff; }
+    .hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      background: #fff; border-bottom: 2px solid #999;
+      padding: 8px 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .toolbar-sep { width: 1.5px; height: 22px; background: #bbb; margin: 0 2px; flex-shrink: 0; }
+    .tb-btn {
+      background: #fff; border: 2px solid #999; border-radius: 5px;
+      padding: 5px 11px; font-size: .8rem; font-weight: 800; color: #111;
+      cursor: pointer; font-family: inherit; white-space: nowrap; line-height: 1.4;
+      transition: border-color .1s, background .1s, color .1s;
+    }
+    .tb-btn:hover { border-color: #111; }
+    .tb-btn.primary { background: #111; color: #fff; border-color: #111; }
+    .tb-btn.primary:hover { background: #333; }
+    .tb-btn.active { background: #111; color: #fff; border-color: #111; }
+    .tb-btn.icon-btn { padding: 5px 8px; }
+    .tb-select {
+      padding: 5px 9px; border: 2px solid #999; border-radius: 5px;
+      font-size: .8rem; font-weight: 700; font-family: inherit;
+      background: #fff; cursor: pointer; color: #111; max-width: 200px;
+    }
+    .tb-select:focus { outline: none; border-color: #111; }
+    #save-status { font-size: .72rem; color: #555; font-weight: 700; padding: 0 4px; }
+
+    /* ── Main ── */
+    #main { flex: 1; overflow-y: auto; padding: 12px 16px 24px; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align: center; padding: 64px 24px; color: #666; }
+    .empty-state .es-icon { font-size: 2.8rem; display: block; margin-bottom: 12px; }
+    .empty-state .es-title { font-size: .95rem; font-weight: 800; color: #333; margin-bottom: 6px; }
+    .empty-state .es-hint { font-size: .83rem; }
+
+    /* ── Week group ── */
+    .week-group { margin-bottom: 20px; }
+    .week-header {
+      font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .7px;
+      color: #333; padding: 6px 0 5px; margin-bottom: 4px;
+      border-bottom: 2px solid #333;
+    }
+
+    /* ── Date group ── */
+    .date-group { margin-bottom: 8px; }
+    .date-header { display: flex; align-items: center; gap: 10px; padding: 8px 0 4px; }
+    .dh-date { font-size: .85rem; font-weight: 800; white-space: nowrap; }
+    .dh-line { flex: 1; height: 2px; background: #bbb; }
+
+    /* ── Conflict banner ── */
+    .conflict-banner {
+      background: #fef3c7; border: 2px solid #f5a623; border-radius: 5px;
+      padding: 5px 10px; margin-bottom: 4px;
+      font-size: .76rem; font-weight: 700; color: #92400e;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* ── Holiday row ── */
+    .holiday-row {
+      background: #e8e8e8; border: 2px solid #999; border-radius: 5px;
+      padding: 6px 12px; margin-bottom: 4px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: .82rem; font-weight: 700; color: #333;
+    }
+
+    /* ── Entry row ── */
+    .entry-row {
+      display: flex; align-items: center;
+      background: #fff; border: 2px solid #bbb; border-radius: 5px;
+      margin-bottom: 4px; overflow: hidden; cursor: pointer;
+      transition: border-color .1s; min-height: 36px;
+    }
+    .entry-row:hover { border-color: #111; }
+    .entry-color-bar { width: 5px; flex-shrink: 0; align-self: stretch; background: var(--cls-color, #999); }
+    .entry-inner { display: flex; align-items: center; gap: 7px; flex: 1; padding: 6px 8px 6px 10px; min-width: 0; }
+    .entry-time { font-size: .74rem; font-weight: 800; color: #555; min-width: 40px; flex-shrink: 0; }
+    .entry-class-pill {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: .69rem; font-weight: 800; white-space: nowrap;
+      background: var(--cls-color, #999); color: #fff;
+      flex-shrink: 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .entry-type-badge {
+      display: inline-block; padding: 1px 6px; border-radius: 3px;
+      font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+      flex-shrink: 0;
+    }
+    .badge-lesson    { background: #bfdbfe; color: #1e3a5f; }
+    .badge-test      { background: #fbcfe8; color: #831843; }
+    .badge-assignment{ background: #fde68a; color: #78350f; }
+    .badge-holiday   { background: #d4d4d4; color: #222; }
+    .badge-empty     { background: #e0e0e0; color: #444; border: 1.5px dashed #999; }
+    .entry-topic { flex: 1; font-size: .83rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .entry-topic.empty-topic { color: #444; font-weight: 600; font-style: italic; }
+    .entry-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-right: 4px; }
+    .entry-btn {
+      background: none; border: 1.5px solid #bbb; border-radius: 4px;
+      padding: 2px 7px; font-size: .7rem; font-weight: 700; cursor: pointer;
+      color: #444; font-family: inherit; transition: border-color .1s, color .1s;
+    }
+    .entry-btn:hover { border-color: #111; color: #111; }
+    .entry-btn.add-btn { border-style: dashed; color: #666; }
+    .entry-btn.add-btn:hover { border-style: solid; border-color: #111; color: #111; }
+    .part-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex-shrink: 0; cursor: help; }
+    .gs-badge {
+      font-size: .62rem; font-weight: 800; background: #bbf7d0; color: #14532d;
+      border-radius: 3px; padding: 1px 4px; flex-shrink: 0; letter-spacing: .3px;
+    }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      display: none; align-items: center; justify-content: center; z-index: 900;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: #fff; border: 2px solid #111; border-radius: 8px;
+      width: 540px; max-width: calc(100vw - 32px); max-height: 88vh;
+      display: flex; flex-direction: column;
+    }
+    .modal-box.wide { width: 640px; }
+    .modal-header {
+      padding: 14px 18px; border-bottom: 2px solid #ccc;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .modal-header h2 { font-size: .95rem; font-weight: 800; }
+    .modal-close { background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #555; padding: 2px 6px; border-radius: 3px; }
+    .modal-close:hover { color: #111; background: #e0e0e0; }
+    .modal-body { padding: 18px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 13px; }
+    .modal-footer { padding: 11px 18px; border-top: 2px solid #ccc; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ml-auto { margin-left: auto; }
+
+    /* ── Form ── */
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-group label { font-size: .72rem; font-weight: 800; color: #333; text-transform: uppercase; letter-spacing: .5px; }
+    .field-input, .field-select, .field-textarea {
+      padding: 7px 9px; border: 2px solid #bbb; border-radius: 5px;
+      font-size: .84rem; font-family: inherit; color: #111; background: #fff;
+    }
+    .field-input:focus, .field-select:focus, .field-textarea:focus { outline: none; border-color: #111; }
+    .field-textarea { resize: vertical; min-height: 54px; line-height: 1.45; }
+    .field-row { display: flex; gap: 10px; }
+    .field-row .field-group { flex: 1; min-width: 0; }
+    .modal-section-label {
+      font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+      color: #222; border-bottom: 2px solid #bbb; padding-bottom: 4px; margin-top: 4px;
+    }
+
+    /* ── Holiday / schedule / objective lists ── */
+    .list-items { display: flex; flex-direction: column; gap: 5px; }
+    .hol-item, .sched-item, .obj-item { display: flex; gap: 6px; align-items: center; }
+    .cb-label { display: flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .hol-item .hol-label { flex: 1; }
+    .obj-item .field-input { flex: 1; }
+    .hol-item .hol-date, .hol-item .hol-date-end { width: 130px; flex-shrink: 0; }
+    .hol-item .range-sep { color: #555; font-size: .8rem; padding: 0 2px; flex-shrink: 0; font-weight: 800; }
+    .sched-item .day-sel { width: 84px; flex-shrink: 0; }
+    .sched-item .time-inp, .sched-item .time-end-inp { width: 88px; flex-shrink: 0; }
+    .sched-item .range-sep { color: #555; font-size: .8rem; padding: 0 2px; flex-shrink: 0; font-weight: 800; }
+    .rm-btn {
+      background: none; border: 2px solid #bbb; border-radius: 4px;
+      padding: 5px 8px; cursor: pointer; font-size: .75rem; color: #555; font-family: inherit;
+    }
+    .rm-btn:hover { border-color: #c33; color: #c33; }
+    .add-link {
+      background: none; border: none; cursor: pointer; font-size: .79rem; font-weight: 800;
+      color: #333; padding: 4px 0; text-decoration: underline; text-align: left; font-family: inherit;
+    }
+    .add-link:hover { color: #111; }
+
+    /* ── Color swatches ── */
+    .color-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+    .color-swatch {
+      width: 22px; height: 22px; border-radius: 4px; cursor: pointer;
+      border: 2px solid transparent; transition: border-color .1s, transform .1s;
+    }
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.selected { border-color: #111; }
+    .custom-color-wrap { display: flex; align-items: center; gap: 5px; }
+    .custom-color-wrap input[type="color"] { width: 26px; height: 26px; border: 2px solid #bbb; border-radius: 4px; cursor: pointer; padding: 1px; }
+    .custom-color-wrap label { font-size: .73rem; color: #555; font-weight: 700; cursor: pointer; }
+
+    /* ── Danger btn ── */
+    .danger-btn {
+      background: #fff; border: 2px solid #c33; color: #c33; border-radius: 5px;
+      padding: 5px 11px; font-size: .8rem; font-weight: 800; cursor: pointer; font-family: inherit;
+    }
+    .danger-btn:hover { background: #c33; color: #fff; }
+
+    /* ── Export grid ── */
+    .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    .export-card {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+      padding: 11px 13px; border: 2px solid #bbb; border-radius: 6px;
+      background: #fff; cursor: pointer; font-family: inherit; text-align: left;
+      transition: border-color .12s, background .12s;
+    }
+    .export-card:hover { border-color: #111; background: #f0f0f0; }
+    .ec-icon { font-size: 1.15rem; }
+    .ec-label { font-size: .82rem; font-weight: 800; color: #111; }
+    .ec-desc  { font-size: .7rem; color: #555; font-weight: 600; }
+
+    /* ── Table view ── */
+    .table-wrap { overflow-x: auto; }
+    .agenda-table { border-collapse: collapse; min-width: 100%; }
+    .agenda-table thead th {
+      background: #111; color: #fff; padding: 7px 10px;
+      font-size: .72rem; font-weight: 800; text-align: left; white-space: nowrap;
+      position: sticky; top: 0; z-index: 2;
+    }
+    .at-cls-th { border-top: 3px solid var(--col, #999); min-width: 140px; }
+    .agenda-table td { border: 1px solid #ccc; vertical-align: top; }
+    .at-date-cell {
+      font-size: .76rem; font-weight: 800; white-space: nowrap;
+      background: #e0e0e0; padding: 6px 8px; width: 90px; color: #222;
+    }
+    .at-week-row td {
+      background: #222; font-size: .68rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .6px; color: #fff; padding: 3px 10px;
+    }
+    .at-hol-row td { background: #e0e0e0; color: #333; font-style: italic; padding: 6px 10px; font-size: .8rem; font-weight: 700; }
+    .at-past-row { opacity: .5; }
+    .at-cell, .at-cell-empty {
+      display: flex; flex-direction: column; gap: 2px; padding: 5px 6px;
+      cursor: pointer; border-radius: 4px; min-height: 30px;
+      transition: background .1s;
+    }
+    .at-cell { border-left: 3px solid var(--col, #999); }
+    .at-cell:hover { background: #e8e8e8; }
+    .at-cell-empty { align-items: center; justify-content: center; opacity: .3; }
+    .at-cell-empty:hover { opacity: 1; background: #e8e8e8; }
+    .at-add { font-size: 1rem; color: #555; line-height: 1; }
+    .at-time { font-size: .68rem; font-weight: 800; color: #555; }
+    .at-topic { font-size: .78rem; font-weight: 600; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
+
+    /* ── GS sync status (toast-like) ── */
+    #gs-toast {
+      position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+      background: #111; color: #fff; font-size: .78rem; font-weight: 700;
+      padding: 8px 14px; border-radius: 6px; opacity: 0;
+      transition: opacity .25s; pointer-events: none;
+    }
+    #gs-toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav id="app-nav">
+  <span class="nav-brand" data-i18n="pl_title">Planner</span>
+  <div class="hm-wrap" id="hmWrap">
+    <button class="hm-btn" onclick="toggleHm()" data-i18n-aria="navOpenMenu">☰</button>
+    <div class="hm-menu">
+      <a href="planner.html" class="hm-item nav-active" data-i18n="pl_title">Planner</a>
+      <hr class="hm-sep">
+      <a href="class-management.html" class="hm-item" data-i18n="app_classManagement_title">Class Management</a>
+      <a href="grade-sheet.html" class="hm-item" data-i18n="app_gradeSheet_title">Grade Sheet</a>
+      <a href="participation-tracker.html" class="hm-item" data-i18n="app_participationTracker_title">Participation Tracker</a>
+      <hr class="hm-sep">
+      <a href="launcher.html" class="hm-item">🏠 Launcher</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Toolbar ── -->
+<div id="toolbar">
+  <!-- Semester controls -->
+  <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Semester</button>
+  <select id="sem-select" class="tb-select" onchange="switchSem(this.value)" style="display:none"></select>
+  <button class="tb-btn icon-btn" id="edit-sem-btn" onclick="openSemModal(activeSemId)" title="Edit" style="display:none">✎</button>
+  <span id="sem-week-count" style="font-size:.7rem;color:#aaa;font-weight:700;padding:0 2px;display:none"></span>
+  <div class="toolbar-sep"></div>
+  <!-- Class setup -->
+  <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses">Classes</button>
+  <div class="toolbar-sep"></div>
+  <!-- Class filter -->
+  <select id="class-filter" class="tb-select" onchange="setClassFilter(this.value)">
+    <option value="" data-i18n="pl_allClasses">All Classes</option>
+  </select>
+  <div class="toolbar-sep"></div>
+  <!-- Show past toggle -->
+  <button class="tb-btn" id="pastBtn" onclick="toggleShowPast()" data-i18n="pl_showPast">Show past</button>
+  <button class="tb-btn icon-btn" id="viewBtn" onclick="toggleView()" data-i18n="pl_viewTable">⊞</button>
+  <!-- Right-side actions -->
+  <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" style="margin-left:auto" data-i18n="pl_btnAddEntry">+ Add Entry</button>
+  <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
+  <span id="save-status"></span>
+</div>
+
+<!-- ── Agenda ── -->
+<div id="main"><div id="agenda"></div></div>
+
+<!-- ── GS Toast ── -->
+<div id="gs-toast"></div>
+
+<!-- ════ SEMESTER MODAL ════ -->
+<div class="modal-overlay" id="semModal" onclick="if(event.target===this)closeModal('semModal')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="sem-modal-title" data-i18n="pl_semModalTitle">Semester Setup</h2>
+      <button class="modal-close" onclick="closeModal('semModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label data-i18n="pl_semLabel">Label</label>
+        <input type="text" id="sem-label" class="field-input" data-i18n-placeholder="pl_semLabelPlaceholder">
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label data-i18n="pl_semStart">Start date</label>
+          <input type="date" id="sem-start" class="field-input">
+        </div>
+        <div class="field-group">
+          <label data-i18n="pl_semEnd">End date</label>
+          <input type="date" id="sem-end" class="field-input">
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="modal-section-label" data-i18n="pl_holidays">Holidays</div>
+        <div class="list-items" id="hol-list"></div>
+        <button class="add-link" onclick="addHolRow()" data-i18n="pl_addHoliday">+ Add Holiday</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="tb-btn primary" onclick="saveSemModal()" data-i18n="btnOk">OK</button>
+      <button class="tb-btn" onclick="closeModal('semModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="danger-btn ml-auto" id="del-sem-btn" style="display:none"
+              onclick="deleteActiveSem()" data-i18n="pl_deleteSem">Delete Semester</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CLASS SETUP MODAL ════ -->
+<div class="modal-overlay" id="classModal" onclick="if(event.target===this)closeModal('classModal')">
+  <div class="modal-box wide" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 data-i18n="pl_classModalTitle">Class Setup</h2>
+      <button class="modal-close" onclick="closeModal('classModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label data-i18n="pl_selectClass">Select a class</label>
+        <select id="cls-sel" class="field-select" onchange="loadClassPanel(this.value)">
+          <option value="">—</option>
+        </select>
+      </div>
+      <p id="no-cls-msg" style="display:none; font-size:.83rem; color:#888;" data-i18n="pl_noClasses">
+        No class groups found.
+      </p>
+      <div id="cls-panel" style="display:none; flex-direction:column; gap:12px;">
+        <div class="field-group">
+          <label data-i18n="pl_classYear">Year</label>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <input type="text" id="cls-year" class="field-input" style="flex:1;min-width:100px"
+                   data-i18n-placeholder="pl_classYearPlaceholder">
+            <label class="cb-label"><input type="checkbox" id="cls-sem1"> <span data-i18n="pl_classSem1">Semester 1</span></label>
+            <label class="cb-label"><input type="checkbox" id="cls-sem2"> <span data-i18n="pl_classSem2">Semester 2</span></label>
+          </div>
+        </div>
+        <div class="field-group">
+          <label data-i18n="pl_classColor">Color</label>
+          <div class="color-row" id="color-row"></div>
+        </div>
+        <div class="field-group">
+          <div class="modal-section-label" data-i18n="pl_schedule">Weekly Schedule</div>
+          <div class="list-items" id="sched-list"></div>
+          <button class="add-link" onclick="addSchedRow()" data-i18n="pl_addScheduleSlot">+ Add slot</button>
+        </div>
+        <div class="field-group">
+          <div class="modal-section-label" data-i18n="pl_objectives">Learning Objectives</div>
+          <div class="list-items" id="obj-list"></div>
+          <button class="add-link" onclick="addObjRow('')" data-i18n="pl_addObjective">+ Add Objective</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="tb-btn primary" onclick="saveClassPanel()" data-i18n="btnOk">OK</button>
+      <button class="tb-btn" onclick="closeModal('classModal')" data-i18n="btnCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ ENTRY MODAL ════ -->
+<div class="modal-overlay" id="entryModal" onclick="if(event.target===this)closeModal('entryModal')">
+  <div class="modal-box wide" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="entry-modal-title" data-i18n="pl_entryModalAdd">Add Entry</h2>
+      <button class="modal-close" onclick="closeModal('entryModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field-group" style="flex:2">
+          <label data-i18n="pl_entryClass">Class</label>
+          <select id="e-class" class="field-select" onchange="onEntryClassChange()">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div class="field-group" style="flex:2">
+          <label data-i18n="pl_entryDate">Date</label>
+          <input type="date" id="e-date" class="field-input">
+        </div>
+        <div class="field-group" style="flex:1">
+          <label data-i18n="pl_entryTime">Time</label>
+          <input type="time" id="e-time" class="field-input">
+        </div>
+        <div class="field-group" style="flex:1">
+          <label data-i18n="pl_schedEndTime">Until</label>
+          <input type="time" id="e-time-end" class="field-input">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group" style="flex:1">
+          <label data-i18n="pl_entryType">Type</label>
+          <select id="e-type" class="field-select">
+            <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
+            <option value="test"   data-i18n="pl_typeTest">Test</option>
+            <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
+            <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
+          </select>
+        </div>
+        <div class="field-group" style="flex:3">
+          <label data-i18n="pl_entryTopic">Topic</label>
+          <input type="text" id="e-topic" class="field-input">
+        </div>
+      </div>
+      <div class="field-group">
+        <label data-i18n="pl_entryObjective">Objective</label>
+        <select id="e-obj-sel" class="field-select" onchange="onObjSelChange()">
+          <option value="">—</option>
+          <option value="__other__" data-i18n="pl_objectiveOther">Other / custom</option>
+        </select>
+        <input type="text" id="e-obj-custom" class="field-input"
+               style="margin-top:4px;display:none" data-i18n-placeholder="pl_objectivePlaceholder">
+      </div>
+      <div class="field-group">
+        <label data-i18n="pl_entryReadings">Readings / Materials</label>
+        <textarea id="e-readings" class="field-textarea"></textarea>
+      </div>
+      <div class="field-group">
+        <label data-i18n="pl_entryActivities">In-class Activities</label>
+        <textarea id="e-activities" class="field-textarea"></textarea>
+      </div>
+      <div class="field-group">
+        <label data-i18n="pl_entryHomework">Homework</label>
+        <textarea id="e-homework" class="field-textarea"></textarea>
+      </div>
+      <div class="field-group">
+        <label data-i18n="pl_entryNotes">Notes / Reminders</label>
+        <textarea id="e-notes" class="field-textarea"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
+      <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn ml-auto" id="dup-entry-btn" style="display:none"
+              onclick="duplicateCurrentEntry()" data-i18n="pl_btnDuplicate">Duplicate</button>
+      <button class="danger-btn" id="del-entry-btn" style="display:none"
+              onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CONFIRM MODAL ════ -->
+<div class="modal-overlay" id="confirmModal" onclick="if(event.target===this)resolveConfirm(false)">
+  <div class="modal-box" style="width:400px" onclick="event.stopPropagation()">
+    <div class="modal-body" style="padding:22px 20px 14px">
+      <p id="confirm-msg" style="font-size:.88rem;line-height:1.6;white-space:pre-wrap"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="danger-btn" onclick="resolveConfirm(true)" id="confirm-ok" data-i18n="btnOk">OK</button>
+      <button class="tb-btn ml-auto" onclick="resolveConfirm(false)" data-i18n="btnCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ EXPORT MODAL ════ -->
+<div class="modal-overlay" id="exportModal" onclick="if(event.target===this)closeModal('exportModal')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 data-i18n="pl_exportTitle">Export Planner</h2>
+      <button class="modal-close" onclick="closeModal('exportModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label data-i18n="pl_icsFilter">Filter by class (optional)</label>
+        <select id="exp-cls" class="field-select">
+          <option value="" data-i18n="pl_icsAllClasses">All classes</option>
+        </select>
+      </div>
+      <div class="export-grid">
+        <button class="export-card" onclick="doExportIcs()">
+          <span class="ec-icon">📅</span>
+          <span class="ec-label" data-i18n="pl_exportIcsLabel">ICS Calendar</span>
+          <span class="ec-desc" data-i18n="pl_exportIcsDesc">Import into Google / Apple Calendar (.ics)</span>
+        </button>
+        <button class="export-card" onclick="doExportMd()">
+          <span class="ec-icon">📄</span>
+          <span class="ec-label" data-i18n="pl_exportMdLabel">Markdown</span>
+          <span class="ec-desc" data-i18n="pl_exportMdDesc">Structured plain-text document (.md)</span>
+        </button>
+        <button class="export-card" onclick="doExportCsv()">
+          <span class="ec-icon">📊</span>
+          <span class="ec-label" data-i18n="pl_exportCsvLabel">CSV Table</span>
+          <span class="ec-desc" data-i18n="pl_exportCsvDesc">Spreadsheet-ready data (.csv)</span>
+        </button>
+        <button class="export-card" onclick="doExportPdf()">
+          <span class="ec-icon">🖨</span>
+          <span class="ec-label" data-i18n="pl_exportPdfLabel">PDF</span>
+          <span class="ec-desc" data-i18n="pl_exportPdfDesc">Print-ready document (.pdf)</span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="tb-btn" onclick="closeModal('exportModal')" data-i18n="btnCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────────────────────
+var PRESET_COLORS = [
+  '#3b82f6','#ef4444','#10b981','#f59e0b',
+  '#8b5cf6','#ec4899','#06b6d4','#f97316',
+  '#6366f1','#14b8a6','#84cc16','#e11d48'
+];
+var GS_DEFAULT_THRESHOLDS = {
+  '6':93.33,'5.5':86.67,'5':80,'4.5':73.33,'4':66.67,
+  '3.5':53.33,'3':40,'2.5':26.67,'2':13.33,'1.5':6.67,'1':0
+};
+var GS_DEFAULT_POINTS = {
+  '6':0,'5.5':0,'5':0,'4.5':0,'4':0,'3.5':0,'3':0,'2.5':0,'2':0,'1.5':0,'1':0
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+var cfg = { semesters: [], classes: {} };
+var activeSemId = '';
+var entries = [];
+var classGroups = {};
+var classGroupsMeta = {};
+var partDates = {};
+var filterClass = '';
+var showPast = false;
+var tableView = false;
+var editingId = null;
+var editingSemId = null; // null = create mode in sem modal
+var activeClsSetup = '';
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async function () {
+  applyTranslations();
+  await loadData();
+  render();
+});
+
+async function loadData() {
+  if (window.__plannerBoot) await window.__plannerBoot;
+
+  // CLASS_GROUPS_DATA uses const — accessible as bare global, not window.*
+  if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
+    classGroups     = CLASS_GROUPS_DATA.classGroups    || {};
+    classGroupsMeta = CLASS_GROUPS_DATA.classGroupsMeta || {};
+  }
+  if (window.PLANNER_CONFIG) {
+    var raw = window.PLANNER_CONFIG;
+    // Migrate old single-semester format → new multi-semester format
+    if (!raw.semesters) {
+      cfg.classes = raw.classes || {};
+      if (raw.semesterStart || raw.semesterEnd) {
+        var sem = makeSem(t('pl_semDefault'));
+        sem.semesterStart = raw.semesterStart || '';
+        sem.semesterEnd   = raw.semesterEnd   || '';
+        sem.holidays      = raw.holidays      || [];
+        cfg.semesters = [sem];
+        activeSemId = sem.id;
+      }
+    } else {
+      cfg = Object.assign(cfg, raw);
+      if (!cfg.classes)   cfg.classes   = {};
+      if (!cfg.semesters) cfg.semesters = [];
+      if (cfg.semesters.length) activeSemId = cfg.activeSemesterId || cfg.semesters[0].id;
+    }
+  }
+  if (window.PLANNER_ENTRIES) entries = window.PLANNER_ENTRIES;
+
+  populateSelects();
+  updateSemToolbar();
+  loadPartDates(); // non-blocking
+}
+
+async function loadPartDates() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  var ids = getActiveClassIds();
+  for (var i = 0; i < ids.length; i++) {
+    var cid = ids[i];
+    try {
+      var r = await Desktop.readText('groupParticipation', cid + '.js');
+      if (!r || !r.ok) continue;
+      var dates = new Set(), re = /"id"\s*:\s*"(\d{4}-\d{2}-\d{2})/g, m;
+      while ((m = re.exec(r.content)) !== null) dates.add(m[1]);
+      partDates[cid] = dates;
+    } catch (e) {}
+  }
+  renderAgenda();
+}
+
+// ── Active-class helpers ───────────────────────────────────────────────────
+function getActiveClassIds() {
+  // Filter classes that are archived in Group Editor
+  return Object.keys(classGroups).filter(function (id) {
+    return !(classGroupsMeta[id] || {}).archived;
+  }).sort();
+}
+
+function getActiveSem() {
+  return cfg.semesters.find(function (s) { return s.id === activeSemId; }) || null;
+}
+
+function makeSem(label) {
+  return { id: 'sem-' + uid(), label: label || '', semesterStart: '', semesterEnd: '', holidays: [] };
+}
+
+function getTotalWeeks(sem) {
+  if (!sem || !sem.semesterStart || !sem.semesterEnd) return 0;
+  var s = new Date(sem.semesterStart + 'T12:00:00');
+  var e = new Date(sem.semesterEnd   + 'T12:00:00');
+  var diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+  return Math.ceil(diffDays / 7);
+}
+
+function getWeekNumber(dateStr, semStartStr) {
+  var d = new Date(dateStr     + 'T12:00:00');
+  var s = new Date(semStartStr + 'T12:00:00');
+  return Math.floor((d - s) / (7 * 24 * 60 * 60 * 1000)) + 1;
+}
+
+// ── Select population ──────────────────────────────────────────────────────
+function populateSelects() {
+  var ids = getActiveClassIds();
+  ['class-filter','cls-sel','e-class','exp-cls'].forEach(function (selId) {
+    var el = document.getElementById(selId);
+    if (!el) return;
+    while (el.options.length > 1) el.remove(1);
+    ids.forEach(function (id) { el.add(new Option(id, id)); });
+  });
+  document.getElementById('no-cls-msg').style.display = ids.length ? 'none' : '';
+}
+
+function updateSemToolbar() {
+  var hasSems = cfg.semesters.length > 0;
+  var sel      = document.getElementById('sem-select');
+  var editBtn  = document.getElementById('edit-sem-btn');
+  var wcSpan   = document.getElementById('sem-week-count');
+
+  sel.style.display     = hasSems ? '' : 'none';
+  editBtn.style.display = hasSems ? '' : 'none';
+
+  if (hasSems) {
+    sel.innerHTML = '';
+    cfg.semesters.forEach(function (s) {
+      sel.add(new Option(s.label || s.id, s.id));
+    });
+    sel.value = activeSemId;
+
+    var weeks = getTotalWeeks(getActiveSem());
+    if (wcSpan) {
+      wcSpan.textContent = weeks > 0 ? tFmt('pl_weekCount', { n: weeks }) : '';
+      wcSpan.style.display = weeks > 0 ? '' : 'none';
+    }
+  } else {
+    if (wcSpan) wcSpan.style.display = 'none';
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() { renderAgenda(); }
+
+function renderAgenda() {
+  if (tableView) { renderTable(); return; }
+  var el = document.getElementById('agenda');
+  var activeSem = getActiveSem();
+
+  if (!activeSem) {
+    el.innerHTML =
+      '<div class="empty-state"><span class="es-icon">📅</span>' +
+      '<p class="es-title">' + esc(t('pl_semNotSet')) + '</p>' +
+      '<p class="es-hint">' + esc(t('pl_semNotSetHint')) + '</p></div>';
+    return;
+  }
+
+  var slots = buildSlots(activeSem);
+  if (!slots.length) {
+    el.innerHTML =
+      '<div class="empty-state"><span class="es-icon">✓</span>' +
+      '<p class="es-title">' + esc(t('pl_noEntries')) + '</p>' +
+      '<p class="es-hint">' + esc(t('pl_noEntriesHint')) + '</p></div>';
+    return;
+  }
+
+  // Test-conflict detection
+  var testCounts = {};
+  entries.forEach(function (e) {
+    if (e.type === 'test') testCounts[e.date] = (testCounts[e.date] || 0) + 1;
+  });
+
+  // Group by date
+  var dates = [], byDate = {};
+  slots.forEach(function (s) {
+    if (!byDate[s.date]) { dates.push(s.date); byDate[s.date] = []; }
+    byDate[s.date].push(s);
+  });
+
+  var totalWeeks = getTotalWeeks(activeSem);
+  var html = '';
+  var prevWeek = null;
+  dates.forEach(function (date) {
+    var weekNum = activeSem.semesterStart ? getWeekNumber(date, activeSem.semesterStart) : null;
+    if (weekNum !== prevWeek) {
+      if (prevWeek !== null) html += '</div>'; // close week-group
+      prevWeek = weekNum;
+      html += '<div class="week-group">';
+      if (weekNum !== null && totalWeeks > 0)
+        html += '<div class="week-header">' + esc(tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks })) + '</div>';
+    }
+    var d = new Date(date + 'T12:00:00');
+    var label = d.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+    html += '<div class="date-group">';
+    html += '<div class="date-header"><span class="dh-date">' + esc(label) + '</span><span class="dh-line"></span></div>';
+    if (!filterClass && testCounts[date] >= 2)
+      html += '<div class="conflict-banner">⚠ ' + esc(tFmt('pl_conflictWarning', { n: testCounts[date] })) + '</div>';
+    byDate[date].forEach(function (s) { html += renderSlot(s); });
+    html += '</div>';
+  });
+  if (prevWeek !== null) html += '</div>'; // close last week-group
+  el.innerHTML = html;
+}
+
+function renderSlot(s) {
+  if (s.isGlobalHoliday) {
+    var hlabel = s.holidayLabel || t('pl_typeHoliday');
+    var hhtml  = '<div class="holiday-row">🏖 ' + esc(hlabel);
+    if (s.dateTo) {
+      var hd1 = new Date(s.date   + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+      var hd2 = new Date(s.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+      hhtml += '<span style="font-weight:500;color:#999;font-size:.85em;margin-left:6px">(' + esc(hd1) + ' – ' + esc(hd2) + ')</span>';
+    }
+    return hhtml + '</div>';
+  }
+
+  var clsCfg = cfg.classes[s.classId] || {};
+  var color  = clsCfg.color || '#aaa';
+  var entry  = s.entry;
+  var type   = entry ? entry.type : null;
+
+  var badgeCls  = type ? 'badge-' + type : 'badge-empty';
+  var badgeText = type ? t('pl_type' + capitalize(type)) : '—';
+
+  var today = new Date().toISOString().slice(0, 10);
+  var showDot = entry && s.date < today && type !== 'holiday' && type !== 'assignment';
+  if (showDot) { var pd = partDates[s.classId]; showDot = pd ? !pd.has(s.date) : false; }
+
+  var topicText = entry && entry.topic ? entry.topic : '';
+  var topicCls  = topicText ? 'entry-topic' : 'entry-topic empty-topic';
+  var topicDisp = topicText || t('pl_emptySlot');
+
+  var timeLabel = s.time || '';
+  if (s.timeEnd) timeLabel += '–' + s.timeEnd;
+  var r = '<div class="entry-row" style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+    esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' +
+    esc(s.timeEnd||'') + '\',\'' + (entry ? entry.id : '') + '\')">';
+  r += '<div class="entry-color-bar"></div>';
+  r += '<div class="entry-inner">';
+  r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
+  r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(s.classId) + '</span>';
+  r += '<span class="entry-type-badge ' + badgeCls + '">' + esc(badgeText) + '</span>';
+  r += '<span class="' + topicCls + '">' + esc(topicDisp) + '</span>';
+  if (showDot)         r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
+  if (entry && entry.gsLink) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+  r += '<div class="entry-actions" onclick="event.stopPropagation()">';
+  if (entry)
+    r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
+  else
+    r += '<button class="entry-btn add-btn" onclick="openAddEntry(\'' + esc(s.classId) +
+         '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' + esc(s.timeEnd||'') + '\')">+</button>';
+  r += '</div></div></div>';
+  return r;
+}
+
+function rowClick(event, classId, date, time, timeEnd, entryId) {
+  if (entryId) openEditEntry(entryId);
+  else openAddEntry(classId, date, time, timeEnd);
+}
+
+// ── Slot generation ─────────────────────────────────────────────────────────
+function buildSlots(activeSem) {
+  var slots = [];
+  if (!activeSem || !activeSem.semesterStart || !activeSem.semesterEnd) return slots;
+
+  var start = new Date(activeSem.semesterStart + 'T12:00:00');
+  var end   = new Date(activeSem.semesterEnd   + 'T12:00:00');
+  var today = new Date(); today.setHours(12, 0, 0, 0);
+
+  // Build holiday data: holDates blocks individual days; holRanges supplies one collapsed slot each
+  var holDates  = new Set();
+  var holRanges = [];
+  (activeSem.holidays || []).forEach(function (h) {
+    if (!h.date) return;
+    var hStart = new Date(h.date + 'T12:00:00');
+    var hEnd   = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : hStart;
+    var visStart = new Date(Math.max(hStart.getTime(), start.getTime()));
+    var visEnd   = new Date(Math.min(hEnd.getTime(),   end.getTime()));
+    if (visStart > visEnd) return;
+    // Block every day in the semester-clamped range
+    var hd = new Date(visStart);
+    while (hd <= visEnd) { holDates.add(hd.toISOString().slice(0, 10)); hd.setDate(hd.getDate() + 1); }
+    // First visible day (respects showPast)
+    var dispStart = showPast ? visStart : new Date(Math.max(visStart.getTime(), today.getTime()));
+    if (dispStart > visEnd) return;
+    var ds0 = dispStart.toISOString().slice(0, 10);
+    var ds1 = visEnd.toISOString().slice(0, 10);
+    holRanges.push({ date: ds0, dateTo: ds1 !== ds0 ? ds1 : null,
+                     isGlobalHoliday: true, holidayLabel: h.label });
+  });
+
+  var emap = {}, consumed = {};
+  entries.forEach(function (e) {
+    var k = e.date + '|' + e.classId;
+    if (!emap[k]) emap[k] = [];
+    emap[k].push(e);
+  });
+
+  var d = new Date(start);
+  while (d <= end) {
+    var ds  = d.toISOString().slice(0, 10);
+    var dow = d.getDay();
+
+    if (!showPast && d < today) { d.setDate(d.getDate() + 1); continue; }
+
+    if (holDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
+
+    var classIds = Object.keys(cfg.classes);
+    if (filterClass) classIds = classIds.filter(function (id) { return id === filterClass; });
+    // Hide archived classes from agenda
+    classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
+    // Hide classes not active in the current semester (sem1 = index 0, sem2 = index 1)
+    var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
+    if (semIdx === 0 || semIdx === 1) {
+      var semKey = semIdx === 0 ? 'sem1' : 'sem2';
+      classIds = classIds.filter(function (id) {
+        var sems = (cfg.classes[id] || {}).semesters;
+        return !sems || sems[semKey] !== false;
+      });
+    }
+
+    classIds.forEach(function (cid) {
+      var sched = (cfg.classes[cid] || {}).schedule || [];
+      sched.forEach(function (s) {
+        if (parseInt(s.day) !== dow) return;
+        var k = ds + '|' + cid;
+        consumed[k] = true;
+        var entArr = emap[k] || [null];
+        entArr.forEach(function (e) {
+          slots.push({ date: ds, classId: cid, time: s.time, timeEnd: s.timeEnd || '', entry: e, isGlobalHoliday: false });
+        });
+      });
+    });
+
+    d.setDate(d.getDate() + 1);
+  }
+
+  // Inject collapsed holiday slots
+  holRanges.forEach(function (hr) { slots.push(hr); });
+
+  // Compute semester-slot key for orphan filtering (same logic as main loop)
+  var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
+  var activeSemKey = (semIdx === 0) ? 'sem1' : (semIdx === 1) ? 'sem2' : null;
+
+  // Orphan entries (clamped to semester range; excluded from holiday dates)
+  entries.forEach(function (e) {
+    var k = e.date + '|' + e.classId;
+    if (consumed[k]) return;
+    if (filterClass && e.classId !== filterClass) return;
+    if ((classGroupsMeta[e.classId] || {}).archived) return;
+    if (activeSemKey) {
+      var sems = (cfg.classes[e.classId] || {}).semesters;
+      if (sems && sems[activeSemKey] === false) return;
+    }
+    if (e.date < activeSem.semesterStart || e.date > activeSem.semesterEnd) return;
+    if (holDates.has(e.date)) return;
+    var ed = new Date(e.date + 'T12:00:00');
+    if (!showPast && ed < today) return;
+    slots.push({ date: e.date, classId: e.classId, time: e.time || '', entry: e, isGlobalHoliday: false });
+    consumed[k] = true;
+  });
+
+  slots.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.isGlobalHoliday !== b.isGlobalHoliday) return a.isGlobalHoliday ? -1 : 1;
+    return (a.time || '') < (b.time || '') ? -1 : 1;
+  });
+  return slots;
+}
+
+// ── Semester modal ─────────────────────────────────────────────────────────
+function openSemModal(semId) {
+  editingSemId = semId;
+  var isEdit = semId != null;
+  var sem = isEdit ? cfg.semesters.find(function (s) { return s.id === semId; }) : null;
+
+  document.getElementById('sem-modal-title').textContent =
+    isEdit ? t('pl_editSemTitle') : t('pl_addSemTitle');
+  document.getElementById('del-sem-btn').style.display = isEdit ? '' : 'none';
+  document.getElementById('sem-label').value  = sem ? (sem.label || '') : '';
+  document.getElementById('sem-start').value  = sem ? (sem.semesterStart || '') : '';
+  document.getElementById('sem-end').value    = sem ? (sem.semesterEnd || '') : '';
+
+  var list = document.getElementById('hol-list');
+  list.innerHTML = '';
+  (sem ? sem.holidays : []).forEach(function (h) { list.appendChild(makeHolRow(h.date, h.dateTo || '', h.label)); });
+  openModal('semModal');
+}
+
+function makeHolRow(date, dateTo, label) {
+  var div = document.createElement('div');
+  div.className = 'hol-item';
+  div.innerHTML =
+    '<input type="date" class="field-input hol-date" value="' + esc(date) + '">' +
+    '<span class="range-sep">–</span>' +
+    '<input type="date" class="field-input hol-date-end" value="' + esc(dateTo||'') + '">' +
+    '<input type="text" class="field-input hol-label" value="' + esc(label||'') +
+      '" placeholder="' + esc(t('pl_holidayLabelPlaceholder')) + '">' +
+    '<button class="rm-btn" onclick="this.closest(\'.hol-item\').remove()">✕</button>';
+  return div;
+}
+function addHolRow() { document.getElementById('hol-list').appendChild(makeHolRow('', '', '')); }
+
+function saveSemModal() {
+  var label = document.getElementById('sem-label').value.trim();
+  var start = document.getElementById('sem-start').value;
+  var end   = document.getElementById('sem-end').value;
+  var hols  = [];
+  document.querySelectorAll('#hol-list .hol-item').forEach(function (item) {
+    var d  = item.querySelector('.hol-date').value;
+    var d2 = item.querySelector('.hol-date-end').value;
+    var l  = item.querySelector('.hol-label').value.trim();
+    if (d) hols.push({ date: d, dateTo: d2 || d, label: l });
+  });
+
+  if (editingSemId) {
+    var sem = cfg.semesters.find(function (s) { return s.id === editingSemId; });
+    if (sem) { sem.label = label; sem.semesterStart = start; sem.semesterEnd = end; sem.holidays = hols; }
+  } else {
+    var newSem = makeSem(label || t('pl_semDefault'));
+    newSem.semesterStart = start; newSem.semesterEnd = end; newSem.holidays = hols;
+    cfg.semesters.push(newSem);
+    activeSemId = newSem.id;
+  }
+  cfg.activeSemesterId = activeSemId;
+  persistCfg();
+  closeModal('semModal');
+  updateSemToolbar();
+  render();
+}
+
+function deleteActiveSem() {
+  if (!editingSemId) return;
+  showConfirm(t('pl_confirmDeleteSem'), function () {
+    cfg.semesters = cfg.semesters.filter(function (s) { return s.id !== editingSemId; });
+    if (activeSemId === editingSemId)
+      activeSemId = cfg.semesters.length ? cfg.semesters[0].id : '';
+    cfg.activeSemesterId = activeSemId;
+    persistCfg();
+    closeModal('semModal');
+    updateSemToolbar();
+    render();
+  });
+}
+
+function switchSem(id) {
+  activeSemId = id;
+  cfg.activeSemesterId = id;
+  persistCfg();
+  render();
+}
+
+// ── Class setup modal ──────────────────────────────────────────────────────
+function openClassModal() {
+  populateSelects();
+  document.getElementById('cls-sel').value = '';
+  loadClassPanel('');
+  openModal('classModal');
+}
+
+function loadClassPanel(cid) {
+  activeClsSetup = cid;
+  var panel = document.getElementById('cls-panel');
+  if (!cid) { panel.style.display = 'none'; return; }
+  panel.style.display = 'flex';
+  var clsCfg = cfg.classes[cid] || {};
+  document.getElementById('cls-year').value = clsCfg.year || '';
+  var sems = clsCfg.semesters || {};
+  document.getElementById('cls-sem1').checked = sems.sem1 !== false;
+  document.getElementById('cls-sem2').checked = sems.sem2 !== false;
+  renderColorRow(clsCfg.color || PRESET_COLORS[0]);
+  renderSchedList(clsCfg.schedule  || []);
+  renderObjList  (clsCfg.objectives || []);
+}
+
+function renderColorRow(selected) {
+  var el = document.getElementById('color-row');
+  var html = PRESET_COLORS.map(function (c) {
+    return '<div class="color-swatch' + (c === selected ? ' selected' : '') +
+      '" style="background:' + c + '" title="' + c + '" onclick="pickColor(\'' + c + '\')"></div>';
+  }).join('');
+  html += '<div class="custom-color-wrap"><input type="color" id="custom-color" value="' + esc(selected) +
+    '" oninput="pickColor(this.value)"><label for="custom-color">' + esc(t('pl_customColor')) + '</label></div>';
+  el.innerHTML = html;
+}
+function pickColor(c) {
+  document.querySelectorAll('#color-row .color-swatch').forEach(function (s) { s.classList.toggle('selected', s.title === c); });
+  document.getElementById('custom-color').value = c;
+}
+function getPickedColor() {
+  var sel = document.querySelector('#color-row .color-swatch.selected');
+  return sel ? sel.title : document.getElementById('custom-color').value;
+}
+
+var DAY_KEYS = ['pl_daySun','pl_dayMon','pl_dayTue','pl_dayWed','pl_dayThu','pl_dayFri','pl_daySat'];
+
+function renderSchedList(schedule) {
+  var el = document.getElementById('sched-list'); el.innerHTML = '';
+  schedule.forEach(function (s) { el.appendChild(makeSchedRow(s.day, s.time, s.timeEnd)); });
+}
+function makeSchedRow(day, time, timeEnd) {
+  var opts = DAY_KEYS.map(function (k, i) {
+    return '<option value="' + i + '"' + (parseInt(day) === i ? ' selected' : '') + '>' + esc(t(k)) + '</option>';
+  }).join('');
+  var div = document.createElement('div'); div.className = 'sched-item';
+  div.innerHTML = '<select class="field-select day-sel">' + opts + '</select>' +
+    '<input type="time" class="field-input time-inp" value="' + esc(time||'') + '">' +
+    '<span class="range-sep">–</span>' +
+    '<input type="time" class="field-input time-end-inp" value="' + esc(timeEnd||'') + '">' +
+    '<button class="rm-btn" onclick="this.closest(\'.sched-item\').remove()">✕</button>';
+  return div;
+}
+function addSchedRow() { document.getElementById('sched-list').appendChild(makeSchedRow(1, '08:00', '09:00')); }
+
+function renderObjList(objectives) {
+  var el = document.getElementById('obj-list'); el.innerHTML = '';
+  objectives.forEach(function (o) { el.appendChild(makeObjRow(o)); });
+}
+function makeObjRow(text) {
+  var div = document.createElement('div'); div.className = 'obj-item';
+  div.innerHTML = '<input type="text" class="field-input" value="' + esc(text) +
+    '" placeholder="' + esc(t('pl_objectivePlaceholder')) + '">' +
+    '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()">✕</button>';
+  return div;
+}
+function addObjRow(text) { document.getElementById('obj-list').appendChild(makeObjRow(text||'')); }
+
+function saveClassPanel() {
+  if (!activeClsSetup) { closeModal('classModal'); return; }
+  var schedule = [], objectives = [];
+  document.querySelectorAll('#sched-list .sched-item').forEach(function (row) {
+    var timeEndEl = row.querySelector('.time-end-inp');
+    schedule.push({ day: parseInt(row.querySelector('.day-sel').value), time: row.querySelector('.time-inp').value, timeEnd: timeEndEl ? timeEndEl.value : '' });
+  });
+  document.querySelectorAll('#obj-list .obj-item input[type="text"]').forEach(function (inp) {
+    var v = inp.value.trim(); if (v) objectives.push(v);
+  });
+  cfg.classes[activeClsSetup] = {
+    color: getPickedColor(),
+    year: document.getElementById('cls-year').value.trim(),
+    semesters: {
+      sem1: document.getElementById('cls-sem1').checked,
+      sem2: document.getElementById('cls-sem2').checked
+    },
+    schedule: schedule,
+    objectives: objectives
+  };
+  persistCfg();
+  closeModal('classModal');
+  render();
+}
+
+// ── Entry modal ────────────────────────────────────────────────────────────
+function openAddEntry(classId, date, time, timeEnd) {
+  editingId = null;
+  document.getElementById('entry-modal-title').textContent = t('pl_entryModalAdd');
+  document.getElementById('del-entry-btn').style.display = 'none';
+  document.getElementById('dup-entry-btn').style.display = 'none';
+  document.getElementById('e-class').value      = classId || filterClass || '';
+  document.getElementById('e-date').value       = date  || new Date().toISOString().slice(0,10);
+  document.getElementById('e-time').value       = time  || '';
+  document.getElementById('e-time-end').value   = timeEnd || '';
+  document.getElementById('e-type').value       = 'lesson';
+  document.getElementById('e-topic').value      = '';
+  document.getElementById('e-readings').value   = '';
+  document.getElementById('e-activities').value = '';
+  document.getElementById('e-homework').value   = '';
+  document.getElementById('e-notes').value      = '';
+  document.getElementById('e-obj-custom').style.display = 'none';
+  onEntryClassChange();
+  document.getElementById('e-obj-sel').value = '';
+  openModal('entryModal');
+}
+
+function openEditEntry(id) {
+  var e = entries.find(function (x) { return x.id === id; });
+  if (!e) return;
+  editingId = id;
+  document.getElementById('entry-modal-title').textContent = t('pl_entryModalEdit');
+  document.getElementById('del-entry-btn').style.display = '';
+  document.getElementById('dup-entry-btn').style.display = '';
+  document.getElementById('e-class').value      = e.classId    || '';
+  document.getElementById('e-date').value       = e.date       || '';
+  document.getElementById('e-time').value       = e.time       || '';
+  document.getElementById('e-time-end').value   = e.timeEnd    || '';
+  document.getElementById('e-type').value       = e.type       || 'lesson';
+  document.getElementById('e-topic').value      = e.topic      || '';
+  document.getElementById('e-readings').value   = e.readings   || '';
+  document.getElementById('e-activities').value = e.activities || '';
+  document.getElementById('e-homework').value   = e.homework   || '';
+  document.getElementById('e-notes').value      = e.notes      || '';
+  onEntryClassChange();
+  var objSel = document.getElementById('e-obj-sel'), objCustom = document.getElementById('e-obj-custom');
+  var objVal = e.objective || '';
+  var opts = Array.from(objSel.options).map(function (o) { return o.value; });
+  if (opts.indexOf(objVal) >= 0) { objSel.value = objVal; objCustom.style.display = 'none'; }
+  else if (objVal) { objSel.value = '__other__'; objCustom.value = objVal; objCustom.style.display = ''; }
+  else { objSel.value = ''; objCustom.style.display = 'none'; }
+  openModal('entryModal');
+}
+
+function onEntryClassChange() {
+  var cid = document.getElementById('e-class').value;
+  var sel = document.getElementById('e-obj-sel'), prev = sel.value;
+  while (sel.options.length > 2) sel.remove(1);
+  ((cfg.classes[cid] || {}).objectives || []).forEach(function (o) {
+    sel.insertBefore(new Option(o, o), sel.options[sel.options.length - 1]);
+  });
+  var found = Array.from(sel.options).some(function (o) { return o.value === prev; });
+  sel.value = found ? prev : '';
+  document.getElementById('e-obj-custom').style.display = sel.value === '__other__' ? '' : 'none';
+}
+function onObjSelChange() {
+  document.getElementById('e-obj-custom').style.display =
+    document.getElementById('e-obj-sel').value === '__other__' ? '' : 'none';
+}
+
+function commitEntry() {
+  var classId = document.getElementById('e-class').value;
+  var date    = document.getElementById('e-date').value;
+  if (!classId || !date) return;
+  var objSel  = document.getElementById('e-obj-sel').value;
+  var objective = objSel === '__other__' ? document.getElementById('e-obj-custom').value.trim() : objSel;
+  var prevEntry = editingId ? entries.find(function (e) { return e.id === editingId; }) : null;
+  var prevType  = prevEntry ? prevEntry.type : null;
+  var newType   = document.getElementById('e-type').value;
+
+  var entry = {
+    id:         editingId || uid(),
+    classId:    classId,
+    date:       date,
+    time:       document.getElementById('e-time').value,
+    timeEnd:    document.getElementById('e-time-end').value,
+    type:       newType,
+    topic:      document.getElementById('e-topic').value.trim(),
+    objective:  objective,
+    readings:   document.getElementById('e-readings').value.trim(),
+    activities: document.getElementById('e-activities').value.trim(),
+    homework:   document.getElementById('e-homework').value.trim(),
+    notes:      document.getElementById('e-notes').value.trim(),
+    gsLink:     (prevEntry && prevEntry.gsLink) || null
+  };
+
+  if (editingId) {
+    var idx = entries.findIndex(function (e) { return e.id === editingId; });
+    if (idx >= 0) entries[idx] = entry; else entries.push(entry);
+  } else {
+    entries.push(entry);
+  }
+
+  persistEntries();
+  closeModal('entryModal');
+  render();
+
+  // Grade-sheet sync (async, non-blocking)
+  if (newType === 'test' && !entry.gsLink) {
+    syncTestToGradeSheet(entry, false);
+  } else if (newType === 'test' && entry.gsLink) {
+    syncTestToGradeSheet(entry, true); // update existing GS entry
+  } else if (prevType === 'test' && newType !== 'test' && entry.gsLink) {
+    removeTestFromGradeSheet(entry); // type changed away from test
+  }
+}
+
+function deleteCurrentEntry() {
+  if (!editingId) return;
+  var entry = entries.find(function (e) { return e.id === editingId; });
+  var doDelete = function () {
+    entries = entries.filter(function (e) { return e.id !== editingId; });
+    persistEntries();
+    closeModal('entryModal');
+    render();
+    if (entry && entry.gsLink) removeTestFromGradeSheet(entry);
+  };
+  if (entry && entry.gsLink) {
+    showConfirm(t('pl_confirmDeleteTest'), doDelete);
+  } else {
+    doDelete();
+  }
+}
+
+function duplicateCurrentEntry() {
+  if (!editingId) return;
+  var src = entries.find(function (e) { return e.id === editingId; });
+  if (!src) return;
+
+  // Switch to add-mode with all fields cloned (no gsLink on the copy)
+  editingId = null;
+  document.getElementById('entry-modal-title').textContent = t('pl_entryModalDuplicate');
+  document.getElementById('del-entry-btn').style.display = 'none';
+  document.getElementById('dup-entry-btn').style.display = 'none';
+  document.getElementById('e-class').value      = src.classId    || '';
+  document.getElementById('e-date').value       = src.date       || '';
+  document.getElementById('e-time').value       = src.time       || '';
+  document.getElementById('e-time-end').value   = src.timeEnd    || '';
+  document.getElementById('e-type').value       = src.type       || 'lesson';
+  document.getElementById('e-topic').value      = src.topic      || '';
+  document.getElementById('e-readings').value   = src.readings   || '';
+  document.getElementById('e-activities').value = src.activities || '';
+  document.getElementById('e-homework').value   = src.homework   || '';
+  document.getElementById('e-notes').value      = src.notes      || '';
+  onEntryClassChange();
+  var objSel    = document.getElementById('e-obj-sel');
+  var objCustom = document.getElementById('e-obj-custom');
+  var objVal    = src.objective || '';
+  var opts      = Array.from(objSel.options).map(function (o) { return o.value; });
+  if (opts.indexOf(objVal) >= 0) { objSel.value = objVal; objCustom.style.display = 'none'; }
+  else if (objVal)               { objSel.value = '__other__'; objCustom.value = objVal; objCustom.style.display = ''; }
+  else                           { objSel.value = ''; objCustom.style.display = 'none'; }
+}
+
+// ── Grade-sheet sync ───────────────────────────────────────────────────────
+function slugifyForPath(name) {
+  return String(name || '').trim()
+    .replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim()
+    .replace(/^\.+/, '_') || '_unnamed';
+}
+
+function parseGradeFileContent(content) {
+  try {
+    var sandbox = {};
+    new Function('window', content)(sandbox);
+    return sandbox.GRADE_TEST_DATA || sandbox.GRADE_CLASS || null;
+  } catch (e) { return null; }
+}
+
+async function findGradeSheetClass(groupName) {
+  if (!window.Desktop || !Desktop.isElectron()) return null;
+  var listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+  if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) return null;
+  var classFiles = listResult.files.filter(function (f) { return f.filename === '_class.js'; });
+  for (var i = 0; i < classFiles.length; i++) {
+    var cf = classFiles[i];
+    var res = await Desktop.readByPath('grades', cf.relativePath);
+    if (!res || !res.content) continue;
+    var meta = parseGradeFileContent(res.content);
+    if (meta && meta.className === groupName) {
+      var classSlug = cf.relativePath.split('/')[0];
+      return { meta: meta, classSlug: classSlug };
+    }
+  }
+  return null;
+}
+
+// Determine which GS semester (sem1/sem2) a date belongs to, based on planner semester order
+function getGsSemesterForDate(date) {
+  var idx = cfg.semesters.findIndex(function (s) { return s.id === activeSemId; });
+  return idx === 1 ? 'sem2' : 'sem1'; // second planner semester → GS sem2
+}
+
+async function syncTestToGradeSheet(entry, isUpdate) {
+  try {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    var gsInfo = await findGradeSheetClass(entry.classId);
+    if (!gsInfo) {
+      showToast(tFmt('pl_gsNoClass', { cls: entry.classId }), 3500);
+      return;
+    }
+
+    var gsSem = getGsSemesterForDate(entry.date);
+
+    if (isUpdate && entry.gsLink) {
+      // Update existing test file
+      var link = entry.gsLink;
+      var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0');
+      var existing = await Desktop.readByPath('grades', link.classSlug + '/' + testLabel + '.js');
+      if (existing && existing.content) {
+        var data = parseGradeFileContent(existing.content);
+        if (data && data.testConfig) {
+          data.testConfig.testName = entry.topic || t('pl_typeTest');
+          data.testConfig.testDate = entry.date;
+          data.testConfig.scope    = entry.objective || '';
+          var content = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
+          await Desktop.saveText('grades', testLabel + '.js', content, link.classSlug);
+          showToast(t('pl_gsUpdated'));
+        }
+      }
+      return;
+    }
+
+    // Create: find next empty slot
+    var listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+    var testFiles  = (listResult.files || []).filter(function (f) {
+      return f.relativePath.startsWith(gsInfo.classSlug + '/') &&
+             f.filename !== '_class.js' &&
+             f.filename.startsWith(gsSem + '-test-');
+    });
+    var usedIndices = new Set();
+    testFiles.forEach(function (f) {
+      var m = f.filename.match(/test-(\d+)\.js$/);
+      if (m) usedIndices.add(parseInt(m[1]) - 1);
+    });
+    var testIndex = -1;
+    for (var i = 0; i < 8; i++) { if (!usedIndices.has(i)) { testIndex = i; break; } }
+    if (testIndex < 0) { showToast(tFmt('pl_gsSlotsFull', { cls: entry.classId }), 3500); return; }
+
+    var testData = {
+      _savedAt: Date.now(),
+      classId:  gsInfo.meta.classId,
+      semester: gsSem,
+      testIndex: testIndex,
+      testConfig: {
+        coefficient: 1, fixedWeight: null,
+        testName: entry.topic || t('pl_typeTest'),
+        testDate: entry.date,
+        scope:    entry.objective || '',
+        type: '', nextGradeHighlightPoints: 0,
+        criteria: [], observationSections: [],
+        grading: {
+          mode: 'formula', passPercentGrade4: 66.67,
+          modelKey: 'linear', pendingModelKey: 'linear',
+          manualInputMode: 'percent',
+          manualThresholds: GS_DEFAULT_THRESHOLDS,
+          manualPoints:     GS_DEFAULT_POINTS
+        }
+      },
+      results: []
+    };
+
+    var testLabel = gsSem + '-test-' + String(testIndex + 1).padStart(2, '0');
+    var content   = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(testData, null, 2) + ';\n';
+    var r = await Desktop.saveText('grades', testLabel + '.js', content, gsInfo.classSlug);
+
+    if (r && r.ok) {
+      // Bump testCounts in _class.js so grade-sheet shows the new column
+      try {
+        var classRes = await Desktop.readByPath('grades', gsInfo.classSlug + '/_class.js');
+        if (classRes && classRes.content) {
+          var classMeta = parseGradeFileContent(classRes.content);
+          if (classMeta) {
+            if (!classMeta.testCounts) classMeta.testCounts = { sem1: 0, sem2: 0 };
+            if ((classMeta.testCounts[gsSem] || 0) <= testIndex) {
+              classMeta.testCounts[gsSem] = testIndex + 1;
+              classMeta._savedAt = Date.now();
+              var classContent = '// _savedAt: ' + classMeta._savedAt + '\nwindow.GRADE_CLASS = ' + JSON.stringify(classMeta, null, 2) + ';\n';
+              await Desktop.saveText('grades', '_class.js', classContent, gsInfo.classSlug);
+            }
+          }
+        }
+      } catch (e) { console.warn('planner: could not update _class.js testCounts', e); }
+
+      // Persist the link back onto the entry
+      var idx = entries.findIndex(function (e) { return e.id === entry.id; });
+      if (idx >= 0) {
+        entries[idx].gsLink = {
+          classId: gsInfo.meta.classId, classSlug: gsInfo.classSlug,
+          semester: gsSem, testIndex: testIndex
+        };
+        persistEntries();
+        renderAgenda(); // refresh GS badge
+      }
+      showToast(t('pl_gsWriteOk'));
+    }
+  } catch (e) { console.warn('syncTestToGradeSheet error:', e); }
+}
+
+async function removeTestFromGradeSheet(entry) {
+  if (!entry.gsLink) return;
+  try {
+    var link = entry.gsLink;
+    var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0');
+    var relPath   = link.classSlug + '/' + testLabel + '.js';
+    var existing  = await Desktop.readByPath('grades', relPath);
+    if (!existing || !existing.content) return;
+    var data = parseGradeFileContent(existing.content);
+    var hasScores = data && (data.results || []).some(function (r) { return r.score !== null; });
+    if (hasScores) {
+      // Scores already entered — just clear the metadata, don't delete
+      data.testConfig.testName = '';
+      data.testConfig.testDate = '';
+      var content = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
+      await Desktop.saveText('grades', testLabel + '.js', content, link.classSlug);
+    } else {
+      await Desktop.deleteByPath('grades', relPath, { force: true });
+    }
+  } catch (e) { console.warn('removeTestFromGradeSheet error:', e); }
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function openExportModal() { openModal('exportModal'); }
+
+// ── Shared export data builder ─────────────────────────────────────────────
+function getExportData(clsFilter) {
+  var sem = getActiveSem();
+  var semStart = sem && sem.semesterStart || '';
+  var semEnd   = sem && sem.semesterEnd   || '';
+  var rows = [];
+
+  // Entries in active semester
+  entries.filter(function (e) {
+    if (clsFilter && e.classId !== clsFilter) return false;
+    if ((classGroupsMeta[e.classId] || {}).archived) return false;
+    if (semStart && e.date < semStart) return false;
+    if (semEnd   && e.date > semEnd)   return false;
+    return true;
+  }).forEach(function (e) { rows.push({ date: e.date, kind: 'entry', entry: e }); });
+
+  // Holidays — one row per holiday (range kept as dateTo)
+  if (sem) {
+    (sem.holidays || []).forEach(function (h) {
+      if (!h.date) return;
+      if (semStart && h.date < semStart && (!h.dateTo || h.dateTo < semStart)) return;
+      if (semEnd   && h.date > semEnd) return;
+      rows.push({ date: h.date, dateTo: (h.dateTo && h.dateTo !== h.date) ? h.dateTo : null, kind: 'holiday', label: h.label });
+    });
+  }
+
+  rows.sort(function (a, b) {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.kind !== b.kind) return a.kind === 'holiday' ? -1 : 1;
+    var at = (a.entry && a.entry.time) || '', bt = (b.entry && b.entry.time) || '';
+    return at < bt ? -1 : at > bt ? 1 : 0;
+  });
+  return { sem: sem, rows: rows };
+}
+
+// ── ICS export ─────────────────────────────────────────────────────────────
+function doExportIcs() {
+  var clsFilter = document.getElementById('exp-cls').value;
+  var now = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Class Management Tools//Planner//EN',
+               'CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+
+  function vevent(uid_, dtstart, dtend, summary, desc) {
+    var ev = ['BEGIN:VEVENT','UID:' + uid_ + '@cmt-planner','DTSTAMP:' + now,
+              'DTSTART' + dtstart,'DTEND' + dtend,'SUMMARY:' + icsEsc(summary)];
+    if (desc) ev.push('DESCRIPTION:' + icsEsc(desc));
+    ev.push('END:VEVENT');
+    lines = lines.concat(ev);
+  }
+
+  cfg.semesters.forEach(function (s) {
+    if (s.semesterStart)
+      vevent('sem-start-'+s.id, ';VALUE=DATE:'+s.semesterStart.replace(/-/g,''),
+             ';VALUE=DATE:'+datePlus1(s.semesterStart), esc(s.label)+' – '+t('pl_icsSemStart'), '');
+    if (s.semesterEnd)
+      vevent('sem-end-'+s.id, ';VALUE=DATE:'+s.semesterEnd.replace(/-/g,''),
+             ';VALUE=DATE:'+datePlus1(s.semesterEnd), esc(s.label)+' – '+t('pl_icsSemEnd'), '');
+    (s.holidays||[]).forEach(function (h) {
+      var holDtend = h.dateTo && h.dateTo !== h.date
+        ? ';VALUE=DATE:' + datePlus1(h.dateTo)
+        : ';VALUE=DATE:' + datePlus1(h.date);
+      vevent('hol-' + h.date + '-' + (h.dateTo || h.date),
+             ';VALUE=DATE:'+h.date.replace(/-/g,''), holDtend, h.label||t('pl_typeHoliday'), '');
+    });
+  });
+
+  entries.forEach(function (e) {
+    if (clsFilter && e.classId !== clsFilter) return;
+    var prefix  = e.type==='test' ? 'TEST: ' : e.type==='assignment' ? 'DUE: ' : '';
+    var summary = prefix + e.classId + (e.topic ? ' – '+e.topic : '');
+    var dtstart, dtend;
+    if (e.time) {
+      dtstart = ':'+e.date.replace(/-/g,'')+'T'+e.time.replace(':','')+'00';
+      dtend   = e.timeEnd
+        ? ':'+e.date.replace(/-/g,'')+'T'+e.timeEnd.replace(':','')+'00'
+        : ':'+e.date.replace(/-/g,'')+'T'+timeAddHour(e.time)+'00';
+    } else {
+      dtstart = ';VALUE=DATE:'+e.date.replace(/-/g,'');
+      dtend   = ';VALUE=DATE:'+datePlus1(e.date);
+    }
+    var desc = [e.objective, e.readings&&('Readings: '+e.readings),
+                e.activities&&('Activities: '+e.activities),
+                e.homework&&('HW: '+e.homework), e.notes&&('Notes: '+e.notes)]
+               .filter(Boolean).join('\\n');
+    vevent('entry-'+e.id, dtstart, dtend, summary, desc);
+  });
+
+  lines.push('END:VCALENDAR');
+  var blob = new Blob([lines.join('\r\n')], { type:'text/calendar;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = 'planner.ics';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeModal('exportModal');
+}
+
+// ── MD export ──────────────────────────────────────────────────────────────
+function doExportMd() {
+  var clsFilter = document.getElementById('exp-cls').value;
+  var data = getExportData(clsFilter);
+  var sem  = data.sem;
+  var title = sem ? (sem.label || 'Planner') : 'Planner';
+  var lines = ['# ' + title, '> ' + new Date().toLocaleDateString(), ''];
+  var prevDate = null;
+
+  data.rows.forEach(function (row) {
+    if (row.date !== prevDate) {
+      prevDate = row.date;
+      var d = new Date(row.date + 'T12:00:00');
+      lines.push('---');
+      lines.push('## ' + d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' }));
+      lines.push('');
+    }
+    if (row.kind === 'holiday') {
+      var holStr = row.label || t('pl_typeHoliday');
+      if (row.dateTo) {
+        var d1 = new Date(row.date   + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+        holStr += ' (' + d1 + ' – ' + d2 + ')';
+      }
+      lines.push('> 🏖 ' + holStr);
+      lines.push(''); return;
+    }
+    var e = row.entry;
+    var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
+    var typeLabel = t('pl_type' + capitalize(e.type || 'lesson'));
+    lines.push('### ' + e.classId + (timeLabel ? ' · ' + timeLabel : '') + (typeLabel ? ' · ' + typeLabel : ''));
+    if (e.topic)      lines.push('**' + t('pl_entryTopic')      + ':** ' + e.topic);
+    if (e.objective)  lines.push('**' + t('pl_entryObjective')  + ':** ' + e.objective);
+    if (e.readings)   lines.push('**' + t('pl_entryReadings')   + ':** ' + e.readings);
+    if (e.activities) lines.push('**' + t('pl_entryActivities') + ':** ' + e.activities);
+    if (e.homework)   lines.push('**' + t('pl_entryHomework')   + ':** ' + e.homework);
+    if (e.notes)      lines.push('**' + t('pl_entryNotes')      + ':** ' + e.notes);
+    lines.push('');
+  });
+
+  downloadText(lines.join('\n'),
+    'planner-' + new Date().toISOString().slice(0, 10) + '.md', 'text/markdown');
+  closeModal('exportModal');
+}
+
+// ── CSV export ─────────────────────────────────────────────────────────────
+function doExportCsv() {
+  var clsFilter = document.getElementById('exp-cls').value;
+  var data = getExportData(clsFilter);
+  var rows = [['Date','Class','StartTime','EndTime','Type','Topic','Objective','Readings','Activities','Homework','Notes']];
+  data.rows.forEach(function (row) {
+    if (row.kind !== 'entry') return;
+    var e = row.entry;
+    rows.push([e.date, e.classId, e.time||'', e.timeEnd||'', e.type||'',
+               e.topic||'', e.objective||'', e.readings||'',
+               e.activities||'', e.homework||'', e.notes||'']);
+  });
+  var csv = rows.map(function (row) {
+    return row.map(function (cell) {
+      var s = String(cell).replace(/"/g, '""');
+      return /[,"\n\r]/.test(s) ? '"' + s + '"' : s;
+    }).join(',');
+  }).join('\r\n');
+  downloadText('﻿' + csv,
+    'planner-' + new Date().toISOString().slice(0, 10) + '.csv', 'text/csv;charset=utf-8');
+  closeModal('exportModal');
+}
+
+// ── PDF export ─────────────────────────────────────────────────────────────
+async function doExportPdf() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
+  }
+  var clsFilter = document.getElementById('exp-cls').value;
+  var html = buildExportHtml(clsFilter);
+  closeModal('exportModal');
+  await Desktop.printPdf({ html: html,
+    defaultName: 'planner-' + new Date().toISOString().slice(0, 10) + '.pdf' });
+}
+
+function buildExportHtml(clsFilter) {
+  var data = getExportData(clsFilter);
+  var sem  = data.sem;
+  var title = sem ? (sem.label || 'Planner') : 'Planner';
+  var body = '', prevDate = null;
+
+  data.rows.forEach(function (row) {
+    if (row.date !== prevDate) {
+      if (prevDate) body += '</div>';
+      prevDate = row.date;
+      var d = new Date(row.date + 'T12:00:00');
+      body += '<div class="day-group"><h2>' +
+        esc(d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' })) + '</h2>';
+    }
+    if (row.kind === 'holiday') {
+      var holStr = row.label || t('pl_typeHoliday');
+      if (row.dateTo) {
+        var d1 = new Date(row.date   + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+        holStr += ' (' + d1 + ' – ' + d2 + ')';
+      }
+      body += '<div class="holiday">🏖 ' + esc(holStr) + '</div>'; return;
+    }
+    var e = row.entry;
+    var clsCfg = cfg.classes[e.classId] || {};
+    var color  = clsCfg.color || '#aaa';
+    var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
+    body += '<div class="entry" style="border-left:3px solid ' + color + '">';
+    body += '<div class="entry-head">';
+    body += '<span class="cls-pill" style="background:' + color + '">' + esc(e.classId) + '</span>';
+    if (timeLabel) body += '<span class="time">' + esc(timeLabel) + '</span>';
+    if (e.type) body += '<span class="badge badge-' + esc(e.type) + '">' + esc(t('pl_type' + capitalize(e.type))) + '</span>';
+    body += '</div>';
+    if (e.topic) body += '<div class="topic">' + esc(e.topic) + '</div>';
+    var fields = [[t('pl_entryObjective'), e.objective],[t('pl_entryReadings'), e.readings],
+                  [t('pl_entryActivities'), e.activities],[t('pl_entryHomework'), e.homework],
+                  [t('pl_entryNotes'), e.notes]].filter(function (f) { return f[1]; });
+    if (fields.length) {
+      body += '<dl>';
+      fields.forEach(function (f) { body += '<dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd>'; });
+      body += '</dl>';
+    }
+    body += '</div>';
+  });
+  if (prevDate) body += '</div>';
+
+  var css = '* {box-sizing:border-box;margin:0;padding:0}'
+    + 'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11pt;color:#111;padding:16mm 20mm}'
+    + 'h1{font-size:17pt;font-weight:900;margin-bottom:2px}'
+    + '.meta{font-size:9pt;color:#888;margin-bottom:20px}'
+    + '.day-group{margin-bottom:14px;page-break-inside:avoid}'
+    + 'h2{font-size:10.5pt;font-weight:800;border-bottom:1.5px solid #e0e0e0;padding-bottom:3px;margin-bottom:6px}'
+    + '.holiday{color:#666;font-style:italic;padding:4px 8px;margin-bottom:5px;font-size:10pt}'
+    + '.entry{padding:6px 10px;margin-bottom:5px;background:#fafafa;border-radius:0 4px 4px 0}'
+    + '.entry-head{display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap}'
+    + '.cls-pill{color:#fff;padding:1px 7px;border-radius:8px;font-size:8pt;font-weight:800}'
+    + '.time{font-size:9pt;color:#666}'
+    + '.badge{font-size:7.5pt;font-weight:800;text-transform:uppercase;padding:1px 5px;border-radius:3px}'
+    + '.badge-lesson{background:#e0f2fe;color:#0369a1}'
+    + '.badge-test{background:#fce7f3;color:#9d174d}'
+    + '.badge-assignment{background:#fef3c7;color:#92400e}'
+    + '.badge-holiday{background:#f0f0f0;color:#666}'
+    + '.topic{font-weight:700;font-size:10.5pt;margin-bottom:3px}'
+    + 'dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;font-size:9.5pt}'
+    + 'dt{font-weight:700;color:#555;white-space:nowrap}'
+    + 'dd{color:#222}';
+
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
+    + '<style>' + css + '</style></head><body>'
+    + '<h1>' + esc(title) + '</h1>'
+    + '<p class="meta">' + new Date().toLocaleDateString() + '</p>'
+    + body + '</body></html>';
+}
+
+// ── Download helper ────────────────────────────────────────────────────────
+function downloadText(content, filename, mime) {
+  var blob = new Blob([content], { type: mime });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function datePlus1(dateStr) {
+  var d = new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10).replace(/-/g,'');
+}
+function timeAddHour(t_) {
+  var p = t_.split(':');
+  return String((parseInt(p[0])+1)%24).padStart(2,'0')+(p[1]||'00');
+}
+function icsEsc(s) {
+  return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+
+// ── Persist ────────────────────────────────────────────────────────────────
+async function persistCfg() {
+  setStatus(t('loading'));
+  if (!window.Desktop || !Desktop.isElectron()) { setStatus(''); return; }
+  var content = 'window.PLANNER_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
+  var r = await Desktop.saveText('user', 'planner-config.js', content);
+  setStatus(r && r.ok ? t('saved') : '!');
+  setTimeout(function () { setStatus(''); }, 1800);
+}
+async function persistEntries() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  var content = 'window.PLANNER_ENTRIES = ' + JSON.stringify(entries, null, 2) + ';\n';
+  await Desktop.saveText('user', 'planner-entries.js', content);
+}
+function setStatus(msg) { var el = document.getElementById('save-status'); if (el) el.textContent = msg; }
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+var _toastTimer = null;
+function showToast(msg, dur) {
+  var el = document.getElementById('gs-toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { el.classList.remove('show'); }, dur || 2500);
+}
+
+// ── Confirm popup ──────────────────────────────────────────────────────────
+var _confirmCb = null;
+function showConfirm(msg, onOk) {
+  _confirmCb = onOk;
+  document.getElementById('confirm-msg').textContent = msg;
+  openModal('confirmModal');
+}
+function resolveConfirm(ok) {
+  closeModal('confirmModal');
+  var cb = _confirmCb; _confirmCb = null;
+  if (ok && cb) cb();
+}
+
+// ── Toolbar actions ────────────────────────────────────────────────────────
+function setClassFilter(val) { filterClass = val; renderAgenda(); }
+
+function toggleShowPast() {
+  showPast = !showPast;
+  var btn = document.getElementById('pastBtn');
+  btn.classList.toggle('active', showPast);
+  btn.textContent = showPast ? t('pl_hidePast') : t('pl_showPast');
+  renderAgenda();
+}
+
+function toggleView() {
+  tableView = !tableView;
+  var btn = document.getElementById('viewBtn');
+  btn.textContent = tableView ? t('pl_viewList') : t('pl_viewTable');
+  btn.classList.toggle('active', tableView);
+  renderAgenda();
+}
+
+// ── Table view ──────────────────────────────────────────────────────────────
+function renderTable() {
+  var el = document.getElementById('agenda');
+  var activeSem = getActiveSem();
+
+  if (!activeSem) {
+    el.innerHTML = '<div class="empty-state"><span class="es-icon">📅</span>' +
+      '<p class="es-title">' + esc(t('pl_semNotSet')) + '</p>' +
+      '<p class="es-hint">' + esc(t('pl_semNotSetHint')) + '</p></div>';
+    return;
+  }
+
+  var slots = buildSlots(activeSem);
+
+  // Columns: active class IDs that actually appear in the slots
+  var slotCids = new Set();
+  slots.forEach(function (s) { if (!s.isGlobalHoliday) slotCids.add(s.classId); });
+  var classIds = (filterClass ? [filterClass] : getActiveClassIds())
+    .filter(function (id) { return slotCids.has(id); });
+
+  if (!slots.length || !classIds.length) {
+    el.innerHTML = '<div class="empty-state"><span class="es-icon">✓</span>' +
+      '<p class="es-title">' + esc(t('pl_noEntries')) + '</p>' +
+      '<p class="es-hint">' + esc(t('pl_noEntriesHint')) + '</p></div>';
+    return;
+  }
+
+  // Group by date
+  var dates = [], byDate = {};
+  slots.forEach(function (s) {
+    if (!byDate[s.date]) { dates.push(s.date); byDate[s.date] = { holiday: null, cells: {} }; }
+    if (s.isGlobalHoliday) {
+      byDate[s.date].holiday = { label: s.holidayLabel, dateTo: s.dateTo };
+    } else {
+      if (!byDate[s.date].cells[s.classId]) byDate[s.date].cells[s.classId] = [];
+      byDate[s.date].cells[s.classId].push(s);
+    }
+  });
+
+  var today = new Date().toISOString().slice(0, 10);
+  var totalWeeks = getTotalWeeks(activeSem);
+  var cols = classIds.length + 1;
+
+  var html = '<div class="table-wrap"><table class="agenda-table"><thead><tr><th></th>';
+  classIds.forEach(function (cid) {
+    var color = (cfg.classes[cid] || {}).color || '#aaa';
+    html += '<th class="at-cls-th" style="--col:' + color + '">' + esc(cid) + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  var prevWeek = null;
+  dates.forEach(function (date) {
+    var weekNum = activeSem.semesterStart ? getWeekNumber(date, activeSem.semesterStart) : null;
+    if (weekNum !== prevWeek && weekNum !== null && totalWeeks > 0) {
+      prevWeek = weekNum;
+      html += '<tr class="at-week-row"><td colspan="' + cols + '">' +
+        esc(tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks })) + '</td></tr>';
+    }
+
+    var row = byDate[date];
+    var d = new Date(date + 'T12:00:00');
+    var dateLabel = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    var isPast = date < today;
+
+    if (row.holiday) {
+      var holLabel = row.holiday.label || t('pl_typeHoliday');
+      var holHtml  = esc(holLabel);
+      if (row.holiday.dateTo) {
+        var hd1 = new Date(date             + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var hd2 = new Date(row.holiday.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+        holHtml += ' <span style="color:#aaa;font-weight:500">(' + esc(hd1) + ' – ' + esc(hd2) + ')</span>';
+      }
+      html += '<tr class="at-hol-row' + (isPast ? ' at-past-row' : '') + '">';
+      html += '<td class="at-date-cell">' + esc(dateLabel) + '</td>';
+      html += '<td colspan="' + classIds.length + '">🏖 ' + holHtml + '</td></tr>';
+      return;
+    }
+
+    html += '<tr' + (isPast ? ' class="at-past-row"' : '') + '>';
+    html += '<td class="at-date-cell">' + esc(dateLabel) + '</td>';
+    classIds.forEach(function (cid) {
+      var cellSlots = (row.cells[cid]) || [];
+      html += '<td>' + cellSlots.map(renderTableCell).join('') + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function renderTableCell(s) {
+  var entry  = s.entry;
+  var color  = (cfg.classes[s.classId] || {}).color || '#aaa';
+  var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+
+  if (!entry) {
+    return '<div class="at-cell-empty" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
+      esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' + esc(s.timeEnd||'') + '\')">' +
+      (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
+      '<span class="at-add">+</span></div>';
+  }
+
+  var type      = entry.type || '';
+  var badgeCls  = type ? 'entry-type-badge badge-' + type : '';
+  var badgeText = type ? t('pl_type' + capitalize(type)) : '';
+
+  var r = '<div class="at-cell" style="--col:' + color + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
+  if (timeLabel)  r += '<span class="at-time">' + esc(timeLabel) + '</span>';
+  if (badgeText)  r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
+  if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
+  if (entry.gsLink) r += '<span class="gs-badge">GS</span>';
+  r += '</div>';
+  return r;
+}
+
+// ── Modal helpers ──────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function toggleHm() { document.getElementById('hmWrap').classList.toggle('open'); }
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('#hmWrap')) document.getElementById('hmWrap').classList.remove('open');
+});
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

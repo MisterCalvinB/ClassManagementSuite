@@ -24,7 +24,8 @@ const PAGE_FILES = {
   credits: 'credits.html',
   scheduleMaker: 'schedule-maker.html',
   classPlan: 'class-plan.html',
-  documentEditor: 'document-editor.html'
+  documentEditor: 'document-editor.html',
+  planner: 'planner.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -59,7 +60,9 @@ const PAGE_ARG_MAP = {
   documenteditor: PAGE_FILES.documentEditor,
   doceditor: PAGE_FILES.documentEditor,
   markdownkatex: PAGE_FILES.documentEditor,
-  markdown: PAGE_FILES.documentEditor
+  markdown: PAGE_FILES.documentEditor,
+  planner: PAGE_FILES.planner,
+  semplanner: PAGE_FILES.planner
 };
 
 const PAGE_LABELS = {
@@ -78,7 +81,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.credits]: 'Credits',
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
-  [PAGE_FILES.documentEditor]: 'Document Editor'
+  [PAGE_FILES.documentEditor]: 'Document Editor',
+  [PAGE_FILES.planner]: 'Planner'
 };
 
 function getDefaultWritableRootDir() {
@@ -206,7 +210,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation'])
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation']),
+  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades'])
 };
 
 let mainWindow;

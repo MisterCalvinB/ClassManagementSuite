@@ -437,9 +437,16 @@
     .sm-print-meta span { display: flex; gap: 5px; }
     .sm-print-meta strong { font-weight: 700; }
 
+    /* ── Nav ── */
+    #app-nav {
+      background: #111; color: #fff; padding: 0 16px;
+      display: flex; align-items: center; gap: 20px; height: 44px;
+      border-radius: 0; margin-bottom: 0; flex-wrap: nowrap; flex-shrink: 0;
+    }
+
     /* ── Print ───────────────────────────────────────── */
     @media print {
-      .sm-header, .sm-config, .sm-order-panel, .sm-action-bar, .sm-notice,
+      #app-nav, .sm-header, .sm-config, .sm-order-panel, .sm-action-bar, .sm-notice,
       .sm-modal-overlay { display: none !important; }
       .sm-page { padding: 0; max-width: 100%; }
       .sm-table th { color: #000; }
@@ -448,6 +455,38 @@
   </style>
 </head>
 <body>
+<nav id="app-nav">
+  <span class="nav-brand" data-i18n="app_scheduleMaker_title">Schedule Maker</span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" data-i18n-aria="navOpenMenu" aria-label="Open menu">☰</button>
+    <div class="hm-menu">
+      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
+      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
+      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
+      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
+      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
+      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
+      <hr class="hm-sep">
+      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
+      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
+      <a href="schedule-maker.html" class="nav-link hm-item nav-active">📆 Schedule Maker</a>
+      <a href="document-editor.html" class="nav-link hm-item">📄 Document Editor</a>
+      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
+      <hr class="hm-sep">
+      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
+      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
+      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
+      </div>
+    </div>
+  </div>
+</nav>
 <div class="sm-page">
 
   <header class="sm-header">
@@ -615,6 +654,9 @@
     if (window.electronApi) window.electronApi.goToLauncher();
     else window.location.href = 'launcher.html';
   }
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#app-hamburger')) document.getElementById('app-hamburger').classList.remove('open');
+  });
 
   // ── Notice ───────────────────────────────────────────────
   function showNotice(msg, isError) {

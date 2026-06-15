@@ -260,6 +260,7 @@
     });
   </script>
   <script src="electron-bridge.js"></script>
+  <script src="dialogs.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -495,6 +496,19 @@
    cursor: nwse-resize;
  }
  .con-table-drop-highlight { outline: 2px solid #2563eb; outline-offset: -2px; }
+ /* ── Hamburger nav ── */
+ .hm-wrap{position:relative;margin-left:auto}
+ .hm-btn{background:none;border:1px solid #555;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;transition:border-color .12s}
+ .hm-btn:hover{border-color:#fff}
+ .hm-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1e1e1e;border:1px solid #444;border-radius:6px;min-width:200px;z-index:9999;padding:4px 0;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+ .hm-wrap.open .hm-menu{display:block}
+ .hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}
+ .hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}
+ .hm-sep{border:none;border-top:1px solid #333;margin:4px 0}
+ .hm-lang-row{display:flex;gap:4px;padding:6px 12px}
+ .hm-lang-btn{flex:1;background:none;border:1px solid #444;color:#aaa;padding:3px 2px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}
+ .hm-lang-btn:hover{border-color:#999;color:#eee}
+ .hm-lang-btn.active{background:#3a3a3a;color:#fff;border-color:#888}
 </style>
 </head>
 <body>
@@ -519,6 +533,14 @@
       <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
       <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
       <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
+      <hr class="hm-sep">
+      <div class="hm-lang-row">
+        <button class="hm-lang-btn" data-lang="auto" onclick="setLang(null)">Auto</button>
+        <button class="hm-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        <button class="hm-lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
+        <button class="hm-lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
+        <button class="hm-lang-btn" data-lang="it" onclick="setLang('it')">IT</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -1231,10 +1253,11 @@
 
   <div id="top-controls-bar">
     <div id="lang-switcher">
-      <button class="lang-btn active" id="lang-en" onclick="setLang('en')">EN</button>
-      <button class="lang-btn" id="lang-de" onclick="setLang('de')">DE</button>
-      <button class="lang-btn" id="lang-it" onclick="setLang('it')">IT</button>
-      <button class="lang-btn" id="lang-fr" onclick="setLang('fr')">FR</button>
+      <button class="lang-btn" id="lang-auto" data-lang="auto" onclick="setLang(null)">Auto</button>
+      <button class="lang-btn" id="lang-en" data-lang="en" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" id="lang-de" data-lang="de" onclick="setLang('de')">DE</button>
+      <button class="lang-btn" id="lang-it" data-lang="it" onclick="setLang('it')">IT</button>
+      <button class="lang-btn" id="lang-fr" data-lang="fr" onclick="setLang('fr')">FR</button>
     </div>
     <div id="group-selector-wrap">
       <label for="group-selector">Class</label>
@@ -2580,12 +2603,12 @@
       }
     }
 
-    function detDeleteEdit() {
+    async function detDeleteEdit() {
       if (!_detCurrentWordKey) return;
       const wordKey = _detCurrentWordKey.toLowerCase();
       const item = vocabBank.find(w => w.word && w.word.toLowerCase() === wordKey);
       const label = item && item.word ? item.word : _detCurrentWordKey;
-      if (!confirm(`Permanently delete "${label}"?`)) return;
+      if (!await showConfirm(`Permanently delete "${label}"?`)) return;
 
       // Remove from live vocabBank
       const vi = vocabBank.findIndex(v => v.word && v.word.toLowerCase() === wordKey);
@@ -4341,35 +4364,35 @@ function hideFailure() {
       </tr>`).join('');
     }
 
-    function awDeleteWord(idx) {
+    async function awDeleteWord(idx) {
       const custom = awGetCustomWords(); const word = custom[idx]; if (!word) return;
-      if (!confirm(`Remove "${word.word}"?`)) return;
+      if (!await showConfirm(`Remove "${word.word}"?`)) return;
       const bi = vocabBank.findIndex(w => w.word.toLowerCase()===word.word.toLowerCase()&&w._custom); if(bi!==-1) vocabBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomWords(custom); populateAllThemeMenus(); awRenderManageWords(); awRenderManage();
     }
-    function awDeleteQuote(idx) {
+    async function awDeleteQuote(idx) {
       const custom = awGetCustomQuotes(); const q = custom[idx]; if (!q) return;
-      if (!confirm(`Remove this quote by ${q.author}?`)) return;
+      if (!await showConfirm(`Remove this quote by ${q.author}?`)) return;
       const bi = quoteBank.findIndex(v => v.quote.toLowerCase()===q.quote.toLowerCase()&&v._custom); if(bi!==-1) quoteBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomQuotes(custom); awRenderManageQuotes(); awRenderManage();
     }
-    function awDeleteGap(idx) {
+    async function awDeleteGap(idx) {
       const custom = awGetCustomGaps(); const g = custom[idx]; if (!g) return;
-      if (!confirm('Remove this gap fill sentence?')) return;
+      if (!await showConfirm('Remove this gap fill sentence?')) return;
       const bi = gapFillBank.findIndex(v => v.sentence.toLowerCase()===g.sentence.toLowerCase()&&v._custom); if(bi!==-1) gapFillBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomGaps(custom); awRenderManageGaps(); awRenderManage();
     }
-    function awDeleteError(idx) {
+    async function awDeleteError(idx) {
       const custom = awGetCustomErrors(); const e = custom[idx]; if (!e) return;
-      if (!confirm('Remove this error pair?')) return;
+      if (!await showConfirm('Remove this error pair?')) return;
       const bi = errorBank.findIndex(v => v.correct.toLowerCase()===e.correct.toLowerCase()&&v._custom); if(bi!==-1) errorBank.splice(bi,1);
       custom.splice(idx,1); awSaveCustomErrors(custom); awRenderManageErrors(); awRenderManage();
     }
 
-    function awDeleteAll() {
+    async function awDeleteAll() {
       const total = awGetCustomWords().length + awGetCustomQuotes().length + awGetCustomGaps().length + awGetCustomErrors().length;
       if (!total) return;
-      if (!confirm(`Delete all ${total} custom items? This cannot be undone.`)) return;
+      if (!await showConfirm(`Delete all ${total} custom items? This cannot be undone.`)) return;
       awGetCustomWords().forEach(w  => { const bi=vocabBank.findIndex(v=>v.word.toLowerCase()===w.word.toLowerCase()&&v._custom);   if(bi!==-1)vocabBank.splice(bi,1); });
       awGetCustomQuotes().forEach(q => { const bi=quoteBank.findIndex(v=>v.quote.toLowerCase()===q.quote.toLowerCase()&&v._custom);  if(bi!==-1)quoteBank.splice(bi,1); });
       awGetCustomGaps().forEach(g   => { const bi=gapFillBank.findIndex(v=>v.sentence.toLowerCase()===g.sentence.toLowerCase()&&v._custom); if(bi!==-1)gapFillBank.splice(bi,1); });
@@ -4964,10 +4987,27 @@ function hideFailure() {
     applyFontSize(currentFontSize);
 
     function setLang(lang) {
-      currentLang = lang;
-      try { localStorage.setItem('app_lang', lang); } catch(e){}
-      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + lang));
+      if (lang === null || lang === 'auto') {
+        try { localStorage.removeItem('app_lang'); } catch(e){}
+        try { const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); currentLang = cfg.language || 'en'; } catch(e){ currentLang = 'en'; }
+      } else {
+        currentLang = lang;
+        try { localStorage.setItem('app_lang', lang); } catch(e){}
+      }
+      _updateAllLangBtns();
       applyLang();
+    }
+
+    function _updateAllLangBtns() {
+      const override = localStorage.getItem('app_lang');
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        const dl = b.getAttribute('data-lang');
+        b.classList.toggle('active', dl === 'auto' ? !override : dl === currentLang && !!override);
+      });
+      document.querySelectorAll('.hm-lang-btn').forEach(b => {
+        const dl = b.getAttribute('data-lang');
+        b.classList.toggle('active', dl === 'auto' ? !override : dl === override);
+      });
     }
 
     function applyLang() {
@@ -5013,7 +5053,7 @@ function hideFailure() {
 
     // Initialise language on page load
     document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.id === 'lang-' + currentLang));
+      _updateAllLangBtns();
       // Small delay to let vocabBank and pickers initialise first
       setTimeout(applyLang, 150);
     });
@@ -9134,9 +9174,9 @@ function hideFailure() {
           bar.appendChild(lockBtn);
           const delBtn = document.createElement('button');
           delBtn.className = 'con-table-bar-btn'; delBtn.title = 'Delete table'; delBtn.textContent = '✕';
-          delBtn.addEventListener('click', function(e) {
+          delBtn.addEventListener('click', async function(e) {
             e.stopPropagation();
-            if (!confirm('Delete this table?')) return;
+            if (!await showConfirm('Delete this table?')) return;
             conPushUndo(); _deleteTable(tbl.id);
           });
           bar.appendChild(delBtn);
@@ -9529,8 +9569,8 @@ function hideFailure() {
             rows: Math.max(1, Number(rows) || 2), cols: Math.max(1, Number(cols) || 4) });
         };
 
-        window.conAddTableDialog = function() {
-          const raw = prompt('Rows × Columns (e.g. 3×4):', '2×4');
+        window.conAddTableDialog = async function() {
+          const raw = await showPrompt('Rows × Columns (e.g. 3×4):', '2×4');
           if (!raw) return;
           const m = raw.match(/(\d+)\s*[x×,\-]\s*(\d+)/i);
           const rows = m ? Math.max(1, Math.min(20, parseInt(m[1]))) : 2;
@@ -11921,14 +11961,14 @@ function hideFailure() {
         mdbToast('📋 Copied ' + indices.length + ' page' + (indices.length === 1 ? '' : 's'));
       };
 
-      window.conPreviewPasteCopiedPagesPrompt = function() {
+      window.conPreviewPasteCopiedPagesPrompt = async function() {
         if (!_conCopiedPages || _conCopiedPages.length === 0) {
           mdbToast('Copy page(s) first');
           return;
         }
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         const total = conPageSnapshots.length;
-        const raw = window.prompt(
+        const raw = await showPrompt(
           'Paste copied pages after which page number?\nEnter 0 to paste at the beginning (0-' + total + ').',
           String(conCurrentPageIndex + 1)
         );
@@ -13111,7 +13151,7 @@ function hideFailure() {
         }
       }
 
-      function cwdbDelete() {
+      async function cwdbDelete() {
         if (!_cwdbEditWord) return;
         const existing = vocabBank.find(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
         if (!existing) {
@@ -13119,7 +13159,7 @@ function hideFailure() {
           return;
         }
         const label = existing.word || _cwdbEditWord;
-        if (!confirm(`Permanently delete "${label}"?`)) return;
+        if (!await showConfirm(`Permanently delete "${label}"?`)) return;
 
         // Remove from vocabBank
         const vi = vocabBank.findIndex(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
@@ -23738,7 +23778,7 @@ function hideFailure() {
           logging: false
         });
         canvas.toBlob(function(blob) {
-          if (!blob) { alert('PNG export failed.'); return; }
+          if (!blob) { showToast('PNG export failed.', true); return; }
           const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
           const filename = titleVal.replace(/[\/\\?*:|"<>]/g, '-') + '.png';
           const url = URL.createObjectURL(blob);
@@ -23749,7 +23789,7 @@ function hideFailure() {
         }, 'image/png');
       } catch(err) {
         console.error('[conExportPNG]', err);
-        alert('PNG export failed: ' + err.message);
+        showToast('PNG export failed: ' + err.message, true);
       }
     }
 
@@ -23763,17 +23803,17 @@ function hideFailure() {
           useCORS: true, allowTaint: true, logging: false
         });
         canvas.toBlob(async function(blob) {
-          if (!blob) { alert('Copy PNG failed.'); return; }
+          if (!blob) { showToast('Copy PNG failed.', true); return; }
           try {
             await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
             if (typeof mdbToast === 'function') mdbToast('📋 Board copied to clipboard.');
           } catch(e) {
-            alert('Clipboard write failed: ' + e.message);
+            showToast('Clipboard write failed: ' + e.message, true);
           }
         }, 'image/png');
       } catch(err) {
         console.error('[conCopyPNG]', err);
-        alert('Copy PNG failed: ' + err.message);
+        showToast('Copy PNG failed: ' + err.message, true);
       }
     }
 
@@ -24836,7 +24876,7 @@ function hideFailure() {
         restoreBtn.className = 'action-btn btn-grey';
         restoreBtn.textContent = 'Restore';
         restoreBtn.onclick = async () => {
-          if (!confirm('Restore this version? The current board content will be replaced.')) return;
+          if (!await showConfirm('Restore this version? The current board content will be replaced.')) return;
           try {
             const r = await Desktop.readByPath('mindmaps', rp);
             if (!r || !r.ok || !r.content) throw new Error('Could not read version file.');
@@ -24856,7 +24896,7 @@ function hideFailure() {
         delBtn.className = 'action-btn btn-red';
         delBtn.textContent = 'Delete';
         delBtn.onclick = async () => {
-          if (!confirm('Delete this version?')) return;
+          if (!await showConfirm('Delete this version?')) return;
           try {
             await Desktop.deleteByPath('mindmaps', rp);
             row.remove();
@@ -25034,7 +25074,7 @@ function hideFailure() {
     }
 
     async function conDeleteTemplate(filename) {
-      if (!confirm('Delete template "' + boardStripJsonExt(filename) + '"?')) return;
+      if (!await showConfirm('Delete template "' + boardStripJsonExt(filename) + '"?')) return;
       if (!(window.Desktop && Desktop.isElectron())) return;
       await Desktop.deleteFile('constellationTemplates', filename);
       conRenderTemplateList();
