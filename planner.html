@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="i18n.js"></script>
+  <script src="dialogs.js"></script>
   <script>
   (function () {
     function injectScript(src, name) {
@@ -142,6 +143,7 @@
     .badge-test      { background: #fbcfe8; color: #831843; }
     .badge-assignment{ background: #fde68a; color: #78350f; }
     .badge-holiday   { background: #d4d4d4; color: #222; }
+    .badge-custom    { background: #e9d5ff; color: #4c1d95; }
     .badge-empty     { background: #e0e0e0; color: #444; border: 1.5px dashed #999; }
     .entry-topic { flex: 1; font-size: .83rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .entry-topic.empty-topic { color: #444; font-weight: 600; font-style: italic; }
@@ -286,6 +288,24 @@
     .at-time { font-size: .68rem; font-weight: 800; color: #555; }
     .at-topic { font-size: .78rem; font-weight: 600; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px; }
 
+    /* ── Display popover ── */
+    .disp-wrap { position: relative; }
+    .disp-popover {
+      display: none; position: absolute; top: calc(100% + 6px); right: 0;
+      background: #fff; border: 2px solid #111; border-radius: 6px;
+      padding: 10px 14px; z-index: 300; min-width: 170px;
+      flex-direction: column; gap: 9px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.18);
+    }
+    .disp-wrap.open .disp-popover { display: flex; }
+
+    /* ── Entry detail row ── */
+    .entry-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .entry-detail-row {
+      font-size: .72rem; color: #444; font-weight: 600; padding: 0 8px 5px 10px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
     /* ── GS sync status (toast-like) ── */
     #gs-toast {
       position: fixed; bottom: 16px; right: 16px; z-index: 9999;
@@ -318,22 +338,32 @@
 <!-- ── Toolbar ── -->
 <div id="toolbar">
   <!-- Semester controls -->
-  <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Semester</button>
+  <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Term</button>
   <select id="sem-select" class="tb-select" onchange="switchSem(this.value)" style="display:none"></select>
   <button class="tb-btn icon-btn" id="edit-sem-btn" onclick="openSemModal(activeSemId)" title="Edit" style="display:none">✎</button>
   <span id="sem-week-count" style="font-size:.7rem;color:#aaa;font-weight:700;padding:0 2px;display:none"></span>
   <div class="toolbar-sep"></div>
   <!-- Class setup -->
   <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses">Classes</button>
+  <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields">Fields</button>
   <div class="toolbar-sep"></div>
   <!-- Class filter -->
   <select id="class-filter" class="tb-select" onchange="setClassFilter(this.value)">
     <option value="" data-i18n="pl_allClasses">All Classes</option>
   </select>
   <div class="toolbar-sep"></div>
-  <!-- Show past toggle -->
+  <!-- Show past / view toggles -->
   <button class="tb-btn" id="pastBtn" onclick="toggleShowPast()" data-i18n="pl_showPast">Show past</button>
   <button class="tb-btn icon-btn" id="viewBtn" onclick="toggleView()" data-i18n="pl_viewTable">⊞</button>
+  <div class="disp-wrap" id="dispWrap">
+    <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
+    <div class="disp-popover" id="dispPopover">
+      <label class="cb-label"><input type="checkbox" id="vo-badges" checked onchange="setViewOpt('badges',this.checked)"> <span data-i18n="pl_viewBadges">Type badges</span></label>
+      <label class="cb-label"><input type="checkbox" id="vo-topic" checked onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
+      <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)"> <span data-i18n="pl_viewDetails">Detail fields</span></label>
+      <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)"> <span data-i18n="pl_viewCustom">Custom fields</span></label>
+    </div>
+  </div>
   <!-- Right-side actions -->
   <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" style="margin-left:auto" data-i18n="pl_btnAddEntry">+ Add Entry</button>
   <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
@@ -350,7 +380,7 @@
 <div class="modal-overlay" id="semModal" onclick="if(event.target===this)closeModal('semModal')">
   <div class="modal-box" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <h2 id="sem-modal-title" data-i18n="pl_semModalTitle">Semester Setup</h2>
+      <h2 id="sem-modal-title" data-i18n="pl_semModalTitle">Term Setup</h2>
       <button class="modal-close" onclick="closeModal('semModal')">✕</button>
     </div>
     <div class="modal-body">
@@ -368,6 +398,10 @@
           <input type="date" id="sem-end" class="field-input">
         </div>
       </div>
+      <div id="pl-cgd-hint" style="display:none;margin:-4px 0 10px;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
+        <span id="pl-cgd-hint-text" style="flex:1;color:#2563a8;"></span>
+        <button onclick="fillDatesFromGroupEditor()" style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;" data-i18n="pl_useGroupDates">Use Group Editor dates</button>
+      </div>
       <div class="field-group">
         <div class="modal-section-label" data-i18n="pl_holidays">Holidays</div>
         <div class="list-items" id="hol-list"></div>
@@ -378,7 +412,7 @@
       <button class="tb-btn primary" onclick="saveSemModal()" data-i18n="btnOk">OK</button>
       <button class="tb-btn" onclick="closeModal('semModal')" data-i18n="btnCancel">Cancel</button>
       <button class="danger-btn ml-auto" id="del-sem-btn" style="display:none"
-              onclick="deleteActiveSem()" data-i18n="pl_deleteSem">Delete Semester</button>
+              onclick="deleteActiveSem()" data-i18n="pl_deleteSem">Delete Term</button>
     </div>
   </div>
 </div>
@@ -406,8 +440,13 @@
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <input type="text" id="cls-year" class="field-input" style="flex:1;min-width:100px"
                    data-i18n-placeholder="pl_classYearPlaceholder">
-            <label class="cb-label"><input type="checkbox" id="cls-sem1"> <span data-i18n="pl_classSem1">Semester 1</span></label>
-            <label class="cb-label"><input type="checkbox" id="cls-sem2"> <span data-i18n="pl_classSem2">Semester 2</span></label>
+            <div id="cls-sems-container" style="display:contents;"></div>
+            <span style="font-size:0.78rem;color:#888;white-space:nowrap;" data-i18n="pl_termsPerYear">Terms / yr</span>
+            <select id="pl-terms-per-year" style="padding:3px 6px;font-size:0.82rem;border:1px solid #ccc;border-radius:4px;" onchange="onPlannerTermsPerYearChange(this.value)">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
           </div>
         </div>
         <div class="field-group">
@@ -501,6 +540,10 @@
         <label data-i18n="pl_entryNotes">Notes / Reminders</label>
         <textarea id="e-notes" class="field-textarea"></textarea>
       </div>
+      <div id="e-custom-section" style="display:none">
+        <div class="modal-section-label" data-i18n="pl_customFieldsTitle">Custom Fields</div>
+        <div id="e-custom-fields" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
@@ -540,6 +583,28 @@
           <option value="" data-i18n="pl_icsAllClasses">All classes</option>
         </select>
       </div>
+      <div class="field-group">
+        <div class="modal-section-label" data-i18n="pl_exportTypes">Entry types</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+          <label class="cb-label"><input type="checkbox" id="exp-t-lesson" checked> <span data-i18n="pl_typeLesson">Lesson</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-t-test" checked> <span data-i18n="pl_typeTest">Test</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-t-assignment" checked> <span data-i18n="pl_typeAssignment">Assignment Due</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-t-holiday" checked> <span data-i18n="pl_typeHoliday">Holiday</span></label>
+          <span id="exp-custom-types"></span>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="modal-section-label" data-i18n="pl_exportFields">Fields to include</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+          <label class="cb-label"><input type="checkbox" id="exp-f-topic" checked> <span data-i18n="pl_exportFieldTopic">Topic</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-objective" checked> <span data-i18n="pl_exportFieldObjective">Objective</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-readings" checked> <span data-i18n="pl_exportFieldReadings">Readings</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-activities" checked> <span data-i18n="pl_exportFieldActivities">Activities</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-homework" checked> <span data-i18n="pl_exportFieldHomework">Homework</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-notes" checked> <span data-i18n="pl_exportFieldNotes">Notes</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-f-custom" checked> <span data-i18n="pl_exportFieldCustom">Custom fields</span></label>
+        </div>
+      </div>
       <div class="export-grid">
         <button class="export-card" onclick="doExportIcs()">
           <span class="ec-icon">📅</span>
@@ -569,6 +634,30 @@
   </div>
 </div>
 
+<!-- ════ CUSTOM FIELDS MODAL ════ -->
+<div class="modal-overlay" id="fieldsModal" onclick="if(event.target===this)closeModal('fieldsModal')">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 data-i18n="pl_customFieldsTitle">Custom Fields</h2>
+      <button class="modal-close" onclick="closeModal('fieldsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section-label" data-i18n="pl_customFieldsTitle">Custom Fields</div>
+      <p style="font-size:.8rem;color:#555;font-weight:600;margin-top:4px" data-i18n="pl_customFieldsHint">These extra fields appear on every entry.</p>
+      <div class="list-items" id="fields-list" style="margin-top:6px"></div>
+      <button class="add-link" onclick="addCustomFieldRow()" data-i18n="pl_addCustomField">+ Add Field</button>
+      <div class="modal-section-label" style="margin-top:14px" data-i18n="pl_customTypesTitle">Custom Types</div>
+      <p style="font-size:.8rem;color:#555;font-weight:600;margin-top:4px" data-i18n="pl_customTypesHint">Add entry types beyond the built-in ones.</p>
+      <div class="list-items" id="types-list" style="margin-top:6px"></div>
+      <button class="add-link" onclick="addCustomTypeRow()" data-i18n="pl_addCustomType">+ Add Type</button>
+    </div>
+    <div class="modal-footer">
+      <button class="tb-btn primary" onclick="saveCustomFields()" data-i18n="btnOk">OK</button>
+      <button class="tb-btn" onclick="closeModal('fieldsModal')" data-i18n="btnCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -586,8 +675,48 @@ var GS_DEFAULT_POINTS = {
   '6':0,'5.5':0,'5':0,'4.5':0,'4':0,'3.5':0,'3':0,'2.5':0,'2':0,'1.5':0,'1':0
 };
 
+// ── Terms-per-year helpers ─────────────────────────────────────────────────
+function getTermsPerYear() {
+  try {
+    var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+    return Math.max(2, Math.min(4, parseInt(c.termsPerYear, 10) || 2));
+  } catch (e) { return 2; }
+}
+function setTermsPerYear(n) {
+  try {
+    var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+    c.termsPerYear = Number(n);
+    localStorage.setItem('cmt-general-config', JSON.stringify(c));
+  } catch (e) {}
+}
+function buildClassSemCheckboxes() {
+  var n = getTermsPerYear();
+  var container = document.getElementById('cls-sems-container');
+  if (!container) return;
+  container.innerHTML = '';
+  for (var i = 1; i <= n; i++) {
+    var label = document.createElement('label');
+    label.className = 'cb-label';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'cls-sem' + i;
+    cb.checked = true;
+    var span = document.createElement('span');
+    span.textContent = typeof tFmt === 'function' ? tFmt('pl_classSemNum', { n: i }) : 'Term ' + i;
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' '));
+    label.appendChild(span);
+    container.appendChild(label);
+  }
+}
+function onPlannerTermsPerYearChange(val) {
+  setTermsPerYear(Number(val) || 2);
+  buildClassSemCheckboxes();
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
-var cfg = { semesters: [], classes: {} };
+var cfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+var BUILT_IN_TYPES = ['lesson','test','assignment','holiday'];
 var activeSemId = '';
 var entries = [];
 var classGroups = {};
@@ -597,12 +726,30 @@ var filterClass = '';
 var showPast = false;
 var tableView = false;
 var editingId = null;
-var editingSemId = null; // null = create mode in sem modal
+var editingSemId = null;
 var activeClsSetup = '';
+var viewOpts = { badges: true, topic: true, details: false, custom: false };
+
+function loadViewOpts() {
+  try {
+    var raw = localStorage.getItem('cmt-planner-viewopts');
+    if (raw) viewOpts = Object.assign(viewOpts, JSON.parse(raw));
+  } catch (e) {}
+  document.getElementById('vo-badges').checked  = viewOpts.badges;
+  document.getElementById('vo-topic').checked   = viewOpts.topic;
+  document.getElementById('vo-details').checked = viewOpts.details;
+  document.getElementById('vo-custom').checked  = viewOpts.custom;
+}
+function setViewOpt(key, val) {
+  viewOpts[key] = val;
+  try { localStorage.setItem('cmt-planner-viewopts', JSON.stringify(viewOpts)); } catch (e) {}
+  render();
+}
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async function () {
   applyTranslations();
+  loadViewOpts();
   await loadData();
   render();
 });
@@ -630,8 +777,10 @@ async function loadData() {
       }
     } else {
       cfg = Object.assign(cfg, raw);
-      if (!cfg.classes)   cfg.classes   = {};
-      if (!cfg.semesters) cfg.semesters = [];
+      if (!cfg.classes)      cfg.classes      = {};
+      if (!cfg.semesters)    cfg.semesters    = [];
+      if (!cfg.customFields) cfg.customFields = [];
+      if (!cfg.customTypes)  cfg.customTypes  = [];
       if (cfg.semesters.length) activeSemId = cfg.activeSemesterId || cfg.semesters[0].id;
     }
   }
@@ -806,8 +955,8 @@ function renderSlot(s) {
   var entry  = s.entry;
   var type   = entry ? entry.type : null;
 
-  var badgeCls  = type ? 'badge-' + type : 'badge-empty';
-  var badgeText = type ? t('pl_type' + capitalize(type)) : '—';
+  var badgeCls  = typeBadgeCls(type);
+  var badgeText = typeLabel(type);
 
   var today = new Date().toISOString().slice(0, 10);
   var showDot = entry && s.date < today && type !== 'holiday' && type !== 'assignment';
@@ -823,11 +972,14 @@ function renderSlot(s) {
     esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' +
     esc(s.timeEnd||'') + '\',\'' + (entry ? entry.id : '') + '\')">';
   r += '<div class="entry-color-bar"></div>';
+  r += '<div class="entry-content">';
   r += '<div class="entry-inner">';
   r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
   r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(s.classId) + '</span>';
-  r += '<span class="entry-type-badge ' + badgeCls + '">' + esc(badgeText) + '</span>';
-  r += '<span class="' + topicCls + '">' + esc(topicDisp) + '</span>';
+  if (viewOpts.badges)
+    r += '<span class="entry-type-badge ' + badgeCls + '">' + esc(badgeText) + '</span>';
+  if (viewOpts.topic)
+    r += '<span class="' + topicCls + '">' + esc(topicDisp) + '</span>';
   if (showDot)         r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
   if (entry && entry.gsLink) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
   r += '<div class="entry-actions" onclick="event.stopPropagation()">';
@@ -836,7 +988,25 @@ function renderSlot(s) {
   else
     r += '<button class="entry-btn add-btn" onclick="openAddEntry(\'' + esc(s.classId) +
          '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' + esc(s.timeEnd||'') + '\')">+</button>';
-  r += '</div></div></div>';
+  r += '</div></div>';
+  // Detail row
+  if (entry && (viewOpts.details || viewOpts.custom)) {
+    var parts = [];
+    if (viewOpts.details) {
+      if (entry.readings)   parts.push(t('pl_entryReadings')   + ': ' + entry.readings.slice(0, 80));
+      if (entry.activities) parts.push(t('pl_entryActivities') + ': ' + entry.activities.slice(0, 80));
+      if (entry.homework)   parts.push(t('pl_entryHomework')   + ': ' + entry.homework.slice(0, 80));
+      if (entry.notes)      parts.push(t('pl_entryNotes')      + ': ' + entry.notes.slice(0, 80));
+    }
+    if (viewOpts.custom && entry.customFields) {
+      Object.keys(entry.customFields).forEach(function (k) {
+        if (entry.customFields[k]) parts.push(k + ': ' + String(entry.customFields[k]).slice(0, 80));
+      });
+    }
+    if (parts.length)
+      r += '<div class="entry-detail-row">' + parts.map(function (p) { return esc(p); }).join(' · ') + '</div>';
+  }
+  r += '</div></div>';
   return r;
 }
 
@@ -896,10 +1066,10 @@ function buildSlots(activeSem) {
     if (filterClass) classIds = classIds.filter(function (id) { return id === filterClass; });
     // Hide archived classes from agenda
     classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
-    // Hide classes not active in the current semester (sem1 = index 0, sem2 = index 1)
+    // Hide classes not active in the current term
     var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
-    if (semIdx === 0 || semIdx === 1) {
-      var semKey = semIdx === 0 ? 'sem1' : 'sem2';
+    if (semIdx >= 0) {
+      var semKey = 'sem' + (semIdx + 1);
       classIds = classIds.filter(function (id) {
         var sems = (cfg.classes[id] || {}).semesters;
         return !sems || sems[semKey] !== false;
@@ -927,7 +1097,7 @@ function buildSlots(activeSem) {
 
   // Compute semester-slot key for orphan filtering (same logic as main loop)
   var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
-  var activeSemKey = (semIdx === 0) ? 'sem1' : (semIdx === 1) ? 'sem2' : null;
+  var activeSemKey = semIdx >= 0 ? 'sem' + (semIdx + 1) : null;
 
   // Orphan entries (clamped to semester range; excluded from holiday dates)
   entries.forEach(function (e) {
@@ -971,7 +1141,29 @@ function openSemModal(semId) {
   var list = document.getElementById('hol-list');
   list.innerHTML = '';
   (sem ? sem.holidays : []).forEach(function (h) { list.appendChild(makeHolRow(h.date, h.dateTo || '', h.label)); });
+
+  // Show Group Editor date hint only when creating (not editing)
+  var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+  var cgdStart = cgd && cgd.activeSemesterStart;
+  var cgdEnd   = cgd && cgd.activeSemesterEnd;
+  var hintEl   = document.getElementById('pl-cgd-hint');
+  if (!isEdit && hintEl && (cgdStart || cgdEnd)) {
+    document.getElementById('pl-cgd-hint-text').textContent =
+      tFmt('pl_useGroupDatesHint', { start: cgdStart || '?', end: cgdEnd || '?' });
+    hintEl.style.display = 'flex';
+  } else if (hintEl) {
+    hintEl.style.display = 'none';
+  }
+
   openModal('semModal');
+}
+
+function fillDatesFromGroupEditor() {
+  var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+  if (!cgd) return;
+  if (cgd.activeSemesterStart) document.getElementById('sem-start').value = cgd.activeSemesterStart;
+  if (cgd.activeSemesterEnd)   document.getElementById('sem-end').value   = cgd.activeSemesterEnd;
+  document.getElementById('pl-cgd-hint').style.display = 'none';
 }
 
 function makeHolRow(date, dateTo, label) {
@@ -1037,10 +1229,52 @@ function switchSem(id) {
   render();
 }
 
+// ── Custom fields modal ────────────────────────────────────────────────────
+function openFieldsModal() {
+  var fList = document.getElementById('fields-list');
+  fList.innerHTML = '';
+  (cfg.customFields || []).forEach(function (name) { addCustomFieldRow(name); });
+  var tList = document.getElementById('types-list');
+  tList.innerHTML = '';
+  (cfg.customTypes || []).forEach(function (name) { addCustomTypeRow(name); });
+  openModal('fieldsModal');
+}
+function addCustomFieldRow(name) {
+  var div = document.createElement('div'); div.className = 'obj-item';
+  div.innerHTML = '<input type="text" class="field-input" value="' + esc(name || '') +
+    '" placeholder="' + esc(t('pl_customFieldNamePlaceholder')) + '">' +
+    '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()">✕</button>';
+  document.getElementById('fields-list').appendChild(div);
+}
+function addCustomTypeRow(name) {
+  var div = document.createElement('div'); div.className = 'obj-item';
+  div.innerHTML = '<input type="text" class="field-input" value="' + esc(name || '') +
+    '" placeholder="' + esc(t('pl_customTypeNamePlaceholder')) + '">' +
+    '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()">✕</button>';
+  document.getElementById('types-list').appendChild(div);
+}
+function saveCustomFields() {
+  var names = [];
+  document.querySelectorAll('#fields-list .obj-item input').forEach(function (inp) {
+    var v = inp.value.trim(); if (v) names.push(v);
+  });
+  var types = [];
+  document.querySelectorAll('#types-list .obj-item input').forEach(function (inp) {
+    var v = inp.value.trim(); if (v) types.push(v);
+  });
+  cfg.customFields = names;
+  cfg.customTypes  = types;
+  persistCfg();
+  closeModal('fieldsModal');
+}
+
 // ── Class setup modal ──────────────────────────────────────────────────────
 function openClassModal() {
   populateSelects();
   document.getElementById('cls-sel').value = '';
+  var tpyEl = document.getElementById('pl-terms-per-year');
+  if (tpyEl) tpyEl.value = String(getTermsPerYear());
+  buildClassSemCheckboxes();
   loadClassPanel('');
   openModal('classModal');
 }
@@ -1053,8 +1287,11 @@ function loadClassPanel(cid) {
   var clsCfg = cfg.classes[cid] || {};
   document.getElementById('cls-year').value = clsCfg.year || '';
   var sems = clsCfg.semesters || {};
-  document.getElementById('cls-sem1').checked = sems.sem1 !== false;
-  document.getElementById('cls-sem2').checked = sems.sem2 !== false;
+  var n = getTermsPerYear();
+  for (var i = 1; i <= n; i++) {
+    var semCb = document.getElementById('cls-sem' + i);
+    if (semCb) semCb.checked = sems['sem' + i] !== false;
+  }
   renderColorRow(clsCfg.color || PRESET_COLORS[0]);
   renderSchedList(clsCfg.schedule  || []);
   renderObjList  (clsCfg.objectives || []);
@@ -1125,10 +1362,14 @@ function saveClassPanel() {
   cfg.classes[activeClsSetup] = {
     color: getPickedColor(),
     year: document.getElementById('cls-year').value.trim(),
-    semesters: {
-      sem1: document.getElementById('cls-sem1').checked,
-      sem2: document.getElementById('cls-sem2').checked
-    },
+    semesters: (function () {
+      var d = {}, n = getTermsPerYear();
+      for (var i = 1; i <= n; i++) {
+        var el = document.getElementById('cls-sem' + i);
+        d['sem' + i] = el ? el.checked : true;
+      }
+      return d;
+    }()),
     schedule: schedule,
     objectives: objectives
   };
@@ -1138,6 +1379,37 @@ function saveClassPanel() {
 }
 
 // ── Entry modal ────────────────────────────────────────────────────────────
+function populateTypeSelect(currentType) {
+  var sel = document.getElementById('e-type');
+  // Remove any previously added custom options
+  Array.from(sel.options).forEach(function (o) {
+    if (o.dataset.custom) sel.remove(o.index);
+  });
+  (cfg.customTypes || []).forEach(function (name) {
+    var o = new Option(name, name);
+    o.dataset.custom = '1';
+    sel.add(o);
+  });
+  if (currentType) sel.value = currentType;
+}
+
+function renderCustomFieldInputs(entry) {
+  var section   = document.getElementById('e-custom-section');
+  var container = document.getElementById('e-custom-fields');
+  var fields    = cfg.customFields || [];
+  section.style.display = fields.length ? '' : 'none';
+  container.innerHTML   = '';
+  fields.forEach(function (name) {
+    var div   = document.createElement('div'); div.className = 'field-group';
+    var label = document.createElement('label'); label.textContent = name;
+    var inp   = document.createElement('textarea'); inp.className = 'field-textarea';
+    inp.dataset.cfKey = name;
+    inp.value = (entry && entry.customFields && entry.customFields[name]) || '';
+    div.appendChild(label); div.appendChild(inp);
+    container.appendChild(div);
+  });
+}
+
 function openAddEntry(classId, date, time, timeEnd) {
   editingId = null;
   document.getElementById('entry-modal-title').textContent = t('pl_entryModalAdd');
@@ -1147,13 +1419,14 @@ function openAddEntry(classId, date, time, timeEnd) {
   document.getElementById('e-date').value       = date  || new Date().toISOString().slice(0,10);
   document.getElementById('e-time').value       = time  || '';
   document.getElementById('e-time-end').value   = timeEnd || '';
-  document.getElementById('e-type').value       = 'lesson';
+  populateTypeSelect('lesson');
   document.getElementById('e-topic').value      = '';
   document.getElementById('e-readings').value   = '';
   document.getElementById('e-activities').value = '';
   document.getElementById('e-homework').value   = '';
   document.getElementById('e-notes').value      = '';
   document.getElementById('e-obj-custom').style.display = 'none';
+  renderCustomFieldInputs(null);
   onEntryClassChange();
   document.getElementById('e-obj-sel').value = '';
   openModal('entryModal');
@@ -1170,12 +1443,13 @@ function openEditEntry(id) {
   document.getElementById('e-date').value       = e.date       || '';
   document.getElementById('e-time').value       = e.time       || '';
   document.getElementById('e-time-end').value   = e.timeEnd    || '';
-  document.getElementById('e-type').value       = e.type       || 'lesson';
+  populateTypeSelect(e.type || 'lesson');
   document.getElementById('e-topic').value      = e.topic      || '';
   document.getElementById('e-readings').value   = e.readings   || '';
   document.getElementById('e-activities').value = e.activities || '';
   document.getElementById('e-homework').value   = e.homework   || '';
   document.getElementById('e-notes').value      = e.notes      || '';
+  renderCustomFieldInputs(e);
   onEntryClassChange();
   var objSel = document.getElementById('e-obj-sel'), objCustom = document.getElementById('e-obj-custom');
   var objVal = e.objective || '';
@@ -1212,20 +1486,25 @@ function commitEntry() {
   var prevType  = prevEntry ? prevEntry.type : null;
   var newType   = document.getElementById('e-type').value;
 
+  var customFields = {};
+  document.querySelectorAll('#e-custom-fields textarea[data-cf-key]').forEach(function (inp) {
+    var v = inp.value.trim(); if (v) customFields[inp.dataset.cfKey] = v;
+  });
   var entry = {
-    id:         editingId || uid(),
-    classId:    classId,
-    date:       date,
-    time:       document.getElementById('e-time').value,
-    timeEnd:    document.getElementById('e-time-end').value,
-    type:       newType,
-    topic:      document.getElementById('e-topic').value.trim(),
-    objective:  objective,
-    readings:   document.getElementById('e-readings').value.trim(),
-    activities: document.getElementById('e-activities').value.trim(),
-    homework:   document.getElementById('e-homework').value.trim(),
-    notes:      document.getElementById('e-notes').value.trim(),
-    gsLink:     (prevEntry && prevEntry.gsLink) || null
+    id:           editingId || uid(),
+    classId:      classId,
+    date:         date,
+    time:         document.getElementById('e-time').value,
+    timeEnd:      document.getElementById('e-time-end').value,
+    type:         newType,
+    topic:        document.getElementById('e-topic').value.trim(),
+    objective:    objective,
+    readings:     document.getElementById('e-readings').value.trim(),
+    activities:   document.getElementById('e-activities').value.trim(),
+    homework:     document.getElementById('e-homework').value.trim(),
+    notes:        document.getElementById('e-notes').value.trim(),
+    customFields: Object.keys(customFields).length ? customFields : undefined,
+    gsLink:       (prevEntry && prevEntry.gsLink) || null
   };
 
   if (editingId) {
@@ -1280,12 +1559,13 @@ function duplicateCurrentEntry() {
   document.getElementById('e-date').value       = src.date       || '';
   document.getElementById('e-time').value       = src.time       || '';
   document.getElementById('e-time-end').value   = src.timeEnd    || '';
-  document.getElementById('e-type').value       = src.type       || 'lesson';
+  populateTypeSelect(src.type || 'lesson');
   document.getElementById('e-topic').value      = src.topic      || '';
   document.getElementById('e-readings').value   = src.readings   || '';
   document.getElementById('e-activities').value = src.activities || '';
   document.getElementById('e-homework').value   = src.homework   || '';
   document.getElementById('e-notes').value      = src.notes      || '';
+  renderCustomFieldInputs(src);
   onEntryClassChange();
   var objSel    = document.getElementById('e-obj-sel');
   var objCustom = document.getElementById('e-obj-custom');
@@ -1464,10 +1744,36 @@ async function removeTestFromGradeSheet(entry) {
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────
-function openExportModal() { openModal('exportModal'); }
+function openExportModal() {
+  var wrap = document.getElementById('exp-custom-types');
+  wrap.innerHTML = '';
+  (cfg.customTypes || []).forEach(function (name) {
+    var id = 'exp-t-custom-' + name.replace(/\s+/g, '_');
+    var lbl = document.createElement('label'); lbl.className = 'cb-label';
+    lbl.innerHTML = '<input type="checkbox" id="' + esc(id) + '" checked data-custom-type="' + esc(name) + '"> <span>' + esc(name) + '</span>';
+    wrap.appendChild(lbl);
+  });
+  openModal('exportModal');
+}
+
+function getExportFilters() {
+  function chk(id) { var el = document.getElementById(id); return !el || el.checked; }
+  var types = { lesson: chk('exp-t-lesson'), test: chk('exp-t-test'),
+                assignment: chk('exp-t-assignment'), holiday: chk('exp-t-holiday') };
+  document.querySelectorAll('#exp-custom-types input[data-custom-type]').forEach(function (cb) {
+    types[cb.dataset.customType] = cb.checked;
+  });
+  return {
+    types:  types,
+    fields: { topic: chk('exp-f-topic'), objective: chk('exp-f-objective'),
+               readings: chk('exp-f-readings'), activities: chk('exp-f-activities'),
+               homework: chk('exp-f-homework'), notes: chk('exp-f-notes'),
+               custom: chk('exp-f-custom') }
+  };
+}
 
 // ── Shared export data builder ─────────────────────────────────────────────
-function getExportData(clsFilter) {
+function getExportData(clsFilter, typeFilter) {
   var sem = getActiveSem();
   var semStart = sem && sem.semesterStart || '';
   var semEnd   = sem && sem.semesterEnd   || '';
@@ -1479,11 +1785,12 @@ function getExportData(clsFilter) {
     if ((classGroupsMeta[e.classId] || {}).archived) return false;
     if (semStart && e.date < semStart) return false;
     if (semEnd   && e.date > semEnd)   return false;
+    if (typeFilter && !typeFilter[e.type || 'lesson']) return false;
     return true;
   }).forEach(function (e) { rows.push({ date: e.date, kind: 'entry', entry: e }); });
 
   // Holidays — one row per holiday (range kept as dateTo)
-  if (sem) {
+  if (sem && (!typeFilter || typeFilter.holiday)) {
     (sem.holidays || []).forEach(function (h) {
       if (!h.date) return;
       if (semStart && h.date < semStart && (!h.dateTo || h.dateTo < semStart)) return;
@@ -1532,8 +1839,10 @@ function doExportIcs() {
     });
   });
 
+  var icsFilters = getExportFilters();
   entries.forEach(function (e) {
     if (clsFilter && e.classId !== clsFilter) return;
+    if (!icsFilters.types[e.type || 'lesson']) return;
     var prefix  = e.type==='test' ? 'TEST: ' : e.type==='assignment' ? 'DUE: ' : '';
     var summary = prefix + e.classId + (e.topic ? ' – '+e.topic : '');
     var dtstart, dtend;
@@ -1546,10 +1855,20 @@ function doExportIcs() {
       dtstart = ';VALUE=DATE:'+e.date.replace(/-/g,'');
       dtend   = ';VALUE=DATE:'+datePlus1(e.date);
     }
-    var desc = [e.objective, e.readings&&('Readings: '+e.readings),
-                e.activities&&('Activities: '+e.activities),
-                e.homework&&('HW: '+e.homework), e.notes&&('Notes: '+e.notes)]
-               .filter(Boolean).join('\\n');
+    var fi = icsFilters.fields;
+    var descParts = [
+      fi.objective && e.objective,
+      fi.readings  && e.readings  && ('Readings: '   + e.readings),
+      fi.activities&& e.activities&& ('Activities: ' + e.activities),
+      fi.homework  && e.homework  && ('HW: '         + e.homework),
+      fi.notes     && e.notes     && ('Notes: '      + e.notes)
+    ];
+    if (fi.custom && e.customFields) {
+      Object.keys(e.customFields).forEach(function (k) {
+        if (e.customFields[k]) descParts.push(k + ': ' + e.customFields[k]);
+      });
+    }
+    var desc = descParts.filter(Boolean).join('\\n');
     vevent('entry-'+e.id, dtstart, dtend, summary, desc);
   });
 
@@ -1566,7 +1885,9 @@ function doExportIcs() {
 // ── MD export ──────────────────────────────────────────────────────────────
 function doExportMd() {
   var clsFilter = document.getElementById('exp-cls').value;
-  var data = getExportData(clsFilter);
+  var filters = getExportFilters();
+  var data = getExportData(clsFilter, filters.types);
+  var fi   = filters.fields;
   var sem  = data.sem;
   var title = sem ? (sem.label || 'Planner') : 'Planner';
   var lines = ['# ' + title, '> ' + new Date().toLocaleDateString(), ''];
@@ -1594,12 +1915,17 @@ function doExportMd() {
     var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
     var typeLabel = t('pl_type' + capitalize(e.type || 'lesson'));
     lines.push('### ' + e.classId + (timeLabel ? ' · ' + timeLabel : '') + (typeLabel ? ' · ' + typeLabel : ''));
-    if (e.topic)      lines.push('**' + t('pl_entryTopic')      + ':** ' + e.topic);
-    if (e.objective)  lines.push('**' + t('pl_entryObjective')  + ':** ' + e.objective);
-    if (e.readings)   lines.push('**' + t('pl_entryReadings')   + ':** ' + e.readings);
-    if (e.activities) lines.push('**' + t('pl_entryActivities') + ':** ' + e.activities);
-    if (e.homework)   lines.push('**' + t('pl_entryHomework')   + ':** ' + e.homework);
-    if (e.notes)      lines.push('**' + t('pl_entryNotes')      + ':** ' + e.notes);
+    if (fi.topic      && e.topic)      lines.push('**' + t('pl_entryTopic')      + ':** ' + e.topic);
+    if (fi.objective  && e.objective)  lines.push('**' + t('pl_entryObjective')  + ':** ' + e.objective);
+    if (fi.readings   && e.readings)   lines.push('**' + t('pl_entryReadings')   + ':** ' + e.readings);
+    if (fi.activities && e.activities) lines.push('**' + t('pl_entryActivities') + ':** ' + e.activities);
+    if (fi.homework   && e.homework)   lines.push('**' + t('pl_entryHomework')   + ':** ' + e.homework);
+    if (fi.notes      && e.notes)      lines.push('**' + t('pl_entryNotes')      + ':** ' + e.notes);
+    if (fi.custom && e.customFields) {
+      Object.keys(e.customFields).forEach(function (k) {
+        if (e.customFields[k]) lines.push('**' + k + ':** ' + e.customFields[k]);
+      });
+    }
     lines.push('');
   });
 
@@ -1611,14 +1937,31 @@ function doExportMd() {
 // ── CSV export ─────────────────────────────────────────────────────────────
 function doExportCsv() {
   var clsFilter = document.getElementById('exp-cls').value;
-  var data = getExportData(clsFilter);
-  var rows = [['Date','Class','StartTime','EndTime','Type','Topic','Objective','Readings','Activities','Homework','Notes']];
+  var filters = getExportFilters();
+  var fi = filters.fields;
+  var data = getExportData(clsFilter, filters.types);
+  var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+  var header = ['Date','Class','StartTime','EndTime','Type'];
+  if (fi.topic)      header.push('Topic');
+  if (fi.objective)  header.push('Objective');
+  if (fi.readings)   header.push('Readings');
+  if (fi.activities) header.push('Activities');
+  if (fi.homework)   header.push('Homework');
+  if (fi.notes)      header.push('Notes');
+  customNames.forEach(function (n) { header.push(n); });
+  var rows = [header];
   data.rows.forEach(function (row) {
     if (row.kind !== 'entry') return;
     var e = row.entry;
-    rows.push([e.date, e.classId, e.time||'', e.timeEnd||'', e.type||'',
-               e.topic||'', e.objective||'', e.readings||'',
-               e.activities||'', e.homework||'', e.notes||'']);
+    var cells = [e.date, e.classId, e.time||'', e.timeEnd||'', e.type||''];
+    if (fi.topic)      cells.push(e.topic      || '');
+    if (fi.objective)  cells.push(e.objective  || '');
+    if (fi.readings)   cells.push(e.readings   || '');
+    if (fi.activities) cells.push(e.activities || '');
+    if (fi.homework)   cells.push(e.homework   || '');
+    if (fi.notes)      cells.push(e.notes      || '');
+    customNames.forEach(function (n) { cells.push((e.customFields && e.customFields[n]) || ''); });
+    rows.push(cells);
   });
   var csv = rows.map(function (row) {
     return row.map(function (cell) {
@@ -1637,14 +1980,17 @@ async function doExportPdf() {
     showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
   }
   var clsFilter = document.getElementById('exp-cls').value;
-  var html = buildExportHtml(clsFilter);
+  var filters = getExportFilters();
+  var html = buildExportHtml(clsFilter, filters);
   closeModal('exportModal');
   await Desktop.printPdf({ html: html,
     defaultName: 'planner-' + new Date().toISOString().slice(0, 10) + '.pdf' });
 }
 
-function buildExportHtml(clsFilter) {
-  var data = getExportData(clsFilter);
+function buildExportHtml(clsFilter, filters) {
+  filters = filters || { types: null, fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
+  var fi = filters.fields;
+  var data = getExportData(clsFilter, filters.types);
   var sem  = data.sem;
   var title = sem ? (sem.label || 'Planner') : 'Planner';
   var body = '', prevDate = null;
@@ -1674,12 +2020,20 @@ function buildExportHtml(clsFilter) {
     body += '<div class="entry-head">';
     body += '<span class="cls-pill" style="background:' + color + '">' + esc(e.classId) + '</span>';
     if (timeLabel) body += '<span class="time">' + esc(timeLabel) + '</span>';
-    if (e.type) body += '<span class="badge badge-' + esc(e.type) + '">' + esc(t('pl_type' + capitalize(e.type))) + '</span>';
+    if (e.type) body += '<span class="badge ' + typeBadgeCls(e.type) + '">' + esc(typeLabel(e.type)) + '</span>';
     body += '</div>';
-    if (e.topic) body += '<div class="topic">' + esc(e.topic) + '</div>';
-    var fields = [[t('pl_entryObjective'), e.objective],[t('pl_entryReadings'), e.readings],
-                  [t('pl_entryActivities'), e.activities],[t('pl_entryHomework'), e.homework],
-                  [t('pl_entryNotes'), e.notes]].filter(function (f) { return f[1]; });
+    if (fi.topic && e.topic) body += '<div class="topic">' + esc(e.topic) + '</div>';
+    var fields = [];
+    if (fi.objective  && e.objective)  fields.push([t('pl_entryObjective'),  e.objective]);
+    if (fi.readings   && e.readings)   fields.push([t('pl_entryReadings'),   e.readings]);
+    if (fi.activities && e.activities) fields.push([t('pl_entryActivities'), e.activities]);
+    if (fi.homework   && e.homework)   fields.push([t('pl_entryHomework'),   e.homework]);
+    if (fi.notes      && e.notes)      fields.push([t('pl_entryNotes'),      e.notes]);
+    if (fi.custom && e.customFields) {
+      Object.keys(e.customFields).forEach(function (k) {
+        if (e.customFields[k]) fields.push([k, e.customFields[k]]);
+      });
+    }
     if (fields.length) {
       body += '<dl>';
       fields.forEach(function (f) { body += '<dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd>'; });
@@ -1705,6 +2059,7 @@ function buildExportHtml(clsFilter) {
     + '.badge-test{background:#fce7f3;color:#9d174d}'
     + '.badge-assignment{background:#fef3c7;color:#92400e}'
     + '.badge-holiday{background:#f0f0f0;color:#666}'
+    + '.badge-custom{background:#e9d5ff;color:#4c1d95}'
     + '.topic{font-weight:700;font-size:10.5pt;margin-bottom:3px}'
     + 'dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;font-size:9.5pt}'
     + 'dt{font-weight:700;color:#555;white-space:nowrap}'
@@ -1901,8 +2256,8 @@ function renderTableCell(s) {
   }
 
   var type      = entry.type || '';
-  var badgeCls  = type ? 'entry-type-badge badge-' + type : '';
-  var badgeText = type ? t('pl_type' + capitalize(type)) : '';
+  var badgeCls  = type ? 'entry-type-badge ' + typeBadgeCls(type) : '';
+  var badgeText = type ? typeLabel(type) : '';
 
   var r = '<div class="at-cell" style="--col:' + color + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
   if (timeLabel)  r += '<span class="at-time">' + esc(timeLabel) + '</span>';
@@ -1917,13 +2272,25 @@ function renderTableCell(s) {
 function openModal(id)  { document.getElementById(id).classList.add('active'); }
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 function toggleHm() { document.getElementById('hmWrap').classList.toggle('open'); }
+function toggleDispPopover() { document.getElementById('dispWrap').classList.toggle('open'); }
 document.addEventListener('click', function (e) {
-  if (!e.target.closest('#hmWrap')) document.getElementById('hmWrap').classList.remove('open');
+  if (!e.target.closest('#hmWrap'))   document.getElementById('hmWrap').classList.remove('open');
+  if (!e.target.closest('#dispWrap')) document.getElementById('dispWrap').classList.remove('open');
 });
 
 // ── Utils ──────────────────────────────────────────────────────────────────
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function typeLabel(type) {
+  if (!type) return '—';
+  if (BUILT_IN_TYPES.indexOf(type) >= 0) return t('pl_type' + capitalize(type));
+  return type;
+}
+function typeBadgeCls(type) {
+  if (!type) return 'badge-empty';
+  if (BUILT_IN_TYPES.indexOf(type) >= 0) return 'badge-' + type;
+  return 'badge-custom';
+}
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

@@ -330,7 +330,7 @@
             </label>
         </div>
     </div>
-    <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditGroupsModal();">
+    <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('group-editor.html');">
         <span class="db-popup-btn-icon">👥</span>
         <span class="db-popup-btn-text">
             <strong data-i18n="settings_edit_groups">Edit Groups</strong>
@@ -429,6 +429,7 @@
 	<div style="display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin: 12px 0 16px;">
 		<div class="group-btns" id="group-container" style="margin:0; flex-wrap:wrap; justify-content:center;"></div>
 	</div>
+	<div id="cms-active-context" style="display:none; text-align:center; margin:-8px 0 10px; font-size:0.75rem; font-weight:700; color:#555; letter-spacing:0.3px;"></div>
 	<!-- Container -->
     <div class="container">
      <!-- Timer active display (above title, visible when menu is collapsed) -->
@@ -766,40 +767,6 @@
     </div>
 </div>
 
-<!-- EDIT GROUPS MODAL -->
-<div class="modal-overlay" id="edit-groups-modal" onclick="closeEditGroupsModal()">
-    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:860px;">
-        <button class="close-modal" onclick="closeEditGroupsModal()">&times;</button>
-        <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="eg_title">Edit Groups</h2>
-        <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="eg_desc">Students are comma-separated. Changes are applied in memory immediately; use <em>Save to config.js</em> to persist them to disk.</p>
-        <div id="edit-groups-body"></div>
-        <div id="edit-groups-add-section" style="margin-top:20px; border-top:2px solid #eee; padding-top:16px;">
-            <h3 style="text-transform:uppercase;letter-spacing:1.5px;font-size:0.8rem;color:#888;margin:0 0 10px;" data-i18n="eg_add_section">Add new group</h3>
-            <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
-                <input id="new-group-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="eg_name_placeholder" style="flex:1; min-width:130px; padding:7px 10px; border:1px solid #ccc; border-radius:4px; font-size:0.85rem;" />
-                <textarea id="new-group-students" class="eg-row-students" rows="1" placeholder="ALICE, BOB, CAROL, …" oninput="autoResizeEgStudents(this)" style="flex:3; min-width:200px; font-size:0.85rem;"></textarea>
-                <input id="new-group-year" type="text" placeholder="2025-2026" data-i18n-placeholder="eg_year_placeholder" style="width:96px; padding:7px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;" />
-                <select id="new-group-semester" style="width:72px; padding:7px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;">
-                    <option value="">Sem</option>
-                    <option value="1">S1</option>
-                    <option value="2">S2</option>
-                </select>
-                <select id="new-group-level" style="width:64px; padding:7px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;">
-                    <option value="">Lvl</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                </select>
-                <button onclick="addNewGroupRow()" style="padding:7px 14px; background:#111; color:#fff; border:2px solid #111; border-radius:4px; font-weight:700; font-size:0.82rem; cursor:pointer; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="eg_add_btn">Add</button>
-            </div>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:18px;">
-            <button onclick="saveGroupsToFile()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="eg_save_btn">💾 Save to class-groups.js</button>
-            <button onclick="applyGroupEditsInMemory(); closeEditGroupsModal();" style="flex:0; background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="eg_apply_btn">Apply (session only)</button>
-        </div>
-    </div>
-</div>
 
 <!-- ADD STUDENTS TO NEW GROUP SUB-MODAL -->
 <div class="modal-overlay" id="add-students-modal" onclick="closeAddStudentsModal()" style="z-index:1100; display:none;">
@@ -1867,6 +1834,10 @@
                         if (_parsed && typeof _parsed === 'object') {
                             loadedConfigCache.classGroups = _parsed.classGroups || {};
                             loadedConfigCache.classGroupsMeta = _parsed.classGroupsMeta || {};
+                            loadedConfigCache.activeYear = _parsed.activeYear || '';
+                            loadedConfigCache.activeSemester = _parsed.activeSemester || null;
+                            loadedConfigCache.activeSemesterStart = _parsed.activeSemesterStart || '';
+                            loadedConfigCache.activeSemesterEnd = _parsed.activeSemesterEnd || '';
                         }
                     } catch (parseError) {
                         console.warn('Unable to parse class-groups.js content:', parseError);
@@ -1875,6 +1846,14 @@
                 // else: keep whatever classGroups/Meta came from config.js (migration scenario)
             } catch (error) {
                 console.warn('Unable to read class-groups.js from disk:', error);
+            }
+
+            // Fallback: if readText failed, read active context from the bootstrap-injected global.
+            if (!loadedConfigCache.activeYear && typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
+                loadedConfigCache.activeYear = CLASS_GROUPS_DATA.activeYear || '';
+                loadedConfigCache.activeSemester = CLASS_GROUPS_DATA.activeSemester || null;
+                loadedConfigCache.activeSemesterStart = CLASS_GROUPS_DATA.activeSemesterStart || '';
+                loadedConfigCache.activeSemesterEnd = CLASS_GROUPS_DATA.activeSemesterEnd || '';
             }
 
             // Ensure classGroups/Meta always fall back to script-tag globals when still absent.
@@ -1955,10 +1934,14 @@
             classPlans: classPlans
         };
 
-        // Preserve classGroups/classGroupsMeta in the cache (they live in class-groups.js, not config.js).
+        // Preserve classGroups/classGroupsMeta and active context in the cache (they live in class-groups.js, not config.js).
         loadedConfigCache = {
             classGroups: rawData || loadedConfig.classGroups || {},
             classGroupsMeta: rawMeta || loadedConfig.classGroupsMeta || {},
+            activeYear: loadedConfig.activeYear || '',
+            activeSemester: loadedConfig.activeSemester || null,
+            activeSemesterStart: loadedConfig.activeSemesterStart || '',
+            activeSemesterEnd: loadedConfig.activeSemesterEnd || '',
             ...payload
         };
         return payload;
@@ -2124,6 +2107,7 @@
         await refreshSoundFileList(false);
         buildStudentGroups();
         renderGroupButtons();
+        _updateActiveContextChip();
         // Apply saved UI toggle states
         syncRosterInlineToggleButtonStates();
         const _badgesToggleBtn = document.getElementById('badges-toggle-btn');
@@ -2152,61 +2136,6 @@
         if (!modal || modal.style.display !== 'flex') return;
         refreshSoundFileList(false).catch(error => console.warn('Unable to refresh sound file list on focus:', error));
     });
-
-    // ---- EDIT GROUPS ------------------------------------------------
-
-    function openEditGroupsModal() {
-        renderEditGroupsModal();
-        document.getElementById('edit-groups-modal').style.display = 'flex';
-    }
-
-    function closeEditGroupsModal() {
-        document.getElementById('edit-groups-modal').style.display = 'none';
-    }
-
-    // ---- HALF-GROUP HELPERS ----------------------------------------
-
-    function buildHalfGroupChips(halfSection, studentsInputEl, existingHalfGroups) {
-        halfSection.innerHTML = '';
-        const studentNames = studentsInputEl
-            ? studentsInputEl.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
-            : [];
-        if (studentNames.length === 0) {
-            halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">Add students to the group first.</em>';
-            return;
-        }
-        const hgA = (existingHalfGroups && existingHalfGroups.A) ? existingHalfGroups.A.map(s => s.toUpperCase()) : [];
-        const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B.map(s => s.toUpperCase()) : [];
-        const legend = document.createElement('div');
-        legend.style.cssText = 'font-size:0.72rem; color:#888; margin-bottom:7px; font-weight:600;';
-        legend.innerHTML = 'Click to cycle: <span style="color:#1e40af;font-weight:700;">■ A</span> → <span style="color:#9a3412;font-weight:700;">■ B</span> → unassigned';
-        halfSection.appendChild(legend);
-        const chipsWrap = document.createElement('div');
-        chipsWrap.style.cssText = 'display:flex; flex-wrap:wrap;';
-        studentNames.forEach(name => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'eg-half-chip';
-            chip.textContent = name;
-            chip.dataset.student = name;
-            chip.dataset.half = hgA.includes(name) ? 'A' : (hgB.includes(name) ? 'B' : '');
-            chip.onclick = () => {
-                const cur = chip.dataset.half;
-                chip.dataset.half = cur === '' ? 'A' : (cur === 'A' ? 'B' : '');
-            };
-            chipsWrap.appendChild(chip);
-        });
-        halfSection.appendChild(chipsWrap);
-    }
-
-    function _collectHalfGroupsFromSection(halfSection) {
-        const result = { A: [], B: [] };
-        halfSection.querySelectorAll('.eg-half-chip').forEach(chip => {
-            if (chip.dataset.half === 'A') result.A.push(chip.dataset.student);
-            else if (chip.dataset.half === 'B') result.B.push(chip.dataset.student);
-        });
-        return (result.A.length + result.B.length > 0) ? result : null;
-    }
 
     function showHalfGroupPicker(groupName, anchorEl) {
         const existing = document.getElementById('half-group-picker-popup');
@@ -2298,8 +2227,6 @@
             document.getElementById('roster-list').innerHTML =
                 '<li style="color:#999; padding: 20px; text-align: center;">Select a group...</li>';
         }
-
-        renderEditGroupsModal();
     }
 
     async function unarchiveGroup(groupName) {
@@ -2342,7 +2269,6 @@
         const container = document.getElementById('group-container');
         container.innerHTML = '';
         renderGroupButtons();
-        renderEditGroupsModal();
     }
 
     // ---- END ARCHIVE GROUP ------------------------------------
@@ -2417,55 +2343,9 @@
         }
 
         closeAddStudentsModal();
-
-        // Persist directly to class-groups.js without closing the Edit Groups modal.
-        const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-        if (Object.keys(updated).length > 0) {
-            rawData = updated;
-            rawMeta = updatedMeta;
-            applyGroupEditsInMemory();
-            const result = await persistGroupsToUserFile(updated, updatedMeta);
-            if (!result?.ok) {
-                showToast('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
-            }
-        }
     }
 
     // ---- END ADD STUDENTS ------------------------------------------
-
-    function makeMetaInputs(meta) {
-        const yearInput = document.createElement('input');
-        yearInput.type = 'text';
-        yearInput.className = 'eg-row-year';
-        yearInput.value = (meta && meta.year) ? meta.year : '';
-        yearInput.placeholder = '2025-2026';
-        yearInput.title = 'Calendar year';
-        yearInput.style.cssText = 'width:96px; padding:5px 7px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-
-        const semSelect = document.createElement('select');
-        semSelect.className = 'eg-row-semester';
-        semSelect.title = 'Semester';
-        semSelect.style.cssText = 'width:72px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-        [['', 'Sem'], ['1', 'S1'], ['2', 'S2']].forEach(([v, t]) => {
-            const opt = document.createElement('option');
-            opt.value = v; opt.textContent = t;
-            if (String(meta && meta.semester) === v) opt.selected = true;
-            semSelect.appendChild(opt);
-        });
-
-        const lvlSelect = document.createElement('select');
-        lvlSelect.className = 'eg-row-level';
-        lvlSelect.title = 'Level';
-        lvlSelect.style.cssText = 'width:64px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-        [['', 'Lvl'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']].forEach(([v, t]) => {
-            const opt = document.createElement('option');
-            opt.value = v; opt.textContent = t;
-            if (String(meta && meta.level) === v) opt.selected = true;
-            lvlSelect.appendChild(opt);
-        });
-
-        return { yearInput, semSelect, lvlSelect };
-    }
 
     function autoResizeEgStudents(el) {
         if (!el) return;
@@ -2473,294 +2353,16 @@
         el.style.height = `${el.scrollHeight}px`;
     }
 
-    function _buildGroupRow(groupName, body, isArchived) {
-        const row = document.createElement('div');
-        row.className = 'eg-row';
-        row.dataset.group = groupName;
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'eg-row-name';
-        nameInput.value = groupName;
-        nameInput.title = 'Group name';
-        if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
-
-        const studentsInput = document.createElement('textarea');
-        studentsInput.className = 'eg-row-students';
-        studentsInput.rows = 1;
-        studentsInput.value = rawData[groupName].join(', ');
-        studentsInput.title = 'Students (comma-separated)';
-        if (isArchived) { studentsInput.disabled = true; studentsInput.style.opacity = '0.6'; }
-        else { studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput)); }
-        requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
-
-        const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupName]);
-        if (isArchived) { yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true; [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6'); }
-
-        // Half-group section (active groups only)
-        const halfSection = document.createElement('div');
-        halfSection.className = 'eg-half-section';
-        halfSection.style.display = 'none';
-        halfSection.style.opacity = isArchived ? '0.6' : '';
-
-        const halfToggle = document.createElement('button');
-        halfToggle.type = 'button';
-        halfToggle.className = 'eg-half-toggle';
-        halfToggle.textContent = '½';
-        halfToggle.title = 'Define half-groups A / B';
-        halfToggle.disabled = !!isArchived;
-
-        if (!isArchived) {
-            buildHalfGroupChips(halfSection, studentsInput, rawMeta[groupName] && rawMeta[groupName].halfGroups);
-            const hasHalves = rawMeta[groupName] && rawMeta[groupName].halfGroups &&
-                ((rawMeta[groupName].halfGroups.A && rawMeta[groupName].halfGroups.A.length) ||
-                 (rawMeta[groupName].halfGroups.B && rawMeta[groupName].halfGroups.B.length));
-            if (hasHalves) { halfToggle.classList.add('active'); halfSection.style.display = ''; }
-            halfToggle.onclick = () => {
-                const isOpen = halfSection.style.display !== 'none';
-                halfSection.style.display = isOpen ? 'none' : '';
-                halfToggle.classList.toggle('active', !isOpen);
-                if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, _collectHalfGroupsFromSection(halfSection));
-            };
-        }
-
-        const archiveBtn = document.createElement('button');
-        archiveBtn.type = 'button';
-        archiveBtn.title = isArchived ? 'Unarchive this group' : 'Archive this group';
-        archiveBtn.textContent = isArchived ? '↩' : '📦';
-        archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
-        archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
-        archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
-        archiveBtn.onclick = () => {
-            if (isArchived) {
-                showConfirm('Unarchive "' + groupName + '"? It will reappear in the class roster.', () => unarchiveGroup(groupName));
-            } else {
-                showConfirm('Archive "' + groupName + '"?\n\nIt will be hidden from the roster and its participation data folder will be moved to user/log/group-participation/archived/.', () => archiveGroup(groupName));
-            }
-        };
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'eg-row-del';
-        delBtn.textContent = '✕';
-        delBtn.title = 'Delete this group';
-        delBtn.onclick = () => { row.remove(); halfSection.remove(); };
-        if (isArchived) delBtn.style.opacity = '0.5';
-
-        row.appendChild(nameInput);
-        row.appendChild(studentsInput);
-        row.appendChild(yearInput);
-        row.appendChild(semSelect);
-        row.appendChild(lvlSelect);
-        row.appendChild(halfToggle);
-        row.appendChild(archiveBtn);
-        row.appendChild(delBtn);
-        body.appendChild(row);
-        body.appendChild(halfSection);
-    }
-
-    function renderEditGroupsModal() {
-        const body = document.getElementById('edit-groups-body');
-        body.innerHTML = '';
-
-        const activeGroups = Object.keys(rawData).filter(g => !(rawMeta[g] && rawMeta[g].archived));
-        const archivedGroups = Object.keys(rawData).filter(g => rawMeta[g] && rawMeta[g].archived);
-
-        activeGroups.forEach(groupName => _buildGroupRow(groupName, body, false));
-
-        if (archivedGroups.length > 0) {
-            const archSep = document.createElement('div');
-            archSep.style.cssText = 'border-top:2px dashed #ccc; padding-top:10px; margin-top:10px;';
-            const archToggle = document.createElement('button');
-            archToggle.type = 'button';
-            archToggle.style.cssText = 'background:none; border:none; cursor:pointer; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#888; padding:0; margin-bottom:8px;';
-            archToggle.textContent = '▶ Archived groups (' + archivedGroups.length + ')';
-            const archContent = document.createElement('div');
-            archContent.style.display = 'none';
-            archivedGroups.forEach(groupName => _buildGroupRow(groupName, archContent, true));
-            archToggle.onclick = () => {
-                const isOpen = archContent.style.display !== 'none';
-                archContent.style.display = isOpen ? 'none' : '';
-                archToggle.textContent = (isOpen ? '▶' : '▼') + ' Archived groups (' + archivedGroups.length + ')';
-            };
-            archSep.appendChild(archToggle);
-            archSep.appendChild(archContent);
-            body.appendChild(archSep);
-        }
-
-        // clear add-new fields
-        document.getElementById('new-group-name').value = '';
-        document.getElementById('new-group-students').value = '';
-        autoResizeEgStudents(document.getElementById('new-group-students'));
-        document.getElementById('new-group-year').value = '';
-        document.getElementById('new-group-semester').value = '';
-        document.getElementById('new-group-level').value = '';
-    }
-
-    function addNewGroupRow() {
-        const nameVal = document.getElementById('new-group-name').value.trim();
-        const studentsVal = document.getElementById('new-group-students').value.trim();
-        if (!nameVal) { showToast('Please enter a group name.'); return; }
-
-        const body = document.getElementById('edit-groups-body');
-        const row = document.createElement('div');
-        row.className = 'eg-row';
-        row.dataset.group = nameVal;
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'eg-row-name';
-        nameInput.value = nameVal;
-
-        const studentsInput = document.createElement('textarea');
-        studentsInput.className = 'eg-row-students';
-        studentsInput.rows = 1;
-        studentsInput.value = studentsVal;
-        studentsInput.title = 'Students (comma-separated)';
-        studentsInput.addEventListener('input', () => autoResizeEgStudents(studentsInput));
-
-        const newMeta = {
-            year: document.getElementById('new-group-year').value.trim(),
-            semester: document.getElementById('new-group-semester').value,
-            level: document.getElementById('new-group-level').value
-        };
-        const { yearInput, semSelect, lvlSelect } = makeMetaInputs(newMeta);
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'eg-row-del';
-        delBtn.textContent = '✕';
-        delBtn.title = 'Delete this group';
-
-        // Half-group section for new row
-        const halfSection = document.createElement('div');
-        halfSection.className = 'eg-half-section';
-        halfSection.style.display = 'none';
-        buildHalfGroupChips(halfSection, studentsInput, null);
-
-        const halfToggle = document.createElement('button');
-        halfToggle.type = 'button';
-        halfToggle.className = 'eg-half-toggle';
-        halfToggle.textContent = '½';
-        halfToggle.title = 'Define half-groups A / B';
-        halfToggle.onclick = () => {
-            const isOpen = halfSection.style.display !== 'none';
-            halfSection.style.display = isOpen ? 'none' : '';
-            halfToggle.classList.toggle('active', !isOpen);
-            if (!isOpen) buildHalfGroupChips(halfSection, studentsInput, _collectHalfGroupsFromSection(halfSection));
-        };
-
-        delBtn.onclick = () => { row.remove(); halfSection.remove(); };
-
-        row.appendChild(nameInput);
-        row.appendChild(studentsInput);
-        row.appendChild(yearInput);
-        row.appendChild(semSelect);
-        row.appendChild(lvlSelect);
-        row.appendChild(halfToggle);
-        row.appendChild(delBtn);
-        body.appendChild(row);
-        body.appendChild(halfSection);
-        requestAnimationFrame(() => autoResizeEgStudents(studentsInput));
-
-        document.getElementById('new-group-name').value = '';
-        document.getElementById('new-group-students').value = '';
-        autoResizeEgStudents(document.getElementById('new-group-students'));
-        document.getElementById('new-group-year').value = '';
-        document.getElementById('new-group-semester').value = '';
-        document.getElementById('new-group-level').value = '';
-
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        // Open the student-picker sub-modal to tap into class-groups.js and add students.
-        openAddStudentsModal(nameVal, row);
-    }
-
-    function collectGroupEdits() {
-        const updated = {};
-        const updatedMeta = {};
-        document.querySelectorAll('#edit-groups-body .eg-row').forEach(row => {
-            const nameInput = row.querySelector('.eg-row-name');
-            const studentsInput = row.querySelector('.eg-row-students');
-            const name = nameInput.value.trim();
-            if (!name) return;
-            const students = studentsInput.value
-                .split(',')
-                .map(s => s.trim().toUpperCase())
-                .filter(Boolean);
-            updated[name] = students;
-            const yearEl = row.querySelector('.eg-row-year');
-            const semEl = row.querySelector('.eg-row-semester');
-            const lvlEl = row.querySelector('.eg-row-level');
-            updatedMeta[name] = {
-                year: yearEl ? yearEl.value.trim() : '',
-                semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
-                level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
-            };
-            // Collect half-group data from sibling .eg-half-section
-            const halfSection = row.nextElementSibling;
-            if (halfSection && halfSection.classList.contains('eg-half-section')) {
-                const hgA = [], hgB = [];
-                halfSection.querySelectorAll('.eg-half-chip').forEach(chip => {
-                    if (chip.dataset.half === 'A') hgA.push(chip.dataset.student);
-                    else if (chip.dataset.half === 'B') hgB.push(chip.dataset.student);
-                });
-                if (hgA.length > 0 || hgB.length > 0) {
-                    updatedMeta[name].halfGroups = { A: hgA, B: hgB };
-                }
-            }
-            // Preserve archived flag from original rawMeta
-            const origMeta = rawMeta[row.dataset.group];
-            if (origMeta && origMeta.archived) updatedMeta[name].archived = true;
-        });
-        return { groups: updated, meta: updatedMeta };
-    }
-
-    function applyGroupEditsInMemory() {
-        const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-        rawData = updated;
-        rawMeta = updatedMeta;
-
-        // Rebuild studentGroups: preserve scores/flags for existing students,
-        // add brand-new students, drop groups that were deleted.
-        const rebuilt = {};
-        Object.keys(rawData).forEach(group => {
-            if (rawMeta[group] && rawMeta[group].archived) return; // skip archived
-            const existing = studentGroups[group] || [];
-            rebuilt[group] = rawData[group].map(name => {
-                const found = existing.find(s => s.name === name);
-                return found || {
-                    id: Date.now() + Math.random(),
-                    name: name,
-                    isPicked: false,
-                    isAbsent: false,
-                    pluses: 0,
-                    minuses: 0,
-                    teamId: null
-                };
-            });
-        });
-        // Remove deleted groups and archived groups; merge in rebuilt ones
-        Object.keys(studentGroups).forEach(g => {
-            if (!rebuilt[g] || (rawMeta[g] && rawMeta[g].archived)) delete studentGroups[g];
-        });
-        Object.assign(studentGroups, rebuilt);
-
-        // Re-render group buttons
-        const container = document.getElementById('group-container');
-        container.innerHTML = '';
-        renderGroupButtons();
-        // Refresh roster if the selected group is still present
-        if (selectedGroupName) {
-            if (!studentGroups[selectedGroupName]) {
-                selectedGroupName = null;
-                selectedHalfGroup = null;
-                currentObjectives = '';
-                updateObjectivesDisplay();
-                document.getElementById('display-name').textContent = '--';
-                document.getElementById('roster-list').innerHTML =
-                    '<li style="color:#999; padding: 20px; text-align: center;">Select a group...</li>';
-            } else {
-                renderRoster();
-            }
+    function _updateActiveContextChip() {
+        const chip = document.getElementById('cms-active-context');
+        if (!chip) return;
+        const ay = (loadedConfigCache && loadedConfigCache.activeYear) || '';
+        const as = (loadedConfigCache && loadedConfigCache.activeSemester) || null;
+        if (ay || as) {
+            chip.textContent = [ay, as ? 'S' + as : ''].filter(Boolean).join(' · ');
+            chip.style.display = '';
+        } else {
+            chip.style.display = 'none';
         }
     }
 
@@ -2777,8 +2379,16 @@
             const metaObj = JSON.stringify(metaEntry);
             return `    ${JSON.stringify(name)}: ${metaObj}`;
         });
+        const _ay = (loadedConfigCache && loadedConfigCache.activeYear) || '';
+        const _as = (loadedConfigCache && loadedConfigCache.activeSemester) || null;
+        const _ass = (loadedConfigCache && loadedConfigCache.activeSemesterStart) || '';
+        const _ase = (loadedConfigCache && loadedConfigCache.activeSemesterEnd) || '';
         return [
             'const CLASS_GROUPS_DATA = {',
+            `  "activeYear": ${JSON.stringify(_ay)},`,
+            `  "activeSemester": ${JSON.stringify(_as)},`,
+            `  "activeSemesterStart": ${JSON.stringify(_ass)},`,
+            `  "activeSemesterEnd": ${JSON.stringify(_ase)},`,
             '  "classGroups": {',
             groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
             '  },',
@@ -2841,60 +2451,6 @@
             console.warn('syncGradeSheetRenames failed:', e);
         }
     }
-
-    async function saveGroupsToFile() {
-        const renames = [];
-        document.querySelectorAll('#edit-groups-body .eg-row').forEach(row => {
-            const oldName = row.dataset.group || '';
-            const nameInput = row.querySelector('.eg-row-name');
-            const newName = nameInput ? nameInput.value.trim() : '';
-            if (oldName && newName && oldName !== newName) renames.push({ oldName, newName });
-        });
-
-        const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-        if (Object.keys(updated).length === 0) {
-            showToast('No groups to save.');
-            return;
-        }
-
-        const deletedGroups = Object.keys(rawData).filter(g => !(g in updated));
-
-        rawData = updated;
-        rawMeta = updatedMeta;
-        applyGroupEditsInMemory();
-
-        const result = await persistGroupsToUserFile(updated, updatedMeta);
-        if (!result?.ok) {
-            showToast('Save failed: ' + (result?.error || 'Unable to save class-groups.js'), true);
-            return;
-        }
-
-        await syncGradeSheetRenames(renames);
-
-        if (window.Desktop && deletedGroups.length > 0) {
-            for (const group of deletedGroups) {
-                const safeDir = group
-                    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
-                    .replace(/\s+/g, '_')
-                    .replace(/^\.+/, '')
-                    .trim() || '_class';
-                try { await window.Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true }); } catch (e) {}
-                try { await window.Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true }); } catch (e) {}
-            }
-        }
-
-        const saveBtn = document.querySelector('#edit-groups-modal button[onclick*="saveGroupsToFile"]');
-        if (saveBtn) {
-            const orig = saveBtn.textContent;
-            saveBtn.textContent = '✓ Saved!';
-            saveBtn.disabled = true;
-            setTimeout(() => { saveBtn.textContent = orig; saveBtn.disabled = false; closeEditGroupsModal(); }, 900);
-        } else {
-            closeEditGroupsModal();
-        }
-    }
-
-    // ---- END EDIT GROUPS -------------------------------------------
 
     function openEditTeamsModal() {
         renderEditTeamsModal();
@@ -5359,9 +4915,10 @@ async function openStudentGradesPopup(studentId) {
         const classFiles = listResult.files.filter(f => f.filename === '_class.js');
         const testFiles  = listResult.files.filter(f => f.filename !== '_class.js');
 
-        // Read all _class.js files matching selectedGroupName; collect sem dirs
+        // Find the _class.js matching selectedGroupName (current format: <classSlug>/_class.js)
         let gsStudentId = null;
-        const semDirs = {}; // 'sem1'/'sem2' -> { classId, subdir }
+        let matchedClassId = null;
+        let matchedSubdir = null;
 
         for (const cf of classFiles) {
             const res = await window.Desktop.readByPath('grades', cf.relativePath);
@@ -5370,24 +4927,21 @@ async function openStudentGradesPopup(studentId) {
             if (!meta || meta.className !== selectedGroupName) continue;
 
             const parts = cf.relativePath.replace(/\\/g, '/').split('/');
-            const sem   = parts[0]; // 'sem1' or 'sem2'
-            if (sem !== 'sem1' && sem !== 'sem2') continue;
-            const subdir = parts.slice(0, -1).join('/');
+            if (parts.length < 2) continue;
+            matchedClassId = meta.classId;
+            matchedSubdir  = parts.slice(0, -1).join('/');
 
-            semDirs[sem] = { classId: meta.classId, subdir };
-
-            if (!gsStudentId) {
-                const match = (meta.students || []).find(gs => {
-                    const first = (gs.firstName || '').trim().toUpperCase();
-                    const last  = (gs.lastName  || '').trim().toUpperCase();
-                    const full  = last ? (first + ' ' + last) : first;
-                    return full === targetName || first === targetName;
-                });
-                if (match) gsStudentId = match.id;
-            }
+            const match = (meta.students || []).find(gs => {
+                const first = (gs.firstName || '').trim().toUpperCase();
+                const last  = (gs.lastName  || '').trim().toUpperCase();
+                const full  = last ? (first + ' ' + last) : first;
+                return full === targetName || first === targetName;
+            });
+            if (match) gsStudentId = match.id;
+            break;
         }
 
-        if (!Object.keys(semDirs).length) {
+        if (!matchedSubdir) {
             _showAndPosition(`<div class="grades-empty">No grade data for <em>${escapeSettingsHtml(selectedGroupName)}</em>.</div>`);
             return;
         }
@@ -5396,30 +4950,29 @@ async function openStudentGradesPopup(studentId) {
             return;
         }
 
-        // Read test files for each semester
+        // Read test files — semester is stored in testData.semester (format: <classSlug>/sem1-test-NN.js)
         const TEST_COUNT = 8;
         const gradeBySem = {};
 
-        for (const [sem, { classId, subdir }] of Object.entries(semDirs)) {
-            const semTests   = new Array(TEST_COUNT).fill(null);
-            const semConfigs = new Array(TEST_COUNT).fill(null);
+        const classTestFiles = testFiles.filter(f =>
+            f.relativePath.replace(/\\/g, '/').startsWith(matchedSubdir + '/'));
 
-            const semTestFiles = testFiles.filter(f =>
-                f.relativePath.replace(/\\/g, '/').startsWith(subdir + '/'));
+        for (const tf of classTestFiles) {
+            const res = await window.Desktop.readByPath('grades', tf.relativePath);
+            if (!res || !res.content) continue;
+            const testData = _parseGradeJs(res.content);
+            if (!testData || testData.classId !== matchedClassId) continue;
+            const sem = testData.semester;
+            if (sem !== 'sem1' && sem !== 'sem2') continue;
+            const idx = testData.testIndex;
+            if (typeof idx !== 'number' || idx < 0 || idx >= TEST_COUNT) continue;
 
-            for (const tf of semTestFiles) {
-                const res = await window.Desktop.readByPath('grades', tf.relativePath);
-                if (!res || !res.content) continue;
-                const testData = _parseGradeJs(res.content);
-                if (!testData || testData.classId !== classId) continue;
-                const idx = testData.testIndex;
-                if (typeof idx !== 'number' || idx < 0 || idx >= TEST_COUNT) continue;
-                if (testData.testConfig) semConfigs[idx] = testData.testConfig;
-                const result = (testData.results || []).find(r => r.studentId === gsStudentId);
-                if (result) semTests[idx] = result.score ?? null;
+            if (!gradeBySem[sem]) {
+                gradeBySem[sem] = { tests: new Array(TEST_COUNT).fill(null), configs: new Array(TEST_COUNT).fill(null) };
             }
-
-            gradeBySem[sem] = { tests: semTests, configs: semConfigs };
+            if (testData.testConfig) gradeBySem[sem].configs[idx] = testData.testConfig;
+            const result = (testData.results || []).find(r => r.studentId === gsStudentId);
+            if (result) gradeBySem[sem].tests[idx] = result.score ?? null;
         }
 
         // Build HTML
@@ -5439,7 +4992,7 @@ async function openStudentGradesPopup(studentId) {
             const avg = _calcAvg(tests, configs);
             if (avg != null) semAvgs.push(avg);
 
-            html += `<div class="stats-section-label">${sem === 'sem1' ? 'Semester 1' : 'Semester 2'}</div>`;
+            html += `<div class="stats-section-label">${sem === 'sem1' ? t('gsSem1') : t('gsSem2')}</div>`;
 
             activeTests.forEach(({ index, grade, cfg }) => {
                 const label   = escapeSettingsHtml((cfg && cfg.testName) || ('Test ' + (index + 1)));

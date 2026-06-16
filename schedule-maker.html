@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="i18n.js"></script>
+  <script src="dialogs.js"></script>
   <link rel="stylesheet" href="stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -519,6 +520,14 @@
           <option value="" data-i18n="smGroupPlaceholder">— Select a group —</option>
         </select>
       </div>
+      <div class="sm-field">
+        <label class="sm-label" data-i18n="smLabelSemester">Term</label>
+        <select id="sm-semester" class="sm-input sm-select">
+          <option value="" data-i18n="smSemNone">— none —</option>
+          <option value="1">S1</option>
+          <option value="2">S2</option>
+        </select>
+      </div>
     </div>
     <div class="sm-config-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
       <div class="sm-field">
@@ -646,6 +655,8 @@
 
   let classGroups = {};
   let classGroupsMeta = {};
+  let smActiveYear = '';
+  let smActiveSemester = null;
   let orderItems = []; // [{type:'student', name, sen}, {type:'break'}]
   let _dragSrcIdx = null;
 
@@ -703,6 +714,8 @@
           const parsed = fn();
           classGroups = (parsed && parsed.classGroups) ? parsed.classGroups : {};
           classGroupsMeta = (parsed && parsed.classGroupsMeta) ? parsed.classGroupsMeta : {};
+          smActiveYear = (parsed && parsed.activeYear) ? parsed.activeYear : '';
+          smActiveSemester = (parsed && parsed.activeSemester) ? parsed.activeSemester : null;
         }
       } catch (e) {
         showNotice('Could not load class-groups.js: ' + e.message, true);
@@ -710,6 +723,10 @@
     } else {
       classGroups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
       classGroupsMeta = (typeof CLASS_GROUPS_META !== 'undefined') ? CLASS_GROUPS_META : {};
+      if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
+        smActiveYear = CLASS_GROUPS_DATA.activeYear || '';
+        smActiveSemester = CLASS_GROUPS_DATA.activeSemester || null;
+      }
     }
     populateGroupSelect();
   }
@@ -718,9 +735,16 @@
     const sel = document.getElementById('sm-group');
     const prev = sel.value;
     while (sel.options.length > 1) sel.remove(1);
+    const _activeYearSM = smActiveYear;
+    const _activeSemSM = smActiveSemester ? String(smActiveSemester) : '';
     Object.keys(classGroups)
       .filter(g => !(classGroupsMeta[g] && classGroupsMeta[g].archived))
-      .sort()
+      .sort((a, b) => {
+        const aActive = (_activeYearSM && (classGroupsMeta[a] || {}).year === _activeYearSM) ? 0 : 1;
+        const bActive = (_activeYearSM && (classGroupsMeta[b] || {}).year === _activeYearSM) ? 0 : 1;
+        if (aActive !== bActive) return aActive - bActive;
+        return a.localeCompare(b);
+      })
       .forEach(g => {
         const opt = document.createElement('option');
         opt.value = g;
@@ -729,6 +753,9 @@
         sel.appendChild(opt);
       });
     if (prev && sel.querySelector('option[value="' + CSS.escape(prev) + '"]')) sel.value = prev;
+    // Pre-fill semester from active context on first load
+    const semSel = document.getElementById('sm-semester');
+    if (semSel && !semSel.value && _activeSemSM) semSel.value = _activeSemSM;
   }
 
   // ── Apply config ─────────────────────────────────────────
@@ -1205,6 +1232,7 @@
       date: document.getElementById('sm-date').value,
       startTime: document.getElementById('sm-start').value,
       group: document.getElementById('sm-group').value,
+      semester: document.getElementById('sm-semester').value || null,
       prepNormal: parseInt(document.getElementById('sm-prep-normal').value) || 10,
       prepSen: parseInt(document.getElementById('sm-prep-sen').value) || 20,
       examTime: parseInt(document.getElementById('sm-exam-time').value) || 15,
@@ -1233,6 +1261,8 @@
         if (sel.options[i].value === obj.group) { sel.selectedIndex = i; break; }
       }
     }
+    const semSel = document.getElementById('sm-semester');
+    if (semSel) semSel.value = obj.semester ? String(obj.semester) : '';
     orderItems = (obj.items || []).map(i => i.type === 'break' ? { type: 'break' } : { type: 'student', name: i.name, sen: !!i.sen, excluded: !!i.excluded });
     document.getElementById('sm-add-break-btn').disabled = orderItems.length === 0;
     renderOrderList();

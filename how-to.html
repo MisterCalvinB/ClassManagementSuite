@@ -542,6 +542,7 @@
         </div>
         <div class="sidebar-children">
           <button class="sidebar-child" data-accordion="acc-board-constellation" onclick="navToAccordion('board','acc-board-constellation')"><span class="sidebar-child-dot"></span>Constellation Maps</button>
+          <button class="sidebar-child" data-accordion="acc-board-voice" onclick="navToAccordion('board','acc-board-voice')"><span class="sidebar-child-dot"></span>Voice Recordings</button>
           <button class="sidebar-child" data-accordion="acc-board-timer" onclick="navToAccordion('board','acc-board-timer')"><span class="sidebar-child-dot"></span>Live Timer</button>
           <button class="sidebar-child" data-accordion="acc-board-drawing" onclick="navToAccordion('board','acc-board-drawing')"><span class="sidebar-child-dot"></span>Drawing & Laser</button>
           <button class="sidebar-child" data-accordion="acc-board-settings" onclick="navToAccordion('board','acc-board-settings')"><span class="sidebar-child-dot"></span>Board Settings</button>
@@ -564,6 +565,35 @@
           <button class="sidebar-child" data-accordion="acc-cm-roles" onclick="navToAccordion('class-management','acc-cm-roles')"><span class="sidebar-child-dot"></span>Roles</button>
           <button class="sidebar-child" data-accordion="acc-cm-results" onclick="navToAccordion('class-management','acc-cm-results')"><span class="sidebar-child-dot"></span>Results & Ranking</button>
           <button class="sidebar-child" data-accordion="acc-cm-history" onclick="navToAccordion('class-management','acc-cm-history')"><span class="sidebar-child-dot"></span>Session History</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-group-editor">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="group-editor" onclick="navTo('group-editor')">
+            <span>🗃</span> Group Editor
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-group-editor')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-ge-groups" onclick="navToAccordion('group-editor','acc-ge-groups')"><span class="sidebar-child-dot"></span>Managing Groups</button>
+          <button class="sidebar-child" data-accordion="acc-ge-context" onclick="navToAccordion('group-editor','acc-ge-context')"><span class="sidebar-child-dot"></span>Active Context</button>
+          <button class="sidebar-child" data-accordion="acc-ge-archive" onclick="navToAccordion('group-editor','acc-ge-archive')"><span class="sidebar-child-dot"></span>Archiving</button>
+        </div>
+      </div>
+
+      <div class="sidebar-item" id="nav-planner">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="planner" onclick="navTo('planner')">
+            <span>📅</span> Planner
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-planner')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-pl-terms" onclick="navToAccordion('planner','acc-pl-terms')"><span class="sidebar-child-dot"></span>Setting Up Terms</button>
+          <button class="sidebar-child" data-accordion="acc-pl-classes" onclick="navToAccordion('planner','acc-pl-classes')"><span class="sidebar-child-dot"></span>Managing Classes</button>
+          <button class="sidebar-child" data-accordion="acc-pl-entries" onclick="navToAccordion('planner','acc-pl-entries')"><span class="sidebar-child-dot"></span>Adding Entries</button>
+          <button class="sidebar-child" data-accordion="acc-pl-export" onclick="navToAccordion('planner','acc-pl-export')"><span class="sidebar-child-dot"></span>Exporting</button>
         </div>
       </div>
 
@@ -737,6 +767,14 @@
           <h3>🗂 Manage Database</h3>
           <p>Create word banks, dictations, grammar exercises, stories, and quiz content.</p>
         </button>
+        <button class="overview-card" onclick="navTo('group-editor')">
+          <h3>🗃 Group Editor</h3>
+          <p>Create, edit, and archive class groups. Set the active year and term shared by all tools.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('planner')">
+          <h3>📅 Planner</h3>
+          <p>Plan lessons, tests, and assignments week by week. Export to ICS, PDF, CSV, or Markdown.</p>
+        </button>
       </div>
       <div class="tip">
         <strong>Tip:</strong> Open <button class="xlink" onclick="navTo('class-management')">Class Management</button> and <button class="xlink" onclick="navTo('board')">Board</button> side by side — the Board mirrors the timer and sync state from Class Management in real time. Configure this in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-startup')">Startup &amp; Launch settings</button>.
@@ -752,7 +790,7 @@
         <h2>First Setup</h2>
       </div>
       <p class="tool-overview">
-        Follow these five steps the first time you install or launch Class Management Tools. Each step only takes a few minutes, and you only need to do it once.
+        Follow these six steps the first time you install or launch Class Management Tools. Each step only takes a few minutes, and you only need to do it once.
       </p>
 
       <!-- Step 1 ── Data Folder -->
@@ -793,11 +831,30 @@
         </div></div>
       </div>
 
-      <!-- Step 3 ── Add Content -->
+      <!-- Step 3 ── Organise your term -->
+      <div class="accordion" id="acc-fs-term">
+        <button class="accordion-header" onclick="toggleAccordion('acc-fs-term')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Step 3 — Organise your term</span>
+          <span class="accordion-badge">recommended</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Setting the <em>active term</em> tells every tool which school year and term period you are currently in. It powers the end-of-term archive prompt, the Participation Tracker's <em>This Term</em> date filter, and the default values when you create new groups.</p>
+          <ol class="steps">
+            <li>Open <button class="xlink" onclick="openTool('group-editor.html')">Group Editor</button>. At the top you will see the <strong>Active Context</strong> banner.</li>
+            <li>Enter the <strong>Year</strong> (e.g. <code>2025-2026</code>), select <strong>Term</strong> (S1 or S2), and fill in the <strong>Start date</strong> and <strong>End date</strong> for the term.</li>
+            <li>If you also use the <button class="xlink" onclick="openTool('planner.html')">Planner</button>, click <strong>↕ Planner</strong> to pull the dates from a configured Planner term in one click.</li>
+            <li>Click <strong>Save</strong>. The active context is now shared with all other tools.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> When the term end date passes and you still have active groups, Group Editor will offer to archive the whole term at once. Archived groups are hidden from rosters but their data is preserved.</div>
+        </div></div>
+      </div>
+
+      <!-- Step 4 ── Add Content -->
       <div class="accordion" id="acc-fs-content">
         <button class="accordion-header" onclick="toggleAccordion('acc-fs-content')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Step 3 — Add learning content</span>
+          <span class="accordion-title">Step 4 — Add learning content</span>
           <span class="accordion-badge">optional but recommended</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
@@ -813,11 +870,11 @@
         </div></div>
       </div>
 
-      <!-- Step 4 ── Configure -->
+      <!-- Step 5 ── Configure -->
       <div class="accordion" id="acc-fs-config">
         <button class="accordion-header" onclick="toggleAccordion('acc-fs-config')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Step 4 — Configure your preferences</span>
+          <span class="accordion-title">Step 5 — Configure your preferences</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">A few settings make the app feel like yours. Open <button class="xlink" onclick="openTool('general-config.html')">General Config</button> from the launcher.</p>
@@ -830,11 +887,11 @@
         </div></div>
       </div>
 
-      <!-- Step 5 ── First Session -->
+      <!-- Step 6 ── First Session -->
       <div class="accordion" id="acc-fs-session">
         <button class="accordion-header" onclick="toggleAccordion('acc-fs-session')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Step 5 — Run your first session</span>
+          <span class="accordion-title">Step 6 — Run your first session</span>
           <span class="accordion-badge">you're ready</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
@@ -954,6 +1011,26 @@
               <li>Export: click <strong>🖨 Print</strong>, then choose which columns (translation, IPA, definition…) to include in the PDF.</li>
             </ol>
             <div class="tip"><strong>Tip:</strong> Use <strong>DEF</strong> in the node context menu to auto-fetch a definition, or <strong>FR</strong> for a French translation via Wiktionary.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion" id="acc-board-voice">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-voice')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Voice Recordings</span>
+        </button>
+        <div class="accordion-body">
+          <div class="accordion-inner">
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Record audio directly from your microphone and attach it to a constellation as a playable sound node.</p>
+            <ol class="steps">
+              <li>Click <strong>🧩 Media → 🎙 Record Audio</strong>, or right-click an empty area of the board canvas and choose <strong>🎙 Record Audio</strong>.</li>
+              <li>The recorder popup shows a mic level bar and a live timer. Press <strong>⏺</strong> to start recording.</li>
+              <li>Press <strong>⏹</strong> to stop. A preview player appears so you can listen back before saving.</li>
+              <li>Click <strong>Save to board</strong> — the clip is saved in the constellation's companion folder (<code>audio/</code>) and placed on the board as a sound node automatically.</li>
+            </ol>
+            <div class="tip"><strong>No constellation open?</strong> A <strong>💾 Save constellation &amp; proceed</strong> button appears. Saving your board first creates the companion folder required to store recordings.</div>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Trimming a recording:</strong> right-click any audio node and choose <strong>✂ Trim</strong>. Drag the blue handles on the waveform to mark the start and end of the portion you want to keep, preview it with <strong>▶ Selection</strong>, then click <strong>Save trimmed</strong>. A new <code>.wav</code> file is saved alongside the original — the original is never deleted.</div>
           </div>
         </div>
       </div>
@@ -1133,6 +1210,152 @@
 
     <hr class="divider">
 
+    <!-- ═══ GROUP EDITOR ══════════════════════════════════════ -->
+    <section class="tool-section" id="group-editor">
+      <div class="tool-header">
+        <span class="tool-icon">🗃</span>
+        <h2>Group Editor</h2>
+        <button class="open-tool-btn" onclick="openTool('group-editor.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Create, edit, and archive your class groups. Groups defined here are shared across every tool — Class Management, Participation Tracker, Grade Sheet, and Learning Tools all read from the same file.
+      </p>
+
+      <div class="accordion" id="acc-ge-groups">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ge-groups')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Managing Groups</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Enter a <strong>Group name</strong> (e.g. <code>3B English</code>), select the <strong>Term</strong> (S1 or S2), and optionally fill <strong>Year</strong> and <strong>Level</strong>.</li>
+            <li>Paste or type student names — one per line or comma-separated — in the <strong>Students</strong> field, then click <strong>Add</strong>.</li>
+            <li>To rename a student or group, edit the field inline and click <strong>Save</strong>.</li>
+            <li>To delete a group, click the <strong>✕</strong> button on its row. This cannot be undone from within the editor; use <strong>Archive</strong> if you want to preserve the data.</li>
+            <li>Click <strong>💾 Save</strong> at the bottom to write all changes to <code>class-groups.js</code>. Changes are not applied until you save.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> You can import groups from a CSV file using the <strong>Import CSV</strong> button in the toolbar. Columns: Group, First Name, Last Name, Year, Term, Level.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ge-context">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ge-context')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Active Context</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The <strong>Active Context</strong> banner at the top of Group Editor sets the default year, term, and dates used by every tool. Setting it once here propagates to Class Management, Participation Tracker, and Grade Sheet.</p>
+          <ol class="steps">
+            <li>Set the <strong>Year</strong> field (e.g. <code>2025-2026</code>) and select the current <strong>Term</strong> — S1 or S2.</li>
+            <li>Enter the <strong>Start date</strong> and <strong>End date</strong> for the term. These power the Participation Tracker's <em>This Term</em> filter and the end-of-term archive prompt.</li>
+            <li>If you use the Planner, click <strong>↕ Planner</strong> to auto-fill the dates from a configured Planner term. If the Planner has one term, it applies immediately; if it has several, a picker appears.</li>
+            <li>Click <strong>💾 Save</strong> to persist the active context to <code>class-groups.js</code>.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ge-archive">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ge-archive')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Archiving</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Archiving hides groups from all rosters without deleting their data. Participation files are moved to an <code>archived/</code> sub-folder. You can unarchive at any time.</p>
+          <ol class="steps">
+            <li>To archive a single group, click the <strong>Archive</strong> button on its row.</li>
+            <li>To archive all groups for a term at once, click <strong>Archive S1</strong> or <strong>Archive S2</strong> in the section header.</li>
+            <li>When the active term end date has passed and active groups remain, a yellow banner appears at the top offering to archive the whole term in one click.</li>
+            <li>To view or restore archived groups, scroll to the <strong>Archived Groups</strong> section and click <strong>Unarchive</strong> on any row.</li>
+          </ol>
+          <div class="tip"><strong>Note:</strong> Archiving a group marks it <code>archived: true</code> in <code>class-groups.js</code> and moves its participation files to <code>archived/</code>. Grade Sheet data is not affected.</div>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ PLANNER ════════════════════════════════════════════ -->
+    <section class="tool-section" id="planner">
+      <div class="tool-header">
+        <span class="tool-icon">📅</span>
+        <h2>Planner</h2>
+        <button class="open-tool-btn" onclick="openTool('planner.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Plan your term week by week — schedule lessons, tests, assignments, and holidays per class. Export to ICS (Google/Apple Calendar), PDF, CSV, or Markdown.
+      </p>
+
+      <div class="accordion" id="acc-pl-terms">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-terms')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Setting Up Terms</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>+ Term</strong> in the toolbar to create a new term. Give it a label (e.g. <code>Autumn 2025</code>).</li>
+            <li>Enter the <strong>Start date</strong> and <strong>End date</strong>. If Group Editor already has active-context dates, a blue hint appears in the modal — click it to fill the dates automatically.</li>
+            <li>Add <strong>Holidays</strong> within the term (school breaks, bank holidays). Entries scheduled on holiday days are flagged in the week view.</li>
+            <li>Click <strong>OK</strong> to save. A week-by-week calendar for that term is now generated.</li>
+            <li>Use the term selector in the toolbar to switch between terms.</li>
+          </ol>
+          <div class="tip"><strong>Tip:</strong> Term dates set in the Planner can be synced back to Group Editor using the <strong>↕ Planner</strong> button in the Active Context banner.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pl-classes">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-classes')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Managing Classes</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Classes</strong> in the toolbar to open the class setup panel.</li>
+            <li>Select a class from the dropdown — the list is drawn from your groups in Group Editor.</li>
+            <li>Set a <strong>colour</strong> for the class so its entries are visually distinct in the week view.</li>
+            <li>Assign the class to <strong>Term 1</strong>, <strong>Term 2</strong>, or both.</li>
+            <li>Define a <strong>Weekly Schedule</strong> — which days and times the class meets. The planner uses this to pre-populate the week view and warn about scheduling conflicts.</li>
+            <li>Add <strong>Learning Objectives</strong> for the term — these can be attached to individual lesson entries.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pl-entries">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-entries')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Adding Entries</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click any cell in the week view, or click <strong>+ Add</strong> in the toolbar, to open the entry modal.</li>
+            <li>Choose the <strong>Class</strong>, <strong>Date</strong>, and <strong>Type</strong> — Lesson, Test, Assignment Due, or Holiday (plus any custom types you have added).</li>
+            <li>Fill in optional fields: <strong>Topic</strong>, <strong>Objective</strong>, <strong>Readings</strong>, <strong>Activities</strong>, <strong>Homework</strong>, and <strong>Notes</strong>.</li>
+            <li>For <strong>Test</strong> entries linked to Grade Sheet: if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically added there. A green badge confirms the link.</li>
+            <li>Use <strong>Duplicate</strong> to copy an entry to another date — useful for repeating lesson structures.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pl-export">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-export')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Exporting</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Export</strong> in the toolbar and choose a format.</li>
+            <li><strong>ICS</strong> — exports a calendar file you can import into Google Calendar, Apple Calendar, or Outlook. Optionally filter by class.</li>
+            <li><strong>PDF</strong> — a print-ready version of the week view for the selected term.</li>
+            <li><strong>CSV</strong> — a spreadsheet of all entries with full field data.</li>
+            <li><strong>Markdown</strong> — a structured text document, useful for pasting into a notes app or sharing as plain text.</li>
+          </ol>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
     <!-- ═══ PARTICIPATION TRACKER ════════════════════════════ -->
     <section class="tool-section" id="participation-tracker">
       <div class="tool-header">
@@ -1240,8 +1463,8 @@
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
             <li><strong>Import Grades</strong> — load scores from a CSV file into an existing test.</li>
-            <li><strong>Export CSV</strong> — export the full semester's grades for the selected class.</li>
-            <li><strong>Print Semester / Print Results</strong> — generate a printable PDF.</li>
+            <li><strong>Export CSV</strong> — export the full term's grades for the selected class.</li>
+            <li><strong>Print Term / Print Results</strong> — generate a printable PDF.</li>
             <li><strong>Duplicate / Import</strong> — copy a test structure into a new test or another class.</li>
           </ol>
         </div></div>

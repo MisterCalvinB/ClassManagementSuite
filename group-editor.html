@@ -295,6 +295,154 @@
       margin-top: 20px;
     }
 
+    /* ── Active context banner ───────────────────────── */
+    .ge-active-banner {
+      background: #f8f8f8;
+      border: 1.5px solid #000;
+      border-radius: 7px;
+      padding: 12px 16px 10px;
+      margin-bottom: 20px;
+    }
+    .ge-active-banner-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      margin-bottom: 8px;
+    }
+    .ge-active-banner-fields {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .ge-active-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #555;
+      white-space: nowrap;
+    }
+    .ge-active-input {
+      width: 100px;
+      padding: 5px 8px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .ge-active-select {
+      padding: 5px 6px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .ge-active-date {
+      width: 130px;
+      padding: 5px 8px;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .ge-active-hint {
+      font-size: 0.76rem;
+      color: #777;
+      margin-top: 7px;
+    }
+
+    /* ── Semester group sections ─────────────────────────── */
+    .ge-sem-group { margin-bottom: 16px; }
+    .ge-sem-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0 4px;
+      border-bottom: 2px solid #000;
+      margin-bottom: 8px;
+    }
+    .ge-sem-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      flex: 1;
+    }
+    .ge-sem-label.ge-sem-label-none { color: #888; }
+    .ge-sem-archive-btn {
+      padding: 3px 10px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: #fff;
+      border: 1.5px solid #bbb;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #666;
+      font-family: inherit;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .ge-sem-archive-btn:hover { border-color: #111; color: #111; }
+    .ge-sem-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #555;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    /* ── End-of-semester banner ──────────────────────────── */
+    .ge-eos-banner {
+      background: #fffde7;
+      border: 2px solid #000;
+      border-radius: 7px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ge-eos-msg {
+      flex: 1;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #000;
+      min-width: 160px;
+    }
+    .ge-eos-archive {
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 2px solid #000;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      background: #000;
+      color: #fff;
+      transition: all 0.1s;
+      white-space: nowrap;
+    }
+    .ge-eos-archive:hover { background: #fff; color: #000; }
+    .ge-eos-dismiss {
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 1.5px solid #bbb;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      background: #fff;
+      color: #666;
+      transition: all 0.1s;
+    }
+    .ge-eos-dismiss:hover { border-color: #333; color: #333; }
+
     /* ── Status notice ────────────────────────────────── */
     .ge-notice {
       font-size: 0.82rem;
@@ -362,6 +510,41 @@
 
   <div id="ge-notice" style="display:none;" class="ge-notice"></div>
 
+  <div class="ge-active-banner">
+    <div class="ge-active-banner-label" data-i18n="geActiveContextTitle">Active Context</div>
+    <div class="ge-active-banner-fields">
+      <span class="ge-active-label" data-i18n="geActiveYear">Year</span>
+      <input id="ge-active-year" class="ge-active-input" type="text" placeholder="2025-2026">
+      <span class="ge-active-label" data-i18n="geActiveSem">Term</span>
+      <select id="ge-active-semester" class="ge-active-select">
+        <option value="">—</option>
+      </select>
+      <span class="ge-active-label" data-i18n="geActiveSemStart">Start date</span>
+      <input id="ge-active-sem-start" class="ge-active-date" type="date">
+      <span class="ge-active-label" data-i18n="geActiveSemEnd">End date</span>
+      <input id="ge-active-sem-end" class="ge-active-date" type="date">
+      <span class="ge-active-label" data-i18n="geTermsPerYear">Terms / yr</span>
+      <select id="ge-terms-per-year" class="ge-active-select" onchange="onTermsPerYearChange(this.value)" style="width:52px;">
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+      <button class="ge-csv-btn" onclick="syncFromPlanner()" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" title="Fill dates from Planner terms">↕ Planner</button>
+    </div>
+    <div id="ge-planner-hint" style="display:none;margin:6px 0 0;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
+      <span id="ge-planner-hint-text" style="flex:1;color:#2563a8;"></span>
+      <button onclick="syncFromPlanner()" data-i18n="gePlannerSyncBtn" style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;">↕ Planner</button>
+    </div>
+    <p class="ge-active-hint" data-i18n="geActiveContextHint">Default year and semester for new groups and other tools.</p>
+  </div>
+
+  <!-- End-of-semester archive offer -->
+  <div id="ge-eos-banner" style="display:none;" class="ge-eos-banner">
+    <span class="ge-eos-msg" id="ge-eos-msg"></span>
+    <button class="ge-eos-archive" id="ge-eos-archive-btn" onclick="eosArchive()"></button>
+    <button class="ge-eos-dismiss" onclick="eosDismiss()" id="ge-eos-dismiss-btn"></button>
+  </div>
+
   <div class="ge-section-title" data-i18n="geActiveGroups">Active Groups</div>
   <div id="ge-groups-body"></div>
 
@@ -373,9 +556,7 @@
         placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" oninput="autoResizeStudents(this)"></textarea>
       <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
       <select id="new-group-semester" class="ge-add-select">
-        <option value="">Sem</option>
-        <option value="1">S1</option>
-        <option value="2">S2</option>
+        <option value="">—</option>
       </select>
       <select id="new-group-level" class="ge-add-select">
         <option value="">Lvl</option>
@@ -390,6 +571,17 @@
 
   <div class="ge-save-bar">
     <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn">💾 Save to class-groups.js</button>
+  </div>
+</div>
+
+<!-- Planner semester picker -->
+<div id="ge-planner-picker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9001;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:24px 24px 18px;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <p id="ge-planner-picker-msg" style="font-size:0.88rem;font-weight:700;margin-bottom:14px;"></p>
+    <div id="ge-planner-picker-btns" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+      <button onclick="closePlannerPicker()" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -411,6 +603,46 @@
   let rawData = {};
   let rawMeta = {};
   let _confirmCb = null;
+  let _activeYear = '';
+  let _activeSemester = null;
+  let _activeSemStart = '';
+  let _activeSemEnd = '';
+  let _plannerSemesters = [];
+  let _plannerActiveSemId = null;
+
+  function getTermsPerYear() {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+      return Math.max(2, Math.min(4, parseInt(cfg.termsPerYear, 10) || 2));
+    } catch (e) { return 2; }
+  }
+  function setTermsPerYear(n) {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+      cfg.termsPerYear = Number(n);
+      localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
+    } catch (e) {}
+  }
+  function _buildTermSelectOptions(selectEl, currentVal) {
+    if (!selectEl) return;
+    const n = getTermsPerYear();
+    const prev = currentVal !== undefined ? String(currentVal || '') : selectEl.value;
+    selectEl.innerHTML = '<option value="">—</option>';
+    for (let i = 1; i <= n; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = 'S' + i;
+      selectEl.appendChild(opt);
+    }
+    if (prev) selectEl.value = prev;
+  }
+  function onTermsPerYearChange(val) {
+    setTermsPerYear(Number(val) || 2);
+    _buildTermSelectOptions(document.getElementById('ge-active-semester'), _activeSemester);
+    _buildTermSelectOptions(document.getElementById('new-group-semester'), _activeSemester);
+    renderGroupsList();
+    checkEndOfSemesterPrompt();
+  }
 
   // ── Navigation ──────────────────────────────────────────────
   function goBack() {
@@ -523,6 +755,11 @@
             const parsed = fn();
             rawData = (parsed && parsed.classGroups) ? parsed.classGroups : {};
             rawMeta = (parsed && parsed.classGroupsMeta) ? parsed.classGroupsMeta : {};
+            _activeYear = (parsed && parsed.activeYear) ? parsed.activeYear : '';
+            _activeSemester = (parsed && parsed.activeSemester) ? parsed.activeSemester : null;
+            _activeSemStart = (parsed && parsed.activeSemesterStart) ? parsed.activeSemesterStart : '';
+            _activeSemEnd = (parsed && parsed.activeSemesterEnd) ? parsed.activeSemesterEnd : '';
+            _populateActiveBanner();
           } catch (parseErr) {
             showNotice('Could not parse class-groups.js: ' + parseErr.message, true);
           }
@@ -535,8 +772,149 @@
     } else {
       rawData = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
       rawMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
+        _activeYear = CLASS_GROUPS_DATA.activeYear || '';
+        _activeSemester = CLASS_GROUPS_DATA.activeSemester || null;
+        _activeSemStart = CLASS_GROUPS_DATA.activeSemesterStart || '';
+        _activeSemEnd = CLASS_GROUPS_DATA.activeSemesterEnd || '';
+        _populateActiveBanner();
+      }
     }
     renderGroupsList();
+    checkEndOfSemesterPrompt();
+    loadPlannerConfig(); // non-blocking, populates _plannerSemesters for the sync button
+  }
+
+  function _populateActiveBanner() {
+    const yearEl = document.getElementById('ge-active-year');
+    const semEl = document.getElementById('ge-active-semester');
+    const startEl = document.getElementById('ge-active-sem-start');
+    const endEl = document.getElementById('ge-active-sem-end');
+    const tpyEl = document.getElementById('ge-terms-per-year');
+    if (tpyEl) tpyEl.value = String(getTermsPerYear());
+    if (yearEl) yearEl.value = _activeYear;
+    _buildTermSelectOptions(semEl, _activeSemester);
+    if (startEl) startEl.value = _activeSemStart;
+    if (endEl) endEl.value = _activeSemEnd;
+    // Pre-fill add-new-group inputs with active defaults
+    const ngYear = document.getElementById('new-group-year');
+    const ngSem = document.getElementById('new-group-semester');
+    if (ngYear && !ngYear.value) ngYear.value = _activeYear;
+    _buildTermSelectOptions(ngSem, ngSem && ngSem.value ? ngSem.value : _activeSemester);
+  }
+
+  function _readActiveBanner() {
+    return {
+      activeYear: (document.getElementById('ge-active-year')?.value.trim()) || '',
+      activeSemester: (() => { const v = document.getElementById('ge-active-semester')?.value; return v ? Number(v) : null; })(),
+      activeSemesterStart: (document.getElementById('ge-active-sem-start')?.value) || '',
+      activeSemesterEnd: (document.getElementById('ge-active-sem-end')?.value) || ''
+    };
+  }
+
+  // ── Planner config sync ──────────────────────────────────────
+  async function loadPlannerConfig() {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return;
+    try {
+      const result = await Desktop.readText('user', 'planner-config.js');
+      if (!result?.ok || !result.content) return;
+      const sandbox = {};
+      const fn = new Function('window', result.content + '\nreturn window.PLANNER_CONFIG || null;');
+      const cfg = fn(sandbox);
+      if (cfg && Array.isArray(cfg.semesters) && cfg.semesters.length) {
+        _plannerSemesters = cfg.semesters;
+        _plannerActiveSemId = cfg.activeSemesterId || null;
+        _showPlannerHintIfNeeded();
+      }
+    } catch (_) {}
+  }
+
+  function _showPlannerHintIfNeeded() {
+    const hintEl = document.getElementById('ge-planner-hint');
+    if (!hintEl || !_plannerSemesters.length) return;
+    // Only offer when active-context dates aren't set yet
+    if (_activeSemStart || _activeSemEnd) return;
+    const activeSem = _plannerSemesters.find(s => s.id === _plannerActiveSemId) || _plannerSemesters[0];
+    let msg;
+    if (_plannerSemesters.length === 1 && activeSem) {
+      const label = activeSem.label || ('S1');
+      const start = activeSem.semesterStart || '';
+      const end   = activeSem.semesterEnd   || '';
+      if (!start && !end) return; // nothing useful to offer
+      msg = typeof tFmt === 'function'
+        ? tFmt('gePlannerHintSingle', { label, start: start || '?', end: end || '?' })
+        : `Planner term: ${label} (${start} → ${end})`;
+    } else {
+      msg = typeof tFmt === 'function'
+        ? tFmt('gePlannerHintMulti', { n: _plannerSemesters.length })
+        : `Planner has ${_plannerSemesters.length} term(s) configured`;
+    }
+    document.getElementById('ge-planner-hint-text').textContent = msg;
+    hintEl.style.display = 'flex';
+  }
+
+  function deriveYearFromDates(startDate, endDate) {
+    if (!startDate) return '';
+    const sy = startDate.substring(0, 4);
+    const ey = endDate ? endDate.substring(0, 4) : sy;
+    return sy === ey ? sy : sy + '-' + ey;
+  }
+
+  function syncFromPlanner() {
+    if (!_plannerSemesters.length) {
+      showToast(typeof t === 'function' ? t('gePlannerSyncNone') : 'No semesters found in the Planner.');
+      return;
+    }
+    if (_plannerSemesters.length === 1) {
+      applyPlannerSemester(_plannerSemesters[0], 0);
+      return;
+    }
+    const picker = document.getElementById('ge-planner-picker');
+    const msg = document.getElementById('ge-planner-picker-msg');
+    const btns = document.getElementById('ge-planner-picker-btns');
+    msg.textContent = typeof t === 'function' ? t('gePlannerSyncHint') : 'Use dates from which Planner semester?';
+    btns.innerHTML = '';
+    _plannerSemesters.forEach((sem, idx) => {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'padding:9px 14px;border:2px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.84rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:all 0.1s;text-align:left;width:100%;';
+      btn.onmouseover = () => { btn.style.borderColor = '#111'; };
+      btn.onmouseout = () => { btn.style.borderColor = '#ccc'; };
+      const semNum = idx + 1;
+      const yearStr = deriveYearFromDates(sem.semesterStart, sem.semesterEnd);
+      const dateRange = [sem.semesterStart, sem.semesterEnd].filter(Boolean).join(' → ');
+      btn.innerHTML = `<strong>S${semNum}${sem.label ? ' — ' + sem.label : ''}</strong>${yearStr ? ' (' + yearStr + ')' : ''}<br><span style="font-size:0.75rem;font-weight:600;color:#666;">${dateRange}</span>`;
+      btn.onclick = () => { closePlannerPicker(); applyPlannerSemester(sem, idx); };
+      btns.appendChild(btn);
+    });
+    picker.style.display = 'flex';
+  }
+
+  function closePlannerPicker() {
+    document.getElementById('ge-planner-picker').style.display = 'none';
+  }
+
+  function applyPlannerSemester(sem, semIndex) {
+    const semNum = semIndex + 1;
+    const year = deriveYearFromDates(sem.semesterStart, sem.semesterEnd);
+    const yearEl = document.getElementById('ge-active-year');
+    const semEl = document.getElementById('ge-active-semester');
+    const startEl = document.getElementById('ge-active-sem-start');
+    const endEl = document.getElementById('ge-active-sem-end');
+    if (yearEl && year) yearEl.value = year;
+    if (semEl) semEl.value = String(semNum);
+    if (startEl && sem.semesterStart) startEl.value = sem.semesterStart;
+    if (endEl && sem.semesterEnd) endEl.value = sem.semesterEnd;
+    const ngYear = document.getElementById('new-group-year');
+    const ngSem = document.getElementById('new-group-semester');
+    if (ngYear && year) ngYear.value = year;
+    if (ngSem) ngSem.value = String(semNum);
+    _activeYear = year || _activeYear;
+    _activeSemester = semNum;
+    _activeSemStart = sem.semesterStart || '';
+    _activeSemEnd = sem.semesterEnd || '';
+    const hintEl = document.getElementById('ge-planner-hint');
+    if (hintEl) hintEl.style.display = 'none';
+    showNotice((typeof tFmt === 'function' ? tFmt('geSemSectionLabel', { sem: semNum }) : 'S' + semNum) + (year ? ' — ' + year : '') + ' applied from Planner.');
   }
 
   // ── Build file content ────────────────────────────────────────
@@ -555,8 +933,13 @@
       if (m.archived) metaEntry.archived = true;
       return `    ${JSON.stringify(name)}: ${JSON.stringify(metaEntry)}`;
     });
+    const ac = _readActiveBanner();
     return [
       'const CLASS_GROUPS_DATA = {',
+      `  "activeYear": ${JSON.stringify(ac.activeYear)},`,
+      `  "activeSemester": ${JSON.stringify(ac.activeSemester)},`,
+      `  "activeSemesterStart": ${JSON.stringify(ac.activeSemesterStart)},`,
+      `  "activeSemesterEnd": ${JSON.stringify(ac.activeSemesterEnd)},`,
       '  "classGroups": {',
       groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
       '  },',
@@ -600,14 +983,9 @@
 
     const semSelect = document.createElement('select');
     semSelect.className = 'eg-row-semester';
-    semSelect.title = 'Semester';
+    semSelect.title = typeof t === 'function' ? t('geActiveSem') : 'Term';
     semSelect.style.cssText = 'width:72px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-    [['', 'Sem'], ['1', 'S1'], ['2', 'S2']].forEach(([v, t]) => {
-      const opt = document.createElement('option');
-      opt.value = v; opt.textContent = t;
-      if (String(meta && meta.semester) === v) opt.selected = true;
-      semSelect.appendChild(opt);
-    });
+    _buildTermSelectOptions(semSelect, meta && meta.semester);
 
     const lvlSelect = document.createElement('select');
     lvlSelect.className = 'eg-row-level';
@@ -866,6 +1244,85 @@
     body.appendChild(halfSection);
   }
 
+  // ── Build a semester section element ─────────────────────────
+  function createSemesterGroupElement(semNum, year, groups, isArchived) {
+    const semGroup = document.createElement('div');
+    semGroup.className = 'ge-sem-group';
+    semGroup.dataset.semester = String(semNum);
+    semGroup.dataset.year = year || '';
+
+    const header = document.createElement('div');
+    header.className = 'ge-sem-header';
+
+    const label = document.createElement('span');
+    label.className = 'ge-sem-label';
+    const semLabel = typeof tFmt === 'function' ? tFmt('geSemSectionLabel', { sem: semNum }) : 'S' + semNum;
+    label.textContent = semLabel + (year ? ' — ' + year : '');
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'ge-sem-toggle';
+    toggleBtn.textContent = '▼';
+
+    if (!isArchived) {
+      const archiveBtn = document.createElement('button');
+      archiveBtn.className = 'ge-sem-archive-btn';
+      archiveBtn.textContent = typeof tFmt === 'function' ? tFmt('geArchiveSemBtn', { sem: semNum }) : 'Archive S' + semNum;
+      archiveBtn.onclick = () => archiveSemester(semNum, year);
+      header.appendChild(label);
+      header.appendChild(archiveBtn);
+    } else {
+      header.appendChild(label);
+    }
+    header.appendChild(toggleBtn);
+    semGroup.appendChild(header);
+
+    const content = document.createElement('div');
+    content.className = 'ge-sem-content';
+    groups.forEach(g => buildGroupRow(g, content, isArchived));
+    semGroup.appendChild(content);
+
+    toggleBtn.onclick = () => {
+      const isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : '';
+      toggleBtn.textContent = isOpen ? '▶' : '▼';
+    };
+
+    return semGroup;
+  }
+
+  function createNoSemGroupElement(groups) {
+    const semGroup = document.createElement('div');
+    semGroup.className = 'ge-sem-group ge-nosem-group';
+
+    const header = document.createElement('div');
+    header.className = 'ge-sem-header';
+
+    const label = document.createElement('span');
+    label.className = 'ge-sem-label ge-sem-label-none';
+    label.textContent = typeof t === 'function' ? t('geNoSemSection') : 'No semester';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'ge-sem-toggle';
+    toggleBtn.textContent = '▼';
+
+    header.appendChild(label);
+    header.appendChild(toggleBtn);
+    semGroup.appendChild(header);
+
+    const content = document.createElement('div');
+    content.className = 'ge-sem-content';
+    groups.forEach(g => buildGroupRow(g, content, false));
+    semGroup.appendChild(content);
+
+    toggleBtn.onclick = () => {
+      const isOpen = content.style.display !== 'none';
+      content.style.display = isOpen ? 'none' : '';
+      toggleBtn.textContent = isOpen ? '▶' : '▼';
+    };
+
+    return semGroup;
+  }
+
   // ── Render the full groups list ──────────────────────────────
   function renderGroupsList() {
     const body = document.getElementById('ge-groups-body');
@@ -880,7 +1337,39 @@
       empty.textContent = typeof t === 'function' ? t('geNoActiveGroups') : 'No active groups yet. Add one below.';
       body.appendChild(empty);
     } else {
-      activeGroups.forEach(g => buildGroupRow(g, body, false));
+      const contextYear = (document.getElementById('ge-active-year')?.value.trim()) || _activeYear;
+      const byYearSem = {};
+      const noSemGroups = [];
+      activeGroups.forEach(g => {
+        const meta = rawMeta[g];
+        const sem = meta && meta.semester !== undefined && meta.semester !== ''
+          ? String(meta.semester)
+          : '';
+        if (!sem) { noSemGroups.push(g); return; }
+        const year = (meta && meta.year) ? meta.year : contextYear;
+        const key = year + '|' + sem;
+        if (!byYearSem[key]) byYearSem[key] = [];
+        byYearSem[key].push(g);
+      });
+
+      const sortedKeys = Object.keys(byYearSem).sort((a, b) => {
+        const lastA = a.lastIndexOf('|'), lastB = b.lastIndexOf('|');
+        const yearA = a.substring(0, lastA), semA = a.substring(lastA + 1);
+        const yearB = b.substring(0, lastB), semB = b.substring(lastB + 1);
+        if (yearA !== yearB) return yearA < yearB ? -1 : 1;
+        return Number(semA) - Number(semB);
+      });
+
+      sortedKeys.forEach(key => {
+        const lastPipe = key.lastIndexOf('|');
+        const year = key.substring(0, lastPipe);
+        const semNum = key.substring(lastPipe + 1);
+        body.appendChild(createSemesterGroupElement(semNum, year, byYearSem[key], false));
+      });
+
+      if (noSemGroups.length > 0) {
+        body.appendChild(createNoSemGroupElement(noSemGroups));
+      }
     }
 
     if (archivedGroups.length > 0) {
@@ -952,6 +1441,9 @@
     const nameVal = document.getElementById('new-group-name').value.trim();
     if (!nameVal) { showToast(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.'); return; }
 
+    const semVal = document.getElementById('new-group-semester').value;
+    if (!semVal) { showToast(typeof t === 'function' ? t('geSemRequired') : 'Please select a term before adding a group.'); return; }
+
     const studentsText = document.getElementById('new-group-students').value.trim();
     const students = studentsText ? parseNamesText(studentsText) : [];
     const body = document.getElementById('ge-groups-body');
@@ -977,9 +1469,11 @@
     updateStudentCountBtn(studentsToggle, students.length);
     studentsToggle.title = 'Show/hide student details';
 
+    const activeCtx = _readActiveBanner();
+    const newGroupYear = document.getElementById('new-group-year').value.trim() || activeCtx.activeYear;
     const newMeta = {
-      year: document.getElementById('new-group-year').value.trim(),
-      semester: document.getElementById('new-group-semester').value,
+      year: newGroupYear,
+      semester: document.getElementById('new-group-semester').value || (activeCtx.activeSemester ? String(activeCtx.activeSemester) : ''),
       level: document.getElementById('new-group-level').value
     };
     const { yearInput, semSelect, lvlSelect } = makeMetaInputs(newMeta);
@@ -1035,23 +1529,33 @@
     row.appendChild(archiveBtn);
     row.appendChild(delBtn);
 
-    if (archSep) {
-      body.insertBefore(row, archSep);
-      body.insertBefore(studentSection, archSep);
-      body.insertBefore(halfSection, archSep);
-    } else {
-      body.appendChild(row);
-      body.appendChild(studentSection);
-      body.appendChild(halfSection);
+    // Insert into the matching semester+year section, creating it if needed
+    let semContent = body.querySelector(`.ge-sem-group[data-semester="${semVal}"][data-year="${newGroupYear}"] .ge-sem-content`);
+    if (!semContent) {
+      const newSemGroup = createSemesterGroupElement(semVal, newGroupYear, [], false);
+      const noSemGroup = body.querySelector('.ge-nosem-group');
+      if (noSemGroup) {
+        body.insertBefore(newSemGroup, noSemGroup);
+      } else if (archSep) {
+        body.insertBefore(newSemGroup, archSep);
+      } else {
+        body.appendChild(newSemGroup);
+      }
+      semContent = newSemGroup.querySelector('.ge-sem-content');
     }
+
+    semContent.appendChild(row);
+    semContent.appendChild(studentSection);
+    semContent.appendChild(halfSection);
 
     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     document.getElementById('new-group-name').value = '';
     document.getElementById('new-group-students').value = '';
     autoResizeStudents(document.getElementById('new-group-students'));
-    document.getElementById('new-group-year').value = '';
-    document.getElementById('new-group-semester').value = '';
+    const _ac = _readActiveBanner();
+    document.getElementById('new-group-year').value = _ac.activeYear;
+    document.getElementById('new-group-semester').value = _ac.activeSemester ? String(_ac.activeSemester) : '';
     document.getElementById('new-group-level').value = '';
   }
 
@@ -1105,6 +1609,98 @@
 
     showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: groupName}) : '"' + groupName + '" unarchived.');
     renderGroupsList();
+  }
+
+  // ── Archive whole semester ───────────────────────────────────
+  async function archiveSemester(semNum, filterYear) {
+    const { groups: currentGroups, meta: currentMeta } = collectGroupEdits();
+    const toArchive = Object.keys(currentGroups).filter(name => {
+      if (currentMeta[name] && currentMeta[name].archived) return false;
+      if (String(currentMeta[name] && currentMeta[name].semester) !== String(semNum)) return false;
+      if (filterYear && currentMeta[name] && currentMeta[name].year && currentMeta[name].year !== filterYear) return false;
+      return true;
+    });
+    if (!toArchive.length) {
+      showToast(typeof t === 'function' ? t('geNoGroupsToSave') : 'No groups to archive.');
+      return;
+    }
+    const year = filterYear || (document.getElementById('ge-active-year')?.value.trim()) || _activeYear;
+    showConfirm(
+      typeof tFmt === 'function'
+        ? tFmt('geConfirmArchiveSem', { n: toArchive.length, sem: semNum, year })
+        : `Archive all ${toArchive.length} group(s) in S${semNum} (${year})?\n\nThey will be hidden from the roster across all tools.`,
+      async () => {
+        toArchive.forEach(name => {
+          if (!currentMeta[name]) currentMeta[name] = {};
+          currentMeta[name].archived = true;
+        });
+        const result = await persistGroupsToUserFile(currentGroups, currentMeta);
+        if (!result?.ok && result?.mode !== 'download') {
+          showNotice((typeof t === 'function' ? t('geArchiveSemFailed') : 'Failed to archive semester:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
+          return;
+        }
+        rawData = currentGroups;
+        rawMeta = currentMeta;
+        if (window.Desktop && typeof Desktop.renameByPath === 'function') {
+          for (const name of toArchive) {
+            try { await Desktop.renameByPath('groupParticipation', name, 'archived/' + name); } catch (_) {}
+          }
+        }
+        try { localStorage.setItem(`cmt-ge-sem-archived-${year}-${semNum}`, '1'); } catch (_) {}
+        document.getElementById('ge-eos-banner').style.display = 'none';
+        showNotice(typeof tFmt === 'function' ? tFmt('geArchivedSem', { n: toArchive.length, sem: semNum }) : `${toArchive.length} group(s) in S${semNum} archived.`);
+        renderGroupsList();
+      }
+    );
+  }
+
+  // ── End-of-semester prompt ───────────────────────────────────
+  function checkEndOfSemesterPrompt() {
+    if (!_activeSemEnd || !_activeSemester) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (_activeSemEnd >= today) return;
+    try { if (localStorage.getItem(`cmt-ge-sem-archived-${_activeYear}-${_activeSemester}`)) return; } catch (_) {}
+    const semGroups = Object.keys(rawData).filter(g => {
+      if (rawMeta[g] && rawMeta[g].archived) return false;
+      if (String(rawMeta[g] && rawMeta[g].semester) !== String(_activeSemester)) return false;
+      const gYear = rawMeta[g] && rawMeta[g].year;
+      if (_activeYear && gYear && gYear !== _activeYear) return false;
+      return true;
+    });
+    if (!semGroups.length) return;
+    const endFormatted = new Date(_activeSemEnd + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    showEndOfSemBanner(_activeSemester, _activeYear, endFormatted, semGroups.length);
+  }
+
+  function showEndOfSemBanner(semNum, year, endDate, groupCount) {
+    const banner = document.getElementById('ge-eos-banner');
+    const msg = document.getElementById('ge-eos-msg');
+    const archBtn = document.getElementById('ge-eos-archive-btn');
+    const dismissBtn = document.getElementById('ge-eos-dismiss-btn');
+    msg.textContent = typeof tFmt === 'function'
+      ? tFmt('geEndOfSemBanner', { sem: semNum, year, date: endDate, n: groupCount })
+      : `S${semNum} (${year}) ended on ${endDate}. ${groupCount} active group(s).`;
+    archBtn.textContent = typeof t === 'function' ? t('geEndOfSemArchiveBtn') : 'Archive all';
+    if (dismissBtn) dismissBtn.textContent = typeof t === 'function' ? t('geEndOfSemDismiss') : 'Dismiss';
+    banner.dataset.semNum = String(semNum);
+    banner.dataset.year = year;
+    banner.style.display = 'flex';
+  }
+
+  function eosArchive() {
+    const banner = document.getElementById('ge-eos-banner');
+    const semNum = banner.dataset.semNum || String(_activeSemester);
+    const year = banner.dataset.year || _activeYear;
+    banner.style.display = 'none';
+    archiveSemester(semNum, year);
+  }
+
+  function eosDismiss() {
+    const banner = document.getElementById('ge-eos-banner');
+    const semNum = banner.dataset.semNum || String(_activeSemester);
+    const year = banner.dataset.year || _activeYear;
+    banner.style.display = 'none';
+    try { localStorage.setItem(`cmt-ge-sem-archived-${year}-${semNum}`, '1'); } catch (_) {}
   }
 
   // ── Sync grade-sheet _class.js files after group renames ─────
@@ -1187,7 +1783,7 @@
       return;
     }
 
-    const rows = ['Group,First Name,Last Name,Date of Birth,Admin Class,Year,Semester,Level,SEN'];
+    const rows = ['Group,First Name,Last Name,Date of Birth,Admin Class,Year,Term,Level,SEN'];
     Object.keys(groups).forEach(groupName => {
       const m = meta[groupName] || {};
       const students = m.students && m.students.length

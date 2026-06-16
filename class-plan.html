@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="i18n.js"></script>
   <script src="electron-bridge.js"></script>
+  <script src="dialogs.js"></script>
   <script>
   (function () {
     function injectScript(source, name) {
@@ -360,6 +361,7 @@
   <div id="plans-sidebar">
     <div id="sidebar-header">
       <select id="group-sel" onchange="onGroupChange(this.value)"></select>
+      <div id="cp-active-context" style="display:none; font-size:0.72rem; font-weight:700; color:#888; letter-spacing:0.3px; padding:0 2px;"></div>
       <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#fff;color:#e67e22;border:1.5px solid #e67e22;border-radius:5px;font-size:.8rem;font-weight:600;cursor:pointer;" onclick="deleteOrphanedGroup()" data-i18n="cpBtnDelete">🗑 Delete orphaned group</button>
       <button id="new-plan-btn" onclick="openNewPlanConfig()" data-i18n="cpNewPlan">+ New Plan</button>
     </div>
@@ -541,7 +543,19 @@ document.addEventListener('DOMContentLoaded', async function () {
   renderGroupSelector();
   renderPlansList();
   updateNavBrand();
+  _updateCpActiveContext();
 });
+
+function _updateCpActiveContext() {
+  const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
+  const ay = _cgd.activeYear || '';
+  const as = _cgd.activeSemester || null;
+  const chip = document.getElementById('cp-active-context');
+  if (chip && (ay || as)) {
+    chip.textContent = [ay, as ? 'S' + as : ''].filter(Boolean).join(' · ');
+    chip.style.display = '';
+  }
+}
 
 function updateNavBrand() {
   try {

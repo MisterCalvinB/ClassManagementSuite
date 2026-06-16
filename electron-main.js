@@ -4288,6 +4288,14 @@ app.whenReady().then(async () => {
     console.warn('Could not set spell checker languages:', error.message);
   }
 
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
   try {
     await migrateLogFolders();
   } catch (error) {

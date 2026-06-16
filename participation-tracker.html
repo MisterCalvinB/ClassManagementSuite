@@ -951,6 +951,7 @@
 </nav>
     <div class="container">
         <h1 data-i18n="ptTitle">Participation Tracker</h1>
+        <div id="pt-active-context" style="display:none; font-size:0.78rem; font-weight:700; color:#555; margin:-6px 0 10px; letter-spacing:0.3px;"></div>
 
         <!-- Message Container -->
         <div id="messageContainer"></div>
@@ -973,6 +974,7 @@
                     <button class="date-preset-btn active" data-preset="all" data-i18n="ptDateAll">All Data</button>
                     <button class="date-preset-btn" data-preset="30days" data-i18n="ptDate30Days">Last 30 Days</button>
                     <button class="date-preset-btn" data-preset="7days" data-i18n="ptDate7Days">Last 7 Days</button>
+                    <button class="date-preset-btn" id="ptSemesterBtn" data-preset="semester" data-i18n="ptDateSemester" style="display:none;">This Term</button>
                 </div>
                 <div class="date-inputs">
                     <input type="date" id="dateFrom" data-i18n-placeholder="ptDateFrom" placeholder="From">
@@ -1784,6 +1786,7 @@
             setupEventListeners();
             populateGroups();
             selectFirstGroup();
+            _initActiveContext();
             showMessage(t('ptMsgReady'), 'success');
         }
 
@@ -2363,6 +2366,12 @@
                     document.getElementById('dateFrom').value = startDate.toISOString().split('T')[0];
                     document.getElementById('dateTo').value = today.toISOString().split('T')[0];
                     break;
+                case 'semester': {
+                    const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
+                    document.getElementById('dateFrom').value = _cgd.activeSemesterStart || '';
+                    document.getElementById('dateTo').value = _cgd.activeSemesterEnd || '';
+                    break;
+                }
             }
         }
 
@@ -3877,6 +3886,21 @@
 
             if (type !== 'error') {
                 setTimeout(() => messageEl.remove(), 4000);
+            }
+        }
+
+        function _initActiveContext() {
+            const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
+            const ay = _cgd.activeYear || '';
+            const as = _cgd.activeSemester || null;
+            const badge = document.getElementById('pt-active-context');
+            if (badge && (ay || as)) {
+                badge.textContent = [ay, as ? 'S' + as : ''].filter(Boolean).join(' · ');
+                badge.style.display = '';
+            }
+            const semBtn = document.getElementById('ptSemesterBtn');
+            if (semBtn && _cgd.activeSemesterStart && _cgd.activeSemesterEnd) {
+                semBtn.style.display = '';
             }
         }
 

@@ -187,4 +187,68 @@
     el.querySelectorAll('.cmt-btn-ok').forEach(function (n) { n.textContent = lbl.ok; });
     el.querySelectorAll('.cmt-btn-cancel').forEach(function (n) { n.textContent = lbl.cancel; });
   }
+
+  // ── Drag-select guard ──────────────────────────────────────────────────────
+  // Prevents outside-click dismiss handlers from firing after a text-selection
+  // drag that starts inside an editable field and ends outside it.
+  // Idempotency flag lets inline guards on pages like board.html skip safely.
+  if (!window._cmtDragGuard) {
+    window._cmtDragGuard = true;
+
+    function isEditableTarget(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (el.closest('[contenteditable="true"]')) return true;
+      var ctrl = el.closest('input, textarea, select');
+      if (!ctrl) return false;
+      if (ctrl.tagName === 'INPUT') {
+        var t = String(ctrl.type || 'text').toLowerCase();
+        return !['button','checkbox','color','file','hidden','image','radio','range','reset','submit'].includes(t);
+      }
+      return true;
+    }
+
+    function hasEditableSelection() {
+      var ae = document.activeElement;
+      if (!ae) return false;
+      if (ae.matches && ae.matches('input, textarea')) {
+        try { return Number(ae.selectionStart) !== Number(ae.selectionEnd); } catch (_) { return false; }
+      }
+      if (ae.isContentEditable || (ae.closest && ae.closest('[contenteditable="true"]'))) {
+        var sel = window.getSelection ? window.getSelection() : null;
+        return !!(sel && sel.rangeCount && !sel.isCollapsed);
+      }
+      return false;
+    }
+
+    var _downInEditable = false;
+    var _dragStartX = 0;
+    var _dragStartY = 0;
+    var _dragged = false;
+    var _suppressNextOutsideClick = false;
+
+    document.addEventListener('mousedown', function (e) {
+      _downInEditable = isEditableTarget(e.target);
+      _dragStartX = e.clientX; _dragStartY = e.clientY;
+      _dragged = false;
+    }, true);
+
+    document.addEventListener('mousemove', function (e) {
+      if (!_downInEditable || _dragged) return;
+      if (Math.abs(e.clientX - _dragStartX) > 3 || Math.abs(e.clientY - _dragStartY) > 3) _dragged = true;
+    }, true);
+
+    document.addEventListener('mouseup', function () {
+      if (!_downInEditable) return;
+      if (_dragged || hasEditableSelection()) _suppressNextOutsideClick = true;
+      _downInEditable = false; _dragged = false;
+    }, true);
+
+    document.addEventListener('click', function (e) {
+      if (!_suppressNextOutsideClick) return;
+      _suppressNextOutsideClick = false;
+      if (isEditableTarget(e.target)) return;
+      e.stopImmediatePropagation();
+      e.stopPropagation();
+    }, true);
+  }
 })();

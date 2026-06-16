@@ -9,9 +9,10 @@
 | `board.html` | Visual tools — Board, session History, and vocabulary Search |
 | `learning-tools.html` | Student-facing vocabulary and grammar games with team scoring |
 | `manage-database.html` | Vocabulary database browser, editor, and bulk-management tool |
-| `grade-sheet.html` | Test and grade tracking per class, semester, and criterion |
+| `grade-sheet.html` | Test and grade tracking per class, term, and criterion |
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
-| `group-editor.html` | Create, edit, archive, and delete class groups stored in `class-groups.js` |
+| `group-editor.html` | Create, edit, archive, and delete class groups; set the active year and term shared by all tools |
+| `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and Markdown export |
 | `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
@@ -92,12 +93,69 @@ Mirrors the data-folder, backup, and sync controls previously found in `data-loc
 
 ## group-editor.html
 
-Manages the class groups stored in `class-groups.js`. Opened from the launcher or from within Class Management.
+Manages the class groups stored in `class-groups.js`. Opened from the launcher or from within Class Management. Groups created here are shared by every other tool — Class Management, Participation Tracker, Grade Sheet, and Learning Tools all read from the same file.
 
-- **Active Groups** — lists all non-archived groups with name, year, semester, and level. Edit or delete individual groups inline.
-- **Add New Group** — form to create a group: name, year, semester (1 or 2), and level.
-- **Archive / Unarchive** — move groups out of the active list without deleting them.
-- **SEN flag** — each student row has a SEN checkbox. Checked students are given the SEN preparation time in the Schedule Maker by default (can be overridden per session).
+### Active Context
+
+The **Active Context** banner at the top sets the default year, term, and date range used by every tool.
+
+- **Year** — school year in `YYYY-YYYY` format (e.g. `2025-2026`).
+- **Term** — S1 or S2; controls which section groups appear in and powers the end-of-term archive prompt.
+- **Start / End dates** — term dates used by Participation Tracker's *This Term* filter and by the end-of-term banner.
+- **↕ Planner** — click to fill the active-context dates from a configured Planner term. If the Planner has one term, it applies immediately; if it has several, a picker appears.
+
+Click **💾 Save** to persist the active context to `class-groups.js`.
+
+### Managing Groups
+
+- **Active Groups** — groups are displayed in collapsible S1 / S2 sections, then a *No term* section at the bottom. Edit name, year, level, and student list inline.
+- **Add New Group** — fill the name, term (required), year, and level fields, then click **Add**. The term field is mandatory — a group must belong to S1 or S2.
+- **Import CSV** — import groups from a CSV file. Columns: Group, First Name, Last Name, Date of Birth, Admin Class, Year, Term, Level, SEN.
+- **SEN flag** — each student row has a SEN checkbox. SEN students receive the longer preparation time in Schedule Maker by default.
+
+### Archiving
+
+Archiving hides groups from all rosters without deleting their data. Participation files are moved to an `archived/` sub-folder and can be restored at any time.
+
+- **Archive a single group** — click the Archive button on the group row.
+- **Archive a whole term** — click **Archive S1** or **Archive S2** in the section header.
+- **End-of-term offer** — when the active term end date has passed, a yellow banner appears at the top offering to archive the whole term in one click. Dismissing it stores a flag in localStorage so the prompt does not re-appear.
+- **Unarchive** — scroll to the *Archived Groups* section and click **Unarchive** on any row.
+
+---
+
+## planner.html
+
+Week-by-week planning tool for lessons, tests, assignments, and holidays. Data is saved to `user/planner-config.js` (term configuration) and `user/planner-entries.js` (entries).
+
+### Terms
+
+- Click **+ Term** to create a new term. Enter a label, start date, and end date.
+- When Group Editor has active-context dates set, a blue hint in the *Add Term* modal offers to auto-fill the dates from Group Editor in one click.
+- Add **Holidays** within a term (school breaks, bank holidays). Entries on holiday days are flagged in the week view.
+- Use the term selector in the toolbar to switch between terms. Multiple terms can co-exist (e.g. S1 and S2).
+
+### Classes
+
+- Click **Classes** in the toolbar to configure which class groups are tracked in the Planner.
+- Each class gets a **colour** for the week view, is assigned to **Term 1**, **Term 2**, or both, and can have a **weekly schedule** (which days and times it meets) and **learning objectives** for the term.
+- The class list is drawn from `class-groups.js` — add groups in Group Editor first.
+
+### Entries
+
+Each entry has a type (Lesson, Test, Assignment Due, Holiday, or custom) and belongs to a class and date. Optional fields: Topic, Objective, Readings, Activities, Homework, Notes.
+
+- **Test entries linked to Grade Sheet** — if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically recorded there.
+- **Duplicate** — copy an entry to another date.
+
+### Export
+
+| Format | Description |
+|---|---|
+| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class. |
+| **PDF** | Print-ready week view for the selected term. |
+| **CSV** | Spreadsheet of all entries with full field data. |
+| **Markdown** | Structured text document for notes apps or plain-text sharing. |
 
 ---
 
@@ -241,7 +299,7 @@ Accessed from the top-right ⚙ menu:
 
 | Setting | What it controls |
 |---|---|
-| **Edit Groups** | Add/rename classes; each group has a name, year, semester, and level |
+| **Edit Groups** | Add/rename classes; each group has a name, year, term, and level |
 | **Edit Teams** | Customise team names and colours (palette of 10+ colours) |
 | **Edit Badges** | Define badge icons, names, tone, and meaning |
 | **Edit Sounds** | Pick audio files or built-in sounds for every event slot (timer end, ambient, drumroll, gavel, score sounds); each slot has a 0–100 volume slider |
@@ -353,7 +411,15 @@ A board can have multiple pages:
 - **✚ New** — saves the current board and starts a fresh one.
 - **⬇ Export** — export the board as a **PNG image**, **CSV word list**, or **PDF**.
 - **📋 Templates** — save the current board as a reusable template, or load a template to pre-populate a new board.
-- **🧩 Media** — attach images, audio, video, or PDFs directly to the board; manage and delete attachments.
+- **🧩 Media** — attach images, audio, video, or PDFs directly to the board; manage and delete attachments. Includes a **🎙 Record Audio** button to record voice directly from the microphone.
+
+#### Voice Recordings
+
+- **Record**: click **🧩 Media → 🎙 Record Audio**, or right-click the board canvas and choose **🎙 Record Audio**.
+- The popup shows a mic level bar, a live timer, and a record/stop toggle (⏺ / ⏹).
+- After stopping, a preview player appears. Click **Save to board** to save the clip to the constellation's companion folder (`audio/`) and place it as a sound node.
+- If no constellation file is open yet, a **💾 Save constellation & proceed** button appears; saving creates the companion folder so the recording can be attached.
+- **Trim**: right-click any audio node on the board and choose **✂ Trim**. Drag the region handles on the waveform to select the portion to keep, then click **Save trimmed**. The trimmed clip is saved as a new `.wav` file alongside the original (the original is never deleted).
 
 #### Keyboard Shortcuts
 
@@ -600,23 +666,23 @@ Search + theme + source filter to locate entries, then select and bulk-delete.
 
 ## grade-sheet.html
 
-Manages test results by class, semester, and grading criterion. Data is persisted to disk in Electron or exportable as JSON for use elsewhere.
+Manages test results by class, term, and grading criterion. Data is persisted to disk in Electron or exportable as JSON for use elsewhere.
 
 ### Classes Screen
 
 The landing screen. Shows all configured classes.
 
-- **Add class**: enter a name (e.g. `3ANdf-03`), year (`2025-2026`), semester (1 or 2), and level (1–4), then click **Add Class**.
+- **Add class**: enter a name (e.g. `3ANdf-03`), year (`2025-2026`), term (1 or 2), and level (1–4), then click **Add Class**.
 - **Export JSON** / **Import JSON** — back up or restore the entire grade dataset.
 - **Edit Criteria / Scales** — opens the Reference Data Editor (see below).
 
 ### Summary Screen
 
-Opened by clicking a class card. Shows all tests (T1–T8) for the selected semester as a summary table.
+Opened by clicking a class card. Shows all tests (T1–T8) for the selected term as a summary table.
 
 - Columns: student names + one column per test + calculated average/total.
 - Click a test header to open the individual test sheet.
-- Toolbar buttons: **Back to Classes** · **Add Student** · **Add Test** · **Import Test** · **Print Semester** · **Import Grades** · **Edit Class** · **Delete Class**.
+- Toolbar buttons: **Back to Classes** · **Add Student** · **Add Test** · **Import Test** · **Print Term** · **Import Grades** · **Edit Class** · **Delete Class**.
 
 ### Test Screen
 
@@ -626,11 +692,11 @@ The detailed view for one test. An editable table shows one row per student with
 - **Apply Criteria to Grades** — auto-calculates student grades from criterion scores.
 - **Criteria Reference** — shows descriptor text for each criterion level.
 - **Print Results** — prints the test sheet.
-- **Duplicate / Import** — copies the test configuration (criteria, scale, weight) from another class/semester/test slot.
+- **Duplicate / Import** — copies the test configuration (criteria, scale, weight) from another class/term/test slot.
 - **Delete Test** / **Clear Test** — remove or zero the test data.
 
 #### Test Weight
-Each test can be weighted as a **Coefficient** multiplier or a **Fixed weight (%)** of the semester total.
+Each test can be weighted as a **Coefficient** multiplier or a **Fixed weight (%)** of the term total.
 
 ### Reference Data Editor
 

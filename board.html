@@ -308,6 +308,8 @@
   
   
 <script src="modules/html2canvas.js"></script>
+<script src="modules/wavesurfer/wavesurfer.min.js"></script>
+<script src="modules/wavesurfer/wavesurfer.regions.min.js"></script>
 <style>
  #board-cms-timer-strip {
    display: none;
@@ -836,6 +838,8 @@
   <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleDrawMode();">✎ Draw</div>
   <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleEraserMode();">⌫ Erase</div>
   <div class="con-ctx-item" onclick="conBoardCtxClose();laserToggle();">⬤ Laser</div>
+  <div class="con-ctx-sep"></div>
+  <div class="con-ctx-item" onclick="conBoardCtxClose();conOpenRecordPopup(_boardCtxX,_boardCtxY);" data-i18n="recordAudio">🎙 Record Audio</div>
   <div class="con-ctx-sep"></div>
   <div class="con-ctx-item" onclick="conBoardCtxClose()" style="color:#888;font-weight:600;">✕ Cancel</div>
 </div>
@@ -4585,6 +4589,14 @@ function hideFailure() {
         saveChanges:'💾 Save Changes', addWordBtn:'➕ Add Word', addQuoteBtn:'➕ Add Quote',
         addGapBtn:'➕ Add Gap Fill', addErrorBtn:'➕ Add Error Pair',
         allLevels:'All Levels', allThemes:'All Themes', allTypes:'All Types',
+        btnCancel:'Cancel',
+        recordAudio:'🎙 Record Audio', recordAudioTitle:'🎙 Record Audio',
+        saveRecording:'Save to board', noConstellationForAudio:'No constellation open. Save your board first to attach recordings.',
+        saveConstellationFirst:'💾 Save constellation & proceed',
+        trimAudio:'✂ Trim Audio', trimAudioTitle:'✂ Trim Audio',
+        playSelection:'▶ Selection', saveTrimmed:'Save trimmed', trimKeepsOriginal:'Original file is kept',
+        recSavedOnBoard:'✅ Recording saved and placed on board.',
+        recTrimSaved:'✅ Trimmed recording saved and placed on board.',
       },
       de: {
         siteTitle:'Board',
@@ -4709,6 +4721,14 @@ function hideFailure() {
         saveChanges:'💾 Änderungen speichern', addWordBtn:'➕ Wort hinzufügen', addQuoteBtn:'➕ Zitat hinzufügen',
         addGapBtn:'➕ Lückentext hinzufügen', addErrorBtn:'➕ Fehlerpaar hinzufügen',
         allLevels:'Alle Niveaus', allThemes:'Alle Themen', allTypes:'Alle Wortarten',
+        btnCancel:'Abbrechen',
+        recordAudio:'🎙 Audio aufnehmen', recordAudioTitle:'🎙 Audioaufnahme',
+        saveRecording:'Zum Board hinzufügen', noConstellationForAudio:'Keine Konstellation geöffnet. Speichere das Board zuerst.',
+        saveConstellationFirst:'💾 Konstellation speichern & fortfahren',
+        trimAudio:'✂ Audio zuschneiden', trimAudioTitle:'✂ Audio zuschneiden',
+        playSelection:'▶ Auswahl', saveTrimmed:'Zugeschnitten speichern', trimKeepsOriginal:'Originaldatei wird behalten',
+        recSavedOnBoard:'✅ Aufnahme gespeichert und auf dem Board platziert.',
+        recTrimSaved:'✅ Zugeschnittene Aufnahme gespeichert und platziert.',
       },
       it: {
         siteTitle:'Board',
@@ -4833,6 +4853,14 @@ function hideFailure() {
         saveChanges:'💾 Salva Modifiche', addWordBtn:'➕ Aggiungi Parola', addQuoteBtn:'➕ Aggiungi Citazione',
         addGapBtn:'➕ Aggiungi Esercizio', addErrorBtn:'➕ Aggiungi Coppia di Errori',
         allLevels:'Tutti i Livelli', allThemes:'Tutti i Temi', allTypes:'Tutti i Tipi',
+        btnCancel:'Annulla',
+        recordAudio:'🎙 Registra Audio', recordAudioTitle:'🎙 Registrazione Audio',
+        saveRecording:'Aggiungi alla lavagna', noConstellationForAudio:'Nessuna costellazione aperta. Prima salva la lavagna.',
+        saveConstellationFirst:'💾 Salva la costellazione e continua',
+        trimAudio:'✂ Ritaglia Audio', trimAudioTitle:'✂ Ritaglia Audio',
+        playSelection:'▶ Selezione', saveTrimmed:'Salva ritagliato', trimKeepsOriginal:'Il file originale è conservato',
+        recSavedOnBoard:'✅ Registrazione salvata e posizionata sulla lavagna.',
+        recTrimSaved:'✅ Registrazione ritagliata salvata e posizionata.',
       },
       fr: {
         siteTitle:'Board',
@@ -4957,6 +4985,14 @@ function hideFailure() {
         saveChanges:'💾 Enregistrer les Modifications', addWordBtn:'➕ Ajouter un Mot', addQuoteBtn:'➕ Ajouter une Citation',
         addGapBtn:'➕ Ajouter un Exercice', addErrorBtn:'➕ Ajouter une Paire d\'Erreurs',
         allLevels:'Tous les Niveaux', allThemes:'Tous les Thèmes', allTypes:'Tous les Types',
+        btnCancel:'Annuler',
+        recordAudio:'🎙 Enregistrer un audio', recordAudioTitle:'🎙 Enregistrement audio',
+        saveRecording:'Ajouter au tableau', noConstellationForAudio:'Aucune constellation ouverte. Enregistrez le tableau d\'abord.',
+        saveConstellationFirst:'💾 Sauvegarder la constellation et continuer',
+        trimAudio:'✂ Recadrer l\'audio', trimAudioTitle:'✂ Recadrer l\'audio',
+        playSelection:'▶ Sélection', saveTrimmed:'Sauvegarder le recadrage', trimKeepsOriginal:'Le fichier original est conservé',
+        recSavedOnBoard:'✅ Enregistrement ajouté au tableau.',
+        recTrimSaved:'✅ Audio recadré ajouté au tableau.',
       }
     };
 
@@ -6777,6 +6813,15 @@ function hideFailure() {
         window.conPickAttachments();
       };
 
+      const recordBtn = document.createElement('button');
+      recordBtn.type = 'button';
+      recordBtn.className = 'con-media-manage-btn';
+      recordBtn.textContent = t('recordAudio') || '🎙 Record Audio';
+      recordBtn.onclick = () => {
+        conRemoveInsertAttachmentChooser();
+        conOpenRecordPopup();
+      };
+
       const removeAllBtn = document.createElement('button');
       removeAllBtn.type = 'button';
       removeAllBtn.className = 'con-media-manage-btn';
@@ -6798,6 +6843,7 @@ function hideFailure() {
       };
 
       quickActions.appendChild(addBtn);
+      quickActions.appendChild(recordBtn);
       quickActions.appendChild(removeAllBtn);
       quickActions.appendChild(clearPdfBtn);
       chooser.appendChild(quickActions);
@@ -29503,6 +29549,394 @@ function hideFailure() {
     // END BOARD CUSTOMISE
     // ================================================================
 
+    // ================================================================
+    // VOICE RECORDING
+    // ================================================================
+
+    // Expose folder name getter for code outside this closure
+    window.conGetCurrentFolderName = function() { return _conCurrentFolderName; };
+
+    // Expose conGetAttachmentDataUrl for the trim popup
+    window.conGetAttachmentDataUrlPublic = conGetAttachmentDataUrl;
+
+    // WAV encoder — converts an AudioBuffer to a WAV ArrayBuffer (16-bit PCM)
+    function audioBufferToWav(buffer) {
+      var numCh = buffer.numberOfChannels;
+      var sr    = buffer.sampleRate;
+      var bps   = 16;
+      var block = numCh * (bps / 8);
+      var data  = buffer.length * block;
+      var ab    = new ArrayBuffer(44 + data);
+      var v     = new DataView(ab);
+      function str(off, s) { for (var i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); }
+      str(0,  'RIFF'); v.setUint32(4,  36 + data, true);
+      str(8,  'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true);
+      v.setUint16(20, 1,  true); // PCM
+      v.setUint16(22, numCh, true);
+      v.setUint32(24, sr,  true);
+      v.setUint32(28, sr * block, true);
+      v.setUint16(32, block, true);
+      v.setUint16(34, bps,  true);
+      str(36, 'data'); v.setUint32(40, data, true);
+      var off = 44;
+      for (var i = 0; i < buffer.length; i++) {
+        for (var ch = 0; ch < numCh; ch++) {
+          var s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+          v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+          off += 2;
+        }
+      }
+      return ab;
+    }
+
+    var _recMediaStream   = null;
+    var _recMediaRecorder = null;
+    var _recChunks        = [];
+    var _recBlob          = null;
+    var _recMimeType      = 'audio/webm';
+    var _recAnalyser      = null;
+    var _recAudioCtx      = null;
+    var _recLevelRAF      = null;
+    var _recTimerInterval = null;
+    var _recSeconds       = 0;
+    var _recIsRecording   = false;
+    var _recSaveCheckInterval = null;
+    var _recPlaceX = null, _recPlaceY = null;
+
+    function conOpenRecordPopup(placeX, placeY) {
+      _recPlaceX = (placeX !== undefined && placeX !== null) ? placeX : null;
+      _recPlaceY = (placeY !== undefined && placeY !== null) ? placeY : null;
+      var popup = document.getElementById('con-record-popup');
+      if (!popup) return;
+
+      _recBlob = null; _recChunks = []; _recSeconds = 0; _recIsRecording = false;
+      clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
+
+      var preview = document.getElementById('con-record-preview');
+      if (preview) { preview.src = ''; preview.style.display = 'none'; }
+
+      var saveBtn = document.getElementById('con-record-save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.4'; }
+
+      var mainBtn = document.getElementById('con-record-main-btn');
+      if (mainBtn) mainBtn.textContent = '⏺';
+
+      var timer = document.getElementById('con-record-timer');
+      if (timer) timer.textContent = '0:00';
+
+      var level = document.getElementById('con-record-level');
+      if (level) level.style.width = '0%';
+
+      var noConst = document.getElementById('con-record-no-const');
+      var sfBtn   = document.getElementById('con-record-savefirst-btn');
+      if (noConst) noConst.style.display = _conCurrentFolderName ? 'none' : '';
+      if (sfBtn)  { sfBtn.disabled = false; sfBtn.textContent = t ? t('saveConstellationFirst') : '💾 Save constellation & proceed'; }
+
+      popup.style.display = 'block';
+      requestAnimationFrame(function() {
+        popup.style.left = Math.max(10, (window.innerWidth  - popup.offsetWidth)  / 2) + 'px';
+        popup.style.top  = Math.max(10, (window.innerHeight - popup.offsetHeight) / 3) + 'px';
+      });
+
+      setTimeout(function() {
+        document.addEventListener('mousedown', _recOutsideClick, { capture: true });
+      }, 0);
+    }
+
+    function _recOutsideClick(e) {
+      var popup = document.getElementById('con-record-popup');
+      if (popup && !popup.contains(e.target) && !_recIsRecording) {
+        conRecordClose();
+        document.removeEventListener('mousedown', _recOutsideClick, { capture: true });
+      }
+    }
+
+    window.conRecordToggle = function() {
+      if (_recIsRecording) { conStopRecording(); } else { conStartRecording(); }
+    };
+
+    function conStartRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(stream) {
+        _recMediaStream = stream;
+        _recChunks = []; _recBlob = null; _recIsRecording = true; _recSeconds = 0;
+
+        var mainBtn = document.getElementById('con-record-main-btn');
+        if (mainBtn) mainBtn.textContent = '⏹';
+        var saveBtn = document.getElementById('con-record-save-btn');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.4'; }
+        var preview = document.getElementById('con-record-preview');
+        if (preview) { preview.src = ''; preview.style.display = 'none'; }
+
+        _recTimerInterval = setInterval(function() {
+          _recSeconds++;
+          var m = Math.floor(_recSeconds / 60);
+          var s = String(_recSeconds % 60).padStart(2, '0');
+          var timerEl = document.getElementById('con-record-timer');
+          if (timerEl) timerEl.textContent = m + ':' + s;
+        }, 1000);
+
+        _recAudioCtx = new AudioContext();
+        _recAnalyser = _recAudioCtx.createAnalyser();
+        _recAnalyser.fftSize = 256;
+        _recAudioCtx.createMediaStreamSource(stream).connect(_recAnalyser);
+        var dataArr = new Uint8Array(_recAnalyser.frequencyBinCount);
+        function updateLevel() {
+          if (!_recIsRecording) return;
+          _recAnalyser.getByteFrequencyData(dataArr);
+          var avg = 0; for (var i = 0; i < dataArr.length; i++) avg += dataArr[i];
+          avg /= dataArr.length;
+          var pct = Math.min(100, (avg / 128) * 200);
+          var lv = document.getElementById('con-record-level');
+          if (lv) lv.style.width = pct + '%';
+          _recLevelRAF = requestAnimationFrame(updateLevel);
+        }
+        updateLevel();
+
+        _recMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus' : 'audio/webm';
+        _recMediaRecorder = new MediaRecorder(stream, { mimeType: _recMimeType });
+        _recMediaRecorder.ondataavailable = function(e) {
+          if (e.data && e.data.size > 0) _recChunks.push(e.data);
+        };
+        _recMediaRecorder.onstop = function() {
+          _recBlob = new Blob(_recChunks, { type: _recMimeType });
+          var preview = document.getElementById('con-record-preview');
+          if (preview) { preview.src = URL.createObjectURL(_recBlob); preview.style.display = 'block'; }
+          var saveBtn = document.getElementById('con-record-save-btn');
+          if (saveBtn && _conCurrentFolderName) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+        };
+        _recMediaRecorder.start(250);
+      }).catch(function(e) {
+        mdbToast('⚠️ Microphone access denied: ' + (e && e.message ? e.message : String(e)));
+      });
+    }
+
+    function conStopRecording() {
+      _recIsRecording = false;
+      clearInterval(_recTimerInterval);
+      if (_recLevelRAF) { cancelAnimationFrame(_recLevelRAF); _recLevelRAF = null; }
+      try { if (_recAnalyser) _recAnalyser.disconnect(); } catch(e) {}
+      try { if (_recAudioCtx) _recAudioCtx.close(); } catch(e) {}
+      _recAudioCtx = null; _recAnalyser = null;
+      var lv = document.getElementById('con-record-level');
+      if (lv) lv.style.width = '0%';
+      var mainBtn = document.getElementById('con-record-main-btn');
+      if (mainBtn) mainBtn.textContent = '⏺';
+      if (_recMediaRecorder && _recMediaRecorder.state !== 'inactive') _recMediaRecorder.stop();
+      if (_recMediaStream) { _recMediaStream.getTracks().forEach(function(t) { t.stop(); }); _recMediaStream = null; }
+    }
+
+    window.conRecordClose = function() {
+      if (_recIsRecording) conStopRecording();
+      clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
+      document.removeEventListener('mousedown', _recOutsideClick, { capture: true });
+      var popup = document.getElementById('con-record-popup');
+      if (popup) popup.style.display = 'none';
+      var preview = document.getElementById('con-record-preview');
+      if (preview && preview.src && preview.src.startsWith('blob:')) { URL.revokeObjectURL(preview.src); preview.src = ''; }
+    };
+
+    window.conRecordSave = async function() {
+      if (!_conCurrentFolderName) { mdbToast('⚠️ ' + (t ? t('noConstellationForAudio') : 'Save your constellation first.')); return; }
+      if (!_recBlob) { mdbToast('⚠️ No recording to save.'); return; }
+
+      var ts = Date.now();
+      var filename = 'rec-' + ts + '.webm';
+      var subdir   = _conCurrentFolderName + '/audio';
+
+      try {
+        await Desktop.saveBlob('mindmaps', filename, _recBlob, subdir);
+      } catch(e) {
+        mdbToast('⚠️ Could not save recording: ' + (e && e.message ? e.message : String(e)));
+        return;
+      }
+
+      var newAtt = {
+        id: 'rec-' + ts,
+        name: filename,
+        mime: _recBlob.type || 'audio/webm',
+        kind: 'sounds',
+        size: _recBlob.size,
+        relativePath: _conCurrentFolderName + '/audio/' + filename,
+        file: null
+      };
+      conAttachments.push(newAtt);
+      conRenderAttachmentSummary();
+
+      var _recPlaceOpts = (_recPlaceX !== null) ? { x: _recPlaceX, y: _recPlaceY, silent: true } : { silent: true };
+      await window.conInsertAttachmentById(newAtt.id, _recPlaceOpts);
+      mdbToast(t ? t('recSavedOnBoard') : '✅ Recording saved and placed on board.');
+      window.conRecordClose();
+    };
+
+    window.conRecordSaveAndProceed = function() {
+      var sfBtn = document.getElementById('con-record-savefirst-btn');
+      if (sfBtn) { sfBtn.disabled = true; sfBtn.textContent = '⏳ Saving…'; }
+      conSaveSession();
+
+      var attempts = 0;
+      _recSaveCheckInterval = setInterval(function() {
+        attempts++;
+        if (_conCurrentFolderName) {
+          clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
+          var noConst = document.getElementById('con-record-no-const');
+          if (noConst) noConst.style.display = 'none';
+          var saveBtn = document.getElementById('con-record-save-btn');
+          if (saveBtn && _recBlob) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+          mdbToast('✅ Constellation saved. You can now save your recording.');
+        } else if (attempts > 60) {
+          clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
+          if (sfBtn) { sfBtn.disabled = false; sfBtn.textContent = t ? t('saveConstellationFirst') : '💾 Save constellation & proceed'; }
+        }
+      }, 500);
+    };
+
+    // ================================================================
+    // AUDIO TRIM
+    // ================================================================
+
+    var _trimWaveSurfer = null;
+    var _trimRegion     = null;
+    var _trimItem       = null;
+
+    window.conOpenTrimPopup = function(item) {
+      if (!item || item.kind !== 'sounds') return;
+      _trimItem = item;
+      _trimRegion = null;
+
+      var popup = document.getElementById('con-trim-popup');
+      if (!popup) return;
+
+      var fnEl = document.getElementById('con-trim-filename');
+      if (fnEl) fnEl.textContent = item.name || '';
+
+      popup.style.display = 'block';
+      requestAnimationFrame(function() {
+        popup.style.left = Math.max(10, (window.innerWidth  - popup.offsetWidth)  / 2) + 'px';
+        popup.style.top  = Math.max(10, (window.innerHeight - popup.offsetHeight) / 3) + 'px';
+      });
+
+      if (_trimWaveSurfer) { try { _trimWaveSurfer.destroy(); } catch(e) {} _trimWaveSurfer = null; }
+      var wfEl = document.getElementById('con-trim-waveform');
+      if (wfEl) wfEl.innerHTML = '';
+
+      conGetAttachmentDataUrl(item).then(function(url) {
+        if (!url) { mdbToast('⚠️ Could not load audio file.'); window.conTrimClose(); return; }
+
+        var regPlugin = window.WaveSurfer && window.WaveSurfer.Regions ? window.WaveSurfer.Regions.create() : null;
+        var plugins = regPlugin ? [regPlugin] : [];
+
+        _trimWaveSurfer = window.WaveSurfer.create({
+          container: '#con-trim-waveform',
+          waveColor: '#555',
+          progressColor: '#111',
+          height: 80,
+          url: url,
+          plugins: plugins
+        });
+
+        _trimWaveSurfer.on('ready', function() {
+          var dur = _trimWaveSurfer.getDuration();
+          if (regPlugin) {
+            _trimRegion = regPlugin.addRegion({
+              start: dur * 0.05,
+              end:   dur * 0.95,
+              color: 'rgba(0,120,215,0.15)',
+              drag:   true,
+              resize: true
+            });
+            regPlugin.on('region-updated', _updateTrimInfo);
+            _updateTrimInfo();
+          }
+          var durEl = document.getElementById('con-trim-dur');
+          if (durEl && !_trimRegion) durEl.textContent = dur.toFixed(2) + 's';
+        });
+      });
+    };
+
+    function _updateTrimInfo() {
+      if (!_trimRegion) return;
+      var s = _trimRegion.start, e = _trimRegion.end;
+      var el1 = document.getElementById('con-trim-start');
+      var el2 = document.getElementById('con-trim-end');
+      var el3 = document.getElementById('con-trim-dur');
+      if (el1) el1.textContent = s.toFixed(2) + 's';
+      if (el2) el2.textContent = e.toFixed(2) + 's';
+      if (el3) el3.textContent = (e - s).toFixed(2) + 's';
+    }
+
+    window.conTrimPlayAll       = function() { if (_trimWaveSurfer) _trimWaveSurfer.play(); };
+    window.conTrimPlaySelection = function() { if (_trimRegion) _trimRegion.play(); };
+    window.conTrimStop          = function() { if (_trimWaveSurfer) _trimWaveSurfer.pause(); };
+
+    window.conTrimClose = function() {
+      if (_trimWaveSurfer) { try { _trimWaveSurfer.destroy(); } catch(e) {} _trimWaveSurfer = null; }
+      _trimRegion = null; _trimItem = null;
+      var popup = document.getElementById('con-trim-popup');
+      if (popup) popup.style.display = 'none';
+    };
+
+    window.conTrimSave = async function() {
+      if (!_trimItem || !_trimRegion || !_trimWaveSurfer) return;
+      var start = _trimRegion.start, end = _trimRegion.end;
+      if (end <= start) { mdbToast('⚠️ Selection is empty.'); return; }
+
+      var btn = document.getElementById('con-trim-save-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+
+      try {
+        var url = await conGetAttachmentDataUrl(_trimItem);
+        if (!url) throw new Error('Could not resolve audio file.');
+
+        var resp = await fetch(url);
+        var arrayBuf = await resp.arrayBuffer();
+
+        var audioCtx = new AudioContext();
+        var decoded  = await audioCtx.decodeAudioData(arrayBuf);
+        await audioCtx.close();
+
+        var sr          = decoded.sampleRate;
+        var startSample = Math.floor(start * sr);
+        var endSample   = Math.min(Math.ceil(end * sr), decoded.length);
+        var length      = endSample - startSample;
+        var numCh       = decoded.numberOfChannels;
+
+        var trimmedBuf = new AudioContext({ sampleRate: sr }).createBuffer(numCh, length, sr);
+        for (var ch = 0; ch < numCh; ch++) {
+          trimmedBuf.copyToChannel(decoded.getChannelData(ch).slice(startSample, endSample), ch);
+        }
+
+        var wavAb = audioBufferToWav(trimmedBuf);
+
+        if (!_conCurrentFolderName) { mdbToast('⚠️ No constellation open.'); return; }
+        var baseName    = (_trimItem.name || 'recording').replace(/\.(webm|wav|mp3|ogg)$/i, '');
+        var trimFile    = baseName + '-trimmed.wav';
+        var subdir      = _conCurrentFolderName + '/audio';
+        var wavBlob     = new Blob([wavAb], { type: 'audio/wav' });
+
+        await Desktop.saveBlob('mindmaps', trimFile, wavBlob, subdir);
+
+        var newAtt = {
+          id: 'trim-' + Date.now(),
+          name: trimFile,
+          mime: 'audio/wav',
+          kind: 'sounds',
+          size: wavAb.byteLength,
+          relativePath: _conCurrentFolderName + '/audio/' + trimFile,
+          file: null
+        };
+        conAttachments.push(newAtt);
+        conRenderAttachmentSummary();
+
+        await window.conInsertAttachmentById(newAtt.id, { silent: true });
+        mdbToast(t ? t('recTrimSaved') : '✅ Trimmed recording saved and placed on board.');
+        window.conTrimClose();
+      } catch(e) {
+        mdbToast('⚠️ Trim failed: ' + (e && e.message ? e.message : String(e)));
+        if (btn) { btn.disabled = false; btn.textContent = t ? t('saveTrimmed') : 'Save trimmed'; }
+      }
+    };
+
   </script>
     <script>
       function toggleSaveSyncMenu() {
@@ -30789,8 +31223,10 @@ window.conMediaCtxOpen = function(e, item) {
   var menu = document.getElementById('con-media-ctx-menu');
   var cropBtn = document.getElementById('con-ctx-crop-btn');
   var lockBtn = document.getElementById('con-ctx-lock-btn');
+  var trimBtn = document.getElementById('con-ctx-trim-btn');
   if (!menu) return;
   if (cropBtn) cropBtn.style.display = (item.kind === 'pics') ? '' : 'none';
+  if (trimBtn) trimBtn.style.display = (item.kind === 'sounds') ? '' : 'none';
   if (lockBtn) lockBtn.textContent = item.locked ? '\uD83D\uDD13 Unlock' : '\uD83D\uDD12 Lock';
   menu.style.left = e.clientX + 'px';
   menu.style.top  = e.clientY + 'px';
@@ -30817,6 +31253,14 @@ window.conMediaCtxCrop = function() {
   var item = _conCtxItem;
   window.conMediaCtxClose();
   if (item) conOpenCropOverlay(item);
+};
+
+window.conMediaCtxTrim = function() {
+  var item = _conCtxItem;
+  window.conMediaCtxClose();
+  if (item && item.kind === 'sounds' && typeof window.conOpenTrimPopup === 'function') {
+    window.conOpenTrimPopup(item);
+  }
 };
 
 document.addEventListener('click', function(e) {
@@ -31049,8 +31493,52 @@ async function conConvertPdfMediaItemToPng(item) {
   }
 }
 </script>
+    <!-- Voice recording popup -->
+    <div id="con-record-popup" style="display:none;position:fixed;z-index:9500;background:#fff;border:1.5px solid #111;border-radius:8px;box-shadow:3px 3px 0 #bbb;padding:18px 22px;min-width:340px;font-family:inherit;">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:14px;" data-i18n="recordAudioTitle">🎙 Record Audio</div>
+      <div id="con-record-no-const" style="display:none;background:#fff8e1;border:1px solid #e6b800;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:0.82rem;">
+        <div data-i18n="noConstellationForAudio">No constellation open. Save your board first to attach recordings.</div>
+        <button onclick="conRecordSaveAndProceed()" style="margin-top:8px;padding:4px 10px;background:#111;color:#fff;border:none;border-radius:3px;font-size:0.78rem;cursor:pointer;font-family:inherit;" id="con-record-savefirst-btn" data-i18n="saveConstellationFirst">💾 Save constellation &amp; proceed</button>
+      </div>
+      <div style="background:#f0f0f0;border-radius:3px;height:8px;margin-bottom:12px;overflow:hidden;">
+        <div id="con-record-level" style="height:100%;width:0%;background:#4caf50;transition:width 0.06s;"></div>
+      </div>
+      <div id="con-record-timer" style="font-size:1.4rem;font-weight:700;text-align:center;letter-spacing:2px;margin-bottom:12px;font-variant-numeric:tabular-nums;">0:00</div>
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">
+        <button id="con-record-main-btn" onclick="conRecordToggle()" title="Record / Stop" style="width:56px;height:56px;border-radius:50%;border:2.5px solid #111;background:#fff;cursor:pointer;font-size:1.5rem;line-height:1;">⏺</button>
+      </div>
+      <audio id="con-record-preview" controls style="width:100%;display:none;margin-bottom:12px;"></audio>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="conRecordClose()" style="padding:5px 12px;border:1.5px solid #ccc;border-radius:4px;background:#f5f5f5;font-family:inherit;cursor:pointer;font-size:0.85rem;" data-i18n="btnCancel">Cancel</button>
+        <button id="con-record-save-btn" onclick="conRecordSave()" disabled style="padding:5px 12px;border:none;border-radius:4px;background:#111;color:#fff;font-family:inherit;cursor:pointer;font-size:0.85rem;opacity:0.4;" data-i18n="saveRecording">Save to board</button>
+      </div>
+    </div>
+
+    <!-- Audio trim popup -->
+    <div id="con-trim-popup" style="display:none;position:fixed;z-index:9500;background:#fff;border:1.5px solid #111;border-radius:8px;box-shadow:3px 3px 0 #bbb;padding:18px 22px;min-width:500px;font-family:inherit;">
+      <div style="font-weight:700;font-size:1.05rem;margin-bottom:6px;" data-i18n="trimAudioTitle">✂ Trim Audio</div>
+      <div id="con-trim-filename" style="font-size:0.78rem;color:#666;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:440px;"></div>
+      <div id="con-trim-waveform" style="background:#f5f5f5;border-radius:4px;margin-bottom:10px;min-height:80px;"></div>
+      <div style="display:flex;gap:20px;font-size:0.8rem;color:#444;margin-bottom:10px;">
+        <span>Start: <b id="con-trim-start">0.00s</b></span>
+        <span>End: <b id="con-trim-end">0.00s</b></span>
+        <span>Duration: <b id="con-trim-dur">0.00s</b></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button onclick="conTrimPlayAll()" style="padding:4px 10px;border:1.5px solid #ccc;border-radius:3px;background:#f5f5f5;font-family:inherit;cursor:pointer;font-size:0.82rem;">▶ All</button>
+        <button onclick="conTrimPlaySelection()" style="padding:4px 10px;border:1.5px solid #ccc;border-radius:3px;background:#f5f5f5;font-family:inherit;cursor:pointer;font-size:0.82rem;" data-i18n="playSelection">▶ Selection</button>
+        <button onclick="conTrimStop()" style="padding:4px 10px;border:1.5px solid #ccc;border-radius:3px;background:#f5f5f5;font-family:inherit;cursor:pointer;font-size:0.82rem;">⏹</button>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <span style="font-size:0.75rem;color:#888;margin-right:auto;" data-i18n="trimKeepsOriginal">Original file is kept</span>
+        <button onclick="conTrimClose()" style="padding:5px 12px;border:1.5px solid #ccc;border-radius:4px;background:#f5f5f5;font-family:inherit;cursor:pointer;font-size:0.85rem;" data-i18n="btnCancel">Cancel</button>
+        <button id="con-trim-save-btn" onclick="conTrimSave()" style="padding:5px 12px;border:none;border-radius:4px;background:#111;color:#fff;font-family:inherit;cursor:pointer;font-size:0.85rem;" data-i18n="saveTrimmed">Save trimmed</button>
+      </div>
+    </div>
+
     <!-- Media item right-click context menu -->
     <div id="con-media-ctx-menu">
+      <button id="con-ctx-trim-btn" onclick="window.conMediaCtxTrim()" style="display:none;" data-i18n="trimAudio">✂ Trim Audio</button>
       <button id="con-ctx-crop-btn" onclick="window.conMediaCtxCrop()">&#x2702;&#xFE0F; Crop</button>
       <button id="con-ctx-lock-btn" onclick="window.conMediaCtxToggleLock()">&#x1F512; Lock</button>
     </div>
