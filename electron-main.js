@@ -307,7 +307,8 @@ function getToolPath(pageFile) {
   if (!Object.values(PAGE_FILES).includes(pageFile)) {
     throw new Error(`Unknown page: ${pageFile}`);
   }
-  return path.join(ROOT_DIR, pageFile);
+  const subdir = pageFile === PAGE_FILES.launcher ? '' : 'pages';
+  return path.join(ROOT_DIR, subdir, pageFile);
 }
 
 function getLoadedPageFile(window = mainWindow) {

@@ -4,7 +4,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.QUIZ_PORT || process.env.PORT || 8787);
 const USER_GAME_RESULTS_DIR = path.join(ROOT, 'user', 'game-results');
 const GAME_RESULTS_FILE = path.join(USER_GAME_RESULTS_DIR, 'game-results.js');

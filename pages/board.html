@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Board</title>
-  <link rel="stylesheet" href="modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script>
     function applyBoardTitleFromConfig() {
       var _t = '';
@@ -259,8 +259,8 @@
         });
     });
   </script>
-  <script src="electron-bridge.js"></script>
-  <script src="dialogs.js"></script>
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/dialogs.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -303,13 +303,13 @@
     })();
   </script>
 
-  <link rel="stylesheet" href="stylesheet.css">
+  <link rel="stylesheet" href="../css/stylesheet.css">
   
   
   
-<script src="modules/html2canvas.js"></script>
-<script src="modules/wavesurfer/wavesurfer.min.js"></script>
-<script src="modules/wavesurfer/wavesurfer.regions.min.js"></script>
+<script src="../modules/html2canvas.js"></script>
+<script src="../modules/wavesurfer/wavesurfer.min.js"></script>
+<script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
 <style>
  #board-cms-timer-strip {
    display: none;
@@ -1704,11 +1704,11 @@
     <div id="history-toolbar">
       <div id="history-status">Loading saved files...</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button id="history-export-btn" class="action-btn" type="button" onclick="historyExportSelected()">⬇ Export Selected</button>
+        <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()">⬇ Export Selected</button>
         <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyArchiveSelected()">🗄 Archive Selected</button>
         <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyUnarchiveSelected()">↩ Unarchive Selected</button>
-        <button id="history-delete-selected-btn" class="action-btn btn-red" type="button" onclick="historyDeleteSelected()">🗑 Delete Selected</button>
-        <button id="history-delete-all-btn" class="action-btn btn-red" type="button" onclick="historyDeleteAll()">🧹 Delete All</button>
+        <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteSelected()">🗑 Delete Selected</button>
+        <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()">🧹 Delete All</button>
         <button class="action-btn btn-grey" onclick="historyRefreshList()">↻ Refresh</button>
       </div>
     </div>
@@ -6105,8 +6105,8 @@ function hideFailure() {
 
     async function conEnsurePdfjsLib() {
       if (!window._conPdfjsLib) {
-        const mod = await import('./modules/pdf.min.mjs');
-        mod.GlobalWorkerOptions.workerSrc = new URL('./modules/pdf.worker.min.mjs', location.href).href;
+        const mod = await import('../modules/pdf.min.mjs');
+        mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
         window._conPdfjsLib = mod;
       }
       return window._conPdfjsLib;
@@ -6114,7 +6114,7 @@ function hideFailure() {
 
     function conPdfGetDocumentParams(loadSrc) {
       return Object.assign({
-        standardFontDataUrl: new URL('./modules/standard_fonts/', location.href).href,
+        standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
         disableFontFace: false,
         useSystemFonts: false
       }, loadSrc || {});
@@ -19177,7 +19177,6 @@ function hideFailure() {
 
     window.onload = async () => {
       await Promise.resolve(window.__boardUserBootstrapPromise).catch(function () {});
-      await ensureWordDbLoaded();
       // Refresh class groups from user data target in case files changed during runtime.
       if (window.Desktop && typeof Desktop.readJson === 'function') {
         try {
@@ -26238,29 +26237,11 @@ function hideFailure() {
       historyRenderList();
 
       try {
-        const mindmapsPromise = (typeof Desktop.listByPath === 'function')
-          ? Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true })
-          : Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
-
-        const textualPromise = (typeof Desktop.listByPath === 'function')
-          ? Desktop.listByPath('textualAnalyses', '.', { extensions: ['.js', '.json'], recursive: true })
-          : Desktop.listFiles('textualAnalyses', { extensions: ['.js', '.json'] });
-
-        const notesPromise = (typeof Desktop.listByPath === 'function')
-          ? Desktop.listByPath('notes', '.', { extensions: ['.js', '.json'], recursive: true })
-          : Desktop.listFiles('notes', { extensions: ['.js', '.json'] });
-
-        const [mindmapsRes, textualRes, notesRes] = await Promise.all([
-          mindmapsPromise,
-          textualPromise,
-          notesPromise
-        ]);
+        const mindmapsRes = (typeof Desktop.listByPath === 'function')
+          ? await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true })
+          : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
 
         const mindmapsFiles = Array.isArray(mindmapsRes && mindmapsRes.files) ? mindmapsRes.files : [];
-        const textualFiles = Array.isArray(textualRes && textualRes.files) ? textualRes.files
-          : (Array.isArray(textualRes) ? textualRes : []);
-        const noteFiles = Array.isArray(notesRes && notesRes.files) ? notesRes.files
-          : (Array.isArray(notesRes) ? notesRes : []);
 
         const filteredMindmapsFiles = mindmapsFiles.filter(file => {
           const rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
@@ -26281,9 +26262,7 @@ function hideFailure() {
           return false;
         });
 
-        historyEntries = filteredMindmapsFiles.map(file => historyBuildEntry('mindmaps', file))
-          .concat(textualFiles.map(file => historyBuildEntry('textualAnalyses', file)))
-          .concat(noteFiles.map(file => historyBuildEntry('notes', file)));
+        historyEntries = filteredMindmapsFiles.map(file => historyBuildEntry('mindmaps', file));
       } catch (error) {
         historyEntries = [];
         historySetStatus('Could not load history files.');
