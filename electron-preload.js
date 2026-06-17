@@ -183,6 +183,15 @@ const exposedApi = {
   cmsPresentationCommand(command) {
     return invoke('app:cms-presentation-command', command);
   },
+  openDocPresentation(request) {
+    return invoke('app:open-doc-presentation', request);
+  },
+  isDocPresentationOpen() {
+    return invoke('app:doc-presentation-open');
+  },
+  docPresentationCommand(command) {
+    return invoke('app:doc-presentation-command', command);
+  },
   setZoomFactor(factor) {
     if (webFrame && typeof webFrame.setZoomFactor === 'function') {
       webFrame.setZoomFactor(factor);

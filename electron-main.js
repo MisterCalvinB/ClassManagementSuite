@@ -2838,7 +2838,7 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
     mirrorWindow.once('closed', () => senderWin.off('resize', _syncSize));
   }
   try {
-    await mirrorWindow.loadFile(path.join(ROOT_DIR, PAGE_FILES.board), { query: { mirror: '1' } });
+    await mirrorWindow.loadFile(getToolPath(PAGE_FILES.board), { query: { mirror: '1' } });
   } catch (err) {
     console.error('app:open-mirror-window load failed', err);
     return { ok: false, error: String(err) };
@@ -2912,7 +2912,7 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
 
   try {
     await cmsPresentationWindow.loadFile(
-      path.join(ROOT_DIR, PAGE_FILES.classManagement),
+      getToolPath(PAGE_FILES.classManagement),
       { query: { presentation: '1' } }
     );
   } catch (err) {
@@ -2954,6 +2954,84 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
       cmsPresentationWindow.setBounds({ x: x + width - w, y, width: w, height });
       break;
     }
+    default: return { ok: false, reason: 'unknown-command' };
+  }
+  return { ok: true };
+});
+
+// ── Document Editor Presentation Window ────────────────────────────────────────
+let docPresentationWindow = null;
+ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
+  if (docPresentationWindow && !docPresentationWindow.isDestroyed()) {
+    docPresentationWindow.focus();
+    return { ok: true, alreadyOpen: true };
+  }
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const sBounds   = senderWin ? senderWin.getBounds() : null;
+
+  const secondDisplay = getExtendedDisplayForBounds(sBounds);
+
+  let winOpts;
+  if (secondDisplay) {
+    const sourceDisplay = sBounds
+      ? (screen.getDisplayMatching(sBounds) || screen.getPrimaryDisplay())
+      : screen.getPrimaryDisplay();
+    const mappedBounds = mapWindowBoundsToDisplay(sBounds, sourceDisplay, secondDisplay)
+      || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
+    winOpts = {
+      x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
+      autoHideMenuBar: true,
+      title: 'Document Editor – Presentation',
+      webPreferences: {
+        preload: path.join(ROOT_DIR, 'electron-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false
+      }
+    };
+  } else {
+    const width  = sBounds ? sBounds.width  : 1200;
+    const height = sBounds ? sBounds.height : 800;
+    winOpts = {
+      width, height,
+      autoHideMenuBar: true,
+      title: 'Document Editor – Presentation',
+      webPreferences: {
+        preload: path.join(ROOT_DIR, 'electron-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false
+      }
+    };
+    if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
+  }
+
+  docPresentationWindow = new BrowserWindow(winOpts);
+  docPresentationWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  docPresentationWindow.on('closed', () => { docPresentationWindow = null; });
+
+  try {
+    await docPresentationWindow.loadFile(
+      getToolPath(PAGE_FILES.documentEditor),
+      { query: { presentation: '1' } }
+    );
+  } catch (err) {
+    console.error('app:open-doc-presentation load failed', err);
+    return { ok: false, error: String(err) };
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app:doc-presentation-open', () => {
+  return !!(docPresentationWindow && !docPresentationWindow.isDestroyed());
+});
+
+ipcMain.handle('app:doc-presentation-command', (event, command) => {
+  if (!docPresentationWindow || docPresentationWindow.isDestroyed()) return { ok: false, reason: 'not-open' };
+  switch (command) {
+    case 'close':      docPresentationWindow.close(); break;
+    case 'fullscreen': docPresentationWindow.setFullScreen(!docPresentationWindow.isFullScreen()); break;
+    case 'maximize':   docPresentationWindow.maximize(); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };

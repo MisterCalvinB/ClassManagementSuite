@@ -810,7 +810,7 @@ The window is divided into three horizontal regions:
    - **File ▾** — New, Open, Save, Save As, Save All, History
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
-   - **Export ▾** — Export PDF, Export DOCX, Preview
+   - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
    - **⚙ Settings** — snippets, shortcuts, triggers, preferences
    - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
@@ -863,6 +863,15 @@ The top panel exposes three ways to customise how the preview looks:
 | **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw content of the active stylesheet; changes apply to the preview in real time |
 
 Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
+
+### Presentation Mode
+
+**Export ▾ → Presentation Mode** opens a separate full-screen window that projects the live document preview — ideal for displaying the formatted document on a second monitor or projector.
+
+- The presentation window opens on a second display when one is detected, otherwise it opens beside the main editor.
+- The document updates live: every keystroke, page layout change, or CSS edit is reflected instantly.
+- A red **● Presenting** indicator appears in the nav bar while the window is open; click **Stop** to close it.
+- The presentation window shows only the rendered document on a dark background, with no editor chrome.
 
 ### PDF Export
 

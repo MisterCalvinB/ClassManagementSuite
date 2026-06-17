@@ -496,6 +496,62 @@
       box-shadow: 0 4px 24px rgba(0,0,0,.18);
     }
 
+    /* ── Presentation mode ──────────────────────────────── */
+    #de-pres-view {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #1a1a1a;
+      flex-direction: column;
+      z-index: 9000;
+    }
+    html.de-pres-mode #de-pres-view { display: flex; }
+    html.de-pres-mode body > *:not(#de-pres-view) { display: none !important; }
+    #de-pres-scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 24px 60px;
+    }
+    #de-pres-doc {
+      background: #fff;
+      box-shadow: 0 8px 40px rgba(0,0,0,.55);
+    }
+
+    /* Presentation active indicator in nav */
+    #de-pres-status {
+      display: none;
+      align-items: center;
+      gap: 7px;
+    }
+    .de-pres-active #de-pres-status { display: flex; }
+    .de-pres-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e44;
+      animation: de-pres-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes de-pres-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .25; }
+    }
+    .de-pres-label { color: #f88; font-size: .77rem; font-weight: 700; letter-spacing: .02em; }
+    .de-pres-stop-btn {
+      background: none;
+      border: 1px solid #c44;
+      color: #f77;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .77rem;
+      font-weight: 700;
+      font-family: inherit;
+    }
+    .de-pres-stop-btn:hover { background: rgba(200,50,50,.2); }
+
     /* ── Modals ─────────────────────────────────────────── */
     .modal-overlay {
       position: fixed;
@@ -1068,12 +1124,19 @@
       <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-preview">Preview</button>
+      <button class="nav-pop-item" id="btn-pres-mode">Presentation Mode</button>
     </div>
   </div>
 
   <div class="nav-sep"></div>
   <button class="nav-btn" id="btn-editor-settings" title="Editor settings">⚙ Settings</button>
   <div class="nav-sep"></div>
+  <div id="de-pres-status">
+    <span class="de-pres-dot"></span>
+    <span class="de-pres-label">Presenting</span>
+    <button class="de-pres-stop-btn" onclick="deClosePresentation()">Stop</button>
+  </div>
+  <div class="nav-sep" id="de-pres-sep" style="display:none"></div>
   <div class="hm-wrap" id="main-hm-wrap">
     <button class="hm-btn" id="main-hm-btn">☰</button>
     <div class="hm-menu">
@@ -1100,6 +1163,14 @@
   <div id="full-preview-scroll">
     <style id="full-preview-custom-css"></style>
     <div id="full-preview-content" class="doc-preview"></div>
+  </div>
+</div>
+
+<!-- ── Presentation view (receiver window) ───────────────── -->
+<div id="de-pres-view">
+  <div id="de-pres-scroll">
+    <style id="de-pres-custom-css"></style>
+    <div id="de-pres-doc" class="doc-preview"></div>
   </div>
 </div>
 
@@ -1344,6 +1415,7 @@ function renderPreview() {
     document.getElementById('preview-content').innerHTML =
       '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
   }
+  deBroadcastState();
 }
 
 function scheduleRender() {
@@ -2800,6 +2872,68 @@ function applyPageLayoutToPreview() {
     'font-family:' + ff + '!important;' +
     'font-size:' + fs + 'px!important;' +
     '}';
+  deBroadcastState();
+}
+
+// ── Presentation mode ─────────────────────────────────────
+let _dePresCh = null;
+let _dePresOpen = false;
+
+function _deGetPresLayout() {
+  const MM2PX = 3.7795;
+  const dims = getPageDims();
+  const m = pageLayout.margins;
+  return {
+    width:      (dims.w * MM2PX) + 'px',
+    minHeight:  (dims.h * MM2PX) + 'px',
+    padding:    (m.top*MM2PX)+'px '+(m.right*MM2PX)+'px '+(m.bottom*MM2PX)+'px '+(m.left*MM2PX)+'px',
+    fontFamily: pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif",
+    fontSize:   ((pageLayout.fontSize || 11) * 1.3333) + 'px',
+    margin:     '0 auto',
+    maxWidth:   '100%'
+  };
+}
+
+function deBroadcastState() {
+  if (!_dePresCh || !_dePresOpen) return;
+  const previewEl = document.getElementById('preview-content');
+  if (!previewEl) return;
+  const cssEl = document.getElementById('custom-css-style');
+  const css = cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : '');
+  const docName = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  try {
+    _dePresCh.postMessage({
+      type: 'de-state',
+      html: previewEl.innerHTML,
+      css,
+      layoutStyle: _deGetPresLayout(),
+      docName
+    });
+  } catch(e) {}
+}
+
+async function deOpenPresentation() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  if (!_dePresCh) {
+    _dePresCh = new BroadcastChannel('de-presentation');
+    _dePresCh.onmessage = function(e) {
+      if (e.data && e.data.type === 'de-ready') deBroadcastState();
+    };
+  }
+  const res = await Desktop.openDocPresentation();
+  if (res && (res.ok || res.alreadyOpen)) {
+    _dePresOpen = true;
+    document.documentElement.classList.add('de-pres-active');
+    document.getElementById('de-pres-sep').style.display = '';
+    deBroadcastState();
+  }
+}
+
+function deClosePresentation() {
+  if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('close');
+  _dePresOpen = false;
+  document.documentElement.classList.remove('de-pres-active');
+  document.getElementById('de-pres-sep').style.display = 'none';
 }
 
 function showFullPreview() {
@@ -3819,6 +3953,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
   document.getElementById('btn-export-docx').addEventListener('click', exportDocx);
   document.getElementById('btn-preview').addEventListener('click', showFullPreview);
+  document.getElementById('btn-pres-mode').addEventListener('click', deOpenPresentation);
   document.getElementById('btn-editor-settings').addEventListener('click', openSettingsModal);
   document.getElementById('stg-close').addEventListener('click', () => hideModal('settings-modal'));
   document.getElementById('settings-modal').addEventListener('click', function(e) {
@@ -3917,6 +4052,42 @@ window.addEventListener('DOMContentLoaded', function() {
 
   updateDocIndicator();
 });
+</script>
+<script>
+// Presentation receiver — runs only in the presentation window (?presentation=1)
+(function() {
+  if (new URLSearchParams(location.search).get('presentation') !== '1') return;
+  document.documentElement.classList.add('de-pres-mode');
+
+  const ch = new BroadcastChannel('de-presentation');
+
+  function applyState(data) {
+    var doc = document.getElementById('de-pres-doc');
+    var css = document.getElementById('de-pres-custom-css');
+    if (!doc) return;
+    if (typeof data.html === 'string') doc.innerHTML = data.html;
+    if (css && typeof data.css === 'string') css.textContent = data.css;
+    if (data.layoutStyle) Object.assign(doc.style, data.layoutStyle);
+    if (data.docName) document.title = data.docName + ' – Presentation';
+  }
+
+  ch.onmessage = function(e) {
+    if (e.data && e.data.type === 'de-state') applyState(e.data);
+  };
+
+  function requestState() {
+    try { ch.postMessage({ type: 'de-ready' }); } catch(e) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    requestState();
+    setTimeout(requestState, 600);
+    setTimeout(requestState, 1800);
+  });
+  window.addEventListener('resize', function() {
+    // Keep doc centred; layout is driven by the broadcast, nothing extra needed.
+  });
+})();
 </script>
 </body>
 </html>

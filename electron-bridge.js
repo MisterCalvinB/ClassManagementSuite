@@ -311,6 +311,21 @@
     return getDesktopApi().cmsPresentationCommand(command);
   }
 
+  async function openDocPresentation(opts) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openDocPresentation(opts || {});
+  }
+
+  async function isDocPresentationOpen() {
+    if (!isElectron()) return false;
+    return getDesktopApi().isDocPresentationOpen();
+  }
+
+  async function docPresentationCommand(command) {
+    if (!isElectron()) return null;
+    return getDesktopApi().docPresentationCommand(command);
+  }
+
   async function remoteStart(port) {
     if (!isElectron()) return null;
     return getDesktopApi().remoteStart({ port });
@@ -489,6 +504,9 @@
     openCmsPresentation,
     isCmsPresentationOpen,
     cmsPresentationCommand,
+    openDocPresentation,
+    isDocPresentationOpen,
+    docPresentationCommand,
     remoteStart,
     remoteStop,
     remoteStatus,
