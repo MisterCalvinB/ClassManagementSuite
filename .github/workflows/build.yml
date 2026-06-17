@@ -1,0 +1,165 @@
+name: Build & Package
+
+on:
+  push:
+    tags:
+      - 'v*'           # triggers on v1.0.0, v2.3.1, etc.
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+permissions:
+  contents: write      # needed to create GitHub Releases
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Windows — portable .exe
+  # ─────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node_modules-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+
+      - name: Package (Windows portable)
+        run: npx electron-builder --win portable --x64 --config.directories.output=dist/win
+        env:
+          # Code signing — add these secrets in GitHub repo settings to avoid SmartScreen warnings.
+          # Leave them unset to build an unsigned exe (still works, users see a SmartScreen prompt).
+          # CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: dist/win/*.exe
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # Linux — AppImage
+  # ─────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node_modules-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+
+      - name: Package (Linux AppImage)
+        run: npx electron-builder --linux AppImage --x64 --config.directories.output=dist/linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/linux/*.AppImage
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # macOS — DMG (x64 + arm64)
+  # ─────────────────────────────────────────────
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node_modules-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+
+      - name: Package (macOS DMG — x64 & arm64)
+        run: npx electron-builder --mac dmg --x64 --arm64 --config.directories.output=dist/mac
+        env:
+          # Code signing + notarization — without these, macOS shows "unidentified developer".
+          # To enable: add the secrets below in GitHub repo Settings → Secrets and variables.
+          # CSC_LINK: ${{ secrets.MAC_CSC_LINK }}           # base64-encoded .p12 certificate
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/mac/*.dmg
+          retention-days: 7
+
+  # ─────────────────────────────────────────────
+  # Release — runs only on version tags
+  # ─────────────────────────────────────────────
+  release:
+    needs: [build-windows, build-linux, build-mac]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/**
+          generate_release_notes: true   # auto-fills changelog from commits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

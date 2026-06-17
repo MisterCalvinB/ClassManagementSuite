@@ -163,13 +163,10 @@ function getSaveTargets() {
     app: ROOT_DIR,
     user: path.join(writableRoot, 'user'),
     data: customDataRoot,
-    gradeSheet: path.join(writableRoot, 'user/log/grade-sheet'),
     grades: path.join(writableRoot, 'user/grades'),
     groupParticipation: path.join(writableRoot, 'user/group-participation'),
     mindmaps: path.join(writableRoot, 'user/mindmaps'),
     constellationTemplates: path.join(writableRoot, 'user/mindmaps/templates'),
-    textualAnalyses: path.join(writableRoot, 'user/log/textual-analyses'),
-    notes: path.join(writableRoot, 'user/log/notes'),
     customData: customDataRoot,
     customBooks: path.join(writableRoot, 'user/custom-data/books'),
     customDictations: path.join(writableRoot, 'user/custom-data/dictations'),
@@ -195,22 +192,22 @@ function getBundledDataRoot() {
 }
 
 const PAGE_PERMISSIONS = {
-  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'textualAnalyses', 'notes', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
+  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
   [PAGE_FILES.classManagement]: new Set(['user', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation']),
-  [PAGE_FILES.gradeSheet]: new Set(['gradeSheet', 'grades', 'user']),
+  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'gradeSheet', 'groupParticipation']),
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation']),
   [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades'])
 };
 
@@ -1103,8 +1100,6 @@ async function ensureWritableSeedData() {
     fs.mkdir(saveTargets.groupParticipation, { recursive: true }),
     fs.mkdir(saveTargets.mindmaps, { recursive: true }),
     fs.mkdir(saveTargets.constellationTemplates, { recursive: true }),
-    fs.mkdir(saveTargets.textualAnalyses, { recursive: true }),
-    fs.mkdir(saveTargets.notes, { recursive: true }),
     fs.mkdir(saveTargets.grades, { recursive: true })
   ]);
 
