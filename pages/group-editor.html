@@ -8,6 +8,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/menus.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -466,33 +467,8 @@
 <nav id="app-nav">
   <span class="nav-brand"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
-    <div class="hm-menu">
-      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
-      <a href="board.html" class="nav-link hm-item">🌐 Board</a>
-      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
-      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
-      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
-      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
-      <hr class="hm-sep">
-      <a href="group-editor.html" class="nav-link hm-item nav-active">✏️ Group Editor</a>
-      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
-      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
-      <a href="document-editor.html" class="nav-link hm-item">📄 Document Editor</a>
-      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
-      <hr class="hm-sep">
-      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
-      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
-      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
-      <hr class="hm-sep">
-      <div class="hm-lang-row">
-        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
-        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
-        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
-        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
-        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
-      </div>
-    </div>
+    <button class="hm-btn" aria-label="Open menu">☰</button>
+    <div class="hm-menu"></div>
   </div>
 </nav>
 <div class="ge-page">
@@ -1931,7 +1907,9 @@
 
   // ── Init ─────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
+    initHamburger();
     if (typeof applyTranslations === 'function') applyTranslations();
+    window._cmtApplyNavBrand();
     loadGroups();
   });
 </script>

@@ -353,18 +353,20 @@
     .overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.6); z-index: 100;
-      place-items: center; padding: 24px; box-sizing: border-box;
+      place-items: center; padding: 12px; box-sizing: border-box;
     }
     .overlay.open { display: grid; }
     .modal {
       background: #fff; border: 2px solid #000; border-radius: 12px;
-      padding: 20px; width: min(700px, 100%); max-height: 80vh;
+      padding: 20px; width: min(700px, 100%); max-height: 94vh;
       display: flex; flex-direction: column; gap: 14px;
-      box-shadow: 6px 6px 0 #000;
+      box-shadow: 6px 6px 0 #000; overflow: hidden;
     }
-    .modal-wide { width: min(980px, 100%); }
+    .modal-wide { width: min(1200px, 100%); }
     .modal h2   { margin: 0; font-size: 1.15rem; font-weight: 800; }
     .modal-note { margin: 0; font-size: 0.88rem; font-weight: 500; color: #000; }
+    .modal-note-details { font-size: 0.85rem; }
+    .modal-note-details summary { cursor: pointer; font-weight: 700; font-size: 0.82rem; color: #555; user-select: none; }
     .bulk-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .bulk-row button {
       font-size: 0.85rem; padding: 6px 10px; border-radius: 6px;
@@ -372,7 +374,7 @@
       font-weight: 700; transition: background 0.1s, color 0.1s;
     }
     .bulk-row button:hover { background: #000; color: #fff; }
-    .conflict-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .conflict-list { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
     .conflict-item { border: 2px solid #000; border-radius: 8px; padding: 10px 12px; display: grid; gap: 6px; }
     .new-file-badge {
       display: inline-block; background: #000; color: #fff;
@@ -628,14 +630,17 @@
 <div class="overlay" id="syncConflictOverlay" role="dialog" aria-modal="true" aria-labelledby="syncConflictTitle">
   <div class="modal modal-wide">
     <h2 id="syncConflictTitle" data-i18n="gcSyncConflictsTitle">Sync Conflicts</h2>
-    <p class="modal-note">
-      Both sides have a different version of each file below.<br>
-      <strong>Current</strong> = active data folder &nbsp;|&nbsp; <strong>Sync folder</strong> = saved sync location.<br><br>
-      <strong>Keep current</strong> — overwrite sync with your data.<br>
-      <strong>Keep sync folder</strong> — overwrite your data with sync.<br>
-      <strong>Skip</strong> — leave both files unchanged.<br><br>
-      Files marked <span style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;">New</span> only exist on one side.
-    </p>
+    <details class="modal-note-details">
+      <summary data-i18n="gcSyncConflictsHint">How to use this dialog ▸</summary>
+      <p class="modal-note" style="margin-top:6px;">
+        Both sides have a different version of each file below.<br>
+        <strong>Current</strong> = active data folder &nbsp;|&nbsp; <strong>Sync folder</strong> = saved sync location.<br><br>
+        <strong>Keep current</strong> — overwrite sync with your data.<br>
+        <strong>Keep sync folder</strong> — overwrite your data with sync.<br>
+        <strong>Skip</strong> — leave both files unchanged.<br><br>
+        Files marked <span style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;">New</span> only exist on one side.
+      </p>
+    </details>
     <div class="bulk-row">
       <button type="button" id="syncBulkKeepSrc" data-i18n="gcSyncBulkKeepSrc">Keep all current</button>
       <button type="button" id="syncBulkKeepDest" data-i18n="gcSyncBulkKeepDest">Keep all sync folder</button>

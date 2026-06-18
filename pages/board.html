@@ -6,14 +6,6 @@
   <title>Board</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script>
-    function applyBoardTitleFromConfig() {
-      var _t = '';
-      try { _t = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || ''; } catch {}
-      var label = _t || '';
-      var el = document.querySelector('.nav-brand'); if (el) el.textContent = label;
-      document.title = label + ': Board';
-    }
-
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
     let boardCmsTimerUiState = {
@@ -251,16 +243,18 @@
     }
 
     document.addEventListener('DOMContentLoaded', function(){
+      initHamburger();
       Promise.resolve(window.__boardUserBootstrapPromise)
         .catch(function(){})
         .then(function () {
-          applyBoardTitleFromConfig();
+          window._cmtApplyNavBrand();
           boardInitCmsTimerMirror();
         });
     });
   </script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/menus.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -498,15 +492,6 @@
    cursor: nwse-resize;
  }
  .con-table-drop-highlight { outline: 2px solid #2563eb; outline-offset: -2px; }
- /* ── Hamburger nav ── */
- .hm-wrap{position:relative;margin-left:auto}
- .hm-btn{background:none;border:1px solid #555;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;transition:border-color .12s}
- .hm-btn:hover{border-color:#fff}
- .hm-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1e1e1e;border:1px solid #444;border-radius:6px;min-width:200px;z-index:9999;padding:4px 0;box-shadow:0 4px 16px rgba(0,0,0,.45)}
- .hm-wrap.open .hm-menu{display:block}
- .hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}
- .hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}
- .hm-sep{border:none;border-top:1px solid #333;margin:4px 0}
  .hm-lang-row{display:flex;gap:4px;padding:6px 12px}
  .hm-lang-btn{flex:1;background:none;border:1px solid #444;color:#aaa;padding:3px 2px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}
  .hm-lang-btn:hover{border-color:#999;color:#eee}
@@ -517,33 +502,8 @@
 <nav id="app-nav">
   <span class="nav-brand"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button class="hm-btn" onclick="document.getElementById('app-hamburger').classList.toggle('open')" aria-label="Open menu">☰</button>
-    <div class="hm-menu">
-      <a href="class-management.html" class="nav-link hm-item">🏫 Class Management</a>
-      <a href="board.html" class="nav-link hm-item nav-active">🌐 Board</a>
-      <a href="learning-tools.html" class="nav-link hm-item">🎮 Learning Tools</a>
-      <a href="manage-database.html" class="nav-link hm-item">🗄️ Database</a>
-      <a href="grade-sheet.html" class="nav-link hm-item">📝 Grade Sheet</a>
-      <a href="participation-tracker.html" class="nav-link hm-item">📊 Tracker</a>
-      <hr class="hm-sep">
-      <a href="group-editor.html" class="nav-link hm-item">✏️ Group Editor</a>
-      <a href="class-plan.html" class="nav-link hm-item">📐 Class Plan</a>
-      <a href="schedule-maker.html" class="nav-link hm-item">📆 Schedule Maker</a>
-      <a href="document-editor.html" class="nav-link hm-item">📄 Document Editor</a>
-      <a href="file-manager.html" class="nav-link hm-item">📁 File Manager</a>
-      <hr class="hm-sep">
-      <a href="general-config.html" class="nav-link hm-item">⚙️ General Config</a>
-      <a href="launcher.html" class="nav-link hm-item">🏠 Launcher</a>
-      <a href="credits.html" class="nav-link hm-item">ℹ️ Credits</a>
-      <hr class="hm-sep">
-      <div class="hm-lang-row">
-        <button class="hm-lang-btn" data-lang="auto" onclick="setLang(null)">Auto</button>
-        <button class="hm-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
-        <button class="hm-lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
-        <button class="hm-lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
-        <button class="hm-lang-btn" data-lang="it" onclick="setLang('it')">IT</button>
-      </div>
-    </div>
+    <button class="hm-btn" aria-label="Open menu">☰</button>
+    <div class="hm-menu"></div>
   </div>
 </nav>
 

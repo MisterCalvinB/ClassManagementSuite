@@ -8,6 +8,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/menus.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,6 +18,9 @@
       color: #000;
       min-height: 100vh;
     }
+
+    #app-nav { display:flex; align-items:center; gap:10px; background:#111; padding:8px 16px; border-radius:6px; margin-bottom:16px; flex-wrap:wrap; box-sizing:border-box; }
+    .nav-brand { color:#fff; font-weight:900; font-size:1rem; letter-spacing:1px; margin-right:10px; text-transform:uppercase; }
 
     .page {
       max-width: 900px;
@@ -525,6 +529,13 @@
   </style>
 </head>
 <body>
+<nav id="app-nav">
+  <span class="nav-brand"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button class="hm-btn" aria-label="Open menu">☰</button>
+    <div class="hm-menu"></div>
+  </div>
+</nav>
 <div class="page">
 
   <button class="back-link" id="backBtn" data-i18n="btnBack">← Back to Launcher</button>
@@ -1900,7 +1911,9 @@ document.getElementById('cancelConflicts').addEventListener('click', function() 
    ════════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', function() {
+  initHamburger();
   if (typeof applyTranslations === 'function') applyTranslations();
+  window._cmtApplyNavBrand();
   loadRecent();
 });
 

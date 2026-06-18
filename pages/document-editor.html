@@ -69,51 +69,7 @@
     }
     #doc-name-indicator.modified::after { content: ' *'; color: #f90; }
 
-    /* ── Hamburger ─────────────────────────────────────── */
-    .hm-wrap { position: relative; }
-    .hm-btn {
-      background: none;
-      border: 1px solid #555;
-      color: #fff;
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1rem;
-      line-height: 1;
-      transition: border-color .12s;
-    }
-    .hm-btn:hover { border-color: #fff; }
-    .hm-menu {
-      display: none;
-      position: absolute;
-      right: 0;
-      top: calc(100% + 4px);
-      background: #1e1e1e;
-      border: 1px solid #444;
-      border-radius: 6px;
-      min-width: 180px;
-      z-index: 9999;
-      padding: 4px 0;
-      box-shadow: 0 4px 16px rgba(0,0,0,.45);
-    }
-    .hm-wrap.open .hm-menu { display: block; }
-    .hm-item {
-      display: block;
-      padding: 7px 16px;
-      color: #ccc;
-      text-decoration: none;
-      font-size: .85rem;
-      font-weight: 600;
-      white-space: nowrap;
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      width: 100%;
-      text-align: left;
-    }
-    .hm-item:hover { background: #2d2d2d; color: #fff; }
-    .hm-sep { border: none; border-top: 1px solid #333; margin: 4px 0; }
+    #main-hm-wrap { margin-left: 0; }
 
     /* ── Nav hover groups ──────────────────────────────── */
     .nav-group { position: relative; display: flex; align-items: center; }
@@ -956,7 +912,7 @@
 
 <!-- ── Nav ──────────────────────────────────────────────── -->
 <nav id="app-nav">
-  <span class="nav-brand">Document Editor</span>
+  <span class="nav-brand"></span>
   <div class="nav-sep"></div>
 
   <!-- File group -->
@@ -1139,17 +1095,7 @@
   <div class="nav-sep" id="de-pres-sep" style="display:none"></div>
   <div class="hm-wrap" id="main-hm-wrap">
     <button class="hm-btn" id="main-hm-btn">☰</button>
-    <div class="hm-menu">
-      <button class="hm-item" id="btn-goto-launcher">← Launcher</button>
-      <hr class="hm-sep">
-      <div class="hm-lang-row">
-        <button class="hm-lang-btn" data-lang="auto" onclick="setPageLang(null)" data-i18n="langAuto">Auto</button>
-        <button class="hm-lang-btn" data-lang="en" onclick="setPageLang('en')">EN</button>
-        <button class="hm-lang-btn" data-lang="fr" onclick="setPageLang('fr')">FR</button>
-        <button class="hm-lang-btn" data-lang="de" onclick="setPageLang('de')">DE</button>
-        <button class="hm-lang-btn" data-lang="it" onclick="setPageLang('it')">IT</button>
-      </div>
-    </div>
+    <div class="hm-menu"></div>
   </div>
   <span id="doc-name-indicator">Untitled</span>
 </nav>
@@ -1323,6 +1269,7 @@
      and register via define() instead of setting window globals. -->
 <script src="../js/i18n.js"></script>
 <script src="../js/dialogs.js"></script>
+<script src="../js/menus.js"></script>
 <script src="../modules/katex/dist/katex.min.js"></script>
 <script src="../modules/marked/marked.umd.js"></script>
 <script>
@@ -3980,14 +3927,9 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-save-as-template').addEventListener('click', saveAsTemplate);
 
   // Hamburger
-  const hmWrap = document.getElementById('main-hm-wrap');
-  document.getElementById('main-hm-btn').addEventListener('click', function(e) {
-    e.stopPropagation();
-    hmWrap.classList.toggle('open');
-  });
-  document.getElementById('btn-goto-launcher').addEventListener('click', goToLauncher);
+  initHamburger('main-hm-wrap');
+  window._cmtApplyNavBrand();
   document.addEventListener('click', function() {
-    hmWrap.classList.remove('open');
     document.getElementById('table-insert-wrap').classList.remove('open');
   });
 

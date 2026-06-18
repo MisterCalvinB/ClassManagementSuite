@@ -2406,6 +2406,20 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
     return { ok: false, error: `Unknown page: ${pageFile}` };
   }
   const query = request && typeof request.query === 'object' ? request.query : null;
+
+  // For plain navigation (no special flags), focus an existing window if one is open.
+  const isPlainNav = !query && !request.sideBySide && !request.openOnSecondScreen && !request.maximize;
+  if (isPlainNav) {
+    const existing = BrowserWindow.getAllWindows().find(
+      w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
+    );
+    if (existing) {
+      if (existing.isMinimized()) existing.restore();
+      existing.focus();
+      return { ok: true, windowId: existing.id };
+    }
+  }
+
   const toolWin = createToolWindow(pageFile, query ? { query } : {});
 
   const senderWin = BrowserWindow.fromWebContents(event.sender);
@@ -2520,6 +2534,9 @@ ipcMain.handle('app:arrange-side-by-side', async (event, request = {}) => {
 ipcMain.handle('app:save-file', async (event, request) => {
   const pageFile = getRequestingPage(event);
   const savedFile = await writeAllowedFile(pageFile, request.target, request);
+  if (request && (request.filename === 'planner-entries.js' || request.subdir === 'planner')) {
+    _loadPlannerEntries();
+  }
   return { ok: true, file: savedFile };
 });
 
@@ -4353,6 +4370,96 @@ if (!gotSingleInstanceLock) {
   });
 }
 
+// ── Planner reminder engine ──────────────────────────────────────────────────
+
+let _plannerReminderEntries = [];
+const _shownReminders = new Set();
+let _reminderInterval = null;
+
+function _loadPlannerEntries() {
+  try {
+    const targets = getSaveTargets();
+    const userDir = targets.user;
+    let all = [];
+    const plannerDir = path.join(userDir, 'planner');
+    if (fsSync.existsSync(plannerDir)) {
+      const perClassFiles = fsSync.readdirSync(plannerDir).filter(f => f.endsWith('.js'));
+      for (const file of perClassFiles) {
+        try {
+          const content = fsSync.readFileSync(path.join(plannerDir, file), 'utf8');
+          const match = content.match(/PLANNER_ENTRIES_BY_CLASS\[[^\]]+\]\s*=\s*(\[[\s\S]*\]);/);
+          if (match) all = all.concat(JSON.parse(match[1]));
+        } catch (_e) {}
+      }
+    }
+    if (all.length === 0) {
+      const filePath = path.join(userDir, 'planner-entries.js');
+      if (fsSync.existsSync(filePath)) {
+        const content = fsSync.readFileSync(filePath, 'utf8');
+        const match = content.match(/PLANNER_ENTRIES\s*=\s*(\[[\s\S]*\])\s*;/);
+        if (match) all = JSON.parse(match[1]);
+      }
+    }
+    _plannerReminderEntries = all.filter(
+      e => e && e.reminder && e.reminder.minutesBefore > 0 && e.date
+    );
+  } catch (_err) {
+    _plannerReminderEntries = [];
+  }
+}
+
+function _checkPlannerReminders() {
+  const nowMs = Date.now();
+  for (const entry of _plannerReminderEntries) {
+    const key = String(entry.id) + '@' + String(entry.reminder.minutesBefore);
+    if (_shownReminders.has(key)) continue;
+
+    const timeParts = (entry.time || '09:00').split(':');
+    const h = parseInt(timeParts[0], 10) || 9;
+    const m = parseInt(timeParts[1], 10) || 0;
+    const hh = String(h).padStart(2, '0');
+    const mm = String(m).padStart(2, '0');
+    const entryMs = new Date(entry.date + 'T' + hh + ':' + mm + ':00').getTime();
+    if (isNaN(entryMs)) continue;
+
+    const fireMs = entryMs - entry.reminder.minutesBefore * 60000;
+
+    // Fire if within a 2-minute window after the trigger time, and the class hasn't started yet
+    if (nowMs >= fireMs && nowMs < fireMs + 120000 && entryMs > nowMs) {
+      _shownReminders.add(key);
+
+      const mb = entry.reminder.minutesBefore;
+      let whenStr;
+      if (mb < 60)       whenStr = 'in ' + mb + ' min';
+      else if (mb === 60) whenStr = 'in 1 hour';
+      else if (mb < 1440) whenStr = 'in ' + (mb / 60) + ' hours';
+      else               whenStr = 'tomorrow';
+
+      const classLabel = entry.classId || '';
+      const timeLabel  = entry.time ? entry.time + (entry.timeEnd ? '–' + entry.timeEnd : '') : '';
+      const bodyParts  = [timeLabel, entry.type || '', entry.topic || ''].filter(Boolean);
+
+      const data = {
+        title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr,
+        body:  bodyParts.join(' · ')
+      };
+
+      const focused = BrowserWindow.getFocusedWindow();
+      if (focused && !focused.isDestroyed() && focused.webContents && !focused.webContents.isDestroyed()) {
+        focused.webContents.send('planner:reminder', data);
+      }
+    }
+  }
+}
+
+function _startReminderEngine() {
+  _loadPlannerEntries();
+  if (_reminderInterval) clearInterval(_reminderInterval);
+  _reminderInterval = setInterval(_checkPlannerReminders, 60000);
+  // Delay first check so windows have time to open
+  setTimeout(_checkPlannerReminders, 8000);
+}
+
 app.whenReady().then(async () => {
   let initialPageFile = getInitialPageFile();
 
@@ -4388,6 +4495,7 @@ app.whenReady().then(async () => {
 
   buildMenu();
   createMainWindow(initialPageFile);
+  _startReminderEngine();
 
   // Start auto-sync watcher if the user had it enabled.
   loadAutoSyncEnabled().then(enabled => { if (enabled) startAutoSyncWatcher(); }).catch(() => {});

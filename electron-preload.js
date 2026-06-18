@@ -226,6 +226,10 @@ const exposedApi = {
   },
   quizServerStatus() {
     return invoke('app:quiz-server-status');
+  },
+  onPlannerReminder(callback) {
+    if (!ipcRenderer) return;
+    ipcRenderer.on('planner:reminder', function (_event, data) { callback(data); });
   }
 };
 

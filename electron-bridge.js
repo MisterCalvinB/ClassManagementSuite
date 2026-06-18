@@ -464,6 +464,56 @@
     return !!(res && res.open);
   }
 
+  // ── Planner reminder toast ──────────────────────────────────────────────────
+  function wireReminderToast() {
+    if (!isElectron()) return;
+    var api = getDesktopApi();
+    if (!api || typeof api.onPlannerReminder !== 'function') return;
+
+    var style = document.createElement('style');
+    style.textContent = [
+      '#planner-reminder-toast{',
+        'position:fixed;bottom:20px;right:20px;z-index:99999;',
+        'background:#1a1a2e;color:#e8e8f0;border-radius:10px;',
+        'padding:12px 36px 12px 14px;max-width:300px;min-width:180px;',
+        'font-size:.83rem;line-height:1.45;',
+        'box-shadow:0 4px 22px rgba(0,0,0,.5);',
+        'opacity:0;transition:opacity .25s;pointer-events:none;',
+        'border-left:3px solid #6c8ef5;',
+      '}',
+      '#planner-reminder-toast.prt-show{opacity:1;pointer-events:auto;}',
+      '#planner-reminder-toast .prt-title{font-weight:700;font-size:.82rem;margin-bottom:3px;}',
+      '#planner-reminder-toast .prt-body{font-size:.78rem;color:#b0b4c8;}',
+      '#planner-reminder-toast .prt-close{',
+        'position:absolute;top:6px;right:8px;',
+        'background:none;border:none;color:#888;font-size:.85rem;',
+        'cursor:pointer;padding:2px 4px;border-radius:3px;line-height:1;',
+      '}',
+      '#planner-reminder-toast .prt-close:hover{color:#e8e8f0;background:#333;}'
+    ].join('');
+    document.head.appendChild(style);
+
+    var toast = document.createElement('div');
+    toast.id = 'planner-reminder-toast';
+    toast.innerHTML = '<button class="prt-close" aria-label="Close">✕</button>' +
+      '<div class="prt-title"></div><div class="prt-body"></div>';
+    document.body.appendChild(toast);
+
+    var hideTimer = null;
+    toast.querySelector('.prt-close').addEventListener('click', function () {
+      toast.classList.remove('prt-show');
+      clearTimeout(hideTimer);
+    });
+
+    api.onPlannerReminder(function (data) {
+      toast.querySelector('.prt-title').textContent = data.title || '';
+      toast.querySelector('.prt-body').textContent  = data.body  || '';
+      toast.classList.add('prt-show');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () { toast.classList.remove('prt-show'); }, 9000);
+    });
+  }
+
   window.Desktop = Object.freeze({
     applyRestoreChoices,
     arrangeSideBySide,
@@ -519,16 +569,16 @@
 
   // In Electron, intercept app-nav links so they open in a new tool window
   // instead of being blocked by setWindowOpenHandler.
+  // Uses event delegation so dynamically-injected menu links are handled.
   function wireAppNav() {
     if (!isElectron()) return;
     const nav = document.getElementById('app-nav');
     if (!nav) return;
-    nav.querySelectorAll('a.nav-link[href]').forEach(function (link) {
-      link.addEventListener('click', function (event) {
-        event.preventDefault();
-        const pageFile = link.getAttribute('href');
-        window.Desktop.openTool(pageFile);
-      });
+    nav.addEventListener('click', function (event) {
+      const link = event.target.closest('a.nav-link[href]');
+      if (!link) return;
+      event.preventDefault();
+      window.Desktop.openTool(link.getAttribute('href'));
     });
   }
 
@@ -541,9 +591,10 @@
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { wireAppNav(); wireHamburger(); });
+    document.addEventListener('DOMContentLoaded', function () { wireAppNav(); wireHamburger(); wireReminderToast(); });
   } else {
     wireAppNav();
     wireHamburger();
+    wireReminderToast();
   }
 })();
