@@ -6,6 +6,7 @@
   <title>Learning Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -54,6 +55,7 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <button id="lt-tut-trigger" class="tut-trigger-btn" onclick="startLtTutorial()" data-i18n-title="tutBtnLabel">?</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -62,6 +64,16 @@
 
 <!-- Scroll to top button -->
 <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
+<div id="active-words-overlay" onclick="if(event.target===this)closeActiveWordsPopup()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:20px 24px;max-width:560px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+      <span id="active-words-count" style="font-weight:700;font-size:.9rem;color:#555;"></span>
+      <button onclick="closeActiveWordsPopup()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;line-height:1;">✕</button>
+    </div>
+    <div id="active-words-list" style="overflow-y:auto;font-size:.85rem;color:#222;line-height:1.7;word-break:break-word;"></div>
+  </div>
+</div>
 <div id="timer-settings-overlay">
   <div id="timer-settings-modal">
     <h3>⏱ Timer Settings
@@ -351,20 +363,6 @@
         <button class="action-btn" onclick="closeHelp()" data-i18n="btnGotIt">Got it — let's play!</button>
       </div>
     </div>
-  </div>
-  <div id="lang-switcher">
-    <button class="lang-btn" id="lang-auto" data-lang="auto" onclick="setLang(null)">Auto</button>
-    <button class="lang-btn" id="lang-en" data-lang="en" onclick="setLang('en')">EN</button>
-    <button class="lang-btn" id="lang-de" data-lang="de" onclick="setLang('de')">DE</button>
-    <button class="lang-btn" id="lang-it" data-lang="it" onclick="setLang('it')">IT</button>
-    <button class="lang-btn" id="lang-fr" data-lang="fr" onclick="setLang('fr')">FR</button>
-  </div>
-
-  <div id="font-size-control">
-    <button class="fs-btn" onclick="adjustFontSize(-1)" title="Decrease font size">A−</button>
-    <button class="fs-btn" onclick="adjustFontSize(0)" title="Reset font size">A</button>
-    <button class="fs-btn" onclick="adjustFontSize(1)" title="Increase font size">A+</button>
-    <button class="fs-btn" id="mute-btn" onclick="toggleMute()" title="Toggle sound">🔊</button>
   </div>
 
   <div id="group-selector-wrap">
@@ -758,7 +756,7 @@
       <div class="filter-col"><label class="filter-label" data-i18n="filterKeyword">Keyword</label><div class="theme-picker-wrap keyword-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Keywords</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label">Source</label><div class="theme-picker-wrap source-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Sources</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label">Starred</label><button type="button" id="lt-starred-toggle" class="action-btn btn-grey" onclick="ltToggleStarredFilter()" style="padding:4px 10px;font-size:0.82rem;">☆ All</button></div>
-      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
+      <div class="filter-reset-col"><button class="action-btn btn-blue" onclick="showActiveWordsPopup()" style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnWordsActive">Words Active</button><button class="action-btn btn-grey" onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
     </div>
     <div id="team-setup">
       <h3 data-i18n="teamModeTitle">👥 Team Mode</h3>
@@ -814,7 +812,8 @@
       <div class="filter-col"><label class="filter-label">Length</label><div class="theme-picker-wrap length-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Lengths</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label">Keyword</label><div class="theme-picker-wrap keyword-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Keywords</button><div class="theme-picker-dropdown"></div></div></div>
       <div class="filter-col"><label class="filter-label">Source</label><div class="theme-picker-wrap source-picker-wrap"><button type="button" class="theme-picker-btn" onclick="themePickerToggle(this)">All Sources</button><div class="theme-picker-dropdown"></div></div></div>
-      <div class="filter-reset-col"><button class="action-btn btn-grey" onclick="resetAllFilters()">Reset</button></div>
+      <div class="filter-col"><label class="filter-label">Starred</label><button type="button" class="action-btn btn-grey lt-starred-btn" onclick="ltToggleStarredFilter()" style="padding:4px 10px;font-size:0.82rem;">☆ All</button></div>
+      <div class="filter-reset-col"><button class="action-btn btn-blue" onclick="showActiveWordsPopup()" style="padding:4px 10px;font-size:0.82rem;">Words Active</button><button class="action-btn btn-grey" onclick="resetAllFilters()">Reset</button></div>
     </div>
   </template>
   <div id="match-game-section" class="game hidden">
@@ -3941,10 +3940,16 @@ function hideFailure() {
 
     let ltStarredOnly = false;
 
+    function _syncAllStarredBtns() {
+      document.querySelectorAll('#lt-starred-toggle, .lt-starred-btn').forEach(b => {
+        b.textContent = ltStarredOnly ? '★ Starred' : '☆ All';
+        b.classList.toggle('btn-yellow', ltStarredOnly);
+      });
+    }
+
     function ltToggleStarredFilter() {
       ltStarredOnly = !ltStarredOnly;
-      const btn = document.getElementById('lt-starred-toggle');
-      if (btn) { btn.textContent = ltStarredOnly ? '★ Starred' : '☆ All'; btn.classList.toggle('btn-yellow', ltStarredOnly); }
+      _syncAllStarredBtns();
       if (activeSection !== 'main-menu') refreshCurrentGame();
       updateAllFilterCounts();
     }
@@ -4028,6 +4033,10 @@ function hideFailure() {
         const mount = target.querySelector('.filter-mount');
         if (mount && !mount.innerHTML) {
           mount.appendChild(document.getElementById('filter-template').content.cloneNode(true));
+          if (ltStarredOnly) {
+            const sb = mount.querySelector('.lt-starred-btn');
+            if (sb) { sb.textContent = '★ Starred'; sb.classList.add('btn-yellow'); }
+          }
         }
 		
 		if (sectionId === 'gap-game-section') {
@@ -4079,10 +4088,24 @@ function hideFailure() {
       usedWords.clear();
       document.querySelectorAll('.theme-picker-wrap').forEach(wrap => themePickerSetSelected(wrap, ['all']));
       ltStarredOnly = false;
-      const starBtn = document.getElementById('lt-starred-toggle');
-      if (starBtn) { starBtn.textContent = '☆ All'; starBtn.classList.remove('btn-yellow'); }
+      _syncAllStarredBtns();
       if (activeSection !== 'main-menu') refreshCurrentGame();
       updateAllFilterCounts();
+    }
+
+    function showActiveWordsPopup() {
+      const words = getFilteredBank()
+        .map(w => w.word || '')
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+      const overlay = document.getElementById('active-words-overlay');
+      document.getElementById('active-words-count').textContent = words.length + ' word' + (words.length !== 1 ? 's' : '');
+      document.getElementById('active-words-list').textContent = words.join(', ');
+      overlay.style.display = 'flex';
+    }
+
+    function closeActiveWordsPopup() {
+      document.getElementById('active-words-overlay').style.display = 'none';
     }
 
     function refreshCurrentGame() {
@@ -12464,7 +12487,7 @@ function renderSentenceWithGap(userInput) {
         btnConstellation:'🌐 Word Constellation', btnAddWords:'➕ Add Words to DB',
         btnHelp:'❓ How does everything work?',
         teamModeTitle:'👥 Team Mode', btnAddTeam:'+ Add Team', btnResetScores:'Reset Scores', btnClearTeams:'Clear Teams',
-        filterLevel:'Level', filterTheme:'Theme', filterType:'Type', filterLetter:'Letter', filterLength:'Length', btnReset:'Reset',
+        filterLevel:'Level', filterTheme:'Theme', filterType:'Type', filterLetter:'Letter', filterLength:'Length', btnReset:'Reset', btnWordsActive:'Words Active',
         btnBack:'← Back',
         excellent:'Excellent!', pointsAwarded:'Points Awarded',
         btnNextWord:'Next Word →', btnTryAgain:'Try Again',
@@ -12583,6 +12606,12 @@ function renderSentenceWithGap(userInput) {
         saveChanges:'💾 Save Changes', addWordBtn:'➕ Add Word', addQuoteBtn:'➕ Add Quote',
         addGapBtn:'➕ Add Gap Fill', addErrorBtn:'➕ Add Error Pair',
         allLevels:'All Levels', allThemes:'All Themes', allTypes:'All Types',
+        tutBtnLabel:'▶ Tour',
+        tutNext:'Next →', tutPrev:'← Back', tutSkip:'Skip', tutDone:'Done ✓',
+        tutLt1Title:'Word Filters', tutLt1Text:'Narrow the word bank by level, theme, part of speech, or keyword. Every game uses only the words that match all active filters.',
+        tutLt2Title:'Team Mode', tutLt2Text:'Add teams here for competitive sessions. Points are awarded to the active team when a student answers correctly.',
+        tutLt3Title:'Activities', tutLt3Text:'Choose a vocabulary or grammar activity. Each game uses the word selection from your current filters — change filters before launching to change the word set.',
+        tutLt4Title:'Help', tutLt4Text:'Click here for step-by-step instructions on every activity.',
       },
       de: {
         siteTitle:'Learning Tools',
@@ -12595,7 +12624,7 @@ function renderSentenceWithGap(userInput) {
         btnConstellation:'🌐 Wortkonstellation', btnAddWords:'➕ Wörter hinzufügen',
         btnHelp:'❓ Wie funktioniert alles?',
         teamModeTitle:'👥 Team-Modus', btnAddTeam:'+ Team hinzufügen', btnResetScores:'Punkte zurücksetzen', btnClearTeams:'Teams löschen',
-        filterLevel:'Niveau', filterTheme:'Thema', filterType:'Wortart', filterLetter:'Buchstabe', filterLength:'Länge', btnReset:'Zurücksetzen',
+        filterLevel:'Niveau', filterTheme:'Thema', filterType:'Wortart', filterLetter:'Buchstabe', filterLength:'Länge', btnReset:'Zurücksetzen', btnWordsActive:'Aktive Wörter',
         btnBack:'← Zurück',
         excellent:'Ausgezeichnet!', pointsAwarded:'Punkte vergeben',
         btnNextWord:'Nächstes Wort →', btnTryAgain:'Nochmal',
@@ -12713,6 +12742,12 @@ function renderSentenceWithGap(userInput) {
         saveChanges:'💾 Änderungen speichern', addWordBtn:'➕ Wort hinzufügen', addQuoteBtn:'➕ Zitat hinzufügen',
         addGapBtn:'➕ Lückentext hinzufügen', addErrorBtn:'➕ Fehlerpaar hinzufügen',
         allLevels:'Alle Niveaus', allThemes:'Alle Themen', allTypes:'Alle Wortarten',
+        tutBtnLabel:'▶ Tour',
+        tutNext:'Weiter →', tutPrev:'← Zurück', tutSkip:'Überspringen', tutDone:'Fertig ✓',
+        tutLt1Title:'Wortfilter', tutLt1Text:'Grenzen Sie die Wortdatenbank nach Niveau, Thema, Wortart oder Schlüsselwort ein. Jedes Spiel verwendet nur die Wörter, die allen aktiven Filtern entsprechen.',
+        tutLt2Title:'Team-Modus', tutLt2Text:'Fügen Sie hier Teams für Wettbewerbe hinzu. Das aktive Team erhält Punkte, wenn ein Schüler richtig antwortet.',
+        tutLt3Title:'Aktivitäten', tutLt3Text:'Wählen Sie eine Vokabel- oder Grammatikaktivität. Jedes Spiel verwendet die durch Ihre Filter ausgewählten Wörter.',
+        tutLt4Title:'Hilfe', tutLt4Text:'Klicken Sie hier für Schritt-für-Schritt-Anleitungen zu jeder Aktivität.',
       },
       it: {
         siteTitle:'Learning Tools',
@@ -12725,7 +12760,7 @@ function renderSentenceWithGap(userInput) {
         btnConstellation:'🌐 Costellazione Parole', btnAddWords:'➕ Aggiungi Parole al DB',
         btnHelp:'❓ Come funziona tutto?',
         teamModeTitle:'👥 Modalità a Squadre', btnAddTeam:'+ Aggiungi Squadra', btnResetScores:'Azzera Punteggi', btnClearTeams:'Elimina Squadre',
-        filterLevel:'Livello', filterTheme:'Tema', filterType:'Tipo', filterLetter:'Lettera', filterLength:'Lunghezza', btnReset:'Reimposta',
+        filterLevel:'Livello', filterTheme:'Tema', filterType:'Tipo', filterLetter:'Lettera', filterLength:'Lunghezza', btnReset:'Reimposta', btnWordsActive:'Parole Attive',
         btnBack:'← Indietro',
         excellent:'Eccellente!', pointsAwarded:'Punti assegnati',
         btnNextWord:'Parola successiva →', btnTryAgain:'Riprova',
@@ -12843,6 +12878,12 @@ function renderSentenceWithGap(userInput) {
         saveChanges:'💾 Salva Modifiche', addWordBtn:'➕ Aggiungi Parola', addQuoteBtn:'➕ Aggiungi Citazione',
         addGapBtn:'➕ Aggiungi Esercizio', addErrorBtn:'➕ Aggiungi Coppia di Errori',
         allLevels:'Tutti i Livelli', allThemes:'Tutti i Temi', allTypes:'Tutti i Tipi',
+        tutBtnLabel:'▶ Tour',
+        tutNext:'Avanti →', tutPrev:'← Indietro', tutSkip:'Salta', tutDone:'Fine ✓',
+        tutLt1Title:'Filtri Parole', tutLt1Text:'Restringi la banca dati per livello, tema, tipo o parola chiave. Ogni gioco usa solo le parole che corrispondono a tutti i filtri attivi.',
+        tutLt2Title:'Modalità a Squadre', tutLt2Text:'Aggiungi squadre qui per sessioni competitive. La squadra attiva riceve punti quando uno studente risponde correttamente.',
+        tutLt3Title:'Attività', tutLt3Text:'Scegli un\'attività di vocabolario o grammatica. Ogni gioco usa la selezione di parole dei filtri correnti.',
+        tutLt4Title:'Aiuto', tutLt4Text:'Clicca qui per istruzioni passo passo su ogni attività.',
       },
       fr: {
         siteTitle:'Learning Tools',
@@ -12855,7 +12896,7 @@ function renderSentenceWithGap(userInput) {
         btnConstellation:'🌐 Constellation de Mots', btnAddWords:'➕ Ajouter des Mots à la BD',
         btnHelp:'❓ Comment ça fonctionne ?',
         teamModeTitle:'👥 Mode Équipe', btnAddTeam:'+ Ajouter une Équipe', btnResetScores:'Réinitialiser les Scores', btnClearTeams:'Supprimer les Équipes',
-        filterLevel:'Niveau', filterTheme:'Thème', filterType:'Type', filterLetter:'Lettre', filterLength:'Longueur', btnReset:'Réinitialiser',
+        filterLevel:'Niveau', filterTheme:'Thème', filterType:'Type', filterLetter:'Lettre', filterLength:'Longueur', btnReset:'Réinitialiser', btnWordsActive:'Mots Actifs',
         btnBack:'← Retour',
         excellent:'Excellent !', pointsAwarded:'Points attribués',
         btnNextWord:'Mot suivant →', btnTryAgain:'Réessayer',
@@ -12973,6 +13014,12 @@ function renderSentenceWithGap(userInput) {
         saveChanges:'💾 Enregistrer les Modifications', addWordBtn:'➕ Ajouter un Mot', addQuoteBtn:'➕ Ajouter une Citation',
         addGapBtn:'➕ Ajouter un Exercice', addErrorBtn:'➕ Ajouter une Paire d\'Erreurs',
         allLevels:'Tous les Niveaux', allThemes:'Tous les Thèmes', allTypes:'Tous les Types',
+        tutBtnLabel:'▶ Visite',
+        tutNext:'Suivant →', tutPrev:'← Précédent', tutSkip:'Passer', tutDone:'Terminé ✓',
+        tutLt1Title:'Filtres Vocabulaire', tutLt1Text:'Restreignez la banque de mots par niveau, thème, type ou mot-clé. Chaque jeu utilise uniquement les mots correspondant à tous les filtres actifs.',
+        tutLt2Title:'Mode Équipes', tutLt2Text:'Ajoutez des équipes ici pour des sessions compétitives. L\'équipe active gagne des points lorsqu\'un élève répond correctement.',
+        tutLt3Title:'Activités', tutLt3Text:'Choisissez une activité de vocabulaire ou de grammaire. Chaque jeu utilise la sélection de mots de vos filtres actuels.',
+        tutLt4Title:'Aide', tutLt4Text:'Cliquez ici pour des instructions étape par étape sur chaque activité.',
       }
     };
 
@@ -13034,6 +13081,9 @@ function renderSentenceWithGap(userInput) {
         if (htmlKeys.includes(k)) { el.innerHTML = v; }
         else { el.textContent = v; }
       });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.getAttribute('data-i18n-title'));
+      });
 
       const failureOverlay = document.getElementById('failure-overlay');
       const failureIsOpen = !!(failureOverlay && failureOverlay.classList.contains('active'));
@@ -13091,6 +13141,16 @@ function renderSentenceWithGap(userInput) {
         buildThemePickerDropdown(w, lengths, sel, labelMap, 'All Lengths');
         themePickerSetSelected(w, sel);
       });
+    }
+
+    // ── Tutorial ──────────────────────────────────────────────────────────────
+    function startLtTutorial() {
+      Tutorial.start([
+        { selector: '.filter-bar',   title: t('tutLt1Title'), text: t('tutLt1Text') },
+        { selector: '#team-setup',   title: t('tutLt2Title'), text: t('tutLt2Text') },
+        { selector: '.menu-grid',    title: t('tutLt3Title'), text: t('tutLt3Text') },
+        { selector: 'button.help-btn', title: t('tutLt4Title'), text: t('tutLt4Text') }
+      ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
     }
 
     // Initialise language on page load

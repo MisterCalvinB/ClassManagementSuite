@@ -9,6 +9,7 @@
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/tutorial.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -459,6 +460,7 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <button id="tut-trigger" class="tut-trigger-btn" onclick="startSmTutorial()" data-i18n-title="tutBtnLabel">?</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -1335,6 +1337,17 @@
   function closeLoadModal(e) {
     if (e && e.target !== document.getElementById('sm-load-modal')) return;
     document.getElementById('sm-load-modal').classList.remove('open');
+  }
+
+  // ── Tutorial ────────────────────────────────────────────
+  function startSmTutorial() {
+    Tutorial.start([
+      { selector: '.sm-config',        title: t('tutSm1Title'), text: t('tutSm1Text') },
+      { selector: '.sm-apply-btn',     title: t('tutSm2Title'), text: t('tutSm2Text') },
+      { selector: '.sm-order-panel',   title: t('tutSm3Title'), text: t('tutSm3Text') },
+      { selector: '.sm-schedule-panel',title: t('tutSm4Title'), text: t('tutSm4Text') },
+      { selector: '.sm-action-bar',    title: t('tutSm5Title'), text: t('tutSm5Text') }
+    ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
   }
 
   // ── Init ────────────────────────────────────────────────

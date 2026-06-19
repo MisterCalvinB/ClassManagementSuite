@@ -24,6 +24,76 @@ All tools run as standalone HTML files in a browser or via Electron (desktop bui
 
 ---
 
+## Cross-App Connections
+
+The tools share data files and communicate in real time. Setting something up once propagates automatically — no duplication needed.
+
+### Shared class data: `class-groups.js`
+
+**Group Editor** is the single source of truth for all class and student data. Every other tool reads from the same `class-groups.js` file at startup — no import or copy required.
+
+| Tool | What it reads from `class-groups.js` |
+|---|---|
+| Class Management | Student roster and group list |
+| Participation Tracker | Groups for session filtering and the *This Term* date range |
+| Grade Sheet | Student list per class |
+| Planner | Class list for the weekly schedule |
+| Learning Tools | Groups for Team Mode |
+| Schedule Maker | Students and SEN flags per group |
+| Class Plan | Student lists for seat assignment |
+
+**Recommended first step:** Create your classes in Group Editor before opening any other tool.
+
+> **Built-in tutorial:** Click the **?** button in the top navigation bar of Group Editor to launch an interactive step-by-step tour of its main features.
+
+### Term date sync: Group Editor ↔ Planner
+
+Group Editor's **Active Context** holds the current year, term (S1/S2), and start/end dates. These dates power Participation Tracker's *This Term* filter and the end-of-term archive prompt.
+
+If you also use the Planner, avoid entering dates twice. You have two options:
+
+**Option A — Create terms in Group Editor:**
+1. In **Group Editor**, find the **Planner Terms** section (below Active Context).
+2. Click **+ New Term**, fill in the label, start date, end date, and any holidays.
+3. Click **Save to Planner** — the term is written to `planner-config.js` immediately.
+4. To edit or delete an existing term, click **Edit** next to it in the list.
+
+**Option B — Pull from Planner into Group Editor:**
+1. Create a term in **Planner** with its start and end dates.
+2. In **Group Editor → Active Context**, click **↕ Planner** to fill the dates in one click.
+
+The *Add Term* modal in Planner also offers a blue hint to auto-fill dates from the Group Editor active context — so the link works in both directions.
+
+### Planner → Grade Sheet: automatic test linking
+
+When you add a **Test** entry in the Planner, it checks for a Grade Sheet class with the same name. If a free test slot exists, the test is registered there automatically — a green badge in the Planner confirms the link.
+
+### Class Management ↔ Board: live sync
+
+- The **timer** started in Class Management appears as a floating overlay on Board automatically.
+- When **Presentation Mode** is open in Class Management, group updates and activity state broadcast to the Board window in real time via a background channel — no manual action required.
+
+### File Manager → Board: reopen saved sessions
+
+The File Manager's **Recent** tab shows an **Open in Board** button on every constellation map row — click it to reopen the map directly in Board without going through the launcher.
+
+### Class Plan ↔ Class Management: shared seating plans
+
+Plans are written to `user/config.js` on every save, so they are always available in both tools. Plans created in either tool are imported by the other on startup.
+
+### Presentation windows
+
+Four tools support a detached second window for projection on a second monitor:
+
+| Tool | How to open | What is projected |
+|---|---|---|
+| **Board** | Toolbar → 📽️ Presentation Mode | Live canvas; supports a mouse-pointer dot and a Freeze toggle |
+| **Class Management** | Top menu → Presentation | Roster with roles, badges, and animated effects; can be frozen independently |
+| **Learning Tools** | Individual game → Presentation icon | Game view on a student-facing display; teacher controls stay on the main screen |
+| **Document Editor** | Export ▾ → Presentation Mode | Live document preview on a dark background; updates with every keystroke |
+
+---
+
 ## launcher.html
 
 The home screen of the app. Opens automatically on startup and provides one-click access to every tool.
@@ -103,6 +173,8 @@ The **Active Context** banner at the top sets the default year, term, and date r
 - **Term** — S1 or S2; controls which section groups appear in and powers the end-of-term archive prompt.
 - **Start / End dates** — term dates used by Participation Tracker's *This Term* filter and by the end-of-term banner.
 - **↕ Planner** — click to fill the active-context dates from a configured Planner term. If the Planner has one term, it applies immediately; if it has several, a picker appears.
+
+**Planner Terms** (section below Active Context, desktop app only): create, edit, and delete Planner semester entries without opening the Planner. The inline form pre-fills from the Active Context. Each term can include holidays (with optional end dates). Overlapping-date conflicts prompt a confirmation before saving.
 
 Click **💾 Save** to persist the active context to `class-groups.js`.
 
@@ -308,6 +380,15 @@ Accessed from the top-right ⚙ menu:
 | **Class Plan** | Seating layout and weekly schedule |
 | **App Title** | Custom teacher or school name shown in the header |
 | **Startup Window** | Which tool opens automatically at launch |
+
+### Presentation Mode
+
+Opens a second window intended for a projector or secondary screen.
+
+- Displays the roster with optional overlays: roles, badges, autoflag indicators, and animated effects.
+- **Freeze** the presentation to pause live updates while you make changes on the control panel.
+- Minimize, dock, or maximize the window independently.
+- When the Board is also open, timer events and group-activity updates broadcast to it in real time.
 
 ### Navigation
 
@@ -565,6 +646,15 @@ Most games have a **⏱ Timer** button in the top-right corner. Configure:
 - **Deduction interval** — seconds between deductions.
 
 The timer runs independently of the game, making it usable for timed rounds or team challenges.
+
+### Presentation Mode
+
+Individual games have a presentation icon (📽️) in their toolbar that opens a second window for student-facing display:
+
+- Projects the game interface onto a projector or secondary monitor.
+- Teacher controls (team scores, navigation, settings) remain on the main window.
+- The presentation window updates live as you advance through questions or activities.
+- Close it from either screen via the close button or the presentation indicator in the main toolbar.
 
 ### Other Controls
 

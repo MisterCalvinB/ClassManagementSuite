@@ -9,6 +9,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script>
   (function () {
     function injectScript(source, name) {
@@ -324,6 +325,7 @@
 
 <nav id="app-nav">
   <span class="nav-brand">Class Plan</span>
+  <button id="tut-trigger" class="tut-trigger-btn" onclick="startCpTutorial()" data-i18n-title="tutBtnLabel">?</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -510,6 +512,16 @@ let _autoSaveTimer = null;
 let _cfmOkCb = null;
 let _cfmCancelCb = null;
 let _dirty = false;
+
+// ── Tutorial ──────────────────────────────────────────────────────────────────
+function startCpTutorial() {
+  Tutorial.start([
+    { selector: '#plans-sidebar',  title: t('tutCp1Title'), text: t('tutCp1Text') },
+    { selector: '#group-sel',      title: t('tutCp2Title'), text: t('tutCp2Text') },
+    { selector: '#new-plan-btn',   title: t('tutCp3Title'), text: t('tutCp3Text') },
+    { selector: '#editor-panel',   title: t('tutCp4Title'), text: t('tutCp4Text') }
+  ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
+}
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function () {

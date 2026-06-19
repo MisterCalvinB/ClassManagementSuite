@@ -9,6 +9,7 @@
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script>
   (function () {
     function injectScript(src, name) {
@@ -346,6 +347,7 @@
 <!-- ── Nav ── -->
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <button id="tut-trigger" class="tut-trigger-btn" onclick="startPlTutorial()" data-i18n-title="tutBtnLabel">?</button>
   <div class="hm-wrap" id="hmWrap">
     <button class="hm-btn" data-i18n-aria="navOpenMenu">☰</button>
     <div class="hm-menu"></div>
@@ -860,6 +862,18 @@ function setViewOpt(key, val) {
   viewOpts[key] = val;
   try { localStorage.setItem('cmt-planner-viewopts', JSON.stringify(viewOpts)); } catch (e) {}
   render();
+}
+
+// ── Tutorial ───────────────────────────────────────────────────────────────
+function startPlTutorial() {
+  Tutorial.start([
+    { selector: 'button[data-i18n="pl_btnAddSem"]', title: t('tutPl1Title'), text: t('tutPl1Text') },
+    { selector: 'button[data-i18n="pl_btnClasses"]',title: t('tutPl2Title'), text: t('tutPl2Text') },
+    { selector: '#class-filter-chips',              title: t('tutPl3Title'), text: t('tutPl3Text') },
+    { selector: 'button[data-i18n="pl_btnAddEntry"]',title: t('tutPl4Title'), text: t('tutPl4Text') },
+    { selector: '#main',                            title: t('tutPl5Title'), text: t('tutPl5Text') },
+    { selector: 'button[data-i18n="pl_btnExport"]', title: t('tutPl6Title'), text: t('tutPl6Text') }
+  ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
@@ -1404,6 +1418,7 @@ function switchSem(id) {
   activeSemId = id;
   cfg.activeSemesterId = id;
   persistCfg();
+  updateSemToolbar();
   render();
 }
 
@@ -1486,10 +1501,13 @@ function deleteManualClass() {
   var cid = activeClsSetup;
   showConfirm(tFmt('pl_confirmDeleteClass', { cls: cid }), function () {
     delete cfg.classes[cid];
-    var hadEntries = entries.some(function (e) { return e.classId === cid; });
     entries = entries.filter(function (e) { return e.classId !== cid; });
+    if (window.PLANNER_ENTRIES_BY_CLASS) delete window.PLANNER_ENTRIES_BY_CLASS[cid];
     persistCfg();
-    if (hadEntries) persistEntries();
+    persistEntries();
+    if (window.Desktop && Desktop.isElectron()) {
+      Desktop.deleteByPath('user', 'planner/' + cid + '.js').catch(function(){});
+    }
     closeModal('classModal');
     populateSelects();
     render();

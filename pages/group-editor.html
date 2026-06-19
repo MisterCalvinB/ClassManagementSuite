@@ -9,6 +9,7 @@
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/tutorial.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -248,6 +249,27 @@
     }
     .ge-add-btn:hover { background: #fff; color: #000; }
 
+    /* ── Planner term pills ──────────────────────────────── */
+    .ge-term-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .ge-term-pill {
+      cursor: pointer; padding: 4px 10px; border-radius: 12px;
+      font-size: .75rem; font-weight: 700;
+      border: 2px solid #b3d4f5; background: #f0f7ff; color: #2563a8;
+      white-space: nowrap; transition: background .12s, border-color .12s, color .12s;
+    }
+    .ge-term-pill span { font-weight: 500; color: #888; font-size: .72rem; }
+    .ge-term-pill:hover { border-color: #2563a8; background: #dbeeff; }
+    .ge-term-pill.active { background: #2563a8; border-color: #2563a8; color: #fff; }
+    .ge-term-pill.active span { color: #c8e0ff; }
+    .ge-export-pill {
+      cursor: pointer; padding: 5px 12px; border-radius: 12px;
+      font-size: .78rem; font-weight: 700;
+      border: 2px solid #ccc; background: #f5f5f5; color: #555;
+      white-space: nowrap; transition: background .12s, border-color .12s, color .12s;
+    }
+    .ge-export-pill:hover { border-color: #555; color: #111; }
+    .ge-export-pill.active { background: #111; border-color: #111; color: #fff; }
+
     /* ── Bottom save bar ─────────────────────────────────── */
     .ge-save-bar {
       position: sticky;
@@ -444,6 +466,74 @@
     }
     .ge-eos-dismiss:hover { border-color: #333; color: #333; }
 
+    /* ── Planner Terms section ──────────────────────────────── */
+    .ge-pt-section {
+      background: #f8fbff;
+      border: 1.5px solid #b3d4f5;
+      border-radius: 7px;
+      padding: 12px 16px 14px;
+      margin-bottom: 20px;
+    }
+    .ge-pt-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid #e0eaf7;
+      flex-wrap: wrap;
+    }
+    .ge-pt-row:last-of-type { border-bottom: none; }
+    .ge-pt-label { font-size: 0.83rem; font-weight: 700; color: #1e3a6e; min-width: 80px; }
+    .ge-pt-dates { font-size: 0.78rem; color: #555; flex: 1; }
+    .ge-pt-edit-btn {
+      padding: 3px 9px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #fff;
+      border: 1.5px solid #b3d4f5;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #2563a8;
+      font-family: inherit;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .ge-pt-edit-btn:hover { border-color: #2563a8; background: #dbeeff; }
+    .ge-pt-add-btn {
+      margin-top: 8px;
+      padding: 4px 12px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: #fff;
+      border: 1.5px dashed #2563a8;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #2563a8;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .ge-pt-add-btn:hover { border-style: solid; background: #f0f7ff; }
+    .ge-pt-empty { font-size: 0.8rem; color: #888; padding: 4px 0 6px; }
+    .ge-pt-hol-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .ge-pt-hol-del {
+      padding: 3px 7px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      cursor: pointer;
+      color: #bbb;
+      font-size: 0.82rem;
+      transition: all 0.1s;
+    }
+    .ge-pt-hol-del:hover { border-color: #c33; color: #c33; }
+
     /* ── Status notice ────────────────────────────────── */
     .ge-notice {
       font-size: 0.82rem;
@@ -466,6 +556,7 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <button id="tut-trigger" class="tut-trigger-btn" onclick="startGeTutorial()" data-i18n-title="tutBtnLabel">?</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -514,6 +605,43 @@
     <p class="ge-active-hint" data-i18n="geActiveContextHint">Default year and semester for new groups and other tools.</p>
   </div>
 
+  <!-- Planner Terms section -->
+  <div id="ge-planner-terms-section" style="display:none;" class="ge-pt-section">
+    <div class="ge-active-banner-label" style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+      <span data-i18n="gePlannerTermsTitle">Planner Terms</span>
+      <span id="ge-pt-count" style="font-size:0.9em;font-weight:500;color:#7aace8;"></span>
+    </div>
+    <div id="ge-pt-list"></div>
+    <button class="ge-pt-add-btn" onclick="openPlannerTermForm(null)" data-i18n="geAddPlannerTerm">+ New Term</button>
+    <div id="ge-pt-form" style="display:none;margin-top:12px;padding:12px 14px;background:#fff;border:1.5px solid #b3d4f5;border-radius:6px;">
+      <div class="ge-active-banner-label" id="ge-pt-form-title" style="margin-bottom:10px;" data-i18n="gePlannerTermCreateTitle">New Planner Term</div>
+      <div class="ge-active-banner-fields" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermLabel">Label</div>
+          <input id="ge-pt-label" class="ge-active-date" type="text" style="width:140px;" data-i18n-placeholder="gePlannerTermLabelPlaceholder">
+        </div>
+        <div>
+          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemStart">Start date</div>
+          <input id="ge-pt-start" class="ge-active-date" type="date">
+        </div>
+        <div>
+          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemEnd">End date</div>
+          <input id="ge-pt-end" class="ge-active-date" type="date">
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div class="ge-section-title" style="margin-bottom:6px;" data-i18n="gePlannerTermHolidays">Holidays</div>
+        <div id="ge-pt-hol-list"></div>
+        <button class="eg-s-add" style="margin-top:5px;" onclick="addPlannerHolRow('','','')" data-i18n="geAddHoliday">+ Holiday</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
+        <button onclick="savePlannerTerm()" style="padding:6px 14px;background:#2563a8;color:#fff;border:none;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;transition:background 0.1s;" onmouseover="this.style.background='#1e4f8a'" onmouseout="this.style.background='#2563a8'" data-i18n="gePlannerTermSave">Save to Planner</button>
+        <button onclick="closePlannerTermForm()" style="padding:6px 14px;background:#fff;color:#555;border:1.5px solid #bbb;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;" data-i18n="btnCancel">Cancel</button>
+        <button id="ge-pt-delete-btn" style="display:none;padding:6px 14px;background:#fff;color:#c33;border:1.5px solid #c33;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;margin-left:auto;" onclick="deletePlannerTerm()" onmouseover="this.style.background='#c33';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#c33'" data-i18n="gePlannerTermDelete">Delete Term</button>
+      </div>
+    </div>
+  </div>
+
   <!-- End-of-semester archive offer -->
   <div id="ge-eos-banner" style="display:none;" class="ge-eos-banner">
     <span class="ge-eos-msg" id="ge-eos-msg"></span>
@@ -526,6 +654,7 @@
 
   <div class="ge-add-section">
     <div class="ge-section-title" data-i18n="geAddNewGroup">Add New Group</div>
+    <div id="ge-term-pills" class="ge-term-pills" style="display:none"></div>
     <div class="ge-add-row">
       <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
       <textarea id="new-group-students" class="ge-add-students" rows="1"
@@ -547,6 +676,20 @@
 
   <div class="ge-save-bar">
     <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn">💾 Save to class-groups.js</button>
+  </div>
+</div>
+
+<!-- CSV export picker -->
+<div id="ge-export-picker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9001;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:24px 24px 18px;max-width:520px;width:92%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <p style="font-size:0.92rem;font-weight:800;margin:0 0 6px;" data-i18n="geExportPickerTitle">Export CSV — select classes</p>
+    <p style="font-size:0.78rem;color:#666;margin:0 0 14px;" data-i18n="geExportPickerHint">Click pills to toggle. All selected by default.</p>
+    <div id="ge-export-picker-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+      <button onclick="exportPickerToggleAll()" style="padding:5px 12px;border:2px solid #999;border-radius:5px;font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;background:#fff;color:#555;" data-i18n="geExportPickerToggleAll">Toggle all</button>
+      <button onclick="closeExportPicker()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
+      <button onclick="confirmExportCsv()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:background 0.1s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#111'" data-i18n="geExportPickerConfirm">Export</button>
+    </div>
   </div>
 </div>
 
@@ -585,6 +728,8 @@
   let _activeSemEnd = '';
   let _plannerSemesters = [];
   let _plannerActiveSemId = null;
+  let _plannerCfg = null;
+  let _editingTermId = null;
 
   function getTermsPerYear() {
     try {
@@ -788,21 +933,266 @@
     };
   }
 
-  // ── Planner config sync ──────────────────────────────────────
-  async function loadPlannerConfig() {
-    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return;
+  async function deletePlannerClassConfig(classId) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
     try {
       const result = await Desktop.readText('user', 'planner-config.js');
       if (!result?.ok || !result.content) return;
       const sandbox = {};
       const fn = new Function('window', result.content + '\nreturn window.PLANNER_CONFIG || null;');
       const cfg = fn(sandbox);
-      if (cfg && Array.isArray(cfg.semesters) && cfg.semesters.length) {
-        _plannerSemesters = cfg.semesters;
-        _plannerActiveSemId = cfg.activeSemesterId || null;
-        _showPlannerHintIfNeeded();
-      }
+      if (!cfg || !cfg.classes || !cfg.classes[classId]) return;
+      delete cfg.classes[classId];
+      const content = 'window.PLANNER_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
+      await Desktop.saveText('user', 'planner-config.js', content);
     } catch (_) {}
+  }
+
+  // ── Planner config sync ──────────────────────────────────────
+  async function loadPlannerConfig() {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return;
+    const ptSection = document.getElementById('ge-planner-terms-section');
+    if (ptSection) ptSection.style.display = '';
+    try {
+      const result = await Desktop.readText('user', 'planner-config.js');
+      if (!result?.ok || !result.content) {
+        _plannerCfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+        renderPlannerTermsList();
+        return;
+      }
+      const sandbox = {};
+      const fn = new Function('window', result.content + '\nreturn window.PLANNER_CONFIG || null;');
+      const raw = fn(sandbox);
+      if (raw) {
+        _plannerCfg = raw;
+        if (!_plannerCfg.semesters) _plannerCfg.semesters = [];
+        if (!_plannerCfg.classes) _plannerCfg.classes = {};
+        if (!_plannerCfg.customFields) _plannerCfg.customFields = [];
+        if (!_plannerCfg.customTypes) _plannerCfg.customTypes = [];
+        _plannerSemesters = _plannerCfg.semesters;
+        _plannerActiveSemId = _plannerCfg.activeSemesterId || null;
+        _showPlannerHintIfNeeded();
+        _renderTermPills();
+      } else {
+        _plannerCfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+      }
+    } catch (_) {
+      _plannerCfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+    }
+    renderPlannerTermsList();
+  }
+
+  // ── Planner Terms list rendering ─────────────────────────────
+  function renderPlannerTermsList() {
+    const list = document.getElementById('ge-pt-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const sems = (_plannerCfg && _plannerCfg.semesters) || [];
+    if (sems.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'ge-pt-empty';
+      empty.textContent = typeof t === 'function' ? t('gePlannerTermsEmpty') : 'No planner terms yet.';
+      list.appendChild(empty);
+    } else {
+      sems.forEach(sem => {
+        const row = document.createElement('div');
+        row.className = 'ge-pt-row';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'ge-pt-label';
+        labelEl.textContent = sem.label || sem.id;
+        const datesEl = document.createElement('span');
+        datesEl.className = 'ge-pt-dates';
+        const dateStr = [sem.semesterStart, sem.semesterEnd].filter(Boolean).join(' → ');
+        datesEl.textContent = dateStr;
+        const holCount = Array.isArray(sem.holidays) ? sem.holidays.length : 0;
+        if (holCount > 0) {
+          const holBadge = document.createElement('span');
+          holBadge.style.cssText = 'font-size:0.7rem;color:#888;font-weight:600;margin-left:6px;';
+          holBadge.textContent = holCount + ' ' + (holCount === 1
+            ? (typeof t === 'function' ? t('gePlannerHolSingular') : 'holiday')
+            : (typeof t === 'function' ? t('gePlannerHolPlural') : 'holidays'));
+          datesEl.appendChild(holBadge);
+        }
+        const editBtn = document.createElement('button');
+        editBtn.className = 'ge-pt-edit-btn';
+        editBtn.textContent = typeof t === 'function' ? t('gePlannerTermEdit') : 'Edit';
+        editBtn.onclick = () => openPlannerTermForm(sem.id);
+        row.appendChild(labelEl);
+        row.appendChild(datesEl);
+        row.appendChild(editBtn);
+        list.appendChild(row);
+      });
+    }
+    const countEl = document.getElementById('ge-pt-count');
+    if (countEl) countEl.textContent = sems.length ? '(' + sems.length + ')' : '';
+  }
+
+  function plannerTermUid() {
+    return 'sem-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function openPlannerTermForm(termId) {
+    _editingTermId = termId;
+    const form = document.getElementById('ge-pt-form');
+    if (!form) return;
+    const titleEl = document.getElementById('ge-pt-form-title');
+    const labelEl = document.getElementById('ge-pt-label');
+    const startEl = document.getElementById('ge-pt-start');
+    const endEl = document.getElementById('ge-pt-end');
+    const holList = document.getElementById('ge-pt-hol-list');
+    const deleteBtn = document.getElementById('ge-pt-delete-btn');
+    holList.innerHTML = '';
+    if (termId) {
+      const sem = (_plannerCfg && _plannerCfg.semesters) ? _plannerCfg.semesters.find(s => s.id === termId) : null;
+      if (!sem) return;
+      if (titleEl) titleEl.textContent = typeof t === 'function' ? t('gePlannerTermEditTitle') : 'Edit Planner Term';
+      labelEl.value = sem.label || '';
+      startEl.value = sem.semesterStart || '';
+      endEl.value = sem.semesterEnd || '';
+      (sem.holidays || []).forEach(h => addPlannerHolRow(h.date || '', h.dateTo || '', h.label || ''));
+      if (deleteBtn) deleteBtn.style.display = '';
+    } else {
+      if (titleEl) titleEl.textContent = typeof t === 'function' ? t('gePlannerTermCreateTitle') : 'New Planner Term';
+      const activeCtx = _readActiveBanner();
+      const n = (_plannerCfg && _plannerCfg.semesters) ? _plannerCfg.semesters.length + 1 : 1;
+      const yr = activeCtx.activeYear || '';
+      labelEl.value = 'S' + n + (yr ? ' ' + yr : '');
+      startEl.value = activeCtx.activeSemesterStart || '';
+      endEl.value = activeCtx.activeSemesterEnd || '';
+      if (deleteBtn) deleteBtn.style.display = 'none';
+    }
+    form.style.display = '';
+    labelEl.focus();
+  }
+
+  function closePlannerTermForm() {
+    const form = document.getElementById('ge-pt-form');
+    if (form) form.style.display = 'none';
+    _editingTermId = null;
+  }
+
+  function addPlannerHolRow(date, dateTo, label) {
+    const holList = document.getElementById('ge-pt-hol-list');
+    if (!holList) return;
+    const row = document.createElement('div');
+    row.className = 'ge-pt-hol-row';
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.className = 'ge-active-date ge-pt-hol-date';
+    dateInput.value = date || '';
+    dateInput.style.width = '130px';
+    const sep = document.createElement('span');
+    sep.style.cssText = 'color:#555;font-size:0.8rem;font-weight:800;padding:0 2px;flex-shrink:0;';
+    sep.textContent = '→';
+    const dateToInput = document.createElement('input');
+    dateToInput.type = 'date';
+    dateToInput.className = 'ge-active-date ge-pt-hol-date-end';
+    dateToInput.value = dateTo || '';
+    dateToInput.style.width = '130px';
+    const labelInput = document.createElement('input');
+    labelInput.type = 'text';
+    labelInput.className = 'ge-active-date ge-pt-hol-label';
+    labelInput.value = label || '';
+    labelInput.placeholder = typeof t === 'function' ? t('gePlannerHolLabel') : 'Holiday name';
+    labelInput.style.cssText = 'flex:1;min-width:100px;width:auto;';
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'ge-pt-hol-del';
+    delBtn.textContent = '✕';
+    delBtn.onclick = () => row.remove();
+    row.appendChild(dateInput);
+    row.appendChild(sep);
+    row.appendChild(dateToInput);
+    row.appendChild(labelInput);
+    row.appendChild(delBtn);
+    holList.appendChild(row);
+  }
+
+  function _ptDatesOverlap(start1, end1, start2, end2) {
+    if (!start1 || !start2) return false;
+    const e1 = end1 || start1;
+    const e2 = end2 || start2;
+    return start1 <= e2 && start2 <= e1;
+  }
+
+  async function savePlannerTerm() {
+    if (!window.Desktop || !Desktop.isElectron()) {
+      showToast(typeof t === 'function' ? t('gePlannerTermNoElectron') : 'Available in the desktop app only.');
+      return;
+    }
+    const label = (document.getElementById('ge-pt-label')?.value.trim()) || '';
+    const start = document.getElementById('ge-pt-start')?.value || '';
+    const end = document.getElementById('ge-pt-end')?.value || '';
+    if (!label) {
+      showToast(typeof t === 'function' ? t('gePlannerTermLabelRequired') : 'Please enter a term label.');
+      return;
+    }
+    const holidays = [];
+    document.querySelectorAll('#ge-pt-hol-list .ge-pt-hol-row').forEach(row => {
+      const d = row.querySelector('.ge-pt-hol-date')?.value || '';
+      const d2 = row.querySelector('.ge-pt-hol-date-end')?.value || '';
+      const l = row.querySelector('.ge-pt-hol-label')?.value.trim() || '';
+      if (d) holidays.push(Object.assign({ date: d, label: l }, d2 ? { dateTo: d2 } : {}));
+    });
+    if (!_plannerCfg) _plannerCfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+    const others = (_plannerCfg.semesters || []).filter(s => s.id !== _editingTermId && (s.semesterStart || s.semesterEnd));
+    const hasOverlap = start && others.some(s => _ptDatesOverlap(start, end, s.semesterStart, s.semesterEnd));
+    const doSave = async () => {
+      if (_editingTermId) {
+        const idx = _plannerCfg.semesters.findIndex(s => s.id === _editingTermId);
+        if (idx >= 0) {
+          _plannerCfg.semesters[idx] = Object.assign({}, _plannerCfg.semesters[idx], { label, semesterStart: start, semesterEnd: end, holidays });
+        }
+      } else {
+        _plannerCfg.semesters.push({ id: plannerTermUid(), label, semesterStart: start, semesterEnd: end, holidays });
+      }
+      const content = 'window.PLANNER_CONFIG = ' + JSON.stringify(_plannerCfg, null, 2) + ';\n';
+      const r = await Desktop.saveText('user', 'planner-config.js', content);
+      if (r && r.ok) {
+        _plannerSemesters = _plannerCfg.semesters;
+        _plannerActiveSemId = _plannerCfg.activeSemesterId || null;
+        renderPlannerTermsList();
+        _renderTermPills();
+        closePlannerTermForm();
+        showNotice(typeof t === 'function' ? t('gePlannerTermSaved') : 'Saved to Planner.');
+      } else {
+        showNotice('Failed to save planner-config.js: ' + (r?.error || 'unknown error'), true);
+      }
+    };
+    if (hasOverlap) {
+      showConfirm(typeof t === 'function' ? t('gePlannerTermConfirmOverlap') : 'A term with overlapping dates already exists. Save anyway?', doSave);
+    } else {
+      await doSave();
+    }
+  }
+
+  async function deletePlannerTerm() {
+    if (!_editingTermId || !_plannerCfg) return;
+    const sem = _plannerCfg.semesters.find(s => s.id === _editingTermId);
+    if (!sem) return;
+    const semLabel = sem.label || sem.id;
+    showConfirm(
+      typeof tFmt === 'function'
+        ? tFmt('gePlannerTermConfirmDelete', { label: semLabel })
+        : 'Delete term "' + semLabel + '"? This cannot be undone.',
+      async () => {
+        _plannerCfg.semesters = _plannerCfg.semesters.filter(s => s.id !== _editingTermId);
+        if (_plannerCfg.activeSemesterId === _editingTermId) {
+          _plannerCfg.activeSemesterId = _plannerCfg.semesters.length ? _plannerCfg.semesters[0].id : '';
+        }
+        const content = 'window.PLANNER_CONFIG = ' + JSON.stringify(_plannerCfg, null, 2) + ';\n';
+        const r = await Desktop.saveText('user', 'planner-config.js', content);
+        if (r && r.ok) {
+          _plannerSemesters = _plannerCfg.semesters;
+          renderPlannerTermsList();
+          _renderTermPills();
+          closePlannerTermForm();
+          showNotice(typeof t === 'function' ? t('gePlannerTermDeleted') : 'Term deleted.');
+        } else {
+          showNotice('Failed to save: ' + (r?.error || 'unknown error'), true);
+        }
+      }
+    );
   }
 
   function _showPlannerHintIfNeeded() {
@@ -827,6 +1217,29 @@
     }
     document.getElementById('ge-planner-hint-text').textContent = msg;
     hintEl.style.display = 'flex';
+  }
+
+  function _renderTermPills() {
+    const bar = document.getElementById('ge-term-pills');
+    if (!bar || !_plannerSemesters.length) return;
+    bar.innerHTML = '';
+    _plannerSemesters.forEach(function(sem, idx) {
+      const pill = document.createElement('span');
+      pill.className = 'ge-term-pill';
+      const label = sem.label || ('S' + (idx + 1));
+      const start = sem.semesterStart || '';
+      const end = sem.semesterEnd || '';
+      const dateStr = (start && end) ? (start + ' → ' + end) : (start || end || '');
+      pill.innerHTML = '<strong>' + label + '</strong>' + (dateStr ? '<span> ' + dateStr + '</span>' : '');
+      pill.title = dateStr;
+      pill.onclick = function() {
+        applyPlannerSemester(sem, idx);
+        bar.querySelectorAll('.ge-term-pill').forEach(function(p) { p.classList.remove('active'); });
+        pill.classList.add('active');
+      };
+      bar.appendChild(pill);
+    });
+    bar.style.display = '';
   }
 
   function deriveYearFromDates(startDate, endDate) {
@@ -1204,6 +1617,10 @@
         row.remove();
         studentSection.remove();
         if (halfSection.parentNode) halfSection.remove();
+        if (window.Desktop && Desktop.isElectron()) {
+          Desktop.deleteByPath('user', 'planner/' + groupName + '.js').catch(() => {});
+          deletePlannerClassConfig(groupName);
+        }
       });
     };
 
@@ -1752,23 +2169,58 @@
     return s;
   }
 
+  let _exportGroups = null;
+  let _exportMeta = null;
+
   function exportCsv() {
     const { groups, meta } = collectGroupEdits();
-    if (Object.keys(groups).length === 0) {
-      showToast('No groups to export.');
-      return;
-    }
+    const groupNames = Object.keys(groups);
+    if (groupNames.length === 0) { showToast('No groups to export.'); return; }
+    _exportGroups = groups;
+    _exportMeta = meta;
+    const pillsEl = document.getElementById('ge-export-picker-pills');
+    pillsEl.innerHTML = '';
+    groupNames.filter(name => !meta[name]?.archived).forEach(name => {
+      const pill = document.createElement('span');
+      pill.className = 'ge-export-pill active';
+      pill.textContent = name;
+      pill.dataset.group = name;
+      pill.onclick = () => pill.classList.toggle('active');
+      pillsEl.appendChild(pill);
+    });
+    document.getElementById('ge-export-picker').style.display = 'flex';
+  }
+
+  function exportPickerToggleAll() {
+    const pills = document.querySelectorAll('#ge-export-picker-pills .ge-export-pill');
+    const allActive = [...pills].every(p => p.classList.contains('active'));
+    pills.forEach(p => p.classList.toggle('active', !allActive));
+  }
+
+  function closeExportPicker() {
+    document.getElementById('ge-export-picker').style.display = 'none';
+    _exportGroups = null;
+    _exportMeta = null;
+  }
+
+  function confirmExportCsv() {
+    const selected = new Set(
+      [...document.querySelectorAll('#ge-export-picker-pills .ge-export-pill.active')]
+        .map(p => p.dataset.group)
+    );
+    if (selected.size === 0) { showToast('No classes selected.'); return; }
+    document.getElementById('ge-export-picker').style.display = 'none';
 
     const rows = ['Group,First Name,Last Name,Date of Birth,Admin Class,Year,Term,Level,SEN'];
-    Object.keys(groups).forEach(groupName => {
-      const m = meta[groupName] || {};
+    Object.keys(_exportGroups).forEach(groupName => {
+      if (!selected.has(groupName)) return;
+      const m = _exportMeta[groupName] || {};
       const students = m.students && m.students.length
         ? m.students
-        : groups[groupName].map(name => {
+        : _exportGroups[groupName].map(name => {
             const parts = name.trim().split(/\s+/);
             return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', dob: '', adminClass: '' };
           });
-
       if (students.length === 0) {
         rows.push([groupName, '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
       } else {
@@ -1785,6 +2237,8 @@
     a.download = 'class-groups.csv';
     a.click();
     URL.revokeObjectURL(url);
+    _exportGroups = null;
+    _exportMeta = null;
   }
 
   // ── CSV Import ───────────────────────────────────────────────
@@ -1903,6 +2357,23 @@
 
     renderGroupsList();
     showNotice('Imported ' + Object.keys(newGroups).length + ' group(s). Click Save to persist.');
+  }
+
+  // ── Tutorial ─────────────────────────────────────────────────
+  function startGeTutorial() {
+    Tutorial.start([
+      { selector: '#app-hamburger',   title: t('tutGe1Title'), text: t('tutGe1Text') },
+      { selector: '.ge-active-banner', title: t('tutGe2Title'), text: t('tutGe2Text') },
+      { selector: '#ge-groups-body',  title: t('tutGe3Title'), text: t('tutGe3Text') },
+      { selector: '.ge-csv-bar',      title: t('tutGe4Title'), text: t('tutGe4Text') },
+      { selector: '.ge-add-section',  title: t('tutGe5Title'), text: t('tutGe5Text') },
+      { selector: '.ge-save-bar',     title: t('tutGe6Title'), text: t('tutGe6Text') }
+    ], {
+      next: t('tutNext'),
+      prev: t('tutPrev'),
+      skip: t('tutSkip'),
+      done: t('tutDone')
+    });
   }
 
   // ── Init ─────────────────────────────────────────────────────

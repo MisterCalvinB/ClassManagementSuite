@@ -64,6 +64,7 @@
     .sidebar {
       width: 230px;
       flex-shrink: 0;
+      align-self: flex-start;
       background: #fff;
       border-right: 2px solid #000;
       position: sticky;
@@ -516,6 +517,21 @@
         </div>
       </div>
 
+      <div class="sidebar-item" id="nav-connected-tools">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="connected-tools" onclick="navTo('connected-tools')">
+            <span>🔗</span> Connected Tools
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-connected-tools')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-ct-backbone" onclick="navToAccordion('connected-tools','acc-ct-backbone')"><span class="sidebar-child-dot"></span>Shared Class Data</button>
+          <button class="sidebar-child" data-accordion="acc-ct-dates" onclick="navToAccordion('connected-tools','acc-ct-dates')"><span class="sidebar-child-dot"></span>Term Date Sync</button>
+          <button class="sidebar-child" data-accordion="acc-ct-other" onclick="navToAccordion('connected-tools','acc-ct-other')"><span class="sidebar-child-dot"></span>Other Links</button>
+          <button class="sidebar-child" data-accordion="acc-ct-presentation" onclick="navToAccordion('connected-tools','acc-ct-presentation')"><span class="sidebar-child-dot"></span>Presentation Windows</button>
+        </div>
+      </div>
+
       <div class="sidebar-item" id="nav-general-config">
         <div class="sidebar-row">
           <button class="sidebar-row-main" data-section="general-config" onclick="navTo('general-config')">
@@ -546,6 +562,7 @@
           <button class="sidebar-child" data-accordion="acc-board-timer" onclick="navToAccordion('board','acc-board-timer')"><span class="sidebar-child-dot"></span>Live Timer</button>
           <button class="sidebar-child" data-accordion="acc-board-drawing" onclick="navToAccordion('board','acc-board-drawing')"><span class="sidebar-child-dot"></span>Drawing & Laser</button>
           <button class="sidebar-child" data-accordion="acc-board-settings" onclick="navToAccordion('board','acc-board-settings')"><span class="sidebar-child-dot"></span>Board Settings</button>
+          <button class="sidebar-child" data-accordion="acc-board-presentation" onclick="navToAccordion('board','acc-board-presentation')"><span class="sidebar-child-dot"></span>Presentation Mode</button>
         </div>
       </div>
 
@@ -565,6 +582,7 @@
           <button class="sidebar-child" data-accordion="acc-cm-roles" onclick="navToAccordion('class-management','acc-cm-roles')"><span class="sidebar-child-dot"></span>Roles</button>
           <button class="sidebar-child" data-accordion="acc-cm-results" onclick="navToAccordion('class-management','acc-cm-results')"><span class="sidebar-child-dot"></span>Results & Ranking</button>
           <button class="sidebar-child" data-accordion="acc-cm-history" onclick="navToAccordion('class-management','acc-cm-history')"><span class="sidebar-child-dot"></span>Session History</button>
+          <button class="sidebar-child" data-accordion="acc-cm-presentation" onclick="navToAccordion('class-management','acc-cm-presentation')"><span class="sidebar-child-dot"></span>Presentation Mode</button>
         </div>
       </div>
 
@@ -578,6 +596,7 @@
         <div class="sidebar-children">
           <button class="sidebar-child" data-accordion="acc-ge-groups" onclick="navToAccordion('group-editor','acc-ge-groups')"><span class="sidebar-child-dot"></span>Managing Groups</button>
           <button class="sidebar-child" data-accordion="acc-ge-context" onclick="navToAccordion('group-editor','acc-ge-context')"><span class="sidebar-child-dot"></span>Active Context</button>
+          <button class="sidebar-child" data-accordion="acc-ge-planner-terms" onclick="navToAccordion('group-editor','acc-ge-planner-terms')"><span class="sidebar-child-dot"></span>Planner Terms</button>
           <button class="sidebar-child" data-accordion="acc-ge-archive" onclick="navToAccordion('group-editor','acc-ge-archive')"><span class="sidebar-child-dot"></span>Archiving</button>
         </div>
       </div>
@@ -639,6 +658,7 @@
           <button class="sidebar-child" data-accordion="acc-lt-dictation" onclick="navToAccordion('learning-tools','acc-lt-dictation')"><span class="sidebar-child-dot"></span>Dictation</button>
           <button class="sidebar-child" data-accordion="acc-lt-quiz" onclick="navToAccordion('learning-tools','acc-lt-quiz')"><span class="sidebar-child-dot"></span>Quiz</button>
           <button class="sidebar-child" data-accordion="acc-lt-timer" onclick="navToAccordion('learning-tools','acc-lt-timer')"><span class="sidebar-child-dot"></span>Timer</button>
+          <button class="sidebar-child" data-accordion="acc-lt-presentation" onclick="navToAccordion('learning-tools','acc-lt-presentation')"><span class="sidebar-child-dot"></span>Presentation Mode</button>
         </div>
       </div>
 
@@ -912,6 +932,112 @@
 
     <hr class="divider">
 
+    <!-- ═══ CONNECTED TOOLS ══════════════════════════════════════ -->
+    <section class="tool-section" id="connected-tools">
+      <div class="tool-header">
+        <span class="tool-icon">🔗</span>
+        <h2>Connected Tools</h2>
+      </div>
+      <p class="tool-overview">
+        The tools share files, dates, and live state. Knowing which connections exist means less duplication — set something up once and every tool picks it up automatically.
+      </p>
+
+      <div class="accordion" id="acc-ct-backbone">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ct-backbone')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Shared class data — class-groups.js</span>
+          <span class="accordion-badge">foundation</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;"><button class="xlink" onclick="navTo('group-editor')">Group Editor</button> is the single source of truth for all class and student data. Every other tool reads from the same <code>class-groups.js</code> file at startup — no import or copy needed.</p>
+          <div class="mini-grid">
+            <div class="mini-card"><h4>👥 Class Management</h4><p>Loads the student roster and group list.</p></div>
+            <div class="mini-card"><h4>✅ Participation Tracker</h4><p>Uses groups for session filtering and the <em>This Term</em> date range.</p></div>
+            <div class="mini-card"><h4>📊 Grade Sheet</h4><p>Reads the student list for each class.</p></div>
+            <div class="mini-card"><h4>📅 Planner</h4><p>Draws its class list from your group names.</p></div>
+            <div class="mini-card"><h4>📖 Learning Tools</h4><p>Loads groups for Team Mode.</p></div>
+            <div class="mini-card"><h4>🗓 Schedule Maker</h4><p>Reads students and SEN flags per group.</p></div>
+          </div>
+          <div class="tip"><strong>Recommended first step:</strong> Create your classes in <button class="xlink" onclick="openTool('group-editor.html')">Group Editor</button> before opening any other tool — the class list will already be there when you need it.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ct-dates">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ct-dates')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Term date sync — Group Editor and Planner</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;"><button class="xlink" onclick="navToAccordion('group-editor','acc-ge-context')">Group Editor's Active Context</button> holds the current school year, term (S1/S2), and term start/end dates. These power Participation Tracker's <em>This Term</em> filter and the end-of-term archive prompt.</p>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">If you use the <button class="xlink" onclick="navTo('planner')">Planner</button>, avoid entering dates twice:</p>
+          <ol class="steps">
+            <li>In <strong>Planner</strong>, create a term and set its start and end dates.</li>
+            <li>In <strong>Group Editor → Active Context</strong>, click <strong>↕ Planner</strong> to pull those dates in one click. If the Planner has multiple terms, a picker appears.</li>
+            <li>Click <strong>💾 Save</strong> — the dates are now shared with all tools that depend on them.</li>
+          </ol>
+          <div class="tip">The reverse also works: when creating a Planner term, a blue hint offers to auto-fill dates from the active Group Editor context. You can also create and edit Planner terms directly in Group Editor via the <strong>Planner Terms</strong> section — without opening the Planner at all.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ct-other">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ct-other')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Other cross-tool links</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <div class="mini-grid">
+            <div class="mini-card">
+              <h4>🖥 Class Management → Board</h4>
+              <p>Starting the timer in Class Management displays a live countdown on the Board automatically. Group activity updates also sync in real time when both windows are open.</p>
+            </div>
+            <div class="mini-card">
+              <h4>📅 Planner → Grade Sheet</h4>
+              <p>Adding a Test entry in the Planner automatically creates the test slot in Grade Sheet if a class with the same name exists there. A green badge confirms the link.</p>
+            </div>
+            <div class="mini-card">
+              <h4>📂 File Manager → Board</h4>
+              <p>The Recent tab's <strong>Open in Board</strong> button reopens any saved constellation map directly in Board without going through the launcher.</p>
+            </div>
+            <div class="mini-card">
+              <h4>🪑 Class Plan ↔ Class Management</h4>
+              <p>Seating plans are shared between both tools via <code>user/config.js</code>. Plans created in either place are available in the other on next load.</p>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ct-presentation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ct-presentation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Presentation windows — second-screen output</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Four tools can open a detached window for projection on a second monitor. Each opens on a second display when one is detected, otherwise beside the main window, and updates live as you work.</p>
+          <div class="mini-grid">
+            <div class="mini-card">
+              <h4>🖥 Board</h4>
+              <p>Toolbar → <strong>📽️ Presentation Mode</strong>. Mirrors the live canvas with optional mouse-pointer dot and Freeze. See <button class="xlink" onclick="navToAccordion('board','acc-board-presentation')">Board → Presentation Mode</button>.</p>
+            </div>
+            <div class="mini-card">
+              <h4>👥 Class Management</h4>
+              <p>Top menu → <strong>Presentation</strong>. Projects the roster with roles, badges, and effects. Can be frozen independently. See <button class="xlink" onclick="navToAccordion('class-management','acc-cm-presentation')">Class Management → Presentation Mode</button>.</p>
+            </div>
+            <div class="mini-card">
+              <h4>📖 Learning Tools</h4>
+              <p>Individual game → presentation icon. Projects the game on a student-facing display; teacher controls stay on the main screen. See <button class="xlink" onclick="navToAccordion('learning-tools','acc-lt-presentation')">Learning Tools → Presentation Mode</button>.</p>
+            </div>
+            <div class="mini-card">
+              <h4>✍️ Document Editor</h4>
+              <p><strong>Export ▾ → Presentation Mode</strong>. Projects the live document preview on a dark background. Updates with every keystroke and CSS change. See <button class="xlink" onclick="navToAccordion('document-editor','acc-de-presentation')">Document Editor → Presentation Mode</button>.</p>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
     <!-- ═══ GENERAL CONFIG ═══════════════════════════════════ -->
     <section class="tool-section" id="general-config">
       <div class="tool-header">
@@ -1031,9 +1157,9 @@
             </ol>
             <div class="tip"><strong>No constellation open?</strong> A <strong>💾 Save constellation &amp; proceed</strong> button appears. Saving your board first creates the companion folder required to store recordings.</div>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Trimming a recording:</strong> right-click any audio node and choose <strong>✂ Trim</strong>. Drag the blue handles on the waveform to mark the start and end of the portion you want to keep, preview it with <strong>▶ Selection</strong>, then click <strong>Save trimmed</strong>. A new <code>.wav</code> file is saved alongside the original — the original is never deleted.</div>
-          </div>
         </div>
       </div>
+      <!--</div>-->
 
       <div class="accordion" id="acc-board-timer">
         <button class="accordion-header" onclick="toggleAccordion('acc-board-timer')">
@@ -1079,6 +1205,25 @@
             <p style="font-size:0.87rem;color:#000;line-height:1.6;">Open the ⚙ settings panel to customise: default node colours &amp; swatches, border styles, note styles, default font, board background, and node preset styles. Changes apply immediately and persist across sessions.</p>
           </div>
         </div>
+      </div>
+
+      <div class="accordion" id="acc-board-presentation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-board-presentation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Presentation Mode</span>
+          <span class="accordion-badge">second screen</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>📽️ Presentation Mode</strong> in the toolbar to open a second window for projection.</li>
+            <li>The window opens on a second display when one is detected, otherwise beside the main Board window.</li>
+            <li>Every change you make on the Board — moving nodes, drawing, typing notes — is reflected in the presentation window instantly.</li>
+            <li><strong>🖱 Mouse Pointer</strong>: enable this to show a coloured dot at your cursor position in the presentation window — useful for pointing at words without leaving permanent marks.</li>
+            <li><strong>❄️ Freeze Board</strong>: pauses the presentation from updating while you rearrange content on the main screen. Click again to resume live updates.</li>
+            <li>A green indicator in the toolbar shows the presentation is active. Close the presentation window or click the indicator to end the session.</li>
+          </ol>
+          <div class="tip">Open the presentation window, then drag the main Board window to your primary monitor. Your audience sees only the clean canvas on the second screen while you control everything on your own display.</div>
+        </div></div>
       </div>
     </section>
 
@@ -1206,6 +1351,23 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-cm-presentation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-cm-presentation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Presentation Mode</span>
+          <span class="accordion-badge">second screen</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Open <strong>Presentation</strong> from the top menu to open a second window for projection.</li>
+            <li>The window projects the student roster with configurable overlays: student roles, badges, autoflag indicators, and animated pick effects.</li>
+            <li><strong>Freeze</strong>: click the Freeze button to pause live updates while you set up the next activity — students won't see the changes until you unfreeze.</li>
+            <li>The presentation window can be minimised, docked, or maximised independently from the main control panel.</li>
+          </ol>
+          <div class="tip">When the <button class="xlink" onclick="navTo('board')">Board</button> is also open, timer events and group-activity updates broadcast to it in real time — both tools stay in sync without any manual action.</div>
+        </div></div>
+      </div>
+
     </section>
 
     <hr class="divider">
@@ -1219,6 +1381,9 @@
       </div>
       <p class="tool-overview">
         Create, edit, and archive your class groups. Groups defined here are shared across every tool — Class Management, Participation Tracker, Grade Sheet, and Learning Tools all read from the same file.
+      </p>
+      <p class="tool-overview" style="margin-top:6px;">
+        <strong>New to Group Editor?</strong> Click the <strong>?</strong> button in the top navigation bar to launch an interactive tutorial that highlights each main feature step by step.
       </p>
 
       <div class="accordion" id="acc-ge-groups">
@@ -1251,6 +1416,24 @@
             <li>If you use the Planner, click <strong>↕ Planner</strong> to auto-fill the dates from a configured Planner term. If the Planner has one term, it applies immediately; if it has several, a picker appears.</li>
             <li>Click <strong>💾 Save</strong> to persist the active context to <code>class-groups.js</code>.</li>
           </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ge-planner-terms">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ge-planner-terms')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Planner Terms</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The <strong>Planner Terms</strong> section (below Active Context) lets you create and edit Planner semester entries directly from Group Editor — without opening the Planner. Changes are written straight to <code>planner-config.js</code>.</p>
+          <ol class="steps">
+            <li>Click <strong>+ New Term</strong> to expand the inline form. The label and dates are pre-filled from the Active Context.</li>
+            <li>Edit the <strong>Label</strong> (e.g. <code>S1 2025-2026</code>), <strong>Start date</strong>, and <strong>End date</strong>.</li>
+            <li>Optionally add <strong>Holidays</strong> — each holiday has a start date, an optional end date (for multi-day breaks), and a label.</li>
+            <li>Click <strong>Save to Planner</strong>. The term is immediately available in the Planner's term selector.</li>
+            <li>To edit or delete an existing term, click its <strong>Edit</strong> button in the list. The Delete button appears at the bottom-right of the form.</li>
+          </ol>
+          <div class="tip"><strong>Conflict detection:</strong> If the new term's dates overlap with an existing Planner term, a confirmation dialog appears before saving.</div>
         </div></div>
       </div>
 
@@ -1576,6 +1759,24 @@
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <p style="font-size:0.87rem;color:#000;line-height:1.6;">Each activity supports an optional countdown timer. Click the ⏱ icon to open <strong>Timer Settings</strong> — configure the grace period (no deduction initially), points deducted per interval, and deduction frequency.</p>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-lt-presentation">
+        <button class="accordion-header" onclick="toggleAccordion('acc-lt-presentation')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Presentation Mode</span>
+          <span class="accordion-badge">second screen</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Inside any game, click the <strong>📽️ presentation icon</strong> in the toolbar to open a student-facing window.</li>
+            <li>The window opens on a second display when one is detected, otherwise beside the main window.</li>
+            <li>The game view updates live — advancing questions, revealing answers, and score changes all reflect in the presentation window instantly.</li>
+            <li>Teacher controls (team scores, navigation, settings) remain only on the main window — students see only the game.</li>
+            <li>Close the presentation window from either screen using the close button, or click the presentation indicator in the main toolbar.</li>
+          </ol>
+          <div class="tip">Enable <strong>Team Mode</strong> before opening Presentation Mode so team scores are visible on the student-facing screen throughout the activity.</div>
         </div></div>
       </div>
 
@@ -2258,7 +2459,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','first-setup','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','document-editor'];
+  var SECTIONS = ['intro','first-setup','connected-tools','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','document-editor'];
 
   function onScroll() {
     var y = window.scrollY + 80;

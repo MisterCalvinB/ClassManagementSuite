@@ -711,6 +711,13 @@
       color: var(--muted);
     }
 
+    .field-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin: 4px 0 0;
+      line-height: 1.4;
+    }
+
     .test-config {
       display: flex;
       flex-wrap: wrap;
@@ -1759,6 +1766,7 @@
           <div class="form-group">
             <label for="topt-info-date" data-i18n="gsToptDate">Date</label>
             <input id="topt-info-date" class="input" type="date" />
+            <p class="field-hint" data-i18n="gsToptPlannerHint"></p>
           </div>
           <div class="form-group">
             <label for="topt-info-scope" data-i18n="gsToptScope">Scope</label>
@@ -1767,6 +1775,13 @@
           <div class="form-group">
             <label for="topt-info-type" data-i18n="gsToptType">Type</label>
             <input id="topt-info-type" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderType" placeholder="e.g. Written, Oral, Quiz" />
+          </div>
+          <div class="form-group">
+            <label data-i18n="gsAddClassLabelSem">Term</label>
+            <div id="topt-info-term" class="chip-group">
+              <button type="button" class="chip" data-value="sem1" data-i18n="gsSem1">Term 1</button>
+              <button type="button" class="chip" data-value="sem2" data-i18n="gsSem2">Term 2</button>
+            </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="topt-info-next-grade" data-i18n="gsToptHighlight">Next-grade highlight (points, 0 = off)</label>
@@ -4913,9 +4928,48 @@
     }
 
 
+    // ── Move a test between terms ─────────────────────────────────
+    function moveTestBetweenSems(classObj, fromSem, fromIdx, toSem) {
+      const toIdx = classObj.testCounts[toSem];
+      if (toIdx >= TEST_COUNT_PER_SEM) return null;
+
+      classObj.testConfigs[toSem][toIdx] = classObj.testConfigs[fromSem][fromIdx];
+
+      classObj.students.forEach(student => {
+        const fromGrades = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+        const toGrades   = toSem   === "sem1" ? student.sem1Tests : student.sem2Tests;
+        toGrades[toIdx] = fromGrades[fromIdx];
+        student.criteriaResults[toSem][toIdx] = Object.assign({}, student.criteriaResults[fromSem]?.[fromIdx] || {});
+      });
+
+      // Shift subsequent tests in fromSem left to close the gap
+      for (let i = fromIdx; i < classObj.testCounts[fromSem] - 1; i++) {
+        classObj.testConfigs[fromSem][i] = classObj.testConfigs[fromSem][i + 1];
+        classObj.students.forEach(student => {
+          const grades = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+          grades[i] = grades[i + 1];
+          student.criteriaResults[fromSem][i] = Object.assign({}, student.criteriaResults[fromSem]?.[i + 1] || {});
+        });
+      }
+
+      const lastIdx = classObj.testCounts[fromSem] - 1;
+      classObj.testConfigs[fromSem][lastIdx] = null;
+      classObj.students.forEach(student => {
+        const grades = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+        grades[lastIdx] = null;
+        student.criteriaResults[fromSem][lastIdx] = {};
+      });
+
+      classObj.testCounts[fromSem]--;
+      classObj.testCounts[toSem]++;
+      return { sem: toSem, testIndex: toIdx };
+    }
+
     // ── Unified Test Options modal ────────────────────────────────
     function openTestOptionsModal(config, classObj, sem, testIndex, openSection) {
       const overlay = document.getElementById("test-options-overlay");
+      let activeSem = sem;
+      let activeTestIndex = testIndex;
 
       // ── Test Info ──────────────────────────────────────────────
       document.getElementById("topt-info-name").value = config.testName || "";
@@ -4923,6 +4977,16 @@
       document.getElementById("topt-info-scope").value = config.scope || "";
       document.getElementById("topt-info-type").value = config.type || "";
       document.getElementById("topt-info-next-grade").value = fmtN(Math.max(0, toNumber(config.nextGradeHighlightPoints) ?? 0));
+
+      const termChipGroup = document.getElementById("topt-info-term");
+      termChipGroup.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.value === activeSem));
+      termChipGroup.onclick = e => {
+        const chip = e.target.closest(".chip[data-value]");
+        if (!chip) return;
+        activeSem = chip.dataset.value;
+        termChipGroup.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.value === activeSem));
+      };
+
       document.getElementById("topt-info-summary").textContent =
         [config.testName, config.testDate, config.scope, config.type].filter(Boolean).join(" · ") || "—";
 
@@ -5238,9 +5302,21 @@
           gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
         Object.assign(config.grading, gradingDraft);
 
-        recalcAllStudentGradesForTest(classObj, sem, testIndex);
+        if (activeSem !== sem) {
+          const moved = moveTestBetweenSems(classObj, sem, testIndex, activeSem);
+          if (moved) {
+            activeTestIndex = moved.testIndex;
+            appState.activeTest = moved;
+          } else {
+            activeSem = sem;
+            activeTestIndex = testIndex;
+          }
+        }
+
+        recalcAllStudentGradesForTest(classObj, activeSem, activeTestIndex);
         saveState(); renderTestSheet(); renderSummary();
         overlay.classList.add("hidden");
+        syncTestToPlanner(classObj, activeSem, activeTestIndex); // async, non-blocking
       };
 
       const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; };
@@ -6339,9 +6415,7 @@
       const classObj = getActiveClass();
       if (!classObj) return;
 
-      const semStr = await showPrompt(t('gsPromptAddTestSem'), "1");
-      if (!semStr) return;
-      const sem = semStr.trim() === "2" ? "sem2" : "sem1";
+      const sem = classObj.testCounts.sem1 < TEST_COUNT_PER_SEM ? "sem1" : "sem2";
 
       if (classObj.testCounts[sem] >= TEST_COUNT_PER_SEM) {
         await showAlert(tFmt('gsAlertMaxTests', { n: TEST_COUNT_PER_SEM }));
@@ -6356,6 +6430,79 @@
       renderTestSheet();
       showScreen("test");
       openTestOptionsModal(getTestConfig(classObj, sem, newTestIndex), classObj, sem, newTestIndex, "info");
+    }
+
+    async function syncTestToPlanner(classObj, sem, testIndex) {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      const config = getTestConfig(classObj, sem, testIndex);
+      if (!config.testDate) return;
+
+      const classId = classObj.id;
+      if (!classId) return;
+
+      try {
+        // Read existing planner file for this class
+        let allByClass = {};
+        const fileRes = await Desktop.readByPath('user', 'planner/' + classId + '.js');
+        if (fileRes && fileRes.content) {
+          try {
+            const fake = {};
+            new Function('window', fileRes.content)(fake);
+            allByClass = fake.PLANNER_ENTRIES_BY_CLASS || {};
+          } catch (e) {}
+        }
+
+        const list = (allByClass[classId] || []).slice();
+
+        const classSlug = slugifyForPath(classObj.name);
+        const gsLink = { classId: classId, classSlug: classSlug, semester: sem, testIndex: testIndex };
+
+        // 1. Entry already linked to this exact test slot
+        const linkIdx = list.findIndex(e =>
+          e.gsLink && e.gsLink.semester === sem && e.gsLink.testIndex === testIndex
+        );
+        // 2. Entry for the same class on the same date (no link yet)
+        const dateIdx = linkIdx < 0
+          ? list.findIndex(e => e.classId === classId && e.date === config.testDate && !(e.gsLink && e.gsLink.semester === sem && e.gsLink.testIndex === testIndex))
+          : -1;
+
+        let created = false;
+        if (linkIdx >= 0) {
+          list[linkIdx].date = config.testDate;
+          if (config.testName) list[linkIdx].topic = config.testName;
+          if (config.scope) list[linkIdx].objective = config.scope;
+          list[linkIdx].gsLink = gsLink;
+        } else if (dateIdx >= 0) {
+          // Merge into the existing same-date entry
+          list[dateIdx].type = 'test';
+          list[dateIdx].gsLink = gsLink;
+          if (config.testName) list[dateIdx].topic = config.testName;
+          if (config.scope && !list[dateIdx].objective) list[dateIdx].objective = config.scope;
+        } else {
+          created = true;
+          list.push({
+            id: 'gs-' + classId + '-' + sem + '-' + testIndex + '-' + Date.now(),
+            classId: classId,
+            date: config.testDate,
+            time: '', timeEnd: '',
+            type: 'test',
+            topic: config.testName || ('T' + (testIndex + 1)),
+            objective: config.scope || '',
+            readings: '', activities: '', homework: '', notes: '',
+            reminder: null,
+            gsLink: gsLink
+          });
+        }
+
+        allByClass[classId] = list;
+        const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+          'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(classId) + '] = ' +
+          JSON.stringify(list, null, 2) + ';\n';
+        await Desktop.saveText('user', (classId || '__unassigned') + '.js', content, 'planner');
+        showToast(created ? t('gsPlWriteOk') : t('gsPlUpdated'));
+      } catch (e) {
+        console.warn('syncTestToPlanner error:', e);
+      }
     }
 
     async function addStudent() {

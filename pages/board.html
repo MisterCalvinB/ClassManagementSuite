@@ -253,6 +253,7 @@
     });
   </script>
   <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -501,6 +502,18 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <div id="nav-action-btns">
+    <div id="save-sync-wrap">
+      <button id="save-sync-btn" class="action-btn btn-grey" onclick="toggleSaveSyncMenu()" title="Save / Sync options">Save ▾</button>
+      <div id="save-sync-menu">
+        <button class="ssm-item" onclick="downloadData(); closeSaveSyncMenu()">⬇️ Save as Zip</button>
+        <button class="ssm-item" onclick="uploadData(); closeSaveSyncMenu()">⬆️ Load from Zip</button>
+        <div class="ssm-divider"></div>
+        <button class="ssm-item" id="ssm-sync-btn" onclick="syncData(); closeSaveSyncMenu()">🔄 Sync</button>
+      </div>
+    </div>
+    <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()" title="Customise board defaults">Customise</button>
+  </div>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -1215,37 +1228,6 @@
   </div><!-- /.det-inner -->
 </div>
 
-  <div id="top-controls-bar">
-    <div id="lang-switcher">
-      <button class="lang-btn" id="lang-auto" data-lang="auto" onclick="setLang(null)">Auto</button>
-      <button class="lang-btn" id="lang-en" data-lang="en" onclick="setLang('en')">EN</button>
-      <button class="lang-btn" id="lang-de" data-lang="de" onclick="setLang('de')">DE</button>
-      <button class="lang-btn" id="lang-it" data-lang="it" onclick="setLang('it')">IT</button>
-      <button class="lang-btn" id="lang-fr" data-lang="fr" onclick="setLang('fr')">FR</button>
-    </div>
-    <div id="group-selector-wrap">
-      <label for="group-selector">Class</label>
-      <select id="group-selector" onchange="setActiveClassGroup(this.value)">
-        <option value="">No class prefix</option>
-      </select>
-    </div>
-    <div id="save-sync-wrap">
-      <button id="save-sync-btn" class="action-btn btn-grey" onclick="toggleSaveSyncMenu()" title="Save / Sync options">💾 Save ▾</button>
-      <div id="save-sync-menu">
-        <button class="ssm-item" onclick="downloadData(); closeSaveSyncMenu()">⬇️ Save as Zip</button>
-        <button class="ssm-item" onclick="uploadData(); closeSaveSyncMenu()">⬆️ Load from Zip</button>
-        <div class="ssm-divider"></div>
-        <button class="ssm-item" id="ssm-sync-btn" onclick="syncData(); closeSaveSyncMenu()">🔄 Sync</button>
-      </div>
-    </div>
-    <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()" title="Customise board defaults">🎨 Customise</button>
-    <div id="font-size-control">
-      <button class="fs-btn" onclick="adjustFontSize(-1)" title="Decrease font size">A−</button>
-      <button class="fs-btn" onclick="adjustFontSize(0)" title="Reset font size">A</button>
-      <button class="fs-btn" onclick="adjustFontSize(1)" title="Increase font size">A+</button>
-    </div>
-  </div>
-
   <h1 id="site-title">Board</h1>
 
   <div id="main-menu" class="game">
@@ -1350,6 +1332,7 @@
         <!--<span class="con-tb-group-label" style="visibility:hidden;">_</span>-->
         <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
              onchange="conSetTitle(this.value)" onkeyup="conSetTitle(this.value)">
+        <div id="con-class-pills"></div>
       </div>
 
       <div id="con-page-nav">
@@ -1601,6 +1584,15 @@
           <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnInsertCheckboxList()" title="Checkbox list">☑</button>
         </div>
       </div>
+      <div class="wn-sp-row">
+        <span class="wn-sp-label">Align</span>
+        <div class="wn-sp-style-btns">
+          <button class="wn-sp-style-toggle" id="wn-sp-align-left"    onmousedown="event.preventDefault()" onclick="wnStyleSetAlign('left')"    title="Align left">←</button>
+          <button class="wn-sp-style-toggle" id="wn-sp-align-center"  onmousedown="event.preventDefault()" onclick="wnStyleSetAlign('center')"  title="Align center">↔</button>
+          <button class="wn-sp-style-toggle" id="wn-sp-align-right"   onmousedown="event.preventDefault()" onclick="wnStyleSetAlign('right')"   title="Align right">→</button>
+          <button class="wn-sp-style-toggle" id="wn-sp-align-justify" onmousedown="event.preventDefault()" onclick="wnStyleSetAlign('justify')" title="Justify">⇔</button>
+        </div>
+      </div>
       <div class="wn-sp-actions">
         <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleClearSelectedFormat()">✕ Clear</button>
         <button class="wn-sp-action-btn" id="wn-sp-lock-btn" onclick="wnStyleToggleLock()">🔓 Lock</button>
@@ -1612,6 +1604,7 @@
         <button class="wn-sp-action-btn" onclick="wnStyleEditNote()">✎ Edit</button>
         <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()" style="display:none;">▶ Open input</button>
         <button class="wn-sp-action-btn" id="wn-sp-stop-input-btn" onclick="wnStyleStopStudentInput()" style="display:none;">⏹ Stop input</button>
+        <button class="wn-sp-action-btn" id="wn-sp-planner-btn" onclick="wnpOpen()" data-i18n="wnpSaveToPlanner">📅 Planner</button>
         <button class="wn-sp-action-btn danger" onclick="wnStyleDeleteNote()">🗑 Delete</button>
       </div>
     </div>
@@ -2753,6 +2746,7 @@ function hideFailure() {
     e.stopImmediatePropagation();
     e.stopPropagation();
   }, true);
+  window._wnClearOutsideClickSuppression = function() { suppressNextOutsideClick = false; };
 })();
 
     // --- Core Routing & Filters ---
@@ -3263,16 +3257,7 @@ function hideFailure() {
       return label || 'No class prefix';
     }
 
-    function updateGroupSelectorTitle() {
-      const sel = document.getElementById('group-selector');
-      if (!sel) return;
-      if (activeClassGroup && typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS[activeClassGroup]) {
-        const count = CLASS_GROUPS[activeClassGroup].length;
-        sel.title = activeClassGroup + ' (' + count + ' students)';
-      } else {
-        sel.title = 'No class prefix selected';
-      }
-    }
+    function updateGroupSelectorTitle() {}
 
     function setActiveClassGroup(groupName, options = {}) {
       const preserveBoardState = !!options.preserveBoardState;
@@ -3285,13 +3270,16 @@ function hideFailure() {
         boardAutosaveAllNow({ classGroup: prevGroup, force: true });
       }
       activeClassGroup = nextGroup;
-      const sel = document.getElementById('group-selector');
-      if (sel && sel.value !== activeClassGroup) sel.value = activeClassGroup;
+      const pillsEl = document.getElementById('con-class-pills');
+      if (pillsEl) {
+        pillsEl.querySelectorAll('.con-class-pill').forEach(p => {
+          p.classList.toggle('active', (p.dataset.group || '') === activeClassGroup);
+        });
+      }
       try {
         if (activeClassGroup) sessionStorage.setItem(CLASS_GROUP_STORAGE_KEY, activeClassGroup);
         else sessionStorage.removeItem(CLASS_GROUP_STORAGE_KEY);
       } catch (e) {}
-      updateGroupSelectorTitle();
       if (prevGroup !== activeClassGroup) {
         if (typeof sessionLoadHandleClassGroupChange === 'function') {
           sessionLoadHandleClassGroupChange();
@@ -3300,26 +3288,33 @@ function hideFailure() {
     }
 
     function initClassGroupSelector() {
-      const sel = document.getElementById('group-selector');
-      if (!sel) return;
-      sel.innerHTML = '';
-
-      const noneOpt = document.createElement('option');
-      noneOpt.value = '';
-      noneOpt.textContent = 'No class prefix';
-      sel.appendChild(noneOpt);
+      const pillsEl = document.getElementById('con-class-pills');
+      if (!pillsEl) return;
+      pillsEl.innerHTML = '';
 
       const groupKeys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
         ? Object.keys(CLASS_GROUPS)
             .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
             .sort((a, b) => a.localeCompare(b))
         : [];
+
+      const nonePill = document.createElement('span');
+      nonePill.className = 'con-class-pill none-pill';
+      nonePill.textContent = '–';
+      nonePill.title = 'No class prefix';
+      nonePill.dataset.group = '';
+      nonePill.addEventListener('click', () => setActiveClassGroup(''));
+      pillsEl.appendChild(nonePill);
+
       groupKeys.forEach(key => {
-        const opt = document.createElement('option');
+        const pill = document.createElement('span');
+        pill.className = 'con-class-pill';
         const count = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key].length : 0;
-        opt.value = key;
-        opt.textContent = key + (count ? ' (' + count + ')' : '');
-        sel.appendChild(opt);
+        pill.textContent = key;
+        pill.title = key + (count ? ' (' + count + ' students)' : '');
+        pill.dataset.group = key;
+        pill.addEventListener('click', () => setActiveClassGroup(key));
+        pillsEl.appendChild(pill);
       });
 
       let saved = '';
@@ -4407,16 +4402,16 @@ function hideFailure() {
 
   
     // ================================================================
-    // i18n — EN / DE / IT
+    // i18n — delegates to shared i18n.js (window.t / window.getLang)
     // ================================================================
-    let currentLang = (function(){
+    // Migrate legacy app_lang key to cmt-lang-board on first load
+    (function(){
       try {
-        var saved = localStorage.getItem('app_lang');
-        if (saved) return saved;
-        var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
-        return cfg.language || 'en';
-      } catch(e){ return 'en'; }
+        var old = localStorage.getItem('app_lang');
+        if (old) { localStorage.setItem('cmt-lang-board', old); localStorage.removeItem('app_lang'); }
+      } catch(e){}
     })();
+    let currentLang = getLang();
 
     function getTranslation(w, lang) {
       const l = lang || currentLang;
@@ -4956,8 +4951,6 @@ function hideFailure() {
       }
     };
 
-    function t(k){ return (I18N[currentLang]||I18N.en)[k] || I18N.en[k] || k; }
-
     // --- Font size control ---
     const FS_DEFAULT = 16;
     const FS_MIN = 10;
@@ -4984,26 +4977,22 @@ function hideFailure() {
 
     function setLang(lang) {
       if (lang === null || lang === 'auto') {
-        try { localStorage.removeItem('app_lang'); } catch(e){}
-        try { const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); currentLang = cfg.language || 'en'; } catch(e){ currentLang = 'en'; }
+        try { localStorage.removeItem('cmt-lang-board'); } catch(e){}
       } else {
-        currentLang = lang;
-        try { localStorage.setItem('app_lang', lang); } catch(e){}
+        try { localStorage.setItem('cmt-lang-board', lang); } catch(e){}
       }
+      currentLang = getLang();
       _updateAllLangBtns();
       applyLang();
     }
 
     function _updateAllLangBtns() {
-      const override = localStorage.getItem('app_lang');
+      const override = localStorage.getItem('cmt-lang-board');
       document.querySelectorAll('.lang-btn').forEach(b => {
         const dl = b.getAttribute('data-lang');
         b.classList.toggle('active', dl === 'auto' ? !override : dl === currentLang && !!override);
       });
-      document.querySelectorAll('.hm-lang-btn').forEach(b => {
-        const dl = b.getAttribute('data-lang');
-        b.classList.toggle('active', dl === 'auto' ? !override : dl === override);
-      });
+      updateLangButtons();
     }
 
     function applyLang() {
@@ -17026,7 +17015,8 @@ function hideFailure() {
             borderWidth: n.borderWidth || null,
             borderStyle: n.borderStyle || null,
             borderColor: n.borderColor || null,
-            preset: n.preset || null
+            preset: n.preset || null,
+            textAlign: n.textAlign || null
           }));
 
         const groups = sel.groupIds
@@ -17242,7 +17232,8 @@ function hideFailure() {
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
               borderColor: n.borderColor || null,
-              preset: n.preset || null
+              preset: n.preset || null,
+              textAlign: n.textAlign || null
             };
             conNotes.push(clone);
             conNoteBuild(clone);
@@ -20122,6 +20113,7 @@ function hideFailure() {
     }
 
     function wnStyleOpen(noteData, anchorEl, triggerEvent, wordMeta) {
+      if (window._wnClearOutsideClickSuppression) window._wnClearOutsideClickSuppression();
       {
         const prevNoteEl = document.querySelector(
           `.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`
@@ -20263,6 +20255,11 @@ function hideFailure() {
       document.getElementById('wn-sp-italic').classList.toggle('active', !!noteData.italic);
       document.getElementById('wn-sp-underline').classList.toggle('active', !!noteData.underline);
       document.getElementById('wn-sp-strike').classList.toggle('active', !!noteData.strike);
+      const _curAlign = noteData.textAlign || 'left';
+      ['left','center','right','justify'].forEach(a => {
+        const btn = document.getElementById('wn-sp-align-' + a);
+        if (btn) btn.classList.toggle('active', _curAlign === a);
+      });
       const lockBtn = document.getElementById('wn-sp-lock-btn');
       if (lockBtn) { lockBtn.textContent = noteData.locked ? '🔒 Unlock' : '🔓 Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
       const hideBtn = document.getElementById('wn-sp-hide-btn');
@@ -20340,6 +20337,27 @@ function hideFailure() {
         popup.style.top  = (e.clientY - oy) + 'px';
       });
       document.addEventListener('mouseup', () => { dragging = false; });
+    })();
+
+    // When text is selected in an editor, Electron/Chrome sometimes generates
+    // mousedown+mouseup on the first popup interaction without a click event.
+    // Fix: on mouseup inside the popup, if no natural click follows in the same
+    // JS tick, synthesize one on the target element.
+    (function() {
+      const overlay = document.getElementById('wn-style-overlay');
+      overlay.addEventListener('mouseup', function(e) {
+        if (!e.target || !e.target.closest('#wn-style-popup')) return;
+        const t = e.target;
+        let naturalClick = false;
+        const guard = function() { naturalClick = true; };
+        overlay.addEventListener('click', guard, { capture: true, once: true });
+        setTimeout(function() {
+          if (!naturalClick) {
+            overlay.removeEventListener('click', guard, true);
+            t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          }
+        }, 0);
+      }, false);
     })();
 
     function conGetNotePresets() {
@@ -20560,6 +20578,8 @@ function hideFailure() {
 
     function wnStyleRefresh() {
       if (!_wnActiveNote) return;
+      const overlay = document.getElementById('wn-style-overlay');
+      if (!overlay || !overlay.classList.contains('active')) return;
       const noteEl = wnGetNoteElementById(_wnActiveNote.id);
       wnStyleOpen(_wnActiveNote, noteEl || document.body, undefined, _wnPopupWordMeta);
     }
@@ -20642,6 +20662,146 @@ function hideFailure() {
       if (window.conPushUndo) window.conPushUndo();
       conDuplicateNoteData(nd, 28, 22);
     }
+
+    // ── Save note to Planner ─────────────────────────────────────────────
+    function wnpOpen() {
+      const nd = _wnActiveNote;
+      if (!nd) return;
+      wnStyleDismiss();
+
+      const modal = document.getElementById('wn-planner-modal');
+      if (!modal) return;
+
+      // i18n labels
+      document.getElementById('wn-planner-modal-title').textContent = t('wnpTitle');
+      document.getElementById('wn-planner-lbl-class').textContent   = t('wnpClass');
+      document.getElementById('wn-planner-lbl-date').textContent    = t('wnpDate');
+      document.getElementById('wn-planner-lbl-topic').textContent   = t('wnpFieldTopic');
+      document.getElementById('wn-planner-lbl-type').textContent    = t('wnpType');
+      document.getElementById('wn-planner-lbl-field').textContent   = t('wnpField');
+      document.getElementById('wn-planner-cancel-btn').textContent  = t('btnCancel');
+      document.getElementById('wn-planner-save-btn').textContent    = t('wnpSave');
+      document.getElementById('wn-planner-topic').value = '';
+      document.querySelectorAll('#wn-planner-modal [data-i18n-opt]').forEach(opt => {
+        opt.textContent = t(opt.dataset.i18nOpt);
+      });
+
+      // Note text preview
+      const text = (nd.text || '').trim();
+      document.getElementById('wn-planner-preview').textContent = text || '—';
+
+      // Populate class selector
+      const classSel = document.getElementById('wn-planner-class');
+      classSel.innerHTML = '';
+      const groups = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
+      const meta   = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const classIds = Object.keys(groups).filter(id => !(meta[id] || {}).archived).sort();
+      if (!classIds.length) {
+        const opt = document.createElement('option');
+        opt.textContent = t('wnpNoClasses'); opt.disabled = true;
+        classSel.appendChild(opt);
+      } else {
+        classIds.forEach(id => {
+          const opt = document.createElement('option');
+          opt.value = id; opt.textContent = id;
+          classSel.appendChild(opt);
+        });
+      }
+
+      // Restore last-used class if still valid
+      const lastCls = localStorage.getItem('cmt-board-wnp-class');
+      if (lastCls && classIds.includes(lastCls)) classSel.value = lastCls;
+
+      // Date: today
+      document.getElementById('wn-planner-date').value = new Date().toISOString().slice(0, 10);
+
+      // Restore last-used field
+      const lastField = localStorage.getItem('cmt-board-wnp-field');
+      const fieldSel = document.getElementById('wn-planner-field');
+      if (lastField) fieldSel.value = lastField;
+
+      // Clear status and reset save button
+      document.getElementById('wn-planner-status').textContent = '';
+      const _sb = document.getElementById('wn-planner-save-btn');
+      if (_sb) { _sb.disabled = false; _sb.style.opacity = ''; }
+
+      // Store active note id for save
+      modal.dataset.noteId = nd.id;
+
+      modal.style.display = 'flex';
+    }
+
+    function wnpClose() {
+      const modal = document.getElementById('wn-planner-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function wnpSave() {
+      const classId = document.getElementById('wn-planner-class').value;
+      const date    = document.getElementById('wn-planner-date').value;
+      const type    = document.getElementById('wn-planner-type').value;
+      const field   = document.getElementById('wn-planner-field').value;
+      const noteId  = document.getElementById('wn-planner-modal').dataset.noteId;
+
+      if (!classId || !date) return;
+
+      // Resolve note text from the active note
+      const nd = (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === noteId) : null) || _wnActiveNote;
+      const text = nd ? (nd.text || '').trim() : document.getElementById('wn-planner-preview').textContent;
+
+      // Remember last-used class and field
+      localStorage.setItem('cmt-board-wnp-class', classId);
+      localStorage.setItem('cmt-board-wnp-field', field);
+
+      const saveBtn = document.getElementById('wn-planner-save-btn');
+      if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '.6'; }
+
+      // Read existing entries for this class
+      let existing = [];
+      try {
+        const r = await Desktop.readByPath('user', 'planner/' + classId + '.js');
+        if (r && r.ok && r.content) {
+          const tmpWin = { PLANNER_ENTRIES_BY_CLASS: {} };
+          // eslint-disable-next-line no-new-func
+          new Function('window', r.content)(tmpWin);
+          existing = Array.isArray(tmpWin.PLANNER_ENTRIES_BY_CLASS[classId])
+            ? tmpWin.PLANNER_ENTRIES_BY_CLASS[classId]
+            : [];
+        }
+      } catch (_e) {}
+
+      const id = 'pe' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      const topicVal = (document.getElementById('wn-planner-topic').value || '').trim();
+      const entry = { id, classId, date, type, topic: topicVal, objective: '', readings: '', activities: '', homework: '', notes: '', reminder: null, gsLink: null };
+      entry[field] = text;
+      existing.push(entry);
+
+      const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+        'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(classId) + '] = ' +
+        JSON.stringify(existing, null, 2) + ';\n';
+
+      try {
+        const r = await Desktop.saveText('user', classId + '.js', content, 'planner');
+        const statusEl = document.getElementById('wn-planner-status');
+        if (r && r.ok) {
+          if (statusEl) statusEl.textContent = t('wnpSaved');
+          setTimeout(() => wnpClose(), 1200);
+        } else {
+          if (statusEl) statusEl.textContent = '✗ ' + (r && r.error || 'Error');
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
+        }
+      } catch (err) {
+        const statusEl = document.getElementById('wn-planner-status');
+        if (statusEl) statusEl.textContent = '✗ ' + err.message;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
+      }
+    }
+
+    // Close planner modal on backdrop click (deferred — modal HTML is at end of body)
+    document.addEventListener('DOMContentLoaded', function() {
+      const _wnpm = document.getElementById('wn-planner-modal');
+      if (_wnpm) _wnpm.addEventListener('click', function(e) { if (e.target === this) wnpClose(); });
+    });
 
     function wnStyleSplitNote() {
       if (!_wnActiveNote) return;
@@ -20854,6 +21014,16 @@ function hideFailure() {
       _wnActiveNote[prop] = !_wnActiveNote[prop];
       _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
       document.getElementById('wn-sp-' + prop).classList.toggle('active', !!_wnActiveNote[prop]);
+    }
+
+    function wnStyleSetAlign(align) {
+      if (!_wnActiveNote) return;
+      _wnActiveNote.textAlign = align;
+      _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
+      ['left','center','right','justify'].forEach(a => {
+        const btn = document.getElementById('wn-sp-align-' + a);
+        if (btn) btn.classList.toggle('active', a === align);
+      });
     }
 
     function wnStyleSetSize(sizePx) {
@@ -21491,6 +21661,7 @@ function hideFailure() {
         ta.style.fontWeight       = noteData.bold ? '700' : '400';
         ta.style.fontStyle        = noteData.italic ? 'italic' : 'normal';
         ta.style.textDecoration   = note.style.textDecoration;
+        ta.style.textAlign        = noteData.textAlign || '';
         // Border
         if (noteData.borderWidth) {
           note.style.borderWidth = noteData.borderWidth + 'px';
@@ -23102,7 +23273,8 @@ function hideFailure() {
           borderColor: n.borderColor || null,
           preset: n.preset || null,
           blink: !!n.blink,
-          studentInput: !!n.studentInput
+          studentInput: !!n.studentInput,
+          textAlign: n.textAlign || null
         })),
         drawings: (window.conGetDrawings ? window.conGetDrawings() : []).map(d => ({
           id: d.id, x: d.x, y: d.y, w: d.w, h: d.h,
@@ -24375,12 +24547,19 @@ function hideFailure() {
         });
         if (curLine.length) lines.push(curLine);
       });
+      const noteTextAlign = editor.style.textAlign || 'left';
       ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
       let cy = y + padY; const maxY = y + h - padY;
       lines.forEach(line => {
         if (cy + lineh > maxY) return;
         let trimLine = [...line]; while (trimLine.length && /^\s+$/.test(trimLine[trimLine.length - 1].word)) trimLine.pop();
         let cx = x + padX;
+        if (noteTextAlign === 'center' || noteTextAlign === 'right') {
+          let lineW = 0;
+          trimLine.forEach(item => { ctx.font = _segFont(item.seg); lineW += ctx.measureText(item.word).width; });
+          if (noteTextAlign === 'center') cx = x + padX + Math.max(0, (contentW - lineW) / 2);
+          else cx = x + w - padX - lineW;
+        }
         trimLine.forEach(item => {
           ctx.font = _segFont(item.seg); const tw = ctx.measureText(item.word).width; const fsPx = item.seg.fontSize || baseFontPx;
           const textTop = cy + Math.max(0, (lineh - fsPx) / 2);
@@ -31630,5 +31809,40 @@ async function conConvertPdfMediaItemToPng(item) {
         <button id="con-crop-confirm-btn" onclick="window.conConfirmCrop()">&#x2702;&#xFE0F; Crop</button>
       </div>
     </div>
+
+<!-- ── Save-note-to-Planner modal ─────────────────────────────────────── -->
+<div id="wn-planner-modal" style="display:none;position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border:2px solid #111;border-radius:8px;padding:18px 20px 16px;min-width:300px;max-width:380px;width:90%;box-shadow:3px 3px 0 #bbb;font-family:inherit;font-size:.82rem;">
+    <div id="wn-planner-modal-title" style="font-weight:900;font-size:.92rem;margin-bottom:12px;letter-spacing:.01em;"></div>
+    <div id="wn-planner-preview" style="background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:6px 8px;margin-bottom:12px;max-height:80px;overflow-y:auto;white-space:pre-wrap;font-size:.78rem;color:#333;line-height:1.4;"></div>
+    <div style="display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px 10px;">
+      <label id="wn-planner-lbl-class" style="font-weight:700;white-space:nowrap;"></label>
+      <select id="wn-planner-class" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:.82rem;background:#fff;"></select>
+      <label id="wn-planner-lbl-date" style="font-weight:700;white-space:nowrap;"></label>
+      <input type="date" id="wn-planner-date" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:.82rem;">
+      <label id="wn-planner-lbl-topic" style="font-weight:700;white-space:nowrap;"></label>
+      <input type="text" id="wn-planner-topic" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:.82rem;">
+      <label id="wn-planner-lbl-type" style="font-weight:700;white-space:nowrap;"></label>
+      <select id="wn-planner-type" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:.82rem;background:#fff;">
+        <option value="lesson" data-i18n-opt="wnpTypeLesson"></option>
+        <option value="test"   data-i18n-opt="wnpTypeTest"></option>
+        <option value="assignment" data-i18n-opt="wnpTypeAssignment"></option>
+        <option value="other"  data-i18n-opt="wnpTypeOther"></option>
+      </select>
+      <label id="wn-planner-lbl-field" style="font-weight:700;white-space:nowrap;"></label>
+      <select id="wn-planner-field" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:.82rem;background:#fff;">
+        <option value="notes"      data-i18n-opt="wnpFieldNotes"></option>
+        <option value="topic"      data-i18n-opt="wnpFieldTopic"></option>
+        <option value="objective"  data-i18n-opt="wnpFieldObjective"></option>
+        <option value="activities" data-i18n-opt="wnpFieldActivities"></option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+      <button id="wn-planner-cancel-btn" onclick="wnpClose()" style="padding:5px 12px;border:1.5px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:.8rem;"></button>
+      <button id="wn-planner-save-btn"   onclick="wnpSave()" style="padding:5px 14px;border:1.5px solid #111;border-radius:4px;background:#111;color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:.8rem;"></button>
+    </div>
+    <div id="wn-planner-status" style="margin-top:8px;font-size:.76rem;color:#555;min-height:1em;text-align:right;"></div>
+  </div>
+</div>
 </body>
 </html>

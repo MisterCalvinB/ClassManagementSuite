@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
     <script src="../electron-bridge.js"></script>
     <script src="../js/dialogs.js"></script>
+    <script src="../js/tutorial.js"></script>
     <script>
     (function () {
         function injectClassicScript(source, name) {
@@ -140,6 +141,7 @@
 <!-- Floating buttons -->
 	 <div class="floating-buttons"> 
         <button class="cm-help-btn" onclick="toggleHelp()" data-i18n-title="help_title">?</button>
+        <button class="btn-objectives" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label">▶ Tour</button>
         <button class="btn-objectives" onclick="toggleObjectivesBar()" data-i18n="btn_objectives">Objectives</button>
         <button class="btn-db-hub" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title" title="Database &amp; Time Machine">🗄 DB</button>
         <button class="btn-objectives" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings" data-i18n-title="settings_btn_title">⚙ Settings</button>
@@ -10197,6 +10199,16 @@ function _applyStartupDbSessions(sessions, loadedInfo = null) {
     sub.textContent = msg;
 }
 
+// ── Tutorial ─────────────────────────────────────────────────────────────────
+function startCmsTutorial() {
+    Tutorial.start([
+        { selector: '#group-container', title: t('tut1_title'), text: t('tut1_text') },
+        { selector: '.roster-panel',    title: t('tut2_title'), text: t('tut2_text') },
+        { selector: '#timer-open-btn',  title: t('tut3_title'), text: t('tut3_text') },
+        { selector: '#db-hub-btn',      title: t('tut4_title'), text: t('tut4_text') }
+    ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
+}
+
 // Show the banner on startup (after a short delay so the UI is painted)
 document.addEventListener('DOMContentLoaded', () => {
     const banner = document.getElementById('startup-load-banner');
@@ -10675,6 +10687,17 @@ const I18N = {
     overlay_file_mode_title: 'White noise (W)',
 
     mp3_picker_title: '🎵 Pick a sound file',
+
+    tut_btn_label:  '▶ Tour',
+    tutNext: 'Next →', tutPrev: '← Back', tutSkip: 'Skip', tutDone: 'Done ✓',
+    tut1_title: 'Class Groups',
+    tut1_text:  'Click a group button to load that class. Groups are set up in Group Editor. The roster below will fill with that group\'s students.',
+    tut2_title: 'Student Roster',
+    tut2_text:  'Click a student name to toggle attendance. Right-click for more: participation points, notes, badges, and role assignment.',
+    tut3_title: 'Timer',
+    tut3_text:  'Opens a countdown or stopwatch. Start it here, then project the fullscreen view for students to see.',
+    tut4_title: 'Database & History',
+    tut4_text:  'Save session data, export participation logs, and restore any past roster state using the Time Machine snapshots.',
   },
 
   fr: {
@@ -11039,6 +11062,17 @@ const I18N = {
     overlay_file_mode_title: 'Bruit blanc (W)',
 
     mp3_picker_title: '🎵 Choisir un fichier audio',
+
+    tut_btn_label:  '▶ Visite',
+    tutNext: 'Suivant →', tutPrev: '← Précédent', tutSkip: 'Passer', tutDone: 'Terminé ✓',
+    tut1_title: 'Groupes de classe',
+    tut1_text:  'Cliquez sur un groupe pour charger cette classe. Les groupes sont définis dans l\'Éditeur de groupes. La liste ci-dessous se remplit avec les élèves du groupe.',
+    tut2_title: 'Liste des élèves',
+    tut2_text:  'Cliquez sur un nom pour basculer présence/absence. Faites un clic droit pour plus d\'options : participation, notes, badges, rôles.',
+    tut3_title: 'Minuteur',
+    tut3_text:  'Ouvre un compte à rebours ou un chronomètre. Lancez-le ici, puis affichez la vue plein écran pour les élèves.',
+    tut4_title: 'Base de données & Historique',
+    tut4_text:  'Sauvegardez les données de session, exportez les logs de participation et restaurez un état précédent via la Machine à remonter le temps.',
   },
 
   de: {
@@ -11403,6 +11437,17 @@ const I18N = {
     overlay_file_mode_title: 'Weißes Rauschen (W)',
 
     mp3_picker_title: '🎵 Audiodatei auswählen',
+
+    tut_btn_label:  '▶ Tour',
+    tutNext: 'Weiter →', tutPrev: '← Zurück', tutSkip: 'Überspringen', tutDone: 'Fertig ✓',
+    tut1_title: 'Klassengruppen',
+    tut1_text:  'Klicken Sie auf eine Gruppe, um diese Klasse zu laden. Gruppen werden im Gruppeneditor angelegt. Die Liste füllt sich mit den Schülern der Gruppe.',
+    tut2_title: 'Schülerliste',
+    tut2_text:  'Klicken Sie auf einen Namen, um An-/Abwesenheit umzuschalten. Rechtsklick für mehr: Teilnahme, Notizen, Abzeichen, Rollen.',
+    tut3_title: 'Timer',
+    tut3_text:  'Öffnet einen Countdown oder eine Stoppuhr. Starten Sie ihn hier und projizieren Sie die Vollbild-Ansicht für Schüler.',
+    tut4_title: 'Datenbank & Verlauf',
+    tut4_text:  'Sitzungsdaten speichern, Teilnahmeprotokolle exportieren und frühere Zustände über die Zeitmaschine wiederherstellen.',
   },
 
   it: {
@@ -11762,6 +11807,17 @@ const I18N = {
     overlay_file_mode_title: 'Rumore bianco (W)',
 
     mp3_picker_title: '🎵 Scegli un file audio',
+
+    tut_btn_label:  '▶ Tour',
+    tutNext: 'Avanti →', tutPrev: '← Indietro', tutSkip: 'Salta', tutDone: 'Fine ✓',
+    tut1_title: 'Gruppi classe',
+    tut1_text:  'Clicca un pulsante gruppo per caricare quella classe. I gruppi si configurano nell\'Editor gruppi. Il registro si riempie con gli studenti del gruppo.',
+    tut2_title: 'Registro studenti',
+    tut2_text:  'Clicca su un nome per cambiare presenza/assenza. Clic destro per altre opzioni: partecipazione, note, badge, ruoli.',
+    tut3_title: 'Timer',
+    tut3_text:  'Apre un conto alla rovescia o un cronometro. Avvialo qui, poi proietta la vista a schermo intero per gli studenti.',
+    tut4_title: 'Database & Cronologia',
+    tut4_text:  'Salva i dati della sessione, esporta i log di partecipazione e ripristina uno stato precedente con la Macchina del Tempo.',
   }
 };
 
