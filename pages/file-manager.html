@@ -591,6 +591,7 @@
           <option value="mindmaps" data-i18n="rfFilterMindmaps">Constellation maps</option>
         </optgroup>
         <optgroup label="Documents" data-i18n-label="rfFilterDocs">
+          <option value="doceditor">Doc Editor files</option>
           <option value="pdf">PDF</option>
           <option value="image">Image</option>
           <option value="sound">Sound</option>
@@ -613,6 +614,8 @@
     <div class="file-list" id="rfList">
       <div class="state-msg"><span class="state-icon">⏳</span><span data-i18n="rfLoading">Loading files…</span></div>
     </div>
+    <h2 class="section-heading" id="rfEditorDocsHeading" style="display:none">Doc Editor Files</h2>
+    <div class="file-list" id="rfEditorDocsList"></div>
     <h2 class="section-heading" id="rfDocsHeading" style="display:none" data-i18n="rfDocsHeading">Added Documents</h2>
     <div class="file-list" id="rfDocsList"></div>
     <h2 class="section-heading" id="rfArchivedHeading" style="display:none" data-i18n="rfArchivedHeading">Archived</h2>
@@ -972,8 +975,10 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
 
 var rfSessions = [];
 var rfDocs     = [];
-var rfArchivedSessions = [];
-var rfArchivedDocs     = [];
+var rfEditorDocs = [];
+var rfArchivedSessions  = [];
+var rfArchivedDocs      = [];
+var rfArchivedEditorDocs = [];
 var rfContentCache     = new Map();
 var rfSearchTimer      = null;
 var rfSearchGeneration = 0;
@@ -1115,13 +1120,60 @@ function makeRfRow(file, isSession, snippet, isArchived) {
   return row;
 }
 
+function makeEditorDocRow(file, isArchived) {
+  var row = document.createElement('div');
+  row.className = 'file-row';
+
+  var ext = (file.filename || '').split('.').pop().toLowerCase();
+  var tag = document.createElement('span');
+  tag.className = 'file-type-tag';
+  tag.textContent = ext.toUpperCase();
+  row.appendChild(tag);
+
+  var info = document.createElement('div');
+  info.className = 'file-info';
+
+  var nameEl = document.createElement('div');
+  nameEl.className = 'file-name';
+  nameEl.textContent = (file.filename || '').replace(/\.(md|html)$/i, '');
+  nameEl.title = file.filename;
+  info.appendChild(nameEl);
+
+  var meta = document.createElement('div');
+  meta.className = 'file-meta';
+  var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
+  meta.textContent = formatDate(fileDateMs(file)) + (kb ? ' · ' + kb : '') + (isArchived ? ' · Archived' : '');
+  info.appendChild(meta);
+
+  row.appendChild(info);
+
+  var acts = document.createElement('div');
+  acts.className = 'file-actions';
+
+  if (window.Desktop && Desktop.isElectron()) {
+    var openBtn = document.createElement('button');
+    openBtn.className = 'btn-open';
+    openBtn.textContent = tt('fmEditInDocEditor', 'Edit in Doc Editor') + ' ↗';
+    (function(f) {
+      openBtn.addEventListener('click', function() {
+        Desktop.openTool('document-editor.html', { query: { editTarget: f.target, editRelPath: f.relativePath || f.filename } });
+      });
+    })(file);
+    acts.appendChild(openBtn);
+  }
+
+  row.appendChild(acts);
+  return row;
+}
+
 function rfRender() {
   var filter = document.getElementById('rfTypeFilter').value;
   var search = document.getElementById('rfSearch').value.trim().toLowerCase();
   var sort   = document.getElementById('rfSortOrder').value;
   var DOC_KEYS = ['pdf','image','sound','book'];
-  var isDocFilter  = DOC_KEYS.indexOf(filter) !== -1;
-  var isSessFilter = filter === 'mindmaps';
+  var isDocFilter     = DOC_KEYS.indexOf(filter) !== -1;
+  var isSessFilter    = filter === 'mindmaps';
+  var isEditorFilter  = filter === 'doceditor';
 
   var uncachedCount = 0;
   if (search) {
@@ -1130,7 +1182,7 @@ function rfRender() {
     });
   }
 
-  var filteredS = isDocFilter ? [] : rfSessions.filter(function(f) {
+  var filteredS = (isDocFilter || isEditorFilter) ? [] : rfSessions.filter(function(f) {
     if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
     if (!search) return true;
@@ -1148,14 +1200,20 @@ function rfRender() {
   });
   filteredS.sort(function(a, b) { return rfSortFn(sort)(a.file, b.file); });
 
-  var filteredD = isSessFilter ? [] : rfDocs.filter(function(f) {
+  var filteredD = (isSessFilter || isEditorFilter) ? [] : rfDocs.filter(function(f) {
     if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
     if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
     return true;
   });
   filteredD.sort(rfSortFn(sort));
 
-  var filteredAS = !search ? [] : (isDocFilter ? [] : rfArchivedSessions.filter(function(f) {
+  var filteredE = (isSessFilter || isDocFilter) ? [] : rfEditorDocs.filter(function(f) {
+    if (search && (f.filename || '').toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+  filteredE.sort(rfSortFn(sort));
+
+  var filteredAS = !search ? [] : ((isDocFilter || isEditorFilter) ? [] : rfArchivedSessions.filter(function(f) {
     if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
     var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
@@ -1170,14 +1228,19 @@ function rfRender() {
   }));
   filteredAS.sort(function(a, b) { return rfSortFn(sort)(a.file, b.file); });
 
-  var filteredAD = !search ? [] : (isSessFilter ? [] : rfArchivedDocs.filter(function(f) {
+  var filteredAD = !search ? [] : ((isSessFilter || isEditorFilter) ? [] : rfArchivedDocs.filter(function(f) {
     if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
     return f.filename.toLowerCase().indexOf(search) !== -1;
   }));
   filteredAD.sort(rfSortFn(sort));
 
+  var filteredAE = !search ? [] : ((isSessFilter || isDocFilter) ? [] : rfArchivedEditorDocs.filter(function(f) {
+    return (f.filename || '').toLowerCase().indexOf(search) !== -1;
+  }));
+  filteredAE.sort(rfSortFn(sort));
+
   var rfList = document.getElementById('rfList');
-  if (!filteredS.length && !filteredD.length && !filteredAS.length && !filteredAD.length) {
+  if (!filteredS.length && !filteredD.length && !filteredE.length && !filteredAS.length && !filteredAD.length && !filteredAE.length) {
     var noFilesIcon = uncachedCount > 0 ? '🔍' : '📭';
     var noFilesMsg  = uncachedCount > 0
       ? tt('rfNoFiles','No files found yet') + ' · ' + tt('rfSearchingContent','scanning content…')
@@ -1188,6 +1251,12 @@ function rfRender() {
     filteredS.forEach(function(item) { rfList.appendChild(makeRfRow(item.file, true, item.snippet, false)); });
   }
 
+  var rfEH = document.getElementById('rfEditorDocsHeading');
+  var rfEL = document.getElementById('rfEditorDocsList');
+  rfEH.style.display = filteredE.length ? '' : 'none';
+  rfEL.innerHTML = '';
+  filteredE.forEach(function(f) { rfEL.appendChild(makeEditorDocRow(f, false)); });
+
   var rfDH = document.getElementById('rfDocsHeading');
   var rfDL = document.getElementById('rfDocsList');
   rfDH.style.display = filteredD.length ? '' : 'none';
@@ -1196,13 +1265,14 @@ function rfRender() {
 
   var rfAH = document.getElementById('rfArchivedHeading');
   var rfAL = document.getElementById('rfArchivedList');
-  var archivedCount = filteredAS.length + filteredAD.length;
+  var archivedCount = filteredAS.length + filteredAD.length + filteredAE.length;
   rfAH.style.display = archivedCount ? '' : 'none';
   rfAL.innerHTML = '';
   filteredAS.forEach(function(item) { rfAL.appendChild(makeRfRow(item.file, true, item.snippet, true)); });
   filteredAD.forEach(function(f) { rfAL.appendChild(makeRfRow(f, false, '', true)); });
+  filteredAE.forEach(function(f) { rfAL.appendChild(makeEditorDocRow(f, true)); });
 
-  var total = filteredS.length + filteredD.length + archivedCount;
+  var total = filteredS.length + filteredD.length + filteredE.length + archivedCount;
   var countText = total + ' ' + tt(total === 1 ? 'rfFile' : 'rfFiles', total === 1 ? 'file' : 'files');
   if (search && uncachedCount > 0) countText += ' · scanning…';
   document.getElementById('rfCount').textContent = countText;
@@ -1257,6 +1327,29 @@ async function loadRecent() {
       });
     }
   } catch(e) { console.warn('loadRecent docs:', e); }
+
+  try {
+    var e = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true });
+    if (e && e.ok && Array.isArray(e.files)) {
+      var allEditorDocs = e.files.filter(function(f) {
+        var rel = normPath(f.relativePath || f.filename || '');
+        if (rel.startsWith('history/')) return false;
+        var parts = rel.split('/');
+        if (parts.length === 1) return true;
+        if (parts.length === 2) {
+          var base = parts[0];
+          return parts[1] === base + '.md' || parts[1] === base + '.html';
+        }
+        return false;
+      }).map(function(f) { return Object.assign({}, f, { target: 'docEditorDocs' }); });
+      rfEditorDocs = allEditorDocs.filter(function(f) {
+        return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') === -1;
+      });
+      rfArchivedEditorDocs = allEditorDocs.filter(function(f) {
+        return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') !== -1;
+      });
+    }
+  } catch(e) { console.warn('loadRecent editorDocs:', e); }
 
   rfRender();
 }

@@ -612,6 +612,7 @@
           <button class="sidebar-child" data-accordion="acc-pl-terms" onclick="navToAccordion('planner','acc-pl-terms')"><span class="sidebar-child-dot"></span>Setting Up Terms</button>
           <button class="sidebar-child" data-accordion="acc-pl-classes" onclick="navToAccordion('planner','acc-pl-classes')"><span class="sidebar-child-dot"></span>Managing Classes</button>
           <button class="sidebar-child" data-accordion="acc-pl-entries" onclick="navToAccordion('planner','acc-pl-entries')"><span class="sidebar-child-dot"></span>Adding Entries</button>
+          <button class="sidebar-child" data-accordion="acc-pl-todos" onclick="navToAccordion('planner','acc-pl-todos')"><span class="sidebar-child-dot"></span>To-do list</button>
           <button class="sidebar-child" data-accordion="acc-pl-export" onclick="navToAccordion('planner','acc-pl-export')"><span class="sidebar-child-dot"></span>Exporting</button>
         </div>
       </div>
@@ -800,7 +801,7 @@
         <strong>Tip:</strong> Open <button class="xlink" onclick="navTo('class-management')">Class Management</button> and <button class="xlink" onclick="navTo('board')">Board</button> side by side — the Board mirrors the timer and sync state from Class Management in real time. Configure this in <button class="xlink" onclick="navToAccordion('general-config','acc-cfg-startup')">Startup &amp; Launch settings</button>.
       </div>
       <div class="tip" style="margin-top:10px">
-        <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains two sections: <strong>Upcoming Events</strong> (next lessons, tests, and assignments from the Planner) and <strong>Recent Docs</strong> (latest constellation maps and Document Editor files). Click any item to open it directly. The small number button in each section header lets you set how many items to show.
+        <strong>Sidebar panel:</strong> The launcher has a collapsible right-hand panel. Click <strong>Panel</strong> in the header to show or hide it. It contains three sections: <strong>Upcoming Events</strong> (next lessons, tests, and assignments from the Planner), <strong>To-do</strong> (incomplete to-do items from the Planner — overdue items are highlighted in red), and <strong>Recent Docs</strong> (latest constellation maps and Document Editor files). Click any item to open it directly. The small number button in each section header lets you set how many items to show.
       </div>
     </section>
 
@@ -1007,6 +1008,10 @@
               <h4>🪑 Class Plan ↔ Class Management</h4>
               <p>Seating plans are shared between both tools via <code>user/config.js</code>. Plans created in either place are available in the other on next load.</p>
             </div>
+            <div class="mini-card">
+              <h4>🖥 Board ↔ Planner: lesson tagging</h4>
+              <p>A <strong>Planner</strong> button in the Board toolbar lets you tag the current constellation to a specific Planner lesson or test. The tag is saved with the session file so the link is restored when you reload the board later.</p>
+            </div>
           </div>
         </div></div>
       </div>
@@ -1142,6 +1147,8 @@
               <li>Export: click <strong>🖨 Print</strong>, then choose which columns (translation, IPA, definition…) to include in the PDF.</li>
             </ol>
             <div class="tip"><strong>Tip:</strong> Use <strong>DEF</strong> in the node context menu to auto-fetch a definition, or <strong>FR</strong> for a French translation via Wiktionary.</div>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Pasting tables:</strong> copy a table from any web page, Word document, or spreadsheet and paste it onto the board with <kbd>Ctrl+V</kbd>. HTML tables and tab-separated (TSV) data are both recognised and placed on the canvas as a draggable, resizable table element. The first row is styled as a header when the source used <code>&lt;th&gt;</code> cells. Tables are saved and exported as part of the constellation file.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Linking to a Planner lesson:</strong> click the <strong>Planner</strong> button in the Board toolbar to tag the open constellation to a specific lesson, test, or assignment from the Planner. Recent and upcoming entries are shown by default; click <em>Show all</em> for the full list. The link is stored in the saved file and restored when the board is reopened.</p>
           </div>
         </div>
       </div>
@@ -1406,6 +1413,7 @@
             <li>Click <strong>💾 Save</strong> at the bottom to write all changes to <code>class-groups.js</code>. Changes are not applied until you save.</li>
           </ol>
           <div class="tip"><strong>Tip:</strong> You can import groups from a CSV file using the <strong>Import CSV</strong> button in the toolbar. Columns: Group, First Name, Last Name, Year, Term, Level.</div>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Student roster &amp; UUIDs:</strong> each student is stored with a unique ID (<code>st-…</code>) in a separate file <code>user/students.js</code>. Class groups are likewise identified by a UUID rather than their display name, so renaming a class or student never breaks historical data. A one-time automatic migration runs on first launch for existing installations — no manual action is needed.</p>
         </div></div>
       </div>
 
@@ -1522,6 +1530,24 @@
             <li>For <strong>Test</strong> entries linked to Grade Sheet: if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically added there. A green badge confirms the link.</li>
             <li>Use <strong>Duplicate</strong> to copy an entry to another date — useful for repeating lesson structures.</li>
           </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pl-todos">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-todos')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">To-do list</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>A collapsible <strong>To-do</strong> panel sits on the right edge of the planner. Click the <strong>To-do</strong> tab to open it.</p>
+          <ul>
+            <li>Click <strong>+</strong> in the panel header (or from any entry's action menu) to add a new to-do.</li>
+            <li>Each to-do has a <strong>task description</strong>, optional <strong>due date</strong>, optional <strong>class tag</strong>, and an optional <strong>reminder</strong> (fires at a fixed date and time).</li>
+            <li><strong>Links</strong> — optionally attach a planner entry, a board constellation map, or a grade-sheet class to the to-do.</li>
+            <li>Click the <strong>checkbox</strong> to mark a to-do as done (archives it). Toggle <strong>Show done</strong> to view archived items.</li>
+            <li>Overdue items (past their due date) are highlighted in red.</li>
+            <li>To-dos also appear in the <strong>Launcher sidebar</strong> between Upcoming Events and Recent Docs.</li>
+          </ul>
         </div></div>
       </div>
 

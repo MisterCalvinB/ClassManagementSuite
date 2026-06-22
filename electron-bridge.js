@@ -523,17 +523,27 @@
     document.body.appendChild(toast);
 
     var hideTimer = null;
-    toast.querySelector('.prt-close').addEventListener('click', function () {
+
+    function hideToast() {
       toast.classList.remove('prt-show');
       clearTimeout(hideTimer);
+    }
+
+    toast.querySelector('.prt-close').addEventListener('click', function () {
+      hideToast();
+      if (typeof api.dismissPlannerReminder === 'function') api.dismissPlannerReminder();
     });
+
+    if (typeof api.onPlannerReminderDismiss === 'function') {
+      api.onPlannerReminderDismiss(hideToast);
+    }
 
     api.onPlannerReminder(function (data) {
       toast.querySelector('.prt-title').textContent = data.title || '';
       toast.querySelector('.prt-body').textContent  = data.body  || '';
       toast.classList.add('prt-show');
       clearTimeout(hideTimer);
-      hideTimer = setTimeout(function () { toast.classList.remove('prt-show'); }, 9000);
+      hideTimer = setTimeout(hideToast, 300000);
     });
   }
 
@@ -591,7 +601,11 @@
     quizServerStart,
     quizServerStop,
     quizServerStatus,
-    onDataChanged
+    onDataChanged,
+    reloadPlannerReminders() {
+      var api = getDesktopApi();
+      if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();
+    }
   });
 
   // In Electron, intercept app-nav links so they open in a new tool window

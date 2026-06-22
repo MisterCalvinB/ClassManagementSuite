@@ -4637,6 +4637,8 @@ if (!gotSingleInstanceLock) {
 // ── Planner reminder engine ──────────────────────────────────────────────────
 
 let _plannerReminderEntries = [];
+let _todoReminderItems = [];
+let _autoLessonEnd5Min = true;
 const _shownReminders = new Set();
 let _reminderInterval = null;
 
@@ -4644,6 +4646,20 @@ function _loadPlannerEntries() {
   try {
     const targets = getSaveTargets();
     const userDir = targets.user;
+
+    // Read auto-end-reminder setting from planner-config.js
+    try {
+      const cfgPath = path.join(userDir, 'planner-config.js');
+      if (fsSync.existsSync(cfgPath)) {
+        const cfgContent = fsSync.readFileSync(cfgPath, 'utf8');
+        const cfgMatch = cfgContent.match(/PLANNER_CONFIG\s*=\s*(\{[\s\S]*\})\s*;/);
+        if (cfgMatch) {
+          const cfgObj = JSON.parse(cfgMatch[1]);
+          _autoLessonEnd5Min = !(cfgObj.reminderSettings && cfgObj.reminderSettings.autoLessonEnd5Min === false);
+        }
+      }
+    } catch (_ce) {}
+
     let all = [];
     const plannerDir = path.join(userDir, 'planner');
     if (fsSync.existsSync(plannerDir)) {
@@ -4664,53 +4680,127 @@ function _loadPlannerEntries() {
         if (match) all = JSON.parse(match[1]);
       }
     }
+    // Include entries with explicit reminders, plus all lesson entries with timeEnd for auto-end check
     _plannerReminderEntries = all.filter(
-      e => e && e.reminder && e.reminder.minutesBefore > 0 && e.date
+      e => e && e.date && (
+        (e.reminder    && e.reminder.minutesBefore    > 0) ||
+        (e.reminderEnd && e.reminderEnd.minutesBefore > 0) ||
+        (e.timeEnd && (!e.type || e.type === 'lesson'))
+      )
     );
+
+    // Load todos for reminder engine
+    try {
+      const todosPath = path.join(userDir, 'todos.js');
+      if (fsSync.existsSync(todosPath)) {
+        const todosContent = fsSync.readFileSync(todosPath, 'utf8');
+        const todosMatch = todosContent.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
+        if (todosMatch) {
+          const allTodos = JSON.parse(todosMatch[1]);
+          _todoReminderItems = allTodos.filter(td => !td.archivedAt && td.reminderAt);
+        } else {
+          _todoReminderItems = [];
+        }
+      } else {
+        _todoReminderItems = [];
+      }
+    } catch (_te) { _todoReminderItems = []; }
   } catch (_err) {
     _plannerReminderEntries = [];
+    _todoReminderItems = [];
+  }
+}
+
+function _broadcastReminder(data) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send('planner:reminder', data);
+    }
   }
 }
 
 function _checkPlannerReminders() {
   const nowMs = Date.now();
   for (const entry of _plannerReminderEntries) {
-    const key = String(entry.id) + '@' + String(entry.reminder.minutesBefore);
-    if (_shownReminders.has(key)) continue;
+    const classLabel = entry.classId || '';
+    const timeLabel  = entry.time ? entry.time + (entry.timeEnd ? '–' + entry.timeEnd : '') : '';
+    const bodyParts  = [timeLabel, entry.type || '', entry.topic || ''].filter(Boolean);
+    const body       = bodyParts.join(' · ');
 
-    const timeParts = (entry.time || '09:00').split(':');
-    const h = parseInt(timeParts[0], 10) || 9;
-    const m = parseInt(timeParts[1], 10) || 0;
-    const hh = String(h).padStart(2, '0');
-    const mm = String(m).padStart(2, '0');
-    const entryMs = new Date(entry.date + 'T' + hh + ':' + mm + ':00').getTime();
-    if (isNaN(entryMs)) continue;
+    // ── Start reminder ─────────────────────────────────────────────
+    if (entry.reminder && entry.reminder.minutesBefore > 0) {
+      const key = String(entry.id) + '@start@' + String(entry.reminder.minutesBefore);
+      if (!_shownReminders.has(key)) {
+        const timeParts = (entry.time || '09:00').split(':');
+        const entryMs = new Date(entry.date + 'T'
+          + String(parseInt(timeParts[0], 10) || 9).padStart(2, '0') + ':'
+          + String(parseInt(timeParts[1], 10) || 0).padStart(2, '0') + ':00').getTime();
+        if (!isNaN(entryMs)) {
+          const fireMs = entryMs - entry.reminder.minutesBefore * 60000;
+          if (nowMs >= fireMs && nowMs < fireMs + 120000 && entryMs > nowMs) {
+            _shownReminders.add(key);
+            const mb = entry.reminder.minutesBefore;
+            const whenStr = mb < 60 ? 'in ' + mb + ' min'
+                          : mb === 60 ? 'in 1 hour'
+                          : mb < 1440 ? 'in ' + (mb / 60) + ' hours'
+                          : 'tomorrow';
+            _broadcastReminder({ title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr, body });
+          }
+        }
+      }
+    }
 
-    const fireMs = entryMs - entry.reminder.minutesBefore * 60000;
+    // ── Auto end reminder (5 min, lesson slots only) ───────────────
+    if (_autoLessonEnd5Min && entry.timeEnd && (!entry.type || entry.type === 'lesson') &&
+        !(entry.reminderEnd && entry.reminderEnd.minutesBefore > 0)) {
+      const key = String(entry.id) + '@auto-end@5';
+      if (!_shownReminders.has(key)) {
+        const aeParts = entry.timeEnd.split(':');
+        const aeEndMs = new Date(entry.date + 'T'
+          + String(parseInt(aeParts[0], 10) || 0).padStart(2, '0') + ':'
+          + String(parseInt(aeParts[1], 10) || 0).padStart(2, '0') + ':00').getTime();
+        if (!isNaN(aeEndMs)) {
+          const aeFireMs = aeEndMs - 5 * 60000;
+          if (nowMs >= aeFireMs && nowMs < aeFireMs + 120000 && aeEndMs > nowMs) {
+            _shownReminders.add(key);
+            _broadcastReminder({ title: '⏰ ' + (entry.classId ? entry.classId + ' — ' : '') + '5 min left', body });
+          }
+        }
+      }
+    }
 
-    // Fire if within a 2-minute window after the trigger time, and the class hasn't started yet
-    if (nowMs >= fireMs && nowMs < fireMs + 120000 && entryMs > nowMs) {
-      _shownReminders.add(key);
+    // ── End reminder ───────────────────────────────────────────────
+    if (entry.reminderEnd && entry.reminderEnd.minutesBefore > 0 && entry.timeEnd) {
+      const key = String(entry.id) + '@end@' + String(entry.reminderEnd.minutesBefore);
+      if (!_shownReminders.has(key)) {
+        const endParts = entry.timeEnd.split(':');
+        const endMs = new Date(entry.date + 'T'
+          + String(parseInt(endParts[0], 10) || 0).padStart(2, '0') + ':'
+          + String(parseInt(endParts[1], 10) || 0).padStart(2, '0') + ':00').getTime();
+        if (!isNaN(endMs)) {
+          const fireMs = endMs - entry.reminderEnd.minutesBefore * 60000;
+          if (nowMs >= fireMs && nowMs < fireMs + 120000 && endMs > nowMs) {
+            _shownReminders.add(key);
+            const mb = entry.reminderEnd.minutesBefore;
+            const whenStr = mb === 1 ? '1 min left' : mb < 60 ? mb + ' min left' : '1 hour left';
+            _broadcastReminder({ title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr, body });
+          }
+        }
+      }
+    }
+  }
 
-      const mb = entry.reminder.minutesBefore;
-      let whenStr;
-      if (mb < 60)       whenStr = 'in ' + mb + ' min';
-      else if (mb === 60) whenStr = 'in 1 hour';
-      else if (mb < 1440) whenStr = 'in ' + (mb / 60) + ' hours';
-      else               whenStr = 'tomorrow';
-
-      const classLabel = entry.classId || '';
-      const timeLabel  = entry.time ? entry.time + (entry.timeEnd ? '–' + entry.timeEnd : '') : '';
-      const bodyParts  = [timeLabel, entry.type || '', entry.topic || ''].filter(Boolean);
-
-      const data = {
-        title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr,
-        body:  bodyParts.join(' · ')
-      };
-
-      const focused = BrowserWindow.getFocusedWindow();
-      if (focused && !focused.isDestroyed() && focused.webContents && !focused.webContents.isDestroyed()) {
-        focused.webContents.send('planner:reminder', data);
+  // ── Todo reminders ─────────────────────────────────────────────
+  for (const td of _todoReminderItems) {
+    if (!td.reminderAt) continue;
+    const key = 'td@' + String(td.id) + '@' + td.reminderAt.slice(0, 16);
+    if (!_shownReminders.has(key)) {
+      const fireMs = new Date(td.reminderAt).getTime();
+      if (!isNaN(fireMs) && nowMs >= fireMs && nowMs < fireMs + 120000) {
+        _shownReminders.add(key);
+        const label = td.text || '';
+        const sub = td.dueDate ? 'Due: ' + td.dueDate : '';
+        _broadcastReminder({ title: '☑ ' + label, body: sub });
       }
     }
   }
@@ -4723,6 +4813,16 @@ function _startReminderEngine() {
   // Delay first check so windows have time to open
   setTimeout(_checkPlannerReminders, 8000);
 }
+
+ipcMain.on('planner:reload-entries', _loadPlannerEntries);
+
+ipcMain.on('planner:reminder-dismiss', () => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send('planner:reminder-dismiss');
+    }
+  }
+});
 
 app.whenReady().then(async () => {
   let initialPageFile = getInitialPageFile();

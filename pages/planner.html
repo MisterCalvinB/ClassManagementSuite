@@ -47,6 +47,7 @@
       if (!_hasClassFiles) {
         await load('user', 'planner-entries.js');
       }
+      await load('user', 'todos.js');
     })();
   })();
   </script>
@@ -107,7 +108,171 @@
     .sem-year-sep { display: inline-block; width: 1px; height: 14px; background: #ddd; margin: 0 5px; align-self: center; flex-shrink: 0; }
 
     /* ── Main ── */
-    #main { flex: 1; overflow-y: auto; padding: 12px 16px 24px; }
+    #planner-body { flex: 1; display: flex; overflow: hidden; }
+    #main { flex: 1; overflow-y: auto; padding: 12px 16px 24px; min-width: 0; }
+
+    /* ── Todo panel ── */
+    #todo-panel {
+      display: flex; flex-direction: row; flex-shrink: 0;
+      border-left: 2px solid #ddd; background: #fff;
+      transition: width 0.2s ease; width: 32px; overflow: hidden;
+    }
+    #todo-panel.tp-open { width: 300px; }
+    .tp-tab {
+      flex-shrink: 0; width: 32px; writing-mode: vertical-rl;
+      text-orientation: mixed; background: #f5f5f5; border: none;
+      border-right: 1px solid #e0e0e0; cursor: pointer;
+      font-size: 0.63rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: #555; padding: 12px 0;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; transition: background 0.1s, color 0.1s;
+      user-select: none; white-space: nowrap; font-family: inherit;
+    }
+    .tp-tab:hover { background: #eaeaea; color: #000; }
+    #todo-panel.tp-open .tp-tab { background: #000; color: #fff; }
+    #todo-panel.tp-open .tp-tab:hover { background: #222; }
+    .tp-inner {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; min-width: 0;
+    }
+    .tp-header {
+      display: flex; align-items: center; padding: 8px 10px 7px;
+      border-bottom: 2px solid #000; background: #000;
+      gap: 6px; flex-shrink: 0;
+    }
+    .tp-title {
+      font-size: 0.63rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: #fff; flex: 1;
+    }
+    .tp-icon-btn {
+      background: rgba(255,255,255,0.14);
+      border: 1.5px solid rgba(255,255,255,0.3); color: #fff;
+      border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+      font-weight: 800; padding: 2px 7px; line-height: 1.4;
+      font-family: inherit; transition: background 0.1s;
+    }
+    .tp-icon-btn:hover { background: rgba(255,255,255,0.28); }
+    .tp-filter-bar {
+      padding: 6px 10px; border-bottom: 1px solid #eee;
+      background: #f9f9f9; flex-shrink: 0;
+    }
+    .tp-cb-label {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.74rem; font-weight: 600; color: #555;
+      cursor: pointer; user-select: none;
+    }
+    .td-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+    .td-empty {
+      padding: 20px 12px; text-align: center;
+      font-size: 0.79rem; font-weight: 600; color: #bbb;
+    }
+    .td-item {
+      padding: 8px 10px; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: flex-start; gap: 7px;
+      transition: background 0.1s;
+    }
+    .td-item:hover { background: #fafafa; }
+    .td-item.td-overdue { background: #fff5f5; }
+    .td-item.td-overdue:hover { background: #ffe8e8; }
+    .td-item.td-done { opacity: 0.52; }
+    .td-check {
+      width: 15px; height: 15px; border: 2px solid #bbb;
+      border-radius: 3px; flex-shrink: 0; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px; transition: border-color 0.1s, background 0.1s;
+    }
+    .td-check:hover { border-color: #555; }
+    .td-check.td-checked { background: #1a8a4a; border-color: #1a8a4a; }
+    .td-check.td-checked::after { content: '✓'; color: #fff; font-size: 9px; font-weight: 900; }
+    .td-body { flex: 1; min-width: 0; }
+    .td-text { font-size: 0.82rem; font-weight: 600; word-break: break-word; line-height: 1.3; }
+    .td-done .td-text { text-decoration: line-through; }
+    .td-meta {
+      font-size: 0.7rem; color: #888; margin-top: 3px;
+      display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+    }
+    .td-overdue .td-due { color: #c0392b !important; font-weight: 700; }
+    .td-badge {
+      font-size: 0.59rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.3px; padding: 1px 4px; border-radius: 3px;
+      border: 1.5px solid currentColor;
+    }
+    .td-badge-class { color: #1d4ed8; }
+    .td-badge-link { color: #6d28d9; }
+    .td-actions { display: flex; gap: 3px; flex-shrink: 0; opacity: 0; transition: opacity 0.1s; }
+    .td-item:hover .td-actions { opacity: 1; }
+    .td-act-btn {
+      background: none; border: 1px solid #ddd; border-radius: 3px;
+      cursor: pointer; font-size: 0.7rem; padding: 2px 5px;
+      color: #555; transition: background 0.1s, color 0.1s; font-family: inherit;
+    }
+    .td-act-btn:hover { background: #eee; color: #000; }
+    .td-act-btn.td-del-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+
+    /* ── Todo modal ── */
+    .td-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+      z-index: 3000; display: flex; align-items: center; justify-content: center;
+    }
+    .td-modal-box {
+      background: #fff; border: 2px solid #000; border-radius: 10px;
+      box-shadow: 4px 4px 0 #000; width: 430px; max-width: 94vw;
+      display: flex; flex-direction: column; max-height: 88vh; overflow: hidden;
+    }
+    .td-modal-hd {
+      display: flex; align-items: center; padding: 11px 14px 10px;
+      border-bottom: 2px solid #000; background: #000; gap: 8px; flex-shrink: 0;
+    }
+    .td-modal-title {
+      font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 1px; color: #fff; flex: 1;
+    }
+    .td-modal-close {
+      background: rgba(255,255,255,0.14); border: 1.5px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+      font-weight: 800; padding: 2px 7px; line-height: 1.4; font-family: inherit;
+      transition: background 0.1s;
+    }
+    .td-modal-close:hover { background: rgba(255,255,255,0.28); }
+    .td-modal-body {
+      padding: 14px; overflow-y: auto; flex: 1;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .td-modal-ft {
+      padding: 10px 14px; border-top: 2px solid #eee;
+      display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0;
+    }
+    .td-field-lbl {
+      font-size: 0.69rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #555; margin-bottom: 4px; display: block;
+    }
+    .td-textarea {
+      width: 100%; border: 1.5px solid #ccc; border-radius: 6px;
+      padding: 7px 9px; font-family: inherit; font-size: 0.85rem;
+      resize: vertical; transition: border-color 0.15s;
+    }
+    .td-textarea:focus { outline: none; border-color: #333; }
+    .td-input {
+      width: 100%; border: 1.5px solid #ccc; border-radius: 6px;
+      padding: 6px 9px; font-family: inherit; font-size: 0.83rem;
+      transition: border-color 0.15s;
+    }
+    .td-input:focus { outline: none; border-color: #333; }
+    .td-select {
+      width: 100%; border: 1.5px solid #ccc; border-radius: 6px;
+      padding: 6px 9px; font-family: inherit; font-size: 0.83rem;
+      background: #fff; cursor: pointer;
+    }
+    .td-select:focus { outline: none; border-color: #333; }
+    .td-2col { display: flex; gap: 10px; }
+    .td-2col > * { flex: 1; min-width: 0; }
+    .td-rem-row { display: flex; gap: 8px; align-items: flex-start; }
+    .td-rem-row .td-select { flex: 1; }
+    .td-rem-row .td-input { flex: 1; }
+    .td-links-sec { display: flex; flex-direction: column; gap: 7px; }
+    .td-link-row { display: flex; align-items: center; gap: 8px; }
+    .td-link-icon { font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
+    .td-link-select { flex: 1; min-width: 0; }
 
     /* ── Empty state ── */
     .empty-state { text-align: center; padding: 64px 24px; color: #666; }
@@ -401,6 +566,8 @@
       <label class="cb-label"><input type="checkbox" id="vo-topic" checked onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
       <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)"> <span data-i18n="pl_viewDetails">Detail fields</span></label>
       <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)"> <span data-i18n="pl_viewCustom">Custom fields</span></label>
+      <hr style="border:none;border-top:1px solid #e0e0e0;margin:6px 0">
+      <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked onchange="setAutoEnd5Min(this.checked)"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5 min)</span></label>
     </div>
   </div>
   <!-- Right-side actions -->
@@ -410,8 +577,88 @@
   <span id="save-status"></span>
 </div>
 
-<!-- ── Agenda ── -->
-<div id="main"><div id="agenda"></div></div>
+<!-- ── Planner body ── -->
+<div id="planner-body">
+  <div id="main"><div id="agenda"></div></div>
+
+  <!-- ── Todo panel ── -->
+  <div id="todo-panel">
+    <button class="tp-tab" id="tp-tab-btn" onclick="toggleTodoPanel()">
+      <span data-i18n="td_todoTitle">To-do</span>
+    </button>
+    <div class="tp-inner">
+      <div class="tp-header">
+        <span class="tp-title" data-i18n="td_todoTitle">To-do</span>
+        <button class="tp-icon-btn" onclick="openAddTodo()" data-i18n-title="td_addTodo">+</button>
+        <button class="tp-icon-btn" onclick="toggleTodoPanel()">◀</button>
+      </div>
+      <div class="tp-filter-bar">
+        <label class="tp-cb-label">
+          <input type="checkbox" id="td-show-archived" onchange="renderTodos()">
+          <span data-i18n="td_showDone">Show done</span>
+        </label>
+      </div>
+      <div id="td-list" class="td-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Todo modal ── -->
+<div id="td-modal" class="td-modal-overlay" style="display:none">
+  <div class="td-modal-box">
+    <div class="td-modal-hd">
+      <span class="td-modal-title" id="td-modal-title" data-i18n="td_addTodo">Add To-do</span>
+      <button class="td-modal-close" onclick="closeTodoModal()">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <div>
+        <label class="td-field-lbl" data-i18n="td_todoText">Task</label>
+        <textarea id="td-text" class="td-textarea" rows="2"></textarea>
+      </div>
+      <div class="td-2col">
+        <div>
+          <label class="td-field-lbl" data-i18n="td_todoDueDate">Due date</label>
+          <input type="date" id="td-due" class="td-input">
+        </div>
+        <div>
+          <label class="td-field-lbl" data-i18n="td_todoClass">Class</label>
+          <select id="td-class" class="td-select"></select>
+        </div>
+      </div>
+      <div>
+        <label class="td-field-lbl" data-i18n="td_todoReminder">Reminder</label>
+        <div class="td-rem-row">
+          <select id="td-reminder-type" class="td-select" onchange="tdToggleReminderFields()">
+            <option value="none" data-i18n="pl_reminderNone">None</option>
+            <option value="fixed" data-i18n="td_reminderFixed">On date/time</option>
+          </select>
+          <input type="datetime-local" id="td-reminder-dt" class="td-input" style="display:none">
+        </div>
+      </div>
+      <div>
+        <label class="td-field-lbl" data-i18n="td_todoLinks">Links</label>
+        <div class="td-links-sec">
+          <div class="td-link-row">
+            <span class="td-link-icon">📅</span>
+            <select id="td-link-entry" class="td-select td-link-select"></select>
+          </div>
+          <div class="td-link-row">
+            <span class="td-link-icon">🗺</span>
+            <select id="td-link-mm" class="td-select td-link-select"></select>
+          </div>
+          <div class="td-link-row">
+            <span class="td-link-icon">📊</span>
+            <select id="td-link-gs" class="td-select td-link-select"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="td-modal-ft">
+      <button class="tb-btn" onclick="closeTodoModal()" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn primary" onclick="saveTodo()" data-i18n="btnOk">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── GS Toast ── -->
 <div id="gs-toast"></div>
@@ -574,6 +821,17 @@
             <option value="30"   data-i18n="pl_reminder30">30 min before</option>
             <option value="60"   data-i18n="pl_reminder60">1 hour before</option>
             <option value="1440" data-i18n="pl_reminder1d">1 day before</option>
+          </select>
+        </div>
+        <div class="field-group" style="flex:0 0 180px">
+          <label data-i18n="pl_entryReminderEnd">End reminder</label>
+          <select id="e-reminder-end" class="field-select">
+            <option value="" data-i18n="pl_reminderNone">None</option>
+            <option value="1"  data-i18n="pl_reminderEnd1">1 min before end</option>
+            <option value="5"  data-i18n="pl_reminderEnd5">5 min before end</option>
+            <option value="10" data-i18n="pl_reminderEnd10">10 min before end</option>
+            <option value="15" data-i18n="pl_reminderEnd15">15 min before end</option>
+            <option value="30" data-i18n="pl_reminderEnd30">30 min before end</option>
           </select>
         </div>
       </div>
@@ -892,6 +1150,12 @@ function setViewOpt(key, val) {
   try { localStorage.setItem('cmt-planner-viewopts', JSON.stringify(viewOpts)); } catch (e) {}
   render();
 }
+function setAutoEnd5Min(val) {
+  if (!cfg.reminderSettings) cfg.reminderSettings = {};
+  cfg.reminderSettings.autoLessonEnd5Min = !!val;
+  persistCfg();
+  if (window.Desktop && typeof Desktop.reloadPlannerReminders === 'function') Desktop.reloadPlannerReminders();
+}
 
 // ── Tutorial ───────────────────────────────────────────────────────────────
 function startPlTutorial() {
@@ -1008,6 +1272,12 @@ async function loadData() {
   updateSemToolbar();
   loadPartDates();    // non-blocking
   loadBoardSessions(); // non-blocking
+
+  // Sync auto-end-reminder checkbox from cfg
+  var aeEl = document.getElementById('vo-auto-end5');
+  if (aeEl) aeEl.checked = !!(cfg.reminderSettings ? cfg.reminderSettings.autoLessonEnd5Min !== false : true);
+
+  loadTodos();
 }
 
 async function loadPartDates() {
@@ -1436,7 +1706,11 @@ function buildSlots(activeSem) {
     if (holDates.has(e.date)) return;
     var ed = new Date(e.date + 'T12:00:00');
     if (!showPast && ed < today) return;
-    slots.push({ date: e.date, classId: e.classId, time: e.time || '', entry: e, isGlobalHoliday: false });
+    // Push all entries for this key at once (multiple entries can share the same date+classId)
+    var arr = e.classId ? (emap[k] || [e]) : [e];
+    arr.forEach(function (ent) {
+      slots.push({ date: ent.date, classId: ent.classId, time: ent.time || '', entry: ent, isGlobalHoliday: false });
+    });
     consumed[k] = true;
   });
 
@@ -1887,7 +2161,8 @@ function openAddEntry(classId, date, time, timeEnd) {
   document.getElementById('e-activities').value = '';
   document.getElementById('e-homework').value   = '';
   document.getElementById('e-notes').value      = '';
-  document.getElementById('e-reminder').value   = '';
+  document.getElementById('e-reminder').value     = '';
+  document.getElementById('e-reminder-end').value = '';
   document.getElementById('e-obj-custom').style.display = 'none';
   renderCustomFieldInputs(null);
   onEntryClassChange();
@@ -1912,7 +2187,8 @@ function openEditEntry(id) {
   document.getElementById('e-activities').value = e.activities || '';
   document.getElementById('e-homework').value   = e.homework   || '';
   document.getElementById('e-notes').value      = e.notes      || '';
-  document.getElementById('e-reminder').value   = (e.reminder && e.reminder.minutesBefore) ? String(e.reminder.minutesBefore) : '';
+  document.getElementById('e-reminder').value     = (e.reminder    && e.reminder.minutesBefore)    ? String(e.reminder.minutesBefore)    : '';
+  document.getElementById('e-reminder-end').value = (e.reminderEnd && e.reminderEnd.minutesBefore) ? String(e.reminderEnd.minutesBefore) : '';
   renderCustomFieldInputs(e);
   onEntryClassChange();
   var objSel = document.getElementById('e-obj-sel'), objCustom = document.getElementById('e-obj-custom');
@@ -1967,7 +2243,8 @@ function commitEntry() {
     activities:   document.getElementById('e-activities').value.trim(),
     homework:     document.getElementById('e-homework').value.trim(),
     notes:        document.getElementById('e-notes').value.trim(),
-    reminder:     (function() { var v = document.getElementById('e-reminder').value; return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
+    reminder:     (function() { var v = document.getElementById('e-reminder').value;     return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
+    reminderEnd:  (function() { var v = document.getElementById('e-reminder-end').value; return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
     customFields: Object.keys(customFields).length ? customFields : undefined,
     gsLink:       (prevEntry && prevEntry.gsLink) || null
   };
@@ -1980,6 +2257,17 @@ function commitEntry() {
   }
 
   persistEntries();
+
+  // If the saved entry falls outside the active semester, reveal it automatically
+  var _semForSave = getActiveSem();
+  if (!showOutsideTerm && _semForSave && entry.date &&
+      (entry.date < _semForSave.semesterStart || entry.date > _semForSave.semesterEnd)) {
+    showOutsideTerm = true;
+    var _ob = document.getElementById('outsideBtn');
+    if (_ob) { _ob.classList.add('active'); _ob.textContent = t('pl_hideOutside'); }
+    saveViewFlags();
+  }
+
   closeModal('entryModal');
   render();
 
@@ -2030,7 +2318,8 @@ function duplicateCurrentEntry() {
   document.getElementById('e-activities').value = src.activities || '';
   document.getElementById('e-homework').value   = src.homework   || '';
   document.getElementById('e-notes').value      = src.notes      || '';
-  document.getElementById('e-reminder').value   = (src.reminder && src.reminder.minutesBefore) ? String(src.reminder.minutesBefore) : '';
+  document.getElementById('e-reminder').value     = (src.reminder    && src.reminder.minutesBefore)    ? String(src.reminder.minutesBefore)    : '';
+  document.getElementById('e-reminder-end').value = (src.reminderEnd && src.reminderEnd.minutesBefore) ? String(src.reminderEnd.minutesBefore) : '';
   renderCustomFieldInputs(src);
   onEntryClassChange();
   var objSel    = document.getElementById('e-obj-sel');
@@ -3377,6 +3666,275 @@ function doImportIcs() {
     }
   });
 })();
+
+// ── Todo list ─────────────────────────────────────────────────────────────────
+
+var todos = [];
+var _editingTodoId = null;
+var _todoPanelOpen = false;
+
+function loadTodos() {
+  todos = Array.isArray(window.TODOS) ? window.TODOS.slice() : [];
+  renderTodos();
+}
+
+async function persistTodos() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  window.TODOS = todos;
+  await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+  if (Desktop.reloadPlannerReminders) Desktop.reloadPlannerReminders();
+}
+
+function toggleTodoPanel() {
+  _todoPanelOpen = !_todoPanelOpen;
+  var panel = document.getElementById('todo-panel');
+  if (panel) panel.classList.toggle('tp-open', _todoPanelOpen);
+}
+
+function renderTodos() {
+  var list = document.getElementById('td-list');
+  if (!list) return;
+  var showDone = document.getElementById('td-show-archived');
+  var showArchived = showDone && showDone.checked;
+  var today = new Date().toISOString().slice(0, 10);
+
+  var visible = todos.filter(function(td) {
+    return showArchived ? !!td.archivedAt : !td.archivedAt;
+  });
+  visible.sort(function(a, b) {
+    var aOver = !a.archivedAt && a.dueDate && a.dueDate < today;
+    var bOver = !b.archivedAt && b.dueDate && b.dueDate < today;
+    if (aOver !== bOver) return aOver ? -1 : 1;
+    if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+
+  if (!visible.length) {
+    var emptyKey = showArchived ? 'td_emptyDone' : 'td_emptyTodos';
+    list.innerHTML = '<div class="td-empty">' + esc(t(emptyKey)) + '</div>';
+    return;
+  }
+  list.innerHTML = '';
+  visible.forEach(function(td) {
+    var overdue = !td.archivedAt && td.dueDate && td.dueDate < today;
+    var done = !!td.archivedAt;
+    var item = document.createElement('div');
+    item.className = 'td-item' + (overdue ? ' td-overdue' : '') + (done ? ' td-done' : '');
+
+    var checkCls = 'td-check' + (done ? ' td-checked' : '');
+    var metaParts = [];
+    if (td.dueDate) {
+      metaParts.push('<span class="td-due">' + esc(fmtShortDate(td.dueDate)) + '</span>');
+    }
+    if (td.classId) {
+      var cls = cfg.classes[td.classId];
+      var clsName = cls ? (cls.name || td.classId) : td.classId;
+      metaParts.push('<span class="td-badge td-badge-class">' + esc(clsName) + '</span>');
+    }
+    var hasLinks = td.links && (td.links.entryId || td.links.mindmapPath || td.links.gsClassId);
+    if (hasLinks) {
+      metaParts.push('<span class="td-badge td-badge-link">' + esc(t('td_linked')) + '</span>');
+    }
+
+    item.innerHTML =
+      '<div class="td-check ' + checkCls + '" onclick="toggleTodoDone(\'' + esc(td.id) + '\')"></div>' +
+      '<div class="td-body">' +
+        '<div class="td-text">' + esc(td.text) + '</div>' +
+        (metaParts.length ? '<div class="td-meta">' + metaParts.join('') + '</div>' : '') +
+      '</div>' +
+      '<div class="td-actions">' +
+        '<button class="td-act-btn" onclick="openEditTodo(\'' + esc(td.id) + '\')" title="' + esc(t('td_editTodo')) + '">✎</button>' +
+        (td.links && td.links.entryId ? '<button class="td-act-btn" onclick="tdOpenEntry(\'' + esc(td.links.entryId) + '\')" title="→">→</button>' : '') +
+        '<button class="td-act-btn td-del-btn" onclick="deleteTodo(\'' + esc(td.id) + '\')">✕</button>' +
+      '</div>';
+    list.appendChild(item);
+  });
+}
+
+function fmtShortDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+function toggleTodoDone(id) {
+  var td = todos.find(function(t) { return t.id === id; });
+  if (!td) return;
+  if (td.archivedAt) {
+    td.archivedAt = null;
+  } else {
+    td.archivedAt = Date.now();
+  }
+  persistTodos();
+  renderTodos();
+}
+
+function deleteTodo(id) {
+  todos = todos.filter(function(t) { return t.id !== id; });
+  persistTodos();
+  renderTodos();
+}
+
+function tdOpenEntry(entryId) {
+  var entry = entries.find(function(e) { return e.id === entryId; });
+  if (entry) openEditEntry(entryId);
+}
+
+function openAddTodo(linkEntryId) {
+  _editingTodoId = null;
+  _tdModalFill({ id: null, text: '', dueDate: '', reminderAt: null, classId: '', links: { entryId: linkEntryId || '', mindmapPath: '', gsClassId: '' } });
+  document.getElementById('td-modal-title').setAttribute('data-i18n', 'td_addTodo');
+  document.getElementById('td-modal-title').textContent = t('td_addTodo');
+  document.getElementById('td-modal').style.display = 'flex';
+  var ta = document.getElementById('td-text');
+  if (ta) ta.focus();
+}
+
+function openEditTodo(id) {
+  var td = todos.find(function(t) { return t.id === id; });
+  if (!td) return;
+  _editingTodoId = id;
+  _tdModalFill(td);
+  document.getElementById('td-modal-title').setAttribute('data-i18n', 'td_editTodo');
+  document.getElementById('td-modal-title').textContent = t('td_editTodo');
+  document.getElementById('td-modal').style.display = 'flex';
+}
+
+function _tdModalFill(td) {
+  document.getElementById('td-text').value = td.text || '';
+  document.getElementById('td-due').value = td.dueDate || '';
+
+  // Class selector
+  var clsSel = document.getElementById('td-class');
+  clsSel.innerHTML = '<option value="">' + esc(t('td_noClass')) + '</option>';
+  getAllClassIds().forEach(function(cid) {
+    var cls = cfg.classes[cid];
+    var nm = cls ? (cls.name || cid) : cid;
+    var opt = document.createElement('option');
+    opt.value = cid; opt.textContent = nm;
+    if (cid === td.classId) opt.selected = true;
+    clsSel.appendChild(opt);
+  });
+
+  // Reminder
+  var remType = document.getElementById('td-reminder-type');
+  var remDt = document.getElementById('td-reminder-dt');
+  if (td.reminderAt) {
+    remType.value = 'fixed';
+    remDt.style.display = '';
+    remDt.value = td.reminderAt.slice(0, 16);
+  } else {
+    remType.value = 'none';
+    remDt.style.display = 'none';
+    remDt.value = '';
+  }
+
+  // Entry link
+  var links = td.links || {};
+  var entrySel = document.getElementById('td-link-entry');
+  entrySel.innerHTML = '<option value="">' + esc(t('td_noLink')) + '</option>';
+  var today = new Date().toISOString().slice(0, 10);
+  var recent = entries.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 60);
+  recent.forEach(function(e) {
+    var lbl = (e.date || '') + (e.classId ? ' · ' + (cfg.classes[e.classId] ? cfg.classes[e.classId].name : e.classId) : '') + (e.topic ? ' · ' + e.topic : '');
+    var opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = lbl;
+    if (e.id === links.entryId) opt.selected = true;
+    entrySel.appendChild(opt);
+  });
+
+  // Mindmap link (deduplicated from boardSessionsByEntryId)
+  var mmSel = document.getElementById('td-link-mm');
+  mmSel.innerHTML = '<option value="">' + esc(t('td_noLink')) + '</option>';
+  var _seenMm = {};
+  Object.keys(boardSessionsByEntryId).forEach(function(eid) {
+    (boardSessionsByEntryId[eid] || []).forEach(function(s) {
+      if (!s.id || _seenMm[s.id]) return;
+      _seenMm[s.id] = true;
+      var nm = s.name || s.id || '';
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = nm;
+      if (s.id === links.mindmapPath) opt.selected = true;
+      mmSel.appendChild(opt);
+    });
+  });
+
+  // Grade sheet link
+  var gsSel = document.getElementById('td-link-gs');
+  gsSel.innerHTML = '<option value="">' + esc(t('td_noLink')) + '</option>';
+  getAllClassIds().forEach(function(cid) {
+    var cls = cfg.classes[cid];
+    var nm = cls ? (cls.name || cid) : cid;
+    var opt = document.createElement('option');
+    opt.value = cid; opt.textContent = nm;
+    if (cid === links.gsClassId) opt.selected = true;
+    gsSel.appendChild(opt);
+  });
+}
+
+function tdToggleReminderFields() {
+  var type = document.getElementById('td-reminder-type').value;
+  var dtEl = document.getElementById('td-reminder-dt');
+  if (dtEl) dtEl.style.display = (type === 'fixed') ? '' : 'none';
+}
+
+function closeTodoModal() {
+  document.getElementById('td-modal').style.display = 'none';
+}
+
+function saveTodo() {
+  var text = (document.getElementById('td-text').value || '').trim();
+  if (!text) { document.getElementById('td-text').focus(); return; }
+
+  var remType = document.getElementById('td-reminder-type').value;
+  var remAt = null;
+  if (remType === 'fixed') {
+    var v = document.getElementById('td-reminder-dt').value;
+    if (v) remAt = v.length === 16 ? v + ':00' : v;
+  }
+
+  var td = {
+    id: _editingTodoId || ('td-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+    text: text,
+    archivedAt: null,
+    createdAt: Date.now(),
+    dueDate: document.getElementById('td-due').value || null,
+    reminderAt: remAt,
+    classId: document.getElementById('td-class').value || null,
+    links: {
+      entryId: document.getElementById('td-link-entry').value || null,
+      mindmapPath: document.getElementById('td-link-mm').value || null,
+      gsClassId: document.getElementById('td-link-gs').value || null
+    }
+  };
+
+  if (_editingTodoId) {
+    var idx = todos.findIndex(function(t) { return t.id === _editingTodoId; });
+    if (idx !== -1) {
+      td.createdAt = todos[idx].createdAt;
+      td.archivedAt = todos[idx].archivedAt;
+      todos[idx] = td;
+    }
+  } else {
+    todos.push(td);
+  }
+
+  closeTodoModal();
+  persistTodos();
+  renderTodos();
+  if (!_todoPanelOpen) toggleTodoPanel();
+}
+
+function getAllClassIds() {
+  var ids = Object.keys(cfg.classes || {});
+  Object.keys(classGroupsMeta || {}).forEach(function(id) {
+    if (ids.indexOf(id) === -1) ids.push(id);
+  });
+  return ids;
+}
 </script>
 </body>
 </html>

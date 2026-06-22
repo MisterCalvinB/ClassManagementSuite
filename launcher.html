@@ -209,6 +209,20 @@
       text-align: center;
     }
 
+    .sb-item.sb-todo-overdue { background: #fff5f5; }
+    .sb-item.sb-todo-overdue:hover { background: #ffe8e8; }
+    .sb-todo-done { opacity: 0.52; }
+    .sb-todo-done .sb-name { text-decoration: line-through; }
+    .sb-check {
+      width: 14px; height: 14px; border: 2px solid #bbb; border-radius: 3px;
+      flex-shrink: 0; cursor: pointer; display: inline-flex; align-items: center;
+      justify-content: center; transition: border-color 0.1s, background 0.1s;
+      margin-top: 1px;
+    }
+    .sb-check:hover { border-color: #555; }
+    .sb-check.sb-checked { background: #1a8a4a; border-color: #1a8a4a; }
+    .sb-check.sb-checked::after { content: '✓'; color: #fff; font-size: 8px; font-weight: 900; }
+
     /* ── Count popup ─────────────────────────────────────── */
     .sb-count-popup {
       position: fixed;
@@ -738,6 +752,15 @@
         <button class="sb-count-btn" id="sbEventsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
       <div class="sb-list" id="sbEventsList">
+        <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
+      </div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-hd">
+        <span class="sb-section-title" data-i18n="sbTodoTitle">To-do</span>
+        <button class="sb-count-btn" id="sbTodoAddBtn" onclick="sbOpenPlanner()" data-i18n-title="sbTodoAdd">+</button>
+      </div>
+      <div class="sb-list" id="sbTodoList">
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
       </div>
     </div>
@@ -2003,12 +2026,12 @@
       }
     } catch(e) {}
     try {
-      var r2 = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md'] });
+      var r2 = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] });
       if (r2 && r2.ok && Array.isArray(r2.files)) {
         r2.files.forEach(function(f) {
           var rel = (f.relativePath || '').replace(/\\/g, '/');
           var isHistory = rel.split('/').indexOf('history') !== -1
-                       || /\.v\d{8}-\d{6}\.md$/i.test(f.filename);
+                       || /\.v\d{8}-\d{6}\.(md|html)$/i.test(f.filename);
           if (!isHistory) docs.push(Object.assign({}, f, { _type: 'doc' }));
         });
       }
@@ -2027,7 +2050,7 @@
         ? (typeof t === 'function' ? t('sbTagConstellation') : 'Constellation')
         : (typeof t === 'function' ? t('sbTagDocument') : 'Document');
       var tagClass = isMm ? 'sb-tag-mindmap' : 'sb-tag-doc';
-      var name = isMm ? rfPrettyName(f.filename) : f.filename.replace(/\.md$/i, '');
+      var name = isMm ? rfPrettyName(f.filename) : f.filename.replace(/\.(md|html)$/i, '');
       var ms = rfFileDateMs(f);
       var dateLbl = ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
       var item = document.createElement('div');
@@ -2053,6 +2076,62 @@
     });
   }
 
+  function sbOpenPlanner() {
+    if (window.Desktop && Desktop.isElectron()) Desktop.openTool('planner.html');
+  }
+
+  async function sbLoadTodos() {
+    var list = document.getElementById('sbTodoList');
+    if (!list) return;
+    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    if (!window.Desktop || !Desktop.isElectron()) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
+      return;
+    }
+    var todos = [];
+    try {
+      var r = await Desktop.readByPath('user', 'todos.js');
+      if (r && r.content) {
+        var m = r.content.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
+        if (m) todos = JSON.parse(m[1]);
+      }
+    } catch(e) {}
+    var today = new Date().toISOString().slice(0, 10);
+    var active = todos.filter(function(td) { return !td.archivedAt; });
+    active.sort(function(a, b) {
+      var aOver = a.dueDate && a.dueDate < today;
+      var bOver = b.dueDate && b.dueDate < today;
+      if (aOver !== bOver) return aOver ? -1 : 1;
+      if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    list.innerHTML = '';
+    if (!active.length) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbTodoEmpty') : 'No to-dos yet') + '</div>';
+      return;
+    }
+    active.slice(0, 10).forEach(function(td) {
+      var overdue = td.dueDate && td.dueDate < today;
+      var item = document.createElement('div');
+      item.className = 'sb-item' + (overdue ? ' sb-todo-overdue' : '');
+      var dateLbl = td.dueDate ? sbFormatDate(td.dueDate) : '';
+      var clsName = td.classId ? ((rfGroupMeta[td.classId] && rfGroupMeta[td.classId].name) || td.classId) : '';
+      item.innerHTML =
+        '<div class="sb-item-top">' +
+          (overdue ? '<span class="sb-tag sb-tag-test">' + escHtml(typeof t === 'function' ? t('td_overdue') : 'Overdue') + '</span>' : '') +
+          (dateLbl ? '<span class="sb-date">' + escHtml(dateLbl) + '</span>' : '') +
+        '</div>' +
+        '<div class="sb-name" title="' + escHtml(td.text || '') + '">' + escHtml(td.text || '—') + '</div>' +
+        (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
+      item.addEventListener('click', function() {
+        if (window.Desktop && Desktop.isElectron()) Desktop.openTool('planner.html');
+      });
+      list.appendChild(item);
+    });
+  }
+
   async function sbLoadAll() {
     // Pre-load group meta so rfPrettyName works in sidebar context menus
     if (window.Desktop && Desktop.isElectron() && Object.keys(rfGroupMeta).length === 0) {
@@ -2065,7 +2144,7 @@
         }
       } catch(e) {}
     }
-    await Promise.all([sbLoadEvents(), sbLoadDocs()]);
+    await Promise.all([sbLoadEvents(), sbLoadTodos(), sbLoadDocs()]);
   }
 
   // ── Count popup ─────────────────────────────────────────

@@ -86,6 +86,15 @@ The *Add Term* modal in Planner also offers a blue hint to auto-fill dates from 
 
 When you add a **Test** entry in the Planner, it checks for a Grade Sheet class with the same name. If a free test slot exists, the test is registered there automatically — a green badge in the Planner confirms the link.
 
+### Board ↔ Planner: lesson tagging
+
+Board sessions can be tagged to a specific Planner lesson, test, or assignment entry so every constellation map is linked to the class and date it was used.
+
+- A **Planner** button in the Board toolbar opens a popover listing upcoming and recent Planner entries for all classes. By default only entries within roughly 30 days are shown; click **Show all** to see the full list.
+- Click an entry to tag the current board session to it. The tag is stored with every manual save and autosave so it persists when the session is reloaded.
+- When you load a previously saved session its planner tag is restored automatically, keeping the link intact.
+- The `_plannerEntryId` field in saved `.js` constellation files holds the reference.
+
 ### Class Management ↔ Board: live sync
 
 - The **timer** started in Class Management appears as a floating overlay on Board automatically.
@@ -127,9 +136,10 @@ The **File Manager** card opens a standalone tool window with three tabs: Recent
 
 ### Sidebar Panel
 
-The launcher has a collapsible right-side panel with two sections:
+The launcher has a collapsible right-side panel with three sections:
 
 - **Upcoming Events** — pulls entries from the Planner (lessons, tests, assignments) with dates on or after today, sorted by date. Click an entry to open the Planner.
+- **To-do** — shows incomplete to-do items from the Planner, sorted by due date. Overdue items are highlighted. Click an item to open the Planner.
 - **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor.
 
 Click the **Panel** button in the header to show or hide the sidebar. Each section has a small count button (e.g. **5**) in its header — click it to change how many items are shown (1–20). Counts are saved per-device.
@@ -213,6 +223,14 @@ Click **💾 Save** to persist the active context to `class-groups.js`.
 - **Import CSV** — import groups from a CSV file. Columns: Group, First Name, Last Name, Date of Birth, Admin Class, Year, Term, Level, SEN.
 - **SEN flag** — each student row has a SEN checkbox. SEN students receive the longer preparation time in Schedule Maker by default.
 
+### Student Roster & UUIDs
+
+Student data is stored in a dedicated file `user/students.js` (`STUDENTS_ROSTER` array) separate from `class-groups.js`. Each student and each class group is identified by a stable UUID (`st-…` for students, a random UUID for groups) so renaming never breaks historical links.
+
+- Groups in `class-groups.js` are keyed by UUID, with a `name` field in the metadata object rather than as the map key.
+- Students are referenced inside groups as arrays of UUID strings, with their full record (first name, last name, date of birth, admin class, SEN flag) living in `students.js`.
+- **One-time migration**: on first launch after upgrading, the app automatically rewrites `class-groups.js`, `planner-config.js`, planner entry files, class-plan data, and participation session files to use UUIDs. The migration is idempotent — running it again on already-migrated data is safe.
+
 ### Archiving
 
 Archiving hides groups from all rosters without deleting their data. Participation files are moved to an `archived/` sub-folder and can be restored at any time.
@@ -247,6 +265,21 @@ Each entry has a type (Lesson, Test, Assignment Due, Holiday, or custom) and bel
 
 - **Test entries linked to Grade Sheet** — if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically recorded there.
 - **Duplicate** — copy an entry to another date.
+
+### Reminders
+
+Each entry can have a **start reminder** (fires N minutes before the entry starts) and an **end reminder** (fires N minutes before the entry ends). Lesson entries automatically get a 5-minute end reminder — this can be disabled in **Display ▾ → Auto end reminder**.
+
+Reminders appear as toast notifications in every open app window and dismiss across all windows simultaneously after 5 minutes or on manual close.
+
+### To-do list
+
+A collapsible **To-do** panel sits on the right side of the planner. Click the **To-do** tab to open it.
+
+- **Add / edit** to-dos with a task description, optional due date, class tag, fixed date/time reminder, and links to a planner entry, a board constellation map, or a grade-sheet class.
+- **Complete** — click the checkbox to archive a to-do. Toggle **Show done** to see archived items.
+- **Overdue** items are highlighted in red.
+- To-dos are saved to `user/todos.js` and also appear in the Launcher sidebar.
 
 ### Export
 
@@ -501,6 +534,15 @@ A board can have multiple pages:
 - **[ ] IPA**: toggle International Phonetic Alphabet pronunciation under every word.
 - **( ) Translation**: toggle the translation in the current app language under every word (resolved via `getTranslation()` — shows the French, German, or Italian equivalent depending on the active UI language).
 - **❓ Unknown**: list words on the board that are not found in the vocabulary database.
+
+#### Pasting Tables
+
+Paste a table from any source (a web page, Word, Excel, Google Sheets) directly onto the board canvas:
+
+- Copy a `<table>` from HTML and paste with **Ctrl/Cmd+V** — the board detects the HTML table structure and creates a draggable table element at the paste position.
+- Copy cells from a spreadsheet (tab-separated values) and paste — rows with at least one tab are interpreted as TSV and converted to the same table element.
+- The first row is treated as a header when the source `<th>` elements are detected. Column widths can be dragged to resize; rows too.
+- Tables are saved as part of the board session and exported with it.
 
 #### Board Operations
 

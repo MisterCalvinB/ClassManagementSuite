@@ -69,6 +69,22 @@
     }
     #doc-name-indicator.modified::after { content: ' *'; color: #f90; }
 
+    #btn-doc-type {
+      font-size: .7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border: 1.5px solid #888;
+      border-radius: 4px;
+      background: transparent;
+      color: #ccc;
+      cursor: pointer;
+      font-family: monospace;
+      flex-shrink: 0;
+      transition: border-color .12s, color .12s;
+    }
+    #btn-doc-type:hover { border-color: #fff; color: #fff; }
+    #btn-doc-type.html-mode { border-color: #f07; color: #f07; }
+
     #main-hm-wrap { margin-left: 0; }
 
     /* ── Nav hover groups ──────────────────────────────── */
@@ -611,10 +627,23 @@
       transition: border-color .1s, box-shadow .1s;
     }
     .file-row:hover { border-color: #000; box-shadow: 2px 2px 0 #000; }
-    .file-row-name {
+    .file-row-info {
       flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .file-row-name {
       font-size: .88rem;
       font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .file-row-path {
+      font-size: .74rem;
+      color: #888;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -740,6 +769,14 @@
     }
     .pl-margin-input:focus { outline: none; border-color: #000; }
     .pl-margin-spacer { /* empty grid cell */ }
+    .de-preview-footer {
+      margin-top: 2.5em;
+      padding-top: .6em;
+      border-top: 1px solid #ddd;
+      font-size: .82em;
+      color: #777;
+      font-style: italic;
+    }
 
     /* ── Settings modal ─────────────────────────────────── */
     .stg-box { max-width: 680px; width: 95vw; max-height: 88vh; }
@@ -1047,6 +1084,23 @@
         </div>
 
         <div>
+          <div class="pl-section-label">Footer</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.84rem">
+              <input type="checkbox" id="pl-footer"> Show footer
+            </label>
+          </div>
+          <div id="pl-footer-rows" style="display:none;flex-direction:column;gap:5px">
+            <input type="text" id="pl-footer-text" class="pl-select" placeholder="Footer text…" style="cursor:text">
+            <div class="pl-row">
+              <button class="pl-orient-btn" id="pl-footer-left">Left</button>
+              <button class="pl-orient-btn active" id="pl-footer-center">Center</button>
+              <button class="pl-orient-btn" id="pl-footer-right">Right</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
           <div class="pl-section-label">Typography</div>
           <select class="pl-select" id="pl-font-family" style="margin-bottom:5px">
             <option value="'Segoe UI', system-ui, sans-serif">Segoe UI (default)</option>
@@ -1097,6 +1151,7 @@
     <button class="hm-btn" id="main-hm-btn">☰</button>
     <div class="hm-menu"></div>
   </div>
+  <button id="btn-doc-type" title="Document type — click to toggle between Markdown and HTML">MD</button>
   <span id="doc-name-indicator">Untitled</span>
 </nav>
 
@@ -1303,6 +1358,7 @@ let splitFraction = 0.5;
 let renderTimer = null;
 let saveModalCallback = null;
 let fileModalMode = null;
+let currentDocType = 'md'; // 'md' or 'html'
 let docModified = false;
 let cssModified = false;
 
@@ -1351,10 +1407,19 @@ function setupMarked() {
   });
 }
 
+function setDocType(type) {
+  currentDocType = type;
+  if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), type === 'html' ? 'html' : 'markdown');
+  const btn = document.getElementById('btn-doc-type');
+  if (btn) { btn.textContent = type.toUpperCase(); btn.classList.toggle('html-mode', type === 'html'); }
+  renderPreview();
+}
+
 function renderPreview() {
   if (!mdEditor) return;
   try {
-    const html = marked.parse(mdEditor.getValue());
+    const raw = mdEditor.getValue();
+    const html = currentDocType === 'html' ? raw : marked.parse(raw);
     const container = document.getElementById('preview-content');
     container.innerHTML = html;
     fixPreviewImages(container);
@@ -1362,6 +1427,7 @@ function renderPreview() {
     document.getElementById('preview-content').innerHTML =
       '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
   }
+  updatePreviewFooter();
   deBroadcastState();
 }
 
@@ -1866,14 +1932,14 @@ require(['vs/editor/editor.main'], function() {
 async function refreshDocList() {
   if (!window.Desktop || !Desktop.isElectron()) return [];
   try {
-    const r = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md'] });
+    const r = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] });
     if (!r || !r.ok || !Array.isArray(r.files)) return [];
     return r.files.filter(f => {
       const rp = f.relativePath || '';
       if (rp.startsWith('history/')) return false;
       const parts = rp.split('/');
       if (parts.length === 1) return true; // flat doc
-      if (parts.length === 2) return parts[1] === parts[0] + '.md'; // my-doc/my-doc.md only
+      if (parts.length === 2) return parts[1] === parts[0] + '.md' || parts[1] === parts[0] + '.html'; // my-doc/my-doc.* only
       return false;
     });
   } catch(e) { return []; }
@@ -1896,7 +1962,11 @@ async function openDocModal() {
       const isFolder = rp.includes('/');
       const row = document.createElement('div');
       row.className = 'file-row';
-      row.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>';
+      const info = document.createElement('div');
+      info.className = 'file-row-info';
+      info.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>'
+        + (rp !== displayName ? '<span class="file-row-path">' + escHtml(rp) + '</span>' : '');
+      row.appendChild(info);
       const openBtn = document.createElement('button');
       openBtn.className = 'file-row-btn';
       openBtn.textContent = 'Open';
@@ -1932,8 +2002,12 @@ async function loadDoc(relativePath) {
       const parts = relativePath.split('/');
       currentDocName = parts[parts.length - 1];
       currentDocSubdir = parts.length > 1 ? parts[0] : null;
+      currentDocType = relativePath.toLowerCase().endsWith('.html') ? 'html' : 'md';
       docModified = false;
       updateDocIndicator();
+      const typeBtn = document.getElementById('btn-doc-type');
+      if (typeBtn) { typeBtn.textContent = currentDocType.toUpperCase(); typeBtn.classList.toggle('html-mode', currentDocType === 'html'); }
+      if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
       hideModal('file-modal');
       // Restore associated stylesheet
       try {
@@ -1983,13 +2057,47 @@ async function loadExternalDoc(target, relPath) {
     const r = await Desktop.readByPath(target, relPath);
     if (r && r.ok) {
       mdEditor.setValue(r.content || '');
-      const parts = relPath.split('/');
-      currentDocName = parts[parts.length - 1];
+      const lastSlash = relPath.lastIndexOf('/');
+      const docSubdir = lastSlash >= 0 ? relPath.slice(0, lastSlash) : null;
+      currentDocName = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
       currentDocSubdir = null;
       currentEditTarget = target;
       currentEditRelPath = relPath;
+      currentDocType = relPath.toLowerCase().endsWith('.html') ? 'html' : 'md';
       docModified = false;
       updateDocIndicator();
+      const typeBtn2 = document.getElementById('btn-doc-type');
+      if (typeBtn2) { typeBtn2.textContent = currentDocType.toUpperCase(); typeBtn2.classList.toggle('html-mode', currentDocType === 'html'); }
+      if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
+      // Restore associated stylesheet from co-located metadata
+      try {
+        const metaR = await Desktop.readByPath(target, relPath + '.json');
+        if (metaR && metaR.ok && metaR.content) {
+          const meta = JSON.parse(metaR.content);
+          const ss = meta.stylesheet || null;
+          const sel = document.getElementById('stylesheet-select');
+          if (ss && meta.stylesheetInDocs) {
+            const cssPath = docSubdir ? docSubdir + '/' + ss : ss;
+            const cssR = await Desktop.readByPath(target, cssPath).catch(() => null);
+            const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
+            cssEditor && cssEditor.setValue(cssContent);
+            document.getElementById('custom-css-style').textContent = cssContent;
+            cssModified = false;
+            injectPairedSSOption(ss);
+            currentStylesheetName = '@docs@' + ss;
+          } else if (ss && [...sel.options].some(o => o.value === ss)) {
+            sel.value = ss;
+            await loadStylesheet(ss);
+            localStorage.setItem('cmt-doceditor-last-ss', ss);
+          } else if (!ss) {
+            sel.value = '';
+            currentStylesheetName = null;
+            cssEditor && cssEditor.setValue('');
+            document.getElementById('custom-css-style').textContent = '';
+            cssModified = false;
+          }
+        }
+      } catch(e) {}
       renderPreview();
     } else {
       showToast('Could not open file from ' + target + ': ' + relPath, true);
@@ -2025,8 +2133,10 @@ async function saveDoc() {
   } else if (currentDocName) {
     await doSaveDoc(currentDocName);
   } else {
-    openSaveModal('Save Document', '.md', async name => {
-      if (!name.endsWith('.md')) name += '.md';
+    const ext = '.' + currentDocType;
+    openSaveModal('Save Document', ext, async name => {
+      if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
+      else name += ext;
       await doSaveDoc(name);
     });
   }
@@ -2034,8 +2144,10 @@ async function saveDoc() {
 
 async function saveDocAs() {
   if (!window.Desktop || !Desktop.isElectron()) return;
-  openSaveModal('Save Document As', '.md', async name => {
-    if (!name.endsWith('.md')) name += '.md';
+  const ext = '.' + currentDocType;
+  openSaveModal('Save Document As', ext, async name => {
+    if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
+    else name += ext;
     await doSaveDoc(name);
   });
 }
@@ -2045,7 +2157,7 @@ async function doSaveDoc(filename) {
   try {
     const content = mdEditor.getValue();
     const hasCSS = !!currentStylesheetName;
-    const newSubdir = filename.replace(/\.md$/i, '');
+    const newSubdir = filename.replace(/\.(md|html)$/i, '');
     const wasFlat = currentDocSubdir === null && currentDocName === filename;
 
     const r = await Desktop.saveText('docEditorDocs', filename, content, newSubdir);
@@ -2058,7 +2170,7 @@ async function doSaveDoc(filename) {
         if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
       }
       // Bundle CSS into folder when CSS is active
-      const cssFilename = filename.replace(/\.md$/i, '') + '.css';
+      const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
       if (newSubdir && hasCSS) {
         const cssContent = cssEditor ? cssEditor.getValue() : '';
         await Desktop.saveText('docEditorDocs', cssFilename, cssContent, newSubdir);
@@ -2084,16 +2196,26 @@ async function doSaveDoc(filename) {
 }
 
 async function autosaveDoc() {
-  if (!currentDocName || !docModified || !mdEditor || !window.Desktop || !Desktop.isElectron()) return;
+  if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
+  const paired = parsePairedSS(currentStylesheetName);
+  const needsDocSave = docModified;
+  const needsCssSave = cssModified && paired && currentDocSubdir && cssEditor;
+  if (!needsDocSave && !needsCssSave) return;
   try {
-    const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue(), currentDocSubdir);
-    if (r && r.ok) {
-      docModified = false;
-      updateDocIndicator();
-      const paired = parsePairedSS(currentStylesheetName);
-      const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.md$/i, '') + '.css' : (currentStylesheetName || null);
-      const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(currentDocSubdir && paired) });
-      await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta, currentDocSubdir);
+    if (needsDocSave) {
+      const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue(), currentDocSubdir);
+      if (r && r.ok) {
+        docModified = false;
+        updateDocIndicator();
+        const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.(md|html)$/i, '') + '.css' : (currentStylesheetName || null);
+        const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(currentDocSubdir && paired) });
+        await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta, currentDocSubdir);
+      }
+    }
+    if (needsCssSave) {
+      const cssFilename = currentDocName.replace(/\.(md|html)$/i, '') + '.css';
+      const r = await Desktop.saveText('docEditorDocs', cssFilename, cssEditor.getValue(), currentDocSubdir);
+      if (r && r.ok) cssModified = false;
     }
   } catch(e) { /* silent */ }
 }
@@ -2106,8 +2228,10 @@ async function saveAll() {
   if (currentDocName) {
     await doSaveAll(currentDocName);
   } else {
-    openSaveModal('Save All', '.md', async name => {
-      if (!name.endsWith('.md')) name += '.md';
+    const ext = '.' + currentDocType;
+    openSaveModal('Save All', ext, async name => {
+      if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
+      else name += ext;
       await doSaveAll(name);
     });
   }
@@ -2115,10 +2239,10 @@ async function saveAll() {
 
 async function doSaveAll(filename) {
   if (!mdEditor) return;
-  const cssFilename = filename.replace(/\.md$/, '') + '.css';
+  const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
   const content = mdEditor.getValue();
   const css = cssEditor ? cssEditor.getValue() : '';
-  const newSubdir = filename.replace(/\.md$/i, ''); // Save All always creates a folder
+  const newSubdir = filename.replace(/\.(md|html)$/i, ''); // Save All always creates a folder
   const wasFlat = currentDocSubdir === null && currentDocName === filename;
   try {
     const [docR, cssR] = await Promise.all([
@@ -2174,15 +2298,16 @@ async function newDoc() {
 
 // ── Version history ──────────────────────────────────────
 function makeHistoryFilename(docFilename) {
-  const base = docFilename.replace(/\.md$/i, '');
+  const ext = (docFilename.match(/\.(md|html)$/i) || ['.md'])[0];
+  const base = docFilename.replace(/\.(md|html)$/i, '');
   const now = new Date();
   const p = n => String(n).padStart(2, '0');
   const ts = `${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}${p(now.getSeconds())}`;
-  return `${base}.v${ts}.md`;
+  return `${base}.v${ts}${ext}`;
 }
 
 function formatHistoryDate(filename) {
-  const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.md$/i);
+  const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.(md|html)$/i);
   if (!m) return filename;
   const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
   return dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
@@ -2192,9 +2317,9 @@ function formatHistoryDate(filename) {
 async function saveHistorySnapshot(filename, content) {
   if (!window.Desktop || !Desktop.isElectron()) return;
   try {
-    const subdir = 'history/' + filename.replace(/\.md$/i, '');
+    const subdir = 'history/' + filename.replace(/\.(md|html)$/i, '');
     await Desktop.saveText('docEditorDocs', makeHistoryFilename(filename), content, subdir);
-    const listed = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md'], recursive: false });
+    const listed = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md', '.html'], recursive: false });
     if (listed && listed.ok && Array.isArray(listed.files) && listed.files.length > 30) {
       const sorted = listed.files.slice().sort((a, b) => (a.mtimeMs || 0) - (b.mtimeMs || 0));
       for (const f of sorted.slice(0, sorted.length - 30)) {
@@ -2209,7 +2334,7 @@ async function openHistoryModal() {
     showToast('Save the document first to view its history.', true);
     return;
   }
-  const subdir = 'history/' + currentDocName.replace(/\.md$/i, '');
+  const subdir = 'history/' + currentDocName.replace(/\.(md|html)$/i, '');
   document.getElementById('history-modal-title').textContent = 'Version History — ' + currentDocName;
   const body = document.getElementById('history-modal-body');
   body.innerHTML = '<div class="modal-empty">Loading…</div>';
@@ -2217,7 +2342,7 @@ async function openHistoryModal() {
 
   let files = [];
   try {
-    const r = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md'], recursive: false });
+    const r = await Desktop.listByPath('docEditorDocs', subdir, { extensions: ['.md', '.html'], recursive: false });
     files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
   } catch(e) {}
 
@@ -2640,7 +2765,9 @@ async function exportPdf() {
   } catch(e) {}
 
   const customCss = cssEditor ? cssEditor.getValue() : '';
-  const previewContent = document.getElementById('preview-content').innerHTML;
+  const _previewClone = document.getElementById('preview-content').cloneNode(true);
+  _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
+  const previewContent = _previewClone.innerHTML;
   const m = pageLayout.margins;
   const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
 
@@ -2688,23 +2815,37 @@ async function exportPdf() {
     }
   };
 
-  if (pageLayout.pageNumbers) {
-    const pos  = pageLayout.pageNumbersPos || 'center';
+  const hasPageNums = pageLayout.pageNumbers;
+  const hasFooter   = pageLayout.footer && (pageLayout.footerText || '').trim();
+  if (hasPageNums || hasFooter) {
     const font = (pageLayout.fontFamily || 'Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
-    const ml   = pageLayout.margins.left   + 'mm';
-    const mr   = pageLayout.margins.right  + 'mm';
-    const alignStyle = pos === 'left'  ? 'text-align:left;padding-left:' + ml
-                     : pos === 'right' ? 'text-align:right;padding-right:' + mr
-                     : 'text-align:center';
+    const ml   = pageLayout.margins.left  + 'mm';
+    const mr   = pageLayout.margins.right + 'mm';
+    let rows = '';
+    if (hasFooter) {
+      const fa = pageLayout.footerAlign || 'center';
+      const faStyle = fa === 'left'  ? 'text-align:left;padding-left:' + ml
+                    : fa === 'right' ? 'text-align:right;padding-right:' + mr
+                    : 'text-align:center';
+      const safeText = pageLayout.footerText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      rows += '<div style="width:100%;' + faStyle + '">' + safeText + '</div>';
+    }
+    if (hasPageNums) {
+      const pos = pageLayout.pageNumbersPos || 'center';
+      const paStyle = pos === 'left'  ? 'text-align:left;padding-left:' + ml
+                    : pos === 'right' ? 'text-align:right;padding-right:' + mr
+                    : 'text-align:center';
+      rows += '<div style="width:100%;' + paStyle + '"><span class="pageNumber"></span></div>';
+    }
     pdfOptions.displayHeaderFooter = true;
     pdfOptions.headerTemplate = '<span></span>';
     pdfOptions.footerTemplate =
-      '<div style="width:100%;font-size:8pt;color:#888;font-family:' + font + ',Arial,sans-serif;' + alignStyle + '">' +
-        '<span class="pageNumber"></span>' +
+      '<div style="width:100%;font-size:8pt;color:#888;font-family:' + font + ',Arial,sans-serif">' +
+        rows +
       '</div>';
   }
 
-  const defaultName = (currentDocName || 'document').replace(/\.md$/, '') + '.pdf';
+  const defaultName = (currentDocName || 'document').replace(/\.(md|html)$/, '') + '.pdf';
   const result = await Desktop.printPdf({ html, defaultName, pdfOptions });
   if (result && !result.ok && !result.canceled) {
     showToast('PDF export failed: ' + (result.error || 'unknown'), true);
@@ -2789,7 +2930,10 @@ let pageLayout = {
   fontFamily: "'Segoe UI', system-ui, sans-serif",
   fontSize: 11,
   pageNumbers: false,
-  pageNumbersPos: 'center'
+  pageNumbersPos: 'center',
+  footer: false,
+  footerText: '',
+  footerAlign: 'center'
 };
 
 function getPageDims() {
@@ -2802,6 +2946,20 @@ function getPageDims() {
     w = d.w; h = d.h;
   }
   return pageLayout.orientation === 'landscape' ? { w: h, h: w } : { w, h };
+}
+
+function updatePreviewFooter() {
+  const container = document.getElementById('preview-content');
+  if (!container) return;
+  const existing = container.querySelector('.de-preview-footer');
+  if (existing) existing.remove();
+  if (pageLayout.footer && (pageLayout.footerText || '').trim()) {
+    const el = document.createElement('div');
+    el.className = 'de-preview-footer';
+    el.style.textAlign = pageLayout.footerAlign || 'center';
+    el.textContent = pageLayout.footerText;
+    container.appendChild(el);
+  }
 }
 
 function applyPageLayoutToPreview() {
@@ -2847,7 +3005,7 @@ function deBroadcastState() {
   if (!previewEl) return;
   const cssEl = document.getElementById('custom-css-style');
   const css = cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : '');
-  const docName = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  const docName = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
   try {
     _dePresCh.postMessage({
       type: 'de-state',
@@ -2908,7 +3066,7 @@ function showFullPreview() {
   content.style.fontSize   = ((pageLayout.fontSize || 11) * 1.3333) + 'px';
 
   // Update title bar
-  const docTitle = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  const docTitle = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
   document.getElementById('full-preview-bar-title').textContent = 'Preview — ' + docTitle;
 
   overlay.removeAttribute('hidden');
@@ -2954,6 +3112,13 @@ function syncPopupToState() {
   document.getElementById('pl-page-numbers').checked    = !!pageLayout.pageNumbers;
   document.getElementById('pl-page-numbers-pos').value  = pageLayout.pageNumbersPos || 'center';
   document.getElementById('pl-page-numbers-pos-row').style.display = pageLayout.pageNumbers ? 'flex' : 'none';
+  document.getElementById('pl-footer').checked = !!pageLayout.footer;
+  document.getElementById('pl-footer-rows').style.display = pageLayout.footer ? 'flex' : 'none';
+  document.getElementById('pl-footer-text').value = pageLayout.footerText || '';
+  const fa = pageLayout.footerAlign || 'center';
+  ['left','center','right'].forEach(a =>
+    document.getElementById('pl-footer-' + a).classList.toggle('active', fa === a)
+  );
 }
 
 function round1(v) { return Math.round(v * 10) / 10; }
@@ -3067,6 +3232,27 @@ function initPageLayoutPopup() {
     pageLayout.pageNumbersPos = this.value;
     savePageLayout();
   });
+
+  // Footer
+  document.getElementById('pl-footer').addEventListener('change', function() {
+    pageLayout.footer = this.checked;
+    document.getElementById('pl-footer-rows').style.display = this.checked ? 'flex' : 'none';
+    updatePreviewFooter();
+    savePageLayout();
+  });
+  document.getElementById('pl-footer-text').addEventListener('input', function() {
+    pageLayout.footerText = this.value;
+    updatePreviewFooter();
+    savePageLayout();
+  });
+  ['left','center','right'].forEach(a => {
+    document.getElementById('pl-footer-' + a).addEventListener('click', function() {
+      pageLayout.footerAlign = a;
+      syncPopupToState();
+      updatePreviewFooter();
+      savePageLayout();
+    });
+  });
 }
 
 // ── Split pane drag ───────────────────────────────────────
@@ -3157,6 +3343,7 @@ function hideModal(id) {
 function openSaveModal(title, ext, callback) {
   document.getElementById('save-modal-title').textContent = title;
   document.getElementById('save-modal-label').textContent = 'Filename (' + ext + ')';
+  document.getElementById('save-filename-input').placeholder = 'my-document' + ext;
   document.getElementById('save-filename-input').value = '';
   saveModalCallback = callback;
   showModal('save-modal');
@@ -3175,7 +3362,7 @@ function escHtml(str) {
 
 function updateDocIndicator() {
   const el = document.getElementById('doc-name-indicator');
-  const name = currentDocName ? currentDocName.replace(/\.md$/, '') : 'Untitled';
+  const name = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
   el.textContent = name;
   document.title = name + ' — Document Editor';
   el.classList.toggle('modified', docModified);
@@ -3887,6 +4074,7 @@ window.addEventListener('DOMContentLoaded', function() {
   initSplitDivider();
   initPageLayoutPopup();
 
+  document.getElementById('btn-doc-type').addEventListener('click', () => setDocType(currentDocType === 'md' ? 'html' : 'md'));
   document.getElementById('btn-new-doc').addEventListener('click', newDoc);
   document.getElementById('btn-open-doc').addEventListener('click', openDocModal);
   document.getElementById('btn-save-doc').addEventListener('click', saveDoc);

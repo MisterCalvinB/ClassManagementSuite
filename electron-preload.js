@@ -240,6 +240,18 @@ const exposedApi = {
     if (!ipcRenderer) return;
     ipcRenderer.on('planner:reminder', function (_event, data) { callback(data); });
   },
+  dismissPlannerReminder() {
+    if (!ipcRenderer) return;
+    ipcRenderer.send('planner:reminder-dismiss');
+  },
+  reloadPlannerReminders() {
+    if (!ipcRenderer) return;
+    ipcRenderer.send('planner:reload-entries');
+  },
+  onPlannerReminderDismiss(callback) {
+    if (!ipcRenderer) return;
+    ipcRenderer.on('planner:reminder-dismiss', function () { callback(); });
+  },
   onDataChanged(callback) {
     if (!ipcRenderer) return;
     ipcRenderer.on('app:data-changed', function (_event, data) { callback(data); });

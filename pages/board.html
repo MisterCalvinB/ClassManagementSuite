@@ -4888,6 +4888,8 @@ function hideFailure() {
         saveRecording:'Save to board', noConstellationForAudio:'No constellation open. Save your board first to attach recordings.',
         saveConstellationFirst:'💾 Save constellation & proceed',
         trimAudio:'✂ Trim Audio', trimAudioTitle:'✂ Trim Audio',
+        openWithDefaultApp:'📄 Open with default app',
+        openLocationFolder:'📂 Open location folder',
         playSelection:'▶ Selection', saveTrimmed:'Save trimmed', trimKeepsOriginal:'Original file is kept',
         recSavedOnBoard:'✅ Recording saved and placed on board.',
         recTrimSaved:'✅ Trimmed recording saved and placed on board.',
@@ -5020,6 +5022,8 @@ function hideFailure() {
         saveRecording:'Zum Board hinzufügen', noConstellationForAudio:'Keine Konstellation geöffnet. Speichere das Board zuerst.',
         saveConstellationFirst:'💾 Konstellation speichern & fortfahren',
         trimAudio:'✂ Audio zuschneiden', trimAudioTitle:'✂ Audio zuschneiden',
+        openWithDefaultApp:'📄 Mit Standardprogramm öffnen',
+        openLocationFolder:'📂 Speicherort öffnen',
         playSelection:'▶ Auswahl', saveTrimmed:'Zugeschnitten speichern', trimKeepsOriginal:'Originaldatei wird behalten',
         recSavedOnBoard:'✅ Aufnahme gespeichert und auf dem Board platziert.',
         recTrimSaved:'✅ Zugeschnittene Aufnahme gespeichert und platziert.',
@@ -5152,6 +5156,8 @@ function hideFailure() {
         saveRecording:'Aggiungi alla lavagna', noConstellationForAudio:'Nessuna costellazione aperta. Prima salva la lavagna.',
         saveConstellationFirst:'💾 Salva la costellazione e continua',
         trimAudio:'✂ Ritaglia Audio', trimAudioTitle:'✂ Ritaglia Audio',
+        openWithDefaultApp:'📄 Apri con app predefinita',
+        openLocationFolder:'📂 Apri cartella',
         playSelection:'▶ Selezione', saveTrimmed:'Salva ritagliato', trimKeepsOriginal:'Il file originale è conservato',
         recSavedOnBoard:'✅ Registrazione salvata e posizionata sulla lavagna.',
         recTrimSaved:'✅ Registrazione ritagliata salvata e posizionata.',
@@ -5284,6 +5290,8 @@ function hideFailure() {
         saveRecording:'Ajouter au tableau', noConstellationForAudio:'Aucune constellation ouverte. Enregistrez le tableau d\'abord.',
         saveConstellationFirst:'💾 Sauvegarder la constellation et continuer',
         trimAudio:'✂ Recadrer l\'audio', trimAudioTitle:'✂ Recadrer l\'audio',
+        openWithDefaultApp:'📄 Ouvrir avec l\'application par défaut',
+        openLocationFolder:'📂 Ouvrir le dossier',
         playSelection:'▶ Sélection', saveTrimmed:'Sauvegarder le recadrage', trimKeepsOriginal:'Le fichier original est conservé',
         recSavedOnBoard:'✅ Enregistrement ajouté au tableau.',
         recTrimSaved:'✅ Audio recadré ajouté au tableau.',
@@ -19523,6 +19531,7 @@ function hideFailure() {
       bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
+      if (activeSection === 'main-menu') navTo('history-section');
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
       if (_initTitleInput && !_initTitleInput.value.trim()) {
@@ -21587,8 +21596,9 @@ function hideFailure() {
     }
 
     function wnHandleListKeydown(ta, noteData, e) {
-      if (!e || (e.key !== 'Enter' && e.key !== 'Backspace')) return false;
-      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return false;
+      if (!e || (e.key !== 'Enter' && e.key !== 'Backspace' && e.key !== 'Tab')) return false;
+      if (e.key !== 'Tab' && (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) return false;
+      if (e.key === 'Tab' && (e.ctrlKey || e.altKey || e.metaKey)) return false;
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return false;
       const range = sel.getRangeAt(0);
@@ -21600,6 +21610,16 @@ function hideFailure() {
       if (!list || !ta.contains(list)) return false;
       const isChecklist = list.matches('ul[data-checkbox-list]');
       const isEmpty = wnIsListItemEffectivelyEmpty(curLi, isChecklist);
+
+      if (e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation();
+        if (e.shiftKey) {
+          document.execCommand('outdent', false, null);
+        } else {
+          document.execCommand('indent', false, null);
+        }
+        wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+      }
 
       if (e.key === 'Enter') {
         if (isChecklist) {
@@ -22165,6 +22185,12 @@ function hideFailure() {
           if (wnNoteHandleSpace(ta, noteData)) { e.preventDefault(); e.stopPropagation(); return; }
         }
         if (wnHandleListKeydown(ta, noteData, e)) return;
+        if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          document.execCommand('insertText', false, '\t');
+          return;
+        }
         e.stopPropagation();
       });
       ta.addEventListener('mousedown', e => {
@@ -23277,7 +23303,8 @@ function hideFailure() {
       const persisted = Object.assign({}, data, {
         _createdAt: createdAt,
         _savedAt: savedAt,
-        _plannerEntryId: activePlannerEntryId || undefined
+        _plannerEntryId: activePlannerEntryId || undefined,
+        _classGroup: activeClassGroup || undefined
       });
       boardSetSessionFileMeta(section, createdAt, savedAt);
       return persisted;
@@ -25612,6 +25639,7 @@ function hideFailure() {
         _conCurrentFolderName = null;
         boardSetSessionFileMetaFromData('constellation', data);
         _conRestoreSession(data);
+        setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
         // Always update title from the loaded filename (override what _conRestoreSession set from data.title)
         const _conAutoTitle = boardStripJsonExt(file.name);
         if (window.conSetTitle) window.conSetTitle(_conAutoTitle);
@@ -26922,6 +26950,51 @@ function hideFailure() {
       } finally {
         historyLoading = false;
         historyRenderList();
+        historyEnrichEntryClassGroups();
+      }
+    }
+
+    async function historyEnrichEntryClassGroups() {
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+      const toEnrich = historyEntries.filter(e => !e.classGroup);
+      if (!toEnrich.length) return;
+      const BATCH = 5;
+      let changed = false;
+      for (let i = 0; i < toEnrich.length; i += BATCH) {
+        const batch = toEnrich.slice(i, i + BATCH);
+        await Promise.all(batch.map(async entry => {
+          try {
+            const rel = historyEntryRelativePath(entry);
+            const result = await Desktop.readByPath(entry.target, rel, { encoding: 'utf8' });
+            if (!(result && result.ok && result.content)) return;
+            const content = result.content;
+            const cgMatch = content.match(/"_classGroup"\s*:\s*"([^"]*)"/);
+            if (cgMatch && cgMatch[1]) {
+              entry.classGroup = cgMatch[1];
+              entry.classLabel = getClassGroupLabel(cgMatch[1]);
+              changed = true;
+              return;
+            }
+            const pidMatch = content.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
+            if (pidMatch && pidMatch[1]) {
+              const pid = pidMatch[1];
+              const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+              for (const cid of Object.keys(byClass)) {
+                const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+                if (arr.some(e => e.id === pid)) {
+                  entry.classGroup = cid;
+                  entry.classLabel = getClassGroupLabel(cid);
+                  changed = true;
+                  return;
+                }
+              }
+            }
+          } catch {}
+        }));
+      }
+      if (changed) {
+        historyRenderFilters();
+        historyRenderList();
       }
     }
 
@@ -27274,6 +27347,7 @@ function hideFailure() {
             : (entry.filename ? boardStripJsonExt(entry.filename) : null);
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
+          setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
           bpSetFromEntryId(data._plannerEntryId || '');
           // Always update title from loaded filename
           const _conHAutoTitle = boardStripJsonExt(entry.filename || '');
@@ -31266,7 +31340,7 @@ function hideFailure() {
   function _moveDot(x, y) {
     _x = x; _y = y;
     const d = _dot();
-    if (d) { d.style.transform = 'translate(' + (x - 7) + 'px, ' + (y - 7) + 'px)'; }
+    if (d) { d.style.transform = 'translate(' + (x - 5) + 'px, ' + (y - 5) + 'px)'; }
   }
 
   function _addMark(x, y) {
@@ -31299,6 +31373,13 @@ function hideFailure() {
 
   function _onMove(e) {
     if (!_on) return;
+    var brd = document.getElementById('constellation-board');
+    var d = _dot();
+    if (!brd || !brd.contains(e.target)) {
+      if (d) d.style.visibility = 'hidden';
+      return;
+    }
+    if (d) d.style.visibility = 'visible';
     _moveDot(e.clientX, e.clientY);
     if (_down) {
       if (!_didTrail) {
@@ -31906,9 +31987,14 @@ window.conMediaCtxOpen = function(e, item) {
   var cropBtn = document.getElementById('con-ctx-crop-btn');
   var lockBtn = document.getElementById('con-ctx-lock-btn');
   var trimBtn = document.getElementById('con-ctx-trim-btn');
+  var folderBtn = document.getElementById('con-ctx-open-folder-btn');
+  var openFileBtn = document.getElementById('con-ctx-open-file-btn');
   if (!menu) return;
   if (cropBtn) cropBtn.style.display = (item.kind === 'pics') ? '' : 'none';
   if (trimBtn) trimBtn.style.display = (item.kind === 'sounds') ? '' : 'none';
+  var _isElectronMedia = (item.kind === 'pics' || item.kind === 'pdf') && item.relativePath && window.Desktop && Desktop.isElectron();
+  if (folderBtn) folderBtn.style.display = _isElectronMedia ? '' : 'none';
+  if (openFileBtn) openFileBtn.style.display = _isElectronMedia ? '' : 'none';
   if (lockBtn) lockBtn.textContent = item.locked ? '\uD83D\uDD13 Unlock' : '\uD83D\uDD12 Lock';
   menu.style.left = e.clientX + 'px';
   menu.style.top  = e.clientY + 'px';
@@ -31942,6 +32028,22 @@ window.conMediaCtxTrim = function() {
   window.conMediaCtxClose();
   if (item && item.kind === 'sounds' && typeof window.conOpenTrimPopup === 'function') {
     window.conOpenTrimPopup(item);
+  }
+};
+
+window.conMediaCtxOpenFile = function() {
+  var item = _conCtxItem;
+  window.conMediaCtxClose();
+  if (item && item.relativePath && window.Desktop && Desktop.isElectron()) {
+    Desktop.openNative('mindmaps', item.relativePath);
+  }
+};
+
+window.conMediaCtxOpenFolder = function() {
+  var item = _conCtxItem;
+  window.conMediaCtxClose();
+  if (item && item.relativePath && window.Desktop && Desktop.isElectron()) {
+    Desktop.showInFolder('mindmaps', item.relativePath);
   }
 };
 
@@ -32222,6 +32324,8 @@ async function conConvertPdfMediaItemToPng(item) {
     <div id="con-media-ctx-menu">
       <button id="con-ctx-trim-btn" onclick="window.conMediaCtxTrim()" style="display:none;" data-i18n="trimAudio">✂ Trim Audio</button>
       <button id="con-ctx-crop-btn" onclick="window.conMediaCtxCrop()">&#x2702;&#xFE0F; Crop</button>
+      <button id="con-ctx-open-file-btn" onclick="window.conMediaCtxOpenFile()" style="display:none;" data-i18n="openWithDefaultApp">&#x1F4C4; Open with default app</button>
+      <button id="con-ctx-open-folder-btn" onclick="window.conMediaCtxOpenFolder()" style="display:none;" data-i18n="openLocationFolder">&#x1F4C2; Open location folder</button>
       <button id="con-ctx-lock-btn" onclick="window.conMediaCtxToggleLock()">&#x1F512; Lock</button>
     </div>
     <!-- ── Board → Wordbank DB Export modal ─────────────────────────────── -->
