@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -621,6 +621,10 @@
           <input id="ge-pt-label" class="ge-active-date" type="text" style="width:140px;" data-i18n-placeholder="gePlannerTermLabelPlaceholder">
         </div>
         <div>
+          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermYear">Year</div>
+          <input id="ge-pt-year" class="ge-active-date" type="text" style="width:110px;font-family:monospace;" maxlength="9" data-i18n-placeholder="pl_classYearPlaceholder">
+        </div>
+        <div>
           <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemStart">Start date</div>
           <input id="ge-pt-start" class="ge-active-date" type="date">
         </div>
@@ -719,10 +723,14 @@
   const GROUPS_FILE_TARGET = 'user';
   const GROUPS_FILE_NAME = 'class-groups.js';
 
+  const STUDENTS_FILE = 'students.js';
   let rawData = {};
   let rawMeta = {};
+  let studentRoster = {}; // uuid → {uuid, firstName, lastName, dob, adminClass, sen}
   let _confirmCb = null;
   let _activeYear = '';
+  const _YEAR_RE = /^20\d{2}-20\d{2}$/;
+  function _isValidYear(v) { return _YEAR_RE.test((v || '').trim()); }
   let _activeSemester = null;
   let _activeSemStart = '';
   let _activeSemEnd = '';
@@ -810,10 +818,160 @@
     return (fn + ' ' + ln).trim();
   }
 
-  function getStudentsForGroup(groupName) {
-    const metaStudents = rawMeta[groupName] && rawMeta[groupName].students;
-    if (Array.isArray(metaStudents) && metaStudents.length > 0) return metaStudents;
-    return (rawData[groupName] || []).map(entry => {
+  function generateGroupUuid() {
+    if (window.crypto && window.crypto.getRandomValues) {
+      const bytes = new Uint8Array(4);
+      window.crypto.getRandomValues(bytes);
+      return 'ge-' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return 'ge-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+  }
+
+  function generateStudentUuid() {
+    if (window.crypto && window.crypto.getRandomValues) {
+      const bytes = new Uint8Array(4);
+      window.crypto.getRandomValues(bytes);
+      return 'st-' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return 'st-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
+  }
+
+  function _nameKey(firstName, lastName) {
+    return ((firstName || '') + ' ' + (lastName || '')).trim().toUpperCase();
+  }
+
+  function _rosterLookupByName(firstName, lastName) {
+    const key = _nameKey(firstName, lastName);
+    if (!key) return null;
+    return Object.values(studentRoster).find(s => _nameKey(s.firstName, s.lastName) === key) || null;
+  }
+
+  async function loadStudentRoster() {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return false;
+    try {
+      const r = await Desktop.readText(GROUPS_FILE_TARGET, STUDENTS_FILE);
+      if (r?.ok && r.content) {
+        const fn = new Function(r.content + '; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+        const arr = fn();
+        if (Array.isArray(arr)) {
+          studentRoster = {};
+          arr.forEach(s => { if (s && s.uuid) studentRoster[s.uuid] = s; });
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function buildStudentsFileContent() {
+    const arr = Object.values(studentRoster);
+    return 'const STUDENTS_ROSTER = ' + JSON.stringify(arr, null, 2) + ';\n';
+  }
+
+  async function saveStudentRoster() {
+    if (!window.Desktop || typeof Desktop.saveText !== 'function') return { ok: false };
+    return Desktop.saveText(GROUPS_FILE_TARGET, STUDENTS_FILE, buildStudentsFileContent());
+  }
+
+  async function migrateToStudentRoster() {
+    const nameToUuid = {};
+    const newRoster = {};
+
+    // Collect students from rawMeta (object format) and rawData (string format)
+    const processStudent = (firstName, lastName, dob, adminClass, sen) => {
+      const fn = (firstName || '').trim().toUpperCase();
+      const ln = (lastName || '').trim().toUpperCase();
+      const key = _nameKey(fn, ln);
+      if (!key) return;
+      if (!nameToUuid[key]) {
+        const uuid = generateStudentUuid();
+        nameToUuid[key] = uuid;
+        newRoster[uuid] = { uuid, firstName: fn, lastName: ln, dob: dob || '', adminClass: (adminClass || '').trim().toUpperCase(), sen: sen === true };
+      }
+    };
+
+    Object.values(rawMeta).forEach(meta => {
+      if (!Array.isArray(meta.students)) return;
+      if (meta.students.length > 0 && typeof meta.students[0] === 'string' && meta.students[0].startsWith('st-')) return;
+      meta.students.forEach(s => {
+        if (!s || typeof s !== 'object') return;
+        processStudent(s.firstName, s.lastName, s.dob, s.adminClass, s.sen);
+      });
+    });
+
+    Object.keys(rawData).forEach(groupId => {
+      (rawData[groupId] || []).forEach(entry => {
+        if (typeof entry !== 'string') return;
+        const parts = entry.trim().split(/\s+/);
+        processStudent(parts[0] || '', parts.slice(1).join(' '), '', '', false);
+      });
+    });
+
+    if (Object.keys(newRoster).length === 0) { studentRoster = {}; return; }
+    studentRoster = newRoster;
+
+    // Rewrite rawMeta.students and halfGroups to UUID arrays
+    Object.keys(rawMeta).forEach(groupId => {
+      const meta = rawMeta[groupId];
+
+      // Migrate students array
+      if (Array.isArray(meta.students) && !(meta.students.length > 0 && typeof meta.students[0] === 'string' && meta.students[0].startsWith('st-'))) {
+        meta.students = meta.students.map(s => {
+          if (!s || typeof s !== 'object') return null;
+          return nameToUuid[_nameKey(s.firstName, s.lastName)] || null;
+        }).filter(Boolean);
+      } else if (!Array.isArray(meta.students) && Array.isArray(rawData[groupId])) {
+        meta.students = rawData[groupId].map(entry => {
+          if (typeof entry !== 'string') return null;
+          return nameToUuid[entry.trim().toUpperCase()] || null;
+        }).filter(Boolean);
+      }
+
+      // Migrate halfGroups from name strings to UUIDs
+      if (meta.halfGroups) {
+        const migHg = {};
+        ['A', 'B'].forEach(half => {
+          if (!Array.isArray(meta.halfGroups[half])) return;
+          const first = meta.halfGroups[half][0];
+          if (first && typeof first === 'string' && first.startsWith('st-')) {
+            migHg[half] = meta.halfGroups[half]; // already migrated
+          } else {
+            migHg[half] = meta.halfGroups[half].map(name => nameToUuid[String(name || '').trim().toUpperCase()] || null).filter(Boolean);
+          }
+        });
+        if ((migHg.A && migHg.A.length) || (migHg.B && migHg.B.length)) meta.halfGroups = migHg;
+        else delete meta.halfGroups;
+      }
+    });
+
+    rawData = {}; // classGroups is removed
+
+    await saveStudentRoster();
+    const result = await persistGroupsToUserFile(rawMeta);
+    if (result?.ok || result?.mode === 'download') {
+      showNotice((typeof t === 'function' ? t('geMigrationDone') : 'Student roster migrated. ' + Object.keys(studentRoster).length + ' students registered.'));
+    }
+  }
+
+  function groupDisplayName(groupId) {
+    return (rawMeta[groupId] && rawMeta[groupId].name) || groupId;
+  }
+
+  function getStudentsForGroup(groupId) {
+    const metaStudents = rawMeta[groupId] && rawMeta[groupId].students;
+    if (Array.isArray(metaStudents) && metaStudents.length > 0) {
+      if (typeof metaStudents[0] === 'string' && metaStudents[0].startsWith('st-')) {
+        // UUID format — resolve from roster
+        return metaStudents.map(uuid => {
+          const s = studentRoster[uuid];
+          if (!s) return { uuid, firstName: '', lastName: '', dob: '', adminClass: '', sen: false };
+          return { ...s };
+        });
+      }
+      // Old object format (pre-migration)
+      return metaStudents;
+    }
+    return (rawData[groupId] || []).map(entry => {
       if (typeof entry === 'object' && entry) return entry;
       const parts = String(entry).trim().split(/\s+/);
       return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', dob: '', adminClass: '' };
@@ -842,7 +1000,8 @@
       const senCb = row.querySelector('.eg-s-sen');
       const sen = senCb ? senCb.checked : false;
       if (fn || ln) {
-        const entry = { firstName: fn, lastName: ln, dob, adminClass: ac };
+        const uuid = row.dataset.uuid || null;
+        const entry = { uuid, firstName: fn, lastName: ln, dob, adminClass: ac };
         if (sen) entry.sen = true;
         results.push(entry);
       }
@@ -854,6 +1013,10 @@
     return collectStudentsFromTable(studentSection).map(studentDisplayName).filter(Boolean);
   }
 
+  function getStudentsFromSection(studentSection) {
+    return collectStudentsFromTable(studentSection).map(s => ({ uuid: s.uuid, name: studentDisplayName(s) })).filter(s => s.name);
+  }
+
   function autoResizeStudents(el) {
     if (!el) return;
     el.style.height = 'auto';
@@ -862,6 +1025,9 @@
 
   // ── Load class-groups.js ─────────────────────────────────────
   async function loadGroups() {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.migrateClassUuids === 'function') {
+      try { await Desktop.migrateClassUuids(); } catch (_) {}
+    }
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
       try {
         const result = await Desktop.readText(GROUPS_FILE_TARGET, GROUPS_FILE_NAME);
@@ -901,9 +1067,27 @@
         _populateActiveBanner();
       }
     }
+
+    // Load student roster, or migrate if students.js doesn't exist yet
+    const rosterLoaded = await loadStudentRoster();
+    if (!rosterLoaded) {
+      // Check if any group has old-format students (objects or string arrays) that need migration
+      const needsMigration = Object.values(rawMeta).some(meta =>
+        Array.isArray(meta.students) && meta.students.length > 0 &&
+        typeof meta.students[0] !== 'string'
+      ) || Object.keys(rawData).some(id => Array.isArray(rawData[id]) && rawData[id].length > 0);
+      if (needsMigration) await migrateToStudentRoster();
+    }
+
     renderGroupsList();
     checkEndOfSemesterPrompt();
     loadPlannerConfig(); // non-blocking, populates _plannerSemesters for the sync button
+  }
+
+  function _applyYearValidStyle(el) {
+    if (!el) return;
+    const v = el.value.trim();
+    el.style.borderColor = (v && !_isValidYear(v)) ? '#c33' : '';
   }
 
   function _populateActiveBanner() {
@@ -913,14 +1097,28 @@
     const endEl = document.getElementById('ge-active-sem-end');
     const tpyEl = document.getElementById('ge-terms-per-year');
     if (tpyEl) tpyEl.value = String(getTermsPerYear());
-    if (yearEl) yearEl.value = _activeYear;
+    if (yearEl) {
+      yearEl.value = _activeYear;
+      if (!yearEl._yearValidWired) {
+        yearEl._yearValidWired = true;
+        yearEl.addEventListener('blur', function () { _applyYearValidStyle(this); });
+        yearEl.addEventListener('input', function () { if (this.style.borderColor) _applyYearValidStyle(this); });
+      }
+    }
     _buildTermSelectOptions(semEl, _activeSemester);
     if (startEl) startEl.value = _activeSemStart;
     if (endEl) endEl.value = _activeSemEnd;
     // Pre-fill add-new-group inputs with active defaults
     const ngYear = document.getElementById('new-group-year');
     const ngSem = document.getElementById('new-group-semester');
-    if (ngYear && !ngYear.value) ngYear.value = _activeYear;
+    if (ngYear) {
+      if (!ngYear.value) ngYear.value = _activeYear;
+      if (!ngYear._yearValidWired) {
+        ngYear._yearValidWired = true;
+        ngYear.addEventListener('blur', function () { _applyYearValidStyle(this); });
+        ngYear.addEventListener('input', function () { if (this.style.borderColor) _applyYearValidStyle(this); });
+      }
+    }
     _buildTermSelectOptions(ngSem, ngSem && ngSem.value ? ngSem.value : _activeSemester);
   }
 
@@ -1037,6 +1235,7 @@
     if (!form) return;
     const titleEl = document.getElementById('ge-pt-form-title');
     const labelEl = document.getElementById('ge-pt-label');
+    const yearEl  = document.getElementById('ge-pt-year');
     const startEl = document.getElementById('ge-pt-start');
     const endEl = document.getElementById('ge-pt-end');
     const holList = document.getElementById('ge-pt-hol-list');
@@ -1047,6 +1246,7 @@
       if (!sem) return;
       if (titleEl) titleEl.textContent = typeof t === 'function' ? t('gePlannerTermEditTitle') : 'Edit Planner Term';
       labelEl.value = sem.label || '';
+      if (yearEl) yearEl.value = sem.year || '';
       startEl.value = sem.semesterStart || '';
       endEl.value = sem.semesterEnd || '';
       (sem.holidays || []).forEach(h => addPlannerHolRow(h.date || '', h.dateTo || '', h.label || ''));
@@ -1057,6 +1257,7 @@
       const n = (_plannerCfg && _plannerCfg.semesters) ? _plannerCfg.semesters.length + 1 : 1;
       const yr = activeCtx.activeYear || '';
       labelEl.value = 'S' + n + (yr ? ' ' + yr : '');
+      if (yearEl) yearEl.value = yr;
       startEl.value = activeCtx.activeSemesterStart || '';
       endEl.value = activeCtx.activeSemesterEnd || '';
       if (deleteBtn) deleteBtn.style.display = 'none';
@@ -1121,10 +1322,16 @@
       return;
     }
     const label = (document.getElementById('ge-pt-label')?.value.trim()) || '';
+    const year  = (document.getElementById('ge-pt-year')?.value.trim()) || '';
     const start = document.getElementById('ge-pt-start')?.value || '';
     const end = document.getElementById('ge-pt-end')?.value || '';
     if (!label) {
       showToast(typeof t === 'function' ? t('gePlannerTermLabelRequired') : 'Please enter a term label.');
+      return;
+    }
+    if (!_isValidYear(year)) {
+      showToast(typeof t === 'function' ? t('gePlannerTermYearRequired') : 'Please enter a valid year (e.g. 2025-2026).');
+      document.getElementById('ge-pt-year')?.focus();
       return;
     }
     const holidays = [];
@@ -1141,10 +1348,10 @@
       if (_editingTermId) {
         const idx = _plannerCfg.semesters.findIndex(s => s.id === _editingTermId);
         if (idx >= 0) {
-          _plannerCfg.semesters[idx] = Object.assign({}, _plannerCfg.semesters[idx], { label, semesterStart: start, semesterEnd: end, holidays });
+          _plannerCfg.semesters[idx] = Object.assign({}, _plannerCfg.semesters[idx], { label, year, semesterStart: start, semesterEnd: end, holidays });
         }
       } else {
-        _plannerCfg.semesters.push({ id: plannerTermUid(), label, semesterStart: start, semesterEnd: end, holidays });
+        _plannerCfg.semesters.push({ id: plannerTermUid(), label, year, semesterStart: start, semesterEnd: end, holidays });
       }
       const content = 'window.PLANNER_CONFIG = ' + JSON.stringify(_plannerCfg, null, 2) + ';\n';
       const r = await Desktop.saveText('user', 'planner-config.js', content);
@@ -1307,20 +1514,16 @@
   }
 
   // ── Build file content ────────────────────────────────────────
-  // classGroups stores string names for compatibility with class-management and other tools.
-  // classGroupsMeta stores extended student objects (firstName, lastName, dob, adminClass).
-  function buildGroupsFileContent(data, meta) {
-    const groupLines = Object.keys(data).map(name => {
-      const students = data[name].map(s => JSON.stringify(s)).join(', ');
-      return `    ${JSON.stringify(name)}: [${students}]`;
-    });
-    const metaLines = Object.keys(data).map(name => {
-      const m = (meta && meta[name]) ? meta[name] : { year: '', semester: '', level: '' };
+  // classGroupsMeta stores UUID string arrays in meta.students (resolved via students.js).
+  function buildGroupsFileContent(meta) {
+    const metaLines = Object.keys(meta).map(uuid => {
+      const m = meta[uuid] || {};
       const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
-      if (m.halfGroups && (m.halfGroups.A && m.halfGroups.A.length || m.halfGroups.B && m.halfGroups.B.length)) metaEntry.halfGroups = m.halfGroups;
+      if (m.name) metaEntry.name = m.name;
+      if (m.halfGroups && (m.halfGroups.A?.length || m.halfGroups.B?.length)) metaEntry.halfGroups = m.halfGroups;
       if (m.students && m.students.length) metaEntry.students = m.students;
       if (m.archived) metaEntry.archived = true;
-      return `    ${JSON.stringify(name)}: ${JSON.stringify(metaEntry)}`;
+      return `    ${JSON.stringify(uuid)}: ${JSON.stringify(metaEntry)}`;
     });
     const ac = _readActiveBanner();
     return [
@@ -1329,22 +1532,18 @@
       `  "activeSemester": ${JSON.stringify(ac.activeSemester)},`,
       `  "activeSemesterStart": ${JSON.stringify(ac.activeSemesterStart)},`,
       `  "activeSemesterEnd": ${JSON.stringify(ac.activeSemesterEnd)},`,
-      '  "classGroups": {',
-      groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
-      '  },',
       '  "classGroupsMeta": {',
       metaLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
       '  }',
       '};',
       '',
-      'var CLASS_GROUPS = CLASS_GROUPS_DATA.classGroups || {};',
       'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
       ''
     ].join('\n');
   }
 
-  async function persistGroupsToUserFile(data, meta) {
-    const content = buildGroupsFileContent(data, meta);
+  async function persistGroupsToUserFile(meta) {
+    const content = buildGroupsFileContent(meta);
     if (window.Desktop && typeof Desktop.saveText === 'function') {
       try {
         return await Desktop.saveText(GROUPS_FILE_TARGET, GROUPS_FILE_NAME, content);
@@ -1369,6 +1568,8 @@
     yearInput.placeholder = '2025-2026';
     yearInput.title = 'Calendar year';
     yearInput.style.cssText = 'width:96px; padding:5px 7px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+    yearInput.addEventListener('blur', function () { _applyYearValidStyle(this); });
+    yearInput.addEventListener('input', function () { if (this.style.borderColor) _applyYearValidStyle(this); });
 
     const semSelect = document.createElement('select');
     semSelect.className = 'eg-row-semester';
@@ -1392,8 +1593,16 @@
 
   // ── Student table section ────────────────────────────────────
   function buildStudentInputRow(student, isDisabled) {
+    // Resolve or assign UUID: reuse from roster if same name already exists
+    let uuid = student.uuid;
+    if (!uuid) {
+      const existing = _rosterLookupByName(student.firstName, student.lastName);
+      uuid = existing ? existing.uuid : generateStudentUuid();
+    }
+
     const row = document.createElement('div');
     row.className = 'eg-student-row';
+    row.dataset.uuid = uuid;
 
     const makeInput = (cls, val, placeholder, type) => {
       const input = document.createElement('input');
@@ -1476,15 +1685,18 @@
   }
 
   // ── Half-group chips ──────────────────────────────────────────
-  // studentNames: string array of display names (already uppercased)
-  function buildHalfGroupChips(halfSection, studentNames, existingHalfGroups) {
+  // students: array of { uuid, name } objects
+  // existingHalfGroups: { A: ["st-uuid1",...], B: [...] } (UUID arrays after migration)
+  function buildHalfGroupChips(halfSection, students, existingHalfGroups) {
     halfSection.innerHTML = '';
-    if (!studentNames || studentNames.length === 0) {
+    if (!students || students.length === 0) {
       halfSection.innerHTML = '<em style="font-size:0.8rem;color:#aaa;">' + (typeof t === 'function' ? t('geAddStudentsFirst') : 'Add students to the group first.') + '</em>';
       return;
     }
-    const hgA = (existingHalfGroups && existingHalfGroups.A) ? existingHalfGroups.A.map(s => s.toUpperCase()) : [];
-    const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B.map(s => s.toUpperCase()) : [];
+    const hgA = (existingHalfGroups && existingHalfGroups.A) ? existingHalfGroups.A : [];
+    const hgB = (existingHalfGroups && existingHalfGroups.B) ? existingHalfGroups.B : [];
+    const isUuidHalf = hgA.length > 0 && typeof hgA[0] === 'string' && hgA[0].startsWith('st-');
+
     const legend = document.createElement('div');
     legend.style.cssText = 'font-size:0.72rem; color:#888; margin-bottom:7px; font-weight:600;';
     const legendText = typeof t === 'function' ? t('geHalfLegend') : 'Click to cycle: ■ A → ■ B → unassigned';
@@ -1494,13 +1706,20 @@
     halfSection.appendChild(legend);
     const chipsWrap = document.createElement('div');
     chipsWrap.style.cssText = 'display:flex; flex-wrap:wrap;';
-    studentNames.forEach(name => {
+    students.forEach(student => {
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'eg-half-chip';
-      chip.textContent = name;
-      chip.dataset.student = name;
-      chip.dataset.half = hgA.includes(name) ? 'A' : (hgB.includes(name) ? 'B' : '');
+      chip.textContent = student.name;
+      chip.dataset.student = student.uuid || student.name;
+      let half = '';
+      if (isUuidHalf) {
+        half = hgA.includes(student.uuid) ? 'A' : (hgB.includes(student.uuid) ? 'B' : '');
+      } else {
+        const upper = student.name.toUpperCase();
+        half = hgA.map(s => s.toUpperCase()).includes(upper) ? 'A' : (hgB.map(s => s.toUpperCase()).includes(upper) ? 'B' : '');
+      }
+      chip.dataset.half = half;
       chip.onclick = () => {
         const cur = chip.dataset.half;
         chip.dataset.half = cur === '' ? 'A' : (cur === 'A' ? 'B' : '');
@@ -1521,19 +1740,19 @@
 
   // ── Build a single group row ──────────────────────────────────
   // DOM order after this call: row → studentSection → halfSection
-  function buildGroupRow(groupName, body, isArchived) {
+  function buildGroupRow(groupId, body, isArchived) {
     const row = document.createElement('div');
     row.className = 'eg-row';
-    row.dataset.group = groupName;
+    row.dataset.group = groupId;
 
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'eg-row-name';
-    nameInput.value = groupName;
+    nameInput.value = groupDisplayName(groupId);
     nameInput.title = 'Group name';
     if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
 
-    const students = getStudentsForGroup(groupName);
+    const students = getStudentsForGroup(groupId);
 
     const studentsToggle = document.createElement('button');
     studentsToggle.type = 'button';
@@ -1542,7 +1761,7 @@
     studentsToggle.title = 'Show/hide student details';
     if (isArchived) studentsToggle.disabled = true;
 
-    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupName]);
+    const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupId]);
     if (isArchived) {
       yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true;
       [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
@@ -1569,12 +1788,12 @@
         studentsToggle.classList.toggle('active', !isOpen);
       };
 
-      const existingMeta = rawMeta[groupName];
+      const existingMeta = rawMeta[groupId];
       const hasHalves = existingMeta && existingMeta.halfGroups &&
         ((existingMeta.halfGroups.A && existingMeta.halfGroups.A.length) ||
          (existingMeta.halfGroups.B && existingMeta.halfGroups.B.length));
       if (hasHalves) {
-        buildHalfGroupChips(halfSection, students.map(studentDisplayName).filter(Boolean), existingMeta.halfGroups);
+        buildHalfGroupChips(halfSection, students.map(s => ({ uuid: s.uuid, name: studentDisplayName(s) })).filter(s => s.name), existingMeta.halfGroups);
         halfToggle.classList.add('active');
         halfSection.style.display = '';
       }
@@ -1584,8 +1803,8 @@
         halfSection.style.display = isOpen ? 'none' : '';
         halfToggle.classList.toggle('active', !isOpen);
         if (!isOpen) {
-          const names = getStudentNamesFromSection(studentSection);
-          buildHalfGroupChips(halfSection, names, collectHalfGroupsFromSection(halfSection));
+          const studentObjs = getStudentsFromSection(studentSection);
+          buildHalfGroupChips(halfSection, studentObjs, collectHalfGroupsFromSection(halfSection));
         }
       };
     }
@@ -1600,10 +1819,11 @@
     archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
     archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
     archiveBtn.onclick = () => {
+      const dn = groupDisplayName(groupId);
       if (isArchived) {
-        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmUnarchive', {name: groupName}) : 'Unarchive "' + groupName + '"?\n\nIt will reappear in the class roster.', () => unarchiveGroup(groupName));
+        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmUnarchive', {name: dn}) : 'Unarchive "' + dn + '"?\n\nIt will reappear in the class roster.', () => unarchiveGroup(groupId));
       } else {
-        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmArchive', {name: groupName}) : 'Archive "' + groupName + '"?\n\nIt will be hidden from the roster.', () => archiveGroup(groupName));
+        showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmArchive', {name: dn}) : 'Archive "' + dn + '"?\n\nIt will be hidden from the roster.', () => archiveGroup(groupId));
       }
     };
 
@@ -1613,13 +1833,14 @@
     delBtn.title = typeof t === 'function' ? t('geDeleteTitle') : 'Delete this group permanently';
     if (isArchived) delBtn.style.opacity = '0.5';
     delBtn.onclick = () => {
-      showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmDelete', {name: groupName}) : 'Delete "' + groupName + '" permanently?\n\nThis cannot be undone.', () => {
+      const dn = groupDisplayName(groupId);
+      showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmDelete', {name: dn}) : 'Delete "' + dn + '" permanently?\n\nThis cannot be undone.', () => {
         row.remove();
         studentSection.remove();
         if (halfSection.parentNode) halfSection.remove();
         if (window.Desktop && Desktop.isElectron()) {
-          Desktop.deleteByPath('user', 'planner/' + groupName + '.js').catch(() => {});
-          deletePlannerClassConfig(groupName);
+          Desktop.deleteByPath('user', 'planner/' + groupId + '.js').catch(() => {});
+          deletePlannerClassConfig(groupId);
         }
       });
     };
@@ -1721,8 +1942,8 @@
     const body = document.getElementById('ge-groups-body');
     body.innerHTML = '';
 
-    const activeGroups = Object.keys(rawData).filter(g => !(rawMeta[g] && rawMeta[g].archived));
-    const archivedGroups = Object.keys(rawData).filter(g => rawMeta[g] && rawMeta[g].archived);
+    const activeGroups = Object.keys(rawMeta).filter(g => !(rawMeta[g] && rawMeta[g].archived));
+    const archivedGroups = Object.keys(rawMeta).filter(g => rawMeta[g] && rawMeta[g].archived);
 
     if (activeGroups.length === 0) {
       const empty = document.createElement('p');
@@ -1792,41 +2013,52 @@
 
   // ── Collect all current edits from the DOM ───────────────────
   // Relies on DOM order: .eg-row → .eg-student-section → .eg-half-section
+  // Syncs student edits back to studentRoster and returns UUID arrays in meta.students.
   function collectGroupEdits() {
-    const updated = {};
     const updatedMeta = {};
     document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
+      const uuid = row.dataset.group;
       const nameInput = row.querySelector('.eg-row-name');
-      const name = nameInput.value.trim();
-      if (!name) return;
+      const name = nameInput ? nameInput.value.trim() : '';
+      if (!uuid || !name) return;
 
       const studentSection = row.nextElementSibling;
       const students = (studentSection && studentSection.classList.contains('eg-student-section'))
         ? collectStudentsFromTable(studentSection)
-        : getStudentsForGroup(row.dataset.group);
+        : getStudentsForGroup(uuid);
 
-      updated[name] = students.map(s => studentDisplayName(s)).filter(Boolean);
+      // Sync edits to roster and build UUID array
+      const studentUuids = students.map(s => {
+        let sid = s.uuid;
+        if (!sid) {
+          const existing = _rosterLookupByName(s.firstName, s.lastName);
+          sid = existing ? existing.uuid : generateStudentUuid();
+        }
+        studentRoster[sid] = { uuid: sid, firstName: s.firstName || '', lastName: s.lastName || '', dob: s.dob || '', adminClass: s.adminClass || '', sen: s.sen === true };
+        return sid;
+      }).filter(Boolean);
 
       const yearEl = row.querySelector('.eg-row-year');
       const semEl = row.querySelector('.eg-row-semester');
       const lvlEl = row.querySelector('.eg-row-level');
-      updatedMeta[name] = {
+      updatedMeta[uuid] = {
+        name,
         year: yearEl ? yearEl.value.trim() : '',
         semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
         level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
       };
-      if (students.length > 0) updatedMeta[name].students = students;
+      if (studentUuids.length > 0) updatedMeta[uuid].students = studentUuids;
 
       const halfSection = studentSection ? studentSection.nextElementSibling : null;
       if (halfSection && halfSection.classList.contains('eg-half-section')) {
         const hg = collectHalfGroupsFromSection(halfSection);
-        if (hg) updatedMeta[name].halfGroups = hg;
+        if (hg) updatedMeta[uuid].halfGroups = hg;
       }
 
-      const origMeta = rawMeta[row.dataset.group];
-      if (origMeta && origMeta.archived) updatedMeta[name].archived = true;
+      const origMeta = rawMeta[uuid];
+      if (origMeta && origMeta.archived) updatedMeta[uuid].archived = true;
     });
-    return { groups: updated, meta: updatedMeta };
+    return { meta: updatedMeta };
   }
 
   // ── Add new group row ────────────────────────────────────────
@@ -1837,6 +2069,15 @@
     const semVal = document.getElementById('new-group-semester').value;
     if (!semVal) { showToast(typeof t === 'function' ? t('geSemRequired') : 'Please select a term before adding a group.'); return; }
 
+    const ngYearEl = document.getElementById('new-group-year');
+    const ngYearVal = (ngYearEl ? ngYearEl.value.trim() : '') || _activeYear;
+    if (!ngYearVal || !_isValidYear(ngYearVal)) {
+      if (ngYearEl) { ngYearEl.style.borderColor = '#c33'; ngYearEl.focus(); }
+      showToast(typeof t === 'function' ? t('geYearRequired') : 'Please enter a valid year (e.g. 2025-2026).');
+      return;
+    }
+    if (ngYearEl) ngYearEl.style.borderColor = '';
+
     const studentsText = document.getElementById('new-group-students').value.trim();
     const students = studentsText ? parseNamesText(studentsText) : [];
     const body = document.getElementById('ge-groups-body');
@@ -1846,9 +2087,10 @@
 
     const archSep = body.querySelector('.ge-arch-sep');
 
+    const newUuid = generateGroupUuid();
     const row = document.createElement('div');
     row.className = 'eg-row';
-    row.dataset.group = nameVal;
+    row.dataset.group = newUuid;
 
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
@@ -1895,8 +2137,8 @@
       halfSection.style.display = isOpen ? 'none' : '';
       halfToggle.classList.toggle('active', !isOpen);
       if (!isOpen) {
-        const names = getStudentNamesFromSection(studentSection);
-        buildHalfGroupChips(halfSection, names, collectHalfGroupsFromSection(halfSection));
+        const studentObjs = getStudentsFromSection(studentSection);
+        buildHalfGroupChips(halfSection, studentObjs, collectHalfGroupsFromSection(halfSection));
       }
     };
 
@@ -1953,61 +2195,63 @@
   }
 
   // ── Archive / unarchive ──────────────────────────────────────
-  async function archiveGroup(groupName) {
-    if (!rawMeta[groupName]) rawMeta[groupName] = {};
-    rawMeta[groupName].archived = true;
+  async function archiveGroup(groupId) {
+    if (!rawMeta[groupId]) rawMeta[groupId] = {};
+    rawMeta[groupId].archived = true;
 
-    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-    if (updatedMeta[groupName]) updatedMeta[groupName].archived = true;
-    else if (updated[groupName]) updatedMeta[groupName] = { archived: true };
+    const { meta: updatedMeta } = collectGroupEdits();
+    if (updatedMeta[groupId]) updatedMeta[groupId].archived = true;
+    else updatedMeta[groupId] = { archived: true };
 
-    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    const result = await persistGroupsToUserFile(updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
       showNotice((typeof t === 'function' ? t('geArchiveFailed') : 'Failed to save archive status:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
-      delete rawMeta[groupName].archived;
+      delete rawMeta[groupId].archived;
       return;
     }
 
-    rawData = updated;
+    rawData = {};
     rawMeta = updatedMeta;
 
     if (window.Desktop && typeof Desktop.renameByPath === 'function') {
-      try { await Desktop.renameByPath('groupParticipation', groupName, 'archived/' + groupName); } catch (_) {}
+      try { await Desktop.renameByPath('groupParticipation', groupId, 'archived/' + groupId); } catch (_) {}
     }
 
-    showNotice(typeof tFmt === 'function' ? tFmt('geArchived', {name: groupName}) : '"' + groupName + '" archived.');
+    const dn = groupDisplayName(groupId);
+    showNotice(typeof tFmt === 'function' ? tFmt('geArchived', {name: dn}) : '"' + dn + '" archived.');
     renderGroupsList();
   }
 
-  async function unarchiveGroup(groupName) {
-    if (!rawMeta[groupName]) rawMeta[groupName] = {};
-    delete rawMeta[groupName].archived;
+  async function unarchiveGroup(groupId) {
+    if (!rawMeta[groupId]) rawMeta[groupId] = {};
+    delete rawMeta[groupId].archived;
 
-    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-    if (updatedMeta[groupName]) delete updatedMeta[groupName].archived;
+    const { meta: updatedMeta } = collectGroupEdits();
+    if (updatedMeta[groupId]) delete updatedMeta[groupId].archived;
 
-    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    const result = await persistGroupsToUserFile(updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
       showNotice((typeof t === 'function' ? t('geUnarchiveFailed') : 'Failed to save unarchive status:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
-      rawMeta[groupName].archived = true;
+      rawMeta[groupId].archived = true;
       return;
     }
 
-    rawData = updated;
+    rawData = {};
     rawMeta = updatedMeta;
 
     if (window.Desktop && typeof Desktop.renameByPath === 'function') {
-      try { await Desktop.renameByPath('groupParticipation', 'archived/' + groupName, groupName); } catch (_) {}
+      try { await Desktop.renameByPath('groupParticipation', 'archived/' + groupId, groupId); } catch (_) {}
     }
 
-    showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: groupName}) : '"' + groupName + '" unarchived.');
+    const dn = groupDisplayName(groupId);
+    showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: dn}) : '"' + dn + '" unarchived.');
     renderGroupsList();
   }
 
   // ── Archive whole semester ───────────────────────────────────
   async function archiveSemester(semNum, filterYear) {
-    const { groups: currentGroups, meta: currentMeta } = collectGroupEdits();
-    const toArchive = Object.keys(currentGroups).filter(name => {
+    const { meta: currentMeta } = collectGroupEdits();
+    const toArchive = Object.keys(currentMeta).filter(name => {
       if (currentMeta[name] && currentMeta[name].archived) return false;
       if (String(currentMeta[name] && currentMeta[name].semester) !== String(semNum)) return false;
       if (filterYear && currentMeta[name] && currentMeta[name].year && currentMeta[name].year !== filterYear) return false;
@@ -2027,16 +2271,16 @@
           if (!currentMeta[name]) currentMeta[name] = {};
           currentMeta[name].archived = true;
         });
-        const result = await persistGroupsToUserFile(currentGroups, currentMeta);
+        const result = await persistGroupsToUserFile(currentMeta);
         if (!result?.ok && result?.mode !== 'download') {
           showNotice((typeof t === 'function' ? t('geArchiveSemFailed') : 'Failed to archive semester:') + ' ' + (result?.error || (typeof t === 'function' ? t('geUnknownError') : 'unknown error')), true);
           return;
         }
-        rawData = currentGroups;
+        rawData = {};
         rawMeta = currentMeta;
         if (window.Desktop && typeof Desktop.renameByPath === 'function') {
-          for (const name of toArchive) {
-            try { await Desktop.renameByPath('groupParticipation', name, 'archived/' + name); } catch (_) {}
+          for (const uuid of toArchive) {
+            try { await Desktop.renameByPath('groupParticipation', uuid, 'archived/' + uuid); } catch (_) {}
           }
         }
         try { localStorage.setItem(`cmt-ge-sem-archived-${year}-${semNum}`, '1'); } catch (_) {}
@@ -2053,7 +2297,7 @@
     const today = new Date().toISOString().slice(0, 10);
     if (_activeSemEnd >= today) return;
     try { if (localStorage.getItem(`cmt-ge-sem-archived-${_activeYear}-${_activeSemester}`)) return; } catch (_) {}
-    const semGroups = Object.keys(rawData).filter(g => {
+    const semGroups = Object.keys(rawMeta).filter(g => {
       if (rawMeta[g] && rawMeta[g].archived) return false;
       if (String(rawMeta[g] && rawMeta[g].semester) !== String(_activeSemester)) return false;
       const gYear = rawMeta[g] && rawMeta[g].year;
@@ -2126,30 +2370,29 @@
 
   // ── Save ─────────────────────────────────────────────────────
   async function saveGroupsToFile() {
-    const renames = [];
-    document.querySelectorAll('#ge-groups-body .eg-row').forEach(row => {
-      const oldName = row.dataset.group || '';
-      const nameInput = row.querySelector('.eg-row-name');
-      const newName = nameInput ? nameInput.value.trim() : '';
-      if (oldName && newName && oldName !== newName) renames.push({ oldName, newName });
-    });
+    const activeYearEl = document.getElementById('ge-active-year');
+    const activeYearVal = activeYearEl ? activeYearEl.value.trim() : '';
+    if (activeYearVal && !_isValidYear(activeYearVal)) {
+      if (activeYearEl) { activeYearEl.style.borderColor = '#c33'; activeYearEl.focus(); }
+      showToast(typeof t === 'function' ? t('geYearInvalid') : 'Year must be in 20XX-20XX format (e.g. 2025-2026).');
+      return;
+    }
 
-    const { groups: updated, meta: updatedMeta } = collectGroupEdits();
-    if (Object.keys(updated).length === 0) {
+    const { meta: updatedMeta } = collectGroupEdits();
+    if (Object.keys(updatedMeta).length === 0) {
       showToast(typeof t === 'function' ? t('geNoGroupsToSave') : 'No groups to save.');
       return;
     }
 
-    rawData = updated;
+    rawData = {};
     rawMeta = updatedMeta;
 
-    const result = await persistGroupsToUserFile(updated, updatedMeta);
+    await saveStudentRoster();
+    const result = await persistGroupsToUserFile(updatedMeta);
     if (!result?.ok && result?.mode !== 'download') {
       showNotice((typeof t === 'function' ? t('geSaveFailed') : 'Save failed:') + ' ' + (result?.error || 'Unable to save class-groups.js'), true);
       return;
     }
-
-    await syncGradeSheetRenames(renames);
 
     const saveBtn = document.getElementById('ge-save-btn');
     const orig = saveBtn.textContent;
@@ -2169,22 +2412,20 @@
     return s;
   }
 
-  let _exportGroups = null;
   let _exportMeta = null;
 
   function exportCsv() {
-    const { groups, meta } = collectGroupEdits();
-    const groupNames = Object.keys(groups);
-    if (groupNames.length === 0) { showToast('No groups to export.'); return; }
-    _exportGroups = groups;
+    const { meta } = collectGroupEdits();
+    const groupUuids = Object.keys(meta);
+    if (groupUuids.length === 0) { showToast('No groups to export.'); return; }
     _exportMeta = meta;
     const pillsEl = document.getElementById('ge-export-picker-pills');
     pillsEl.innerHTML = '';
-    groupNames.filter(name => !meta[name]?.archived).forEach(name => {
+    groupUuids.filter(uuid => !meta[uuid]?.archived).forEach(uuid => {
       const pill = document.createElement('span');
       pill.className = 'ge-export-pill active';
-      pill.textContent = name;
-      pill.dataset.group = name;
+      pill.textContent = (meta[uuid] && meta[uuid].name) || uuid;
+      pill.dataset.group = uuid;
       pill.onclick = () => pill.classList.toggle('active');
       pillsEl.appendChild(pill);
     });
@@ -2199,7 +2440,6 @@
 
   function closeExportPicker() {
     document.getElementById('ge-export-picker').style.display = 'none';
-    _exportGroups = null;
     _exportMeta = null;
   }
 
@@ -2212,20 +2452,24 @@
     document.getElementById('ge-export-picker').style.display = 'none';
 
     const rows = ['Group,First Name,Last Name,Date of Birth,Admin Class,Year,Term,Level,SEN'];
-    Object.keys(_exportGroups).forEach(groupName => {
-      if (!selected.has(groupName)) return;
-      const m = _exportMeta[groupName] || {};
-      const students = m.students && m.students.length
-        ? m.students
-        : _exportGroups[groupName].map(name => {
-            const parts = name.trim().split(/\s+/);
-            return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', dob: '', adminClass: '' };
-          });
+    Object.keys(_exportMeta).forEach(uuid => {
+      if (!selected.has(uuid)) return;
+      const m = _exportMeta[uuid] || {};
+      const displayName = m.name || uuid;
+      // Resolve UUID student arrays through roster; fall back gracefully
+      const studentUuids = Array.isArray(m.students) ? m.students : [];
+      const students = studentUuids.map(sid => {
+        if (typeof sid === 'string' && sid.startsWith('st-')) {
+          return studentRoster[sid] || { firstName: sid, lastName: '', dob: '', adminClass: '' };
+        }
+        // Legacy object (shouldn't occur after migration, but safe fallback)
+        return sid;
+      });
       if (students.length === 0) {
-        rows.push([groupName, '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
+        rows.push([displayName, '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
       } else {
         students.forEach(s => {
-          rows.push([groupName, s.firstName || '', s.lastName || '', s.dob || '', s.adminClass || '', m.year || '', m.semester ?? '', m.level ?? '', s.sen ? 'true' : ''].map(csvEscape).join(','));
+          rows.push([displayName, s.firstName || '', s.lastName || '', s.dob || '', s.adminClass || '', m.year || '', m.semester ?? '', m.level ?? '', s.sen ? 'true' : ''].map(csvEscape).join(','));
         });
       }
     });
@@ -2237,7 +2481,6 @@
     a.download = 'class-groups.csv';
     a.click();
     URL.revokeObjectURL(url);
-    _exportGroups = null;
     _exportMeta = null;
   }
 
@@ -2345,14 +2588,25 @@
 
   function applyCsvImport(newGroups, newMeta) {
     Object.keys(newGroups).forEach(gName => {
-      const students = newGroups[gName];
-      rawData[gName] = students.map(s => studentDisplayName(s)).filter(Boolean);
-      if (!rawMeta[gName]) rawMeta[gName] = {};
-      rawMeta[gName].students = students;
+      let uuid = Object.keys(rawMeta).find(k => rawMeta[k] && rawMeta[k].name === gName);
+      if (!uuid) uuid = generateGroupUuid();
+
+      const studentObjs = newGroups[gName];
+      // Resolve each student against the roster (create if new)
+      const studentUuids = studentObjs.map(s => {
+        const existing = _rosterLookupByName(s.firstName, s.lastName);
+        const sid = existing ? existing.uuid : generateStudentUuid();
+        studentRoster[sid] = { uuid: sid, firstName: s.firstName || '', lastName: s.lastName || '', dob: s.dob || '', adminClass: s.adminClass || '', sen: s.sen === true };
+        return sid;
+      });
+
+      if (!rawMeta[uuid]) rawMeta[uuid] = {};
+      rawMeta[uuid].name = gName;
+      rawMeta[uuid].students = studentUuids;
       const m = newMeta[gName] || {};
-      if (m.year)     rawMeta[gName].year = m.year;
-      if (m.semester) rawMeta[gName].semester = m.semester;
-      if (m.level)    rawMeta[gName].level = m.level;
+      if (m.year)     rawMeta[uuid].year = m.year;
+      if (m.semester) rawMeta[uuid].semester = m.semester;
+      if (m.level)    rawMeta[uuid].level = m.level;
     });
 
     renderGroupsList();
@@ -2382,6 +2636,14 @@
     if (typeof applyTranslations === 'function') applyTranslations();
     window._cmtApplyNavBrand();
     loadGroups();
+    if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+      window._cmtHotReload = function () { return loadGroups(); };
+      Desktop.onDataChanged(function (data) {
+        if (data && data.filename === 'class-groups.js') {
+          showDataChangedBanner(data);
+        }
+      });
+    }
   });
 </script>
 </body>

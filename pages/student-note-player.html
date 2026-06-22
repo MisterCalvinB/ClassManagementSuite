@@ -223,16 +223,27 @@
     }
 
     function normalizeClassGroups() {
-      const src = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroups)
-        ? CLASS_GROUPS_DATA.classGroups
-        : ((typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : null);
-      if (!src || typeof src !== 'object') return {};
-      const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta) || {};
+      const cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const meta = (cgd && cgd.classGroupsMeta) || (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+      const srcLegacy = (cgd && cgd.classGroups) || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS : null);
+      const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
+        ? Object.fromEntries(STUDENTS_ROSTER.filter(s => s && s.uuid).map(s => [s.uuid, s]))
+        : {};
+      const groupUuids = Object.keys(meta).length ? Object.keys(meta) : (srcLegacy ? Object.keys(srcLegacy) : []);
       const out = {};
-      Object.keys(src).forEach(function (key) {
+      groupUuids.forEach(function (key) {
         if (meta[key] && meta[key].archived) return;
-        const names = Array.isArray(src[key]) ? src[key] : [];
-        out[key] = names.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
+        const students = (meta[key] && Array.isArray(meta[key].students) && meta[key].students.length)
+          ? meta[key].students
+          : (srcLegacy && Array.isArray(srcLegacy[key]) ? srcLegacy[key] : []);
+        if (students.length > 0 && typeof students[0] === 'string' && students[0].startsWith('st-')) {
+          out[key] = students.map(function (sid) {
+            const s = roster[sid];
+            return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+          }).filter(Boolean);
+        } else {
+          out[key] = students.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
+        }
       });
       return out;
     }
@@ -264,9 +275,18 @@
       buildMeta();
     }
 
+    function _snpGroupName(key) {
+      try {
+        const m = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta[key]
+          : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[key] : null);
+        return (m && m.name) ? m.name : key;
+      } catch { return key; }
+    }
+
     function fillClasses() {
       const groups = normalizeClassGroups();
-      const keys = Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); });
+      const keys = Object.keys(groups).sort(function (a, b) { return _snpGroupName(a).localeCompare(_snpGroupName(b)); });
       const visibleKeys = classFromUrl && keys.includes(classFromUrl) ? [classFromUrl] : keys;
       classPicker.innerHTML = '';
       if (!visibleKeys.length) {
@@ -280,7 +300,7 @@
       visibleKeys.forEach(function (key) {
         const opt = document.createElement('option');
         opt.value = key;
-        opt.textContent = key;
+        opt.textContent = _snpGroupName(key);
         classPicker.appendChild(opt);
       });
       if (classFromUrl && visibleKeys.includes(classFromUrl)) {

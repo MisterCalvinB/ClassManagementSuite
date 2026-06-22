@@ -46,6 +46,24 @@ The tools share data files and communicate in real time. Setting something up on
 
 > **Built-in tutorial:** Click the **?** button in the top navigation bar of Group Editor to launch an interactive step-by-step tour of its main features.
 
+#### Live cross-app notifications
+
+When any tool saves shared data (groups, student names, class config, planner or class-plan data), all other open tool windows are notified instantly. A slide-in banner appears at the top of each affected window:
+
+> **"[Tool name] updated shared data."** → **Reload data** | **Save & reload** | **Dismiss**
+
+- **Reload data** — refreshes the data in that window without a full page reload where possible (Group Editor, Class Plan, Planner), or reloads the page for tools with active sessions (Participation Tracker, Board, Grade Sheet).
+- **Save & reload** — appears only on pages with potentially unsaved work (Grade Sheet). Saves first, then reloads.
+- **Dismiss** — hides the banner; the window keeps its current data until manually reloaded.
+
+The banner auto-dismisses after 30 seconds if no action is taken.
+
+#### Renaming a class
+
+Edit the class name directly in Group Editor and click **Save**. The new name propagates automatically to every tool on their next load — Grade Sheet, Participation Tracker, Planner, Class Plan, Schedule Maker, and Class Management all read the updated name from `class-groups.js`.
+
+Class identity is tracked by a stable internal ID, not the name, so renaming never breaks historical data. Participation sessions, grade files, and planner entries are all linked by ID and continue to display under the new name after the rename.
+
 ### Term date sync: Group Editor ↔ Planner
 
 Group Editor's **Active Context** holds the current year, term (S1/S2), and start/end dates. These dates power Participation Tracker's *This Term* filter and the end-of-term archive prompt.
@@ -107,6 +125,15 @@ Each tool is represented by a card showing its name, description, and a launch b
 
 The **File Manager** card opens a standalone tool window with three tabs: Recent, Browse, and Sync.
 
+### Sidebar Panel
+
+The launcher has a collapsible right-side panel with two sections:
+
+- **Upcoming Events** — pulls entries from the Planner (lessons, tests, assignments) with dates on or after today, sorted by date. Click an entry to open the Planner.
+- **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor.
+
+Click the **Panel** button in the header to show or hide the sidebar. Each section has a small count button (e.g. **5**) in its header — click it to change how many items are shown (1–20). Counts are saved per-device.
+
 ### Header Buttons
 
 | Button | Action |
@@ -114,6 +141,7 @@ The **File Manager** card opens a standalone tool window with three tabs: Recent
 | **⚙ Config** | Opens General Config (language, startup, data folder) |
 | **? How To** | Opens the built-in how-to guide |
 | **ℹ️ Credits** | Opens the credits modal |
+| **Panel** | Toggles the upcoming events / recent docs sidebar |
 
 ### Startup Behaviour
 

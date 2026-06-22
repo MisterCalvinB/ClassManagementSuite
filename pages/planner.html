@@ -103,6 +103,8 @@
     .sem-chip > span:first-child { cursor: pointer; }
     .sem-chip-edit { cursor: pointer; font-size: .75rem; opacity: .55; padding: 0 2px; }
     .sem-chip-edit:hover { opacity: 1; }
+    .sem-year-label { font-size: .69rem; font-weight: 800; text-transform: uppercase; letter-spacing: .55px; color: #888; align-self: center; white-space: nowrap; padding-right: 1px; }
+    .sem-year-sep { display: inline-block; width: 1px; height: 14px; background: #ddd; margin: 0 5px; align-self: center; flex-shrink: 0; }
 
     /* ── Main ── */
     #main { flex: 1; overflow-y: auto; padding: 12px 16px 24px; }
@@ -187,6 +189,12 @@
       font-size: .62rem; font-weight: 800; background: #bbf7d0; color: #14532d;
       border-radius: 3px; padding: 1px 4px; flex-shrink: 0; letter-spacing: .3px;
     }
+    .board-session-badge {
+      font-size: .62rem; font-weight: 800; background: #ede9fe; color: #5b21b6;
+      border-radius: 3px; padding: 1px 4px; flex-shrink: 0; letter-spacing: .3px;
+      cursor: pointer;
+    }
+    .board-session-badge:hover { background: #ddd6fe; }
 
     /* ── Modals ── */
     .modal-overlay {
@@ -248,6 +256,19 @@
       color: #333; padding: 4px 0; text-decoration: underline; text-align: left; font-family: inherit;
     }
     .add-link:hover { color: #111; }
+
+    /* ── Class-setup chip pickers ── */
+    .pl-pick-chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 28px; }
+    .pl-pick-chip {
+      padding: 3px 11px; border: 2px solid #bbb; border-radius: 14px;
+      font-size: .82rem; font-weight: 700; cursor: pointer; background: #f5f5f5; color: #333;
+      transition: border-color .1s, background .1s, color .1s; white-space: nowrap;
+    }
+    .pl-pick-chip:hover { border-color: #777; color: #111; }
+    .pl-pick-chip.selected { border-color: #111; background: #111; color: #fff; }
+    .pl-year-add-row { display: flex; gap: 6px; align-items: center; margin-top: 5px; }
+    .pl-year-add-row .field-input { flex: 1; min-width: 100px; }
+    .pl-year-add-row .field-input.invalid { border-color: #c33; }
 
     /* ── Color swatches ── */
     .color-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
@@ -403,9 +424,15 @@
       <button class="modal-close" onclick="closeModal('semModal')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="field-group">
-        <label data-i18n="pl_semLabel">Label</label>
-        <input type="text" id="sem-label" class="field-input" data-i18n-placeholder="pl_semLabelPlaceholder">
+      <div class="field-row">
+        <div class="field-group">
+          <label data-i18n="pl_semLabel">Label</label>
+          <input type="text" id="sem-label" class="field-input" data-i18n-placeholder="pl_semLabelPlaceholder">
+        </div>
+        <div class="field-group">
+          <label data-i18n="cpLabelYear">Year</label>
+          <input type="text" id="sem-year" class="field-input" maxlength="9" style="font-family:monospace;width:110px;" data-i18n-placeholder="pl_classYearPlaceholder">
+        </div>
       </div>
       <div class="field-row">
         <div class="field-group">
@@ -446,9 +473,7 @@
     <div class="modal-body">
       <div class="field-group">
         <label data-i18n="pl_selectClass">Select a class</label>
-        <select id="cls-sel" class="field-select" onchange="loadClassPanel(this.value)">
-          <option value="">—</option>
-        </select>
+        <div id="cls-sel-chips" class="pl-pick-chips"></div>
       </div>
       <p id="no-cls-msg" style="display:none; font-size:.83rem; color:#888;" data-i18n="pl_noClasses">
         No class groups found.
@@ -456,9 +481,12 @@
       <div id="cls-panel" style="display:none; flex-direction:column; gap:12px;">
         <div class="field-group">
           <label data-i18n="pl_classYear">Year</label>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <input type="text" id="cls-year" class="field-input" style="flex:1;min-width:100px"
-                   data-i18n-placeholder="pl_classYearPlaceholder">
+          <div id="cls-year-chips" class="pl-pick-chips"></div>
+          <div class="pl-year-add-row">
+            <input type="text" id="cls-year-new" class="field-input" placeholder="e.g. 2026-2027" maxlength="9" data-i18n-placeholder="pl_classYearPlaceholder">
+            <button type="button" class="add-link" onclick="addPlannerYearChip()" data-i18n="cpAddYear">Add</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px;">
             <div id="cls-sems-container" style="display:contents;"></div>
             <span style="font-size:0.78rem;color:#888;white-space:nowrap;" data-i18n="pl_termsPerYear">Terms / yr</span>
             <select id="pl-terms-per-year" style="padding:3px 6px;font-size:0.82rem;border:1px solid #ccc;border-radius:4px;" onchange="onPlannerTermsPerYearChange(this.value)">
@@ -821,6 +849,7 @@ var _legacyMigration = false;
 var classGroups = {};
 var classGroupsMeta = {};
 var partDates = {};
+var boardSessionsByEntryId = {};
 var filterClasses = new Set();
 var showPast = false;
 var showOutsideTerm = false;
@@ -884,7 +913,39 @@ window.addEventListener('DOMContentLoaded', async function () {
   loadViewOpts();
   await loadData();
   render();
+  navigateToPending();
 });
+
+function navigateToPending() {
+  var raw = localStorage.getItem('cmt-planner-nav');
+  if (!raw) return;
+  localStorage.removeItem('cmt-planner-nav');
+  var nav;
+  try { nav = JSON.parse(raw); } catch(e) { return; }
+  if (!nav || !nav.date) return;
+  var sel = '.entry-row[data-date="' + nav.date + '"]';
+  if (nav.classId) sel += '[data-classid="' + nav.classId + '"]';
+  if (nav.time)    sel += '[data-time="' + nav.time + '"]';
+  var el = document.querySelector(sel);
+  if (!el && nav.classId) el = document.querySelector('.entry-row[data-date="' + nav.date + '"][data-classid="' + nav.classId + '"]');
+  if (!el) el = document.querySelector('.entry-row[data-date="' + nav.date + '"]');
+  if (!el) return;
+  var mainEl = document.getElementById('main');
+  if (mainEl) {
+    var mainRect = mainEl.getBoundingClientRect();
+    var elRect   = el.getBoundingClientRect();
+    var target   = mainEl.scrollTop + (elRect.top - mainRect.top) - mainEl.clientHeight / 2 + el.offsetHeight / 2;
+    mainEl.scrollTop = Math.max(0, target);
+  }
+  el.style.borderColor = '#f0b800';
+  el.style.backgroundColor = '#fffbe0';
+  setTimeout(function() {
+    el.style.transition = 'border-color 1.4s ease-out, background-color 1.4s ease-out';
+    el.style.borderColor = '';
+    el.style.backgroundColor = '';
+    setTimeout(function() { el.style.transition = ''; }, 1500);
+  }, 1400);
+}
 
 async function loadData() {
   if (window.__plannerBoot) await window.__plannerBoot;
@@ -937,7 +998,7 @@ async function loadData() {
   // One-time migration: mark pre-existing planner-only classes as manual:true
   if (!cfg._manualMigrated) {
     Object.keys(cfg.classes).forEach(function(id) {
-      if (!classGroups[id]) cfg.classes[id].manual = true;
+      if (!classGroupsMeta[id] && !classGroups[id]) cfg.classes[id].manual = true;
     });
     cfg._manualMigrated = true;
     persistCfg();
@@ -945,7 +1006,8 @@ async function loadData() {
 
   populateSelects();
   updateSemToolbar();
-  loadPartDates(); // non-blocking
+  loadPartDates();    // non-blocking
+  loadBoardSessions(); // non-blocking
 }
 
 async function loadPartDates() {
@@ -964,12 +1026,50 @@ async function loadPartDates() {
   renderAgenda();
 }
 
+async function loadBoardSessions() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  try {
+    var r = await Desktop.readJson('user', 'board-sessions-backup.json');
+    if (!r || !r.ok || !r.data) return;
+    var store = r.data;
+    boardSessionsByEntryId = {};
+    ['constellation', 'textanalysis', 'notes'].forEach(function (section) {
+      var list = Array.isArray(store[section]) ? store[section] : [];
+      list.forEach(function (e) {
+        if (!e || !e.plannerEntryId || !e.id) return;
+        var eid = e.plannerEntryId;
+        if (!boardSessionsByEntryId[eid]) boardSessionsByEntryId[eid] = [];
+        boardSessionsByEntryId[eid].push({ id: String(e.id), name: String(e.name || ''), section: section, savedAt: Number(e.savedAt) || 0 });
+      });
+    });
+  } catch (_) {}
+  renderAgenda();
+}
+
+function openLinkedBoard(entryId) {
+  var sessions = boardSessionsByEntryId[entryId];
+  if (!sessions || !sessions.length) return;
+  var s = sessions.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  Desktop.openTool('board.html', { query: { openLocalSession: '1', openLocalMode: s.section, openLocalEntryId: s.id } });
+}
+
 // ── Active-class helpers ───────────────────────────────────────────────────
+function plannerClassDisplayName(id) {
+  if (classGroupsMeta[id] && classGroupsMeta[id].name) return classGroupsMeta[id].name;
+  return id;
+}
+
+function _byDisplayName(a, b) {
+  return plannerClassDisplayName(a).localeCompare(plannerClassDisplayName(b));
+}
+
 function getActiveClassIds() {
   // Filter classes that are archived in Group Editor
-  return Object.keys(classGroups).filter(function (id) {
+  const allIds = Object.keys(classGroupsMeta).length ? Object.keys(classGroupsMeta) : Object.keys(classGroups);
+  return allIds.filter(function (id) {
     return !(classGroupsMeta[id] || {}).archived;
-  }).sort();
+  }).sort(_byDisplayName);
 }
 
 function getPlannerClassIds() {
@@ -977,7 +1077,7 @@ function getPlannerClassIds() {
   var plannerOwn = Object.keys(cfg.classes).filter(function(id) {
     return active.indexOf(id) < 0 && cfg.classes[id].manual === true;
   });
-  return active.concat(plannerOwn).sort();
+  return active.concat(plannerOwn).sort(_byDisplayName);
 }
 
 function getActiveSem() {
@@ -1005,13 +1105,14 @@ function getWeekNumber(dateStr, semStartStr) {
 // ── Select population ──────────────────────────────────────────────────────
 function populateSelects() {
   var ids = getPlannerClassIds();
-  ['cls-sel','e-class','exp-cls'].forEach(function (selId) {
+  ['e-class','exp-cls'].forEach(function (selId) {
     var el = document.getElementById(selId);
     if (!el) return;
     while (el.options.length > 1) el.remove(1);
-    ids.forEach(function (id) { el.add(new Option(id, id)); });
+    ids.forEach(function (id) { el.add(new Option(plannerClassDisplayName(id), id)); });
   });
   document.getElementById('no-cls-msg').style.display = ids.length ? 'none' : '';
+  renderClassSetupChips(ids, activeClsSetup);
   rebuildFilterChips(ids);
 }
 
@@ -1030,7 +1131,7 @@ function rebuildFilterChips(ids) {
     var chip = document.createElement('span');
     chip.className = 'cls-chip' + (filterClasses.has(id) ? ' active' : '');
     chip.style.setProperty('--chip-color', color);
-    chip.textContent = id;
+    chip.textContent = plannerClassDisplayName(id);
     chip.onclick = function () { toggleClassFilter(id); };
     bar.appendChild(chip);
   });
@@ -1044,22 +1145,44 @@ function updateSemToolbar() {
   bar.innerHTML = '';
   if (!hasSems) return;
   var activeWeeks = getTotalWeeks(getActiveSem());
+
+  // Group semesters by year (preserve insertion order within each year)
+  var groups = {}, yearOrder = [];
   cfg.semesters.forEach(function (s) {
-    var isActive = s.id === activeSemId;
-    var chip = document.createElement('span');
-    chip.className = 'sem-chip cls-chip' + (isActive ? ' active' : '');
-    var label = s.label || s.id;
-    if (isActive && activeWeeks > 0) label += ' · ' + tFmt('pl_weekCount', { n: activeWeeks });
-    var labelSpan = document.createElement('span');
-    labelSpan.textContent = label;
-    labelSpan.onclick = (function(id) { return function() { switchSem(id); }; })(s.id);
-    var editSpan = document.createElement('span');
-    editSpan.className = 'sem-chip-edit';
-    editSpan.textContent = '✎';
-    editSpan.onclick = (function(id) { return function(e) { e.stopPropagation(); openSemModal(id); }; })(s.id);
-    chip.appendChild(labelSpan);
-    chip.appendChild(editSpan);
-    bar.appendChild(chip);
+    var yr = s.year || '';
+    if (!groups[yr]) { groups[yr] = []; yearOrder.push(yr); }
+    groups[yr].push(s);
+  });
+
+  yearOrder.forEach(function (yr, gi) {
+    if (yr) {
+      var lbl = document.createElement('span');
+      lbl.className = 'sem-year-label';
+      lbl.textContent = yr;
+      bar.appendChild(lbl);
+    }
+    groups[yr].forEach(function (s) {
+      var isActive = s.id === activeSemId;
+      var chip = document.createElement('span');
+      chip.className = 'sem-chip cls-chip' + (isActive ? ' active' : '');
+      var label = s.label || s.id;
+      if (isActive && activeWeeks > 0) label += ' · ' + tFmt('pl_weekCount', { n: activeWeeks });
+      var labelSpan = document.createElement('span');
+      labelSpan.textContent = label;
+      labelSpan.onclick = (function(id) { return function() { switchSem(id); }; })(s.id);
+      var editSpan = document.createElement('span');
+      editSpan.className = 'sem-chip-edit';
+      editSpan.textContent = '✎';
+      editSpan.onclick = (function(id) { return function(e) { e.stopPropagation(); openSemModal(id); }; })(s.id);
+      chip.appendChild(labelSpan);
+      chip.appendChild(editSpan);
+      bar.appendChild(chip);
+    });
+    if (gi < yearOrder.length - 1) {
+      var sep = document.createElement('span');
+      sep.className = 'sem-year-sep';
+      bar.appendChild(sep);
+    }
   });
 }
 
@@ -1157,7 +1280,7 @@ function renderSlot(s) {
 
   var timeLabel = s.time || '';
   if (s.timeEnd) timeLabel += '–' + s.timeEnd;
-  var r = '<div class="entry-row" style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+  var r = '<div class="entry-row" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId||'') + '" data-time="' + esc(s.time||'') + '" style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
     esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' +
     esc(s.timeEnd||'') + '\',\'' + (entry ? entry.id : '') + '\')">';
   r += '<div class="entry-color-bar"></div>';
@@ -1165,7 +1288,7 @@ function renderSlot(s) {
   r += '<div class="entry-inner">';
   r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
   if (!isUnassigned)
-    r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(s.classId) + '</span>';
+    r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(plannerClassDisplayName(s.classId)) + '</span>';
   else
     r += '<span class="entry-class-pill" style="background:#888">' + esc(t('pl_noClass')) + '</span>';
   if (viewOpts.badges)
@@ -1174,6 +1297,14 @@ function renderSlot(s) {
     r += '<span class="' + topicCls + '">' + esc(topicDisp) + '</span>';
   if (showDot)         r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
   if (entry && entry.gsLink) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+  if (entry) {
+    var _bSess = boardSessionsByEntryId[entry.id];
+    if (_bSess && _bSess.length) {
+      var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+      var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name;
+      r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(entry.id) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
+    }
+  }
   r += '<div class="entry-actions" onclick="event.stopPropagation()">';
   if (entry)
     r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
@@ -1336,6 +1467,7 @@ function openSemModal(semId) {
 
   // Show Group Editor date hint only when creating (not editing)
   var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+  document.getElementById('sem-year').value = sem ? (sem.year || '') : ((cgd && cgd.activeYear && PL_YEAR_RE.test(cgd.activeYear)) ? cgd.activeYear : '');
   var cgdStart = cgd && cgd.activeSemesterStart;
   var cgdEnd   = cgd && cgd.activeSemesterEnd;
   var hintEl   = document.getElementById('pl-cgd-hint');
@@ -1374,8 +1506,10 @@ function addHolRow() { document.getElementById('hol-list').appendChild(makeHolRo
 
 function saveSemModal() {
   var label = document.getElementById('sem-label').value.trim();
+  var year  = document.getElementById('sem-year').value.trim();
   var start = document.getElementById('sem-start').value;
   var end   = document.getElementById('sem-end').value;
+  if (!PL_YEAR_RE.test(year)) { showToast(t('cpToastInvalidYear')); document.getElementById('sem-year').focus(); return; }
   var hols  = [];
   document.querySelectorAll('#hol-list .hol-item').forEach(function (item) {
     var d  = item.querySelector('.hol-date').value;
@@ -1386,10 +1520,10 @@ function saveSemModal() {
 
   if (editingSemId) {
     var sem = cfg.semesters.find(function (s) { return s.id === editingSemId; });
-    if (sem) { sem.label = label; sem.semesterStart = start; sem.semesterEnd = end; sem.holidays = hols; }
+    if (sem) { sem.label = label; sem.year = year; sem.semesterStart = start; sem.semesterEnd = end; sem.holidays = hols; }
   } else {
     var newSem = makeSem(label || t('pl_semDefault'));
-    newSem.semesterStart = start; newSem.semesterEnd = end; newSem.holidays = hols;
+    newSem.year = year; newSem.semesterStart = start; newSem.semesterEnd = end; newSem.holidays = hols;
     cfg.semesters.push(newSem);
     activeSemId = newSem.id;
   }
@@ -1462,9 +1596,86 @@ function saveCustomFields() {
 }
 
 // ── Class setup modal ──────────────────────────────────────────────────────
+// ── Class-setup chip helpers ───────────────────────────────────────────────
+var PL_YEAR_RE = /^20\d{2}-20\d{2}$/;
+
+function getExistingPlannerYears() {
+  var years = new Set();
+  Object.keys(cfg.classes || {}).forEach(function (id) {
+    var y = (cfg.classes[id] || {}).year;
+    if (y && PL_YEAR_RE.test(y)) years.add(y);
+  });
+  try {
+    var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+    if (cgd && cgd.activeYear && PL_YEAR_RE.test(cgd.activeYear)) years.add(cgd.activeYear);
+    var meta = (cgd && cgd.classGroupsMeta) ? cgd.classGroupsMeta : {};
+    Object.keys(meta).forEach(function (g) {
+      if (meta[g] && meta[g].year && PL_YEAR_RE.test(meta[g].year)) years.add(meta[g].year);
+    });
+  } catch (e) {}
+  return Array.from(years).sort();
+}
+
+function renderClassSetupChips(ids, selId) {
+  var container = document.getElementById('cls-sel-chips');
+  if (!container) return;
+  container.innerHTML = '';
+  ids.forEach(function (id) {
+    var chip = document.createElement('span');
+    chip.className = 'pl-pick-chip' + (id === selId ? ' selected' : '');
+    chip.textContent = plannerClassDisplayName(id);
+    chip.dataset.cid = id;
+    chip.onclick = function () {
+      container.querySelectorAll('.pl-pick-chip').forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      loadClassPanel(id);
+    };
+    container.appendChild(chip);
+  });
+}
+
+function renderPlannerYearChips(container, years, sel) {
+  container.innerHTML = '';
+  years.forEach(function (y) {
+    var chip = document.createElement('span');
+    chip.className = 'pl-pick-chip' + (y === sel ? ' selected' : '');
+    chip.textContent = y;
+    chip.dataset.year = y;
+    chip.onclick = function () {
+      container.querySelectorAll('.pl-pick-chip').forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+    };
+    container.appendChild(chip);
+  });
+}
+
+function addPlannerYearChip() {
+  var input = document.getElementById('cls-year-new');
+  var val = (input.value || '').trim();
+  if (!PL_YEAR_RE.test(val)) {
+    input.classList.add('invalid');
+    showToast(t('cpToastInvalidYear'));
+    input.focus();
+    return;
+  }
+  input.classList.remove('invalid');
+  var container = document.getElementById('cls-year-chips');
+  var chips = Array.from(container.querySelectorAll('.pl-pick-chip'));
+  var existing = chips.find(function (c) { return c.dataset.year === val; });
+  if (existing) {
+    chips.forEach(function (c) { c.classList.remove('selected'); });
+    existing.classList.add('selected');
+  } else {
+    var allYears = chips.map(function (c) { return c.dataset.year; });
+    allYears.push(val);
+    allYears.sort();
+    renderPlannerYearChips(container, allYears, val);
+  }
+  input.value = '';
+}
+
 function openClassModal() {
   populateSelects();
-  document.getElementById('cls-sel').value = '';
   var tpyEl = document.getElementById('pl-terms-per-year');
   if (tpyEl) tpyEl.value = String(getTermsPerYear());
   buildClassSemCheckboxes();
@@ -1474,6 +1685,13 @@ function openClassModal() {
 
 function loadClassPanel(cid) {
   activeClsSetup = cid;
+  // Keep chip selection in sync
+  var chipsContainer = document.getElementById('cls-sel-chips');
+  if (chipsContainer) {
+    chipsContainer.querySelectorAll('.pl-pick-chip').forEach(function (c) {
+      c.classList.toggle('selected', c.dataset.cid === cid);
+    });
+  }
   var panel  = document.getElementById('cls-panel');
   var delBtn = document.getElementById('del-cls-btn');
   if (!cid) {
@@ -1484,7 +1702,13 @@ function loadClassPanel(cid) {
   panel.style.display = 'flex';
   var clsCfg = cfg.classes[cid] || {};
   if (delBtn) delBtn.style.display = clsCfg.manual ? '' : 'none';
-  document.getElementById('cls-year').value = clsCfg.year || '';
+  // Year chips
+  var planYear = clsCfg.year || '';
+  var years = getExistingPlannerYears();
+  var allYears = (planYear && years.indexOf(planYear) < 0) ? years.concat([planYear]).sort() : years;
+  renderPlannerYearChips(document.getElementById('cls-year-chips'), allYears, planYear);
+  var clsYearNew = document.getElementById('cls-year-new');
+  if (clsYearNew) { clsYearNew.value = ''; clsYearNew.classList.remove('invalid'); }
   var sems = clsCfg.semesters || {};
   var n = getTermsPerYear();
   for (var i = 1; i <= n; i++) {
@@ -1537,21 +1761,34 @@ var DAY_KEYS = ['pl_daySun','pl_dayMon','pl_dayTue','pl_dayWed','pl_dayThu','pl_
 
 function renderSchedList(schedule) {
   var el = document.getElementById('sched-list'); el.innerHTML = '';
-  schedule.forEach(function (s) { el.appendChild(makeSchedRow(s.day, s.time, s.timeEnd)); });
+  schedule.forEach(function (s) { el.appendChild(makeSchedRow(s.day, s.time, s.timeEnd, s.halfGroup || null)); });
 }
-function makeSchedRow(day, time, timeEnd) {
+function _schedHasHalves() {
+  var meta = classGroupsMeta[activeClsSetup];
+  return !!(meta && meta.halfGroups &&
+    ((meta.halfGroups.A && meta.halfGroups.A.length) || (meta.halfGroups.B && meta.halfGroups.B.length)));
+}
+function makeSchedRow(day, time, timeEnd, halfGroup) {
   var opts = DAY_KEYS.map(function (k, i) {
     return '<option value="' + i + '"' + (parseInt(day) === i ? ' selected' : '') + '>' + esc(t(k)) + '</option>';
   }).join('');
+  var halfSel = _schedHasHalves()
+    ? '<select class="field-select half-sel" style="min-width:70px">' +
+      '<option value="">' + esc(t('pl_halfBoth')) + '</option>' +
+      '<option value="A"' + (halfGroup === 'A' ? ' selected' : '') + '>' + esc(t('pl_halfA')) + '</option>' +
+      '<option value="B"' + (halfGroup === 'B' ? ' selected' : '') + '>' + esc(t('pl_halfB')) + '</option>' +
+      '</select>'
+    : '';
   var div = document.createElement('div'); div.className = 'sched-item';
   div.innerHTML = '<select class="field-select day-sel">' + opts + '</select>' +
     '<input type="time" class="field-input time-inp" value="' + esc(time||'') + '">' +
     '<span class="range-sep">–</span>' +
     '<input type="time" class="field-input time-end-inp" value="' + esc(timeEnd||'') + '">' +
+    halfSel +
     '<button class="rm-btn" onclick="this.closest(\'.sched-item\').remove()">✕</button>';
   return div;
 }
-function addSchedRow() { document.getElementById('sched-list').appendChild(makeSchedRow(1, '08:00', '09:00')); }
+function addSchedRow() { document.getElementById('sched-list').appendChild(makeSchedRow(1, '08:00', '09:00', null)); }
 
 function renderObjList(objectives) {
   var el = document.getElementById('obj-list'); el.innerHTML = '';
@@ -1568,10 +1805,16 @@ function addObjRow(text) { document.getElementById('obj-list').appendChild(makeO
 
 function saveClassPanel() {
   if (!activeClsSetup) { closeModal('classModal'); return; }
+  var yearChip = document.querySelector('#cls-year-chips .pl-pick-chip.selected');
+  var year = yearChip ? yearChip.dataset.year : '';
+  if (!year) { showToast(t('cpToastSelectYear')); return; }
   var schedule = [], objectives = [];
   document.querySelectorAll('#sched-list .sched-item').forEach(function (row) {
     var timeEndEl = row.querySelector('.time-end-inp');
-    schedule.push({ day: parseInt(row.querySelector('.day-sel').value), time: row.querySelector('.time-inp').value, timeEnd: timeEndEl ? timeEndEl.value : '' });
+    var halfSelEl = row.querySelector('.half-sel');
+    var slot = { day: parseInt(row.querySelector('.day-sel').value), time: row.querySelector('.time-inp').value, timeEnd: timeEndEl ? timeEndEl.value : '' };
+    if (halfSelEl && halfSelEl.value) slot.halfGroup = halfSelEl.value;
+    schedule.push(slot);
   });
   document.querySelectorAll('#obj-list .obj-item input[type="text"]').forEach(function (inp) {
     var v = inp.value.trim(); if (v) objectives.push(v);
@@ -1579,7 +1822,7 @@ function saveClassPanel() {
   var wasManual = !!(cfg.classes[activeClsSetup] || {}).manual;
   cfg.classes[activeClsSetup] = {
     color: getPickedColor(),
-    year: document.getElementById('cls-year').value.trim(),
+    year: year,
     semesters: (function () {
       var d = {}, n = getTermsPerYear();
       for (var i = 1; i <= n; i++) {
@@ -2543,6 +2786,9 @@ function renderTableCell(s) {
   if (badgeText)  r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
   if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
   if (entry.gsLink) r += '<span class="gs-badge">GS</span>';
+  var _atBSess = boardSessionsByEntryId[entry.id];
+  if (_atBSess && _atBSess.length)
+    r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
   r += '</div>';
   return r;
 }
@@ -2595,7 +2841,7 @@ function onIcsClassChange() {
 function openIcsImportModal() {
   var sel = document.getElementById('ics-imp-class');
   while (sel.options.length > 1) sel.remove(1);
-  getPlannerClassIds().forEach(function (id) { sel.add(new Option(id, id)); });
+  getPlannerClassIds().forEach(function (id) { sel.add(new Option(plannerClassDisplayName(id), id)); });
   sel.add(new Option(t('pl_icsImpNewClass'), '__new__'));
   if (filterClasses.size === 1) sel.value = [...filterClasses][0];
 
@@ -3093,6 +3339,44 @@ function doImportIcs() {
   render();
   showToast(tFmt('pl_icsImpDone', { n: toImport.length }));
 }
+</script>
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+
+  window._cmtHotReload = async function (data) {
+    try {
+      // Re-read the changed file so loadData() picks up the updated globals
+      if (data.filename === 'planner-config.js') {
+        var r = await Desktop.readText('user', 'planner-config.js');
+        if (r && r.ok) {
+          // eslint-disable-next-line no-new-func
+          try { new Function(r.content)(); } catch (e) {}
+        }
+      } else if (data.filename === 'class-groups.js') {
+        var rg = await Desktop.readText('user', 'class-groups.js');
+        if (rg && rg.ok) {
+          // eslint-disable-next-line no-new-func
+          try { new Function(rg.content)(); } catch (e) {}
+        }
+      } else if (data.subdir === 'planner' && data.filename) {
+        var re = await Desktop.readText('user', data.filename);
+        if (re && re.ok) {
+          // eslint-disable-next-line no-new-func
+          try { new Function(re.content)(); } catch (e) {}
+        }
+      }
+      if (typeof loadData === 'function') await loadData();
+      if (typeof render === 'function') render();
+    } catch (e) { location.reload(); }
+  };
+
+  Desktop.onDataChanged(function (data) {
+    if (data && (data.filename === 'planner-config.js' || data.filename === 'class-groups.js' || data.subdir === 'planner')) {
+      showDataChangedBanner(data);
+    }
+  });
+})();
 </script>
 </body>
 </html>

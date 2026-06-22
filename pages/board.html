@@ -292,8 +292,26 @@
         catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
         try { await loadUserScript('config.js'); }
         catch (e) { console.warn('Failed to load user/config.js:', e); }
+        try { await loadUserScript('students.js'); }
+        catch (e) { /* students.js may not exist yet */ }
         try { await loadUserScript('board-config.js'); }
         catch (e) { console.warn('Failed to load user/board-config.js:', e); }
+        // Load planner config + entries for timeslot picker
+        window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};
+        try {
+          if (window.Desktop && Desktop.isElectron()) {
+            try { await loadUserScript('planner-config.js'); } catch (_pe) {}
+            var _plr = await Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] });
+            if (_plr && _plr.ok && Array.isArray(_plr.files)) {
+              for (var _pi = 0; _pi < _plr.files.length; _pi++) {
+                try {
+                  var _pc = await Desktop.readByPath('user', _plr.files[_pi].relativePath);
+                  if (_pc && _pc.ok) injectClassicScript(_pc.content || '', 'user/' + _plr.files[_pi].relativePath);
+                } catch (_pe) {}
+              }
+            }
+          }
+        } catch (_pe) {}
       })();
     })();
   </script>
@@ -1332,6 +1350,17 @@
         <!--<span class="con-tb-group-label" style="visibility:hidden;">_</span>-->
         <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
              onchange="conSetTitle(this.value)" onkeyup="conSetTitle(this.value)">
+        <div id="con-bp-wrap" class="con-bp-wrap">
+          <button id="con-bp-btn" class="action-btn btn-grey con-bp-btn" onclick="bpOpen()"></button>
+          <div id="con-bp-popover" class="con-bp-popover" style="display:none;">
+            <div id="con-bp-pop-title" class="con-bp-pop-title"></div>
+            <div id="con-bp-pop-list" class="con-bp-pop-list"></div>
+            <div class="con-bp-pop-footer">
+              <button id="con-bp-show-all-btn" class="action-btn btn-grey con-bp-foot-btn" onclick="bpShowAll()"></button>
+              <button id="con-bp-clear-btn" class="action-btn btn-grey con-bp-foot-btn" onclick="bpClear()"></button>
+            </div>
+          </div>
+        </div>
         <div id="con-class-pills"></div>
       </div>
 
@@ -1582,6 +1611,7 @@
           <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnInsertList('insertUnorderedList')" title="Bullet list">•</button>
           <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnInsertList('insertOrderedList')" title="Numbered list">1.</button>
           <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnInsertCheckboxList()" title="Checkbox list">☑</button>
+          <button class="wn-sp-style-toggle" id="wn-sp-link" onmousedown="event.preventDefault()" onclick="wnLinkOpen()" title="Insert/edit link">🔗</button>
         </div>
       </div>
       <div class="wn-sp-row">
@@ -1606,6 +1636,21 @@
         <button class="wn-sp-action-btn" id="wn-sp-stop-input-btn" onclick="wnStyleStopStudentInput()" style="display:none;">⏹ Stop input</button>
         <button class="wn-sp-action-btn" id="wn-sp-planner-btn" onclick="wnpOpen()" data-i18n="wnpSaveToPlanner">📅 Planner</button>
         <button class="wn-sp-action-btn danger" onclick="wnStyleDeleteNote()">🗑 Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link dialog -->
+  <div id="wn-link-dialog-overlay" onclick="wnLinkDialogOverlayClick(event)">
+    <div id="wn-link-dialog">
+      <h4><span data-i18n="wnLinkDialogTitle">Insert Link</span> <button onclick="wnLinkClose()">✕</button></h4>
+      <div class="wn-link-row">
+        <input type="url" id="wn-link-url" data-i18n-placeholder="wnLinkPlaceholder" placeholder="https://" onkeydown="wnLinkKeydown(event)">
+      </div>
+      <div class="wn-link-actions">
+        <button class="wn-sp-action-btn" id="wn-link-remove-btn" onmousedown="event.preventDefault()" onclick="wnLinkRemove()" data-i18n="wnLinkRemove">✕ Remove</button>
+        <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnLinkClose()" data-i18n="btnCancel">Cancel</button>
+        <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnLinkApply()" data-i18n="wnLinkApply">✓ Apply</button>
       </div>
     </div>
   </div>
@@ -1723,6 +1768,9 @@
   <div id="history-duplicate-overlay" onclick="if(event.target===this)historyDuplicateCancel()">
     <div id="history-duplicate-popup">
       <h4>⧉ Duplicate Session</h4>
+      <label style="font-size:0.75rem;font-weight:700;display:block;margin-bottom:3px;">Assign to class</label>
+      <select id="history-duplicate-class" style="width:100%;padding:4px 6px;border:1.5px solid #aaa;border-radius:4px;font-family:inherit;font-size:0.8rem;background:#fff;margin-bottom:8px;"></select>
+      <label style="font-size:0.75rem;font-weight:700;display:block;margin-bottom:3px;">Session name</label>
       <input type="text" id="history-duplicate-input" maxlength="120"
              onkeydown="if(event.key==='Enter')historyDuplicateCommit();if(event.key==='Escape')historyDuplicateCancel()">
       <div class="sfn-btns">
@@ -2742,7 +2790,7 @@ function hideFailure() {
     if (!suppressNextOutsideClick) return;
     suppressNextOutsideClick = false;
     if (isEditableTarget(e.target)) return;
-    if (e.target.closest && e.target.closest('#wn-style-popup, #wn-style-overlay')) return;
+    if (e.target.closest && e.target.closest('#wn-style-popup, #wn-style-overlay, #wn-link-dialog, #wn-link-dialog-overlay')) return;
     e.stopImmediatePropagation();
     e.stopPropagation();
   }, true);
@@ -3232,6 +3280,7 @@ function hideFailure() {
     // ================================================================
     const CLASS_GROUP_STORAGE_KEY = 'active_class_group';
     let activeClassGroup = '';
+    let activePlannerEntryId = '';
 
     function sanitizeFilenamePart(raw) {
       return String(raw || '')
@@ -3240,31 +3289,29 @@ function hideFailure() {
         .replace(/\s+/g, '_');
     }
 
-    function getClassFilenamePrefix() {
-      const safe = sanitizeFilenamePart(activeClassGroup);
-      return safe ? (safe + '_') : '';
-    }
 
-    function applyClassPrefixToFilename(name) {
-      const clean = String(name || '').trim() || 'session';
-      const prefix = getClassFilenamePrefix();
-      if (!prefix) return clean;
-      return clean.startsWith(prefix) ? clean : (prefix + clean);
-    }
 
     function getClassGroupLabel(groupName) {
       const label = String(groupName || '').trim();
-      return label || 'No class prefix';
+      if (!label) return 'No class prefix';
+      return _cgDisplayName(label) || label;
     }
 
     function updateGroupSelectorTitle() {}
 
+    function _cgDisplayName(key) {
+      try {
+        const m = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[key] : null;
+        return (m && m.name) ? m.name : key;
+      } catch { return key; }
+    }
+
     function setActiveClassGroup(groupName, options = {}) {
       const preserveBoardState = !!options.preserveBoardState;
       const prevGroup = activeClassGroup;
-      const hasGroup = typeof CLASS_GROUPS !== 'undefined'
-        && CLASS_GROUPS
-        && Object.prototype.hasOwnProperty.call(CLASS_GROUPS, groupName);
+      const hasGroup = typeof CLASS_GROUPS_META !== 'undefined'
+        && CLASS_GROUPS_META
+        && Object.prototype.hasOwnProperty.call(CLASS_GROUPS_META, groupName);
       const nextGroup = hasGroup ? groupName : '';
       if (prevGroup !== nextGroup && !preserveBoardState && typeof boardAutosaveAllNow === 'function') {
         boardAutosaveAllNow({ classGroup: prevGroup, force: true });
@@ -3292,10 +3339,10 @@ function hideFailure() {
       if (!pillsEl) return;
       pillsEl.innerHTML = '';
 
-      const groupKeys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS)
-            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
-            .sort((a, b) => a.localeCompare(b))
+      const groupKeys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? Object.keys(CLASS_GROUPS_META)
+            .filter(key => !(CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
         : [];
 
       const nonePill = document.createElement('span');
@@ -3309,9 +3356,10 @@ function hideFailure() {
       groupKeys.forEach(key => {
         const pill = document.createElement('span');
         pill.className = 'con-class-pill';
-        const count = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key].length : 0;
-        pill.textContent = key;
-        pill.title = key + (count ? ' (' + count + ' students)' : '');
+        const displayName = _cgDisplayName(key);
+        const count = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[key] && Array.isArray(CLASS_GROUPS_META[key].students)) ? CLASS_GROUPS_META[key].students.length : 0;
+        pill.textContent = displayName;
+        pill.title = displayName + (count ? ' (' + count + ' students)' : '');
         pill.dataset.group = key;
         pill.addEventListener('click', () => setActiveClassGroup(key));
         pillsEl.appendChild(pill);
@@ -3320,6 +3368,297 @@ function hideFailure() {
       let saved = '';
       try { saved = sessionStorage.getItem(CLASS_GROUP_STORAGE_KEY) || ''; } catch (e) {}
       setActiveClassGroup(saved, { preserveBoardState: true });
+    }
+
+    // ================================================================
+    // PLANNER TIMESLOT PICKER  (bp = board-planner)
+    // ================================================================
+
+    function bpGetAllEntries() {
+      const seen  = new Set(); // 'date|classId' keys — avoids duplicates between entries and schedule slots
+      const items = [];
+
+      // 1. Real planner entries
+      const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+      Object.keys(byClass).forEach(cid => {
+        const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+        arr.forEach(e => {
+          if (e && e.id && e.date) {
+            items.push(e);
+            seen.add(e.date + '|' + (e.classId || '') + '|' + (e.time || ''));
+          }
+        });
+      });
+
+      // 2. Schedule-derived slots from PLANNER_CONFIG
+      const cfg = window.PLANNER_CONFIG;
+      if (cfg && cfg.classes) {
+        // Collect all holiday dates across semesters
+        const holDates = new Set();
+        (cfg.semesters || []).forEach(sem => {
+          (sem.holidays || []).forEach(h => {
+            if (!h.date) return;
+            let hd = new Date(h.date + 'T12:00:00');
+            const he = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : new Date(hd);
+            while (hd <= he) { holDates.add(hd.toISOString().slice(0, 10)); hd.setDate(hd.getDate() + 1); }
+          });
+        });
+
+        // Pick a date range: current or nearest semester, fallback ±90 days
+        const today = new Date().toISOString().slice(0, 10);
+        let rangeStart = null, rangeEnd = null;
+        if (cfg.semesters && cfg.semesters.length) {
+          let bestDist = Infinity;
+          cfg.semesters.forEach(sem => {
+            if (!sem.semesterStart || !sem.semesterEnd) return;
+            if (today >= sem.semesterStart && today <= sem.semesterEnd) {
+              rangeStart = sem.semesterStart; rangeEnd = sem.semesterEnd; bestDist = 0;
+            } else if (bestDist > 0) {
+              const dist = Math.min(
+                Math.abs(new Date(sem.semesterStart + 'T12:00:00') - new Date(today + 'T12:00:00')),
+                Math.abs(new Date(sem.semesterEnd   + 'T12:00:00') - new Date(today + 'T12:00:00'))
+              );
+              if (dist < bestDist) { bestDist = dist; rangeStart = sem.semesterStart; rangeEnd = sem.semesterEnd; }
+            }
+          });
+        }
+        if (!rangeStart) {
+          const d0 = new Date(today + 'T12:00:00'); d0.setDate(d0.getDate() - 90);
+          const d1 = new Date(today + 'T12:00:00'); d1.setDate(d1.getDate() + 90);
+          rangeStart = d0.toISOString().slice(0, 10);
+          rangeEnd   = d1.toISOString().slice(0, 10);
+        }
+
+        // Walk the range day-by-day and emit one slot per matching schedule entry
+        Object.keys(cfg.classes).forEach(classId => {
+          const schedule = (cfg.classes[classId] && Array.isArray(cfg.classes[classId].schedule))
+            ? cfg.classes[classId].schedule : [];
+          if (!schedule.length) return;
+          let d = new Date(rangeStart + 'T12:00:00');
+          const end = new Date(rangeEnd + 'T12:00:00');
+          while (d <= end) {
+            const ds  = d.toISOString().slice(0, 10);
+            const dow = d.getDay();
+            if (!holDates.has(ds)) {
+              schedule.forEach(s => {
+                if (parseInt(s.day) !== dow) return;
+                const key = ds + '|' + classId + '|' + (s.time || '');
+                if (!seen.has(key)) {
+                  items.push({
+                    id: 'sched:' + classId + ':' + ds + ':' + (s.time || ''),
+                    classId,
+                    date: ds,
+                    time: s.time || '',
+                    timeEnd: s.timeEnd || '',
+                    _isScheduleSlot: true
+                  });
+                  seen.add(key);
+                }
+              });
+            }
+            d.setDate(d.getDate() + 1);
+          }
+        });
+      }
+
+      items.sort((a, b) => {
+        if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+        return (a.time || '') > (b.time || '') ? 1 : -1;
+      });
+      return items;
+    }
+
+    function bpGetNearEntries(all) {
+      const todayTs = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00').getTime();
+      const limit = 30 * 86400000;
+      const near = all.filter(e => Math.abs(new Date(e.date + 'T12:00:00').getTime() - todayTs) <= limit);
+      near.sort((a, b) => {
+        const da = Math.abs(new Date(a.date + 'T12:00:00').getTime() - todayTs);
+        const db = Math.abs(new Date(b.date + 'T12:00:00').getTime() - todayTs);
+        if (da !== db) return da - db;
+        // Prefer future over past when equidistant
+        const fa = new Date(a.date + 'T12:00:00').getTime() >= todayTs;
+        const fb = new Date(b.date + 'T12:00:00').getTime() >= todayTs;
+        return (fa && !fb) ? -1 : (!fa && fb) ? 1 : 0;
+      });
+      return near.slice(0, 10);
+    }
+
+    function bpFmtDate(dateStr) {
+      try { return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); }
+      catch (e) { return dateStr; }
+    }
+
+    function bpBuildLabel(e) {
+      const cls   = _cgDisplayName(e.classId || '') || e.classId || '?';
+      const dt    = bpFmtDate(e.date);
+      const time  = e.time ? ' ' + e.time + (e.timeEnd ? '–' + e.timeEnd : '') : '';
+      const topic = e.topic ? ' · ' + e.topic : '';
+      return cls + ' · ' + dt + time + topic;
+    }
+
+    function bpOpen() {
+      const pop = document.getElementById('con-bp-popover');
+      if (!pop) return;
+      if (pop.style.display !== 'none') { bpClose(); return; }
+
+      const all  = bpGetAllEntries();
+      const near = bpGetNearEntries(all);
+
+      const listEl    = document.getElementById('con-bp-pop-list');
+      const titleEl   = document.getElementById('con-bp-pop-title');
+      const showAllBtn = document.getElementById('con-bp-show-all-btn');
+      const clearBtn  = document.getElementById('con-bp-clear-btn');
+      if (titleEl)   titleEl.textContent   = t('bpPopTitle');
+      if (showAllBtn) showAllBtn.textContent = t('bpShowAll');
+      if (clearBtn)  clearBtn.textContent  = t('bpClear');
+
+      listEl.innerHTML = '';
+      if (!near.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'font-size:0.75rem;color:#888;padding:4px 0;';
+        empty.textContent = t('bpNoNear');
+        listEl.appendChild(empty);
+      } else {
+        near.forEach(e => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'action-btn btn-grey';
+          btn.style.cssText = 'font-size:0.72rem;text-align:left;white-space:normal;line-height:1.35;padding:4px 8px;width:100%;margin-bottom:3px;'
+            + (e.id === activePlannerEntryId ? 'border-color:#111;font-weight:900;' : '');
+          btn.textContent = bpBuildLabel(e);
+          btn.addEventListener('click', () => { bpClose(); bpSelect(e); });
+          listEl.appendChild(btn);
+        });
+      }
+
+      // Show "browse all" when there are more entries outside ±30 days, or active entry not in near list
+      const activeNotInNear = activePlannerEntryId && !near.find(e => e.id === activePlannerEntryId);
+      if (showAllBtn) showAllBtn.style.display = (all.length > near.length || activeNotInNear) ? '' : 'none';
+
+      pop.style.display = '';
+      setTimeout(() => document.addEventListener('click', _bpOutsideClick, { once: true, capture: true }), 0);
+    }
+
+    function _bpOutsideClick(ev) {
+      const wrap = document.getElementById('con-bp-wrap');
+      if (wrap && wrap.contains(ev.target)) {
+        const pop = document.getElementById('con-bp-popover');
+        if (pop && pop.style.display !== 'none')
+          setTimeout(() => document.addEventListener('click', _bpOutsideClick, { once: true, capture: true }), 0);
+      } else {
+        bpClose();
+      }
+    }
+
+    function bpClose() {
+      const pop = document.getElementById('con-bp-popover');
+      if (pop) pop.style.display = 'none';
+      document.removeEventListener('click', _bpOutsideClick, true);
+    }
+
+    function bpSelect(e) {
+      activePlannerEntryId = e.id || '';
+      if (e.classId) setActiveClassGroup(e.classId);
+      bpUpdateBtn();
+
+      // Auto-fill title when it still looks like the auto-generated timestamp
+      const titleInput = document.getElementById('con-title-input');
+      if (titleInput) {
+        const cur = (titleInput.value || '').trim();
+        const isAutoTitle = !cur || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(cur);
+        if (isAutoTitle) {
+          const cls   = e.classId || '';
+          const dt    = bpFmtDate(e.date);
+          const time  = e.time ? ' ' + e.time : '';
+          const topic = e.topic ? ' – ' + e.topic : '';
+          const newTitle = ((cls ? cls + ' · ' : '') + dt + time + topic).slice(0, 60);
+          titleInput.value = newTitle;
+          if (window.conSetTitle) conSetTitle(newTitle);
+        }
+      }
+    }
+
+    function bpClear() {
+      bpClose();
+      activePlannerEntryId = '';
+      bpUpdateBtn();
+    }
+
+    function bpUpdateBtn() {
+      const btn = document.getElementById('con-bp-btn');
+      if (!btn) return;
+      if (!activePlannerEntryId) {
+        btn.textContent = t('bpBtn');
+        btn.title       = t('bpPopTitle');
+        btn.style.fontWeight  = '';
+        btn.style.borderColor = '';
+        return;
+      }
+      const entry = bpGetAllEntries().find(e => e.id === activePlannerEntryId);
+      if (!entry) {
+        btn.textContent = t('bpBtn') + ' ✓';
+        btn.style.fontWeight  = '900';
+        btn.style.borderColor = '#111';
+        return;
+      }
+      const label = bpBuildLabel(entry);
+      btn.textContent = '📅 ' + (label.length > 48 ? label.slice(0, 47) + '…' : label);
+      btn.title       = t('bpPopTitle') + ': ' + label;
+      btn.style.fontWeight  = '900';
+      btn.style.borderColor = '#111';
+    }
+
+    function bpSetFromEntryId(entryId) {
+      activePlannerEntryId = entryId || '';
+      bpUpdateBtn();
+    }
+
+    function bpShowAll() {
+      bpClose();
+      const all     = bpGetAllEntries();
+      const overlay = document.getElementById('con-bp-all-overlay');
+      const listEl  = document.getElementById('con-bp-all-list');
+      if (!overlay || !listEl) return;
+      document.getElementById('con-bp-all-title').textContent    = t('bpAllTitle');
+      document.getElementById('con-bp-all-close-btn').textContent = t('btnClose');
+      listEl.innerHTML = '';
+
+      if (!all.length) {
+        listEl.innerHTML = '<div style="color:#888;font-size:0.8rem;padding:8px 0;">' + boardEscapeHtml(t('bpNoNear')) + '</div>';
+      } else {
+        const byClass = {};
+        all.forEach(e => {
+          const cid = e.classId || '—';
+          if (!byClass[cid]) byClass[cid] = [];
+          byClass[cid].push(e);
+        });
+        Object.keys(byClass).sort().forEach(cid => {
+          const head = document.createElement('div');
+          head.style.cssText = 'font-weight:900;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#555;padding:8px 0 4px;border-top:1px solid #eee;margin-top:4px;';
+          head.textContent = cid;
+          listEl.appendChild(head);
+          byClass[cid].forEach(e => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'action-btn btn-grey';
+            btn.style.cssText = 'font-size:0.72rem;text-align:left;white-space:normal;line-height:1.35;padding:4px 8px;width:100%;margin-bottom:3px;'
+              + (e.id === activePlannerEntryId ? 'border-color:#111;font-weight:900;' : '');
+            const dt    = bpFmtDate(e.date);
+            const time  = e.time ? ' ' + e.time + (e.timeEnd ? '–' + e.timeEnd : '') : '';
+            const topic = e.topic ? ' · ' + e.topic : '';
+            btn.textContent = dt + time + topic;
+            btn.addEventListener('click', () => { bpSelect(e); bpAllClose(); });
+            listEl.appendChild(btn);
+          });
+        });
+      }
+      overlay.style.display = 'flex';
+    }
+
+    function bpAllClose() {
+      const overlay = document.getElementById('con-bp-all-overlay');
+      if (overlay) overlay.style.display = 'none';
     }
 
     // ================================================================
@@ -3379,7 +3718,7 @@ function hideFailure() {
       const blob = new Blob([bom, content], { type: mimeType + ";charset=utf-8" });
       const a    = document.createElement('a');
       a.href     = URL.createObjectURL(blob);
-      a.download = applyClassPrefixToFilename(filename);
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(a.href);
     }
@@ -18025,6 +18364,10 @@ function hideFailure() {
           e.preventDefault();
           const x = (_lastBoardPastePoint && _lastBoardPastePoint.x) || (window._boardCtxNoteX || Math.round(brd.clientWidth / 2));
           const y = (_lastBoardPastePoint && _lastBoardPastePoint.y) || (window._boardCtxNoteY || Math.round(brd.clientHeight / 2));
+
+          // Table data (HTML <table> or TSV) → create a con-table-el
+          if (typeof wnPasteAsConTable === 'function' && wnPasteAsConTable(clip, x, y)) return;
+
           if (window.conCreateTextNote) window.conCreateTextNote(plain, x, y, { fontSize: 24 });
         });
 
@@ -19177,6 +19520,7 @@ function hideFailure() {
       awLoadCustomErrors();
       historyInit();
       initClassGroupSelector();
+      bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
       // Set timestamp title on fresh load if no title was restored
@@ -20695,7 +21039,8 @@ function hideFailure() {
       classSel.innerHTML = '';
       const groups = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
       const meta   = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
-      const classIds = Object.keys(groups).filter(id => !(meta[id] || {}).archived).sort();
+      const classIds = Object.keys(groups).filter(id => !(meta[id] || {}).archived)
+        .sort((a, b) => ((meta[a] && meta[a].name) || a).localeCompare((meta[b] && meta[b].name) || b));
       if (!classIds.length) {
         const opt = document.createElement('option');
         opt.textContent = t('wnpNoClasses'); opt.disabled = true;
@@ -20703,7 +21048,7 @@ function hideFailure() {
       } else {
         classIds.forEach(id => {
           const opt = document.createElement('option');
-          opt.value = id; opt.textContent = id;
+          opt.value = id; opt.textContent = (meta[id] && meta[id].name) ? meta[id].name : id;
           classSel.appendChild(opt);
         });
       }
@@ -21359,6 +21704,114 @@ function hideFailure() {
       _wnPopupDragged = false; _wnPopupWordMeta = null; _wnActiveNote = null;
     }
 
+    // ── Link dialog ───────────────────────────────────────────────────
+
+    function wnLinkOpen() {
+      if (!_wnActiveNote) return;
+      const editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      wnRememberSelection(editor);
+
+      // Detect existing link under cursor
+      const sel = window.getSelection();
+      let existingHref = '';
+      if (sel && sel.rangeCount > 0) {
+        const container = sel.getRangeAt(0).startContainer;
+        const node = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
+        const a = node ? node.closest('a[href]') : null;
+        if (a) existingHref = a.getAttribute('href') || '';
+      }
+
+      const urlInput = document.getElementById('wn-link-url');
+      urlInput.value = existingHref;
+      document.getElementById('wn-link-remove-btn').style.display = existingHref ? '' : 'none';
+      document.getElementById('wn-link-dialog-overlay').classList.add('active');
+      setTimeout(() => { urlInput.focus(); urlInput.select(); }, 50);
+    }
+
+    function wnLinkApply() {
+      let url = (document.getElementById('wn-link-url').value || '').trim();
+      if (!url) { wnLinkRemove(); return; }
+      if (!/^[a-z][a-z0-9+.\-]*:\/\//i.test(url)) url = 'https://' + url;
+      wnApplySelectionCommand('createLink', url);
+      wnLinkClose();
+    }
+
+    function wnLinkRemove() {
+      wnApplySelectionCommand('unlink');
+      wnLinkClose();
+    }
+
+    function wnLinkClose() {
+      document.getElementById('wn-link-dialog-overlay').classList.remove('active');
+    }
+
+    function wnLinkDialogOverlayClick(e) {
+      if (e.target !== document.getElementById('wn-link-dialog-overlay')) return;
+      wnLinkClose();
+    }
+
+    function wnLinkKeydown(e) {
+      if (e.key === 'Enter') { e.preventDefault(); wnLinkApply(); }
+      if (e.key === 'Escape') { e.preventDefault(); wnLinkClose(); }
+    }
+
+    // ── Table helpers ─────────────────────────────────────────────────
+
+    function wnTableDataFromHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const srcTable = tmp.querySelector('table');
+      if (!srcTable) return null;
+      const rowEls = Array.from(srcTable.querySelectorAll('tr'));
+      if (!rowEls.length) return null;
+      const grid = rowEls.map(tr =>
+        Array.from(tr.querySelectorAll('td, th')).map(cell => ({
+          text: cell.textContent.trim(),
+          isHeader: cell.tagName.toLowerCase() === 'th'
+        }))
+      );
+      const cols = Math.max(1, ...grid.map(r => r.length));
+      const hasHeader = grid[0] && grid[0].some(c => c.isHeader);
+      const cells = [];
+      grid.forEach(row => {
+        for (let c = 0; c < cols; c++) {
+          const cell = row[c];
+          cells.push({ type: 'text', text: cell ? cell.text : '', bold: !!(cell && cell.isHeader && hasHeader) });
+        }
+      });
+      return { rows: grid.length, cols, cells, hasHeader };
+    }
+
+    function wnTableDataFromTsv(lines) {
+      const grid = lines.map(l => l.split('\t').map(c => c.trim()));
+      const cols = Math.max(1, ...grid.map(r => r.length));
+      const cells = [];
+      grid.forEach(row => {
+        for (let c = 0; c < cols; c++) cells.push({ type: 'text', text: row[c] || '' });
+      });
+      return { rows: grid.length, cols, cells, hasHeader: false };
+    }
+
+    function wnPasteAsConTable(clipData, x, y) {
+      let data = null;
+      const html = clipData.getData('text/html');
+      if (html && /<table[\s>]/i.test(html)) data = wnTableDataFromHtml(html);
+      if (!data) {
+        const tsv = clipData.getData('text/plain').replace(/\r\n|\r/g, '\n');
+        const lines = tsv.split('\n').filter(l => l.length > 0);
+        if (lines.length > 1 && lines.every(l => l.includes('\t'))) data = wnTableDataFromTsv(lines);
+      }
+      if (!data) return false;
+      const brd = document.getElementById('constellation-board');
+      const px = Number.isFinite(x) ? x : (brd ? Math.max(24, Math.round(brd.clientWidth  / 2) - data.cols * 50) : 60);
+      const py = Number.isFinite(y) ? y : (brd ? Math.max(24, Math.round(brd.clientHeight / 2) - data.rows * 18) : 60);
+      conPushUndo();
+      window.conAddTableFromData({ x: px, y: py, rows: data.rows, cols: data.cols,
+        cells: data.cells, hasHeader: data.hasHeader });
+      return true;
+    }
+
     // ── End restored wn* functions ────────────────────────────────────
 
     // Add a blank note at centre of the board (toolbar button)
@@ -21718,11 +22171,27 @@ function hideFailure() {
         if (document.body.classList.contains('laser-active')) { e.preventDefault(); return; }
         e.stopPropagation();
       });
+      ta.addEventListener('click', e => {
+        if (!e.ctrlKey) return;
+        const anchor = e.target.closest('a[href]');
+        if (!anchor) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const href = anchor.getAttribute('href') || '';
+        if (href && window.Desktop && typeof Desktop.openExternal === 'function') {
+          Desktop.openExternal(href);
+        }
+      });
       ta.addEventListener('paste', e => {
         e.preventDefault();
-        let text = (e.clipboardData || window.clipboardData).getData('text/plain');
-        // Normalize Word-pasted content: non-breaking spaces, runs of spaces/tabs, trailing
-        // spaces around newlines, and more than two consecutive blank lines.
+        const clipData = e.clipboardData || window.clipboardData;
+
+        // Table data (HTML <table> or TSV) \u2192 create a con-table-el on the board
+        if (wnPasteAsConTable(clipData, window._boardCtxNoteX, window._boardCtxNoteY)) return;
+
+        let text = clipData.getData('text/plain');
+
+        // Normal text paste: normalize whitespace
         text = text
           .replace(/\u00A0|\u202F|\u2007|\u2060/g, ' ') // non-breaking / word-joiner spaces
           .replace(/\r\n|\r/g, '\n')                     // normalize line endings
@@ -22328,13 +22797,13 @@ function hideFailure() {
       const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
         ? Object.keys(CLASS_GROUPS)
             .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
-            .sort((a, b) => a.localeCompare(b))
+            .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
         : [];
       if (!keys.length) {
         const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No classes found'; sel.appendChild(opt); return;
       }
       keys.forEach(key => {
-        const opt = document.createElement('option'); opt.value = key; opt.textContent = key; sel.appendChild(opt);
+        const opt = document.createElement('option'); opt.value = key; opt.textContent = _cgDisplayName(key); sel.appendChild(opt);
       });
       if (typeof activeClassGroup !== 'undefined' && activeClassGroup && keys.includes(activeClassGroup)) sel.value = activeClassGroup;
     }
@@ -22493,8 +22962,27 @@ function hideFailure() {
       lines.push(title);
       if (_noteStudentHub.joinUrl) lines.push('Join: ' + _noteStudentHub.joinUrl);
       lines.push('');
-      const classList = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS && _noteStudentHub.classGroup && Array.isArray(CLASS_GROUPS[_noteStudentHub.classGroup]))
-        ? CLASS_GROUPS[_noteStudentHub.classGroup] : [];
+      const _bMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const _bLegacy = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
+      const _bGroup = _noteStudentHub.classGroup;
+      let classList = [];
+      if (_bGroup) {
+        const _bm = _bMeta[_bGroup];
+        if (_bm && Array.isArray(_bm.students) && _bm.students.length) {
+          const _bRoster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
+            ? Object.fromEntries(STUDENTS_ROSTER.filter(s => s && s.uuid).map(s => [s.uuid, s])) : {};
+          if (typeof _bm.students[0] === 'string' && _bm.students[0].startsWith('st-')) {
+            classList = _bm.students.map(sid => {
+              const s = _bRoster[sid];
+              return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+            }).filter(Boolean);
+          } else {
+            classList = _bm.students.map(String).filter(Boolean);
+          }
+        } else if (Array.isArray(_bLegacy[_bGroup])) {
+          classList = _bLegacy[_bGroup].map(String).filter(Boolean);
+        }
+      }
       classList.map(name => String(name || '').trim()).filter(Boolean).forEach(name => lines.push(name + ': '));
       return lines.join('\n').trim();
     }
@@ -22788,7 +23276,8 @@ function hideFailure() {
       const savedAt = Number(now) || Date.now();
       const persisted = Object.assign({}, data, {
         _createdAt: createdAt,
-        _savedAt: savedAt
+        _savedAt: savedAt,
+        _plannerEntryId: activePlannerEntryId || undefined
       });
       boardSetSessionFileMeta(section, createdAt, savedAt);
       return persisted;
@@ -22869,7 +23358,7 @@ function hideFailure() {
 
       function boardDefaultFileName(section, preferredName = '') {
         const cleanName = boardStripJsonExt(String(preferredName || '').trim());
-        const safeName = sanitizeFilenamePart(cleanName);
+        const safeName = boardSanitizeFilenameKeepSpaces(cleanName);
         if (safeName) return safeName;
         if (section === 'constellation') return 'constellation';
         if (section === 'notes') return 'notes';
@@ -22923,6 +23412,7 @@ function hideFailure() {
       return {
         id: String(entry.id || boardMakeSessionId(section)),
         classGroup: String(entry.classGroup || ''),
+        plannerEntryId: String(entry.plannerEntryId || ''),
         source: String(entry.source || 'manual-save'),
         name: String(entry.name || boardDefaultSessionName(section)),
         savedAt,
@@ -22945,7 +23435,8 @@ function hideFailure() {
 
     function boardApplyClassPrefixForGroup(name, classGroup) {
       const clean = String(name || '').trim() || 'session';
-      const safeGroup = sanitizeFilenamePart(classGroup);
+      const displayName = _cgDisplayName(classGroup) || classGroup;
+      const safeGroup = sanitizeFilenamePart(displayName);
       if (!safeGroup) return clean;
       const prefix = safeGroup + '_';
       return clean.startsWith(prefix) ? clean : (prefix + clean);
@@ -23125,7 +23616,7 @@ function hideFailure() {
         const existingIdx = list.findIndex(e => e.classGroup === classGroup && e.source === 'autosave');
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const autosaveEntry = { id, classGroup, source, name, savedAt: now, createdAt, data };
+        const autosaveEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data };
         if (existingIdx >= 0) list.splice(existingIdx, 1, autosaveEntry);
         else list.push(autosaveEntry);
       } else if (source === 'manual-save') {
@@ -23138,13 +23629,14 @@ function hideFailure() {
         );
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const manualEntry = { id, classGroup, source, name, savedAt: now, createdAt, data };
+        const manualEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data };
         if (existingIdx >= 0) list.splice(existingIdx, 1, manualEntry);
         else list.push(manualEntry);
       } else {
         list.push({
           id: boardMakeSessionId(section),
           classGroup,
+          plannerEntryId: activePlannerEntryId,
           source,
           name,
           savedAt: now,
@@ -23346,6 +23838,7 @@ function hideFailure() {
         notes:    (snapshot && snapshot.notes)    || [],
         drawings: (snapshot && snapshot.drawings) || [],
         shapes:   (snapshot && snapshot.shapes)   || [],
+        tables:   (snapshot && snapshot.tables)   || [],
         media:    (snapshot && snapshot.media)    || [],
         backgroundPdf: (snapshot && snapshot.backgroundPdf) || null,
         boardBg: (snapshot && snapshot.boardBg) || null,
@@ -23701,6 +24194,7 @@ function hideFailure() {
         boardSetSessionFileMeta('constellation', entry.createdAt, entry.savedAt);
         _conRestoreSession(entry.data);
         boardSetAutosaveFingerprint('constellation', entry.data);
+        bpSetFromEntryId(entry.plannerEntryId || '');
         navTo('constellation-section');
       } else {
         mdbToast('⚠️ This section is no longer available.');
@@ -24092,7 +24586,7 @@ function hideFailure() {
       }
       const persistedData = boardBuildPersistedSessionData('constellation', data);
       const titleVal = window.conGetTitle ? window.conGetTitle() : '';
-      const filename = applyClassPrefixToFilename(boardDefaultFileName('constellation', titleVal));
+      const filename = boardDefaultFileName('constellation', titleVal);
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportFiles === 'function') {
         try {
@@ -24321,9 +24815,7 @@ function hideFailure() {
     }
 
     async function conBuildSessionFolderBundle(sessionFilename, persistedData) {
-      const normalizedFilename = applyClassPrefixToFilename(
-        sessionFilename.endsWith('.js') ? sessionFilename : boardStripJsonExt(sessionFilename) + '.js'
-      );
+      const normalizedFilename = sessionFilename.endsWith('.js') ? sessionFilename : boardStripJsonExt(sessionFilename) + '.js';
       const folderName = boardStripJsonExt(normalizedFilename);
       const attachmentBundle = await conPrepareAttachmentBundle(folderName);
 
@@ -24795,7 +25287,7 @@ function hideFailure() {
       const { canvas, now } = result;
       canvas.toBlob(blob => {
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = applyClassPrefixToFilename('constellation_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.png');
+        a.download = 'constellation_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.png';
         a.click(); URL.revokeObjectURL(a.href);
       }, 'image/png');
     }
@@ -26062,11 +26554,7 @@ function hideFailure() {
         return autosaveGroup;
       }
 
-      const firstToken = name.split('_')[0] || '';
-      if (!firstToken) return '';
-      if (!name.includes('_')) return '';
-      if (/^(constellation|textanalysis|session|autosave)$/i.test(firstToken)) return '';
-      return firstToken;
+      return '';
     }
 
     function historyBuildEntry(target, file) {
@@ -26184,6 +26672,17 @@ function hideFailure() {
       historyRenderList();
     }
 
+    function historyDisplayBaseName(entry) {
+      const base = String(entry.baseName || entry.filename || '');
+      const cg = entry.classGroup || '';
+      if (!cg) return base;
+      const safePrefix = sanitizeFilenamePart(cg) + '_';
+      if (base.toLowerCase().startsWith(safePrefix.toLowerCase())) {
+        return base.slice(safePrefix.length) || base;
+      }
+      return base;
+    }
+
     function historyRenderList() {
       const list = document.getElementById('history-list');
       if (!list) return;
@@ -26250,8 +26749,9 @@ function hideFailure() {
         checkTd.appendChild(chk);
 
         const nameTd = document.createElement('td');
-        nameTd.className = 'history-row-name';
-        nameTd.textContent = entry.baseName || entry.filename;
+        nameTd.className = 'history-row-name history-row-name-clickable';
+        nameTd.textContent = historyDisplayBaseName(entry);
+        nameTd.onclick = () => historyLoadSavedFile(entry);
         if (historyFilterText) {
           const cacheKey = historyEntryKey(entry);
           const cached = historyContentCache.get(cacheKey);
@@ -26289,65 +26789,73 @@ function hideFailure() {
         const actionTd = document.createElement('td');
         actionTd.className = 'history-row-actions';
 
-        const openBtn = document.createElement('button');
-        openBtn.className = 'action-btn btn-grey';
-        openBtn.textContent = 'Open';
-        openBtn.onclick = () => historyLoadSavedFile(entry);
+        const actionsWrap = document.createElement('div');
+        actionsWrap.className = 'history-actions-wrap';
 
-        const openNewBtn = document.createElement('button');
-        openNewBtn.className = 'action-btn btn-grey';
-        openNewBtn.textContent = 'Open in New Window';
-        openNewBtn.onclick = () => boardOpenSessionInNewWindow({ type: 'file', entry });
+        const actionsBtn = document.createElement('button');
+        actionsBtn.className = 'action-btn btn-grey';
+        actionsBtn.textContent = 'Actions ▾';
 
-        const renameBtn = document.createElement('button');
-        renameBtn.className = 'action-btn btn-grey';
-        renameBtn.textContent = '✏️ Rename';
-        renameBtn.onclick = () => historyRenameEntry(entry);
+        function openActionsMenu(ev) {
+          if (ev) ev.stopPropagation();
+          const isOpen = menu.classList.contains('open');
+          document.querySelectorAll('.history-actions-menu.open').forEach(m => m.classList.remove('open'));
+          if (!isOpen) {
+            menu.classList.add('open');
+            setTimeout(() => document.addEventListener('click', function _close() {
+              menu.classList.remove('open');
+              document.removeEventListener('click', _close);
+            }), 0);
+          }
+        }
 
-        const duplicateBtn = document.createElement('button');
-        duplicateBtn.className = 'action-btn btn-grey';
-        duplicateBtn.textContent = '⧉ Duplicate';
-        duplicateBtn.onclick = () => historyDuplicateEntry(entry);
+        actionsBtn.onclick = openActionsMenu;
 
-        const previewBtn = document.createElement('button');
-        previewBtn.className = 'action-btn btn-grey';
-        previewBtn.textContent = '👁 Preview';
-        previewBtn.onclick = () => historyPreviewEntry(entry);
+        row.addEventListener('contextmenu', (ev) => {
+          ev.preventDefault();
+          openActionsMenu(ev);
+        });
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'action-btn btn-red';
-        deleteBtn.textContent = '🗑 Delete';
-        deleteBtn.onclick = () => historyDeleteEntry(entry);
+        const menu = document.createElement('div');
+        menu.className = 'history-actions-menu';
+
+        function menuItem(label, action, danger) {
+          const btn = document.createElement('button');
+          btn.textContent = label;
+          if (danger) btn.className = 'danger';
+          btn.onclick = () => { menu.classList.remove('open'); action(); };
+          menu.appendChild(btn);
+        }
+
+        menuItem('Open', () => historyLoadSavedFile(entry));
+        menuItem('Open in New Window', () => boardOpenSessionInNewWindow({ type: 'file', entry }));
+        if (window.Desktop && Desktop.isElectron()) {
+          menuItem('📂 Show in Folder', () => {
+            const rel = historyEntryRelativePath(entry);
+            const folderPath = historyEntryIsNestedPath(entry) ? rel.split('/')[0] : rel;
+            Desktop.showInFolder(entry.target, folderPath);
+          });
+        }
 
         if (entry.source === 'archived') {
-          const unarchiveBtn = document.createElement('button');
-          unarchiveBtn.className = 'action-btn btn-grey';
-          unarchiveBtn.textContent = '↩ Unarchive';
-          unarchiveBtn.onclick = () => historyUnarchiveEntry(entry);
-          actionTd.appendChild(openBtn);
-          actionTd.appendChild(openNewBtn);
-          actionTd.appendChild(unarchiveBtn);
-          actionTd.appendChild(deleteBtn);
+          menuItem('↩ Unarchive', () => historyUnarchiveEntry(entry));
         } else {
-          const archiveBtn = document.createElement('button');
-          archiveBtn.className = 'action-btn btn-grey';
-          archiveBtn.textContent = '🗄 Archive';
-          archiveBtn.onclick = () => historyArchiveEntry(entry);
-          actionTd.appendChild(openBtn);
-          actionTd.appendChild(openNewBtn);
           if (entry.target === 'mindmaps') {
-            const versionsBtn = document.createElement('button');
-            versionsBtn.className = 'action-btn btn-grey';
-            versionsBtn.textContent = 'Versions';
-            versionsBtn.onclick = () => conShowVersionHistory(entry);
-            actionTd.appendChild(versionsBtn);
+            menuItem('Versions', () => conShowVersionHistory(entry));
           }
-          actionTd.appendChild(previewBtn);
-          actionTd.appendChild(renameBtn);
-          actionTd.appendChild(duplicateBtn);
-          actionTd.appendChild(archiveBtn);
-          actionTd.appendChild(deleteBtn);
+          menuItem('👁 Preview', () => historyPreviewEntry(entry));
+          menuItem('✏️ Rename', () => historyRenameEntry(entry));
+          menuItem('⧉ Duplicate', () => historyDuplicateEntry(entry));
+          menuItem('🗄 Archive', () => historyArchiveEntry(entry));
         }
+
+        const hr = document.createElement('hr');
+        menu.appendChild(hr);
+        menuItem('🗑 Delete', () => historyDeleteEntry(entry), true);
+
+        actionsWrap.appendChild(actionsBtn);
+        actionsWrap.appendChild(menu);
+        actionTd.appendChild(actionsWrap);
         row.appendChild(checkTd);
         row.appendChild(nameTd);
         row.appendChild(typeTd);
@@ -26766,6 +27274,7 @@ function hideFailure() {
             : (entry.filename ? boardStripJsonExt(entry.filename) : null);
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
+          bpSetFromEntryId(data._plannerEntryId || '');
           // Always update title from loaded filename
           const _conHAutoTitle = boardStripJsonExt(entry.filename || '');
           if (_conHAutoTitle) {
@@ -26839,6 +27348,24 @@ function hideFailure() {
               const fromRel = (newFolder || oldFolder) + '/' + oldInnerFile;
               const toRel = (newFolder || oldFolder) + '/' + newFilename;
               await Desktop.renameByPath(entry.target, fromRel, toRel);
+            }
+            // Rename version history files that carry the old base name
+            const oldBase = boardStripJsonExt(oldInnerFile);
+            const newBase = boardStripJsonExt(newFilename);
+            if (oldBase !== newBase && typeof Desktop.listByPath === 'function') {
+              const activeFolder = newFolder || oldFolder;
+              const histPath = activeFolder + '/history';
+              try {
+                const listed = await Desktop.listByPath(entry.target, histPath, { extensions: ['.js', '.json'], recursive: false });
+                const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+                for (const vf of vFiles) {
+                  const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
+                  if (vfname.startsWith(oldBase + '.v')) {
+                    const suffix = vfname.slice(oldBase.length);
+                    await Desktop.renameByPath(entry.target, histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => {});
+                  }
+                }
+              } catch(e) { /* version renames are best-effort */ }
             }
             result = { ok: true };
           } else {
@@ -26937,9 +27464,31 @@ function hideFailure() {
     function historyDuplicateEntry(entry) {
       if (!entry || !entry.target || !entry.filename) return;
       _historyDuplicateEntry = entry;
-      const suggestedName = boardStripJsonExt(historyDuplicateFilename(entry));
+
+      // Show just the bare session title (no class prefix) in the name input
+      const rawBase = boardStripJsonExt(entry.filename || '');
+      const bareTitle = historyDisplayBaseName({ baseName: rawBase, classGroup: entry.classGroup });
       const input = document.getElementById('history-duplicate-input');
-      if (input) input.value = suggestedName;
+      if (input) input.value = bareTitle;
+
+      // Populate class selector
+      const sel = document.getElementById('history-duplicate-class');
+      if (sel) {
+        sel.innerHTML = '<option value="">— No class —</option>';
+        const groupKeys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+          ? Object.keys(CLASS_GROUPS_META)
+              .filter(k => !(CLASS_GROUPS_META[k] && CLASS_GROUPS_META[k].archived))
+              .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
+          : [];
+        groupKeys.forEach(key => {
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = _cgDisplayName(key);
+          sel.appendChild(opt);
+        });
+        sel.value = entry.classGroup || '';
+      }
+
       const overlay = document.getElementById('history-duplicate-overlay');
       if (overlay) overlay.classList.add('active');
       if (input) { input.focus(); input.select(); }
@@ -26962,9 +27511,21 @@ function hideFailure() {
       }
 
       const input = document.getElementById('history-duplicate-input');
-      let rawName = input ? input.value.trim() : '';
-      if (!rawName) rawName = historyDuplicateFilename(entry);
-      const duplicateFilename = rawName.toLowerCase().endsWith('.js') ? rawName : rawName + '.js';
+      const sel   = document.getElementById('history-duplicate-class');
+      const newClassGroup = sel ? (sel.value || '') : '';
+
+      // bare title from input (strip any accidental prefix the user may have typed)
+      let bareTitle = input ? input.value.trim() : '';
+      if (!bareTitle) {
+        bareTitle = historyDisplayBaseName({ baseName: boardStripJsonExt(entry.filename || ''), classGroup: entry.classGroup });
+      }
+      bareTitle = boardStripJsonExt(bareTitle);
+
+      // Apply the new class display-name prefix
+      const newDisplayName = _cgDisplayName(newClassGroup) || '';
+      const safePrefix = sanitizeFilenamePart(newDisplayName);
+      const prefixedName = safePrefix ? (safePrefix + '_' + bareTitle) : bareTitle;
+      const duplicateFilename = (prefixedName || 'session') + '.js';
 
       try {
         const readResult = await historyReadEntryText(entry);
@@ -28227,7 +28788,7 @@ function hideFailure() {
       _sfnOnDone = (typeof onDone === 'function') ? onDone : null;
       _sfnCustomSave = options && typeof options.customSave === 'function' ? options.customSave : null;
       const input = document.getElementById('save-filename-input');
-      input.value = applyClassPrefixToFilename(defaultName);
+      input.value = defaultName;
       document.getElementById('save-filename-overlay').classList.add('active');
       setTimeout(() => {
         input.focus();
@@ -28239,7 +28800,6 @@ function hideFailure() {
       if (!_sfnBlob) return;
       let name = (document.getElementById('save-filename-input').value || 'session').trim();
       if (!name.endsWith('.js')) name = boardStripJsonExt(name) + '.js';
-      name = applyClassPrefixToFilename(name);
 
       if (_sfnCustomSave) {
         const saveFn = _sfnCustomSave;
@@ -31810,6 +32370,17 @@ async function conConvertPdfMediaItemToPng(item) {
       </div>
     </div>
 
+<!-- ── Planner timeslot "browse all" overlay ──────────────────────────── -->
+<div id="con-bp-all-overlay" style="display:none;position:fixed;inset:0;z-index:12500;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border:2px solid #111;border-radius:8px;padding:16px 18px;min-width:300px;max-width:480px;width:90%;max-height:80vh;display:flex;flex-direction:column;gap:10px;box-shadow:3px 3px 0 #bbb;font-family:inherit;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div id="con-bp-all-title" style="font-weight:900;font-size:0.85rem;letter-spacing:0.01em;"></div>
+      <button id="con-bp-all-close-btn" class="action-btn btn-grey" style="font-size:0.75rem;flex-shrink:0;" onclick="bpAllClose()"></button>
+    </div>
+    <div id="con-bp-all-list" style="overflow-y:auto;flex:1;min-height:60px;"></div>
+  </div>
+</div>
+
 <!-- ── Save-note-to-Planner modal ─────────────────────────────────────── -->
 <div id="wn-planner-modal" style="display:none;position:fixed;inset:0;z-index:12000;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
   <div style="background:#fff;border:2px solid #111;border-radius:8px;padding:18px 20px 16px;min-width:300px;max-width:380px;width:90%;box-shadow:3px 3px 0 #bbb;font-family:inherit;font-size:.82rem;">
@@ -31844,5 +32415,15 @@ async function conConvertPdfMediaItemToPng(item) {
     <div id="wn-planner-status" style="margin-top:8px;font-size:.76rem;color:#555;min-height:1em;text-align:right;"></div>
   </div>
 </div>
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+  Desktop.onDataChanged(function (data) {
+    if (data && data.filename === 'class-groups.js') {
+      showDataChangedBanner(data);
+    }
+  });
+})();
+</script>
 </body>
 </html>

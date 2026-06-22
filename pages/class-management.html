@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -150,13 +150,7 @@
             <span id="remote-connected-badge" style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
         </button>
         <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool" data-i18n-title="links_btn_title">☰</button>
-        <div id="cm-lang-switcher" style="display:flex;align-items:center;gap:0;border:1px solid #ccc;border-radius:5px;overflow:hidden;flex-shrink:0;margin-left:2px;">
-            <button onclick="setLang(null)" id="lang-btn-auto" title="Auto (global)" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">Auto</button>
-            <button onclick="setLang('en')" id="lang-btn-en" title="English" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">EN</button>
-            <button onclick="setLang('fr')" id="lang-btn-fr" title="Français" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">FR</button>
-            <button onclick="setLang('de')" id="lang-btn-de" title="Deutsch" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">DE</button>
-            <button onclick="setLang('it')" id="lang-btn-it" title="Italiano" style="padding:3px 7px;font-size:0.6rem;font-weight:700;border:none;border-left:1px solid #ccc;border-radius:0;background:#f5f5f5;color:#555;cursor:pointer;transition:all 0.12s;letter-spacing:0.3px;line-height:1;">IT</button>
-        </div>
+
         <button class="btn-objectives" onclick="openCreditsModal()" title="Credits" data-i18n-title="credits_btn_title">ℹ️ Credits</button>
         <button id="menu-minimize-btn" onclick="toggleMenuCollapse(event)" title="Minimise menu" aria-label="Minimise menu" data-i18n-title="menu_minimize_title" data-i18n-aria="menu_minimize_title">[-]</button>
         <div id="utility-section" style="display: contents;"></div>
@@ -374,7 +368,7 @@
             <small data-i18n="settings_edit_autoflag_small">Auto-flag low-participation students</small>
         </span>
     </button>
-    <button class="db-popup-btn" onclick="closeSettingsPopup(); cpOpenManager();">
+    <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html');">
         <span class="db-popup-btn-icon">📐</span>
         <span class="db-popup-btn-text">
             <strong data-i18n="settings_class_plan">Class Plan</strong>
@@ -431,6 +425,7 @@
 
 	<div style="display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin: 12px 0 16px;">
 		<div class="group-btns" id="group-container" style="margin:0; flex-wrap:wrap; justify-content:center;"></div>
+		<button id="group-view-toggle" onclick="toggleGroupView()" style="display:none; font-size:0.65rem; padding:2px 7px; border:1px solid #ccc; border-radius:4px; background:#f5f5f5; color:#555; cursor:pointer; white-space:nowrap; flex-shrink:0;"></button>
 	</div>
 	<div id="cms-active-context" style="display:none; text-align:center; margin:-8px 0 10px; font-size:0.75rem; font-weight:700; color:#555; letter-spacing:0.3px;"></div>
 	<!-- Container -->
@@ -535,9 +530,13 @@
                     </div>
                 </div>
             </div>
+            <div id="cms-plan-chip" style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px;">
+                📋 <button id="cms-plan-chip-btn" style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:0.76rem;font-weight:600;padding:0;text-decoration:underline;" onclick="Desktop && Desktop.openTool('class-plan.html')"></button>
+            </div>
             <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; flex-wrap:wrap; gap:2px;">
-                <button class="rsp-item" onclick="cpAutoGroupByTeams()" title="Automatically fill seats grouping present students by team" data-i18n="rp_group_teams" data-i18n-title="rp_group_teams_title">🎲 Group by teams</button>
-                <button id="roster-plan-reset-btn" class="rsp-item" onclick="cpResetToOriginalPlan()" title="Restore original seat arrangement" data-i18n="rp_reset_seats" data-i18n-title="rp_reset_seats_title" style="display:none">↩ Reset seats</button>
+                <button class="rsp-item rsp-item-black" onclick="cpAutoGroupByTeams()" title="Automatically fill seats grouping present students by team" data-i18n="rp_group_teams" data-i18n-title="rp_group_teams_title">🎲 Group by teams</button>
+                <button id="roster-plan-reset-btn" class="rsp-item rsp-item-black" onclick="cpResetToOriginalPlan()" title="Restore original seat arrangement" data-i18n="rp_reset_seats" data-i18n-title="rp_reset_seats_title" style="display:none">↩ Reset seats</button>
+                <button id="roster-plan-save-btn" class="rsp-item rsp-item-black" onclick="cpSavePlanSeats()" title="Save current seat arrangement to file" data-i18n="rp_save_seats" data-i18n-title="rp_save_seats_title" style="display:none">💾 Save seats</button>
             </div>
             <ul id="roster-list" class="roster-list">
                 <li style="color:#999; padding: 20px; text-align: center;" data-i18n="roster_select_group">Select a group...</li>
@@ -1007,6 +1006,9 @@
     // Groups, roles, and settings are loaded from config.js at startup (see initApp below)
     let rawData = {};
     let rawMeta = {};
+    let studentRoster = {}; // uuid → {uuid, firstName, lastName, dob, adminClass, sen}
+    let plannerClasses = {}; // cfg.classes from planner-config.js keyed by class id
+    let slotViewActive = true; // show planner slot buttons vs. plain group buttons
 
     const teamColors = [
         { name: "Red", hex: "#ffcccc", border: "#ff0000" },
@@ -1024,6 +1026,7 @@
     let studentGroups = {}; 
     let selectedGroupName = null;
     let selectedHalfGroup = null; // null = both halves, 'A' or 'B' = filtered half
+    let selectedPlannerSlot = null; // { day, time, halfGroup } — set when a planner slot button is clicked
     let currentTeamsActive = false;
     let currentRequestedTeamCount = 0; // number of teams requested in the last createTeams call (mode='total')
     let teamPickStateByGroup = {};
@@ -1303,7 +1306,8 @@
         if (data.nameDisplayMode !== undefined && ['full','first','last'].includes(data.nameDisplayMode)) { nameDisplayMode = data.nameDisplayMode; }
         const dn = document.getElementById('display-name');
         if (dn) {
-            dn.textContent = (data.displayName != null) ? data.displayName : (selectedGroupName || '--');
+            const _resolvedGrpName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : (selectedGroupName || '--');
+            dn.textContent = (data.displayName != null) ? data.displayName : _resolvedGrpName;
             dn.style.color = data.displayNameColor || '';
             if (data.displayNameBlinking) {
                 dn.classList.remove('blinking');
@@ -1934,7 +1938,7 @@
                 actionButtons: normalizeActionButtonSettings(actionButtonSettings)
             },
             launcherSettings: loadedConfig.launcherSettings || {},
-            classPlans: classPlans
+            classPlans: _cpSerializablePlans()
         };
 
         // Preserve classGroups/classGroupsMeta and active context in the cache (they live in class-groups.js, not config.js).
@@ -2015,14 +2019,55 @@
         return p;
     }
 
-    // Build studentGroups from rawData (called after script load)
+    async function _cmsLoadStudentRoster() {
+        if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return;
+        try {
+            const r = await Desktop.readText(CONFIG_FILE_TARGET, 'students.js');
+            if (r?.ok && r.content) {
+                const fn = new Function(r.content + '; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+                const arr = fn();
+                if (Array.isArray(arr)) {
+                    studentRoster = {};
+                    arr.forEach(s => { if (s && s.uuid) studentRoster[s.uuid] = s; });
+                }
+            }
+        } catch (e) {}
+    }
+
+    function _resolveStudentsForGroup(groupId) {
+        const meta = rawMeta[groupId];
+        const uuids = meta && Array.isArray(meta.students) && meta.students.length > 0 ? meta.students : null;
+        if (uuids && typeof uuids[0] === 'string' && uuids[0].startsWith('st-')) {
+            return uuids.map(sid => {
+                const s = studentRoster[sid] || { uuid: sid, firstName: '', lastName: '' };
+                const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() || sid;
+                return { uuid: sid, name };
+            });
+        }
+        const names = rawData[groupId] || [];
+        return names.map(name => ({ uuid: null, name: String(name) }));
+    }
+
+    function _halfGroupFilter(allStudents, halfGroupArray) {
+        if (!halfGroupArray || !halfGroupArray.length) return allStudents;
+        if (typeof halfGroupArray[0] === 'string' && halfGroupArray[0].startsWith('st-')) {
+            const uuidSet = new Set(halfGroupArray);
+            return allStudents.filter(s => s.uuid && uuidSet.has(s.uuid));
+        }
+        const nameSet = new Set(halfGroupArray.map(n => String(n).toUpperCase()));
+        return allStudents.filter(s => nameSet.has(String(s.name || '').toUpperCase()));
+    }
+
+    // Build studentGroups from rawMeta/rawData (called after script load)
     function buildStudentGroups() {
-        Object.keys(rawData).forEach(group => {
+        const allGroupIds = Object.keys(rawMeta).length ? Object.keys(rawMeta) : Object.keys(rawData);
+        allGroupIds.forEach(group => {
             if (rawMeta[group] && rawMeta[group].archived) return;
             if (!studentGroups[group]) {
-                studentGroups[group] = rawData[group].map((name) => ({
+                studentGroups[group] = _resolveStudentsForGroup(group).map(s => ({
                     id: Date.now() + Math.random(),
-                    name: name,
+                    uuid: s.uuid || null,
+                    name: s.name,
                     isPicked: false,
                     isAbsent: false,
                     pluses: 0,
@@ -2038,19 +2083,31 @@
         return String(Math.floor(total / 60) % 24).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
     }
 
-    async function autoSelectPlannerGroup() {
+    async function loadPlannerClasses() {
         try {
             if (!window.Desktop || !Desktop.isElectron()) return;
             var r = await Desktop.readText('user', 'planner-config.js');
             if (!r || !r.ok || !r.content) return;
-
-            // Parse planner config without eval — strip comment lines, slice from the assignment
             var prefix = 'window.PLANNER_CONFIG = ';
             var body = r.content.split('\n').filter(function (l) { return !l.trim().startsWith('//'); }).join('\n');
             var startIdx = body.indexOf(prefix);
             if (startIdx === -1) return;
             var plannerCfg = JSON.parse(body.slice(startIdx + prefix.length).trim().replace(/;\s*$/, ''));
-            if (!plannerCfg || !plannerCfg.classes) return;
+            if (plannerCfg && plannerCfg.classes) {
+                plannerClasses = plannerCfg.classes;
+                // Store semester info for auto-select
+                plannerClasses._semesters  = plannerCfg.semesters || [];
+                plannerClasses._activeSemId = plannerCfg.activeSemesterId || '';
+            }
+        } catch (e) {
+            console.warn('loadPlannerClasses:', e);
+        }
+    }
+
+    async function autoSelectPlannerGroup() {
+        try {
+            var classes = plannerClasses;
+            if (!Object.keys(classes).filter(k => !k.startsWith('_')).length) return;
 
             // Current day and time
             var now = new Date();
@@ -2059,8 +2116,8 @@
             var todayStr = now.toISOString().slice(0, 10);
 
             // Check active semester dates and holidays
-            var semesters = plannerCfg.semesters || [];
-            var activeSem = semesters.find(function (s) { return s.id === plannerCfg.activeSemesterId; }) || semesters[0];
+            var semesters = classes._semesters || [];
+            var activeSem = semesters.find(function (s) { return s.id === classes._activeSemId; }) || semesters[0];
             if (activeSem) {
                 if (activeSem.semesterStart && todayStr < activeSem.semesterStart) return;
                 if (activeSem.semesterEnd   && todayStr > activeSem.semesterEnd)   return;
@@ -2070,20 +2127,24 @@
                 if (onHoliday) return;
             }
 
-            // Find first class whose schedule slot covers now
-            var classes = plannerCfg.classes;
-            var matched = Object.keys(classes).find(function (cid) {
+            // Find first class + slot that covers now
+            var matchedId = null, matchedSlot = null;
+            Object.keys(classes).filter(k => !k.startsWith('_')).find(function (cid) {
                 if (rawMeta[cid] && rawMeta[cid].archived) return false;
-                return (classes[cid].schedule || []).some(function (slot) {
-                    if (parseInt(slot.day) !== dow) return false;
-                    var start = slot.time || '';
-                    var end   = slot.timeEnd || (start ? _plannerTimeAdd(start, 60) : '');
+                var slot = (classes[cid].schedule || []).find(function (s) {
+                    if (parseInt(s.day) !== dow) return false;
+                    var start = s.time || '';
+                    var end   = s.timeEnd || (start ? _plannerTimeAdd(start, 60) : '');
                     return start && nowTime >= start && nowTime <= end;
                 });
+                if (slot) { matchedId = cid; matchedSlot = slot; return true; }
             });
 
-            if (matched && rawData[matched] && !selectedGroupName) {
-                selectGroup(matched, null, null);
+            if (matchedId && rawMeta[matchedId] && !selectedGroupName) {
+                var halfGroup = (matchedSlot && matchedSlot.halfGroup) || null;
+                var btn = document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"][data-half="${halfGroup || ''}"]`)
+                       || document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"]`);
+                selectGroup(matchedId, halfGroup, btn);
             }
         } catch (e) {
             console.warn('planner auto-select:', e);
@@ -2108,7 +2169,9 @@
         }
         loadCustomSettingsFromConfig();
         await refreshSoundFileList(false);
+        await _cmsLoadStudentRoster();
         buildStudentGroups();
+        await loadPlannerClasses();
         renderGroupButtons();
         _updateActiveContextChip();
         // Apply saved UI toggle states
@@ -2191,7 +2254,7 @@
         rawMeta[groupName].archived = true;
 
         // Save updated meta to class-groups.js
-        const result = await persistGroupsToUserFile(rawData, rawMeta);
+        const result = await persistGroupsToUserFile(rawMeta);
         if (!result?.ok && result?.mode !== 'download') {
             showToast('Failed to save archive status: ' + (result?.error || 'unknown error'), true);
             delete rawMeta[groupName].archived;
@@ -2236,7 +2299,7 @@
         if (!rawMeta[groupName]) rawMeta[groupName] = {};
         delete rawMeta[groupName].archived;
 
-        const result = await persistGroupsToUserFile(rawData, rawMeta);
+        const result = await persistGroupsToUserFile(rawMeta);
         if (!result?.ok && result?.mode !== 'download') {
             showToast('Failed to save unarchive status: ' + (result?.error || 'unknown error'), true);
             rawMeta[groupName].archived = true;
@@ -2258,9 +2321,10 @@
 
         // Re-add to runtime studentGroups
         if (!studentGroups[groupName]) {
-            studentGroups[groupName] = rawData[groupName].map(name => ({
+            studentGroups[groupName] = _resolveStudentsForGroup(groupName).map(s => ({
                 id: Date.now() + Math.random(),
-                name,
+                uuid: s.uuid || null,
+                name: s.name,
                 isPicked: false,
                 isAbsent: false,
                 pluses: 0,
@@ -2285,8 +2349,10 @@
         document.getElementById('add-students-new').value = '';
         autoResizeEgStudents(document.getElementById('add-students-new'));
 
-        // Build chip list from all unique students already in rawData.
-        const allStudents = [...new Set(Object.values(rawData).flat())].sort();
+        // Build chip list from all unique students in roster (or rawData fallback pre-migration).
+        const allStudents = Object.keys(studentRoster).length
+            ? [...new Set(Object.values(studentRoster).map(s => ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase()).filter(Boolean))].sort()
+            : [...new Set(Object.values(rawData).flat())].sort();
         const existingContainer = document.getElementById('add-students-existing');
         existingContainer.innerHTML = '';
         if (allStudents.length > 0) {
@@ -2369,18 +2435,15 @@
         }
     }
 
-    function buildGroupsFileContent(data, meta) {
-        const groupLines = Object.keys(data).map(name => {
-            const students = data[name].map(s => JSON.stringify(s)).join(', ');
-            return `    ${JSON.stringify(name)}: [${students}]`;
-        });
-        const metaLines = Object.keys(data).map(name => {
-            const m = (meta && meta[name]) ? meta[name] : { year: '', semester: '', level: '' };
+    function buildGroupsFileContent(meta) {
+        const metaLines = Object.keys(meta).map(uuid => {
+            const m = meta[uuid] || {};
             const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
-            if (m.halfGroups && (m.halfGroups.A && m.halfGroups.A.length || m.halfGroups.B && m.halfGroups.B.length)) metaEntry.halfGroups = m.halfGroups;
+            if (m.name) metaEntry.name = m.name;
+            if (m.halfGroups && (m.halfGroups.A?.length || m.halfGroups.B?.length)) metaEntry.halfGroups = m.halfGroups;
+            if (m.students && m.students.length) metaEntry.students = m.students;
             if (m.archived) metaEntry.archived = true;
-            const metaObj = JSON.stringify(metaEntry);
-            return `    ${JSON.stringify(name)}: ${metaObj}`;
+            return `    ${JSON.stringify(uuid)}: ${JSON.stringify(metaEntry)}`;
         });
         const _ay = (loadedConfigCache && loadedConfigCache.activeYear) || '';
         const _as = (loadedConfigCache && loadedConfigCache.activeSemester) || null;
@@ -2392,22 +2455,18 @@
             `  "activeSemester": ${JSON.stringify(_as)},`,
             `  "activeSemesterStart": ${JSON.stringify(_ass)},`,
             `  "activeSemesterEnd": ${JSON.stringify(_ase)},`,
-            '  "classGroups": {',
-            groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
-            '  },',
             '  "classGroupsMeta": {',
             metaLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
             '  }',
             '};',
             '',
-            'var CLASS_GROUPS = CLASS_GROUPS_DATA.classGroups || {};',
             'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
             ''
         ].join('\n');
     }
 
-    async function persistGroupsToUserFile(data, meta) {
-        const content = buildGroupsFileContent(data, meta);
+    async function persistGroupsToUserFile(meta) {
+        const content = buildGroupsFileContent(meta);
 
         if (window.Desktop && typeof window.Desktop.saveText === 'function') {
             try {
@@ -3466,24 +3525,64 @@ function closeResultsRankingModal() {
 function showBestStudents() { openResultsRankingModal(); }
 function closeBestStudents() { closeResultsRankingModal(); }
 
+    const _SLOT_DAY_KEYS = ['cms_daySun','cms_dayMon','cms_dayTue','cms_dayWed','cms_dayThu','cms_dayFri','cms_daySat'];
+
     function renderGroupButtons() {
         const container = document.getElementById("group-container");
-        Object.keys(studentGroups).forEach(groupName => {
+        container.innerHTML = '';
+
+        const anySlots = Object.keys(plannerClasses).filter(k => !k.startsWith('_'))
+            .some(id => (plannerClasses[id].schedule || []).length > 0);
+        const toggleBtn = document.getElementById('group-view-toggle');
+        if (toggleBtn) {
+            toggleBtn.style.display = anySlots ? '' : 'none';
+            toggleBtn.textContent = slotViewActive ? t('cms_view_groups') : t('cms_view_slots');
+        }
+
+        Object.keys(studentGroups).sort((a, b) => {
+            const na = (rawMeta[a] && rawMeta[a].name) ? rawMeta[a].name : a;
+            const nb = (rawMeta[b] && rawMeta[b].name) ? rawMeta[b].name : b;
+            return na.localeCompare(nb);
+        }).forEach(groupName => {
             if (rawMeta[groupName] && rawMeta[groupName].archived) return;
-            const btn = document.createElement("button");
-            btn.className = "btn-group";
-            btn.dataset.group = groupName;
-            btn.textContent = groupName;
+            const displayName = (rawMeta[groupName] && rawMeta[groupName].name) ? rawMeta[groupName].name : groupName;
             const meta = rawMeta[groupName];
             const hasHalves = meta && meta.halfGroups &&
                 ((meta.halfGroups.A && meta.halfGroups.A.length > 0) || (meta.halfGroups.B && meta.halfGroups.B.length > 0));
-            if (hasHalves) {
-                btn.onclick = (e) => { e.stopPropagation(); showHalfGroupPicker(groupName, btn); };
+            const slots = (plannerClasses[groupName] && plannerClasses[groupName].schedule) || [];
+
+            if (slotViewActive && slots.length > 0) {
+                slots.forEach(slot => {
+                    const btn = document.createElement("button");
+                    btn.className = "btn-group";
+                    btn.dataset.group = groupName;
+                    btn.dataset.half = slot.halfGroup || '';
+                    const dayLabel = t(_SLOT_DAY_KEYS[parseInt(slot.day)] || '') || '';
+                    const timeLabel = slot.time ? slot.time.slice(0, 5) : '';
+                    const halfLabel = slot.halfGroup ? ' ½' + slot.halfGroup : '';
+                    btn.textContent = displayName + (dayLabel ? ' ' + dayLabel : '') + (timeLabel ? ' ' + timeLabel : '') + halfLabel;
+                    btn.onclick = () => { selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' }; selectGroup(groupName, slot.halfGroup || null, btn); };
+                    container.appendChild(btn);
+                });
             } else {
-                btn.onclick = () => selectGroup(groupName, null, btn);
+                const btn = document.createElement("button");
+                btn.className = "btn-group";
+                btn.dataset.group = groupName;
+                btn.dataset.half = '';
+                btn.textContent = displayName;
+                if (hasHalves) {
+                    btn.onclick = (e) => { selectedPlannerSlot = null; e.stopPropagation(); showHalfGroupPicker(groupName, btn); };
+                } else {
+                    btn.onclick = () => { selectedPlannerSlot = null; selectGroup(groupName, null, btn); };
+                }
+                container.appendChild(btn);
             }
-            container.appendChild(btn);
         });
+    }
+
+    function toggleGroupView() {
+        slotViewActive = !slotViewActive;
+        renderGroupButtons();
     }
 
     function selectGroup(groupName, halfGroup, activeBtn) {
@@ -3511,10 +3610,38 @@ function closeBestStudents() { closeResultsRankingModal(); }
         if (teamBtn) { teamBtn.style.display = currentTeamsActive ? '' : 'none'; teamBtn.disabled = !currentTeamsActive; }
         loadObjectivesForClass(groupName);
         updateUtilityButtons();
+        _cmsUpdatePlanChip();
         renderRoster();
         renderRanking();
         updateDbAutosaveStatusLabel();
         applyAutoFlags(groupName);
+    }
+
+    function _cmsUpdatePlanChip() {
+        const chip = document.getElementById('cms-plan-chip');
+        const chipBtn = document.getElementById('cms-plan-chip-btn');
+        if (!chip || !chipBtn) return;
+        if (!selectedPlannerSlot || !selectedGroupName) { chip.style.display = 'none'; return; }
+        const ps = selectedPlannerSlot;
+        const plans = (classPlans[selectedGroupName] || []);
+        const matched = plans.find(p => {
+            if (!p || !p.plannerSlot) return false;
+            return String(p.plannerSlot.day) === String(ps.day) &&
+                   (p.plannerSlot.time || '').slice(0, 5) === (ps.time || '').slice(0, 5) &&
+                   (p.plannerSlot.halfGroup || '') === (ps.halfGroup || '');
+        });
+        if (!matched) { chip.style.display = 'none'; return; }
+        chipBtn.textContent = matched.name;
+        chip.style.display = 'flex';
+        // Activate the linked plan and switch to plan view
+        cpSetActive(selectedGroupName, matched.id);
+        if (!rosterPlanView) {
+            rosterPlanView = true;
+            const btn = document.getElementById('roster-plan-view-btn');
+            if (btn) btn.classList.add('active');
+            const toolbar = document.getElementById('roster-plan-toolbar');
+            if (toolbar) toolbar.style.display = 'flex';
+        }
     }
 
 function updateUtilityButtons() {
@@ -3530,10 +3657,10 @@ function reshuffleTeams() {
     if (!selectedGroupName || !currentTeamsActive) return;
 
     const allStudents = studentGroups[selectedGroupName];
-    const _halfNames = selectedHalfGroup
+    const _halfArr = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
         : null;
-    const students = _halfNames ? allStudents.filter(s => _halfNames.includes(s.name)) : allStudents;
+    const students = _halfArr ? _halfGroupFilter(allStudents, _halfArr) : allStudents;
     const activeStudents = students.filter(s => !s.isAbsent);
 
     if (activeStudents.length === 0) {
@@ -3596,10 +3723,10 @@ function processTeamCreation(value, mode) {
     }
 
     const allStudents = studentGroups[selectedGroupName];
-    const _halfNames = selectedHalfGroup
+    const _halfArr2 = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
         : null;
-    const students = _halfNames ? allStudents.filter(s => _halfNames.includes(s.name)) : allStudents;
+    const students = _halfArr2 ? _halfGroupFilter(allStudents, _halfArr2) : allStudents;
     const activeStudents = students.filter(s => !s.isAbsent);
     const previousTeamsById = {};
     activeStudents.forEach(s => { previousTeamsById[s.id] = s.teamId || null; });
@@ -4293,10 +4420,10 @@ function assignRoles() {
     }
 
     const allStudents = studentGroups[selectedGroupName];
-    const _halfNames = selectedHalfGroup
+    const _halfArr3 = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
         : null;
-    const students = _halfNames ? allStudents.filter(s => _halfNames.includes(s.name)) : allStudents;
+    const students = _halfArr3 ? _halfGroupFilter(allStudents, _halfArr3) : allStudents;
     const activeStudents = students.filter(s => !s.isAbsent);
 
     students.forEach(s => {
@@ -4495,7 +4622,7 @@ function setStudentRole(studentOrId, role) {
     const halfNames = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
         : null;
-    const students = halfNames ? allStudents.filter(s => halfNames.includes(s.name)) : allStudents;
+    const students = halfNames ? _halfGroupFilter(allStudents, halfNames) : allStudents;
 
     const sortedStudents = [...students].sort((a, b) => {
         if (!!a.isAbsent !== !!b.isAbsent) return a.isAbsent ? 1 : -1;
@@ -8981,7 +9108,8 @@ async function persistDbToDisk(sessions) {
     const datePrefix = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     const savePromises = Object.entries(byClass).map(([group, classSessions]) => {
-        const safeGroup = group
+        const displayName = (rawMeta[group] && rawMeta[group].name) ? rawMeta[group].name : group;
+        const safeGroup = displayName
             .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
             .replace(/\s+/g, '_')
             .replace(/^\.+/, '')
@@ -9403,7 +9531,7 @@ function loadTimeMachineSession(index) {
     Object.keys(studentGroups).forEach(groupName => {
         const btn = document.createElement('button');
         btn.className = 'btn-group';
-        btn.textContent = groupName;
+        btn.textContent = (rawMeta[groupName] && rawMeta[groupName].name) ? rawMeta[groupName].name : groupName;
         if (groupName === selectedGroupName) btn.classList.add('active');
         btn.onclick = function() {
             selectedGroupName = groupName;
@@ -9458,7 +9586,7 @@ function exitTimeMachineView() {
     Object.keys(studentGroups).forEach(groupName => {
         const btn = document.createElement('button');
         btn.className = 'btn-group';
-        btn.textContent = groupName;
+        btn.textContent = (rawMeta[groupName] && rawMeta[groupName].name) ? rawMeta[groupName].name : groupName;
         if (groupName === selectedGroupName) btn.classList.add('active');
         btn.onclick = function() {
             selectedGroupName = groupName;
@@ -10494,6 +10622,10 @@ const I18N = {
     remote_btn_title: 'Phone remote',
     links_btn_title: 'Open another tool',
     credits_btn_title: 'Credits',
+    cms_view_groups: '👥 Groups',
+    cms_view_slots: '🗓 Slots',
+    cms_daySun: 'Sun', cms_dayMon: 'Mon', cms_dayTue: 'Tue', cms_dayWed: 'Wed',
+    cms_dayThu: 'Thu', cms_dayFri: 'Fri', cms_daySat: 'Sat',
     menu_minimize_title: 'Minimise menu',
 
     ambient_label: '🌊 Ambient Sound',
@@ -10657,6 +10789,8 @@ const I18N = {
     rp_group_teams_title: 'Automatically fill seats grouping present students by team',
     rp_reset_seats: '↩ Reset seats',
     rp_reset_seats_title: 'Restore original seat arrangement',
+    rp_save_seats: '💾 Save seats',
+    rp_save_seats_title: 'Save current seat arrangement to file',
 
     ctx_absent: 'Absent',
     ctx_flag: '🚩 Flag',
@@ -10869,6 +11003,10 @@ const I18N = {
     remote_btn_title: 'Télécommande',
     links_btn_title: 'Ouvrir un autre outil',
     credits_btn_title: 'Crédits',
+    cms_view_groups: '👥 Groupes',
+    cms_view_slots: '🗓 Créneaux',
+    cms_daySun: 'Dim', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
+    cms_dayThu: 'Jeu', cms_dayFri: 'Ven', cms_daySat: 'Sam',
     menu_minimize_title: 'Réduire le menu',
 
     ambient_label: '🌊 Son d\'ambiance',
@@ -11032,6 +11170,8 @@ const I18N = {
     rp_group_teams_title: 'Remplir les places en regroupant les élèves par équipe',
     rp_reset_seats: '↩ Réinitialiser les places',
     rp_reset_seats_title: 'Restaurer le plan de classe original',
+    rp_save_seats: '💾 Enregistrer les places',
+    rp_save_seats_title: 'Enregistrer la disposition actuelle dans le fichier',
 
     ctx_absent: 'Absent',
     ctx_flag: '🚩 Signaler',
@@ -11244,6 +11384,10 @@ const I18N = {
     remote_btn_title: 'Fernsteuerung',
     links_btn_title: 'Anderes Tool öffnen',
     credits_btn_title: 'Credits',
+    cms_view_groups: '👥 Gruppen',
+    cms_view_slots: '🗓 Zeitfenster',
+    cms_daySun: 'So', cms_dayMon: 'Mo', cms_dayTue: 'Di', cms_dayWed: 'Mi',
+    cms_dayThu: 'Do', cms_dayFri: 'Fr', cms_daySat: 'Sa',
     menu_minimize_title: 'Menü minimieren',
 
     ambient_label: '🌊 Umgebungsklang',
@@ -11407,6 +11551,8 @@ const I18N = {
     rp_group_teams_title: 'Plätze automatisch nach Teams besetzen',
     rp_reset_seats: '↩ Plätze zurücksetzen',
     rp_reset_seats_title: 'Ursprüngliche Sitzordnung wiederherstellen',
+    rp_save_seats: '💾 Plätze speichern',
+    rp_save_seats_title: 'Aktuelle Sitzordnung in der Datei speichern',
 
     ctx_absent: 'Abwesend',
     ctx_flag: '🚩 Markieren',
@@ -11614,6 +11760,10 @@ const I18N = {
     remote_btn_title: 'Telecomando',
     links_btn_title: 'Apri un altro strumento',
     credits_btn_title: 'Crediti',
+    cms_view_groups: '👥 Gruppi',
+    cms_view_slots: '🗓 Slot',
+    cms_daySun: 'Dom', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
+    cms_dayThu: 'Gio', cms_dayFri: 'Ven', cms_daySat: 'Sab',
     menu_minimize_title: 'Riduci il menu',
 
     ambient_label: '🌊 Suono ambientale',
@@ -11777,6 +11927,8 @@ const I18N = {
     rp_group_teams_title: 'Riempi i posti raggruppando gli studenti per squadra',
     rp_reset_seats: '↩ Reimposta posti',
     rp_reset_seats_title: 'Ripristina la disposizione originale dei posti',
+    rp_save_seats: '💾 Salva posti',
+    rp_save_seats_title: 'Salva la disposizione attuale nel file',
 
     ctx_absent: 'Assente',
     ctx_flag: '🚩 Segna',
@@ -12348,8 +12500,23 @@ function cpSetActive(groupName, planId) {
     cpGetPlans(groupName).forEach(p => { p.isActive = (p.id === planId); });
 }
 
+function _cpSerializablePlans() {
+    const out = {};
+    for (const group in classPlans) {
+        out[group] = (classPlans[group] || []).map(p => {
+            const clean = Object.assign({}, p);
+            delete clean._teamViewSeats;
+            delete clean._teamViewRows;
+            delete clean._seatsDirty;
+            return clean;
+        });
+    }
+    return out;
+}
+
 function cpSavePlans() {
-    try { localStorage.setItem('cms-class-plans', JSON.stringify(classPlans)); } catch(_) {}
+    const clean = _cpSerializablePlans();
+    try { localStorage.setItem('cms-class-plans', JSON.stringify(clean)); } catch(_) {}
     persistSettingsToUserFile().catch(() => {});
 }
 
@@ -12460,7 +12627,16 @@ function cpOpenNewPlanConfig() {
     _cpRenderScheduleSlots([]);
     const groupSel = document.getElementById('cp-config-group');
     const groups = Object.keys(studentGroups).filter(g => !rawMeta[g]?.archived);
-    groupSel.innerHTML = groups.map(g => `<option value="${escapeSettingsHtml(g)}"${g === selectedGroupName ? ' selected' : ''}>${escapeSettingsHtml(g)}</option>`).join('');
+    groupSel.innerHTML = groups
+        .sort((a, b) => {
+            const na = (rawMeta[a] && rawMeta[a].name) ? rawMeta[a].name : a;
+            const nb = (rawMeta[b] && rawMeta[b].name) ? rawMeta[b].name : b;
+            return na.localeCompare(nb);
+        })
+        .map(g => {
+            const gdn = (rawMeta[g] && rawMeta[g].name) ? rawMeta[g].name : g;
+            return `<option value="${escapeSettingsHtml(g)}"${g === selectedGroupName ? ' selected' : ''}>${escapeSettingsHtml(gdn)}</option>`;
+        }).join('');
     groupSel.disabled = false;
     document.getElementById('cp-config-modal').style.display = 'flex';
     setTimeout(() => document.getElementById('cp-config-name').focus(), 80);
@@ -13065,17 +13241,19 @@ function renderRosterPlanView() {
     const plan = cpGetActivePlan(selectedGroupName);
     if (!plan) {
         listEl.style.removeProperty('--cp-cols');
-        listEl.innerHTML = '<li style="grid-column:1/-1;padding:20px;text-align:center;color:#aaa;">No active class plan for this group. <button class="btn-mini" style="margin-left:6px;" onclick="cpOpenManager()">Set up a plan →</button></li>';
+        listEl.innerHTML = '<li style="grid-column:1/-1;padding:20px;text-align:center;color:#aaa;">No active class plan for this group. <button class="btn-mini" style="margin-left:6px;" onclick="Desktop.openTool(\'class-plan.html\')">Set up a plan →</button></li>';
         updatePresentCount();
         return;
     }
 
     const lt = plan.layoutType || 'grid';
     const allStudents = studentGroups[selectedGroupName];
-    const halfNames = selectedHalfGroup
+    const _halfRaw = selectedHalfGroup
         ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || null)
         : null;
+    const halfNames = _halfRaw ? new Set(_halfGroupFilter(allStudents, _halfRaw).map(s => s.name)) : null;
     const _resetBtn = document.getElementById('roster-plan-reset-btn');
+    _cpUpdateSaveBtn();
 
     if (lt === 'pods') {
         const roomRows = plan.roomRows || 2, roomCols = plan.roomCols || 3;
@@ -13088,8 +13266,8 @@ function renderRosterPlanView() {
         }
         listEl.style.gridTemplateColumns = colParts.join(' ');
         listEl.classList.add('roster-plan-pods');
-        if (_resetBtn) _resetBtn.style.display = 'none';
-        const seats = plan.seats || [];
+        if (_resetBtn) _resetBtn.style.display = plan._teamViewSeats ? '' : 'none';
+        const seats = plan._teamViewSeats || plan.seats || [];
         const totalTracks = roomCols * podCols + (roomCols - 1);
         for (let roomRow = 0; roomRow < roomRows; roomRow++) {
             if (roomRow > 0) {
@@ -13112,7 +13290,7 @@ function renderRosterPlanView() {
                         const seatId = `${roomRow}:${roomCol}:${podRow}:${podCol}`;
                         const seat = seats.find(s => s.seatId === seatId);
                         let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
-                        if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                        if (halfNames && student && !halfNames.has(student.name)) student = null;
                         const li = _appendRpcSeatIdCell(listEl, seatId, student, plan);
                         if (podRow === 0)           li.dataset.podTop    = '';
                         if (podRow === podRows - 1) li.dataset.podBottom = '';
@@ -13131,7 +13309,7 @@ function renderRosterPlanView() {
             const seatId = `top:${c}`;
             const seat = seats.find(s => s.seatId === seatId);
             let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
-            if (halfNames && student && !halfNames.includes(student.name)) student = null;
+            if (halfNames && student && !halfNames.has(student.name)) student = null;
             _appendRpcSeatIdCell(listEl, seatId, student, plan);
         }
         for (let r = 1; r <= d; r++) {
@@ -13140,13 +13318,13 @@ function renderRosterPlanView() {
                     const seatId = `left:${r}`;
                     const seat = seats.find(s => s.seatId === seatId);
                     let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
-                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                    if (halfNames && student && !halfNames.has(student.name)) student = null;
                     _appendRpcSeatIdCell(listEl, seatId, student, plan);
                 } else if (c === w - 1) {
                     const seatId = `right:${r}`;
                     const seat = seats.find(s => s.seatId === seatId);
                     let student = seat && seat.studentName ? allStudents.find(s => s.name === seat.studentName) : null;
-                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                    if (halfNames && student && !halfNames.has(student.name)) student = null;
                     _appendRpcSeatIdCell(listEl, seatId, student, plan);
                 } else {
                     const spacer = document.createElement('li');
@@ -13173,7 +13351,7 @@ function renderRosterPlanView() {
                     const seat = _viewSeats.find(s => s.row === r && s.col === c);
                     if (seat && seat.studentName) {
                         const st = allStudents.find(s => s.name === seat.studentName);
-                        if (!halfNames || (st && halfNames.includes(st.name))) { colEmpty = false; break; }
+                        if (!halfNames || (st && halfNames.has(st.name))) { colEmpty = false; break; }
                     }
                 }
                 if (colEmpty) _hiddenCols.add(c);
@@ -13190,7 +13368,7 @@ function renderRosterPlanView() {
                 let student = null;
                 if (seat && seat.studentName) {
                     student = allStudents.find(s => s.name === seat.studentName);
-                    if (halfNames && student && !halfNames.includes(student.name)) student = null;
+                    if (halfNames && student && !halfNames.has(student.name)) student = null;
                 }
 
                 const li = document.createElement('li');
@@ -13364,7 +13542,7 @@ function cpPlanSwapSeats(fromRow, fromCol, toRow, toCol) {
     else delete fromSeat.studentName;
     if (toSeat) toSeat.studentName = fromName;
     else seats.push({ row: toRow, col: toCol, studentName: fromName });
-    if (!isTeamView) cpSavePlans();
+    if (!isTeamView) { plan._seatsDirty = true; _cpUpdateSaveBtn(); }
     renderRosterPlanView();
     if (!PRESENTATION_MODE) _broadcastPresentationState();
 }
@@ -13373,7 +13551,8 @@ function cpPlanSwapSeatsBySeatId(fromSeatId, toSeatId) {
     if (!fromSeatId || fromSeatId === toSeatId) return;
     const plan = cpGetActivePlan(selectedGroupName);
     if (!plan) return;
-    const seats = plan.seats || [];
+    const isTeamView = !!plan._teamViewSeats;
+    const seats = isTeamView ? plan._teamViewSeats : (plan.seats || []);
     const fromSeat = seats.find(s => s.seatId === fromSeatId);
     if (!fromSeat) return;
     let toSeat = seats.find(s => s.seatId === toSeatId);
@@ -13381,9 +13560,25 @@ function cpPlanSwapSeatsBySeatId(fromSeatId, toSeatId) {
     const toName   = toSeat ? toSeat.studentName : null;
     if (toName) fromSeat.studentName = toName; else delete fromSeat.studentName;
     if (toSeat) toSeat.studentName = fromName; else seats.push({ seatId: toSeatId, studentName: fromName });
-    cpSavePlans();
+    if (!isTeamView) { plan._seatsDirty = true; _cpUpdateSaveBtn(); }
     renderRosterPlanView();
     if (!PRESENTATION_MODE) _broadcastPresentationState();
+}
+
+function _cpUpdateSaveBtn() {
+    const btn = document.getElementById('roster-plan-save-btn');
+    if (!btn) return;
+    const plan = cpGetActivePlan(selectedGroupName);
+    btn.style.display = (plan && plan._seatsDirty) ? '' : 'none';
+}
+
+function cpSavePlanSeats() {
+    const plan = cpGetActivePlan(selectedGroupName);
+    if (!plan) return;
+    delete plan._seatsDirty;
+    cpSavePlans();
+    _cpUpdateSaveBtn();
+    mdbToast('Seats saved');
 }
 
 function cpAutoGroupByTeams() {
@@ -13414,6 +13609,40 @@ function cpAutoGroupByTeams() {
             const key = s.isAbsent ? '__absent__' : (s.teamId ? String(s.teamId) : '__none__');
             if (!cur || cur.key !== key) { cur = { key, members: [] }; teamRuns.push(cur); }
             cur.members.push(s);
+        }
+
+        // Pods layout: assign each team to its own pod(s), filling bottom-right first
+        const lt = plan.layoutType || 'grid';
+        if (lt === 'pods') {
+            const roomRows = plan.roomRows || 2, roomCols = plan.roomCols || 3;
+            const podRows  = plan.podRows  || 2, podCols  = plan.podCols  || 3;
+            const podCapacity = podRows * podCols;
+            // Pod order: bottom-right first, moving left then up
+            const podOrder = [];
+            for (let pr = roomRows - 1; pr >= 0; pr--)
+                for (let pc = roomCols - 1; pc >= 0; pc--)
+                    podOrder.push([pr, pc]);
+            const newSeats = [];
+            let podIdx = 0, seatInPod = 0;
+            for (const run of teamRuns) {
+                // Each team starts in a fresh pod
+                if (seatInPod > 0) { podIdx++; seatInPod = 0; }
+                for (const student of run.members) {
+                    if (podIdx >= podOrder.length) break;
+                    if (seatInPod >= podCapacity) { podIdx++; seatInPod = 0; }
+                    if (podIdx >= podOrder.length) break;
+                    const [pr, pc] = podOrder[podIdx];
+                    const r = Math.floor(seatInPod / podCols);
+                    const c = seatInPod % podCols;
+                    newSeats.push({ seatId: `${pr}:${pc}:${r}:${c}`, studentName: student.name });
+                    seatInPod++;
+                }
+            }
+            plan._teamViewSeats = newSeats;
+            plan._teamViewRows = null;
+            renderRoster();
+            mdbToast('Seats grouped by team');
+            return;
         }
 
         // Place each team as a compact rectangular block, tiling left-to-right then top-to-bottom.
@@ -13480,9 +13709,9 @@ function cpResetToOriginalPlan() {
     if (!plan || !plan._teamViewSeats) return;
     delete plan._teamViewSeats;
     delete plan._teamViewRows;
-    // Clean up legacy backup fields if present
     delete plan.seatsBackup;
     delete plan.rowsBackup;
+    cpSavePlans();
     renderRoster();
     mdbToast('Seats restored to original arrangement');
 }
@@ -13847,6 +14076,38 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
     }).catch(function () {});
   };
 })();
+
+// u2500u2500 Cross-app data sync u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500u2500
+if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+  window._cmtHotReload = async function (data) {
+    if (!data) return;
+    if (data.filename === 'class-groups.js' && typeof Desktop.readText === 'function') {
+      try {
+        var r = await Desktop.readText('user', 'class-groups.js');
+        if (r && r.ok && r.content) {
+          var fn = new Function(r.content + '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
+          var parsed = fn();
+          if (parsed && (parsed.classGroupsMeta || parsed.classGroups)) {
+            rawData = parsed.classGroups || {};
+            rawMeta = parsed.classGroupsMeta || {};
+            window.CLASS_GROUPS = rawData;
+            window.CLASS_GROUPS_META = rawMeta;
+            studentGroups = {};
+            if (typeof buildStudentGroups === 'function') buildStudentGroups();
+            if (typeof renderGroupButtons === 'function') renderGroupButtons();
+          }
+        }
+      } catch (e) { location.reload(); }
+    } else {
+      location.reload();
+    }
+  };
+  Desktop.onDataChanged(function (data) {
+    if (data && (data.filename === 'class-groups.js' || data.filename === 'config.js')) {
+      showDataChangedBanner(data);
+    }
+  });
+}
 </script>
 
 </body>

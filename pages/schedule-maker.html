@@ -494,8 +494,16 @@
       </div>
       <div class="sm-field">
         <label class="sm-label" data-i18n="smLabelGroup">Class / group</label>
-        <select id="sm-group" class="sm-input sm-select">
+        <select id="sm-group" class="sm-input sm-select" onchange="smOnGroupChange(this.value)">
           <option value="" data-i18n="smGroupPlaceholder">— Select a group —</option>
+        </select>
+      </div>
+      <div class="sm-field" id="sm-half-field" style="display:none;">
+        <label class="sm-label" data-i18n="smLabelHalf">Half group</label>
+        <select id="sm-half" class="sm-input sm-select">
+          <option value="" data-i18n="smHalfAll">— All —</option>
+          <option value="A">½ A</option>
+          <option value="B">½ B</option>
         </select>
       </div>
       <div class="sm-field">
@@ -673,7 +681,9 @@
     return arr;
   }
 
-  // ── Load class-groups.js ─────────────────────────────────
+  // ── Load class-groups.js and students.js ─────────────────
+  let smStudentRoster = {};
+
   async function loadGroups() {
     if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readText === 'function') {
       try {
@@ -682,8 +692,7 @@
           const fn = new Function(
             result.content +
             '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA' +
-            ' : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
-            '   classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+            ' : { classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
           );
           const parsed = fn();
           classGroups = (parsed && parsed.classGroups) ? parsed.classGroups : {};
@@ -694,12 +703,25 @@
       } catch (e) {
         showNotice('Could not load class-groups.js: ' + e.message, true);
       }
+      try {
+        const sr = await Desktop.readText(GROUPS_FILE_TARGET, 'students.js');
+        if (sr?.ok && sr.content) {
+          const sfn = new Function(sr.content + '; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+          const arr = sfn();
+          smStudentRoster = {};
+          if (Array.isArray(arr)) arr.forEach(s => { if (s && s.uuid) smStudentRoster[s.uuid] = s; });
+        }
+      } catch (e) { /* students.js may not exist yet */ }
     } else {
       classGroups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
       classGroupsMeta = (typeof CLASS_GROUPS_META !== 'undefined') ? CLASS_GROUPS_META : {};
       if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
         smActiveYear = CLASS_GROUPS_DATA.activeYear || '';
         smActiveSemester = CLASS_GROUPS_DATA.activeSemester || null;
+      }
+      if (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER)) {
+        smStudentRoster = {};
+        STUDENTS_ROSTER.forEach(s => { if (s && s.uuid) smStudentRoster[s.uuid] = s; });
       }
     }
     populateGroupSelect();
@@ -711,25 +733,41 @@
     while (sel.options.length > 1) sel.remove(1);
     const _activeYearSM = smActiveYear;
     const _activeSemSM = smActiveSemester ? String(smActiveSemester) : '';
-    Object.keys(classGroups)
+    const smGroupKeys = Object.keys(classGroupsMeta).length ? Object.keys(classGroupsMeta) : Object.keys(classGroups);
+    smGroupKeys
       .filter(g => !(classGroupsMeta[g] && classGroupsMeta[g].archived))
       .sort((a, b) => {
         const aActive = (_activeYearSM && (classGroupsMeta[a] || {}).year === _activeYearSM) ? 0 : 1;
         const bActive = (_activeYearSM && (classGroupsMeta[b] || {}).year === _activeYearSM) ? 0 : 1;
         if (aActive !== bActive) return aActive - bActive;
-        return a.localeCompare(b);
+        const na = (classGroupsMeta[a] && classGroupsMeta[a].name) ? classGroupsMeta[a].name : a;
+        const nb = (classGroupsMeta[b] && classGroupsMeta[b].name) ? classGroupsMeta[b].name : b;
+        return na.localeCompare(nb);
       })
       .forEach(g => {
         const opt = document.createElement('option');
         opt.value = g;
         const meta = classGroupsMeta[g] || {};
-        opt.textContent = g + (meta.year ? ' (' + meta.year + ')' : '');
+        const label = meta.name || g;
+        opt.textContent = label + (meta.year ? ' (' + meta.year + ')' : '');
         sel.appendChild(opt);
       });
     if (prev && sel.querySelector('option[value="' + CSS.escape(prev) + '"]')) sel.value = prev;
+    smOnGroupChange(sel.value);
     // Pre-fill semester from active context on first load
     const semSel = document.getElementById('sm-semester');
     if (semSel && !semSel.value && _activeSemSM) semSel.value = _activeSemSM;
+  }
+
+  function smOnGroupChange(groupName) {
+    const halfField = document.getElementById('sm-half-field');
+    const halfSel = document.getElementById('sm-half');
+    if (!halfField || !halfSel) return;
+    const meta = classGroupsMeta[groupName];
+    const hasHalves = meta && meta.halfGroups &&
+      ((meta.halfGroups.A && meta.halfGroups.A.length) || (meta.halfGroups.B && meta.halfGroups.B.length));
+    halfField.style.display = hasHalves ? '' : 'none';
+    halfSel.value = '';
   }
 
   // ── Apply config ─────────────────────────────────────────
@@ -741,13 +779,31 @@
     }
 
     const meta = classGroupsMeta[groupName];
+    const halfVal = (document.getElementById('sm-half') || {}).value || '';
+
+    let rawStudents = (meta && Array.isArray(meta.students) && meta.students.length > 0)
+      ? meta.students
+      : (classGroups[groupName] || []);
+
+    // Apply half-group filter on raw UUID/name list before resolving
+    if (halfVal && meta && meta.halfGroups && meta.halfGroups[halfVal] && meta.halfGroups[halfVal].length) {
+      const halfSet = new Set(meta.halfGroups[halfVal].map(x => String(x)));
+      rawStudents = rawStudents.filter(s => halfSet.has(String(s)));
+    }
+
     let students;
-    if (meta && Array.isArray(meta.students) && meta.students.length > 0) {
-      students = meta.students;
+    if (rawStudents.length > 0 && typeof rawStudents[0] === 'string' && rawStudents[0].startsWith('st-')) {
+      students = rawStudents.map(sid => {
+        const s = smStudentRoster[sid] || { firstName: sid, lastName: '', sen: false };
+        return { firstName: s.firstName || '', lastName: s.lastName || '', sen: s.sen === true };
+      });
     } else {
-      students = (classGroups[groupName] || []).map(name => {
-        const parts = String(name).trim().split(/\s+/);
-        return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', sen: false };
+      students = rawStudents.map(s => {
+        if (typeof s === 'string') {
+          const parts = s.trim().split(/\s+/);
+          return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', sen: false };
+        }
+        return { firstName: s.firstName || '', lastName: s.lastName || '', sen: s.sen === true };
       });
     }
 

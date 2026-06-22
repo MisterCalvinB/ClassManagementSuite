@@ -434,6 +434,37 @@
       margin: 8px 0 16px;
     }
 
+    /* Context menu */
+    #fmCtxMenu {
+      position: fixed;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 8px;
+      box-shadow: 4px 4px 0 #000;
+      min-width: 190px;
+      z-index: 9999;
+      padding: 4px 0;
+      display: none;
+    }
+    #fmCtxMenu.open { display: block; }
+    .ctx-item {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      color: #111;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    .ctx-item:hover { background: #f0f0f0; }
+    .ctx-item.danger { color: #c00; }
+    .ctx-item.danger:hover { background: #fff0f0; }
+    .ctx-sep { height: 1px; background: #ddd; margin: 4px 8px; }
+
     /* ── Reset modal ──────────────────────────────── */
     .reset-overlay {
       position: fixed;
@@ -573,6 +604,10 @@
         <option value="name-desc" data-i18n="rfSortNameZA">Name Z→A</option>
         <option value="size-desc" data-i18n="rfSortLargest">Largest first</option>
       </select>
+      <label id="rfVersionsToggleLabel" style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="rfShowVersions" style="width:14px;height:14px;accent-color:#000;cursor:pointer;">
+        <span data-i18n="rfShowVersions">Show versions</span>
+      </label>
       <span class="result-count" id="rfCount"></span>
     </div>
     <div class="file-list" id="rfList">
@@ -600,6 +635,10 @@
       </select>
       <input type="search" id="browseSearch" class="browse-search" placeholder="Filter…" data-i18n-placeholder="fmBrowseFilter">
       <button id="browseRefresh" class="btn-refresh" data-i18n="fmRefresh">↺ Refresh</button>
+      <label id="browseVersionsToggleLabel" style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="browseShowVersions" style="width:14px;height:14px;accent-color:#000;cursor:pointer;">
+        <span data-i18n="rfShowVersions">Show versions</span>
+      </label>
     </div>
     <div id="breadcrumb" class="breadcrumb"></div>
     <div id="browseList" class="file-list">
@@ -785,6 +824,12 @@ function docTypeKey(fn) {
 }
 
 function normPath(p) { return (p||'').replace(/\\/g, '/'); }
+
+function isVersionFile(f) {
+  return normPath(f.relativePath || f.filename || '').split('/').indexOf('history') !== -1;
+}
+
+var showVersions = false;
 
 /* ════════════════════════════════════════════
    TAB SWITCHING
@@ -999,6 +1044,11 @@ function rfSortFn(order) {
 function makeRfRow(file, isSession, snippet, isArchived) {
   var row = document.createElement('div');
   row.className = 'file-row';
+  if (window.Desktop && Desktop.isElectron()) {
+    (function(f) {
+      row.addEventListener('contextmenu', function(e) { fmCtxRecent(e, f); });
+    })(file);
+  }
 
   var tag = document.createElement('span');
   tag.className = 'file-type-tag';
@@ -1055,7 +1105,7 @@ function makeRfRow(file, isSession, snippet, isArchived) {
     rnBtn.textContent = tt('fmRename', 'Rename');
     (function(f, ne, rb) {
       rb.addEventListener('click', function() {
-        startInlineRename(row, f, f.target, prettyName, rfFiles);
+        startInlineRename(row, f, f.target, prettyName, rfSessions.concat(rfArchivedSessions));
       });
     })(file, nameEl, rnBtn);
     acts.appendChild(rnBtn);
@@ -1081,6 +1131,7 @@ function rfRender() {
   }
 
   var filteredS = isDocFilter ? [] : rfSessions.filter(function(f) {
+    if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
     if (!search) return true;
     var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
@@ -1105,6 +1156,7 @@ function rfRender() {
   filteredD.sort(rfSortFn(sort));
 
   var filteredAS = !search ? [] : (isDocFilter ? [] : rfArchivedSessions.filter(function(f) {
+    if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
     var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
     if (nameMatch) return true;
@@ -1158,6 +1210,11 @@ function rfRender() {
 
 document.getElementById('rfTypeFilter').addEventListener('change', rfRender);
 document.getElementById('rfSortOrder').addEventListener('change', rfRender);
+document.getElementById('rfShowVersions').addEventListener('change', function() {
+  showVersions = this.checked;
+  document.getElementById('browseShowVersions').checked = this.checked;
+  rfRender();
+});
 document.getElementById('rfSearch').addEventListener('input', function() {
   if (rfSearchTimer) { clearTimeout(rfSearchTimer); rfSearchTimer = null; }
   rfRender(); // immediate render with name-only matches
@@ -1208,9 +1265,11 @@ async function loadRecent() {
    BROWSE TAB
    ════════════════════════════════════════════ */
 
-var browseAllFiles = [];
-var browseTarget   = 'mindmaps';
-var browsePath     = '';
+var browseAllFiles   = [];
+var browseTarget     = 'mindmaps';
+var browsePath       = '';
+var gradeClassNames  = {};
+var groupClassNames  = {};
 
 var TARGET_LABELS = {
   mindmaps:              'Constellation Maps',
@@ -1265,7 +1324,7 @@ function startFolderRename(row, folderName, nameEl, prefix) {
     }
     done = true;
     var newPath = prefix + newName;
-    Desktop.renameByPath(browseTarget, oldPath, newPath).then(function(res) {
+    Desktop.renameByPath(browseTarget, oldPath, newPath).then(async function(res) {
       if (res && res.ok) {
         browseAllFiles.forEach(function(f) {
           var rel = normPath(f.relativePath || f.filename || '');
@@ -1273,6 +1332,21 @@ function startFolderRename(row, folderName, nameEl, prefix) {
             f.relativePath = newPath + rel.slice(oldPath.length);
           }
         });
+        if (browseTarget === 'mindmaps' && folderName !== newName && typeof Desktop.listByPath === 'function') {
+          await Desktop.renameByPath(browseTarget, newPath + '/' + folderName + '.js', newPath + '/' + newName + '.js').catch(function(){});
+          var histPath = newPath + '/history';
+          try {
+            var listed = await Desktop.listByPath(browseTarget, histPath, { extensions: ['.js', '.json'], recursive: false });
+            var vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+            for (var vi = 0; vi < vFiles.length; vi++) {
+              var vfname = (vFiles[vi].relativePath || '').split('/').pop() || vFiles[vi].filename || '';
+              if (vfname.startsWith(folderName + '.v')) {
+                var suffix = vfname.slice(folderName.length);
+                await Desktop.renameByPath(browseTarget, histPath + '/' + vfname, histPath + '/' + newName + suffix).catch(function(){});
+              }
+            }
+          } catch(e) {}
+        }
         row.dataset.renaming = '';
         renderBrowse();
       } else {
@@ -1335,7 +1409,13 @@ function renderBreadcrumb() {
 
     var seg = document.createElement('button');
     seg.className = 'breadcrumb-seg';
-    seg.textContent = part;
+    var segLabel = (browseTarget === 'grades' && idx === 0 && gradeClassNames[part])
+      ? gradeClassNames[part]
+      : (browseTarget === 'groupParticipation' && idx === 0 && groupClassNames[part])
+        ? groupClassNames[part]
+        : part;
+    seg.textContent = segLabel;
+    seg.title = part;
     if (idx === parts.length - 1) {
       seg.disabled = true;
     } else {
@@ -1388,6 +1468,11 @@ function renderBrowse() {
 
   var folders = Object.keys(folderCounts).sort();
 
+  if (!showVersions && browseTarget === 'mindmaps') {
+    folders = folders.filter(function(f) { return f !== 'history'; });
+    levelFiles = levelFiles.filter(function(f) { return !isVersionFile(f); });
+  }
+
   if (!folders.length && !levelFiles.length) {
     list.innerHTML = '<div class="state-msg"><span class="state-icon">📭</span>' + escHtml(tt('rfNoFiles','No files found.')) + '</div>';
     return;
@@ -1407,7 +1492,13 @@ function renderBrowse() {
 
       var nameEl = document.createElement('span');
       nameEl.className = 'folder-name';
-      nameEl.textContent = folder;
+      var folderDisplayName = (browseTarget === 'grades' && gradeClassNames[folder])
+        ? gradeClassNames[folder]
+        : (browseTarget === 'groupParticipation' && groupClassNames[folder])
+          ? groupClassNames[folder]
+          : folder;
+      nameEl.textContent = folderDisplayName;
+      nameEl.title = folder;
       nameEl.style.cursor = 'pointer';
 
       var cnt = document.createElement('span');
@@ -1423,6 +1514,7 @@ function renderBrowse() {
         icon.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
         nameEl.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
         cnt.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
+        row.addEventListener('contextmenu', function(e) { fmCtxFolder(e, folderName, prefix); });
       })(folder);
 
       if (window.Desktop && Desktop.isElectron()) {
@@ -1443,7 +1535,7 @@ function renderBrowse() {
         var delBtn = document.createElement('button');
         delBtn.className = 'btn-action';
         delBtn.style.cssText = 'color:#c00;border-color:#c00;';
-        delBtn.textContent = tt('fmDelete', 'Delete…');
+        delBtn.textContent = tt('fmDelete', 'Delete');
         (function(folderName) {
           delBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -1469,6 +1561,11 @@ function renderBrowse() {
 function makeBrowseRow(file) {
   var row = document.createElement('div');
   row.className = 'file-row';
+  if (window.Desktop && Desktop.isElectron()) {
+    (function(f) {
+      row.addEventListener('contextmenu', function(e) { fmCtxBrowse(e, f); });
+    })(file);
+  }
 
   var extRaw = (file.filename || '').split('.').pop().toLowerCase();
   var tagText;
@@ -1611,6 +1708,42 @@ async function loadBrowse() {
     return;
   }
 
+  gradeClassNames = {};
+  groupClassNames = {};
+  if (browseTarget === 'grades' && typeof Desktop.readByPath === 'function') {
+    var classFiles = browseAllFiles.filter(function(f) {
+      var parts = normPath(f.relativePath || f.filename || '').split('/');
+      return parts.length === 2 && parts[1] === '_class.js';
+    });
+    await Promise.all(classFiles.map(async function(f) {
+      try {
+        var rel = normPath(f.relativePath || f.filename);
+        var folderId = rel.split('/')[0];
+        var r = await Desktop.readByPath('grades', rel);
+        if (r && r.content) {
+          var m = r.content.match(/"name"\s*:\s*"([^"]+)"/);
+          if (m) gradeClassNames[folderId] = m[1];
+        }
+      } catch(e) {}
+    }));
+  }
+  if (browseTarget === 'groupParticipation' && typeof Desktop.readByPath === 'function') {
+    try {
+      var cgr = await Desktop.readByPath('user', 'class-groups.js');
+      if (cgr && cgr.content) {
+        try {
+          var cgFn = new Function(cgr.content + '; return (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA.classGroupsMeta : null;');
+          var cgMeta = cgFn();
+          if (cgMeta && typeof cgMeta === 'object') {
+            Object.keys(cgMeta).forEach(function(id) {
+              if (cgMeta[id] && cgMeta[id].name) groupClassNames[id] = cgMeta[id].name;
+            });
+          }
+        } catch(e) {}
+      }
+    } catch(e) {}
+  }
+
   renderBrowse();
 }
 
@@ -1624,6 +1757,11 @@ document.getElementById('browseRefresh').addEventListener('click', function() {
   loadBrowse();
 });
 document.getElementById('browseSearch').addEventListener('input', function() {
+  renderBrowse();
+});
+document.getElementById('browseShowVersions').addEventListener('change', function() {
+  showVersions = this.checked;
+  document.getElementById('rfShowVersions').checked = this.checked;
   renderBrowse();
 });
 
@@ -2115,6 +2253,194 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     backBtn.disabled = false;
   }
 });
+</script>
+
+<!-- Context menu -->
+<div id="fmCtxMenu"></div>
+<script>
+(function() {
+  var menu = document.getElementById('fmCtxMenu');
+
+  function hideCtx() {
+    menu.classList.remove('open');
+    menu.innerHTML = '';
+  }
+
+  document.addEventListener('pointerdown', function(e) {
+    if (menu.classList.contains('open') && !menu.contains(e.target)) hideCtx();
+  });
+  document.addEventListener('contextmenu', function(e) {
+    if (menu.classList.contains('open') && !menu.contains(e.target)) hideCtx();
+  });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideCtx(); });
+
+  function showCtx(x, y, items) {
+    hideCtx();
+    items.forEach(function(item) {
+      if (item === '-') {
+        var sep = document.createElement('div');
+        sep.className = 'ctx-sep';
+        menu.appendChild(sep);
+      } else {
+        var btn = document.createElement('button');
+        btn.className = 'ctx-item' + (item.danger ? ' danger' : '');
+        btn.textContent = item.label;
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          hideCtx();
+          item.action();
+        });
+        menu.appendChild(btn);
+      }
+    });
+    menu.classList.add('open');
+    // Position
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var mw = menu.offsetWidth || 200, mh = menu.offsetHeight || 180;
+    var left = x + mw > vw ? Math.max(0, vw - mw - 4) : x;
+    var top  = y + mh > vh ? Math.max(0, vh - mh - 4) : y;
+    menu.style.left = left + 'px';
+    menu.style.top  = top  + 'px';
+  }
+
+  /* ── helpers shared with row builders ── */
+  async function ctxOpenNative(target, relPath) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    var res = await Desktop.openNative(target, relPath);
+    if (res && !res.ok) showToast(tt('fmOpenNativeFailed','Could not open file.'), true);
+  }
+
+  async function ctxShowInFolder(target, relPath) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    await Desktop.showInFolder(target, relPath);
+  }
+
+  /* ── Recent-tab file context menu ── */
+  window.fmCtxRecent = function(e, file) {
+    e.preventDefault();
+    e.stopPropagation();
+    var isSession = !!(file.target === 'mindmaps' || file.target === 'data');
+    var relPath = file.relativePath || file.filename;
+    var rowEl = e.currentTarget || e.target;
+    while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
+    var items = [];
+
+    if (isSession) {
+      items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
+      }});
+    }
+
+    items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
+    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+    items.push('-');
+
+    if (isSession) {
+      (function(row) {
+        items.push({ label: tt('fmRename','Rename'), action: function() {
+          if (row) startInlineRename(row, file, file.target, prettyName, rfSessions.concat(rfArchivedSessions));
+        }});
+      })(rowEl);
+    }
+
+    items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+      if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
+      try {
+        var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
+        if (r && r.ok) {
+          rfSessions = rfSessions.filter(function(x) { return x !== file; });
+          rfArchivedSessions = rfArchivedSessions.filter(function(x) { return x !== file; });
+          rfDocs = rfDocs.filter(function(x) { return x !== file; });
+          rfArchivedDocs = rfArchivedDocs.filter(function(x) { return x !== file; });
+          rfRender();
+        } else {
+          showToast(tt('fmDeleteFailed','Delete failed.'), true);
+        }
+      } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+    }});
+
+    showCtx(e.clientX, e.clientY, items);
+  };
+
+  /* ── Browse-tab file context menu ── */
+  window.fmCtxBrowse = function(e, file) {
+    e.preventDefault();
+    e.stopPropagation();
+    var relPath = file.relativePath || file.filename;
+    var isConst = /\.(js|json)$/i.test(file.filename) && file.target === 'mindmaps';
+    var rowEl = e.currentTarget || e.target;
+    while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
+    var items = [];
+
+    if (isConst) {
+      items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
+      }});
+    }
+
+    items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
+    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+    items.push('-');
+    items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
+      try {
+        var res = await Desktop.duplicateByPath(file.target, relPath);
+        if (res && res.ok) {
+          var newFile = Object.assign({}, file, { filename: res.filename, relativePath: res.relativePath, size: res.size, mtimeMs: res.mtimeMs });
+          browseAllFiles.push(newFile);
+          renderBrowse();
+        } else { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
+      } catch(ex) { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
+    }});
+    (function(row) {
+      items.push({ label: tt('fmRename','Rename'), action: function() {
+        if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+      }});
+    })(rowEl);
+    items.push('-');
+    items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+      if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
+      try {
+        var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
+        if (r && r.ok) {
+          browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
+          renderBrowse();
+        } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+      } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+    }});
+
+    showCtx(e.clientX, e.clientY, items);
+  };
+
+  /* ── Browse-tab folder context menu ── */
+  window.fmCtxFolder = function(e, folderName, prefix) {
+    e.preventDefault();
+    e.stopPropagation();
+    var relPath = (prefix || '') + folderName;
+    var rowEl = e.currentTarget || e.target;
+    while (rowEl && !rowEl.classList.contains('folder-row')) rowEl = rowEl.parentElement;
+    var nameEl = rowEl ? rowEl.querySelector('.folder-name') : null;
+    var cnt = folderName ? (browseAllFiles.filter(function(f) {
+      var r = normPath(f.relativePath || f.filename || '');
+      return r.startsWith((prefix || '') + folderName + '/');
+    }).length) : 0;
+    var items = [];
+
+    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(browseTarget, relPath); } });
+    items.push('-');
+    (function(row, ne) {
+      items.push({ label: tt('fmRename','Rename'), action: function() {
+        if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
+      }});
+      items.push({ label: tt('fmDelete','Delete'), danger: true, action: function() {
+        if (row) deleteFolderConfirm(folderName, cnt, prefix || '', row);
+      }});
+    })(rowEl, nameEl);
+
+    showCtx(e.clientX, e.clientY, items);
+  };
+})();
 </script>
 </body>
 </html>

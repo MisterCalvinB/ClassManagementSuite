@@ -200,7 +200,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
-  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps']),
+  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
   [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates']),
   [PAGE_FILES.howTo]: new Set(['user']),
@@ -2537,6 +2537,23 @@ ipcMain.handle('app:save-file', async (event, request) => {
   if (request && (request.filename === 'planner-entries.js' || request.subdir === 'planner')) {
     _loadPlannerEntries();
   }
+  // Broadcast cross-app data changes to other open windows
+  if (request) {
+    const isCrossApp = (
+      (request.target === 'user' && ['class-groups.js', 'config.js', 'planner-config.js'].includes(request.filename)) ||
+      (request.target === 'user' && request.subdir === 'planner') ||
+      (request.target === 'classPlans' && request.filename === 'plans.js')
+    );
+    if (isCrossApp) {
+      const sourceTitle = PAGE_LABELS[pageFile] || pageFile;
+      const payload = { filename: request.filename, target: request.target, subdir: request.subdir || null, sourceTitle };
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed() && win.webContents !== event.sender) {
+          win.webContents.send('app:data-changed', payload);
+        }
+      }
+    }
+  }
   return { ok: true, file: savedFile };
 });
 
@@ -3198,6 +3215,239 @@ ipcMain.handle('app:rename-by-path', async (event, request = {}) => {
     request.newRelativePath
   );
   return { ok: true, renamed };
+});
+
+// ── UUID helpers for class migration ────────────────────────────────────────
+function generateClassUuid() {
+  return 'ge-' + require('crypto').randomBytes(4).toString('hex');
+}
+function isClassUuid(key) {
+  return /^ge-[0-9a-f]{8}$/.test(key);
+}
+function sanitizeGroupName(name) {
+  return String(name || '')
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^\.+/, '')
+    .trim() || '_class';
+}
+
+ipcMain.handle('app:migrate-class-uuids', async () => {
+  const targets = getSaveTargets();
+  const userDir = targets.user;
+  const gpDir = targets.groupParticipation;
+  const classPlansDir = targets.classPlans;
+  const gradesDir = targets.grades;
+
+  // 1. Read class-groups.js
+  const cgPath = path.join(userDir, 'class-groups.js');
+  if (!fsSync.existsSync(cgPath)) return { ok: true, migrated: false, reason: 'no-file' };
+
+  let cgContent;
+  try { cgContent = await fs.readFile(cgPath, 'utf8'); }
+  catch (e) { return { ok: false, error: 'read: ' + e.message }; }
+
+  let cgData;
+  try {
+    const fn = new Function(cgContent + '\nreturn typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null;');
+    cgData = fn();
+  } catch (e) { return { ok: false, error: 'parse: ' + e.message }; }
+
+  if (!cgData || !cgData.classGroups) return { ok: true, migrated: false, reason: 'empty' };
+
+  // 2. Check if already migrated
+  const allKeys = Object.keys(cgData.classGroups);
+  if (allKeys.length > 0 && allKeys.every(k => isClassUuid(k)))
+    return { ok: true, migrated: false, reason: 'already-done' };
+
+  // 3. Build nameToUuid map
+  const nameToUuid = {};
+  for (const key of allKeys)
+    nameToUuid[key] = isClassUuid(key) ? key : generateClassUuid();
+
+  // 4. Rewrite class-groups.js with UUID keys + name field in meta
+  const newGroups = {}, newMeta = {};
+  for (const [name, students] of Object.entries(cgData.classGroups)) {
+    const uuid = nameToUuid[name];
+    newGroups[uuid] = students;
+    const oldM = (cgData.classGroupsMeta || {})[name] || {};
+    newMeta[uuid] = Object.assign({}, oldM, { name: String(name) });
+  }
+  const groupLines = Object.keys(newGroups).map(u =>
+    `    ${JSON.stringify(u)}: [${(newGroups[u] || []).map(s => JSON.stringify(s)).join(', ')}]`);
+  const metaLines = Object.keys(newMeta).map(u =>
+    `    ${JSON.stringify(u)}: ${JSON.stringify(newMeta[u])}`);
+  const newCgContent = [
+    'const CLASS_GROUPS_DATA = {',
+    `  "activeYear": ${JSON.stringify(cgData.activeYear || '')},`,
+    `  "activeSemester": ${JSON.stringify(cgData.activeSemester || null)},`,
+    `  "activeSemesterStart": ${JSON.stringify(cgData.activeSemesterStart || '')},`,
+    `  "activeSemesterEnd": ${JSON.stringify(cgData.activeSemesterEnd || '')},`,
+    '  "classGroups": {',
+    groupLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
+    '  },',
+    '  "classGroupsMeta": {',
+    metaLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
+    '  }',
+    '};',
+    '',
+    'var CLASS_GROUPS = CLASS_GROUPS_DATA.classGroups || {};',
+    'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
+    ''
+  ].join('\n');
+  try { await fs.writeFile(cgPath, newCgContent, 'utf8'); }
+  catch (e) { return { ok: false, error: 'write-cg: ' + e.message }; }
+
+  // 5. Migrate planner-config.js (cfg.classes keys)
+  const plannerCfgPath = path.join(userDir, 'planner-config.js');
+  if (fsSync.existsSync(plannerCfgPath)) {
+    try {
+      const cfgContent = await fs.readFile(plannerCfgPath, 'utf8');
+      const fn = new Function('window', cfgContent + '\nreturn window.PLANNER_CONFIG || null;');
+      const cfg = fn({ PLANNER_CONFIG: null });
+      if (cfg && cfg.classes) {
+        const newClasses = {};
+        for (const [name, data] of Object.entries(cfg.classes))
+          newClasses[nameToUuid[name] || name] = data;
+        cfg.classes = newClasses;
+        await fs.writeFile(plannerCfgPath, 'window.PLANNER_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n', 'utf8');
+      }
+    } catch (e) { console.warn('migrate planner-config:', e.message); }
+  }
+
+  // 6. Migrate planner entry files (user/planner/{name}.js → {uuid}.js)
+  const plannerDir = path.join(userDir, 'planner');
+  if (fsSync.existsSync(plannerDir)) {
+    for (const [name, uuid] of Object.entries(nameToUuid)) {
+      if (name === uuid) continue;
+      const oldFile = path.join(plannerDir, name + '.js');
+      if (!fsSync.existsSync(oldFile)) continue;
+      try {
+        const entryContent = await fs.readFile(oldFile, 'utf8');
+        const sandbox = { PLANNER_ENTRIES_BY_CLASS: {} };
+        const fn = new Function('window', entryContent);
+        fn(sandbox);
+        const entries = (sandbox.PLANNER_ENTRIES_BY_CLASS || {})[name] || [];
+        const updated = entries.map(e => e.classId === name ? Object.assign({}, e, { classId: uuid }) : e);
+        const newContent =
+          'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+          'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(uuid) + '] = ' +
+          JSON.stringify(updated, null, 2) + ';\n';
+        await fs.writeFile(path.join(plannerDir, uuid + '.js'), newContent, 'utf8');
+        await fs.unlink(oldFile);
+      } catch (e) { console.warn('migrate planner entry "' + name + '":', e.message); }
+    }
+  }
+
+  // 7. Migrate class-plan data (classPlans/plans.js group keys)
+  if (fsSync.existsSync(classPlansDir)) {
+    const classPlansFile = path.join(classPlansDir, 'plans.js');
+    if (fsSync.existsSync(classPlansFile)) {
+      try {
+        const plansContent = await fs.readFile(classPlansFile, 'utf8');
+        const fn = new Function(plansContent + '\nreturn typeof SAVED_CLASS_PLANS !== "undefined" ? SAVED_CLASS_PLANS : null;');
+        const plans = fn();
+        if (plans && typeof plans === 'object') {
+          const newPlans = {};
+          for (const [name, arr] of Object.entries(plans))
+            newPlans[nameToUuid[name] || name] = arr;
+          await fs.writeFile(classPlansFile, 'var SAVED_CLASS_PLANS = ' + JSON.stringify(newPlans, null, 2) + ';', 'utf8');
+        }
+      } catch (e) { console.warn('migrate class-plan plans.js:', e.message); }
+    }
+  }
+
+  // 8. Migrate participation session files (update groups keys + rename folders)
+  if (fsSync.existsSync(gpDir)) {
+    const safeToUuid = {};
+    for (const [name, uuid] of Object.entries(nameToUuid))
+      safeToUuid[sanitizeGroupName(name)] = uuid;
+
+    async function migratePtFolder(folderPath, folderName) {
+      let files;
+      try { files = await fs.readdir(folderPath); } catch { return; }
+      for (const file of files) {
+        if (!file.endsWith('.js')) continue;
+        const filePath = path.join(folderPath, file);
+        try {
+          const content = await fs.readFile(filePath, 'utf8');
+          const sandbox = { window: {} };
+          new Function('window', content)(sandbox.window);
+          let sessions = sandbox.window.CMS_DB_EXPORT || sandbox.window.DB_EXPORT;
+          if (!Array.isArray(sessions)) continue;
+          let changed = false;
+          sessions = sessions.map(session => {
+            if (!session || !session.groups) return session;
+            const ng = {};
+            let sc = false;
+            for (const [k, v] of Object.entries(session.groups)) {
+              const mu = nameToUuid[k];
+              if (mu && mu !== k) { ng[mu] = v; sc = true; }
+              else ng[k] = v;
+            }
+            if (sc) { changed = true; return Object.assign({}, session, { groups: ng }); }
+            return session;
+          });
+          if (changed) {
+            await fs.writeFile(filePath,
+              'window.CMS_DB_EXPORT = ' + JSON.stringify(sessions, null, 2) + ';\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n',
+              'utf8');
+          }
+        } catch (e) { console.warn('migrate pt file ' + filePath + ':', e.message); }
+      }
+      const targetUuid = safeToUuid[folderName];
+      if (targetUuid && folderName !== targetUuid) {
+        const newPath = path.join(path.dirname(folderPath), targetUuid);
+        try { await fs.rename(folderPath, newPath); }
+        catch (e) { console.warn('migrate pt rename ' + folderName + ':', e.message); }
+      }
+    }
+
+    let gpEntries = [];
+    try { gpEntries = await fs.readdir(gpDir, { withFileTypes: true }); } catch {}
+    for (const entry of gpEntries) {
+      if (entry.isDirectory() && entry.name !== 'archived')
+        await migratePtFolder(path.join(gpDir, entry.name), entry.name);
+    }
+    const archivedDir = path.join(gpDir, 'archived');
+    if (fsSync.existsSync(archivedDir)) {
+      let archEntries = [];
+      try { archEntries = await fs.readdir(archivedDir, { withFileTypes: true }); } catch {}
+      for (const entry of archEntries) {
+        if (entry.isDirectory())
+          await migratePtFolder(path.join(archivedDir, entry.name), entry.name);
+      }
+    }
+  }
+
+  // 9. Add groupId to grade _class.js files
+  if (fsSync.existsSync(gradesDir)) {
+    async function migrateGradeDir(dir) {
+      let entries = [];
+      try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const entry of entries) {
+        if (entry.isDirectory()) { await migrateGradeDir(path.join(dir, entry.name)); continue; }
+        if (entry.name !== '_class.js') continue;
+        const filePath = path.join(dir, entry.name);
+        try {
+          const content = await fs.readFile(filePath, 'utf8');
+          const sandbox = { window: {} };
+          new Function('window', content)(sandbox.window);
+          const cls = sandbox.window.GRADE_CLASS;
+          if (!cls || cls.groupId) continue;
+          const gid = nameToUuid[cls.className];
+          if (!gid) continue;
+          cls.groupId = gid;
+          await fs.writeFile(filePath,
+            '// _savedAt: ' + (cls._savedAt || Date.now()) + '\nwindow.GRADE_CLASS = ' + JSON.stringify(cls, null, 2) + ';\n',
+            'utf8');
+        } catch (e) { console.warn('migrate grade _class ' + filePath + ':', e.message); }
+      }
+    }
+    await migrateGradeDir(gradesDir);
+  }
+
+  return { ok: true, migrated: true, uuidMap: nameToUuid };
 });
 
 ipcMain.handle('app:delete-file', async (event, request = {}) => {
@@ -3924,11 +4174,25 @@ ipcMain.handle('app:quiz-server-status', async () => {
   return _quizStatus();
 });
 
+ipcMain.handle('app:open-external', async (_event, request = {}) => {
+  const url = String(request.url || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return { ok: false, error: 'Invalid URL' };
+  await shell.openExternal(url);
+  return { ok: true };
+});
+
 ipcMain.handle('app:open-native', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
   const { fullPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
   const errMsg = await shell.openPath(fullPath);
   return errMsg ? { ok: false, error: errMsg } : { ok: true };
+});
+
+ipcMain.handle('app:show-in-folder', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const { fullPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+  shell.showItemInFolder(fullPath);
+  return { ok: true };
 });
 
 ipcMain.handle('app:duplicate-by-path', async (event, request = {}) => {

@@ -43,6 +43,7 @@
       window.__ltUserBootstrapPromise = (async function () {
         try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
         try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
+        try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
       })();
     })();
   </script>
@@ -369,6 +370,11 @@
     <label for="group-selector" data-i18n="groupSelectorLabel">Class</label>
     <select id="group-selector" onchange="setActiveClassGroup(this.value)">
       <option value="">No class selected</option>
+    </select>
+    <select id="group-half-selector" style="display:none; margin-top:4px;" onchange="setActiveHalfGroup(this.value)">
+      <option value="">½ All</option>
+      <option value="A">½ A</option>
+      <option value="B">½ B</option>
     </select>
   </div>
   <!-- ============================================================ -->
@@ -2763,6 +2769,47 @@
 
     const CLASS_GROUP_STORAGE_KEY = 'active_class_group';
     let activeClassGroup = '';
+    let activeHalfGroup = '';
+
+    function _ltHalfFilter(groupName, names) {
+      if (!activeHalfGroup) return names;
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupName] : null;
+      if (!meta || !meta.halfGroups || !meta.halfGroups[activeHalfGroup] || !meta.halfGroups[activeHalfGroup].length) return names;
+      const halfArr = meta.halfGroups[activeHalfGroup];
+      if (typeof halfArr[0] === 'string' && halfArr[0].startsWith('st-')) {
+        const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER)) ? STUDENTS_ROSTER : [];
+        const rMap = {};
+        roster.forEach(s => { if (s && s.uuid) rMap[s.uuid] = s; });
+        const halfNames = new Set(halfArr.map(sid => {
+          const s = rMap[sid];
+          return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+        }).filter(Boolean));
+        return names.filter(n => halfNames.has(String(n).toUpperCase()));
+      }
+      const nameSet = new Set(halfArr.map(n => String(n).toUpperCase()));
+      return names.filter(n => nameSet.has(String(n).toUpperCase()));
+    }
+
+    function _ltUpdateHalfSelector(groupName) {
+      const sel = document.getElementById('group-half-selector');
+      if (!sel) return;
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupName] : null;
+      const hasHalves = meta && meta.halfGroups &&
+        ((meta.halfGroups.A && meta.halfGroups.A.length) || (meta.halfGroups.B && meta.halfGroups.B.length));
+      sel.style.display = (groupName && hasHalves) ? '' : 'none';
+      if (!groupName || !hasHalves) { sel.value = ''; activeHalfGroup = ''; }
+    }
+
+    function setActiveHalfGroup(half) {
+      activeHalfGroup = half || '';
+      if (activeHalfGroup) {
+        try { localStorage.setItem('cmt-lt-activeHalf', activeClassGroup + ':' + activeHalfGroup); } catch (e) {}
+      } else {
+        try { localStorage.removeItem('cmt-lt-activeHalf'); } catch (e) {}
+      }
+      if (activeSection === 'words-seen-today-section') renderWordsSeenToday();
+      if (activeSection === 'werewolf-section') wwUseActiveClassGroup();
+    }
 
     function getClassGroupLabel(groupName) {
       const label = String(groupName || '').trim();
@@ -2781,28 +2828,35 @@
       noneOpt.textContent = t('groupSelectorNone');
       sel.appendChild(noneOpt);
 
-      const groupKeys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS)
-            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
-            .sort((a, b) => a.localeCompare(b))
+      const groupKeys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? Object.keys(CLASS_GROUPS_META)
+            .filter(key => !(CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => _ltGroupName(a).localeCompare(_ltGroupName(b)))
         : [];
       groupKeys.forEach(key => {
         const opt = document.createElement('option');
-        const count = Array.isArray(CLASS_GROUPS[key]) ? CLASS_GROUPS[key].length : 0;
+        const count = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[key] && Array.isArray(CLASS_GROUPS_META[key].students)) ? CLASS_GROUPS_META[key].students.length : 0;
         opt.value = key;
-        opt.textContent = key + (count ? ' (' + count + ')' : '');
+        opt.textContent = _ltGroupName(key) + (count ? ' (' + count + ')' : '');
         sel.appendChild(opt);
       });
 
       sel.value = selected && groupKeys.includes(selected) ? selected : '';
     }
 
+    function _ltGroupName(key) {
+      try {
+        const m = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[key] : null;
+        return (m && m.name) ? m.name : key;
+      } catch { return key; }
+    }
+
     function updateGroupSelectorTitle() {
       const sel = document.getElementById('group-selector');
       if (!sel) return;
-      if (activeClassGroup && typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS[activeClassGroup]) {
-        const count = CLASS_GROUPS[activeClassGroup].length;
-        sel.title = activeClassGroup + (count ? ' (' + count + ')' : '');
+      if (activeClassGroup && typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[activeClassGroup]) {
+        const count = Array.isArray(CLASS_GROUPS_META[activeClassGroup].students) ? CLASS_GROUPS_META[activeClassGroup].students.length : 0;
+        sel.title = _ltGroupName(activeClassGroup) + (count ? ' (' + count + ')' : '');
       } else {
         sel.title = t('groupSelectorNone');
       }
@@ -2810,11 +2864,15 @@
 
     function setActiveClassGroup(groupName) {
       const prevGroup = activeClassGroup;
-      const hasGroup = typeof CLASS_GROUPS !== 'undefined'
-        && CLASS_GROUPS
-        && Object.prototype.hasOwnProperty.call(CLASS_GROUPS, groupName);
+      const hasGroup = typeof CLASS_GROUPS_META !== 'undefined'
+        && CLASS_GROUPS_META
+        && Object.prototype.hasOwnProperty.call(CLASS_GROUPS_META, groupName);
 
       activeClassGroup = hasGroup ? groupName : '';
+      activeHalfGroup = '';
+      const halfSel = document.getElementById('group-half-selector');
+      if (halfSel) halfSel.value = '';
+      _ltUpdateHalfSelector(activeClassGroup);
 
       const sel = document.getElementById('group-selector');
       if (sel && sel.value !== activeClassGroup) sel.value = activeClassGroup;
@@ -8809,19 +8867,32 @@ function renderSentenceWithGap(userInput) {
 
     function wwGetGroupStudents(groupName) {
       const key = String(groupName || '').trim();
-      const list = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS && Array.isArray(CLASS_GROUPS[key]))
-        ? CLASS_GROUPS[key]
-        : [];
-      return list.map(name => String(name || '').trim()).filter(Boolean);
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[key] : null;
+      if (!meta) return [];
+      const students = Array.isArray(meta.students) ? meta.students : [];
+      if (students.length === 0) return [];
+      let names;
+      if (typeof students[0] === 'string' && students[0].startsWith('st-')) {
+        const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER)) ? STUDENTS_ROSTER : [];
+        const rMap = {};
+        roster.forEach(s => { if (s && s.uuid) rMap[s.uuid] = s; });
+        names = students.map(sid => {
+          const s = rMap[sid];
+          return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+        }).filter(Boolean);
+      } else {
+        names = students.map(s => String(s || '').trim()).filter(Boolean);
+      }
+      return _ltHalfFilter(key, names);
     }
 
     function wwRenderGroupOptions() {
       const sel = document.getElementById('ww-group-select');
       if (!sel) return;
-      const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS)
-            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
-            .sort((a, b) => a.localeCompare(b))
+      const keys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? Object.keys(CLASS_GROUPS_META)
+            .filter(key => !(CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort((a, b) => _ltGroupName(a).localeCompare(_ltGroupName(b)))
         : [];
 
       sel.innerHTML = '';
@@ -8834,7 +8905,7 @@ function renderSentenceWithGap(userInput) {
         const opt = document.createElement('option');
         const size = wwGetGroupStudents(key).length;
         opt.value = key;
-        opt.textContent = key + (size ? ' (' + size + ')' : '');
+        opt.textContent = _ltGroupName(key) + (size ? ' (' + size + ')' : '');
         sel.appendChild(opt);
       });
 
@@ -13169,11 +13240,19 @@ function renderSentenceWithGap(userInput) {
       // Load class groups from user data folder (not bundled in packaged app).
       if (window.Desktop && typeof Desktop.readJson === 'function') {
         try {
-          const gr = await Desktop.readJson('user', 'class-groups.js');
-          if (gr?.ok && gr.data) {
-            if (gr.data.classGroups) window.CLASS_GROUPS = gr.data.classGroups;
-            if (gr.data.classGroupsMeta) window.CLASS_GROUPS_META = gr.data.classGroupsMeta;
+          const gr = await Desktop.readText('user', 'class-groups.js');
+          if (gr?.ok && gr.content) {
+            const fn = new Function(gr.content + '; return typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : {};');
+            const parsed = fn();
+            if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
           }
+          } catch (e) { /* ignore */ }
+          try {
+            const sr = await Desktop.readText('user', 'students.js');
+            if (sr?.ok && sr.content) {
+              const sfn = new Function(sr.content + '; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+              window.STUDENTS_ROSTER = sfn();
+            }
           } catch (e) { /* ignore */ }
       }
       awLoadCustomWords();
@@ -14591,6 +14670,15 @@ function renderSentenceWithGap(userInput) {
 <script>
 function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+  Desktop.onDataChanged(function (data) {
+    if (data && data.filename === 'class-groups.js') {
+      showDataChangedBanner(data);
+    }
+  });
+})();
 </script>
 
 </body>

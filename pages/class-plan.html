@@ -27,6 +27,8 @@
         } catch (e) {}
       }
       await load('user', 'class-groups.js');
+      await load('user', 'students.js');
+      await load('user', 'planner-config.js');
       await load('user', 'config.js');
       await load('classPlans', 'plans.js');
     })();
@@ -338,6 +340,11 @@
   <div id="plans-sidebar">
     <div id="sidebar-header">
       <select id="group-sel" onchange="onGroupChange(this.value)"></select>
+      <select id="cp-half-sel" style="display:none;" onchange="onHalfChange(this.value)">
+        <option value="" data-i18n="cpHalfAll">— All —</option>
+        <option value="A">½ A</option>
+        <option value="B">½ B</option>
+      </select>
       <div id="cp-active-context" style="display:none; font-size:0.72rem; font-weight:700; color:#888; letter-spacing:0.3px; padding:0 2px;"></div>
       <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#fff;color:#e67e22;border:1.5px solid #e67e22;border-radius:5px;font-size:.8rem;font-weight:600;cursor:pointer;" onclick="deleteOrphanedGroup()" data-i18n="cpBtnDelete">🗑 Delete orphaned group</button>
       <button id="new-plan-btn" onclick="openNewPlanConfig()" data-i18n="cpNewPlan">+ New Plan</button>
@@ -394,7 +401,7 @@
     <input type="hidden" id="cfg-edit-id">
 
     <label class="form-label" data-i18n="cpLabelClass">Class</label>
-    <select id="cfg-group" class="form-input"></select>
+    <select id="cfg-group" class="form-input" onchange="cpPopulatePlannerSlotSel(this.value, null)"></select>
 
     <label class="form-label" data-i18n="cpLabelPlanName">Plan name</label>
     <input type="text" id="cfg-name" class="form-input" data-i18n-placeholder="cpPlaceholderPlanName" placeholder="e.g. Normal Seating" maxlength="60">
@@ -470,6 +477,9 @@
       <option value="last" data-i18n="cpNameLast">Last name only</option>
     </select>
 
+    <label class="form-label" data-i18n="cpLabelPlannerSlot">Linked planner slot</label>
+    <select id="cfg-planner-slot" class="form-input"></select>
+
     <label class="form-label" data-i18n="cpLabelSchedule">Weekly schedule</label>
     <div id="cfg-schedule-slots"></div>
     <button class="add-slot-btn" onclick="addScheduleSlot()" data-i18n="cpAddSlot">+ Add slot</button>
@@ -506,6 +516,7 @@
 let classPlans = {};
 let studentGroups = {};
 let selectedGroup = '';
+let selectedHalf = '';
 let selectedPlan = null;
 let _cfgLayout = 'grid';
 let _autoSaveTimer = null;
@@ -531,6 +542,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   buildStudentGroups();
   loadPlansFromGlobals();
   renderGroupSelector();
+  _cpUpdateHalfSel(selectedGroup);
   renderPlansList();
   window._cmtApplyNavBrand();
   _updateCpActiveContext();
@@ -550,27 +562,85 @@ function _updateCpActiveContext() {
 
 function buildStudentGroups() {
   studentGroups = {};
-  let src = {};
   let meta = {};
+  let srcLegacy = {};
   try {
-    if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroups) {
-      src = CLASS_GROUPS_DATA.classGroups;
+    if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
       meta = CLASS_GROUPS_DATA.classGroupsMeta || {};
-    } else if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) {
-      src = CLASS_GROUPS;
+      srcLegacy = CLASS_GROUPS_DATA.classGroups || {};
+    } else {
       if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) meta = CLASS_GROUPS_META;
+      if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) srcLegacy = CLASS_GROUPS;
     }
   } catch (e) {}
-  for (const group in src) {
-    if (!Object.prototype.hasOwnProperty.call(src, group)) continue;
-    if (meta[group] && meta[group].archived) continue;
-    const raw = Array.isArray(src[group]) ? src[group] : [];
-    studentGroups[group] = raw.map(function (s) {
-      if (typeof s === 'string') return s;
-      if (s && s.firstName) return (s.firstName + (s.lastName ? ' ' + s.lastName : '')).trim();
-      return String(s);
-    });
+  const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
+    ? Object.fromEntries(STUDENTS_ROSTER.filter(s => s && s.uuid).map(s => [s.uuid, s]))
+    : {};
+  const allKeys = Object.keys(meta).length ? Object.keys(meta) : Object.keys(srcLegacy);
+  allKeys.forEach(function (group) {
+    if (meta[group] && meta[group].archived) return;
+    const raw = (meta[group] && Array.isArray(meta[group].students) && meta[group].students.length)
+      ? meta[group].students
+      : (srcLegacy[group] || []);
+    if (raw.length && typeof raw[0] === 'string' && raw[0].startsWith('st-')) {
+      studentGroups[group] = raw.map(function (sid) {
+        const s = roster[sid];
+        return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+      }).filter(Boolean);
+    } else {
+      studentGroups[group] = raw.map(function (s) {
+        if (typeof s === 'object' && s !== null) return ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase();
+        return String(s || '').trim();
+      }).filter(Boolean);
+    }
+  });
+}
+
+// ── Planner slot helpers ──────────────────────────────────────────────────────
+const _CP_DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function cpGetGroupPlannerSlots(groupId) {
+  try {
+    const cfg = (typeof PLANNER_CONFIG !== 'undefined' && PLANNER_CONFIG) ? PLANNER_CONFIG : null;
+    if (!cfg || !cfg.classes || !cfg.classes[groupId]) return [];
+    return cfg.classes[groupId].schedule || [];
+  } catch (e) { return []; }
+}
+
+function cpSlotLabel(slot) {
+  if (!slot) return '';
+  const day = _CP_DAY_NAMES[parseInt(slot.day)] || ('Day ' + slot.day);
+  const time = slot.time ? slot.time.slice(0, 5) : '';
+  const half = slot.halfGroup ? ' ½' + slot.halfGroup : '';
+  return day + (time ? ' ' + time : '') + half;
+}
+
+function cpPopulatePlannerSlotSel(groupId, currentSlot) {
+  const sel = document.getElementById('cfg-planner-slot');
+  if (!sel) return;
+  sel.innerHTML = '';
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = t('cpSlotNone');
+  sel.appendChild(noneOpt);
+  const slots = cpGetGroupPlannerSlots(groupId);
+  slots.forEach(function (s) {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({ day: s.day, time: s.time || '', halfGroup: s.halfGroup || '' });
+    opt.textContent = cpSlotLabel(s);
+    sel.appendChild(opt);
+  });
+  if (currentSlot) {
+    const encoded = JSON.stringify({ day: currentSlot.day, time: currentSlot.time || '', halfGroup: currentSlot.halfGroup || '' });
+    const match = Array.from(sel.options).find(function (o) { return o.value === encoded; });
+    if (match) sel.value = match.value;
   }
+}
+
+function cpReadPlannerSlot() {
+  const sel = document.getElementById('cfg-planner-slot');
+  if (!sel || !sel.value) return null;
+  try { return JSON.parse(sel.value); } catch (e) { return null; }
 }
 
 function loadPlansFromGlobals() {
@@ -638,12 +708,22 @@ function renderGroupSelector() {
     return;
   }
   sel.innerHTML = groups.map(function (g) {
-    const label = isOrphanedGroup(g) ? '⚠ ' + g : g;
+    const name = cpGroupDisplayName(g);
+    const label = isOrphanedGroup(g) ? '⚠ ' + name : name;
     return '<option value="' + esc(g) + '">' + esc(label) + '</option>';
   }).join('');
   selectedGroup = groups[0];
   sel.value = selectedGroup;
   updateOrphanDeleteBtn();
+}
+
+function cpGroupDisplayName(g) {
+  try {
+    const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+      ? CLASS_GROUPS_DATA.classGroupsMeta
+      : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {});
+    return (meta[g] && meta[g].name) ? meta[g].name : g;
+  } catch { return g; }
 }
 
 function mergeGroupKeys() {
@@ -655,21 +735,61 @@ function mergeGroupKeys() {
   const result = [];
   Object.keys(studentGroups).forEach(function (g) { seen.add(g); result.push(g); });
   Object.keys(classPlans).forEach(function (g) { if (!seen.has(g) && !isArchived(g)) result.push(g); });
-  return result;
+  return result.sort((a, b) => cpGroupDisplayName(a).localeCompare(cpGroupDisplayName(b)));
+}
+
+function _cpUpdateHalfSel(group) {
+  const sel = document.getElementById('cp-half-sel');
+  if (!sel) return;
+  const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+    ? CLASS_GROUPS_DATA.classGroupsMeta[group]
+    : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[group] : null);
+  const hasHalves = meta && meta.halfGroups &&
+    ((meta.halfGroups.A && meta.halfGroups.A.length) || (meta.halfGroups.B && meta.halfGroups.B.length));
+  sel.style.display = (group && hasHalves) ? '' : 'none';
+  if (!group || !hasHalves) { sel.value = ''; selectedHalf = ''; }
+}
+
+function _cpHalfStudents(group) {
+  const all = studentGroups[group] || [];
+  if (!selectedHalf) return all;
+  const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+    ? CLASS_GROUPS_DATA.classGroupsMeta[group]
+    : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[group] : null);
+  if (!meta || !meta.halfGroups || !meta.halfGroups[selectedHalf] || !meta.halfGroups[selectedHalf].length) return all;
+  const halfArr = meta.halfGroups[selectedHalf];
+  const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
+    ? Object.fromEntries(STUDENTS_ROSTER.filter(s => s && s.uuid).map(s => [s.uuid, s])) : {};
+  if (typeof halfArr[0] === 'string' && halfArr[0].startsWith('st-')) {
+    const halfNames = new Set(halfArr.map(function (sid) {
+      const s = roster[sid];
+      return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+    }).filter(Boolean));
+    return all.filter(function (n) { return halfNames.has(n); });
+  }
+  const nameSet = new Set(halfArr.map(function (n) { return String(n).toUpperCase(); }));
+  return all.filter(function (n) { return nameSet.has(String(n).toUpperCase()); });
 }
 
 function onGroupChange(group) {
   selectedGroup = group;
+  selectedHalf = '';
+  _cpUpdateHalfSel(group);
   selectedPlan = null;
   updateOrphanDeleteBtn();
   renderPlansList();
   showEmptyState();
 }
 
+function onHalfChange(half) {
+  selectedHalf = half || '';
+  if (selectedPlan) buildStudentChips(selectedPlan);
+}
+
 function deleteOrphanedGroup() {
   if (!selectedGroup || !isOrphanedGroup(selectedGroup)) return;
   const group = selectedGroup;
-  showConfirm(tFmt('cpConfirmDeleteGroup', { name: group }), async function () {
+  showConfirm(tFmt('cpConfirmDeleteGroup', { name: cpGroupDisplayName(group) }), async function () {
     delete classPlans[group];
     renderGroupSelector();
     const groups = mergeGroupKeys();
@@ -704,7 +824,8 @@ function renderPlansList() {
     const card = document.createElement('div');
     card.className = 'plan-card' + (selectedPlan && selectedPlan.id === plan.id ? ' selected' : '');
     const dim = dimLabel(plan);
-    const meta = [dim, plan.roomNumber ? '📍 ' + plan.roomNumber : ''].filter(Boolean).join('  ·  ');
+    const slotStr = plan.plannerSlot ? cpSlotLabel(plan.plannerSlot) : '';
+    const meta = [dim, plan.roomNumber ? '📍 ' + plan.roomNumber : '', slotStr ? '🗓 ' + slotStr : ''].filter(Boolean).join('  ·  ');
     card.innerHTML =
       '<div class="plan-card-name">' + esc(plan.name) + '</div>' +
       (meta ? '<div class="plan-card-meta">' + esc(meta) + '</div>' : '') +
@@ -739,6 +860,12 @@ function showEmptyState() {
 
 function openEditor(plan) {
   selectedPlan = plan;
+  // Auto-activate half-group from linked planner slot
+  if (plan.plannerSlot && plan.plannerSlot.halfGroup) {
+    selectedHalf = plan.plannerSlot.halfGroup;
+    const halfSel = document.getElementById('cp-half-sel');
+    if (halfSel) { halfSel.style.display = ''; halfSel.value = selectedHalf; }
+  }
   document.getElementById('empty-state').style.display = 'none';
   document.getElementById('editor-main').style.display = 'flex';
   buildEditor(plan);
@@ -748,7 +875,8 @@ function openEditor(plan) {
 function buildEditor(plan) {
   document.getElementById('editor-plan-name').textContent = plan.name;
   const schedStr = schedSummary(plan);
-  const meta = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ');
+  const slotStr = plan.plannerSlot ? cpSlotLabel(plan.plannerSlot) : '';
+  const meta = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', slotStr ? '🗓 ' + slotStr : '', schedStr].filter(Boolean).join('  ·  ');
   document.getElementById('editor-plan-meta').textContent = meta;
   buildStudentChips(plan);
   buildDeskGrid(plan);
@@ -760,7 +888,7 @@ function buildEditor(plan) {
 function buildStudentChips(plan) {
   const container = document.getElementById('student-chips');
   container.innerHTML = '';
-  const students = studentGroups[selectedGroup] || [];
+  const students = _cpHalfStudents(selectedGroup);
   const placed = new Set((plan.seats || []).map(function (s) { return s.studentName; }));
   students.forEach(function (name) {
     const chip = makeStudentChip(name, placed.has(name));
@@ -1205,9 +1333,10 @@ function openNewPlanConfig() {
   const groupSel = document.getElementById('cfg-group');
   const groups = mergeGroupKeys();
   groupSel.innerHTML = groups.map(function (g) {
-    return '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(g) + '</option>';
+    return '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(cpGroupDisplayName(g)) + '</option>';
   }).join('');
   groupSel.disabled = false;
+  cpPopulatePlannerSlotSel(selectedGroup, null);
 
   document.getElementById('cfg-modal').classList.add('open');
   setTimeout(function () { document.getElementById('cfg-name').focus(); }, 80);
@@ -1228,6 +1357,7 @@ function editPlanById(planId) {
   document.getElementById('cfg-room').value = plan.roomNumber || '';
   document.getElementById('cfg-name-display').value = plan.nameDisplay || 'full';
   document.getElementById('cfg-temp').checked = !!plan.isTemporary;
+  cpPopulatePlannerSlotSel(selectedGroup, plan.plannerSlot || null);
   renderScheduleSlots(plan.schedule || []);
 
   const lt = plan.layoutType || 'grid';
@@ -1246,7 +1376,7 @@ function editPlanById(planId) {
   }
 
   const groupSel = document.getElementById('cfg-group');
-  groupSel.innerHTML = '<option value="' + esc(selectedGroup) + '" selected>' + esc(selectedGroup) + '</option>';
+  groupSel.innerHTML = '<option value="' + esc(selectedGroup) + '" selected>' + esc(cpGroupDisplayName(selectedGroup)) + '</option>';
   groupSel.disabled = true;
 
   document.getElementById('cfg-modal').classList.add('open');
@@ -1278,6 +1408,7 @@ function confirmPlanConfig() {
   const nameDisplay = document.getElementById('cfg-name-display').value;
   const temp = document.getElementById('cfg-temp').checked;
   const sched = collectSchedule();
+  const plannerSlot = cpReadPlannerSlot();
 
   const lt = _cfgLayout;
   let plan = editId ? getPlanById(editId) : null;
@@ -1289,6 +1420,7 @@ function confirmPlanConfig() {
     plan.nameDisplay = nameDisplay;
     plan.isTemporary = temp;
     plan.schedule = sched;
+    plan.plannerSlot = plannerSlot;
     applyLayoutDims(plan, lt, true);
   } else {
     // Create new
@@ -1296,7 +1428,7 @@ function confirmPlanConfig() {
     const plans = classPlans[group];
     plan = {
       id: 'cp_' + Date.now(),
-      name: name, roomNumber: room, nameDisplay: nameDisplay, schedule: sched, seats: [],
+      name: name, roomNumber: room, nameDisplay: nameDisplay, schedule: sched, plannerSlot: plannerSlot, seats: [],
       isTemporary: temp, isActive: !plans.length, createdAt: Date.now(),
       layoutType: lt
     };
@@ -1599,6 +1731,63 @@ function _cfmCancel() {
   document.getElementById('cp-confirm').classList.remove('open');
   if (_cfmCancelCb) _cfmCancelCb();
 }
+</script>
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+
+  async function _reloadClassGroups() {
+    var r = await Desktop.readText('user', 'class-groups.js');
+    if (!r || !r.ok) return;
+    // eslint-disable-next-line no-new-func
+    var fn = new Function(r.content + '
+return (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : {}), classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
+    var parsed = fn();
+    if (parsed && (parsed.classGroupsMeta || parsed.classGroups)) {
+      window.CLASS_GROUPS = parsed.classGroups || {};
+      window.CLASS_GROUPS_META = parsed.classGroupsMeta || {};
+    }
+  }
+
+  async function _reloadPlans() {
+    var r = await Desktop.readText('classPlans', 'plans.js');
+    if (!r || !r.ok) return;
+    // eslint-disable-next-line no-new-func
+    var fn = new Function(r.content + '
+return (typeof SAVED_CLASS_PLANS !== "undefined") ? SAVED_CLASS_PLANS : null;');
+    var result = fn();
+    if (result) window.SAVED_CLASS_PLANS = result;
+  }
+
+  window._cmtHotReload = async function (data) {
+    try {
+      if (data.filename === 'class-groups.js') await _reloadClassGroups();
+      if (data.filename === 'plans.js') await _reloadPlans();
+      if (data.filename === 'config.js') {
+        var r = await Desktop.readText('user', 'config.js');
+        if (r && r.ok) {
+          try {
+            // eslint-disable-next-line no-new-func
+            var cfgFn = new Function(r.content + '
+return (typeof CLASS_MANAGEMENT_CONFIG !== "undefined") ? CLASS_MANAGEMENT_CONFIG : null;');
+            var cfgResult = cfgFn();
+            if (cfgResult) window.CLASS_MANAGEMENT_CONFIG = cfgResult;
+          } catch (e) {}
+        }
+      }
+      if (typeof buildStudentGroups === 'function') buildStudentGroups();
+      if (typeof loadPlansFromGlobals === 'function') loadPlansFromGlobals();
+      if (typeof renderGroupSelector === 'function') renderGroupSelector();
+      if (typeof renderPlansList === 'function') renderPlansList();
+    } catch (e) { location.reload(); }
+  };
+
+  Desktop.onDataChanged(function (data) {
+    if (data && (data.filename === 'class-groups.js' || data.filename === 'config.js' || data.filename === 'plans.js')) {
+      showDataChangedBanner(data);
+    }
+  });
+})();
 </script>
 </body>
 </html>

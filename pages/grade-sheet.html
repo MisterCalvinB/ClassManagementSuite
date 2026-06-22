@@ -42,6 +42,7 @@
       window.__gsUserBootstrapPromise = (async function () {
         try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
         try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
+        try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
         try { await loadUserScript('grade-scale-models.js'); } catch (e) { console.warn('Failed to load user/grade-scale-models.js:', e); }
         try { await loadUserScript('correction-criteria.js'); } catch (e) { console.warn('Failed to load user/correction-criteria.js:', e); }
       })();
@@ -3519,11 +3520,11 @@
     async function saveGradesStructured() {
       const now = Date.now();
       for (const cls of appState.classes) {
-        const classSlug = slugifyForPath(cls.name);
-        const subdir = classSlug;
+        const subdir = cls.id;
         const classMeta = {
           _savedAt: now,
           classId: cls.id,
+          groupId: cls.groupId || undefined,
           className: cls.name,
           classYear: cls.year,
           classSemester: cls.semester,
@@ -3612,10 +3613,13 @@
           if (!res || !res.content) continue;
           const meta = parseGradeFile(res.content);
           if (!meta || !meta.classId) continue;
-          if (classMap.has(meta.classId)) continue; // keep first (most recent will be picked below)
+          const existing = classMap.get(meta.classId);
+          if (existing && (existing._savedAt || 0) >= (meta._savedAt || 0)) continue;
           const cls = {
             id: meta.classId,
+            groupId: meta.groupId || undefined,
             name: meta.className || 'Unnamed',
+            _savedAt: meta._savedAt || 0,
             year: meta.classYear || '',
             semester: meta.classSemester || '',
             level: meta.classLevel || '',
@@ -3840,13 +3844,26 @@
       }
 
       const seeded = [];
-      if (typeof CLASS_GROUPS === "object" && CLASS_GROUPS) {
-        Object.entries(CLASS_GROUPS)
-          .filter(([name]) => name !== "Teachers")
-          .forEach(([name, students]) => {
-            seeded.push(makeClass(name, Array.isArray(students) ? students : []));
-          });
-      }
+      const _cgSeed = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const _cgSeedGroups = _cgSeed ? _cgSeed.classGroups : (typeof CLASS_GROUPS === 'object' ? CLASS_GROUPS : null);
+      const _cgSeedMeta = _cgSeed ? (_cgSeed.classGroupsMeta || {}) : (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+      const seedUuids = Object.keys(_cgSeedMeta).length ? Object.keys(_cgSeedMeta) : (_cgSeedGroups ? Object.keys(_cgSeedGroups) : []);
+      seedUuids
+        .filter(uuid => {
+          const n = (_cgSeedMeta[uuid] && _cgSeedMeta[uuid].name) || uuid;
+          return n !== 'Teachers' && !(_cgSeedMeta[uuid] && _cgSeedMeta[uuid].archived);
+        })
+        .forEach(uuid => {
+          const meta = _cgSeedMeta[uuid] || {};
+          const name = meta.name || uuid;
+          const rawStudents = Array.isArray(meta.students) && meta.students.length
+            ? meta.students
+            : (_cgSeedGroups && Array.isArray(_cgSeedGroups[uuid]) ? _cgSeedGroups[uuid] : []);
+          const studentNames = _gsResolveStudentNames(rawStudents);
+          const cls = makeClass(name, studentNames);
+          cls.groupId = uuid;
+          seeded.push(cls);
+        });
 
       if (!seeded.length) {
         seeded.push(makeClass("Class A", []));
@@ -3859,27 +3876,63 @@
     // Sync appState.classes from CLASS_GROUPS on every boot.
     // Creates any grade-sheet class not yet present for a non-archived group,
     // and adds any students in CLASS_GROUPS that are not yet in the matching class.
+    // Also updates cls.name when the group has been renamed in group-editor.
     // Only adds — never removes — so existing grade data is never touched.
+    function _gsRoster() {
+      if (typeof STUDENTS_ROSTER === 'undefined' || !Array.isArray(STUDENTS_ROSTER)) return {};
+      const map = {};
+      STUDENTS_ROSTER.forEach(s => { if (s && s.uuid) map[s.uuid] = s; });
+      return map;
+    }
+
+    function _gsResolveStudentNames(studentsArr) {
+      if (!Array.isArray(studentsArr) || studentsArr.length === 0) return [];
+      if (typeof studentsArr[0] === 'string' && studentsArr[0].startsWith('st-')) {
+        const roster = _gsRoster();
+        return studentsArr.map(sid => {
+          const s = roster[sid];
+          return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+        }).filter(Boolean);
+      }
+      return studentsArr.filter(s => typeof s === 'string');
+    }
+
     function syncFromClassGroups() {
-      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return false;
-      const _cgMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const cgData = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const cgMeta = cgData ? (cgData.classGroupsMeta || {}) : (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+      const cgGroupsLegacy = cgData ? cgData.classGroups : (typeof CLASS_GROUPS === 'object' ? CLASS_GROUPS : null);
+      const groupUuids = Object.keys(cgMeta).length ? Object.keys(cgMeta) : (cgGroupsLegacy ? Object.keys(cgGroupsLegacy) : []);
+      if (!groupUuids.length) return false;
       let changed = false;
 
-      for (const [groupName, groupStudents] of Object.entries(CLASS_GROUPS)) {
+      for (const groupUuid of groupUuids) {
+        const meta = cgMeta[groupUuid] || {};
+        const groupName = meta.name || groupUuid;
         if (groupName === 'Teachers') continue;
-        if (_cgMeta[groupName] && _cgMeta[groupName].archived) continue;
-        if (!Array.isArray(groupStudents)) continue;
+        if (meta.archived) continue;
 
-        let classObj = appState.classes.find(c => c.name === groupName);
+        // Resolve students: UUID array from meta.students, or legacy classGroups string array
+        const rawStudents = Array.isArray(meta.students) && meta.students.length
+          ? meta.students
+          : (cgGroupsLegacy && Array.isArray(cgGroupsLegacy[groupUuid]) ? cgGroupsLegacy[groupUuid] : []);
+        const studentNames = _gsResolveStudentNames(rawStudents);
+
+        // Match by groupId (UUID link) first, then by name for backward compat
+        let classObj = appState.classes.find(c => c.groupId === groupUuid) ||
+                       appState.classes.find(c => !c.groupId && c.name === groupName);
+
         if (!classObj) {
-          const meta = _cgMeta[groupName] || {};
           classObj = makeClass(groupName, [], String(meta.year || ''), String(meta.semester || ''), String(meta.level || ''));
+          classObj.groupId = groupUuid;
           appState.classes.push(classObj);
           changed = true;
+        } else {
+          if (!classObj.groupId) { classObj.groupId = groupUuid; changed = true; }
+          if (classObj.name !== groupName) { classObj.name = groupName; changed = true; }
         }
 
-        for (const cgName of groupStudents) {
-          if (!cgName || typeof cgName !== 'string') continue;
+        for (const cgName of studentNames) {
+          if (!cgName) continue;
           const upper = cgName.trim().toUpperCase();
           const alreadyPresent = classObj.students.some(s => {
             const first = (s.firstName || '').trim().toUpperCase();
@@ -3903,12 +3956,9 @@
     }
 
     // Returns { orphaned, candidates } when a rename is detectable, otherwise null.
-    // orphaned  = GS students not found in CLASS_GROUPS (name changed or removed)
-    // candidates = GS students that ARE in CLASS_GROUPS but have no grades yet
-    //              (just synced in by syncFromClassGroups — likely the new name)
     function getRenameDiff(classObj) {
-      if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return null;
-      if (!Array.isArray(CLASS_GROUPS[classObj.name])) return null;
+      const cgStudents = _getClassGroupStudents(classObj);
+      if (!cgStudents) return null;
       const orphaned = classObj.students.filter(s => !studentPresentInClassGroups(classObj, s));
       if (!orphaned.length) return null;
       const candidates = classObj.students.filter(s =>
@@ -3923,13 +3973,27 @@
       screens[name].classList.remove("hidden");
     }
 
-         // Determine whether a student (from saved state) exists in the current
-    // `CLASS_GROUPS` entry for this class. Returns true when groups are absent
-    // or when the student name matches any entry in the group.
+    function _getClassGroupStudents(classObj) {
+      try {
+        const cgData = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+        const cgMeta = cgData ? (cgData.classGroupsMeta || {}) : (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+        const cgGroupsLegacy = cgData ? cgData.classGroups : (typeof CLASS_GROUPS === 'object' ? CLASS_GROUPS : null);
+        const metaEntry = (classObj.groupId && cgMeta[classObj.groupId]) || null;
+        if (metaEntry && Array.isArray(metaEntry.students) && metaEntry.students.length) {
+          return _gsResolveStudentNames(metaEntry.students);
+        }
+        if (cgGroupsLegacy) {
+          if (classObj.groupId && cgGroupsLegacy[classObj.groupId]) return cgGroupsLegacy[classObj.groupId];
+          return cgGroupsLegacy[classObj.name] || null;
+        }
+        return null;
+      } catch { return null; }
+    }
+
+    // Determine whether a student exists in the current CLASS_GROUPS entry for this class.
     function studentPresentInClassGroups(classObj, student) {
       try {
-        if (typeof CLASS_GROUPS !== 'object' || !CLASS_GROUPS) return true;
-        const group = CLASS_GROUPS[classObj.name];
+        const group = _getClassGroupStudents(classObj);
         if (!Array.isArray(group)) return true;
         const first = (student.firstName || "").trim().toUpperCase();
         const last = (student.lastName || "").trim().toUpperCase();
@@ -6172,7 +6236,7 @@
       if (!name) return;
 
       const year = yearInput.value.trim();
-      if (year && !/^20\d{2}-20\d{2}$/.test(year)) {
+      if (!year || !/^20\d{2}-20\d{2}$/.test(year)) {
         await showAlert(t('gsAlertYearInvalid'));
         return;
       }
@@ -6208,20 +6272,28 @@
       const othersWrap = document.getElementById('gs-add-students-others-wrap');
 
       const _cgMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const _cgLegacy = (typeof CLASS_GROUPS === 'object' && CLASS_GROUPS) ? CLASS_GROUPS : {};
       const _isArchived = k => _cgMeta[k] && _cgMeta[k].archived;
 
-      // Students from CLASS_GROUPS matching this class name (best match), only if not archived.
-      const groupStudents = (!_isArchived(classObj.name) && typeof CLASS_GROUPS === 'object' && CLASS_GROUPS && Array.isArray(CLASS_GROUPS[classObj.name]))
-        ? CLASS_GROUPS[classObj.name]
-        : [];
+      function _gsResolveGroupStudents(uuid) {
+        const m = _cgMeta[uuid] || {};
+        if (Array.isArray(m.students) && m.students.length) return _gsResolveStudentNames(m.students);
+        const name = m.name || uuid;
+        if (Array.isArray(_cgLegacy[uuid])) return _cgLegacy[uuid].map(String).filter(Boolean);
+        if (Array.isArray(_cgLegacy[name])) return _cgLegacy[name].map(String).filter(Boolean);
+        return [];
+      }
 
-      // Other groups keyed by group name, preserving CLASS_GROUPS order — skip archived and Teachers.
-      const otherGroups = (typeof CLASS_GROUPS === 'object' && CLASS_GROUPS)
-        ? Object.entries(CLASS_GROUPS)
-            .filter(([k]) => k !== classObj.name && k !== 'Teachers' && !_isArchived(k))
-            .map(([k, v]) => [k, Array.isArray(v) ? v : []])
-            .filter(([, v]) => v.length > 0)
-        : [];
+      // Students from group matching this class (by UUID link first, then by name)
+      const matchedUuid = classObj.groupId || Object.keys(_cgMeta).find(k => (_cgMeta[k].name || k) === classObj.name);
+      const groupStudents = (matchedUuid && !_isArchived(matchedUuid)) ? _gsResolveGroupStudents(matchedUuid) : [];
+
+      // Other groups — skip archived, Teachers, and the matched group
+      const allUuids = Object.keys(_cgMeta).length ? Object.keys(_cgMeta) : Object.keys(_cgLegacy);
+      const otherGroups = allUuids
+        .filter(k => k !== matchedUuid && (_cgMeta[k] ? _cgMeta[k].name : k) !== 'Teachers' && !_isArchived(k))
+        .map(k => [(_cgMeta[k] && _cgMeta[k].name) || k, _gsResolveGroupStudents(k)])
+        .filter(([, v]) => v.length > 0);
 
       function setChipSelected(chip, selected) {
         chip.dataset.selected = selected ? 'true' : 'false';
@@ -6625,7 +6697,7 @@
         await showAlert(t('gsAlertClassNameEmpty'));
         return;
       }
-      if (year && !/^20\d{2}-20\d{2}$/.test(year)) {
+      if (!year || !/^20\d{2}-20\d{2}$/.test(year)) {
         await showAlert(t('gsAlertYearInvalid'));
         return;
       }
@@ -7816,6 +7888,22 @@
 <script>
 function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+</script>
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+  // Offer to save unsaved grades before reloading
+  window._cmtSaveBeforeRefresh = async function () {
+    if (typeof saveGradesStructured === 'function') {
+      try { await saveGradesStructured(); } catch (e) {}
+    }
+  };
+  Desktop.onDataChanged(function (data) {
+    if (data && data.filename === 'class-groups.js') {
+      showDataChangedBanner(data);
+    }
+  });
+})();
 </script>
 </body>
 </html>

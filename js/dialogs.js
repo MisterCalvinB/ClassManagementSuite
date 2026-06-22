@@ -1,5 +1,5 @@
-// Shared dialog utilities — toast, confirm modal, prompt modal.
-// Include this script in any page to get showToast(), showConfirm(), showPrompt().
+// Shared dialog utilities — toast, confirm modal, prompt modal, data-sync banner.
+// Include this script in any page to get showToast(), showConfirm(), showPrompt(), showDataChangedBanner().
 (function () {
   'use strict';
 
@@ -46,6 +46,31 @@
     '}',
     '.cmt-btn-cancel{background:#fff;}',
     '.cmt-btn-ok{background:#000;color:#fff;}',
+    // Data-sync banner
+    '#cmt-sync-banner{',
+      'position:fixed;top:-90px;left:50%;transform:translateX(-50%);',
+      'background:#1a1a2e;color:#e8e8f0;',
+      'border:1.5px solid #4a6fa5;border-radius:0 0 10px 10px;',
+      'box-shadow:0 4px 18px rgba(0,0,0,.45);',
+      'padding:10px 16px 10px 14px;',
+      'display:flex;align-items:center;gap:10px;',
+      'font-size:.82rem;z-index:999997;',
+      'transition:top .3s cubic-bezier(.22,1,.36,1);',
+      'max-width:90vw;white-space:nowrap;',
+    '}',
+    '#cmt-sync-banner.cmt-sync-show{top:0;}',
+    '#cmt-sync-banner .cmt-sync-icon{font-size:.95rem;flex-shrink:0;}',
+    '#cmt-sync-banner .cmt-sync-msg{flex:1;overflow:hidden;text-overflow:ellipsis;}',
+    '#cmt-sync-banner .cmt-sync-btns{display:flex;gap:6px;flex-shrink:0;}',
+    '#cmt-sync-banner button{',
+      'padding:4px 10px;border-radius:5px;border:1px solid #4a6fa5;',
+      'font-size:.78rem;font-weight:700;cursor:pointer;background:#253450;color:#e8e8f0;',
+    '}',
+    '#cmt-sync-banner button:hover{background:#4a6fa5;}',
+    '#cmt-sync-banner .cmt-sync-dismiss{',
+      'background:transparent;border-color:#555;color:#999;',
+    '}',
+    '#cmt-sync-banner .cmt-sync-dismiss:hover{background:#333;color:#e8e8f0;}',
   ].join('');
   document.head.appendChild(style);
 
@@ -187,6 +212,121 @@
     el.querySelectorAll('.cmt-btn-ok').forEach(function (n) { n.textContent = lbl.ok; });
     el.querySelectorAll('.cmt-btn-cancel').forEach(function (n) { n.textContent = lbl.cancel; });
   }
+
+  // ── Data-sync banner ───────────────────────────────────────────────────────
+  var syncBanner = null;
+  var syncHideTimer = null;
+
+  function _syncT(key) {
+    var lang = 'en';
+    try {
+      var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+      if (cfg.language) lang = cfg.language;
+      var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
+      var override = localStorage.getItem('cmt-lang-' + page);
+      if (override) lang = override;
+    } catch (e) {}
+    // Inline fallback map so the banner works even before i18n.js loads
+    var map = {
+      en: { dataSyncReload: 'Reload data', dataSyncSaveReload: 'Save & reload', dataSyncDismiss: 'Dismiss', dataSyncMsg: '{source} updated shared data.' },
+      fr: { dataSyncReload: 'Recharger', dataSyncSaveReload: 'Sauvegarder & recharger', dataSyncDismiss: 'Ignorer', dataSyncMsg: '{source} a mis à jour des données partagées.' },
+      de: { dataSyncReload: 'Neu laden', dataSyncSaveReload: 'Speichern & neu laden', dataSyncDismiss: 'Schließen', dataSyncMsg: '{source} hat gemeinsame Daten aktualisiert.' },
+      it: { dataSyncReload: 'Ricarica', dataSyncSaveReload: 'Salva e ricarica', dataSyncDismiss: 'Ignora', dataSyncMsg: '{source} ha aggiornato i dati condivisi.' }
+    };
+    var lm = map[lang] || map.en;
+    if (typeof window.t === 'function') {
+      try { return window.t(key) || lm[key] || key; } catch (e) {}
+    }
+    return lm[key] || key;
+  }
+
+  function ensureSyncBanner() {
+    if (syncBanner) return;
+    syncBanner = document.createElement('div');
+    syncBanner.id = 'cmt-sync-banner';
+    syncBanner.innerHTML =
+      '<span class="cmt-sync-icon">🔄</span>' +
+      '<span class="cmt-sync-msg"></span>' +
+      '<div class="cmt-sync-btns">' +
+        '<button class="cmt-sync-save-reload" style="display:none"></button>' +
+        '<button class="cmt-sync-reload"></button>' +
+        '<button class="cmt-sync-dismiss"></button>' +
+      '</div>';
+    document.body.appendChild(syncBanner);
+  }
+
+  function _hideSyncBanner() {
+    if (!syncBanner) return;
+    syncBanner.classList.remove('cmt-sync-show');
+    clearTimeout(syncHideTimer);
+  }
+
+  window.showDataChangedBanner = function (data, opts) {
+    opts = opts || {};
+    ensureSyncBanner();
+
+    var source = (data && data.sourceTitle) || '?';
+    var msg = _syncT('dataSyncMsg').replace('{source}', source);
+
+    syncBanner.querySelector('.cmt-sync-msg').textContent = msg;
+
+    var saveBtn = syncBanner.querySelector('.cmt-sync-save-reload');
+    var reloadBtn = syncBanner.querySelector('.cmt-sync-reload');
+    var dismissBtn = syncBanner.querySelector('.cmt-sync-dismiss');
+
+    reloadBtn.textContent = _syncT('dataSyncReload');
+    dismissBtn.textContent = _syncT('dataSyncDismiss');
+
+    var hasSaveHook = typeof window._cmtSaveBeforeRefresh === 'function';
+    if (hasSaveHook) {
+      saveBtn.textContent = _syncT('dataSyncSaveReload');
+      saveBtn.style.display = '';
+    } else {
+      saveBtn.style.display = 'none';
+    }
+
+    // Remove old listeners by cloning buttons
+    var newSaveBtn = saveBtn.cloneNode(true);
+    var newReloadBtn = reloadBtn.cloneNode(true);
+    var newDismissBtn = dismissBtn.cloneNode(true);
+    saveBtn.replaceWith(newSaveBtn);
+    reloadBtn.replaceWith(newReloadBtn);
+    dismissBtn.replaceWith(newDismissBtn);
+
+    newDismissBtn.addEventListener('click', _hideSyncBanner);
+
+    newReloadBtn.addEventListener('click', function () {
+      _hideSyncBanner();
+      if (typeof window._cmtHotReload === 'function') {
+        Promise.resolve(window._cmtHotReload(data)).catch(function (e) {
+          console.warn('[data-sync] Hot-reload failed:', e);
+          location.reload();
+        });
+      } else {
+        location.reload();
+      }
+    });
+
+    if (hasSaveHook) {
+      newSaveBtn.addEventListener('click', function () {
+        _hideSyncBanner();
+        Promise.resolve(window._cmtSaveBeforeRefresh()).then(function () {
+          if (typeof window._cmtHotReload === 'function') {
+            return Promise.resolve(window._cmtHotReload(data));
+          }
+          location.reload();
+        }).catch(function (e) {
+          console.warn('[data-sync] Save-before-refresh failed:', e);
+          location.reload();
+        });
+      });
+    }
+
+    clearTimeout(syncHideTimer);
+    syncBanner.classList.add('cmt-sync-show');
+    // Auto-dismiss after 30s if no action
+    syncHideTimer = setTimeout(_hideSyncBanner, 30000);
+  };
 
   // ── Drag-select guard ──────────────────────────────────────────────────────
   // Prevents outside-click dismiss handlers from firing after a text-selection

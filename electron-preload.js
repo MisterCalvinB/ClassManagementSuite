@@ -75,8 +75,14 @@ const exposedApi = {
   deleteByPath(request) {
     return invoke('app:delete-by-path', request);
   },
+  openExternal(request) {
+    return invoke('app:open-external', request);
+  },
   openNative(request) {
     return invoke('app:open-native', request);
+  },
+  showInFolder(request) {
+    return invoke('app:show-in-folder', request);
   },
   duplicateByPath(request) {
     return invoke('app:duplicate-by-path', request);
@@ -140,6 +146,9 @@ const exposedApi = {
   },
   exportFiles(request) {
     return invoke('app:export-files', request);
+  },
+  migrateClassUuids() {
+    return invoke('app:migrate-class-uuids');
   },
   openTool(request) {
     return invoke('app:open-tool', request);
@@ -230,6 +239,10 @@ const exposedApi = {
   onPlannerReminder(callback) {
     if (!ipcRenderer) return;
     ipcRenderer.on('planner:reminder', function (_event, data) { callback(data); });
+  },
+  onDataChanged(callback) {
+    if (!ipcRenderer) return;
+    ipcRenderer.on('app:data-changed', function (_event, data) { callback(data); });
   }
 };
 

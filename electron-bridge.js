@@ -129,6 +129,11 @@
     return getDesktopApi().printHtml(request);
   }
 
+  async function migrateClassUuids() {
+    if (!isElectron()) return null;
+    return getDesktopApi().migrateClassUuids();
+  }
+
   async function renameFile(target, oldFilename, newFilename) {
     if (!isElectron()) {
       return null;
@@ -164,6 +169,11 @@
   async function openNative(target, relativePath) {
     if (!isElectron()) return null;
     return getDesktopApi().openNative({ target, relativePath });
+  }
+
+  async function showInFolder(target, relativePath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().showInFolder({ target, relativePath });
   }
 
   async function duplicateByPath(target, relativePath) {
@@ -409,6 +419,11 @@
     return getDesktopApi().exportFiles({ files: Array.isArray(files) ? files : [] });
   }
 
+  async function openExternal(url) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openExternal({ url });
+  }
+
   async function goToLauncher() {
     if (!isElectron()) return null;
     return getDesktopApi().goToLauncher();
@@ -462,6 +477,14 @@
     if (!isElectron()) return false;
     const res = await getDesktopApi().isTimerWindowOpen();
     return !!(res && res.open);
+  }
+
+  // ── Cross-app data change listener ─────────────────────────────────────────
+  function onDataChanged(callback) {
+    if (!isElectron()) return;
+    var api = getDesktopApi();
+    if (!api || typeof api.onDataChanged !== 'function') return;
+    api.onDataChanged(callback);
   }
 
   // ── Planner reminder toast ──────────────────────────────────────────────────
@@ -525,7 +548,9 @@
     isTimerWindowOpen,
     listByPath,
     listFiles,
+    openExternal,
     openNative,
+    showInFolder,
     openTool,
     openSplit,
     openTimerWindow,
@@ -533,6 +558,7 @@
     readJson,
     resolvePath,
     readText,
+    migrateClassUuids,
     renameFile,
     renameByPath,
     deleteFile,
@@ -564,7 +590,8 @@
     remoteNewToken,
     quizServerStart,
     quizServerStop,
-    quizServerStatus
+    quizServerStatus,
+    onDataChanged
   });
 
   // In Electron, intercept app-nav links so they open in a new tool window

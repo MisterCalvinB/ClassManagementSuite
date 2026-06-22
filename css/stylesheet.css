@@ -500,6 +500,56 @@
       outline: none;
       border-color: #111;
     }
+    /* ── Planner timeslot picker ── */
+    .con-bp-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .con-bp-btn {
+      font-size: 0.7rem;
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .con-bp-popover {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 9500;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      min-width: 270px;
+      max-width: 370px;
+      padding: 10px 12px;
+    }
+    .con-bp-pop-title {
+      font-weight: 900;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+    .con-bp-pop-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+    .con-bp-pop-footer {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #eee;
+    }
+    .con-bp-foot-btn {
+      font-size: 0.7rem;
+    }
     #constellation-board {
       position: relative; width: 100%; height: 200vh;
       background: #fff; border: 2px solid #111;
@@ -746,7 +796,7 @@
     .con-media-asset {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
       background: #ffffff;
     }
     .con-media-pdf-canvas {
@@ -1968,6 +2018,8 @@
       border-radius: 6px;
       background: #fff;
       overflow: auto;
+      min-height: 480px;
+      padding: 0 0 3em 0;
     }
 
     #history-table {
@@ -2027,6 +2079,14 @@
       word-break: break-word;
     }
 
+    .history-row-name-clickable {
+      cursor: pointer;
+    }
+
+    .history-row-name-clickable:hover {
+      text-decoration: underline;
+    }
+
     .history-row-type,
     .history-row-class,
     .history-row-date,
@@ -2052,9 +2112,68 @@
     }
 
     .history-row-actions .action-btn {
-      margin-right: 4px;
       font-size: 0.72rem;
       padding: 4px 8px !important;
+    }
+
+    .history-actions-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .history-actions-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 2px;
+      background: #fff;
+      border: 2px solid #111;
+      border-radius: 5px;
+      box-shadow: 2px 2px 0 #bbb;
+      z-index: 9000;
+      min-width: 160px;
+      padding: 3px 0;
+    }
+
+    .history-actions-menu.open {
+      display: block;
+    }
+
+    .history-actions-menu button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      border-radius: 0;
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #111;
+      white-space: nowrap;
+    }
+
+    .history-actions-menu button:hover {
+      background: #111;
+      color: #fff;
+    }
+
+    .history-actions-menu button.danger {
+      color: #c00;
+    }
+
+    .history-actions-menu button.danger:hover {
+      background: #c00;
+      color: #fff;
+    }
+
+    .history-actions-menu hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 3px 0;
     }
 
     .history-row-check {
@@ -2899,6 +3018,54 @@
       background: #fff5f5;
       color: #ef4444;
     }
+    /* ── Link dialog ─────────────────────────────────────────────── */
+    #wn-link-dialog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9100;
+      background: rgba(0,0,0,.15);
+    }
+    #wn-link-dialog-overlay.active { display: flex; align-items: center; justify-content: center; }
+    #wn-link-dialog {
+      background: #fffffff2;
+      border: 2px solid #111;
+      border-radius: 6px;
+      padding: 12px 14px;
+      min-width: 300px;
+      max-width: 420px;
+      width: 90vw;
+      font-family: inherit;
+      font-size: 0.82rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,.18);
+    }
+    #wn-link-dialog h4 {
+      margin: 0 0 10px;
+      font-size: 0.7rem; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 1px; color: #555;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #wn-link-dialog h4 button {
+      background: none; border: none; cursor: pointer;
+      color: #aaa; font-size: 1rem; line-height: 1; padding: 0;
+    }
+    #wn-link-dialog h4 button:hover { color: #111; }
+    .wn-link-row { margin-bottom: 10px; }
+    .wn-link-row input[type="url"] {
+      width: 100%; box-sizing: border-box;
+      padding: 5px 8px;
+      border: 1.5px solid #ccc; border-radius: 4px;
+      font-family: inherit; font-size: 0.82rem;
+    }
+    .wn-link-row input[type="url"]:focus { outline: none; border-color: #111; }
+    .wn-link-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    /* Links inside note editors */
+    .wn-note-editor a[href] {
+      color: #2563eb;
+      text-decoration: underline;
+      cursor: text;
+    }
+    .wn-note-editor a[href]:hover { color: #1d4ed8; }
     @keyframes wn-blink-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
       50%       { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.85), 0 0 8px 4px rgba(239, 68, 68, 0.3); }
@@ -6482,6 +6649,8 @@ h1#main-title {
 .rsp-item-results:hover { background: #8b6508 !important; color: #fff !important; }
 .rsp-item-danger { background: #b91c1c; color: #fff; border-color: #7f1d1d; font-weight: 700; }
 .rsp-item-danger:hover { background: #7f1d1d !important; color: #fff !important; }
+.rsp-item-black { background: #111; color: #fff; font-weight: 700; }
+.rsp-item-black:hover { background: #333 !important; color: #fff !important; }
 
 .btn-toggle-badges {
   padding: 3px 8px;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -43,6 +43,7 @@
             window.__ptUserBootstrapPromise = (async function () {
                 try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
                 try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
+                try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
             })();
         })();
         </script>
@@ -1320,11 +1321,28 @@
         let pendingResetAction = null;
         let compareGroupIds = [];
 
+        function _ptRoster() {
+            if (typeof STUDENTS_ROSTER === 'undefined' || !Array.isArray(STUDENTS_ROSTER)) return {};
+            const map = {};
+            STUDENTS_ROSTER.forEach(s => { if (s && s.uuid) map[s.uuid] = s; });
+            return map;
+        }
+
         function getHalfGroupMembers(groupId, half) {
             try {
                 const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
                 const hg = meta[groupId] && meta[groupId].halfGroups;
-                if (hg && half && hg[half]) return hg[half].map(s => s.toUpperCase());
+                if (!hg || !half || !hg[half]) return null;
+                const arr = hg[half];
+                // UUID format: resolve to display names for comparison
+                if (arr.length > 0 && typeof arr[0] === 'string' && arr[0].startsWith('st-')) {
+                    const roster = _ptRoster();
+                    return arr.map(sid => {
+                        const s = roster[sid];
+                        return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : sid.toUpperCase();
+                    });
+                }
+                return arr.map(s => s.toUpperCase());
             } catch (e) {}
             return null;
         }
@@ -1729,20 +1747,21 @@
                 return;
             }
 
-            if (typeof CLASS_GROUPS === 'undefined' || !CLASS_GROUPS || Object.keys(CLASS_GROUPS).length === 0) {
+            if (typeof CLASS_GROUPS_META === 'undefined' || !CLASS_GROUPS_META || Object.keys(CLASS_GROUPS_META).length === 0) {
                 // Try loading from user data folder (class-groups.js is not bundled in the packaged app).
-                if (window.Desktop && typeof Desktop.readJson === 'function') {
+                if (window.Desktop && typeof Desktop.readText === 'function') {
                     try {
-                        const gr = await Desktop.readJson('user', 'class-groups.js');
-                        if (gr?.ok && gr.data) {
-                            if (gr.data.classGroups) window.CLASS_GROUPS = gr.data.classGroups;
-                            if (gr.data.classGroupsMeta) window.CLASS_GROUPS_META = gr.data.classGroupsMeta;
+                        const gr = await Desktop.readText('user', 'class-groups.js');
+                        if (gr?.ok && gr.content) {
+                            const fn = new Function(gr.content + '; return typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : {};');
+                            const parsed = fn();
+                            if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
                         }
                     } catch (e) { /* ignore */ }
                 }
             }
 
-            if (typeof CLASS_GROUPS === 'undefined' || !CLASS_GROUPS || Object.keys(CLASS_GROUPS).length === 0) {
+            if (typeof CLASS_GROUPS_META === 'undefined' || !CLASS_GROUPS_META || Object.keys(CLASS_GROUPS_META).length === 0) {
                 showMessage(t('ptMsgNoGroups'), 'error');
                 return;
             }
@@ -1989,7 +2008,7 @@
 
                     stats.prompts++;
                     const keepImported = await showConfirm(
-                        tFmt('ptConfirmImportConflict', { groupId, sessionDate, n: conflicts.length })
+                        tFmt('ptConfirmImportConflict', { groupId: groupDisplayName(groupId), sessionDate, n: conflicts.length })
                     );
 
                     if (keepImported) {
@@ -2051,7 +2070,7 @@
             Object.entries(groupCounts)
                 .sort((a, b) => b[1] - a[1])
                 .forEach(([groupId, count]) => {
-                    html += `<li>${groupId}: ${count} session(s)</li>`;
+                    html += `<li>${groupDisplayName(groupId)}: ${count} session(s)</li>`;
                 });
 
             html += `
@@ -2208,18 +2227,25 @@
             populateGroups();
         }
 
+        function groupDisplayName(groupId) {
+            const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
+            return (meta && meta.name) ? meta.name : groupId;
+        }
+
         function populateGroups() {
             const groups = extractGroupsFromData();
             const container = document.getElementById('groupButtons');
             container.innerHTML = '';
-            const knownGroups = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
+            const knownGroups = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
 
             groups.forEach(group => {
                 const btn = document.createElement('button');
                 const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[group] : null;
                 const isOrphaned = !knownGroups[group];
+                const displayName = (meta && meta.name) ? meta.name : group;
                 btn.className = 'group-btn';
-                btn.textContent = group;
+                btn.dataset.group = group;
+                btn.textContent = displayName;
                 if (meta && meta.archived) btn.style.opacity = '0.55';
                 if (isOrphaned) {
                     btn.style.borderColor = '#e67e22';
@@ -2234,7 +2260,7 @@
                     const delBtn = document.createElement('button');
                     delBtn.className = 'group-btn';
                     delBtn.style.cssText = 'padding:5px 8px;border-color:#e67e22;color:#e67e22;margin-left:2px;';
-                    delBtn.title = 'Delete all data for "' + group + '"';
+                    delBtn.title = 'Delete all data for "' + displayName + '"';
                     delBtn.textContent = '🗑';
                     delBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
@@ -2255,7 +2281,7 @@
                     }
                 });
             });
-            return Array.from(groups).sort();
+            return Array.from(groups).sort((a, b) => groupDisplayName(a).localeCompare(groupDisplayName(b)));
         }
 
         function selectFirstGroup() {
@@ -2272,7 +2298,7 @@
             selectedHistorySessionId = null;
             setClassOverviewTitle(null);
             document.querySelectorAll('.group-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.textContent === groupId);
+                btn.classList.toggle('active', btn.dataset.group === groupId);
             });
             // Show year/semester/level metadata + half group buttons
             const metaEl = document.getElementById('groupMetaInfo');
@@ -2458,7 +2484,7 @@
                 return `
                     <label class="compare-group-item">
                         <input type="checkbox" class="compare-group-checkbox" value="${groupId}" ${checked}>
-                        <span>${groupId}</span>
+                        <span>${groupDisplayName(groupId)}</span>
                     </label>
                 `;
             }).join('');
@@ -3881,6 +3907,16 @@
 <script>
 function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+</script>
+<script>
+(function () {
+  if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
+  Desktop.onDataChanged(function (data) {
+    if (data && data.filename === 'class-groups.js') {
+      showDataChangedBanner(data);
+    }
+  });
+})();
 </script>
 </body>
 </html>
