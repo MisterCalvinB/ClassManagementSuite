@@ -12,6 +12,7 @@
 | `grade-sheet.html` | Test and grade tracking per class, term, and criterion |
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
 | `group-editor.html` | Create, edit, archive, and delete class groups; set the active year and term shared by all tools |
+| `import-tool.html` | Bulk-import students and class groups from CSV, XLSX, or JSON with automatic column mapping and conflict resolution |
 | `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and Markdown export |
 | `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
@@ -239,6 +240,41 @@ Archiving hides groups from all rosters without deleting their data. Participati
 - **Archive a whole term** — click **Archive S1** or **Archive S2** in the section header.
 - **End-of-term offer** — when the active term end date has passed, a yellow banner appears at the top offering to archive the whole term in one click. Dismissing it stores a flag in localStorage so the prompt does not re-appear.
 - **Unarchive** — scroll to the *Archived Groups* section and click **Unarchive** on any row.
+
+---
+
+## import-tool.html
+
+Five-step wizard for bulk-importing students and class groups from CSV, XLSX, or JSON. Accessible from the Launcher (📥 Import card in the Students section) or via the **📥 Import** shortcut in the Class Management settings popup.
+
+### Supported formats
+
+| Format | Notes |
+|---|---|
+| CSV | First row = column headers. Any standard separator. |
+| XLSX / XLS | First sheet only. First row = column headers. Native Excel dates handled correctly. |
+| JSON | Array of objects: `[{"firstName":"…","lastName":"…"},…]`. Object keys are treated as column names. |
+
+### Wizard steps
+
+1. **Destination** — choose *Students* (roster only) or *Class Groups* (roster + group assignment).
+2. **File** — drag-and-drop or browse. Supported: `.csv`, `.xlsx`, `.xls`, `.json`. A raw preview of the first five rows is shown immediately.
+3. **Column mapping** — each destination field gets a dropdown. Common header names in EN, FR, DE, and IT are auto-detected (green border = matched). Optional fields can be skipped.
+4. **Preview & conflicts** — all rows are listed. Rows whose first name + last name match an existing student are highlighted. Per-row choice: **Skip** (keep existing), **Overwrite** (update record), or **Import as new** (add another entry). Bulk actions apply the same decision to all conflicts at once.
+5. **Done** — summary of students added / updated / skipped. One-click shortcut to open Class Management.
+
+### Class Groups destination
+
+When *Class Groups* is selected, Step 1 expands a group-assignment panel:
+
+- **Create new group** — enter a name, year, semester, and optional level. Year and semester pre-fill from the current active context.
+- **Use existing group** — pick from the list of active groups. Imported students are appended; existing members are not duplicated.
+
+Students who do not already exist in `students.js` are created automatically — no separate student import needed.
+
+### Extensibility
+
+Each destination is a self-contained descriptor in `js/import-modules/`. To add a new destination, create a file there with `id`, `i18nKey`, `hasGroupStep`, `fields[]`, and `conflictKey()`, then register it in the `MODULES` array at the top of `pages/import-tool.html`.
 
 ---
 

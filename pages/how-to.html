@@ -601,6 +601,14 @@
         </div>
       </div>
 
+      <div class="sidebar-item" id="nav-import-tool">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="import-tool" onclick="navTo('import-tool')">
+            <span>📥</span> Import
+          </button>
+        </div>
+      </div>
+
       <div class="sidebar-item" id="nav-planner">
         <div class="sidebar-row">
           <button class="sidebar-row-main" data-section="planner" onclick="navTo('planner')">
@@ -791,6 +799,10 @@
         <button class="overview-card" onclick="navTo('group-editor')">
           <h3>🗃 Group Editor</h3>
           <p>Create, edit, and archive class groups. Set the active year and term shared by all tools.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('import-tool')">
+          <h3>📥 Import</h3>
+          <p>Bulk-import students and class groups from CSV, XLSX, or JSON with automatic column mapping.</p>
         </button>
         <button class="overview-card" onclick="navTo('planner')">
           <h3>📅 Planner</h3>
@@ -1465,6 +1477,80 @@
             <li>To view or restore archived groups, scroll to the <strong>Archived Groups</strong> section and click <strong>Unarchive</strong> on any row.</li>
           </ol>
           <div class="tip"><strong>Note:</strong> Archiving a group marks it <code>archived: true</code> in <code>class-groups.js</code> and moves its participation files to <code>archived/</code>. Grade Sheet data is not affected.</div>
+        </div></div>
+      </div>
+
+    </section>
+
+    <hr class="divider">
+
+    <!-- ═══ IMPORT TOOL ═══════════════════════════════════════ -->
+    <section class="tool-section" id="import-tool">
+      <div class="tool-header">
+        <span class="tool-icon">📥</span>
+        <h2>Import</h2>
+        <button class="open-tool-btn" onclick="openTool('import-tool.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Bulk-import students and class groups from a CSV, XLSX, or JSON file. The wizard maps your file's columns to the app's fields automatically, lets you resolve any name conflicts row by row, and writes directly to <code>students.js</code> and <code>class-groups.js</code>.
+      </p>
+
+      <div class="accordion" id="acc-it-students">
+        <button class="accordion-header" onclick="toggleAccordion('acc-it-students')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Importing Students</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Open <button class="xlink" onclick="openTool('import-tool.html')">Import</button> from the Launcher, or use the <strong>📥 Import</strong> shortcut in the Class Management settings popup.</li>
+            <li><strong>Step 1 — Destination:</strong> select <strong>Students</strong>.</li>
+            <li><strong>Step 2 — File:</strong> drag-and-drop your file onto the drop zone, or click <strong>Browse</strong>. A raw preview of the first five rows appears immediately. Supported formats: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.json</code>.</li>
+            <li><strong>Step 3 — Column mapping:</strong> each student field (First Name, Last Name, Date of Birth, Admin Class, SEN) shows a dropdown. The wizard auto-detects common column names in English, French, German, and Italian — green-highlighted dropdowns indicate a successful match. Adjust any mismatches manually. Optional fields can be set to <em>(skip)</em>.</li>
+            <li><strong>Step 4 — Preview &amp; conflicts:</strong> all rows are shown. Rows whose first name + last name match an existing student are flagged as conflicts. For each conflict, choose <strong>Skip</strong> (keep existing), <strong>Overwrite</strong> (update existing record), or <strong>Import as new</strong> (add a duplicate). Use the bulk buttons to apply one decision to all conflicts at once.</li>
+            <li>Click <strong>Import</strong>. The results screen shows how many students were added, updated, or skipped.</li>
+          </ol>
+          <div class="tip"><strong>First Name is required.</strong> All other fields are optional — unmapped columns are simply ignored.</div>
+          <div class="tip" style="margin-top:8px;"><strong>Date format:</strong> the wizard accepts <code>DD/MM/YYYY</code>, <code>YYYY-MM-DD</code>, and dates stored natively in Excel cells.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-it-classgroups">
+        <button class="accordion-header" onclick="toggleAccordion('acc-it-classgroups')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Importing into a Class Group</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Select <strong>Class Groups</strong> as the destination in Step 1.</li>
+            <li>Choose <strong>Create new group</strong> and enter a name (e.g. <code>4AN-02</code>), or choose <strong>Use existing group</strong> to add the imported students to a group that already exists.</li>
+            <li>For a new group, optionally set the <strong>Year</strong>, <strong>Semester</strong>, and <strong>Level</strong>. The year and semester are pre-filled from the current active context.</li>
+            <li>Complete Steps 2–4 exactly as for a student import.</li>
+            <li>After import, any student who did not already exist in <code>students.js</code> is created automatically — no separate import step needed.</li>
+            <li>Click <strong>Open Class Management</strong> on the results screen to use your new group immediately.</li>
+          </ol>
+          <div class="tip"><strong>Existing group:</strong> students already in the group are not duplicated — only students whose UUID is not yet in the group's list are appended.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-it-formats">
+        <button class="accordion-header" onclick="toggleAccordion('acc-it-formats')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Supported File Formats</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #ddd;">Format</th>
+                <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #ddd;">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;"><strong>CSV</strong></td><td style="padding:6px 10px;border-bottom:1px solid #eee;">First row must be column headers. Any separator recognised by SheetJS is accepted.</td></tr>
+              <tr><td style="padding:6px 10px;border-bottom:1px solid #eee;"><strong>XLSX / XLS</strong></td><td style="padding:6px 10px;border-bottom:1px solid #eee;">Data is read from the first sheet. First row must be column headers. Native Excel dates are handled correctly.</td></tr>
+              <tr><td style="padding:6px 10px;"><strong>JSON</strong></td><td style="padding:6px 10px;">Must be an array of objects: <code>[{"firstName":"…","lastName":"…"},…]</code>. Object keys are used as column names for mapping.</td></tr>
+            </tbody>
+          </table>
         </div></div>
       </div>
 

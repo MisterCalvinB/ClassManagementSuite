@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../modules/xlsx.min.js"></script>
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/menus.js"></script>
+  <script src="../js/import-utils.js"></script>
+  <script src="../js/import-modules/students.js"></script>
+  <script src="../js/import-modules/class-groups.js"></script>
+  <script src="../js/import-modules/wordbank.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lexend', 'Segoe UI', system-ui, sans-serif;
+      background: #f0f0f0;
+      color: #111;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #111;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      height: 44px;
+      flex-shrink: 0;
+    }
+    nav .nav-title { font-size: 0.92rem; font-weight: 700; letter-spacing: 0.5px; flex: 1; }
+    nav button {
+      background: none; border: 1px solid #444; color: #ccc;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 0.78rem;
+      transition: background 0.1s, color 0.1s;
+    }
+    nav button:hover { background: #333; color: #fff; }
+
+    /* ── Wizard shell ── */
+    .wizard-wrap {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 16px 40px;
+    }
+    .wizard-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      width: 100%; max-width: 780px;
+      padding: 32px 36px 28px;
+    }
+
+    /* ── Progress bar ── */
+    .progress-bar {
+      display: flex; align-items: center; gap: 0;
+      margin-bottom: 32px;
+    }
+    .pb-step {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      flex: 1; position: relative;
+    }
+    .pb-step::before {
+      content: '';
+      position: absolute; top: 14px; left: calc(-50% + 14px); right: calc(50% + 14px);
+      height: 2px; background: #ddd; z-index: 0;
+    }
+    .pb-step:first-child::before { display: none; }
+    .pb-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700;
+      border: 2px solid #ddd; background: #fff; color: #aaa;
+      position: relative; z-index: 1; transition: all 0.2s;
+    }
+    .pb-step.done .pb-dot { background: #111; border-color: #111; color: #fff; }
+    .pb-step.done::before { background: #111; }
+    .pb-step.active .pb-dot { background: #fff; border-color: #111; color: #111; }
+    .pb-label { font-size: 0.68rem; color: #aaa; font-weight: 600; text-align: center; }
+    .pb-step.active .pb-label, .pb-step.done .pb-label { color: #333; }
+
+    /* ── Step heading ── */
+    .step-title {
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: #111;
+    }
+
+    /* ── Step panels ── */
+    .step { display: none; }
+    .step.active { display: block; }
+
+    /* ── Step 1: destination ── */
+    .dest-options { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+    .dest-card {
+      flex: 1; min-width: 180px;
+      border: 2px solid #ddd; border-radius: 8px;
+      padding: 16px 18px; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .dest-card:hover { border-color: #999; }
+    .dest-card.selected { border-color: #111; background: #f8f8f8; }
+    .dest-card input[type=radio] { display: none; }
+    .dest-card-icon { font-size: 1.5rem; }
+    .dest-card-label { font-weight: 700; font-size: 0.9rem; }
+    .dest-card-desc { font-size: 0.75rem; color: #666; margin-top: 2px; }
+
+    .group-options {
+      background: #f6f6f6; border-radius: 8px;
+      padding: 16px 18px; margin-top: 4px;
+      display: none;
+    }
+    .group-options.visible { display: block; }
+    .group-options h4 { font-size: 0.82rem; font-weight: 700; color: #444; margin-bottom: 12px; }
+    .grp-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+    .grp-toggle-btn {
+      flex: 1; padding: 7px 10px; border-radius: 5px; border: 1.5px solid #ddd;
+      background: #fff; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: #555;
+      transition: all 0.15s;
+    }
+    .grp-toggle-btn.active { background: #111; color: #fff; border-color: #111; }
+    .grp-field { margin-bottom: 10px; }
+    .grp-field label { display: block; font-size: 0.75rem; font-weight: 700; color: #555; margin-bottom: 4px; }
+    .grp-field input, .grp-field select {
+      width: 100%; padding: 7px 10px; border: 1.5px solid #ddd; border-radius: 5px;
+      font-size: 0.85rem; font-family: inherit; background: #fff;
+    }
+    .grp-field input:focus, .grp-field select:focus { outline: none; border-color: #777; }
+    .grp-row { display: flex; gap: 10px; }
+    .grp-row .grp-field { flex: 1; }
+
+    /* ── Step 2: upload ── */
+    .drop-zone {
+      border: 2.5px dashed #ccc; border-radius: 10px;
+      padding: 44px 20px; text-align: center; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 16px;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #555; background: #fafafa; }
+    .drop-zone.has-file { border-color: #4caf50; background: #f6fff6; }
+    .drop-icon { font-size: 2.2rem; margin-bottom: 8px; }
+    .drop-main { font-size: 0.92rem; font-weight: 700; color: #333; margin-bottom: 6px; }
+    .drop-sub { font-size: 0.75rem; color: #888; }
+    .drop-browse {
+      display: inline-block; margin-top: 12px;
+      background: #111; color: #fff; border: none;
+      padding: 7px 18px; border-radius: 5px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 700; font-family: inherit;
+      transition: background 0.15s;
+    }
+    .drop-browse:hover { background: #333; }
+    input#file-input { display: none; }
+
+    .file-info {
+      background: #f6f6f6; border-radius: 7px;
+      padding: 10px 14px; font-size: 0.82rem; color: #444;
+      display: none; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .file-info.visible { display: flex; }
+    .file-info-name { font-weight: 700; flex: 1; }
+    .file-info-remove {
+      background: none; border: none; cursor: pointer;
+      color: #999; font-size: 1rem; padding: 0 4px;
+    }
+    .file-info-remove:hover { color: #c00; }
+
+    /* ── Raw preview table ── */
+    .preview-wrap {
+      overflow-x: auto; margin-top: 14px; display: none;
+      border: 1px solid #e0e0e0; border-radius: 7px;
+    }
+    .preview-wrap.visible { display: block; }
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .preview-table th {
+      background: #111; color: #fff; padding: 6px 10px;
+      text-align: left; white-space: nowrap;
+    }
+    .preview-table td {
+      padding: 5px 10px; border-bottom: 1px solid #eee;
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: #333;
+    }
+    .preview-table tr:last-child td { border-bottom: none; }
+    .preview-table tr:nth-child(even) td { background: #fafafa; }
+
+    /* ── Step 3: mapping ── */
+    .mapping-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    .mapping-table th {
+      font-size: 0.75rem; font-weight: 700; color: #888;
+      text-align: left; padding: 0 10px 8px 0;
+    }
+    .mapping-table td { padding: 5px 10px 5px 0; vertical-align: middle; }
+    .mapping-table td:first-child {
+      font-size: 0.85rem; font-weight: 700; color: #222; width: 40%;
+    }
+    .mapping-table td:first-child .req-star { color: #c00; margin-left: 2px; }
+    .mapping-table td:nth-child(2) { width: 60%; }
+    .mapping-select {
+      width: 100%; padding: 6px 8px;
+      border: 1.5px solid #ddd; border-radius: 5px;
+      font-size: 0.82rem; font-family: inherit; background: #fff;
+    }
+    .mapping-select:focus { outline: none; border-color: #777; }
+    .mapping-select.auto-matched { border-color: #4caf50; background: #f6fff6; }
+    .auto-tag {
+      font-size: 0.65rem; color: #4caf50; font-weight: 700;
+      margin-left: 6px; vertical-align: middle;
+    }
+
+    .mapping-preview-wrap {
+      border: 1px solid #e0e0e0; border-radius: 7px;
+      overflow-x: auto; overflow-y: auto; max-height: 320px;
+      margin-top: 8px; display: none;
+    }
+    .mapping-preview-wrap.visible { display: block; }
+    .mapping-row-count {
+      font-size: 0.73rem; color: #888; text-align: right; margin-top: 5px;
+    }
+    .mapping-row-count .excl-note { color: #c77700; font-weight: 700; }
+    .preview-table tr.excluded-row td { opacity: 0.35; text-decoration: line-through; }
+    .row-del-btn {
+      background: none; border: none; cursor: pointer;
+      color: #bbb; font-size: 0.85rem; padding: 2px 4px; line-height: 1;
+      border-radius: 3px; transition: color 0.1s, background 0.1s;
+    }
+    .row-del-btn:hover { color: #c00; background: #fff0f0; }
+    .excluded-row .row-del-btn { color: #4caf50; }
+    .excluded-row .row-del-btn:hover { color: #2e7d32; background: #f0fff0; }
+
+    /* ── Step 4: conflicts ── */
+    .conflict-header {
+      background: #fff8e1; border: 1px solid #ffe082;
+      border-radius: 7px; padding: 12px 16px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .conflict-header .ci-icon { font-size: 1.2rem; }
+    .conflict-header .ci-text { flex: 1; font-size: 0.85rem; font-weight: 700; color: #555; }
+    .conflict-bulk { display: flex; gap: 6px; flex-wrap: wrap; }
+    .conflict-bulk button {
+      font-size: 0.75rem; padding: 4px 10px; border-radius: 4px;
+      border: 1.5px solid #bbb; background: #fff; cursor: pointer;
+      font-family: inherit; font-weight: 700; color: #444;
+      transition: all 0.12s;
+    }
+    .conflict-bulk button:hover { background: #111; color: #fff; border-color: #111; }
+
+    .ok-banner {
+      background: #e8f5e9; border: 1px solid #a5d6a7;
+      border-radius: 7px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 0.85rem; color: #2e7d32; font-weight: 700;
+      display: none; align-items: center; gap: 8px;
+    }
+    .ok-banner.visible { display: flex; }
+
+    .preview-rows-wrap { overflow-x: auto; }
+    .preview-rows-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .preview-rows-table th {
+      background: #f0f0f0; color: #555; padding: 6px 10px;
+      text-align: left; font-size: 0.72rem; font-weight: 700;
+      white-space: nowrap; border-bottom: 1.5px solid #ddd;
+    }
+    .preview-rows-table td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+    .preview-rows-table tr.conflict-row { background: #fff8e1; }
+    .preview-rows-table tr.skip-row { opacity: 0.45; }
+    .badge {
+      display: inline-block; padding: 1px 7px; border-radius: 20px;
+      font-size: 0.68rem; font-weight: 700;
+    }
+    .badge-new { background: #e8f5e9; color: #2e7d32; }
+    .badge-conflict { background: #fff8e1; color: #b45309; }
+    .badge-skip { background: #eee; color: #888; }
+    .badge-overwrite { background: #e3f2fd; color: #1565c0; }
+    .conflict-radio { display: flex; gap: 4px; }
+    .conflict-radio label {
+      font-size: 0.72rem; display: flex; align-items: center; gap: 3px;
+      cursor: pointer; padding: 2px 6px; border-radius: 3px;
+      border: 1px solid #ddd; background: #fff; transition: all 0.1s;
+    }
+    .conflict-radio input[type=radio] { display: none; }
+    .conflict-radio label.selected { border-color: #111; background: #111; color: #fff; }
+
+    /* ── Step 5: done ── */
+    .done-icon { font-size: 3rem; text-align: center; margin-bottom: 12px; }
+    .done-title { font-size: 1.1rem; font-weight: 700; text-align: center; margin-bottom: 18px; }
+    .done-stats {
+      display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .done-stat {
+      background: #f6f6f6; border-radius: 8px;
+      padding: 14px 22px; text-align: center; min-width: 90px;
+    }
+    .done-stat-num { font-size: 1.8rem; font-weight: 700; color: #111; }
+    .done-stat-label { font-size: 0.72rem; color: #666; font-weight: 600; margin-top: 2px; }
+    .done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Bottom nav ── */
+    .wizard-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 28px; padding-top: 20px; border-top: 1px solid #eee;
+    }
+    .wizard-footer .left { display: flex; gap: 8px; }
+    .wizard-footer .right { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 9px 22px; border-radius: 6px; border: 2px solid #111;
+      font-family: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: all 0.12s;
+    }
+    .btn-primary { background: #111; color: #fff; }
+    .btn-primary:hover { background: #333; border-color: #333; }
+    .btn-secondary { background: #fff; color: #111; }
+    .btn-secondary:hover { background: #f0f0f0; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .error-msg {
+      color: #c00; font-size: 0.78rem; font-weight: 700;
+      margin-top: 8px; display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    .saving-msg {
+      font-size: 0.82rem; color: #666; display: none; align-items: center; gap: 6px;
+    }
+    .saving-msg.visible { display: flex; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="nav-title" data-i18n="importToolTitle">Import Data</span>
+    <button onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('launcher.html')" data-i18n="btnBack">← Back</button>
+  </nav>
+
+  <div class="wizard-wrap">
+    <div class="wizard-card">
+
+      <!-- Progress bar -->
+      <div class="progress-bar">
+        <div class="pb-step active" id="pb-1">
+          <div class="pb-dot">1</div>
+          <span class="pb-label" data-i18n="importStep1">Destination</span>
+        </div>
+        <div class="pb-step" id="pb-2">
+          <div class="pb-dot">2</div>
+          <span class="pb-label" data-i18n="importStep2">File</span>
+        </div>
+        <div class="pb-step" id="pb-3">
+          <div class="pb-dot">3</div>
+          <span class="pb-label" data-i18n="importStep3">Mapping</span>
+        </div>
+        <div class="pb-step" id="pb-4">
+          <div class="pb-dot">4</div>
+          <span class="pb-label" data-i18n="importStep4">Preview</span>
+        </div>
+        <div class="pb-step" id="pb-5">
+          <div class="pb-dot">5</div>
+          <span class="pb-label" data-i18n="importStep5">Done</span>
+        </div>
+      </div>
+
+      <!-- ── STEP 1 ── -->
+      <div class="step active" id="step-1">
+        <div class="step-title" data-i18n="importStep1Title">What are you importing into?</div>
+
+        <div class="dest-options" id="dest-options">
+          <!-- populated by JS -->
+        </div>
+
+        <!-- Group options (shown when class-groups is selected) -->
+        <div class="group-options" id="group-options">
+          <h4 data-i18n="importGroupPickLabel">Assign to group</h4>
+          <div class="grp-toggle">
+            <button class="grp-toggle-btn active" id="grp-btn-new" onclick="setGroupMode('new')" data-i18n="importGroupNew">Create new group</button>
+            <button class="grp-toggle-btn" id="grp-btn-existing" onclick="setGroupMode('existing')" data-i18n="importGroupExisting">Use existing group</button>
+          </div>
+
+          <!-- New group fields -->
+          <div id="grp-new-fields">
+            <div class="grp-field">
+              <label data-i18n="importGroupName">Group name *</label>
+              <input type="text" id="grp-name" placeholder="e.g. 4AN-02">
+            </div>
+            <div class="grp-row">
+              <div class="grp-field">
+                <label data-i18n="importGroupYear">Year</label>
+                <input type="text" id="grp-year" placeholder="2026-2027">
+              </div>
+              <div class="grp-field">
+                <label data-i18n="importGroupSemester">Semester</label>
+                <select id="grp-semester">
+                  <option value="">—</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                </select>
+              </div>
+              <div class="grp-field">
+                <label data-i18n="importGroupLevel">Level</label>
+                <input type="text" id="grp-level" placeholder="e.g. 4">
+              </div>
+            </div>
+          </div>
+
+          <!-- Existing group picker -->
+          <div id="grp-existing-fields" style="display:none;">
+            <div class="grp-field">
+              <label data-i18n="importGroupExisting">Existing group</label>
+              <select id="grp-existing-select">
+                <option value="" data-i18n="loading">Loading…</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wordbank options (shown when wordbank is selected) -->
+        <div class="group-options" id="wb-options">
+          <h4 data-i18n="importWbPickLabel">Target wordbank file</h4>
+          <div class="grp-toggle">
+            <button class="grp-toggle-btn active" id="wb-btn-new" onclick="setWbMode('new')" data-i18n="importWbNew">Create new file</button>
+            <button class="grp-toggle-btn" id="wb-btn-existing" onclick="setWbMode('existing')" data-i18n="importWbExisting">Add to existing file</button>
+          </div>
+          <div id="wb-new-fields">
+            <div class="grp-field">
+              <label data-i18n="importWbFileName">File name *</label>
+              <input type="text" id="wb-new-name" placeholder="e.g. vocabulary" oninput="onWbNewNameChange()">
+              <small style="color:#888;font-size:0.72rem;" data-i18n="importWbFileNameHint">.js will be added automatically</small>
+            </div>
+          </div>
+          <div id="wb-existing-fields" style="display:none;">
+            <div class="grp-field">
+              <label data-i18n="importWbExistingLabel">Existing wordbank</label>
+              <select id="wb-existing-select" onchange="onWbExistingChange()">
+                <option value="" data-i18n="loading">Loading…</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="error-msg" id="err-step1"></div>
+      </div>
+
+      <!-- ── STEP 2 ── -->
+      <div class="step" id="step-2">
+        <div class="step-title" data-i18n="importStep2Title">Choose a file to import</div>
+
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-icon">📂</div>
+          <div class="drop-main" data-i18n="importStep2Drop">Drop file here or</div>
+          <button class="drop-browse" onclick="document.getElementById('file-input').click()" data-i18n="importStep2Browse">Browse</button>
+          <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON</div>
+        </div>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json">
+
+        <div class="file-info" id="file-info">
+          <span class="file-info-name" id="file-info-name"></span>
+          <button class="file-info-remove" onclick="clearFile()" title="Remove">✕</button>
+        </div>
+
+        <div class="preview-wrap" id="raw-preview-wrap">
+          <table class="preview-table" id="raw-preview-table"></table>
+        </div>
+
+        <div class="error-msg" id="err-step2"></div>
+      </div>
+
+      <!-- ── STEP 3 ── -->
+      <div class="step" id="step-3">
+        <div class="step-title" data-i18n="importStep3Title">Map columns to fields</div>
+
+        <table class="mapping-table">
+          <thead>
+            <tr>
+              <th data-i18n="importStep3FieldCol">Field</th>
+              <th data-i18n="importStep3ColCol">Your column</th>
+            </tr>
+          </thead>
+          <tbody id="mapping-tbody"></tbody>
+        </table>
+
+        <div class="mapping-preview-wrap" id="mapping-preview-wrap">
+          <table class="preview-table" id="mapping-preview-table"></table>
+        </div>
+        <div class="mapping-row-count" id="mapping-row-count"></div>
+
+        <div class="error-msg" id="err-step3"></div>
+      </div>
+
+      <!-- ── STEP 4 ── -->
+      <div class="step" id="step-4">
+        <div class="step-title" data-i18n="importStep4Title">Preview import</div>
+
+        <div class="ok-banner" id="ok-banner">
+          <span>✓</span>
+          <span data-i18n="importStep4NoConflicts">No conflicts found — all rows are new.</span>
+        </div>
+
+        <div class="conflict-header" id="conflict-header" style="display:none;">
+          <span class="ci-icon">⚠</span>
+          <span class="ci-text" id="conflict-count-text"></span>
+          <div class="conflict-bulk">
+            <button onclick="applyBulkConflict('skip')" data-i18n="importStep4Skip">Skip all</button>
+            <button onclick="applyBulkConflict('overwrite')" data-i18n="importStep4Overwrite">Overwrite all</button>
+            <button onclick="applyBulkConflict('new')" data-i18n="importStep4New">Import all as new</button>
+          </div>
+        </div>
+
+        <div class="preview-rows-wrap">
+          <table class="preview-rows-table">
+            <thead id="preview-rows-head"></thead>
+            <tbody id="preview-rows-body"></tbody>
+          </table>
+        </div>
+
+        <div class="error-msg" id="err-step4"></div>
+      </div>
+
+      <!-- ── STEP 5 ── -->
+      <div class="step" id="step-5">
+        <div class="done-icon">✅</div>
+        <div class="done-title" data-i18n="importStep5Title">Import complete!</div>
+        <div class="done-stats">
+          <div class="done-stat">
+            <div class="done-stat-num" id="done-added">0</div>
+            <div class="done-stat-label" data-i18n="importStep5Added">Added</div>
+          </div>
+          <div class="done-stat">
+            <div class="done-stat-num" id="done-updated">0</div>
+            <div class="done-stat-label" data-i18n="importStep5Updated">Updated</div>
+          </div>
+          <div class="done-stat">
+            <div class="done-stat-num" id="done-skipped">0</div>
+            <div class="done-stat-label" data-i18n="importStep5Skipped">Skipped</div>
+          </div>
+        </div>
+        <div class="done-actions">
+          <button class="btn btn-primary" id="btn-done-action" style="display:none;" onclick="doneAction()">Open</button>
+          <button class="btn btn-secondary" onclick="resetWizard()" data-i18n="importBtnImportAnother">Import another file</button>
+          <button class="btn btn-secondary" onclick="if(window.Desktop && Desktop.isElectron()) window.close()" data-i18n="importBtnClose">Close</button>
+        </div>
+      </div>
+
+      <!-- ── Footer ── -->
+      <div class="wizard-footer" id="wizard-footer">
+        <div class="left">
+          <button class="btn btn-secondary" id="btn-back" onclick="goBack()" style="display:none;" data-i18n="importBtnBack">← Back</button>
+        </div>
+        <div class="right" style="display:flex; align-items:center; gap:10px;">
+          <span class="saving-msg" id="saving-msg">
+            <span>⏳</span><span data-i18n="importSaving">Saving…</span>
+          </span>
+          <button class="btn btn-primary" id="btn-next" onclick="goNext()" data-i18n="importBtnNext">Next →</button>
+        </div>
+      </div>
+
+    </div><!-- /wizard-card -->
+  </div><!-- /wizard-wrap -->
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ── State ──────────────────────────────────────────────────
+    var currentStep = 1;
+    var TOTAL_STEPS = 5;
+
+    var MODULES = [
+      window.IMPORT_MODULE_STUDENTS,
+      window.IMPORT_MODULE_CLASS_GROUPS,
+      window.IMPORT_MODULE_WORDBANK
+    ];
+
+    var selectedModule = MODULES[0];
+    var groupMode = 'new';     // 'new' | 'existing'
+    var wbMode = 'new';        // 'new' | 'existing'
+    var parsedFile = null;     // {headers, rows}
+    var columnMapping = {};    // {fieldKey: colIndex|null}
+    var excludedRows = new Set(); // raw row indices excluded from import
+    var mappedRows = [];       // array of {fieldKey: value} objects
+    var conflictDecisions = {}; // {rowIndex: 'skip'|'overwrite'|'new'}
+    var existingStudents = [];  // loaded from students.js
+    var existingGroups = null;  // loaded class-groups data
+    var existingWordbank = [];  // loaded from selected wb file
+
+    // ── i18n helper ────────────────────────────────────────────
+    function tt(key, fallback) {
+      return (typeof t === 'function' ? t(key) : null) || fallback || key;
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    (function init() {
+      buildDestCards();
+      loadExistingData();
+      setupDropZone();
+      updateProgressBar();
+      updateFooterButtons();
+      if (typeof applyI18n === 'function') applyI18n();
+    })();
+
+    function buildDestCards() {
+      var container = document.getElementById('dest-options');
+      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚' };
+      var descs = {
+        students: tt('importDestStudentsDesc', 'Add students to the student roster'),
+        classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
+        wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file')
+      };
+      MODULES.forEach(function (mod, i) {
+        var card = document.createElement('label');
+        card.className = 'dest-card' + (i === 0 ? ' selected' : '');
+        card.dataset.modId = mod.id;
+        card.innerHTML =
+          '<input type="radio" name="dest" value="' + mod.id + '"' + (i === 0 ? ' checked' : '') + '>' +
+          '<span class="dest-card-icon">' + (icons[mod.id] || '📋') + '</span>' +
+          '<span><div class="dest-card-label">' + tt(mod.i18nKey, mod.id) + '</div>' +
+          '<div class="dest-card-desc">' + descs[mod.id] + '</div></span>';
+        card.addEventListener('click', function () { selectModule(mod); });
+        container.appendChild(card);
+      });
+    }
+
+    function selectModule(mod) {
+      selectedModule = mod;
+      document.querySelectorAll('.dest-card').forEach(function (c) {
+        c.classList.toggle('selected', c.dataset.modId === mod.id);
+      });
+      var grpOpts = document.getElementById('group-options');
+      grpOpts.classList.toggle('visible', !!mod.hasGroupStep);
+      var wbOpts = document.getElementById('wb-options');
+      wbOpts.classList.toggle('visible', !!mod.hasWbStep);
+      if (mod.hasWbStep) {
+        setWbMode(wbMode);
+        loadWbFiles();
+      }
+    }
+
+    window.setWbMode = function (mode) {
+      wbMode = mode;
+      document.getElementById('wb-btn-new').classList.toggle('active', mode === 'new');
+      document.getElementById('wb-btn-existing').classList.toggle('active', mode === 'existing');
+      document.getElementById('wb-new-fields').style.display = mode === 'new' ? '' : 'none';
+      document.getElementById('wb-existing-fields').style.display = mode === 'existing' ? '' : 'none';
+      if (mode === 'new') existingWordbank = [];
+    };
+
+    async function loadWbFiles() {
+      var sel = document.getElementById('wb-existing-select');
+      sel.innerHTML = '<option value="" data-i18n="loading">Loading…</option>';
+      existingWordbank = [];
+      try {
+        var r = await Desktop.listFiles('customWordbanks', { extensions: ['.js'] });
+        if (r && r.ok && Array.isArray(r.files) && r.files.length) {
+          sel.innerHTML = '';
+          r.files.forEach(function (f) {
+            var opt = document.createElement('option');
+            opt.value = f.filename || f;
+            opt.textContent = (f.filename || f).replace(/\.js$/, '');
+            sel.appendChild(opt);
+          });
+          onWbExistingChange();
+        } else {
+          sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no wordbank files found)') + '</option>';
+        }
+      } catch (e) {
+        sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no wordbank files found)') + '</option>';
+      }
+    }
+
+    window.onWbNewNameChange = function () {
+      existingWordbank = [];
+    };
+
+    window.onWbExistingChange = async function () {
+      existingWordbank = [];
+      var filename = document.getElementById('wb-existing-select').value;
+      if (!filename) return;
+      try {
+        var r = await Desktop.readText('customWordbanks', filename);
+        if (r && r.ok && r.content) {
+          var fn = new Function(r.content + '; try { return customVocabBank; } catch(e) { return []; }');
+          existingWordbank = fn() || [];
+        }
+      } catch (e) { existingWordbank = []; }
+    };
+
+    async function loadExistingData() {
+      var sr = await ImportUtils.loadStudentRoster();
+      existingStudents = sr.data || [];
+      var cg = await ImportUtils.loadClassGroupsData();
+      existingGroups = cg.data;
+      populateExistingGroupDropdown();
+      prefillYear();
+    }
+
+    function prefillYear() {
+      var yearInput = document.getElementById('grp-year');
+      if (existingGroups && existingGroups.activeYear && yearInput) {
+        yearInput.value = existingGroups.activeYear;
+      }
+      var semSel = document.getElementById('grp-semester');
+      if (existingGroups && existingGroups.activeSemester && semSel) {
+        semSel.value = String(existingGroups.activeSemester);
+      }
+    }
+
+    function populateExistingGroupDropdown() {
+      var sel = document.getElementById('grp-existing-select');
+      sel.innerHTML = '';
+      if (!existingGroups || !existingGroups.classGroupsMeta) {
+        sel.innerHTML = '<option value="">' + tt('importGroupNoGroups', '(no groups found)') + '</option>';
+        return;
+      }
+      var meta = existingGroups.classGroupsMeta;
+      var entries = Object.keys(meta).filter(function (id) { return !meta[id].archived; });
+      if (!entries.length) {
+        sel.innerHTML = '<option value="">' + tt('importGroupNoGroups', '(no active groups)') + '</option>';
+        return;
+      }
+      entries.forEach(function (id) {
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = meta[id].name || id;
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── Group mode toggle ───────────────────────────────────────
+    window.setGroupMode = function (mode) {
+      groupMode = mode;
+      document.getElementById('grp-btn-new').classList.toggle('active', mode === 'new');
+      document.getElementById('grp-btn-existing').classList.toggle('active', mode === 'existing');
+      document.getElementById('grp-new-fields').style.display = mode === 'new' ? '' : 'none';
+      document.getElementById('grp-existing-fields').style.display = mode === 'existing' ? '' : 'none';
+    };
+
+    // ── File upload ─────────────────────────────────────────────
+    function setupDropZone() {
+      var zone = document.getElementById('drop-zone');
+      var input = document.getElementById('file-input');
+
+      zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', function () { zone.classList.remove('dragover'); });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault(); zone.classList.remove('dragover');
+        var files = e.dataTransfer.files;
+        if (files.length) handleFile(files[0]);
+      });
+      zone.addEventListener('click', function () { input.click(); });
+      input.addEventListener('change', function () {
+        if (input.files.length) handleFile(input.files[0]);
+      });
+    }
+
+    async function handleFile(file) {
+      excludedRows = new Set();
+      clearError('err-step2');
+      document.getElementById('file-info-name').textContent = file.name;
+      document.getElementById('file-info').classList.add('visible');
+      document.getElementById('drop-zone').classList.add('has-file');
+
+      var result = await ImportUtils.parseFile(file);
+      if (!result.ok) {
+        showError('err-step2', tt('importErrParseFail', 'Could not parse file') + (result.error ? ': ' + result.error : ''));
+        parsedFile = null;
+        return;
+      }
+      parsedFile = result;
+      buildRawPreview(result.headers, result.rows);
+    }
+
+    window.clearFile = function () {
+      parsedFile = null;
+      excludedRows = new Set();
+      document.getElementById('file-input').value = '';
+      document.getElementById('file-info').classList.remove('visible');
+      document.getElementById('drop-zone').classList.remove('has-file');
+      document.getElementById('raw-preview-wrap').classList.remove('visible');
+      clearError('err-step2');
+    };
+
+    function buildRawPreview(headers, rows) {
+      var table = document.getElementById('raw-preview-table');
+      var PREVIEW_ROWS = 5;
+      var head = '<tr>' + headers.map(function (h) { return '<th>' + esc(String(h)) + '</th>'; }).join('') + '</tr>';
+      var body = rows.slice(0, PREVIEW_ROWS).map(function (row) {
+        return '<tr>' + row.map(function (c) { return '<td>' + esc(String(c).substring(0, 50)) + '</td>'; }).join('') + '</tr>';
+      }).join('');
+      table.innerHTML = '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
+      document.getElementById('raw-preview-wrap').classList.add('visible');
+    }
+
+    // ── Column mapping ──────────────────────────────────────────
+    function buildMappingUI() {
+      if (!parsedFile) return;
+      var fields = selectedModule.fields;
+      var headers = parsedFile.headers;
+      columnMapping = ImportUtils.autoDetectMapping(headers, fields);
+
+      var tbody = document.getElementById('mapping-tbody');
+      tbody.innerHTML = '';
+      fields.forEach(function (field) {
+        var autoCol = columnMapping[field.key];
+        var isAuto = autoCol !== null && autoCol !== undefined;
+        var label = tt(field.i18nKey, field.key);
+        var tr = document.createElement('tr');
+
+        var tdField = document.createElement('td');
+        tdField.innerHTML = label + (field.required ? '<span class="req-star">*</span>' : '');
+        if (isAuto) tdField.innerHTML += '<span class="auto-tag">' + tt('importStep3AutoDetect', '✓') + '</span>';
+
+        var tdSel = document.createElement('td');
+        var sel = document.createElement('select');
+        sel.className = 'mapping-select' + (isAuto ? ' auto-matched' : '');
+        sel.dataset.fieldKey = field.key;
+        var skipOpt = document.createElement('option');
+        skipOpt.value = '-1';
+        skipOpt.textContent = tt('importStep3Skip', '(skip)');
+        sel.appendChild(skipOpt);
+        headers.forEach(function (h, i) {
+          var opt = document.createElement('option');
+          opt.value = String(i);
+          opt.textContent = h || ('Col ' + (i + 1));
+          sel.appendChild(opt);
+        });
+        sel.value = isAuto ? String(autoCol) : '-1';
+        sel.addEventListener('change', function () {
+          columnMapping[field.key] = sel.value === '-1' ? null : parseInt(sel.value, 10);
+          updateMappingPreview();
+        });
+        tdSel.appendChild(sel);
+        tr.appendChild(tdField);
+        tr.appendChild(tdSel);
+        tbody.appendChild(tr);
+      });
+
+      updateMappingPreview();
+    }
+
+    function updateMappingPreview() {
+      if (!parsedFile) return;
+      var fields = selectedModule.fields.filter(function (f) { return columnMapping[f.key] !== null && columnMapping[f.key] !== undefined; });
+      if (!fields.length) {
+        document.getElementById('mapping-preview-wrap').classList.remove('visible');
+        document.getElementById('mapping-row-count').textContent = '';
+        return;
+      }
+
+      var visibleCount = 0;
+      var bodyRows = parsedFile.rows.map(function (rawRow, rawIdx) {
+        var obj = {};
+        fields.forEach(function (field) {
+          var colIdx = columnMapping[field.key];
+          var raw = colIdx !== null && colIdx !== undefined ? rawRow[colIdx] : '';
+          raw = (raw === null || raw === undefined) ? '' : String(raw).trim();
+          obj[field.key] = field.type === 'boolean' ? /^(1|true|yes|oui|ja|si|y|o)$/i.test(raw) : raw;
+        });
+        var isEmpty = fields.every(function (f) { return obj[f.key] === '' || obj[f.key] === false; });
+        if (isEmpty) return null;
+
+        visibleCount++;
+        var isExcluded = excludedRows.has(rawIdx);
+        var rowClass = isExcluded ? ' class="excluded-row"' : '';
+        var delTitle = esc(tt(isExcluded ? 'importRowRestore' : 'importRowDelete', isExcluded ? 'Restore' : 'Exclude'));
+        var delIcon = isExcluded ? '↩' : '🗑';
+        return '<tr' + rowClass + '>' +
+          fields.map(function (f) { return '<td>' + esc(String(obj[f.key] === undefined ? '' : obj[f.key])) + '</td>'; }).join('') +
+          '<td><button class="row-del-btn" onclick="toggleRowExclusion(' + rawIdx + ')" title="' + delTitle + '">' + delIcon + '</button></td>' +
+          '</tr>';
+      }).filter(function (r) { return r !== null; });
+
+      var head = '<tr>' +
+        fields.map(function (f) { return '<th>' + esc(tt(f.i18nKey, f.key)) + '</th>'; }).join('') +
+        '<th style="width:32px;"></th></tr>';
+      document.getElementById('mapping-preview-table').innerHTML = '<thead>' + head + '</thead><tbody>' + bodyRows.join('') + '</tbody>';
+      document.getElementById('mapping-preview-wrap').classList.add('visible');
+
+      var exclCount = 0;
+      parsedFile.rows.forEach(function (_, i) { if (excludedRows.has(i)) exclCount++; });
+      var countEl = document.getElementById('mapping-row-count');
+      countEl.innerHTML = visibleCount + ' ' + tt('importRowsTotal', 'row(s)') +
+        (exclCount ? ' &nbsp;·&nbsp; <span class="excl-note">' + exclCount + ' ' + tt('importRowsExcluded', 'excluded') + '</span>' : '');
+    }
+
+    window.toggleRowExclusion = function (rawIdx) {
+      if (excludedRows.has(rawIdx)) { excludedRows.delete(rawIdx); } else { excludedRows.add(rawIdx); }
+      updateMappingPreview();
+    };
+
+    // ── Preview & conflicts ─────────────────────────────────────
+    function buildPreviewAndConflicts() {
+      var activeRows = parsedFile.rows.filter(function (_, i) { return !excludedRows.has(i); });
+      mappedRows = ImportUtils.applyMapping(activeRows, parsedFile.headers, columnMapping, selectedModule.fields);
+      conflictDecisions = {};
+
+      var existingByKey = {};
+      var referenceList = selectedModule.id === 'wordbank' ? existingWordbank : existingStudents;
+      referenceList.forEach(function (s) {
+        var k = selectedModule.conflictKey(s);
+        existingByKey[k] = s;
+      });
+
+      var conflicts = 0;
+      mappedRows.forEach(function (row, i) {
+        var k = selectedModule.conflictKey(row);
+        if (existingByKey[k]) {
+          conflictDecisions[i] = 'skip'; // default
+          conflicts++;
+        }
+      });
+
+      var conflictHeader = document.getElementById('conflict-header');
+      var okBanner = document.getElementById('ok-banner');
+      if (conflicts > 0) {
+        conflictHeader.style.display = 'flex';
+        okBanner.classList.remove('visible');
+        var conflictKey = selectedModule.id === 'wordbank' ? 'importStep4ConflictsWb' : 'importStep4Conflicts';
+        var conflictFallback = selectedModule.id === 'wordbank'
+          ? 'conflict(s) found — existing words matched'
+          : 'conflict(s) found — existing students matched by name';
+        document.getElementById('conflict-count-text').textContent =
+          conflicts + ' ' + tt(conflictKey, conflictFallback);
+      } else {
+        conflictHeader.style.display = 'none';
+        okBanner.classList.add('visible');
+      }
+
+      buildPreviewTable(existingByKey);
+    }
+
+    function buildPreviewTable(existingByKey) {
+      var fields = selectedModule.fields.filter(function (f) { return columnMapping[f.key] !== null && columnMapping[f.key] !== undefined; });
+      var head = document.getElementById('preview-rows-head');
+      var body = document.getElementById('preview-rows-body');
+
+      var thHtml = fields.map(function (f) { return '<th>' + esc(tt(f.i18nKey, f.key)) + '</th>'; }).join('');
+      thHtml += '<th>' + tt('importStep4Status', 'Status') + '</th>';
+      head.innerHTML = '<tr>' + thHtml + '</tr>';
+
+      body.innerHTML = '';
+      mappedRows.forEach(function (row, i) {
+        var k = selectedModule.conflictKey(row);
+        var isConflict = existingByKey[k] !== undefined;
+        var tr = document.createElement('tr');
+        if (isConflict) tr.classList.add('conflict-row');
+
+        fields.forEach(function (f) {
+          var td = document.createElement('td');
+          td.textContent = row[f.key] !== undefined ? String(row[f.key]) : '';
+          tr.appendChild(td);
+        });
+
+        var tdStatus = document.createElement('td');
+        if (isConflict) {
+          tdStatus.innerHTML = buildConflictRadio(i);
+        } else {
+          tdStatus.innerHTML = '<span class="badge badge-new">' + tt('importStep4New', 'New') + '</span>';
+        }
+        tr.appendChild(tdStatus);
+        body.appendChild(tr);
+      });
+
+      // wire up conflict radios
+      body.querySelectorAll('input[type=radio]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          var rowIdx = parseInt(radio.dataset.rowIdx, 10);
+          conflictDecisions[rowIdx] = radio.value;
+          updateConflictRowStyle(rowIdx, radio.value);
+        });
+        // highlight the initially-selected label
+        if (radio.checked) {
+          var label = radio.closest('label');
+          if (label) label.classList.add('selected');
+        }
+      });
+    }
+
+    function buildConflictRadio(i) {
+      var decision = conflictDecisions[i] || 'skip';
+      function opt(val, labelKey, fallback) {
+        var checked = decision === val ? ' checked' : '';
+        var sel = decision === val ? ' selected' : '';
+        return '<label class="' + sel + '">' +
+          '<input type="radio" name="cr-' + i + '" value="' + val + '" data-row-idx="' + i + '"' + checked + '>' +
+          tt(labelKey, fallback) +
+          '</label>';
+      }
+      return '<div class="conflict-radio">' +
+        opt('skip', 'importConflictSkip', 'Skip') +
+        opt('overwrite', 'importConflictOverwrite', 'Overwrite') +
+        opt('new', 'importConflictNew', 'As new') +
+        '</div>';
+    }
+
+    function updateConflictRowStyle(rowIdx, decision) {
+      var rows = document.getElementById('preview-rows-body').rows;
+      if (rows[rowIdx]) {
+        rows[rowIdx].classList.toggle('skip-row', decision === 'skip');
+        // update label highlights
+        rows[rowIdx].querySelectorAll('.conflict-radio label').forEach(function (lbl) {
+          var radio = lbl.querySelector('input[type=radio]');
+          lbl.classList.toggle('selected', radio && radio.value === decision);
+        });
+      }
+    }
+
+    window.applyBulkConflict = function (decision) {
+      Object.keys(conflictDecisions).forEach(function (idx) {
+        conflictDecisions[idx] = decision;
+        // Update the radio UI
+        var radios = document.querySelectorAll('input[name="cr-' + idx + '"]');
+        radios.forEach(function (r) {
+          r.checked = (r.value === decision);
+          var lbl = r.closest('label');
+          if (lbl) lbl.classList.toggle('selected', r.value === decision);
+        });
+        updateConflictRowStyle(parseInt(idx, 10), decision);
+      });
+    };
+
+    // ── Import ──────────────────────────────────────────────────
+    async function runImport() {
+      showSaving(true);
+      clearError('err-step4');
+
+      // Wordbank module handles its own write
+      if (selectedModule.id === 'wordbank' && typeof selectedModule.write === 'function') {
+        var wbFile = wbMode === 'new'
+          ? (document.getElementById('wb-new-name').value.trim().replace(/\.js$/, '') + '.js')
+          : document.getElementById('wb-existing-select').value;
+        var result = await selectedModule.write(mappedRows, conflictDecisions, {
+          targetFile: wbFile,
+          existingWords: existingWordbank
+        });
+        showSaving(false);
+        if (!result.ok) {
+          showError('err-step4', result.error || tt('importErrSaveFail', 'Save failed'));
+          return;
+        }
+        document.getElementById('done-added').textContent = result.added;
+        document.getElementById('done-updated').textContent = result.updated;
+        document.getElementById('done-skipped').textContent = result.skipped;
+        var btn = document.getElementById('btn-done-action');
+        btn.textContent = tt('importBtnOpenDb', 'Open Database');
+        btn.style.display = '';
+        window.doneAction = function () {
+          if (window.Desktop && Desktop.isElectron()) Desktop.openTool('manage-database.html');
+        };
+        goToStep(5);
+        return;
+      }
+
+      var existingByKey = {};
+      existingStudents.forEach(function (s) {
+        existingByKey[selectedModule.conflictKey(s)] = s;
+      });
+
+      var added = 0, updated = 0, skipped = 0;
+      var roster = existingStudents.slice();
+      var rosterByUuid = {};
+      roster.forEach(function (s) { rosterByUuid[s.uuid] = s; });
+
+      // Build list of UUIDs for the group (only relevant for classGroups module)
+      var newGroupUuids = [];
+
+      mappedRows.forEach(function (row, i) {
+        var k = selectedModule.conflictKey(row);
+        var existing = existingByKey[k];
+        var isConflict = !!existing;
+        var decision = isConflict ? (conflictDecisions[i] || 'skip') : 'new';
+
+        if (decision === 'skip') {
+          if (isConflict && existing) newGroupUuids.push(existing.uuid);
+          skipped++;
+          return;
+        }
+
+        var firstName = (row.firstName || '').trim().toUpperCase();
+        var lastName = (row.lastName || '').trim().toUpperCase();
+
+        if (decision === 'overwrite' && existing) {
+          var s = rosterByUuid[existing.uuid];
+          if (s) {
+            if (firstName) s.firstName = firstName;
+            if (lastName !== undefined) s.lastName = lastName;
+            if (row.dob !== undefined && row.dob !== '') s.dob = row.dob;
+            if (row.adminClass !== undefined) s.adminClass = (row.adminClass || '').trim().toUpperCase();
+            if (row.sen !== undefined) s.sen = row.sen;
+          }
+          newGroupUuids.push(existing.uuid);
+          updated++;
+        } else {
+          // 'new'
+          var uuid = ImportUtils.generateStudentUuid();
+          while (rosterByUuid[uuid]) uuid = ImportUtils.generateStudentUuid();
+          var newStudent = {
+            uuid: uuid,
+            firstName: firstName,
+            lastName: lastName,
+            dob: row.dob || '',
+            adminClass: (row.adminClass || '').trim().toUpperCase(),
+            sen: row.sen === true
+          };
+          roster.push(newStudent);
+          rosterByUuid[uuid] = newStudent;
+          newGroupUuids.push(uuid);
+          added++;
+        }
+      });
+
+      // Save students.js
+      var content = ImportUtils.buildStudentsFileContent(roster);
+      var saveResult = await Desktop.saveText('user', 'students.js', content);
+      if (!saveResult || !saveResult.ok) {
+        showSaving(false);
+        showError('err-step4', tt('importErrSaveFail', 'Save failed'));
+        return;
+      }
+      existingStudents = roster;
+
+      // If class groups module: save class-groups.js
+      if (selectedModule.id === 'classGroups') {
+        var cg = existingGroups || { activeYear: '', activeSemester: null, activeSemesterStart: '', activeSemesterEnd: '', classGroupsMeta: {} };
+        cg.classGroupsMeta = cg.classGroupsMeta || {};
+
+        if (groupMode === 'new') {
+          var groupId = ImportUtils.generateGroupUuid();
+          while (cg.classGroupsMeta[groupId]) groupId = ImportUtils.generateGroupUuid();
+          cg.classGroupsMeta[groupId] = {
+            year: document.getElementById('grp-year').value.trim() || (cg.activeYear || ''),
+            semester: parseInt(document.getElementById('grp-semester').value, 10) || cg.activeSemester || null,
+            level: document.getElementById('grp-level').value.trim() || '',
+            name: document.getElementById('grp-name').value.trim(),
+            students: newGroupUuids
+          };
+        } else {
+          var selId = document.getElementById('grp-existing-select').value;
+          if (selId && cg.classGroupsMeta[selId]) {
+            var existing_students = cg.classGroupsMeta[selId].students || [];
+            var existingSet = new Set(existing_students);
+            newGroupUuids.forEach(function (u) { if (!existingSet.has(u)) existing_students.push(u); });
+            cg.classGroupsMeta[selId].students = existing_students;
+          }
+        }
+
+        var cgContent = ImportUtils.buildGroupsFileContent(cg);
+        var cgSave = await Desktop.saveText('user', 'class-groups.js', cgContent);
+        if (!cgSave || !cgSave.ok) {
+          showSaving(false);
+          showError('err-step4', tt('importErrSaveFail', 'Save failed (class-groups.js)'));
+          return;
+        }
+        existingGroups = cg;
+      }
+
+      showSaving(false);
+      document.getElementById('done-added').textContent = added;
+      document.getElementById('done-updated').textContent = updated;
+      document.getElementById('done-skipped').textContent = skipped;
+
+      var doneBtn = document.getElementById('btn-done-action');
+      if (selectedModule.id === 'classGroups') {
+        doneBtn.textContent = tt('importBtnOpenCms', 'Open Class Management');
+        doneBtn.style.display = '';
+        window.doneAction = function () {
+          if (window.Desktop && Desktop.isElectron()) Desktop.openTool('class-management.html');
+        };
+      } else {
+        doneBtn.style.display = 'none';
+      }
+
+      goToStep(5);
+    }
+
+    // ── Wizard navigation ───────────────────────────────────────
+    window.goNext = function () {
+      if (currentStep === 1) {
+        if (!validateStep1()) return;
+        goToStep(2);
+      } else if (currentStep === 2) {
+        if (!validateStep2()) return;
+        goToStep(3);
+        buildMappingUI();
+      } else if (currentStep === 3) {
+        if (!validateStep3()) return;
+        goToStep(4);
+        buildPreviewAndConflicts();
+      } else if (currentStep === 4) {
+        runImport();
+      }
+    };
+
+    window.goBack = function () {
+      if (currentStep > 1 && currentStep < 5) goToStep(currentStep - 1);
+    };
+
+    window.resetWizard = function () {
+      clearFile();
+      parsedFile = null;
+      columnMapping = {};
+      mappedRows = [];
+      conflictDecisions = {};
+      excludedRows = new Set();
+      existingWordbank = [];
+      goToStep(1);
+    };
+
+    function goToStep(n) {
+      document.getElementById('step-' + currentStep).classList.remove('active');
+      currentStep = n;
+      document.getElementById('step-' + currentStep).classList.add('active');
+      updateProgressBar();
+      updateFooterButtons();
+      window.scrollTo && window.scrollTo(0, 0);
+    }
+
+    function updateProgressBar() {
+      for (var i = 1; i <= TOTAL_STEPS; i++) {
+        var pb = document.getElementById('pb-' + i);
+        pb.classList.remove('active', 'done');
+        if (i < currentStep) pb.classList.add('done');
+        else if (i === currentStep) pb.classList.add('active');
+      }
+    }
+
+    function updateFooterButtons() {
+      var btnBack = document.getElementById('btn-back');
+      var btnNext = document.getElementById('btn-next');
+      var footer = document.getElementById('wizard-footer');
+
+      if (currentStep === 5) {
+        footer.style.display = 'none';
+        return;
+      }
+      footer.style.display = '';
+      btnBack.style.display = currentStep > 1 ? '' : 'none';
+
+      if (currentStep === 4) {
+        btnNext.setAttribute('data-i18n', 'importBtnImport');
+        btnNext.textContent = tt('importBtnImport', 'Import');
+      } else {
+        btnNext.setAttribute('data-i18n', 'importBtnNext');
+        btnNext.textContent = tt('importBtnNext', 'Next →');
+      }
+    }
+
+    // ── Validation ──────────────────────────────────────────────
+    function validateStep1() {
+      if (selectedModule.hasGroupStep && groupMode === 'new') {
+        var name = document.getElementById('grp-name').value.trim();
+        if (!name) {
+          showError('err-step1', tt('importErrNoGroupName', 'Please enter a group name'));
+          return false;
+        }
+      }
+      if (selectedModule.hasWbStep) {
+        if (wbMode === 'new') {
+          var fname = document.getElementById('wb-new-name').value.trim();
+          if (!fname) {
+            showError('err-step1', tt('importErrNoWbFileName', 'Please enter a file name for the wordbank'));
+            return false;
+          }
+        } else {
+          var fsel = document.getElementById('wb-existing-select').value;
+          if (!fsel) {
+            showError('err-step1', tt('importErrNoWbFile', 'Please select a wordbank file'));
+            return false;
+          }
+        }
+      }
+      clearError('err-step1');
+      return true;
+    }
+
+    function validateStep2() {
+      if (!parsedFile) {
+        showError('err-step2', tt('importErrNoFile', 'Please select a file'));
+        return false;
+      }
+      if (!parsedFile.headers.length) {
+        showError('err-step2', tt('importErrEmptyFile', 'The file appears to be empty'));
+        return false;
+      }
+      clearError('err-step2');
+      return true;
+    }
+
+    function validateStep3() {
+      var required = selectedModule.fields.filter(function (f) { return f.required; });
+      for (var i = 0; i < required.length; i++) {
+        var f = required[i];
+        var col = columnMapping[f.key];
+        if (col === null || col === undefined) {
+          var label = tt(f.i18nKey, f.key);
+          showError('err-step3', '"' + label + '" ' + tt('importErrRequiredField', 'column must be mapped'));
+          return false;
+        }
+      }
+      clearError('err-step3');
+      return true;
+    }
+
+    // ── UI helpers ──────────────────────────────────────────────
+    function showError(id, msg) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function clearError(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = '';
+      el.classList.remove('visible');
+    }
+
+    function showSaving(on) {
+      document.getElementById('saving-msg').classList.toggle('visible', on);
+      document.getElementById('btn-next').disabled = on;
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+  })();
+  </script>
+</body>
+</html>

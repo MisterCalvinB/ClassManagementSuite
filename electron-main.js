@@ -25,7 +25,8 @@ const PAGE_FILES = {
   scheduleMaker: 'schedule-maker.html',
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
-  planner: 'planner.html'
+  planner: 'planner.html',
+  importTool: 'import-tool.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -62,7 +63,9 @@ const PAGE_ARG_MAP = {
   markdownkatex: PAGE_FILES.documentEditor,
   markdown: PAGE_FILES.documentEditor,
   planner: PAGE_FILES.planner,
-  semplanner: PAGE_FILES.planner
+  semplanner: PAGE_FILES.planner,
+  importtool: PAGE_FILES.importTool,
+  import: PAGE_FILES.importTool
 };
 
 const PAGE_LABELS = {
@@ -82,7 +85,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
-  [PAGE_FILES.planner]: 'Planner'
+  [PAGE_FILES.planner]: 'Planner',
+  [PAGE_FILES.importTool]: 'Import Tool'
 };
 
 function getDefaultWritableRootDir() {
@@ -208,7 +212,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation']),
-  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades'])
+  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades']),
+  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks'])
 };
 
 let mainWindow;
