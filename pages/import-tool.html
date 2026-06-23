@@ -13,6 +13,8 @@
   <script src="../js/import-modules/students.js"></script>
   <script src="../js/import-modules/class-groups.js"></script>
   <script src="../js/import-modules/wordbank.js"></script>
+  <script src="../js/import-modules/quiz.js"></script>
+  <script src="../js/import-modules/gapfill.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -416,9 +418,9 @@
           </div>
         </div>
 
-        <!-- Wordbank options (shown when wordbank is selected) -->
+        <!-- File-picker options (shown for wordbank / quiz / gapfill) -->
         <div class="group-options" id="wb-options">
-          <h4 data-i18n="importWbPickLabel">Target wordbank file</h4>
+          <h4 id="wb-pick-label" data-i18n="importWbPickLabel">Target file</h4>
           <div class="grp-toggle">
             <button class="grp-toggle-btn active" id="wb-btn-new" onclick="setWbMode('new')" data-i18n="importWbNew">Create new file</button>
             <button class="grp-toggle-btn" id="wb-btn-existing" onclick="setWbMode('existing')" data-i18n="importWbExisting">Add to existing file</button>
@@ -570,7 +572,9 @@
     var MODULES = [
       window.IMPORT_MODULE_STUDENTS,
       window.IMPORT_MODULE_CLASS_GROUPS,
-      window.IMPORT_MODULE_WORDBANK
+      window.IMPORT_MODULE_WORDBANK,
+      window.IMPORT_MODULE_QUIZ,
+      window.IMPORT_MODULE_GAPFILL
     ];
 
     var selectedModule = MODULES[0];
@@ -602,11 +606,13 @@
 
     function buildDestCards() {
       var container = document.getElementById('dest-options');
-      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚' };
+      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️' };
       var descs = {
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
-        wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file')
+        wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file'),
+        quiz: tt('importDestQuizDesc', 'Add questions to a custom quiz file'),
+        gapfill: tt('importDestGapfillDesc', 'Add gap-fill exercises to a custom bank')
       };
       MODULES.forEach(function (mod, i) {
         var card = document.createElement('label');
@@ -632,6 +638,8 @@
       var wbOpts = document.getElementById('wb-options');
       wbOpts.classList.toggle('visible', !!mod.hasWbStep);
       if (mod.hasWbStep) {
+        var pickLabel = document.getElementById('wb-pick-label');
+        if (pickLabel) pickLabel.textContent = tt(mod.filePickerLabelKey || 'importWbPickLabel', 'Target file');
         setWbMode(wbMode);
         loadWbFiles();
       }
@@ -647,11 +655,12 @@
     };
 
     async function loadWbFiles() {
+      var target = selectedModule.target || 'customWordbanks';
       var sel = document.getElementById('wb-existing-select');
-      sel.innerHTML = '<option value="" data-i18n="loading">Loading…</option>';
+      sel.innerHTML = '<option value="">Loading…</option>';
       existingWordbank = [];
       try {
-        var r = await Desktop.listFiles('customWordbanks', { extensions: ['.js'] });
+        var r = await Desktop.listFiles(target, { extensions: ['.js'] });
         if (r && r.ok && Array.isArray(r.files) && r.files.length) {
           sel.innerHTML = '';
           r.files.forEach(function (f) {
@@ -662,10 +671,10 @@
           });
           onWbExistingChange();
         } else {
-          sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no wordbank files found)') + '</option>';
+          sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no files found)') + '</option>';
         }
       } catch (e) {
-        sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no wordbank files found)') + '</option>';
+        sel.innerHTML = '<option value="">' + tt('importWbNoFiles', '(no files found)') + '</option>';
       }
     }
 
@@ -677,10 +686,12 @@
       existingWordbank = [];
       var filename = document.getElementById('wb-existing-select').value;
       if (!filename) return;
+      var target = selectedModule.target || 'customWordbanks';
+      var varName = selectedModule.varName || 'customVocabBank';
       try {
-        var r = await Desktop.readText('customWordbanks', filename);
+        var r = await Desktop.readText(target, filename);
         if (r && r.ok && r.content) {
-          var fn = new Function(r.content + '; try { return customVocabBank; } catch(e) { return []; }');
+          var fn = new Function(r.content + '; try { return ' + varName + '; } catch(e) { return []; }');
           existingWordbank = fn() || [];
         }
       } catch (e) { existingWordbank = []; }
@@ -896,7 +907,7 @@
       conflictDecisions = {};
 
       var existingByKey = {};
-      var referenceList = selectedModule.id === 'wordbank' ? existingWordbank : existingStudents;
+      var referenceList = selectedModule.hasWbStep ? existingWordbank : existingStudents;
       referenceList.forEach(function (s) {
         var k = selectedModule.conflictKey(s);
         existingByKey[k] = s;
@@ -916,9 +927,9 @@
       if (conflicts > 0) {
         conflictHeader.style.display = 'flex';
         okBanner.classList.remove('visible');
-        var conflictKey = selectedModule.id === 'wordbank' ? 'importStep4ConflictsWb' : 'importStep4Conflicts';
-        var conflictFallback = selectedModule.id === 'wordbank'
-          ? 'conflict(s) found — existing words matched'
+        var conflictKey = selectedModule.hasWbStep ? 'importStep4ConflictsWb' : 'importStep4Conflicts';
+        var conflictFallback = selectedModule.hasWbStep
+          ? 'conflict(s) found — existing records matched'
           : 'conflict(s) found — existing students matched by name';
         document.getElementById('conflict-count-text').textContent =
           conflicts + ' ' + tt(conflictKey, conflictFallback);
@@ -1025,13 +1036,14 @@
       showSaving(true);
       clearError('err-step4');
 
-      // Wordbank module handles its own write
-      if (selectedModule.id === 'wordbank' && typeof selectedModule.write === 'function') {
+      // Modules with their own write() (wordbank, quiz, gapfill, …)
+      if (selectedModule.hasWbStep && typeof selectedModule.write === 'function') {
         var wbFile = wbMode === 'new'
           ? (document.getElementById('wb-new-name').value.trim().replace(/\.js$/, '') + '.js')
           : document.getElementById('wb-existing-select').value;
         var result = await selectedModule.write(mappedRows, conflictDecisions, {
           targetFile: wbFile,
+          target: selectedModule.target,
           existingWords: existingWordbank
         });
         showSaving(false);

@@ -3,6 +3,9 @@ window.IMPORT_MODULE_WORDBANK = {
   i18nKey: 'importDestWordbank',
   hasGroupStep: false,
   hasWbStep: true,
+  target: 'customWordbanks',
+  varName: 'customVocabBank',
+  filePickerLabelKey: 'importWbPickLabel',
   fields: [
     {
       key: 'word',
@@ -133,7 +136,7 @@ window.IMPORT_MODULE_WORDBANK = {
     });
 
     var content = 'const customVocabBank = ' + JSON.stringify(existing, null, 2) + ';\n';
-    var saveResult = await Desktop.saveText('customWordbanks', options.targetFile, content);
+    var saveResult = await Desktop.saveText(options.target || 'customWordbanks', options.targetFile, content);
     if (!saveResult || !saveResult.ok) {
       return { ok: false, error: 'Save failed' };
     }
