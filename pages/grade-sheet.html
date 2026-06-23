@@ -6509,13 +6509,15 @@
       const config = getTestConfig(classObj, sem, testIndex);
       if (!config.testDate) return;
 
-      const classId = classObj.id;
-      if (!classId) return;
+      // Planner keys files and entries by the Group Editor ge-* UUID.
+      // Fall back to the grade-sheet's own id-* for manually-created classes with no groupId.
+      const plannerClassId = classObj.groupId || classObj.id;
+      if (!plannerClassId) return;
 
       try {
         // Read existing planner file for this class
         let allByClass = {};
-        const fileRes = await Desktop.readByPath('user', 'planner/' + classId + '.js');
+        const fileRes = await Desktop.readByPath('user', 'planner/' + plannerClassId + '.js');
         if (fileRes && fileRes.content) {
           try {
             const fake = {};
@@ -6524,10 +6526,10 @@
           } catch (e) {}
         }
 
-        const list = (allByClass[classId] || []).slice();
+        const list = (allByClass[plannerClassId] || []).slice();
 
         const classSlug = slugifyForPath(classObj.name);
-        const gsLink = { classId: classId, classSlug: classSlug, semester: sem, testIndex: testIndex };
+        const gsLink = { classId: classObj.id, classSlug: classSlug, semester: sem, testIndex: testIndex };
 
         // 1. Entry already linked to this exact test slot
         const linkIdx = list.findIndex(e =>
@@ -6535,7 +6537,7 @@
         );
         // 2. Entry for the same class on the same date (no link yet)
         const dateIdx = linkIdx < 0
-          ? list.findIndex(e => e.classId === classId && e.date === config.testDate && !(e.gsLink && e.gsLink.semester === sem && e.gsLink.testIndex === testIndex))
+          ? list.findIndex(e => e.classId === plannerClassId && e.date === config.testDate && !(e.gsLink && e.gsLink.semester === sem && e.gsLink.testIndex === testIndex))
           : -1;
 
         let created = false;
@@ -6553,8 +6555,8 @@
         } else {
           created = true;
           list.push({
-            id: 'gs-' + classId + '-' + sem + '-' + testIndex + '-' + Date.now(),
-            classId: classId,
+            id: 'gs-' + plannerClassId + '-' + sem + '-' + testIndex + '-' + Date.now(),
+            classId: plannerClassId,
             date: config.testDate,
             time: '', timeEnd: '',
             type: 'test',
@@ -6566,11 +6568,11 @@
           });
         }
 
-        allByClass[classId] = list;
+        allByClass[plannerClassId] = list;
         const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
-          'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(classId) + '] = ' +
+          'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(plannerClassId) + '] = ' +
           JSON.stringify(list, null, 2) + ';\n';
-        await Desktop.saveText('user', (classId || '__unassigned') + '.js', content, 'planner');
+        await Desktop.saveText('user', (plannerClassId || '__unassigned') + '.js', content, 'planner');
         showToast(created ? t('gsPlWriteOk') : t('gsPlUpdated'));
       } catch (e) {
         console.warn('syncTestToPlanner error:', e);
