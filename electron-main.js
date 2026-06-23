@@ -389,10 +389,20 @@ function createToolWindow(pageFile, options = {}) {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   let closingAfterExport = false;
   win.on('close', (event) => {
+    const currentPage = getLoadedPageFile(win);
+
+    // Close associated presentation/mirror windows when their parent tool closes
+    if (currentPage === PAGE_FILES.board && mirrorWindow && !mirrorWindow.isDestroyed()) {
+      mirrorWindow.close();
+    }
+    if (currentPage === PAGE_FILES.classManagement && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
+      cmsPresentationWindow.close();
+    }
+
     if (closingAfterExport) {
       return;
     }
-    if (getLoadedPageFile(win) !== PAGE_FILES.board) {
+    if (currentPage !== PAGE_FILES.board) {
       return;
     }
 
