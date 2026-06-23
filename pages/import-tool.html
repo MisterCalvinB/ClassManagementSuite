@@ -15,6 +15,12 @@
   <script src="../js/import-modules/wordbank.js"></script>
   <script src="../js/import-modules/quiz.js"></script>
   <script src="../js/import-modules/gapfill.js"></script>
+  <script src="../js/import-modules/quote.js"></script>
+  <script src="../js/import-modules/error.js"></script>
+  <script src="../js/import-modules/dictation.js"></script>
+  <script src="../js/import-modules/grammar.js"></script>
+  <script src="../js/import-modules/sentence.js"></script>
+  <script src="../js/import-modules/story.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -574,7 +580,13 @@
       window.IMPORT_MODULE_CLASS_GROUPS,
       window.IMPORT_MODULE_WORDBANK,
       window.IMPORT_MODULE_QUIZ,
-      window.IMPORT_MODULE_GAPFILL
+      window.IMPORT_MODULE_GAPFILL,
+      window.IMPORT_MODULE_QUOTE,
+      window.IMPORT_MODULE_ERROR,
+      window.IMPORT_MODULE_DICTATION,
+      window.IMPORT_MODULE_GRAMMAR,
+      window.IMPORT_MODULE_SENTENCE,
+      window.IMPORT_MODULE_STORY
     ];
 
     var selectedModule = MODULES[0];
@@ -606,13 +618,19 @@
 
     function buildDestCards() {
       var container = document.getElementById('dest-options');
-      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️' };
+      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️', quote: '💬', error: '🔴', dictation: '🎧', grammar: '📖', sentence: '🔀', story: '📗' };
       var descs = {
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
         wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file'),
         quiz: tt('importDestQuizDesc', 'Add questions to a custom quiz file'),
-        gapfill: tt('importDestGapfillDesc', 'Add gap-fill exercises to a custom bank')
+        gapfill: tt('importDestGapfillDesc', 'Add gap-fill exercises to a custom bank'),
+        quote: tt('importDestQuoteDesc', 'Add quotes to a custom quote bank'),
+        error: tt('importDestErrorDesc', 'Add error correction exercises to a custom bank'),
+        dictation: tt('importDestDictationDesc', 'Add dictation texts to a custom bank'),
+        grammar: tt('importDestGrammarDesc', 'Add grammar points to a custom bank'),
+        sentence: tt('importDestSentenceDesc', 'Add sentence ordering exercises to a custom bank'),
+        story: tt('importDestStoryDesc', 'Add story metadata to a custom story bank')
       };
       MODULES.forEach(function (mod, i) {
         var card = document.createElement('label');
