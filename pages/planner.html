@@ -2346,17 +2346,18 @@ function parseGradeFileContent(content) {
   } catch (e) { return null; }
 }
 
-async function findGradeSheetClass(groupName) {
+async function findGradeSheetClass(classId) {
   if (!window.Desktop || !Desktop.isElectron()) return null;
   var listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
   if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) return null;
   var classFiles = listResult.files.filter(function (f) { return f.filename === '_class.js'; });
+  var displayName = plannerClassDisplayName(classId);
   for (var i = 0; i < classFiles.length; i++) {
     var cf = classFiles[i];
     var res = await Desktop.readByPath('grades', cf.relativePath);
     if (!res || !res.content) continue;
     var meta = parseGradeFileContent(res.content);
-    if (meta && meta.className === groupName) {
+    if (meta && (meta.groupId === classId || meta.className === displayName)) {
       var classSlug = cf.relativePath.split('/')[0];
       return { meta: meta, classSlug: classSlug };
     }
@@ -2375,7 +2376,7 @@ async function syncTestToGradeSheet(entry, isUpdate) {
     if (!window.Desktop || !Desktop.isElectron()) return;
     var gsInfo = await findGradeSheetClass(entry.classId);
     if (!gsInfo) {
-      showToast(tFmt('pl_gsNoClass', { cls: entry.classId }), 3500);
+      showToast(tFmt('pl_gsNoClass', { cls: plannerClassDisplayName(entry.classId) }), 3500);
       return;
     }
 
