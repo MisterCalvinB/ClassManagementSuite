@@ -1327,6 +1327,7 @@ function openLinkedBoard(entryId) {
 // ── Active-class helpers ───────────────────────────────────────────────────
 function plannerClassDisplayName(id) {
   if (classGroupsMeta[id] && classGroupsMeta[id].name) return classGroupsMeta[id].name;
+  if (cfg.classes[id] && cfg.classes[id].name) return cfg.classes[id].name;
   return id;
 }
 
@@ -3730,9 +3731,7 @@ function renderTodos() {
       metaParts.push('<span class="td-due">' + esc(fmtShortDate(td.dueDate)) + '</span>');
     }
     if (td.classId) {
-      var cls = cfg.classes[td.classId];
-      var clsName = cls ? (cls.name || td.classId) : td.classId;
-      metaParts.push('<span class="td-badge td-badge-class">' + esc(clsName) + '</span>');
+      metaParts.push('<span class="td-badge td-badge-class">' + esc(plannerClassDisplayName(td.classId)) + '</span>');
     }
     var hasLinks = td.links && (td.links.entryId || td.links.mindmapPath || td.links.gsClassId);
     if (hasLinks) {
@@ -3810,11 +3809,9 @@ function _tdModalFill(td) {
   // Class selector
   var clsSel = document.getElementById('td-class');
   clsSel.innerHTML = '<option value="">' + esc(t('td_noClass')) + '</option>';
-  getAllClassIds().forEach(function(cid) {
-    var cls = cfg.classes[cid];
-    var nm = cls ? (cls.name || cid) : cid;
+  getPlannerClassIds().forEach(function(cid) {
     var opt = document.createElement('option');
-    opt.value = cid; opt.textContent = nm;
+    opt.value = cid; opt.textContent = plannerClassDisplayName(cid);
     if (cid === td.classId) opt.selected = true;
     clsSel.appendChild(opt);
   });
@@ -3839,7 +3836,7 @@ function _tdModalFill(td) {
   var today = new Date().toISOString().slice(0, 10);
   var recent = entries.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 60);
   recent.forEach(function(e) {
-    var lbl = (e.date || '') + (e.classId ? ' · ' + (cfg.classes[e.classId] ? cfg.classes[e.classId].name : e.classId) : '') + (e.topic ? ' · ' + e.topic : '');
+    var lbl = (e.date || '') + (e.classId ? ' · ' + plannerClassDisplayName(e.classId) : '') + (e.topic ? ' · ' + e.topic : '');
     var opt = document.createElement('option');
     opt.value = e.id; opt.textContent = lbl;
     if (e.id === links.entryId) opt.selected = true;
@@ -3866,11 +3863,9 @@ function _tdModalFill(td) {
   // Grade sheet link
   var gsSel = document.getElementById('td-link-gs');
   gsSel.innerHTML = '<option value="">' + esc(t('td_noLink')) + '</option>';
-  getAllClassIds().forEach(function(cid) {
-    var cls = cfg.classes[cid];
-    var nm = cls ? (cls.name || cid) : cid;
+  getPlannerClassIds().forEach(function(cid) {
     var opt = document.createElement('option');
-    opt.value = cid; opt.textContent = nm;
+    opt.value = cid; opt.textContent = plannerClassDisplayName(cid);
     if (cid === links.gsClassId) opt.selected = true;
     gsSel.appendChild(opt);
   });

@@ -9392,6 +9392,109 @@ h1#main-title {
     }
     .story-choice-btn:hover:not(:disabled) { border-color: #111; background: #f5f5f5; transform: translateX(3px); }
     .story-choice-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    /* ── Shared style-popup overlay (used by mask, shape, drawing, table, node, img, pdf, sound) ── */
+    .con-sp-overlay {
+      display: none; position: fixed; inset: 0; z-index: 7900;
+    }
+    .con-sp-overlay.active { display: block; }
+    .con-sp-popup {
+      position: absolute;
+      background: #fffffff2; border: 2px solid #111; border-radius: 6px;
+      padding: 8px 10px 7px; min-width: 220px; max-width: 340px;
+      box-shadow: 3px 3px 0 #ccc; font-family: inherit;
+    }
+    .con-sp-popup h4 {
+      margin: 0 0 7px; font-size: 0.7rem; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 1px; color: #555;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: move; user-select: none;
+    }
+    .con-sp-popup h4 button {
+      background: none; border: none; cursor: pointer; color: #aaa;
+      font-size: 1rem; line-height: 1; padding: 0; cursor: pointer;
+    }
+    .con-sp-popup h4 button:hover { color: #111; }
+
+    /* ── Image style popup ── */
+    #con-img-style-overlay { z-index: 7920; }
+    #con-img-style-popup { min-width: 240px; }
+
+    /* ── PDF style popup ── */
+    #con-pdf-style-overlay { z-index: 7920; }
+    #con-pdf-style-popup { min-width: 240px; }
+
+    /* ── Sound style popup ── */
+    #con-sound-style-overlay { z-index: 7920; }
+    #con-sound-style-popup { min-width: 200px; }
+
+    /* ── Mask style popup ── */
+    #con-mask-style-overlay { z-index: 7910; }
+    #con-mask-style-popup { min-width: 220px; }
+
+    /* ── Shape / stroke style popup ── */
+    #con-shape-style-overlay { z-index: 7910; }
+    #con-shape-style-popup { min-width: 240px; }
+
+    /* ── Drawing style popup ── */
+    #con-drawing-style-overlay { z-index: 7910; }
+    #con-drawing-style-popup { min-width: 220px; }
+
+    /* ── Table style popup ── */
+    #con-table-style-overlay { z-index: 7910; }
+    #con-table-style-popup { min-width: 240px; }
+
+    /* ── Node style popup (replaces con-ctx-menu, which stays as-is) ── */
+    /* Note: con-ctx-menu is kept as a positioned menu; the wn-sp-* classes restyle its inner sections */
+
+    /* ── Media item blink animation ── */
+    @keyframes con-media-blink-anim {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+      50%       { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.85), 0 0 8px 4px rgba(239, 68, 68, 0.3); }
+    }
+    .con-media-item.con-media-blink {
+      animation: con-media-blink-anim 3.6s ease-in-out infinite;
+    }
+
+    /* ── Media item fullscreen ── */
+    .con-media-item.con-media-fullscreen {
+      position: fixed !important; inset: 0 !important; z-index: 8500 !important;
+      width: 100vw !important; height: 100vh !important;
+      left: 0 !important; top: 0 !important;
+      background: #000;
+    }
+    .con-media-fullscreen .con-media-content { width: 100%; height: 100%; }
+    .con-media-fullscreen .con-media-pdf-scroll { width: 100%; height: 100%; }
+    .con-media-fullscreen-exit-btn {
+      position: absolute; top: 8px; right: 8px; z-index: 10;
+      background: rgba(0,0,0,0.7); color: #fff; border: none;
+      border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.85rem;
+      font-family: inherit;
+    }
+    .con-media-fullscreen-exit-btn:hover { background: rgba(0,0,0,0.9); }
+
+    /* ── Media hover mini-actions (like wn-note-mini-actions for notes) ── */
+    .con-media-mini-actions {
+      position: absolute; top: 5px; left: 6px;
+      display: flex; gap: 2px; align-items: center; flex-wrap: nowrap;
+      background: rgba(255,255,255,0.92); border-radius: 5px; padding: 2px 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10; user-select: none; white-space: nowrap;
+    }
+    .con-media-mini-actions.con-media-mini-visible { opacity: 1; pointer-events: auto; }
+    .con-media-mini-actions.con-fs-mini-pinned { opacity: 1 !important; pointer-events: auto !important; }
+    .con-media-mini-btn {
+      width: 24px; height: 24px; border-radius: 4px;
+      background: rgba(255,255,255,0.92); border: 1.5px solid #ddd;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: #444; padding: 0;
+      transition: background 0.1s, border-color 0.1s;
+      font-family: inherit;
+    }
+    .con-media-mini-btn:hover { background: rgba(0,0,0,0.08); border-color: #999; }
+    .con-media-mini-btn.active { background: rgba(0,0,0,0.12); color: #1a56db; border-color: #1a56db; }
     .story-choice-btn.chosen { background: #111; color: #fff; border-color: #111; }
     .story-choice-btn.chosen .story-choice-letter { background: #fff; color: #111; }
     .story-choice-letter {

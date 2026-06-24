@@ -4868,7 +4868,7 @@ app.whenReady().then(async () => {
     console.error('Data initialization failed, opening app anyway:', error);
   }
 
-  if (firstRunDetected && initialPageFile === PAGE_FILES.classManagement) {
+  if (firstRunDetected) {
     initialPageFile = PAGE_FILES.generalConfig;
   }
 
