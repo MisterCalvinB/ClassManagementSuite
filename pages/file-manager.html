@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <style>
@@ -562,6 +563,8 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
+  <button class="tut-trigger-btn" onclick="openFmShortcuts()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+  <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')})" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -2534,6 +2537,18 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     showCtx(e.clientX, e.clientY, items);
   };
 })();
+</script>
+<script>
+function openFmShortcuts() {
+  ShortcutsModal.open({
+    title: t('skmTitle'),
+    noShortcutsText: t('skmNone'),
+    rows: [
+      { keys: ['Enter'], desc: t('skmFmConfirm') },
+      { keys: ['Escape'], desc: t('skmFmCancel') }
+    ]
+  });
+}
 </script>
 </body>
 </html>

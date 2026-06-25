@@ -150,9 +150,11 @@ Click the **Panel** button in the header to show or hide the sidebar. Each secti
 | Button | Action |
 |---|---|
 | **⚙ Config** | Opens General Config (language, startup, data folder) |
+| **⌨** | Opens the keyboard shortcuts reference for the Launcher |
 | **? How To** | Opens the built-in how-to guide |
+| **▶ Tour** | Starts an interactive step-by-step tour of the launcher, including the sidebar sections |
 | **ℹ️ Credits** | Opens the credits modal |
-| **Panel** | Toggles the upcoming events / recent docs sidebar |
+| **Panel** | Toggles the sidebar panel (Upcoming Events, To-do, Recent Docs) |
 
 ### Startup Behaviour
 
@@ -241,6 +243,10 @@ Archiving hides groups from all rosters without deleting their data. Participati
 - **End-of-term offer** — when the active term end date has passed, a yellow banner appears at the top offering to archive the whole term in one click. Dismissing it stores a flag in localStorage so the prompt does not re-appear.
 - **Unarchive** — scroll to the *Archived Groups* section and click **Unarchive** on any row.
 
+### Keyboard Shortcuts
+
+No keyboard shortcuts yet.
+
 ---
 
 ## import-tool.html
@@ -326,6 +332,10 @@ A collapsible **To-do** panel sits on the right side of the planner. Click the *
 | **CSV** | Spreadsheet of all entries with full field data. |
 | **Markdown** | Structured text document for notes apps or plain-text sharing. |
 
+### Keyboard Shortcuts
+
+No keyboard shortcuts yet.
+
 ---
 
 ## class-plan.html
@@ -407,6 +417,13 @@ Browse, rename, and sync data files. Opens as a standalone tool window from the 
 - **Choose Folder / Sync Now** — pick a sync folder and run an immediate sync.
 - **Auto-sync** — keep the sync folder up to date automatically on every save.
 - **Conflict resolution** — when both sides differ, choose per file: keep mine, keep sync, or skip.
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| Enter | Confirm inline rename |
+| Escape | Cancel inline rename |
 
 ---
 
@@ -492,6 +509,18 @@ Opens a second window intended for a projector or secondary screen.
 The **Links** popup (top menu) gives one-click access to every other tool: Board, Learning Tools, Grade Sheet, Participation Tracker, Database Manager, and Data Location.
 
 A language switcher supports **EN · FR · DE · IT**.
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+Space | Pick a random student |
+| Ctrl+Shift+K | Open Team Maker |
+| Ctrl+M | Open Class Mode picker |
+| 1 / 2 / 3 (mode/timer open) | Switch mode — Quiet / Talk / Group |
+| W (mode/timer open) | Toggle white noise on / off |
+| M (mode/timer open) | Mute / unmute white noise |
+| [ / ] (mode/timer open) | Decrease / increase white noise volume |
 
 ---
 
@@ -768,6 +797,12 @@ Individual games have a presentation icon (📽️) in their toolbar that opens 
 - **Font size**: A− · A · A+ buttons to scale the UI text.
 - **Mute**: toggle all game sound effects.
 
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| Enter | Submit answer |
+
 ---
 
 ## manage-database.html
@@ -909,6 +944,10 @@ Click a student's name for an individual view:
 - View the calculated overall grade and per-criterion breakdown.
 - Save or cancel changes.
 
+### Keyboard Shortcuts
+
+No keyboard shortcuts yet.
+
 ---
 
 ## participation-tracker.html
@@ -952,6 +991,10 @@ A **Columns ▾** toggle controls visibility. Click a student's row to open the 
 ### Individual Student Analysis
 
 Below the Class Overview table, shows a stats summary and a per-session history table for the selected student (Date · Time · Picked · Absent · + · − · T+ · T− · Badges · Team/Role Events · Notes). Click a session row to open the **Notes modal** where you can add or edit a text note for that student's session.
+
+### Keyboard Shortcuts
+
+No keyboard shortcuts yet.
 
 ---
 
@@ -1077,9 +1120,12 @@ Click **Export PDF** to render the current preview (including custom CSS and KaT
 
 | Shortcut | Action |
 |---|---|
-| Ctrl+S | Save document |
-| Ctrl+N | New document |
-| Ctrl+O | Open document |
-| Esc | Close open modal |
+| Ctrl/Cmd+S | Save current document |
+| Ctrl/Cmd+Shift+S | Save all open documents |
+| Ctrl/Cmd+N | New document |
+| Ctrl/Cmd+O | Open document |
+| Enter (book import) | Next search result |
+| Shift+Enter (book import) | Previous search result |
+| Esc | Close modal / full preview |
 
 Bulk-action buttons let you apply one strategy to all files at once. A search bar and status filter narrow the list when many files are involved.

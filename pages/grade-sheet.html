@@ -6,6 +6,7 @@
   <title>Grade Sheet</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -1425,6 +1426,8 @@
 <body>
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
+  <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+  <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')})" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu">☰</button>
     <div class="hm-menu"></div>
@@ -3945,6 +3948,31 @@
             changed = true;
           }
         }
+      }
+
+      // Propagate group-editor archive/delete to linked grade classes.
+      // Runs after the main sync so cgMeta is confirmed non-empty (early return above guards empty case).
+      const allGroupKeys = new Set(Object.keys(cgMeta));
+      if (allGroupKeys.size > 0) {
+        // Grade classes whose group was archived: remove from active appState so they don't appear
+        // in the UI. Files are kept on disk — if the group is later unarchived, files reload on boot.
+        const archivedLinked = appState.classes.filter(c => c.groupId && cgMeta[c.groupId]?.archived);
+        if (archivedLinked.length) {
+          const hiddenIds = new Set(archivedLinked.map(c => c.id));
+          appState.classes = appState.classes.filter(c => !hiddenIds.has(c.id));
+          changed = true;
+        }
+
+        // Grade classes whose group no longer exists (deleted): mark in blocklist + delete files.
+        const deletedLinked = appState.classes.filter(c => c.groupId && !allGroupKeys.has(c.groupId));
+        for (const cls of deletedLinked) {
+          markClassDeleted(cls.id);
+          if (window.Desktop && Desktop.isElectron()) {
+            Desktop.deleteByPath('grades', cls.id, { recursive: true, force: true }).catch(() => {});
+          }
+          changed = true;
+        }
+        if (deletedLinked.length) appState.classes = filterDeletedClasses(appState.classes);
       }
 
       return changed;

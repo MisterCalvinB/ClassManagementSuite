@@ -254,6 +254,7 @@
   </script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -531,6 +532,8 @@
       </div>
     </div>
     <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()" title="Customise board defaults">Customise</button>
+    <button class="action-btn btn-grey tut-trigger-btn" onclick="openBoardShortcuts()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+    <button class="action-btn btn-grey tut-trigger-btn" onclick="showBoardTourStub()" data-i18n-title="tourBtnLabel" data-i18n="tourBtnLabel">▶ Tour</button>
   </div>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
@@ -1141,6 +1144,20 @@
   </div>
 </div>
 </div>
+
+<!-- Import staging tray: words wait here to be dragged onto the board -->
+<div id="con-import-tray">
+  <div id="con-import-tray-header">
+    <span data-i18n="trayDragTitle">📥 Drag to board</span>
+    <button onclick="conImportTrayClose()">✕</button>
+  </div>
+  <div id="con-import-tray-list"></div>
+  <div id="con-import-tray-footer">
+    <span id="con-import-tray-count"></span>
+    <button class="action-btn" onclick="conImportTrayDropAll()" data-i18n="trayAddAll">Add all</button>
+  </div>
+</div>
+<div id="con-import-ghost"></div>
 
 <div id="word-detail-overlay" onclick="if(event.target===this)hideWordDetail()">
   <div class="det-inner">
@@ -4828,6 +4845,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Export CSV', btnExportTXT:'⬇ Export JSON',
         clickWord:'Click a word to see its full details and example sentence.',
         btnReference:'📖 Reference', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Browse by Topic',
+        trayDragTitle:'📥 Drag to board', trayAddAll:'Add all',
         btnClearAll:'Clear All', btnImportBank:'📥 Import from Bank', btnExportPNG:'🖼 Export PNG', btnCopyPNG:'📋 Copy PNG', btnAddTable:'⊞ Table',
         conInstructions:'System: right-click the board to add words (comma = separate, + = grouped, -- = linked chain) · Move: drag words and drop onto another word to group · Multi-select: Ctrl/Cmd+click, then right-click selection to align, distribute, or grid · Shortcuts: Ctrl/Cmd+G group, Ctrl/Cmd+A select all, Ctrl/Cmd+H hide/reveal, Delete/Backspace remove selection, Ctrl/Cmd+↑/↓ increase/decrease font size, Esc close menus, Ctrl/Cmd+Z undo, Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z redo, Ctrl/Cmd+S save',
         helpTitle:'📖 How It Works',
@@ -4963,6 +4981,7 @@ function hideFailure() {
         btnExportCSV:'⬇ CSV exportieren', btnExportTXT:'⬇ JSON exportieren',
         clickWord:'Klicke ein Wort für Details und einen Beispielsatz.',
         btnReference:'📖 Referenz', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Nach Thema',
+        trayDragTitle:'📥 Auf das Board ziehen', trayAddAll:'Alle hinzufügen',
         btnClearAll:'Alles löschen', btnImportBank:'📥 Aus Wortbank importieren', btnExportPNG:'🖼 PNG exportieren', btnCopyPNG:'📋 PNG kopieren', btnAddTable:'⊞ Tabelle',
         conInstructions:'System: Rechtsklick auf das Board zum Hinzufügen (Komma = getrennte Wörter, + = gruppierte Wörter, -- = verknüpfte Kette) · Bewegen: Wörter ziehen und auf andere Wörter fallen lassen zum Gruppieren · Kürzel: Strg/Cmd+Klick Mehrfachauswahl, Strg/Cmd+G gruppieren, Entf/Backspace löschen, Esc Menüs schließen, Strg/Cmd+Y oder Strg/Cmd+Shift+Z wiederholen',
         helpTitle:'📖 Wie es funktioniert',
@@ -5097,6 +5116,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Esporta CSV', btnExportTXT:'⬇ Esporta JSON',
         clickWord:'Clicca una parola per vedere tutti i dettagli e un esempio.',
         btnReference:'📖 Riferimento', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Per Argomento',
+        trayDragTitle:'📥 Trascina sulla lavagna', trayAddAll:'Aggiungi tutti',
         btnClearAll:'Elimina Tutto', btnImportBank:'📥 Importa dalla Banca', btnExportPNG:'🖼 Esporta PNG', btnCopyPNG:'📋 Copia PNG', btnAddTable:'⊞ Tabella',
         conInstructions:'Sistema: clic destro sulla lavagna per aggiungere parole (virgola = parole separate, + = parole raggruppate, -- = catena collegata) · Sposta: trascina le parole e rilasciale su un\'altra parola per raggruppare · Scorciatoie: Ctrl/Cmd+clic selezione multipla, Ctrl/Cmd+G raggruppa, Canc/Backspace elimina, Esc chiude i menu, Ctrl/Cmd+Y o Ctrl/Cmd+Shift+Z ripristina',
         helpTitle:'📖 Come Funziona',
@@ -5231,6 +5251,7 @@ function hideFailure() {
         btnExportCSV:'⬇ Exporter CSV', btnExportTXT:'⬇ Exporter JSON',
         clickWord:'Cliquez sur un mot pour voir ses détails complets et sa phrase d\'exemple.',
         btnReference:'📖 Référence', btnQuiz:'✏️ Quiz', btnBrowse:'🗂️ Par Thème',
+        trayDragTitle:'📥 Glisser sur le tableau', trayAddAll:'Tout ajouter',
         btnClearAll:'Tout Effacer', btnImportBank:'📥 Importer de la Banque', btnExportPNG:'🖼 Exporter PNG', btnCopyPNG:'📋 Copier PNG', btnAddTable:'⊞ Tableau',
         conInstructions:'Système : clic droit sur le tableau pour ajouter des mots (virgule = mots séparés, + = mots groupés, -- = chaîne liée) · Déplacer : glissez les mots et déposez-les sur un autre mot pour grouper · Raccourcis : Ctrl/Cmd+clic sélection multiple, Ctrl/Cmd+G grouper, Suppr/Retour arrière supprimer, Esc fermer les menus, Ctrl/Cmd+Y ou Ctrl/Cmd+Shift+Z rétablir',
         helpTitle:'📖 Comment ça Fonctionne',
@@ -12786,6 +12807,7 @@ function hideFailure() {
       window.conGetNodes     = function()  { return conNodes; };
       window.conGetBoard     = function()  { return board(); };
       window.conAttachNode   = function(id, el) { conAttachNodeEvents(id, el); };
+      window.conAddWordAt    = function(text, x, y) { return conAddWordAt(text, x, y); };
       window.conRedrawEdges  = function()  { conRedrawEdges(); };
       window.conGroups          = conGroups;
       window.conEdges           = conEdges;
@@ -15511,8 +15533,8 @@ function hideFailure() {
           const baseY = entryBase ? entryBase.y : _boardCtxY;
 
           chainParts.forEach((part, partIdx) => {
-            const partOffsetX = (entryBase ? 0 : entryIdx * 6) + partIdx * 24;
-            const partOffsetY = (entryBase ? 0 : entryIdx * (28 + 6)) + partIdx * 10;
+            const partOffsetX = partIdx * 24;
+            const partOffsetY = (entryBase ? 0 : entryIdx * 44) + partIdx * 10;
             const unitNodeIds = [];
 
             part.words.forEach((word, wordIdx) => {
@@ -20142,92 +20164,110 @@ function hideFailure() {
 
     function conImportConfirm() {
       if (conImportSelected.size === 0) return;
-      conPushUndo();
-      const brd   = conGetBoard();
       const words = [...conImportSelected].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-      const MIN_FONT = window.conGetDefaultWordFontSize ? window.conGetDefaultWordFontSize() : 16;
-      const NODE_H   = 30;
-      const GAP      = 7;
-      const X_START  = 10;
-      const Y_START  = 10;
-
-      const importedNodes = [];
-      const nodes = conGetNodes();
-
-      words.forEach(word => {
-        const id  = 'cn' + conGetNextId();
-        const el  = document.createElement('div');
-        el.className = 'con-node con-node-matched';
-        el.id = id;
-        el.textContent = word;
-        el.style.left     = X_START + 'px';
-        el.style.top      = Y_START + 'px';
-        el.style.fontSize = MIN_FONT + 'px';
-        el.style.padding  = '4px 9px';
-        brd.appendChild(el);
-        const node = { id, el, x: X_START, y: Y_START, baseX: X_START, baseY: Y_START, dbWord: word, baseWord: word };
-        nodes.push(node);
-        importedNodes.push(node);
-        conAttachNode(id, el);
-      });
-
-      if (importedNodes.length > 0) {
-        const maxW = Math.max(...importedNodes.map(n => n.el.offsetWidth || 80));
-        const maxH = Math.max(...importedNodes.map(n => n.el.offsetHeight || NODE_H));
-        const gapX = 14;
-        const gapY = 12;
-        const cols = Math.max(1, Math.floor((Math.max(1, brd.clientWidth - X_START) + gapX) / (maxW + gapX)));
-
-        const importedIds = new Set(importedNodes.map(n => n.id));
-        const staticRects = nodes
-          .filter(n => !importedIds.has(n.id))
-          .map(n => ({
-            x: n.x,
-            y: n.y,
-            w: n.el.offsetWidth || 80,
-            h: n.el.offsetHeight || NODE_H,
-          }));
-
-        const placedRects = [];
-        const overlapsAny = (rect, others) => others.some(o =>
-          rect.x < o.x + o.w &&
-          rect.x + rect.w > o.x &&
-          rect.y < o.y + o.h &&
-          rect.y + rect.h > o.y
-        );
-
-        let scanIndex = 0;
-        importedNodes.forEach(node => {
-          const w = node.el.offsetWidth || maxW;
-          const h = node.el.offsetHeight || maxH;
-          while (true) {
-            const col = scanIndex % cols;
-            const row = Math.floor(scanIndex / cols);
-            scanIndex++;
-
-            const x = X_START + col * (maxW + gapX) + (maxW - w) / 2;
-            const y = Y_START + row * (maxH + gapY) + (maxH - h) / 2;
-            const rect = { x, y, w, h };
-            if (overlapsAny(rect, staticRects) || overlapsAny(rect, placedRects)) continue;
-
-            placedRects.push(rect);
-            node.x = x;
-            node.y = y;
-            node.baseX = x;
-            node.baseY = y;
-            node.el.style.left = x + 'px';
-            node.el.style.top = y + 'px';
-            break;
-          }
-        });
-      }
-
-      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
-      if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
       conImportClose();
+      conImportTrayOpen(words);
     }
 
+    // ================================================================
+    // IMPORT STAGING TRAY
+    // ================================================================
+    let _trayWords    = [];
+    let _trayDragWord = null;
+    let _trayDragChip = null;
 
+    function conImportTrayOpen(words) {
+      _trayWords = words.slice();
+      _conTrayRender();
+      document.getElementById('con-import-tray').classList.add('active');
+    }
+
+    function conImportTrayClose() {
+      document.getElementById('con-import-tray').classList.remove('active');
+      _trayWords = [];
+    }
+
+    function _conTrayRender() {
+      const list = document.getElementById('con-import-tray-list');
+      if (!list) return;
+      list.innerHTML = '';
+      _trayWords.forEach(word => {
+        const chip = document.createElement('div');
+        chip.className = 'con-tray-chip';
+        chip.textContent = word;
+        chip.addEventListener('mousedown', _conTrayChipDown);
+        list.appendChild(chip);
+      });
+      const countEl = document.getElementById('con-import-tray-count');
+      if (countEl) countEl.textContent = _trayWords.length;
+      if (_trayWords.length === 0) conImportTrayClose();
+    }
+
+    function _conTrayChipDown(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      _trayDragWord = e.currentTarget.textContent.trim();
+      _trayDragChip = e.currentTarget;
+      _trayDragChip.classList.add('tray-dragging');
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.textContent = _trayDragWord;
+      ghost.style.left = (e.clientX + 12) + 'px';
+      ghost.style.top  = (e.clientY - 16) + 'px';
+      ghost.style.display = 'block';
+      document.addEventListener('mousemove', _conTrayMouseMove);
+      document.addEventListener('mouseup',   _conTrayMouseUp);
+    }
+
+    function _conTrayMouseMove(e) {
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.style.left = (e.clientX + 12) + 'px';
+      ghost.style.top  = (e.clientY - 16) + 'px';
+      const brd = document.getElementById('constellation-board');
+      if (brd) {
+        const r = brd.getBoundingClientRect();
+        const over = e.clientX >= r.left && e.clientX <= r.right
+                  && e.clientY >= r.top  && e.clientY <= r.bottom;
+        ghost.classList.toggle('over-board', over);
+      }
+    }
+
+    function _conTrayMouseUp(e) {
+      document.removeEventListener('mousemove', _conTrayMouseMove);
+      document.removeEventListener('mouseup',   _conTrayMouseUp);
+      const ghost = document.getElementById('con-import-ghost');
+      ghost.style.display = 'none';
+      ghost.classList.remove('over-board');
+      if (_trayDragChip) { _trayDragChip.classList.remove('tray-dragging'); _trayDragChip = null; }
+      const word = _trayDragWord;
+      _trayDragWord = null;
+      if (!word) return;
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      const r = brd.getBoundingClientRect();
+      const over = e.clientX >= r.left && e.clientX <= r.right
+                && e.clientY >= r.top  && e.clientY <= r.bottom;
+      if (!over) return;
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+      const x = e.clientX - r.left + brd.scrollLeft;
+      const y = e.clientY - r.top  + brd.scrollTop;
+      if (typeof window.conAddWordAt === 'function') window.conAddWordAt(word, x, y);
+      _trayWords = _trayWords.filter(w => w !== word);
+      _conTrayRender();
+    }
+
+    function conImportTrayDropAll() {
+      if (!_trayWords.length) return;
+      const brd = document.getElementById('constellation-board');
+      if (!brd) return;
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+      const startX = brd.scrollLeft + 40;
+      const startY = brd.scrollTop + Math.max(40, Math.round(brd.clientHeight / 2 - (_trayWords.length * 44) / 2));
+      _trayWords.forEach((word, i) => {
+        if (typeof window.conAddWordAt === 'function') window.conAddWordAt(word, startX, startY + i * 44);
+      });
+      _trayWords = [];
+      _conTrayRender();
+    }
 
     // ── Stubs for variables from the removed textual-analysis section ──
     let taWordNotes = [];
@@ -33379,6 +33419,48 @@ async function conConvertPdfMediaItemToPng(item) {
     }
   });
 })();
+</script>
+
+<script>
+function openBoardShortcuts() {
+  ShortcutsModal.open({
+    title: t('skmTitle'),
+    noShortcutsText: t('skmNone'),
+    rows: [
+      { section: t('skmSecHistory') },
+      { keys: ['Ctrl', 'Z'], alt: ['Cmd', 'Z'], desc: t('skmBdUndo'), orText: t('skmOr') },
+      { keys: ['Ctrl', 'Y'], alt: ['Ctrl', 'Shift', 'Z'], desc: t('skmBdRedo'), orText: t('skmOr') },
+      { section: t('skmSecFile') },
+      { keys: ['Ctrl', 'S'], desc: t('skmBdSave') },
+      { section: t('skmSecSelection') },
+      { keys: ['Ctrl', 'A'], desc: t('skmBdSelectAll') },
+      { keys: ['Ctrl', 'Click'], desc: t('skmBdMultiSelect') },
+      { section: t('skmSecEditing') },
+      { keys: ['Ctrl', 'C'], desc: t('skmBdCopy') },
+      { keys: ['Ctrl', 'X'], desc: t('skmBdCut') },
+      { keys: ['Ctrl', 'V'], desc: t('skmBdPaste') },
+      { keys: ['Ctrl', 'G'], desc: t('skmBdGroup') },
+      { keys: ['Ctrl', 'H'], desc: t('skmBdHide') },
+      { keys: ['Ctrl', 'D'], desc: t('skmBdDraw') },
+      { keys: ['Ctrl', 'W'], desc: t('skmBdMoveMode') },
+      { keys: ['Ctrl', 'J'], desc: t('skmBdLink') },
+      { section: t('skmSecText') },
+      { keys: ['Ctrl', '↑'], desc: t('skmBdFontUp') },
+      { keys: ['Ctrl', '↓'], desc: t('skmBdFontDown') },
+      { keys: ['Ctrl', '→'], desc: t('skmBdAlignR') },
+      { keys: ['Ctrl', '←'], desc: t('skmBdAlignL') },
+      { section: t('skmSecMovement') },
+      { keys: ['↑ ↓ ← →'], desc: t('skmBdMove1px') },
+      { keys: ['Shift', '↑ ↓ ← →'], desc: t('skmBdMove10px') },
+      { section: t('skmSecGeneral') },
+      { keys: ['Escape'], desc: t('skmBdEscape') }
+    ]
+  });
+}
+
+function showBoardTourStub() {
+  ShortcutsModal.open({ title: t('tourBtnLabel'), rows: [], noShortcutsText: t('skmTourSoon') });
+}
 </script>
 </body>
 </html>

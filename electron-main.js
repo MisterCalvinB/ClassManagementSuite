@@ -198,7 +198,7 @@ function getBundledDataRoot() {
 const PAGE_PERMISSIONS = {
   [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
   [PAGE_FILES.classManagement]: new Set(['user', 'groupParticipation', 'data', 'grades']),
-  [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation']),
+  [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
   [PAGE_FILES.gradeSheet]: new Set(['grades', 'user']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
@@ -1353,24 +1353,21 @@ async function runAutoSync() {
   _autoSyncRunning = true;
   try {
     const writableRoot = getWritableRootDir();
-    const subDirs = ['user', 'data'];
-    for (const sub of subDirs) {
-      const srcDir  = path.join(writableRoot, sub);
-      const destDir = path.join(syncLocation, sub);
-      const result  = await syncTrees(srcDir, destDir, 'to-target');
-      // Auto-resolve conflicts: source always wins
-      for (const c of result.conflicts) {
-        const relPath = c.relativePath.replace(/\\/g, '/');
-        if (relPath.split('/').some(seg => seg === '..' || seg === '.')) continue;
-        try {
-          const srcPath  = path.join(srcDir,  relPath);
-          const destPath = path.join(destDir, relPath);
-          await fs.mkdir(path.dirname(destPath), { recursive: true });
-          await fs.copyFile(srcPath, destPath);
-          const stat = await fs.stat(srcPath);
-          await fs.utimes(destPath, stat.atime, stat.mtime).catch(() => {});
-        } catch {}
-      }
+    const srcDir  = path.join(writableRoot, 'user');
+    const destDir = resolveSyncDestDir(syncLocation);
+    const result  = await syncTrees(srcDir, destDir, 'to-target');
+    // Auto-resolve conflicts: source always wins
+    for (const c of result.conflicts) {
+      const relPath = c.relativePath.replace(/\\/g, '/');
+      if (relPath.split('/').some(seg => seg === '..' || seg === '.')) continue;
+      try {
+        const srcPath  = path.join(srcDir,  relPath);
+        const destPath = path.join(destDir, relPath);
+        await fs.mkdir(path.dirname(destPath), { recursive: true });
+        await fs.copyFile(srcPath, destPath);
+        const stat = await fs.stat(srcPath);
+        await fs.utimes(destPath, stat.atime, stat.mtime).catch(() => {});
+      } catch {}
     }
   } catch (err) {
     console.error('Auto-sync error:', err);
@@ -1382,34 +1379,37 @@ async function runAutoSync() {
 function startAutoSyncWatcher() {
   stopAutoSyncWatcher();
   const writableRoot = getWritableRootDir();
-  const subDirs = ['user', 'data'];
-  const handles = [];
-
-  for (const sub of subDirs) {
-    const dir = path.join(writableRoot, sub);
-    try {
-      const w = fsSync.watch(dir, { recursive: true }, (_eventType, _filename) => {
-        if (_autoSyncRunning) return;
-        if (_autoSyncTimer) clearTimeout(_autoSyncTimer);
-        _autoSyncTimer = setTimeout(runAutoSync, 3000);
-      });
-      w.on('error', () => {}); // ignore watch errors silently
-      handles.push(w);
-    } catch {
-      // Directory may not exist yet; ignore.
-    }
-  }
-
-  if (handles.length > 0) {
-    _autoSyncWatcher = { close: () => handles.forEach(w => { try { w.close(); } catch {} }) };
+  const dir = path.join(writableRoot, 'user');
+  try {
+    const w = fsSync.watch(dir, { recursive: true }, (_eventType, _filename) => {
+      if (_autoSyncRunning) return;
+      if (_autoSyncTimer) clearTimeout(_autoSyncTimer);
+      _autoSyncTimer = setTimeout(runAutoSync, 3000);
+    });
+    w.on('error', () => {}); // ignore watch errors silently
+    _autoSyncWatcher = { close: () => { try { w.close(); } catch {} } };
+  } catch {
+    // Directory may not exist yet; ignore.
   }
 }
 
+// Resolve the effective destination directory for sync.
+// The user picks a sync folder that should directly mirror writableRoot/user/.
+// For backward compat, if syncLocation/user/ already has content, use that
+// (old installs that synced to a parent folder).
+function resolveSyncDestDir(syncLocation) {
+  const nestedUserPath = path.join(syncLocation, 'user');
+  try {
+    const entries = fsSync.readdirSync(nestedUserPath).filter(e => e !== 'sync-baseline.json');
+    if (entries.length > 0) return nestedUserPath;
+  } catch {}
+  return syncLocation;
+}
+
 // mode: 'to-target' | 'to-source' | 'both'
-// source = current data sub-dir, dest = sync location sub-dir
+// source = writableRoot/user, dest = resolved sync destination
 // baseline: { map: Map<string,{mtimeMs,size}>, prefix: string } | null
-//   map keys are full relative paths (prefix + '/' + rel), values are the
-//   last-known agreed state after the previous successful sync.
+//   map keys are relative paths within srcDir; prefix is prepended (empty = no prefix).
 async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = null } = {}) {
   let copied = 0;
   const errors = [];
@@ -1527,7 +1527,7 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
           if (Math.abs(srcEntry.mtimeMs - destEntry.mtimeMs) < 1000 || isTzOnlyDiff(srcEntry, destEntry)) continue;
 
           // Consult baseline to detect which side actually changed
-          const baseKey = baseline ? (baseline.prefix + '/' + rel) : null;
+          const baseKey = baseline ? (baseline.prefix ? baseline.prefix + '/' + rel : rel) : null;
           const base    = baseKey ? baseline.map.get(baseKey) : null;
           if (base) {
             const srcChanged  = Math.abs(srcEntry.mtimeMs  - base.mtimeMs) >= 1000 || srcEntry.size  !== base.size;
@@ -3680,42 +3680,24 @@ ipcMain.handle('app:run-sync', async (_event, { mode } = {}) => {
   }
 
   const writableRoot = getWritableRootDir();
-  const subDirs = ['user', 'data'];
-  let totalCopied = 0;
-  const allErrors = [];
-  const allConflicts = [];
-  const allAdded = [];
-  const allNewFiles = [];
+  const srcDir  = path.join(writableRoot, 'user');
+  const destDir = resolveSyncDestDir(syncLocation);
 
   const baselineMap = await loadSyncBaseline();
-  const pendingEntries = [];
 
-  for (const sub of subDirs) {
-    const srcDir  = path.join(writableRoot, sub);
-    const destDir = path.join(syncLocation, sub);
-    const result  = await syncTrees(srcDir, destDir, syncMode, {
-      autoNew: false,
-      baseline: { map: baselineMap, prefix: sub }
-    });
-    totalCopied  += result.copied;
-    allErrors.push(...result.errors);
-    for (const c of result.conflicts) {
-      allConflicts.push({ ...c, relativePath: sub + '/' + c.relativePath });
-    }
-    for (const f of result.newFiles) {
-      allNewFiles.push({ ...f, relativePath: sub + '/' + f.relativePath });
-    }
-    for (const f of result.added) {
-      allAdded.push(sub + '/' + f);
-    }
-    for (const s of result.synced) {
-      pendingEntries.push({ relativePath: sub + '/' + s.relativePath, mtimeMs: s.mtimeMs, size: s.size });
-    }
-  }
+  const result = await syncTrees(srcDir, destDir, syncMode, {
+    autoNew: false,
+    baseline: { map: baselineMap, prefix: '' }
+  });
+
+  const allErrors    = result.errors;
+  const allConflicts = result.conflicts;
+  const allNewFiles  = result.newFiles;
+  const allAdded     = result.added;
 
   // Save pending entries for baseline update after conflict resolution.
   // If there are no conflicts the baseline is committed immediately.
-  _pendingBaselineEntries = pendingEntries;
+  _pendingBaselineEntries = result.synced.map(s => ({ relativePath: s.relativePath, mtimeMs: s.mtimeMs, size: s.size }));
 
   if (allConflicts.length === 0 && allNewFiles.length === 0) {
     // All done — commit baseline now
@@ -3726,7 +3708,7 @@ ipcMain.handle('app:run-sync', async (_event, { mode } = {}) => {
     _pendingBaselineEntries = [];
   }
 
-  return { ok: true, copied: totalCopied, errors: allErrors, conflicts: allConflicts, newFiles: allNewFiles, added: allAdded, syncLocation };
+  return { ok: true, copied: result.copied, errors: allErrors, conflicts: allConflicts, newFiles: allNewFiles, added: allAdded, syncLocation };
 });
 
 ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {}) => {
@@ -3736,6 +3718,8 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
   }
 
   const writableRoot = getWritableRootDir();
+  const srcDir  = path.join(writableRoot, 'user');
+  const destDir = resolveSyncDestDir(syncLocation);
 
   async function copyOne(fromPath, toPath) {
     await fs.mkdir(path.dirname(toPath), { recursive: true });
@@ -3757,15 +3741,15 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
       continue;
     }
 
-    const srcPath  = path.join(writableRoot, relPath);
-    const destPath = path.join(syncLocation, relPath);
+    const srcPath  = path.join(srcDir,  relPath);
+    const destPath = path.join(destDir, relPath);
 
     // Confirm resolved paths stay within their roots
-    if (!srcPath.startsWith(writableRoot + path.sep) && srcPath !== writableRoot) {
+    if (!srcPath.startsWith(srcDir + path.sep) && srcPath !== srcDir) {
       errors.push({ relativePath: relPath, error: 'Path is outside data root.' });
       continue;
     }
-    if (!destPath.startsWith(syncLocation + path.sep) && destPath !== syncLocation) {
+    if (!destPath.startsWith(destDir + path.sep) && destPath !== destDir) {
       errors.push({ relativePath: relPath, error: 'Path is outside sync root.' });
       continue;
     }
@@ -4267,7 +4251,7 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
 {
   const { Marked } = require('marked');
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
-          WidthType, BorderStyle, AlignmentType, ExternalHyperlink,
+          WidthType, BorderStyle, AlignmentType, ExternalHyperlink, ImageRun,
           LevelFormat, convertMillimetersToTwip } = require('docx');
 
   const _markedDocx = (() => {
@@ -4368,8 +4352,35 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
           break;
         }
         case 'image': {
-          const alt = String(tok.text || '');
-          if (alt) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, italics: true, color: '888888', ...extra, text: '[' + alt + ']' }));
+          const src = String(tok.href || '');
+          const imgData = ctx.images && ctx.images[src];
+          if (imgData && imgData.data && imgData.width && imgData.height) {
+            const textPx = ctx.textWidthPx || 600;
+            const mode = ctx.imageWidthMode || 'auto';
+            let targetW;
+            if (mode === '100%') {
+              targetW = textPx;
+            } else if (mode.endsWith('%')) {
+              targetW = textPx * (parseFloat(mode) / 100);
+            } else {
+              targetW = Math.min(imgData.width, textPx);
+            }
+            const scale = targetW / imgData.width;
+            const w = Math.max(1, Math.round(imgData.width * scale));
+            const h = Math.max(1, Math.round(imgData.height * scale));
+            try {
+              out.push(new ImageRun({
+                data: Buffer.from(String(imgData.data), 'base64'),
+                transformation: { width: w, height: h }
+              }));
+            } catch(imgErr) {
+              const alt = String(tok.text || '');
+              if (alt) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, italics: true, color: '888888', ...extra, text: '[' + alt + ']' }));
+            }
+          } else {
+            const alt = String(tok.text || '');
+            if (alt) out.push(new TextRun({ font: ctx.font, size: ctx.halfPt, italics: true, color: '888888', ...extra, text: '[' + alt + ']' }));
+          }
           break;
         }
         case 'br':
@@ -4466,14 +4477,17 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
         case 'paragraph': {
           const pSpacing = bq ? { before: 40, after: 40 } : { after: 200 };
           if (ctx.lineSpacing) { pSpacing.line = ctx.lineSpacing; pSpacing.lineRule = 'auto'; }
+          const tokTokens = tok.tokens || [];
+          const isImageOnly = tokTokens.length === 1 && tokTokens[0].type === 'image';
           const props = {
-            children: docxInlineRuns(tok.tokens || [], ctx, ctx.bodyRun),
+            children: docxInlineRuns(tokTokens, ctx, ctx.bodyRun),
             spacing: pSpacing
           };
           if (bq) {
             props.indent = { left: MM2T(8) };
             props.border = { left: { style: BorderStyle.SINGLE, size: 12, color: 'DFE2E5', space: 6 } };
           }
+          if (isImageOnly) props.alignment = AlignmentType.CENTER;
           out.push(new Paragraph(props));
           break;
         }
@@ -4596,7 +4610,14 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
       const bodyColor   = parseCssColor(request.color);
       const lineSpacing = parseCssLineHeight(request.lineHeight);
       const bodyRun = { ...(bodyColor ? { color: bodyColor } : {}) };
-      const ctx = { font: cleanFont, halfPt, numConfigs: [], bodyRun, lineSpacing };
+      const textWidthMm = (landscape ? pmm.h : pmm.w) - margins.left - margins.right;
+      const textWidthPx = textWidthMm * 96 / 25.4;
+      const ctx = {
+        font: cleanFont, halfPt, numConfigs: [], bodyRun, lineSpacing,
+        images: request.images || {},
+        textWidthPx,
+        imageWidthMode: String(request.imageWidth || 'auto')
+      };
       const tokens = _markedDocx.lexer(String(request.markdown || ''));
       const children = docxBlockTokens(tokens, ctx);
       if (!children.length) children.push(new Paragraph({ children: [] }));

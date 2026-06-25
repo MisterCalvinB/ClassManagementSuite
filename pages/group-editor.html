@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
@@ -556,7 +557,8 @@
 <body>
 <nav id="app-nav">
   <span class="nav-brand"></span>
-  <button id="tut-trigger" class="tut-trigger-btn" onclick="startGeTutorial()" data-i18n-title="tutBtnLabel">?</button>
+  <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+  <button id="tut-trigger" class="tut-trigger-btn" onclick="startGeTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
@@ -708,6 +710,18 @@
   </div>
 </div>
 
+<!-- Delete-group warning dialog (3 actions: cancel / archive / delete) -->
+<div id="ge-delete-warn-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9001;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:440px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <p id="ge-delete-warn-msg" style="font-size:0.95rem;line-height:1.55;margin-bottom:20px;white-space:pre-line;"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button onclick="cancelDeleteWarn()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
+      <button id="ge-delete-warn-archive" onclick="archiveDeleteWarn()" style="padding:8px 18px;border:2px solid #e67700;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#e67700;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#e67700';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#e67700'" data-i18n="geDeleteWarnArchiveBtn">Archive instead</button>
+      <button onclick="confirmDeleteWarn()" style="padding:8px 18px;border:2px solid #c0392b;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#c0392b;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#c0392b'" onmouseout="this.style.background='#c0392b';this.style.color='#fff'" data-i18n="geDeleteWarnDeleteBtn">Delete permanently</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm dialog -->
 <div id="ge-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
@@ -780,6 +794,33 @@
     } else {
       window.location.href = 'launcher.html';
     }
+  }
+
+  // ── Delete-group warning dialog (cancel / archive / delete) ─
+  let _deleteWarnDeleteCb = null;
+  let _deleteWarnArchiveCb = null;
+  function showDeleteWarn(msg, deleteCb, archiveCb) {
+    _deleteWarnDeleteCb = deleteCb || null;
+    _deleteWarnArchiveCb = archiveCb || null;
+    document.getElementById('ge-delete-warn-msg').textContent = msg;
+    document.getElementById('ge-delete-warn-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('ge-delete-warn-archive').focus(), 40);
+  }
+  function confirmDeleteWarn() {
+    document.getElementById('ge-delete-warn-overlay').style.display = 'none';
+    const cb = _deleteWarnDeleteCb;
+    _deleteWarnDeleteCb = null; _deleteWarnArchiveCb = null;
+    if (cb) cb();
+  }
+  function archiveDeleteWarn() {
+    document.getElementById('ge-delete-warn-overlay').style.display = 'none';
+    const cb = _deleteWarnArchiveCb;
+    _deleteWarnDeleteCb = null; _deleteWarnArchiveCb = null;
+    if (cb) cb();
+  }
+  function cancelDeleteWarn() {
+    document.getElementById('ge-delete-warn-overlay').style.display = 'none';
+    _deleteWarnDeleteCb = null; _deleteWarnArchiveCb = null;
   }
 
   // ── Confirm dialog ──────────────────────────────────────────
@@ -1834,15 +1875,22 @@
     if (isArchived) delBtn.style.opacity = '0.5';
     delBtn.onclick = () => {
       const dn = groupDisplayName(groupId);
-      showConfirm(typeof tFmt === 'function' ? tFmt('geConfirmDelete', {name: dn}) : 'Delete "' + dn + '" permanently?\n\nThis cannot be undone.', () => {
-        row.remove();
-        studentSection.remove();
-        if (halfSection.parentNode) halfSection.remove();
-        if (window.Desktop && Desktop.isElectron()) {
-          Desktop.deleteByPath('user', 'planner/' + groupId + '.js').catch(() => {});
-          deletePlannerClassConfig(groupId);
-        }
-      });
+      const warnMsg = typeof tFmt === 'function'
+        ? tFmt('geWarnDelete', {name: dn})
+        : 'Delete "' + dn + '" permanently?\n\nThis will also remove all grade data for this class.\nConsider archiving instead — data is hidden but recoverable.';
+      showDeleteWarn(warnMsg,
+        () => {
+          row.remove();
+          studentSection.remove();
+          if (halfSection.parentNode) halfSection.remove();
+          if (window.Desktop && Desktop.isElectron()) {
+            Desktop.deleteByPath('user', 'planner/' + groupId + '.js').catch(() => {});
+            deletePlannerClassConfig(groupId);
+            _cleanupGradeDataForGroup(groupId).catch(() => {});
+          }
+        },
+        () => archiveGroup(groupId)
+      );
     };
 
     row.appendChild(nameInput);
@@ -2246,6 +2294,35 @@
     const dn = groupDisplayName(groupId);
     showNotice(typeof tFmt === 'function' ? tFmt('geUnarchived', {name: dn}) : '"' + dn + '" unarchived.');
     renderGroupsList();
+  }
+
+  // Scan grades/ for a _class.js whose groupId matches, delete that class folder,
+  // and record the classId in grade-sheet's deleted-class-ids backup.
+  async function _cleanupGradeDataForGroup(groupId) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    try {
+      const listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+      if (!listResult?.ok || !Array.isArray(listResult.files)) return;
+      for (const cf of listResult.files.filter(f => f.filename === '_class.js')) {
+        try {
+          const res = await Desktop.readByPath('grades', cf.relativePath);
+          if (!res?.content) continue;
+          const sandbox = {};
+          try { new Function('window', res.content)(sandbox); } catch { continue; }
+          const meta = sandbox.GRADE_CLASS || sandbox.GRADE_TEST_DATA;
+          if (!meta || meta.groupId !== groupId) continue;
+          const classDir = cf.relativePath.replace(/[/\\]_class\.js$/, '');
+          await Desktop.deleteByPath('grades', classDir, { recursive: true, force: true }).catch(() => {});
+          if (meta.classId) {
+            const r = await Desktop.readJson('gradeSheet', 'deleted-class-ids-backup.json').catch(() => null);
+            const ids = (r?.ok && Array.isArray(r.data)) ? r.data : [];
+            if (!ids.includes(meta.classId)) {
+              await Desktop.saveJson('gradeSheet', 'deleted-class-ids-backup.json', [...ids, meta.classId]).catch(() => {});
+            }
+          }
+        } catch {}
+      }
+    } catch {}
   }
 
   // ── Archive whole semester ───────────────────────────────────

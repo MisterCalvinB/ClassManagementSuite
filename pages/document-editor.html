@@ -1120,6 +1120,16 @@
           </div>
         </div>
 
+        <div>
+          <div class="pl-section-label">Images</div>
+          <select class="pl-select" id="pl-image-width">
+            <option value="auto">Auto (intrinsic size)</option>
+            <option value="100%">Fit to page width</option>
+            <option value="75%">75% of page width</option>
+            <option value="50%">50% of page width</option>
+          </select>
+        </div>
+
       </div>
     </div>
       </div><!-- /page-layout-wrap -->
@@ -1147,6 +1157,8 @@
     <button class="de-pres-stop-btn" onclick="deClosePresentation()">Stop</button>
   </div>
   <div class="nav-sep" id="de-pres-sep" style="display:none"></div>
+  <button class="nav-btn tut-trigger-btn" style="border:1px solid #555;padding:4px 8px;" onclick="openDeShortcuts()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+  <button class="nav-btn tut-trigger-btn" style="border:1px solid #555;padding:4px 8px;" onclick="ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')})" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
   <div class="hm-wrap" id="main-hm-wrap">
     <button class="hm-btn" id="main-hm-btn">☰</button>
     <div class="hm-menu"></div>
@@ -1323,6 +1335,7 @@
      global define() (AMD). If they load after, their UMD wrappers detect AMD
      and register via define() instead of setting window globals. -->
 <script src="../js/i18n.js"></script>
+<script src="../js/shortcuts-modal.js"></script>
 <script src="../js/dialogs.js"></script>
 <script src="../js/menus.js"></script>
 <script src="../modules/katex/dist/katex.min.js"></script>
@@ -1361,6 +1374,7 @@ let fileModalMode = null;
 let currentDocType = 'md'; // 'md' or 'html'
 let docModified = false;
 let cssModified = false;
+let currentDocMeta = {}; // in-memory copy of the sidecar .json for the open document
 
 // ── Marked + KaTeX setup ─────────────────────────────────
 function setupMarked() {
@@ -1790,10 +1804,11 @@ async function fixPreviewImages(container) {
     const src = img.getAttribute('src');
     if (!src || src.startsWith('data:') || src.startsWith('http://') ||
         src.startsWith('https://') || src.startsWith('//')) return;
-    const filename = decodeURIComponent(src.replace(/\?.*$/, '').split('/').pop());
+    const relativePath = decodeURIComponent(src.replace(/\?.*$/, ''));
+    const filename = relativePath.split('/').pop();
     if (!filename) return;
     try {
-      const r = await Desktop.readByPath('docEditorDocs', filename, { encoding: 'base64' });
+      const r = await Desktop.readByPath('docEditorDocs', relativePath, { encoding: 'base64' });
       if (r && r.content) {
         const ext = filename.split('.').pop().toLowerCase();
         img.src = 'data:' + (IMAGE_MIME_MAP[ext] || 'image/jpeg') + ';base64,' + r.content;
@@ -1811,7 +1826,8 @@ async function embedImageFile(file) {
       const r = await Desktop.saveBlob('docEditorDocs', name, file, currentDocSubdir);
       if (r && r.ok) {
         const filename = (r.file && r.file.filename) ? r.file.filename : name;
-        insertTextAtCursor('\n![' + name + '](' + filename + ')\n');
+        const imgPath = currentDocSubdir ? currentDocSubdir + '/' + filename : filename;
+        insertTextAtCursor('\n![' + name + '](' + imgPath + ')\n');
         showToast('Image saved: ' + name);
       } else {
         showToast('Image save failed: ' + (r && r.error ? r.error : 'unknown'), true);
@@ -2009,11 +2025,14 @@ async function loadDoc(relativePath) {
       if (typeBtn) { typeBtn.textContent = currentDocType.toUpperCase(); typeBtn.classList.toggle('html-mode', currentDocType === 'html'); }
       if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
       hideModal('file-modal');
-      // Restore associated stylesheet
+      // Restore associated stylesheet and page layout
+      currentDocMeta = {};
+      resetPageLayout();
       try {
         const metaR = await Desktop.readByPath('docEditorDocs', relativePath + '.json');
         if (metaR && metaR.ok && metaR.content) {
           const meta = JSON.parse(metaR.content);
+          currentDocMeta = meta;
           const ss = meta.stylesheet || null;
           const sel = document.getElementById('stylesheet-select');
           if (ss && meta.stylesheetInDocs) {
@@ -2037,8 +2056,14 @@ async function loadDoc(relativePath) {
             document.getElementById('custom-css-style').textContent = '';
             cssModified = false;
           }
+          if (meta.pageLayout) {
+            Object.assign(pageLayout, meta.pageLayout);
+            if (meta.pageLayout.margins) pageLayout.margins = { ...meta.pageLayout.margins };
+          }
         }
       } catch(e) {}
+      syncPopupToState();
+      applyPageLayoutToPreview();
       renderPreview();
     }
   } catch(e) { showToast('Could not load: ' + e.message, true); }
@@ -2069,11 +2094,14 @@ async function loadExternalDoc(target, relPath) {
       const typeBtn2 = document.getElementById('btn-doc-type');
       if (typeBtn2) { typeBtn2.textContent = currentDocType.toUpperCase(); typeBtn2.classList.toggle('html-mode', currentDocType === 'html'); }
       if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
-      // Restore associated stylesheet from co-located metadata
+      // Restore associated stylesheet and page layout from co-located metadata
+      currentDocMeta = {};
+      resetPageLayout();
       try {
         const metaR = await Desktop.readByPath(target, relPath + '.json');
         if (metaR && metaR.ok && metaR.content) {
           const meta = JSON.parse(metaR.content);
+          currentDocMeta = meta;
           const ss = meta.stylesheet || null;
           const sel = document.getElementById('stylesheet-select');
           if (ss && meta.stylesheetInDocs) {
@@ -2096,8 +2124,14 @@ async function loadExternalDoc(target, relPath) {
             document.getElementById('custom-css-style').textContent = '';
             cssModified = false;
           }
+          if (meta.pageLayout) {
+            Object.assign(pageLayout, meta.pageLayout);
+            if (meta.pageLayout.margins) pageLayout.margins = { ...meta.pageLayout.margins };
+          }
         }
       } catch(e) {}
+      syncPopupToState();
+      applyPageLayoutToPreview();
       renderPreview();
     } else {
       showToast('Could not open file from ' + target + ': ' + relPath, true);
@@ -2185,8 +2219,10 @@ async function doSaveDoc(filename) {
       updateDocIndicator();
       hideModal('save-modal');
       const metaSS = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
-      const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(newSubdir && hasCSS) });
-      await Desktop.saveText('docEditorDocs', filename + '.json', meta, newSubdir);
+      currentDocMeta.stylesheet = metaSS;
+      currentDocMeta.stylesheetInDocs = !!(newSubdir && hasCSS);
+      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+      await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
       showToast('Saved: ' + filename);
       saveHistorySnapshot(filename, content);
     } else {
@@ -2208,8 +2244,10 @@ async function autosaveDoc() {
         docModified = false;
         updateDocIndicator();
         const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.(md|html)$/i, '') + '.css' : (currentStylesheetName || null);
-        const meta = JSON.stringify({ stylesheet: metaSS, stylesheetInDocs: !!(currentDocSubdir && paired) });
-        await Desktop.saveText('docEditorDocs', currentDocName + '.json', meta, currentDocSubdir);
+        currentDocMeta.stylesheet = metaSS;
+        currentDocMeta.stylesheetInDocs = !!(currentDocSubdir && paired);
+        currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+        await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir);
       }
     }
     if (needsCssSave) {
@@ -2262,8 +2300,10 @@ async function doSaveAll(filename) {
       cssModified = false;
       updateDocIndicator();
       hideModal('save-modal');
-      const meta = JSON.stringify({ stylesheet: cssFilename, stylesheetInDocs: true });
-      await Desktop.saveText('docEditorDocs', filename + '.json', meta, newSubdir);
+      currentDocMeta.stylesheet = cssFilename;
+      currentDocMeta.stylesheetInDocs = true;
+      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+      await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
       injectPairedSSOption(cssFilename);
       currentStylesheetName = '@docs@' + cssFilename;
       document.getElementById('custom-css-style').textContent = css;
@@ -2284,8 +2324,12 @@ async function newDoc() {
   currentDocSubdir = null;
   currentEditTarget = null;
   currentEditRelPath = null;
+  currentDocMeta = {};
   docModified = false;
   updateDocIndicator();
+  resetPageLayout();
+  syncPopupToState();
+  applyPageLayoutToPreview();
   if (currentStylesheetName && parsePairedSS(currentStylesheetName)) {
     clearPairedSSOptions();
     currentStylesheetName = null;
@@ -2792,7 +2836,10 @@ async function exportPdf() {
     '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
     '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
     '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
-    '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n';
+    '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
+    (pageLayout.imageWidth && pageLayout.imageWidth !== 'auto'
+      ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
+      : '.doc-preview img { max-width: 100%; height: auto; }\n');
 
   const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
     katexCssLink + '\n' +
@@ -2879,15 +2926,45 @@ function extractDocxStylesFromCss(css) {
   };
 }
 
+async function collectDocxImages(markdown) {
+  if (!window.Desktop || !Desktop.isElectron()) return {};
+  const map = {};
+  const re = /!\[[^\]]*\]\(([^)\s"']+)/g;
+  let m;
+  while ((m = re.exec(markdown)) !== null) {
+    const src = m[1];
+    if (!src || src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) continue;
+    if (map[src]) continue;
+    try {
+      const ext = src.split('.').pop().toLowerCase();
+      const mime = IMAGE_MIME_MAP[ext] || 'image/png';
+      const r = await Desktop.readByPath('docEditorDocs', src, { encoding: 'base64' });
+      if (!r || !r.content) continue;
+      const dims = await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = () => resolve({ width: 600, height: 400 });
+        img.src = 'data:' + mime + ';base64,' + r.content;
+      });
+      map[src] = { data: r.content, width: dims.width, height: dims.height };
+    } catch(e) {}
+  }
+  return map;
+}
+
 async function exportDocx() {
   if (!window.Desktop || !Desktop.isElectron()) {
     showToast('DOCX export requires the Electron desktop app.', true);
     return;
   }
   showToast('Preparing DOCX…');
-  const cssStyles = extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '');
+  const markdown = mdEditor.getValue();
+  const [cssStyles, images] = await Promise.all([
+    Promise.resolve(extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '')),
+    collectDocxImages(markdown)
+  ]);
   const result = await Desktop.exportDocx({
-    markdown:    mdEditor.getValue(),
+    markdown,
     defaultName: currentDocName || 'document',
     fontFamily:  cssStyles.fontFamily || pageLayout.fontFamily,
     fontSize:    cssStyles.fontSize   || pageLayout.fontSize,
@@ -2895,7 +2972,9 @@ async function exportDocx() {
     lineHeight:  cssStyles.lineHeight || null,
     margins:     pageLayout.margins,
     size:        pageLayout.size,
-    orientation: pageLayout.orientation
+    orientation: pageLayout.orientation,
+    imageWidth:  pageLayout.imageWidth || 'auto',
+    images
   });
   if (result && result.ok) {
     showToast('DOCX exported');
@@ -2921,7 +3000,7 @@ const MARGIN_PRESETS = {
   None:    { top: 0,    right: 0,    bottom: 0,    left: 0    },
 };
 
-let pageLayout = {
+const DEFAULT_PAGE_LAYOUT = {
   orientation: 'portrait',
   size: 'A4',
   customW: 210,
@@ -2933,8 +3012,16 @@ let pageLayout = {
   pageNumbersPos: 'center',
   footer: false,
   footerText: '',
-  footerAlign: 'center'
+  footerAlign: 'center',
+  imageWidth: 'auto'
 };
+
+let pageLayout = { ...DEFAULT_PAGE_LAYOUT, margins: { ...DEFAULT_PAGE_LAYOUT.margins } };
+
+function resetPageLayout() {
+  Object.assign(pageLayout, DEFAULT_PAGE_LAYOUT);
+  pageLayout.margins = { ...DEFAULT_PAGE_LAYOUT.margins };
+}
 
 function getPageDims() {
   let w, h;
@@ -2969,6 +3056,10 @@ function applyPageLayoutToPreview() {
   const m = pageLayout.margins;
   const ff = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
   const fs = (pageLayout.fontSize || 11) * PT2PX;
+  const imgW = pageLayout.imageWidth || 'auto';
+  const imgCss = imgW === 'auto'
+    ? '.doc-preview img{max-width:100%;height:auto}'
+    : '.doc-preview img{width:' + imgW + ';max-width:100%;height:auto}';
   document.getElementById('page-layout-style').textContent =
     '.doc-preview{' +
     'max-width:' + (dims.w * MM2PX) + 'px!important;' +
@@ -2976,7 +3067,7 @@ function applyPageLayoutToPreview() {
                   (m.bottom*MM2PX) + 'px ' + (m.left*MM2PX) + 'px!important;' +
     'font-family:' + ff + '!important;' +
     'font-size:' + fs + 'px!important;' +
-    '}';
+    '}' + imgCss;
   deBroadcastState();
 }
 
@@ -3076,15 +3167,21 @@ function hideFullPreview() {
   document.getElementById('full-preview-overlay').setAttribute('hidden', '');
 }
 
+let _saveLayoutTimer = null;
 function savePageLayout() {
-  try { localStorage.setItem('cmt-doceditor-layout', JSON.stringify(pageLayout)); } catch(e) {}
+  if (!currentDocName || !window.Desktop || !Desktop.isElectron()) return;
+  currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+  clearTimeout(_saveLayoutTimer);
+  _saveLayoutTimer = setTimeout(async () => {
+    try {
+      await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir || null);
+    } catch(e) {}
+  }, 300);
 }
 
 function loadPageLayout() {
-  try {
-    const s = localStorage.getItem('cmt-doceditor-layout');
-    if (s) Object.assign(pageLayout, JSON.parse(s));
-  } catch(e) {}
+  // Layout is now loaded per-file from the sidecar .json in loadDoc().
+  // At startup (no file open) the default pageLayout values are already in place.
 }
 
 function syncPopupToState() {
@@ -3109,6 +3206,7 @@ function syncPopupToState() {
   document.getElementById('pl-margin-preset').value = preset || 'Custom';
   document.getElementById('pl-font-family').value = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
   document.getElementById('pl-font-size').value   = pageLayout.fontSize   || 11;
+  document.getElementById('pl-image-width').value = pageLayout.imageWidth || 'auto';
   document.getElementById('pl-page-numbers').checked    = !!pageLayout.pageNumbers;
   document.getElementById('pl-page-numbers-pos').value  = pageLayout.pageNumbersPos || 'center';
   document.getElementById('pl-page-numbers-pos-row').style.display = pageLayout.pageNumbers ? 'flex' : 'none';
@@ -3218,6 +3316,12 @@ function initPageLayoutPopup() {
   });
   document.getElementById('pl-font-size').addEventListener('change', function() {
     pageLayout.fontSize = parseFloat(this.value) || 11;
+    applyPageLayoutToPreview();
+    savePageLayout();
+  });
+
+  document.getElementById('pl-image-width').addEventListener('change', function() {
+    pageLayout.imageWidth = this.value;
     applyPageLayoutToPreview();
     savePageLayout();
   });
@@ -4218,6 +4322,26 @@ window.addEventListener('DOMContentLoaded', function() {
     // Keep doc centred; layout is driven by the broadcast, nothing extra needed.
   });
 })();
+</script>
+
+<script>
+function openDeShortcuts() {
+  ShortcutsModal.open({
+    title: t('skmTitle'),
+    noShortcutsText: t('skmNone'),
+    rows: [
+      { section: t('skmSecFile') },
+      { keys: ['Ctrl', 'S'], alt: ['Cmd', 'S'], desc: t('skmDeSave') },
+      { keys: ['Ctrl', 'Shift', 'S'], alt: ['Cmd', 'Shift', 'S'], desc: t('skmDeSaveAll') },
+      { keys: ['Ctrl', 'N'], alt: ['Cmd', 'N'], desc: t('skmDeNew') },
+      { keys: ['Ctrl', 'O'], alt: ['Cmd', 'O'], desc: t('skmDeOpen') },
+      { section: t('skmSecGeneral') },
+      { keys: ['Enter'], desc: t('skmDeSearchNext') },
+      { keys: ['Shift', 'Enter'], desc: t('skmDeSearchPrev') },
+      { keys: ['Escape'], desc: t('skmDeClose') }
+    ]
+  });
+}
 </script>
 </body>
 </html>

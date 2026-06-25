@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="modules/lexend/lexend.css">
   <script src="electron-bridge.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/shortcuts-modal.js"></script>
   <script src="js/dialogs.js"></script>
   <script src="js/tutorial.js"></script>
   <script>
@@ -213,6 +214,19 @@
     .sb-item.sb-todo-overdue:hover { background: #ffe8e8; }
     .sb-todo-done { opacity: 0.52; }
     .sb-todo-done .sb-name { text-decoration: line-through; }
+    .sb-subtodos { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
+    .sb-std-row { display: flex; align-items: center; gap: 5px; }
+    .sb-std-check {
+      width: 10px; height: 10px; border: 1.5px solid #ccc; border-radius: 2px;
+      flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .sb-std-check.sb-std-checked { background: #1a8a4a; border-color: #1a8a4a; }
+    .sb-std-check.sb-std-checked::after { content: '✓'; color: #fff; font-size: 6px; font-weight: 900; }
+    .sb-std-text {
+      font-size: .7rem; color: #555; min-width: 0; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; flex: 1;
+    }
+    .sb-std-text.sb-std-done { text-decoration: line-through; color: #bbb; }
     .sb-check {
       width: 14px; height: 14px; border: 2px solid #bbb; border-radius: 3px;
       flex-shrink: 0; cursor: pointer; display: inline-flex; align-items: center;
@@ -734,6 +748,7 @@
     <p class="subtitle" data-i18n="launcherSubtitle">Select a tool to get started</p>
     <div class="l-header-actions">
       <button class="l-header-btn" onclick="openModal('pages/general-config.html')" title="General settings" data-i18n="btnHeaderConfig">⚙ Config</button>
+      <button class="l-header-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">⌨</button>
       <button class="l-header-btn" onclick="openApp('how-to.html')" title="How to use this app" data-i18n="btnHeaderHowTo">? How To</button>
       <button class="l-header-btn" id="launcherTutBtn" onclick="startLauncherTutorial()" data-i18n="btnHeaderTutorial">▶ Tour</button>
       <button class="l-header-btn" id="headerSyncBtn" onclick="openModalAndSync()" title="Sync data folder now" data-i18n="btnHeaderSync">⟳ Sync</button>
@@ -1929,6 +1944,8 @@
           var dow = d.getDay();
           if (!holDates.has(ds)) {
             Object.keys(cfg.classes || {}).forEach(function(cid) {
+              // Skip archived classes
+              if ((classMeta[cid] || {}).archived) return;
               // Skip classes disabled in this semester
               if (semKey) {
                 var sems = (cfg.classes[cid] || {}).semesters;
@@ -1957,6 +1974,7 @@
         // Orphan entries (tests, assignments, etc. not on a scheduled slot)
         entries.forEach(function(e) {
           if (!e || !e.date || e.date < todayStr || e.type === 'holiday') return;
+          if (e.classId && (classMeta[e.classId] || {}).archived) return;
           var k = e.classId ? (e.date + '|' + e.classId) : (e.date + '|__' + (e.id || ''));
           if (consumed[k]) return;
           if (holDates.has(e.date)) return;
@@ -1967,7 +1985,8 @@
     } else {
       // No config: fall back to entries only
       entries.forEach(function(e) {
-        if (e && e.date && e.date >= todayStr && e.type !== 'holiday') {
+        if (e && e.date && e.date >= todayStr && e.type !== 'holiday' &&
+            !(e.classId && (classMeta[e.classId] || {}).archived)) {
           slots.push({ date: e.date, classId: e.classId || '', time: e.time || '',
                        type: e.type || 'lesson', topic: e.topic || '' });
         }
@@ -2125,16 +2144,32 @@
       item.className = 'sb-item' + (overdue ? ' sb-todo-overdue' : '');
       var dateLbl = td.dueDate ? sbFormatDate(td.dueDate) : '';
       var clsName = td.classId ? ((rfGroupMeta[td.classId] && rfGroupMeta[td.classId].name) || td.classId) : '';
+      var subs = Array.isArray(td.subtodos) ? td.subtodos : [];
+      var subsHtml = '';
+      if (subs.length) {
+        subsHtml = '<div class="sb-subtodos">' +
+          subs.map(function(st) {
+            return '<div class="sb-std-row">' +
+              '<span class="sb-std-check' + (st.done ? ' sb-std-checked' : '') + '"></span>' +
+              '<span class="sb-std-text' + (st.done ? ' sb-std-done' : '') + '">' + escHtml(st.text || '') + '</span>' +
+              '</div>';
+          }).join('') +
+          '</div>';
+      }
       item.innerHTML =
         '<div class="sb-item-top">' +
           (overdue ? '<span class="sb-tag sb-tag-test">' + escHtml(typeof t === 'function' ? t('td_overdue') : 'Overdue') + '</span>' : '') +
           (dateLbl ? '<span class="sb-date">' + escHtml(dateLbl) + '</span>' : '') +
         '</div>' +
         '<div class="sb-name" title="' + escHtml(td.text || '') + '">' + escHtml(td.text || '—') + '</div>' +
+        subsHtml +
         (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
-      item.addEventListener('click', function() {
-        if (window.Desktop && Desktop.isElectron()) Desktop.openTool('planner.html');
-      });
+      item.addEventListener('click', (function(todoId) { return function() {
+        if (window.Desktop && Desktop.isElectron()) {
+          try { localStorage.setItem('cmt-planner-todo', todoId); } catch(e) {}
+          Desktop.openTool('planner.html');
+        }
+      }; })(td.id));
       list.appendChild(item);
     });
   }
@@ -2202,6 +2237,7 @@
   }
 
   function startLauncherTutorial() {
+    if (!sbIsOpen()) sbToggle();
     var firstCard     = document.querySelector('.app-card');
     var firstGear     = document.querySelector('.card-gear-btn');
     var firstHandle   = document.querySelector('.card-drag-handle');
@@ -2212,7 +2248,11 @@
       firstGear   ? { selector: '.card-gear-btn',   title: t('tutLn3Title'), text: t('tutLn3Text') } : null,
       firstHandle ? { selector: '.card-drag-handle',title: t('tutLn4Title'), text: t('tutLn4Text') } : null,
       { selector: '#addSectionBtn',        title: t('tutLn5Title'), text: t('tutLn5Text') },
-      configBtn   ? { selector: '[data-i18n="btnHeaderConfig"]', title: t('tutLn6Title'), text: t('tutLn6Text') } : null
+      configBtn   ? { selector: '[data-i18n="btnHeaderConfig"]', title: t('tutLn6Title'), text: t('tutLn6Text') } : null,
+      { selector: '#sbToggleBtn',  title: t('tutLn7Title'), text: t('tutLn7Text') },
+      { selector: '#sbEventsList', title: t('tutLn8Title'), text: t('tutLn8Text') },
+      { selector: '#sbTodoList',   title: t('tutLn9Title'), text: t('tutLn9Text') },
+      { selector: '#sbDocsList',   title: t('tutLn10Title'),text: t('tutLn10Text') }
     ].filter(Boolean), {
       next: t('tutNext'),
       prev: t('tutPrev'),

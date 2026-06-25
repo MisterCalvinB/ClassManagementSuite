@@ -403,11 +403,29 @@
       flex: 1; min-width: 120px; padding: 5px 8px; border: 2px solid #000;
       border-radius: 6px; font-size: 0.85rem; background: #fff; color: #000;
     }
-    .sync-filter-bar select {
-      padding: 5px 6px; border: 2px solid #000; border-radius: 6px;
-      font-size: 0.85rem; background: #fff; color: #000;
+    .sync-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+    .sync-chip {
+      padding: 3px 10px; border: 2px solid #ccc; border-radius: 20px;
+      font-size: 0.8rem; font-family: inherit; background: #f5f5f5; color: #555;
+      cursor: pointer; white-space: nowrap;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
     }
+    .sync-chip:hover { background: #e8e8e8; border-color: #888; color: #000; }
+    .sync-chip.active { background: #000; color: #fff; border-color: #000; }
     .sync-conflict-count { font-size: 0.8rem; font-weight: 700; color: #000; white-space: nowrap; }
+    .sync-expand-btn {
+      background: none; border: 1px solid #ccc; border-radius: 3px;
+      width: 18px; height: 18px; font-size: 0.75rem; line-height: 1; cursor: pointer;
+      font-family: inherit; padding: 0; margin-right: 4px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center; color: #555; vertical-align: middle;
+    }
+    .sync-expand-btn:hover { background: #f0f0f0; border-color: #888; color: #000; }
+    .sync-child-row { background: #fafafa; }
+    .sync-child-row:hover { background: #f0f0f0; }
+    .sync-child-path { padding-left: 28px !important; color: #666; font-size: 0.77rem; }
+    .sync-subgroup-row { background: #f0f4ff; }
+    .sync-subgroup-row:hover { background: #e8eeff; }
+    .sync-leaf-path { padding-left: 52px !important; color: #888; font-size: 0.77rem; }
     .conflict-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
     .conflict-table th, .conflict-table td { padding: 6px 10px; border-bottom: 2px solid #000; text-align: left; vertical-align: middle; }
     .conflict-table thead th { background: #000; color: #fff; font-weight: 700; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
@@ -648,13 +666,21 @@
     </div>
     <div class="sync-filter-bar">
       <input type="search" id="syncConflictSearch" placeholder="Search files…" autocomplete="off" data-i18n-placeholder="gcSyncSearch">
-      <select id="syncConflictDays" data-i18n-title="gcFilterByRecency" title="Filter by recency">
-        <option value="0" data-i18n="gcSyncFilterAll">All time</option>
-        <option value="1" data-i18n="gcSyncFilter24h">Last 24 h</option>
-        <option value="3" data-i18n="gcSyncFilter3d">Last 3 days</option>
-        <option value="7" data-i18n="gcSyncFilter7d">Last 7 days</option>
-        <option value="30" data-i18n="gcSyncFilter30d">Last 30 days</option>
-      </select>
+      <div class="sync-chips" id="syncChipsDays" data-i18n-title="gcFilterByRecency" title="Filter by recency">
+        <button type="button" class="sync-chip active" data-val="0" data-i18n="gcSyncFilterAll">All time</button>
+        <button type="button" class="sync-chip" data-val="1" data-i18n="gcSyncFilter24h">Last 24 h</button>
+        <button type="button" class="sync-chip" data-val="3" data-i18n="gcSyncFilter3d">Last 3 days</button>
+        <button type="button" class="sync-chip" data-val="7" data-i18n="gcSyncFilter7d">Last 7 days</button>
+        <button type="button" class="sync-chip" data-val="30" data-i18n="gcSyncFilter30d">Last 30 days</button>
+      </div>
+      <div class="sync-chips" id="syncChipsCat" data-i18n-title="gcSyncCatFilterTitle" title="Filter by category">
+        <button type="button" class="sync-chip active" data-val="" data-i18n="gcSyncCatAll">All categories</button>
+        <button type="button" class="sync-chip" data-val="classdata" data-i18n="gcSyncCatClassData">Class data</button>
+        <button type="button" class="sync-chip" data-val="board" data-i18n="gcSyncCatBoard">Board</button>
+        <button type="button" class="sync-chip" data-val="planner" data-i18n="gcSyncCatPlanner">Planner</button>
+        <button type="button" class="sync-chip" data-val="doceditor" data-i18n="gcSyncCatDocEditor">Document editor</button>
+        <button type="button" class="sync-chip" data-val="customdata" data-i18n="gcSyncCatCustomData">Custom data</button>
+      </div>
       <label style="display:inline-flex;align-items:center;gap:5px;font-size:0.85rem;white-space:nowrap;cursor:pointer;" data-i18n-title="gcDiffSizeTitle" title="Show only files where sizes differ">
         <input type="checkbox" id="syncConflictDiffSize" style="cursor:pointer;accent-color:var(--accent);"> <span data-i18n="gcSyncDiffSize">Different size only</span>
       </label>
@@ -1207,12 +1233,46 @@
   var syncBulkKeepDest      = document.getElementById('syncBulkKeepDest');
   var syncBulkSkip          = document.getElementById('syncBulkSkip');
   var syncConflictSearch       = document.getElementById('syncConflictSearch');
-  var syncConflictDays         = document.getElementById('syncConflictDays');
   var syncConflictDiffSize     = document.getElementById('syncConflictDiffSize');
   var syncConflictDateTol      = document.getElementById('syncConflictDateTol');
   var syncConflictCount        = document.getElementById('syncConflictCount');
   var syncConflictSinceLastSync    = document.getElementById('syncConflictSinceLastSync');
   var syncConflictSinceLastSyncLbl = document.getElementById('syncConflictSinceLastSyncLabel');
+  var syncChipsDays = document.getElementById('syncChipsDays');
+  var syncChipsCat  = document.getElementById('syncChipsCat');
+  var _syncDaysVal  = '0';
+  var _syncCatVal   = '';
+
+  var SYNC_CAT_RULES = {
+    classdata: function(p) {
+      return /^(config|class-groups|roles|ui-prefs|correction-criteria|grade-scale-models|students)\./.test(p)
+          || p.startsWith('grades/')
+          || p.startsWith('log/grade-sheet/')
+          || p.startsWith('group-participation/')
+          || p.startsWith('class-plans/');
+    },
+    board: function(p) {
+      return /^(board-config|board-sessions-backup)\./.test(p)
+          || p.startsWith('mindmaps/');
+    },
+    planner: function(p) {
+      return p.startsWith('planner/')
+          || /^(planner-entries|planner-config|todos)\./.test(p);
+    },
+    doceditor: function(p) {
+      return p.startsWith('document-editor/');
+    },
+    customdata: function(p) {
+      return p.startsWith('custom-data/') || p.startsWith('data/');
+    }
+  };
+
+  function setChipActive(container, val) {
+    container.querySelectorAll('.sync-chip').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.val === val);
+    });
+  }
+
   var syncLastSyncEl           = document.getElementById('syncLastSync');
   var autoSyncToggle           = document.getElementById('autoSyncToggle');
 
@@ -1235,7 +1295,11 @@
   _refreshLastSyncDisplay();
 
   var _syncConflictsAll  = [];
-  var _syncConflictItems = new Map();
+  var _syncConflictItems    = new Map();
+  var _syncChildRows        = new Map(); // L1 key → [{tr, isSubGroup, key?}]
+  var _syncExpandedGroups   = new Set();
+  var _syncSubGroupItems    = new Map(); // sub-group key → header TR
+  var _syncSubGroupChildren = new Map(); // sub-group key → leaf TR[]
   var _syncConflictTbody = null;
   var _syncSortCol       = 'name';
   var _syncSortAsc       = true;
@@ -1325,38 +1389,87 @@
 
   document.getElementById('runSyncBtn').addEventListener('click', doSync);
 
-  function groupConstellationItems(items) {
-    var result = [];
-    var folderMap = new Map();
+  function groupSyncItems(items) {
+    // First pass: find depth-3+ paths; their "dir/name" prefix means a file at
+    // "dir/name.ext" should be paired into a sub-group with those deeper files.
+    var subfolderParents = new Set();
     for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      var m = item.relativePath.match(/^(user\/log\/constellation\/([^/]+))\//);
-      if (m) {
-        var key = m[1];
-        if (!folderMap.has(key)) {
-          var g = { relativePath: key, isGroup: true, groupItems: [] };
-          folderMap.set(key, g);
-          result.push(g);
-        }
-        folderMap.get(key).groupItems.push(item);
-      } else {
-        result.push(item);
-      }
+      var p = items[i].relativePath.split('/');
+      if (p.length >= 3) subfolderParents.add(p[0] + '/' + p[1]);
     }
-    for (var [, g] of folderMap) {
-      var gItems = g.groupItems;
-      var kinds = new Set(gItems.map(function(i) { return i.kind; }));
-      g.kind = kinds.size === 1 ? [...kinds][0] : 'mixed';
-      g.fileCount   = gItems.length;
-      g.srcMtimeMs  = Math.max.apply(null, gItems.map(function(i) { return i.srcMtimeMs  || 0; }));
-      g.destMtimeMs = Math.max.apply(null, gItems.map(function(i) { return i.destMtimeMs || 0; }));
-      g.srcSize     = gItems.reduce(function(s, i) { return s + (i.srcSize  || 0); }, 0);
-      g.destSize    = gItems.reduce(function(s, i) { return s + (i.destSize || 0); }, 0);
+
+    // For each item return { l1: L1-group-key, l2: L2-subgroup-key|null }
+    function getKeys(relativePath) {
+      var parts = relativePath.split('/');
+      if (parts.length < 2) return { l1: null, l2: null };
+      if (parts[0] === 'log') {
+        if (parts[1] === 'constellation' && parts.length >= 4)
+          return { l1: 'log/constellation', l2: 'log/constellation/' + parts[2] };
+        if (parts.length >= 3) return { l1: 'log/' + parts[1], l2: null };
+        return { l1: 'log', l2: null };
+      }
+      if (parts.length >= 3) return { l1: parts[0], l2: parts[0] + '/' + parts[1] };
+      var base = parts[1].replace(/\.[^.]+$/, '');
+      var l2cand = parts[0] + '/' + base;
+      return { l1: parts[0], l2: subfolderParents.has(l2cand) ? l2cand : null };
+    }
+
+    function computeStats(g, leaves) {
+      g.fileCount   = leaves.length;
+      var kinds = new Set(leaves.map(function(i) { return i.kind; }));
+      g.kind        = kinds.size === 1 ? [...kinds][0] : 'mixed';
+      g.srcMtimeMs  = Math.max.apply(null, leaves.map(function(i) { return i.srcMtimeMs  || 0; }));
+      g.destMtimeMs = Math.max.apply(null, leaves.map(function(i) { return i.destMtimeMs || 0; }));
+      g.srcSize     = leaves.reduce(function(s, i) { return s + (i.srcSize  || 0); }, 0);
+      g.destSize    = leaves.reduce(function(s, i) { return s + (i.destSize || 0); }, 0);
       if (g.kind === 'new') {
-        var sides = new Set(gItems.map(function(i) { return i.side; }));
+        var sides = new Set(leaves.map(function(i) { return i.side; }));
         g.side = sides.size === 1 ? [...sides][0] : 'mixed';
       }
     }
+
+    var result = [];
+    var l1Map  = new Map(); // l1key → L1 group
+    var l2Map  = new Map(); // l2key → L2 sub-group
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var keys = getKeys(item.relativePath);
+      if (!keys.l1) { result.push(item); continue; }
+
+      if (!l1Map.has(keys.l1)) {
+        var g = { relativePath: keys.l1, isGroup: true, groupItems: [] };
+        l1Map.set(keys.l1, g);
+        result.push(g);
+      }
+      var l1g = l1Map.get(keys.l1);
+
+      if (keys.l2) {
+        if (!l2Map.has(keys.l2)) {
+          var sg = { relativePath: keys.l2, isSubGroup: true, groupItems: [] };
+          l2Map.set(keys.l2, sg);
+          l1g.groupItems.push(sg);
+        }
+        l2Map.get(keys.l2).groupItems.push(item);
+      } else {
+        l1g.groupItems.push(item);
+      }
+    }
+
+    // Compute stats for L2 sub-groups
+    for (var [, sg] of l2Map) computeStats(sg, sg.groupItems);
+
+    // Compute stats for L1 groups across all direct + sub-group leaves
+    for (var [, g] of l1Map) {
+      var allLeaves = [];
+      for (var k = 0; k < g.groupItems.length; k++) {
+        var child = g.groupItems[k];
+        if (child.isSubGroup) allLeaves = allLeaves.concat(child.groupItems);
+        else allLeaves.push(child);
+      }
+      computeStats(g, allLeaves);
+    }
+
     return result;
   }
 
@@ -1397,7 +1510,7 @@
       var kindBadge = isSrcOnly  ? '<span class="new-file-badge">' + t('gcStatusAppOnly') + '</span>'
                     : isDestOnly ? '<span class="new-file-badge">' + t('gcStatusSyncOnly') + '</span>'
                     : isPureNew  ? '<span class="new-file-badge">' + t('gcStatusNew') + '</span>' : '';
-      nameHtml   = pathEsc + '/<span class="group-count-badge">' + c.fileCount + ' files</span>' + kindBadge;
+      nameHtml   = '<button type="button" class="sync-expand-btn" title="+">+</button>' + pathEsc + '/ <span class="group-count-badge">' + c.fileCount + ' files</span>' + kindBadge;
       statusHtml = isPureNew ? (isSrcOnly ? t('gcStatusAppOnly') : isDestOnly ? t('gcStatusSyncOnly') : t('gcStatusNew'))
                              : (c.kind === 'mixed' ? 'Mixed' : t('gcStatusConflict'));
       if (isSrcOnly) {
@@ -1432,6 +1545,86 @@
     return tr;
   }
 
+  function renderSyncSubGroupRow(sg, parentKey) {
+    var tr = document.createElement('tr');
+    tr.className = 'sync-child-row sync-subgroup-row';
+    tr.dataset.parentGroup = parentKey;
+    tr.dataset.path = sg.relativePath;
+    if (sg.kind === 'new') tr.classList.add('new-row');
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    var displayName = sg.relativePath.startsWith(parentKey + '/') ? sg.relativePath.slice(parentKey.length + 1) : sg.relativePath;
+    var srcAbsent  = sg.kind === 'new' && sg.side === 'dest-only';
+    var destAbsent = sg.kind === 'new' && sg.side === 'src-only';
+    var srcSizeHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtSize(sg.srcSize);
+    var srcDateHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtDate(sg.srcMtimeMs);
+    var destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(sg.destSize);
+    var destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(sg.destMtimeMs);
+    var srcTime = sg.srcMtimeMs || 0, destTime = sg.destMtimeMs || 0;
+    var srcNewer = srcTime > destTime, destNewer = destTime > srcTime;
+    if (sg.kind === 'new') {
+      if (sg.side === 'src-only')  { srcNewer = true;  destNewer = false; }
+      if (sg.side === 'dest-only') { destNewer = true; srcNewer  = false; }
+    }
+    var isSrcOnly  = sg.kind === 'new' && sg.side === 'src-only';
+    var isDestOnly = sg.kind === 'new' && sg.side === 'dest-only';
+    var kindBadge = isSrcOnly  ? '<span class="new-file-badge">' + t('gcStatusAppOnly') + '</span>'
+                 : isDestOnly ? '<span class="new-file-badge">' + t('gcStatusSyncOnly') + '</span>'
+                 : sg.kind === 'new' ? '<span class="new-file-badge">' + t('gcStatusNew') + '</span>' : '';
+    var statusHtml = isSrcOnly  ? t('gcStatusAppOnly')
+                   : isDestOnly ? t('gcStatusSyncOnly')
+                   : sg.kind === 'mixed'    ? 'Mixed'
+                   : sg.kind === 'conflict' ? t('gcStatusConflict') : t('gcStatusNew');
+    var nameEsc = CSS.escape(sg.relativePath);
+    var actionHtml;
+    if (isSrcOnly) {
+      actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option></select>';
+    } else if (isDestOnly) {
+      actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option></select>';
+    } else {
+      actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option></select>';
+    }
+    tr.innerHTML = '<td class="conflict-path-cell sync-child-path">' +
+      '<button type="button" class="sync-expand-btn" title="+">+</button>' +
+      escHtml(displayName) + '/ <span class="group-count-badge">' + sg.fileCount + ' files</span>' + kindBadge + '</td>' +
+      '<td class="size-cell ' + (srcNewer  ? 'newer-cell' : '') + '">' + srcSizeHtml  + '</td>' +
+      '<td class="date-cell ' + (srcNewer  ? 'newer-cell' : '') + '">' + srcDateHtml  + '</td>' +
+      '<td class="size-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
+      '<td class="date-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
+      '<td class="status-cell">' + statusHtml + '</td>' +
+      '<td class="action-cell">' + actionHtml + '</td>';
+    return tr;
+  }
+
+  function renderSyncChildRow(c, groupKey, isDeep) {
+    var tr = document.createElement('tr');
+    tr.className = 'sync-child-row';
+    tr.dataset.parentGroup = groupKey;
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    var pathClass = isDeep ? 'sync-leaf-path' : 'sync-child-path';
+    var displayPath = c.relativePath.startsWith(groupKey + '/') ? c.relativePath.slice(groupKey.length + 1) : c.relativePath;
+    var srcAbsent  = c.kind === 'new' && c.side === 'dest-only';
+    var destAbsent = c.kind === 'new' && c.side === 'src-only';
+    var srcSizeHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize);
+    var srcDateHtml  = srcAbsent  ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs);
+    var destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize);
+    var destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs);
+    var srcTime = c.srcMtimeMs || 0, destTime = c.destMtimeMs || 0;
+    var srcNewer = srcTime > destTime, destNewer = destTime > srcTime;
+    if (c.kind === 'new' && c.side === 'src-only')  { srcNewer = true;  destNewer = false; }
+    if (c.kind === 'new' && c.side === 'dest-only') { destNewer = true; srcNewer  = false; }
+    var statusHtml = c.kind === 'new'
+      ? (c.side === 'src-only' ? t('gcStatusAppOnly') : t('gcStatusSyncOnly'))
+      : t('gcStatusConflict');
+    tr.innerHTML = '<td class="conflict-path-cell ' + pathClass + '">' + escHtml(displayPath) + '</td>' +
+      '<td class="size-cell ' + (srcNewer  ? 'newer-cell' : '') + '">' + srcSizeHtml  + '</td>' +
+      '<td class="date-cell ' + (srcNewer  ? 'newer-cell' : '') + '">' + srcDateHtml  + '</td>' +
+      '<td class="size-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
+      '<td class="date-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
+      '<td class="status-cell">' + statusHtml + '</td>' +
+      '<td class="action-cell"></td>';
+    return tr;
+  }
+
   function _updateSyncSortHeaders() {
     if (!syncConflictList) return;
     var ths = syncConflictList.querySelectorAll('th.th-sort');
@@ -1447,10 +1640,15 @@
     newFiles = newFiles || [];
     var flat = conflicts.map(function(c) { return Object.assign({}, c, { kind: 'conflict' }); })
                .concat(newFiles.map(function(f) { return Object.assign({}, f, { kind: 'new' }); }));
-    _syncConflictsAll = groupConstellationItems(flat);
+    _syncConflictsAll = groupSyncItems(flat);
     _syncConflictItems.clear();
+    _syncChildRows.clear();
+    _syncExpandedGroups.clear();
+    _syncSubGroupItems.clear();
+    _syncSubGroupChildren.clear();
     syncConflictSearch.value     = '';
-    syncConflictDays.value       = '0';
+    _syncDaysVal = '0'; setChipActive(syncChipsDays, '0');
+    _syncCatVal  = '';  setChipActive(syncChipsCat,  '');
     syncConflictDiffSize.checked = false;
     syncConflictDateTol.value    = '0';
     syncConflictSinceLastSync.checked = _lastSyncTime > 0;
@@ -1490,27 +1688,69 @@
     for (var j = 0; j < _syncConflictsAll.length; j++) {
       var c = _syncConflictsAll[j];
       _syncConflictItems.set(c.relativePath, renderSyncRow(c));
+      if (c.isGroup) {
+        var childEntries = [];
+        for (var ci = 0; ci < c.groupItems.length; ci++) {
+          (function(child) {
+            if (child.isSubGroup) {
+              var sgTr = renderSyncSubGroupRow(child, c.relativePath);
+              _syncSubGroupItems.set(child.relativePath, sgTr);
+              childEntries.push({ tr: sgTr, isSubGroup: true, key: child.relativePath, data: child });
+              _syncSubGroupChildren.set(child.relativePath, child.groupItems.map(function(leaf) {
+                return renderSyncChildRow(leaf, child.relativePath, true);
+              }));
+            } else {
+              childEntries.push({ tr: renderSyncChildRow(child, c.relativePath, false), isSubGroup: false, data: child });
+            }
+          })(c.groupItems[ci]);
+        }
+        _syncChildRows.set(c.relativePath, childEntries);
+      }
     }
     applySyncConflictFilters();
   }
 
   function applySyncConflictFilters() {
     var search = syncConflictSearch.value.trim().toLowerCase();
-    var days   = parseInt(syncConflictDays.value, 10);
+    var days   = parseInt(_syncDaysVal, 10);
     var cutoff = days > 0 ? Date.now() - days * 86400000 : 0;
     if (syncConflictSinceLastSync.checked && _lastSyncTime > 0) cutoff = Math.max(cutoff, _lastSyncTime);
     var diffSizeOnly = syncConflictDiffSize.checked;
     var dateTolMs    = Math.max(0, parseFloat(syncConflictDateTol.value) || 0) * 1000;
+    var cat          = _syncCatVal;
+
+    function itemMatchesSearch(item, q) {
+      if (item.relativePath.toLowerCase().indexOf(q) !== -1) return true;
+      if ((item.isGroup || item.isSubGroup) && item.groupItems) {
+        return item.groupItems.some(function(child) { return itemMatchesSearch(child, q); });
+      }
+      return false;
+    }
+
+    // Returns true when every conflict leaf under `item` satisfies `pred`.
+    // Non-conflict leaves (new files) are ignored — they don't count as passing.
+    function allConflictLeaves(item, pred) {
+      if (item.isGroup || item.isSubGroup) {
+        return item.groupItems.every(function(child) { return allConflictLeaves(child, pred); });
+      }
+      if (item.kind !== 'conflict') return true;
+      return pred(item);
+    }
 
     var filtered = _syncConflictsAll.filter(function(c) {
-      if (search && c.relativePath.toLowerCase().indexOf(search) === -1) return false;
+      if (search && !itemMatchesSearch(c, search)) return false;
+      if (cat && SYNC_CAT_RULES[cat]) {
+        var catPath = c.relativePath + (c.isGroup && !c.relativePath.endsWith('/') ? '/' : '');
+        if (!SYNC_CAT_RULES[cat](catPath)) return false;
+      }
       if (cutoff > 0) {
         var newest = Math.max(c.srcMtimeMs || 0, c.destMtimeMs || 0);
         if (newest < cutoff) return false;
       }
-      var skipAggFilters = c.kind !== 'conflict' || c.isGroup;
-      if (diffSizeOnly && !skipAggFilters && c.srcSize === c.destSize) return false;
-      if (dateTolMs > 0 && c.kind === 'conflict' && Math.abs((c.srcMtimeMs || 0) - (c.destMtimeMs || 0)) <= dateTolMs) return false;
+      if (c.kind === 'conflict') {
+        if (diffSizeOnly && allConflictLeaves(c, function(l) { return l.srcSize === l.destSize; })) return false;
+        if (dateTolMs > 0  && allConflictLeaves(c, function(l) { return Math.abs((l.srcMtimeMs || 0) - (l.destMtimeMs || 0)) <= dateTolMs; })) return false;
+      }
       return true;
     });
 
@@ -1528,11 +1768,47 @@
       return _syncSortAsc ? cmp : -cmp;
     });
 
+    // Returns false if this child entry should be hidden by the active filters.
+    function childVisible(entry) {
+      var c = entry.data;
+      if (!c) return true;
+      if (entry.isSubGroup) {
+        if (search && !itemMatchesSearch(c, search)) return false;
+        if (cutoff > 0 && Math.max(c.srcMtimeMs || 0, c.destMtimeMs || 0) < cutoff) return false;
+        if (c.kind === 'conflict') {
+          if (diffSizeOnly && allConflictLeaves(c, function(l) { return l.srcSize === l.destSize; })) return false;
+          if (dateTolMs > 0 && allConflictLeaves(c, function(l) { return Math.abs((l.srcMtimeMs || 0) - (l.destMtimeMs || 0)) <= dateTolMs; })) return false;
+        }
+      } else {
+        if (search && c.relativePath.toLowerCase().indexOf(search) === -1) return false;
+        if (cutoff > 0 && Math.max(c.srcMtimeMs || 0, c.destMtimeMs || 0) < cutoff) return false;
+        if (c.kind === 'conflict') {
+          if (diffSizeOnly && c.srcSize === c.destSize) return false;
+          if (dateTolMs > 0 && Math.abs((c.srcMtimeMs || 0) - (c.destMtimeMs || 0)) <= dateTolMs) return false;
+        }
+      }
+      return true;
+    }
+
     if (_syncConflictTbody) {
       _syncConflictTbody.innerHTML = '';
       for (var i = 0; i < filtered.length; i++) {
         var row = _syncConflictItems.get(filtered[i].relativePath);
-        if (row) _syncConflictTbody.appendChild(row);
+        if (!row) continue;
+        _syncConflictTbody.appendChild(row);
+        if (filtered[i].isGroup && _syncExpandedGroups.has(filtered[i].relativePath)) {
+          var children = _syncChildRows.get(filtered[i].relativePath) || [];
+          for (var ci = 0; ci < children.length; ci++) {
+            if (!childVisible(children[ci])) continue;
+            _syncConflictTbody.appendChild(children[ci].tr);
+            if (children[ci].isSubGroup && _syncExpandedGroups.has(children[ci].key)) {
+              var subLeaves = _syncSubGroupChildren.get(children[ci].key) || [];
+              for (var si = 0; si < subLeaves.length; si++) {
+                _syncConflictTbody.appendChild(subLeaves[si]);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -1550,12 +1826,14 @@
   }
 
   function setSyncBulkAction(action) {
-    for (var [, item] of _syncConflictItems) {
+    function applyTo(item) {
       var sel = item.querySelector('select.action-select');
-      if (!sel) continue;
+      if (!sel) return;
       var opt = sel.querySelector('option[value="' + action + '"]');
       if (opt) sel.value = action;
     }
+    for (var [, item] of _syncConflictItems) applyTo(item);
+    for (var [, item] of _syncSubGroupItems)  applyTo(item);
   }
 
   function collectSyncDecisions() {
@@ -1575,10 +1853,28 @@
         }
         for (var j = 0; j < entry.groupItems.length; j++) {
           var sub = entry.groupItems[j];
-          var act = groupAction;
-          if (act === 'keep-source' && sub.kind === 'new' && sub.side === 'dest-only') act = 'skip';
-          if (act === 'keep-target' && sub.kind === 'new' && sub.side === 'src-only')  act = 'skip';
-          decisions.push({ relativePath: sub.relativePath, action: act });
+          if (sub.isSubGroup) {
+            // Sub-group may have its own action override
+            var sgRow = _syncSubGroupItems.get(sub.relativePath);
+            var sgVisible = sgRow && sgRow.parentElement === _syncConflictTbody;
+            var sgSel = sgRow && sgRow.querySelector('select.action-select');
+            var sgAction = sgVisible && sgSel ? sgSel.value : groupAction;
+            if (sgAction === 'keep-newer') {
+              sgAction = (sub.srcMtimeMs || 0) >= (sub.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
+            }
+            for (var k = 0; k < sub.groupItems.length; k++) {
+              var leaf = sub.groupItems[k];
+              var leafAct = sgAction;
+              if (leafAct === 'keep-source' && leaf.kind === 'new' && leaf.side === 'dest-only') leafAct = 'skip';
+              if (leafAct === 'keep-target' && leaf.kind === 'new' && leaf.side === 'src-only')  leafAct = 'skip';
+              decisions.push({ relativePath: leaf.relativePath, action: leafAct });
+            }
+          } else {
+            var act = groupAction;
+            if (act === 'keep-source' && sub.kind === 'new' && sub.side === 'dest-only') act = 'skip';
+            if (act === 'keep-target' && sub.kind === 'new' && sub.side === 'src-only')  act = 'skip';
+            decisions.push({ relativePath: sub.relativePath, action: act });
+          }
         }
       } else {
         if (!isVisible) { decisions.push({ relativePath: relPath, action: 'skip' }); continue; }
@@ -1597,11 +1893,39 @@
   syncBulkKeepDest.addEventListener('click', function () { setSyncBulkAction('keep-target'); });
   syncBulkSkip.addEventListener('click',     function () { setSyncBulkAction('skip'); });
 
-  syncConflictSearch.addEventListener('input',         applySyncConflictFilters);
-  syncConflictDays.addEventListener('change',           applySyncConflictFilters);
-  syncConflictDiffSize.addEventListener('change',       applySyncConflictFilters);
-  syncConflictDateTol.addEventListener('input',         applySyncConflictFilters);
-  syncConflictSinceLastSync.addEventListener('change',  applySyncConflictFilters);
+  syncConflictSearch.addEventListener('input',        applySyncConflictFilters);
+  syncConflictDiffSize.addEventListener('change',     applySyncConflictFilters);
+  syncConflictDateTol.addEventListener('input',       applySyncConflictFilters);
+  syncConflictSinceLastSync.addEventListener('change', applySyncConflictFilters);
+
+  syncConflictList.addEventListener('click', function(e) {
+    var btn = e.target.closest('.sync-expand-btn');
+    if (!btn) return;
+    var groupKey = btn.closest('tr').dataset.path;
+    if (_syncExpandedGroups.has(groupKey)) {
+      _syncExpandedGroups.delete(groupKey);
+      btn.textContent = '+'; btn.title = '+';
+    } else {
+      _syncExpandedGroups.add(groupKey);
+      btn.textContent = '−'; btn.title = '−';
+    }
+    applySyncConflictFilters();
+  });
+
+  syncChipsDays.addEventListener('click', function(e) {
+    var btn = e.target.closest('.sync-chip');
+    if (!btn) return;
+    _syncDaysVal = btn.dataset.val;
+    setChipActive(syncChipsDays, _syncDaysVal);
+    applySyncConflictFilters();
+  });
+  syncChipsCat.addEventListener('click', function(e) {
+    var btn = e.target.closest('.sync-chip');
+    if (!btn) return;
+    _syncCatVal = btn.dataset.val;
+    setChipActive(syncChipsCat, _syncCatVal);
+    applySyncConflictFilters();
+  });
 
   syncConflictCancel.addEventListener('click', function () {
     syncConflictOverlay.classList.remove('open');

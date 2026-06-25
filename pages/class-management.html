@@ -8,6 +8,7 @@
     <script src="../electron-bridge.js"></script>
     <script src="../js/dialogs.js"></script>
     <script src="../js/tutorial.js"></script>
+    <script src="../js/shortcuts-modal.js"></script>
     <script>
     (function () {
         function injectClassicScript(source, name) {
@@ -10637,6 +10638,16 @@ const I18N = {
     help_s_export_p:          'In the utility bar, use <kbd>Copy Data</kbd> to copy all student scores to the clipboard in a tab-separated format suitable for pasting into Excel or Google Sheets. Use <kbd>Export CSV</kbd> in the History panel for the full event log.',
     help_s_shortcuts_title:   'Keyboard Shortcuts',
     help_s_shortcuts_p:       '<kbd>Ctrl + Space</kbd> — Pick a random student<br><kbd>Ctrl + Shift + K</kbd> — Open Team Maker<br><kbd>Ctrl + M</kbd> — Open Class Mode picker (or close active mode overlay)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Switch mode (Quiet / Conversation / Group) when Mode picker or fullscreen timer is open<br><kbd>W</kbd> — Toggle white noise on/off (when mode or timer overlay is open)<br><kbd>M</kbd> — Mute/unmute white noise (when mode or timer overlay is open)<br><kbd>[</kbd> / <kbd>]</kbd> — Decrease / increase white noise volume',
+    help_sc_sec_general:      'General',
+    help_sc_sec_modes:        'Timer & Modes',
+    help_sc_sec_noise:        'White Noise',
+    help_sc_random:           'Pick a random student',
+    help_sc_team:             'Open Team Maker',
+    help_sc_mode:             'Open Class Mode picker',
+    help_sc_switch:           'Switch mode — Quiet / Talk / Group (when picker or timer is open)',
+    help_sc_noise_on:         'Toggle white noise on / off (when mode or timer overlay is open)',
+    help_sc_noise_mute:       'Mute / unmute white noise (when mode or timer overlay is open)',
+    help_sc_noise_vol:        'Decrease / increase white noise volume',
 
     btn_cancel: 'Cancel',
     btn_ok: 'OK',
@@ -11018,6 +11029,16 @@ const I18N = {
     help_s_export_p:          'Dans la barre utilitaire, utilisez <kbd>Copier les données</kbd> pour copier tous les scores dans le presse-papiers en format tabulé (pour Excel ou Google Sheets). Utilisez <kbd>Exporter CSV</kbd> dans le panneau Historique pour le journal complet.',
     help_s_shortcuts_title:   'Raccourcis clavier',
     help_s_shortcuts_p:       '<kbd>Ctrl + Espace</kbd> — Tirer un élève aléatoire<br><kbd>Ctrl + Shift + K</kbd> — Ouvrir le créateur d\'équipes<br><kbd>Ctrl + M</kbd> — Ouvrir le sélecteur de mode (ou fermer le mode actif)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Changer de mode (Silence / Discussion / Groupe) quand le sélecteur ou le minuteur plein écran est ouvert<br><kbd>W</kbd> — Activer/désactiver le bruit blanc<br><kbd>M</kbd> — Couper/rétablir le son du bruit blanc<br><kbd>[</kbd> / <kbd>]</kbd> — Diminuer / augmenter le volume du bruit blanc',
+    help_sc_sec_general:      'Général',
+    help_sc_sec_modes:        'Minuteur &amp; Modes',
+    help_sc_sec_noise:        'Bruit blanc',
+    help_sc_random:           'Tirer un élève aléatoire',
+    help_sc_team:             'Ouvrir le créateur d\'équipes',
+    help_sc_mode:             'Ouvrir le sélecteur de mode',
+    help_sc_switch:           'Changer de mode — Silence / Discussion / Groupe (quand le sélecteur ou minuteur est ouvert)',
+    help_sc_noise_on:         'Activer/désactiver le bruit blanc (quand mode ou minuteur est ouvert)',
+    help_sc_noise_mute:       'Couper/rétablir le son du bruit blanc (quand mode ou minuteur est ouvert)',
+    help_sc_noise_vol:        'Diminuer / augmenter le volume du bruit blanc',
 
     btn_cancel: 'Annuler',
     btn_ok: 'OK',
@@ -11399,6 +11420,16 @@ const I18N = {
     help_s_export_p:          'Verwenden Sie in der Utility-Leiste <kbd>Daten kopieren</kbd>, um alle Schülerpunkte in die Zwischenablage zu kopieren (tabulatorgetrennt, für Excel oder Google Sheets). Verwenden Sie <kbd>CSV exportieren</kbd> im Verlaufs-Panel für das vollständige Protokoll.',
     help_s_shortcuts_title:   'Tastaturkürzel',
     help_s_shortcuts_p:       '<kbd>Strg + Leertaste</kbd> — Zufälligen Schüler auswählen<br><kbd>Strg + Umschalt + K</kbd> — Team-Ersteller öffnen<br><kbd>Strg + M</kbd> — Modusauswahl öffnen (oder aktiven Modus schließen)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Modus wechseln (Stille / Gespräch / Gruppe)<br><kbd>W</kbd> — Weißes Rauschen ein-/ausschalten<br><kbd>M</kbd> — Weißes Rauschen stummschalten/aufheben<br><kbd>[</kbd> / <kbd>]</kbd> — Lautstärke verringern / erhöhen',
+    help_sc_sec_general:      'Allgemein',
+    help_sc_sec_modes:        'Timer &amp; Modi',
+    help_sc_sec_noise:        'Weißes Rauschen',
+    help_sc_random:           'Zufälligen Schüler auswählen',
+    help_sc_team:             'Team-Ersteller öffnen',
+    help_sc_mode:             'Modusauswahl öffnen',
+    help_sc_switch:           'Modus wechseln — Stille / Gespräch / Gruppe (wenn Auswahl oder Timer offen)',
+    help_sc_noise_on:         'Weißes Rauschen ein-/ausschalten (wenn Modus oder Timer offen)',
+    help_sc_noise_mute:       'Weißes Rauschen stummschalten/aufheben (wenn Modus oder Timer offen)',
+    help_sc_noise_vol:        'Lautstärke verringern / erhöhen',
 
     btn_cancel: 'Abbrechen',
     btn_ok: 'OK',
@@ -11775,6 +11806,16 @@ const I18N = {
     help_s_export_p:          'Nella barra degli strumenti, usa <kbd>Copia dati</kbd> per copiare tutti i punteggi negli appunti in formato separato da tabulazioni (per Excel o Google Sheets). Usa <kbd>Esporta CSV</kbd> nel pannello Cronologia per il registro completo.',
     help_s_shortcuts_title:   'Scorciatoie da tastiera',
     help_s_shortcuts_p:       '<kbd>Ctrl + Spazio</kbd> — Seleziona uno studente casuale<br><kbd>Ctrl + Shift + K</kbd> — Apri il creatore di squadre<br><kbd>Ctrl + M</kbd> — Apri il selettore di modalità (o chiudi la modalità attiva)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Cambia modalità (Silenzio / Conversazione / Gruppo)<br><kbd>W</kbd> — Attiva/disattiva il rumore bianco<br><kbd>M</kbd> — Silenzia/riattiva il rumore bianco<br><kbd>[</kbd> / <kbd>]</kbd> — Diminuisci / aumenta il volume del rumore bianco',
+    help_sc_sec_general:      'Generale',
+    help_sc_sec_modes:        'Timer &amp; Modalità',
+    help_sc_sec_noise:        'Rumore bianco',
+    help_sc_random:           'Seleziona uno studente casuale',
+    help_sc_team:             'Apri il creatore di squadre',
+    help_sc_mode:             'Apri il selettore di modalità',
+    help_sc_switch:           'Cambia modalità — Silenzio / Conversazione / Gruppo (quando il selettore o il timer è aperto)',
+    help_sc_noise_on:         'Attiva/disattiva il rumore bianco (quando la modalità o il timer è aperto)',
+    help_sc_noise_mute:       'Silenzia/riattiva il rumore bianco (quando la modalità o il timer è aperto)',
+    help_sc_noise_vol:        'Diminuisci / aumenta il volume del rumore bianco',
 
     btn_cancel: 'Annulla',
     btn_ok: 'OK',
@@ -12116,7 +12157,18 @@ function renderHelpModal() {
     </div>
     <div class="help-section" style="border-bottom:none;margin-bottom:0;padding-bottom:0;">
       <h3>${d.help_s_shortcuts_title}</h3>
-      <p>${kbdify(d.help_s_shortcuts_p)}</p>
+      ${typeof ShortcutsModal !== 'undefined' ? ShortcutsModal.renderTable([
+        { section: d.help_sc_sec_general },
+        { keys: ['Ctrl', 'Space'], desc: d.help_sc_random },
+        { keys: ['Ctrl', 'Shift', 'K'], desc: d.help_sc_team },
+        { keys: ['Ctrl', 'M'], desc: d.help_sc_mode },
+        { section: d.help_sc_sec_modes },
+        { keys: ['1', '2', '3'], desc: d.help_sc_switch },
+        { section: d.help_sc_sec_noise },
+        { keys: ['W'], desc: d.help_sc_noise_on },
+        { keys: ['M'], desc: d.help_sc_noise_mute },
+        { keys: ['[', ']'], desc: d.help_sc_noise_vol }
+      ]) : '<p>' + kbdify(d.help_s_shortcuts_p) + '</p>'}
     </div>
   `;
 }
