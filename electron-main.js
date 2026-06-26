@@ -1393,6 +1393,527 @@ function startAutoSyncWatcher() {
   }
 }
 
+// ── Remote Sync: shared folder catalogue ─────────────────────────────────────
+// Each entry maps a UI checkbox id to the relative path under writableRoot/user/.
+const REMOTE_SYNC_FOLDERS = [
+  { id: 'config',     rel: null },               // root-level .js/.json files
+  { id: 'grades',     rel: 'grades' },
+  { id: 'groups',     rel: 'group-participation' },
+  { id: 'mindmaps',   rel: 'mindmaps' },
+  { id: 'customData', rel: 'custom-data' },
+  { id: 'classPlans', rel: 'class-plans' },
+  { id: 'documents',  rel: 'document-editor' },
+];
+
+// Build a list of { localPath, remoteSuffix, isDir } items for selected folder ids.
+// If subfolders is empty/null the entire user dir is synced as one item.
+async function collectRemoteItems(userDir, subfolders) {
+  const selected = Array.isArray(subfolders) && subfolders.length > 0 ? subfolders : null;
+  if (!selected) return [{ localPath: userDir, remoteSuffix: '', isDir: true }];
+
+  const results = [];
+  for (const { id, rel } of REMOTE_SYNC_FOLDERS) {
+    if (!selected.includes(id)) continue;
+    if (rel === null) {
+      // Root-level config files
+      let entries = [];
+      try { entries = await fs.readdir(userDir, { withFileTypes: true }); } catch {}
+      for (const e of entries) {
+        if (e.isFile() && (e.name.endsWith('.js') || e.name.endsWith('.json'))) {
+          results.push({ localPath: path.join(userDir, e.name), remoteSuffix: e.name, isDir: false });
+        }
+      }
+    } else {
+      const p = path.join(userDir, rel);
+      try { await fs.access(p); results.push({ localPath: p, remoteSuffix: rel, isDir: true }); } catch {}
+    }
+  }
+  return results;
+}
+
+// ── FTP Sync ──────────────────────────────────────────────────────────────────
+
+function getFtpConfigPath() {
+  return path.join(app.getPath('userData'), 'ftp-config.json');
+}
+
+async function loadFtpConfig() {
+  try { return JSON.parse(await fs.readFile(getFtpConfigPath(), 'utf8')) || {}; } catch { return {}; }
+}
+
+async function saveFtpConfig(cfg) {
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(getFtpConfigPath(), JSON.stringify(cfg, null, 2), 'utf8');
+}
+
+let _ftpAutoSyncTimer = null;
+let _ftpQuitSyncPending = false;
+
+function stopFtpAutoSyncTimer() {
+  if (_ftpAutoSyncTimer) { clearInterval(_ftpAutoSyncTimer); _ftpAutoSyncTimer = null; }
+}
+
+async function startFtpAutoSyncTimer() {
+  stopFtpAutoSyncTimer();
+  const cfg = await loadFtpConfig();
+  if (!cfg.autoSync || !cfg.host) return;
+  const intervalMs = Math.max(5, cfg.syncIntervalMinutes || 30) * 60 * 1000;
+  _ftpAutoSyncTimer = setInterval(() => { runFtpTransfer('upload').catch(() => {}); }, intervalMs);
+}
+
+// Rename localPath → localPath.YYYY-MM-DDTHH-MM.bak before overwriting.
+// Each call produces a uniquely-timestamped name so previous backups are never deleted.
+async function bakIfExists(localPath) {
+  try {
+    await fs.access(localPath);
+    const ts = new Date().toISOString().slice(0, 16).replace(/:/g, '-');
+    await fs.rename(localPath, `${localPath}.${ts}.bak`);
+  } catch {}
+}
+
+function bakTimestamp() {
+  return new Date().toISOString().slice(0, 16).replace(/:/g, '-');
+}
+
+// Rename an existing remote FTP file to a timestamped .bak before overwriting.
+async function ftpBakRemote(ftp, remotePath) {
+  try {
+    await ftp.rename(remotePath, `${remotePath}.${bakTimestamp()}.bak`);
+  } catch {} // file doesn't exist or server rejected rename — both are fine
+}
+
+// Manual recursive FTP upload so we can call ftpBakRemote per file.
+async function ftpUploadDir(ftp, localDir, remotePath) {
+  await ftp.ensureDir(remotePath);
+  let entries = [];
+  try { entries = await fs.readdir(localDir, { withFileTypes: true }); } catch { return; }
+  for (const entry of entries) {
+    const lp = path.join(localDir, entry.name);
+    const rp = remotePath.replace(/\/+$/, '') + '/' + entry.name;
+    if (entry.isDirectory()) {
+      await ftpUploadDir(ftp, lp, rp);
+    } else {
+      await ftpBakRemote(ftp, rp);
+      await ftp.cd(remotePath);
+      await ftp.uploadFrom(lp, entry.name);
+    }
+  }
+}
+
+// Manual recursive FTP download so we can call bakIfExists per file.
+async function ftpDownloadDir(ftp, remoteAbsPath, localDir) {
+  await fs.mkdir(localDir, { recursive: true });
+  let items = [];
+  try {
+    await ftp.cd(remoteAbsPath);
+    items = await ftp.list();
+  } catch (e) {
+    if (!String(e.message).includes('550')) throw e;
+    return; // remote dir doesn't exist — skip silently
+  }
+  for (const item of items) {
+    const localPath = path.join(localDir, item.name);
+    const remoteChild = remoteAbsPath.replace(/\/+$/, '') + '/' + item.name;
+    if (item.isDirectory) {
+      await ftpDownloadDir(ftp, remoteChild, localPath);
+      await ftp.cd(remoteAbsPath); // restore CWD after recursion
+    } else {
+      await bakIfExists(localPath);
+      await ftp.cd(remoteAbsPath);
+      await ftp.downloadTo(localPath, item.name);
+    }
+  }
+}
+
+async function runFtpTransfer(direction) {
+  const cfg = await loadFtpConfig();
+  if (!cfg.host) return { ok: false, error: 'No FTP host configured.' };
+  const { Client } = require('basic-ftp');
+  const ftp = new Client(60000);
+  try {
+    await ftp.access({
+      host: cfg.host,
+      port: cfg.port || 21,
+      user: cfg.user || '',
+      password: cfg.password || '',
+      secure: cfg.secure === true,
+    });
+    const userDir = path.join(getWritableRootDir(), 'user');
+    const remoteBase = ((cfg.remotePath || '/').replace(/\\/g, '/').replace(/\/+$/, '') || '/');
+    const items = await collectRemoteItems(userDir, cfg.subfolders);
+
+    for (const item of items) {
+      const remoteDest = item.remoteSuffix
+        ? (remoteBase + '/' + item.remoteSuffix).replace(/\/+/g, '/')
+        : remoteBase;
+      if (direction === 'upload') {
+        if (item.isDir) {
+          await ftpUploadDir(ftp, item.localPath, remoteDest);
+        } else {
+          const remoteDir = remoteDest.substring(0, remoteDest.lastIndexOf('/')) || '/';
+          await ftp.ensureDir(remoteDir);
+          await ftpBakRemote(ftp, remoteDest);
+          await ftp.cd(remoteDir);
+          await ftp.uploadFrom(item.localPath, path.basename(remoteDest));
+        }
+      } else {
+        if (item.isDir) {
+          await ftpDownloadDir(ftp, remoteDest, item.localPath);
+        } else {
+          const remoteDir = remoteDest.substring(0, remoteDest.lastIndexOf('/')) || '/';
+          try {
+            await bakIfExists(item.localPath);
+            await ftp.cd(remoteDir);
+            await ftp.downloadTo(item.localPath, item.remoteSuffix);
+          } catch (e) {
+            if (!String(e.message).includes('550')) throw e;
+          }
+        }
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    ftp.close();
+  }
+}
+
+// ── Google Drive Sync ─────────────────────────────────────────────────────────
+
+function getDriveConfigPath() {
+  return path.join(app.getPath('userData'), 'drive-config.json');
+}
+
+async function loadDriveConfig() {
+  try { return JSON.parse(await fs.readFile(getDriveConfigPath(), 'utf8')) || {}; } catch { return {}; }
+}
+
+async function saveDriveConfig(cfg) {
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(getDriveConfigPath(), JSON.stringify(cfg, null, 2), 'utf8');
+}
+
+function buildOAuth2Client(clientId, clientSecret, redirectPort) {
+  const { google } = require('googleapis');
+  return new google.auth.OAuth2(clientId, clientSecret, `http://localhost:${redirectPort}`);
+}
+
+async function startDriveOAuthFlow(cfg) {
+  const { google } = require('googleapis');
+  return new Promise((resolve, reject) => {
+    const server = http.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      const oauth2 = buildOAuth2Client(cfg.clientId, cfg.clientSecret, port);
+      const authUrl = oauth2.generateAuthUrl({
+        access_type: 'offline',
+        scope: ['https://www.googleapis.com/auth/drive.file'],
+        prompt: 'consent',
+      });
+
+      let authWin = new BrowserWindow({
+        width: 620, height: 720,
+        title: 'Connect to Google Drive',
+        webPreferences: { nodeIntegration: false, contextIsolation: true },
+      });
+
+      let handled = false;
+
+      server.on('request', async (req, res) => {
+        if (handled) return;
+        const urlObj = new URL(req.url, `http://localhost:${port}`);
+        const code = urlObj.searchParams.get('code');
+        const oauthError = urlObj.searchParams.get('error');
+        const msg = oauthError ? 'Authorization cancelled.' : 'Authorization successful! You can close this window.';
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>${msg}</h2></body></html>`);
+        setTimeout(() => { try { authWin && authWin.close(); } catch {} }, 1600);
+        server.close();
+        handled = true;
+
+        if (oauthError || !code) { reject(new Error(oauthError || 'No authorization code received')); return; }
+
+        try {
+          const { tokens } = await oauth2.getToken(code);
+          oauth2.setCredentials(tokens);
+          let email = '';
+          try {
+            const info = await google.oauth2({ version: 'v2', auth: oauth2 }).userinfo.get();
+            email = info.data.email || '';
+          } catch {}
+          const updated = { ...cfg, tokens, userEmail: email };
+          await saveDriveConfig(updated);
+          resolve({ ok: true, email });
+        } catch (err) { reject(err); }
+      });
+
+      server.on('error', (err) => { if (!handled) reject(err); });
+      authWin.on('closed', () => {
+        authWin = null;
+        if (!handled) { handled = true; server.close(); reject(new Error('Window closed by user')); }
+      });
+      authWin.loadURL(authUrl);
+    });
+  });
+}
+
+async function getDriveApiClient(cfg) {
+  if (!cfg.tokens) throw new Error('Not connected to Google Drive.');
+  const { google } = require('googleapis');
+  const oauth2 = buildOAuth2Client(cfg.clientId, cfg.clientSecret, 0);
+  oauth2.setCredentials(cfg.tokens);
+  oauth2.on('tokens', async (newTokens) => {
+    const latest = await loadDriveConfig();
+    await saveDriveConfig({ ...latest, tokens: { ...latest.tokens, ...newTokens } }).catch(() => {});
+  });
+  return google.drive({ version: 'v3', auth: oauth2 });
+}
+
+async function driveEnsureFolder(drive, name, parentId) {
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false` +
+            (parentId ? ` and '${parentId}' in parents` : '');
+  const res = await drive.files.list({ q, fields: 'files(id)', spaces: 'drive' });
+  if (res.data.files.length > 0) return res.data.files[0].id;
+  const f = await drive.files.create({
+    requestBody: { name, mimeType: 'application/vnd.google-apps.folder', ...(parentId ? { parents: [parentId] } : {}) },
+    fields: 'id',
+  });
+  return f.data.id;
+}
+
+async function driveUpsertFile(drive, localPath, name, parentId) {
+  const res = await drive.files.list({
+    q: `name='${name}' and '${parentId}' in parents and trashed=false`,
+    fields: 'files(id)',
+  });
+  const media = { mimeType: 'application/octet-stream', body: fsSync.createReadStream(localPath) };
+  if (res.data.files.length > 0) {
+    const existingId = res.data.files[0].id;
+    // Try to rename the old copy to a timestamped .bak; fall back to update-in-place if it fails.
+    let renamed = false;
+    try {
+      await drive.files.update({ fileId: existingId, requestBody: { name: `${name}.${bakTimestamp()}.bak` } });
+      renamed = true;
+    } catch {}
+    if (renamed) {
+      await drive.files.create({ requestBody: { name, parents: [parentId] }, media, fields: 'id' });
+    } else {
+      await drive.files.update({ fileId: existingId, media });
+    }
+  } else {
+    await drive.files.create({ requestBody: { name, parents: [parentId] }, media, fields: 'id' });
+  }
+}
+
+async function driveUploadDir(drive, localDir, parentId) {
+  let entries = [];
+  try { entries = await fs.readdir(localDir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    const fullPath = path.join(localDir, e.name);
+    if (e.isDirectory()) {
+      const subId = await driveEnsureFolder(drive, e.name, parentId);
+      await driveUploadDir(drive, fullPath, subId);
+    } else {
+      await driveUpsertFile(drive, fullPath, e.name, parentId);
+    }
+  }
+}
+
+async function driveDownloadDir(drive, driveFolderId, localDir) {
+  await fs.mkdir(localDir, { recursive: true });
+  const res = await drive.files.list({
+    q: `'${driveFolderId}' in parents and trashed=false`,
+    fields: 'files(id,name,mimeType)',
+    pageSize: 1000,
+  });
+  for (const file of res.data.files) {
+    const localPath = path.join(localDir, file.name);
+    if (file.mimeType === 'application/vnd.google-apps.folder') {
+      await driveDownloadDir(drive, file.id, localPath);
+    } else {
+      await bakIfExists(localPath);
+      const dest = fsSync.createWriteStream(localPath);
+      const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'stream' });
+      await new Promise((resolve, reject) => { dl.data.pipe(dest); dest.on('finish', resolve); dest.on('error', reject); });
+    }
+  }
+}
+
+async function runDriveTransfer(direction) {
+  const cfg = await loadDriveConfig();
+  if (!cfg.tokens) return { ok: false, error: 'Not connected to Google Drive.' };
+  try {
+    const drive = await getDriveApiClient(cfg);
+    const folderName = cfg.driveFolderName || 'Class Management Tools';
+    const rootId = await driveEnsureFolder(drive, folderName, null);
+    const userFolderId = await driveEnsureFolder(drive, 'user', rootId);
+    const userDir = path.join(getWritableRootDir(), 'user');
+    const items = await collectRemoteItems(userDir, cfg.subfolders);
+
+    for (const item of items) {
+      if (direction === 'upload') {
+        if (item.isDir) {
+          const subId = await driveEnsureFolder(drive, item.remoteSuffix || 'data', userFolderId);
+          await driveUploadDir(drive, item.localPath, subId);
+        } else {
+          await driveUpsertFile(drive, item.localPath, item.remoteSuffix, userFolderId);
+        }
+      } else {
+        if (item.isDir) {
+          const res = await drive.files.list({
+            q: `name='${item.remoteSuffix}' and '${userFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            fields: 'files(id)',
+          });
+          if (res.data.files.length > 0) {
+            await driveDownloadDir(drive, res.data.files[0].id, path.join(userDir, item.remoteSuffix));
+          }
+        } else {
+          const res = await drive.files.list({
+            q: `name='${item.remoteSuffix}' and '${userFolderId}' in parents and trashed=false`,
+            fields: 'files(id)',
+          });
+          if (res.data.files.length > 0) {
+            const localFilePath = path.join(userDir, item.remoteSuffix);
+            await bakIfExists(localFilePath);
+            const dest = fsSync.createWriteStream(localFilePath);
+            const dl = await drive.files.get({ fileId: res.data.files[0].id, alt: 'media' }, { responseType: 'stream' });
+            await new Promise((resolve, reject) => { dl.data.pipe(dest); dest.on('finish', resolve); dest.on('error', reject); });
+          }
+        }
+      }
+    }
+    await saveDriveConfig({ ...cfg, driveFolderId: rootId });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// ── WebDAV Sync ───────────────────────────────────────────────────────────────
+
+function getWebdavConfigPath() {
+  return path.join(app.getPath('userData'), 'webdav-config.json');
+}
+
+async function loadWebdavConfig() {
+  try { return JSON.parse(await fs.readFile(getWebdavConfigPath(), 'utf8')) || {}; } catch { return {}; }
+}
+
+async function saveWebdavConfig(cfg) {
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(getWebdavConfigPath(), JSON.stringify(cfg, null, 2), 'utf8');
+}
+
+let _webdavAutoSyncTimer = null;
+
+function stopWebdavAutoSyncTimer() {
+  if (_webdavAutoSyncTimer) { clearInterval(_webdavAutoSyncTimer); _webdavAutoSyncTimer = null; }
+}
+
+async function startWebdavAutoSyncTimer() {
+  stopWebdavAutoSyncTimer();
+  const cfg = await loadWebdavConfig();
+  if (!cfg.autoSync || !cfg.serverUrl) return;
+  const intervalMs = Math.max(5, cfg.syncIntervalMinutes || 30) * 60 * 1000;
+  _webdavAutoSyncTimer = setInterval(() => { runWebdavTransfer('upload').catch(() => {}); }, intervalMs);
+}
+
+async function webdavEnsureDir(client, remotePath) {
+  const parts = remotePath.replace(/\/+$/, '').split('/').filter(Boolean);
+  let current = '';
+  for (const part of parts) {
+    current += '/' + part;
+    try { if (!await client.exists(current)) await client.createDirectory(current); } catch {}
+  }
+}
+
+async function webdavBakRemote(client, remotePath) {
+  try {
+    await client.moveFile(remotePath, `${remotePath}.${bakTimestamp()}.bak`);
+  } catch {}
+}
+
+async function webdavUploadDir(client, localDir, remotePath) {
+  await webdavEnsureDir(client, remotePath);
+  let entries = [];
+  try { entries = await fs.readdir(localDir, { withFileTypes: true }); } catch { return; }
+  for (const entry of entries) {
+    const lp = path.join(localDir, entry.name);
+    const rp = remotePath.replace(/\/+$/, '') + '/' + entry.name;
+    if (entry.isDirectory()) {
+      await webdavUploadDir(client, lp, rp);
+    } else {
+      await webdavBakRemote(client, rp);
+      const content = await fs.readFile(lp);
+      await client.putFileContents(rp, content, { overwrite: true });
+    }
+  }
+}
+
+async function webdavDownloadDir(client, remotePath, localDir) {
+  await fs.mkdir(localDir, { recursive: true });
+  let items = [];
+  try { items = await client.getDirectoryContents(remotePath); } catch { return; }
+  for (const item of items) {
+    const lp = path.join(localDir, item.basename);
+    if (item.type === 'directory') {
+      await webdavDownloadDir(client, item.filename, lp);
+    } else {
+      await bakIfExists(lp);
+      const content = await client.getFileContents(item.filename);
+      await fs.writeFile(lp, Buffer.isBuffer(content) ? content : Buffer.from(content));
+    }
+  }
+}
+
+async function runWebdavTransfer(direction) {
+  const cfg = await loadWebdavConfig();
+  if (!cfg.serverUrl) return { ok: false, error: 'No server URL configured.' };
+  try {
+    const { createClient } = require('webdav');
+    const client = createClient(cfg.serverUrl, {
+      username: cfg.username || '',
+      password: cfg.password || '',
+    });
+    const userDir = path.join(getWritableRootDir(), 'user');
+    const remoteBase = (cfg.remotePath || '/classtools').replace(/\/+$/, '') || '/classtools';
+    const items = await collectRemoteItems(userDir, cfg.subfolders);
+
+    for (const item of items) {
+      const remoteDest = item.remoteSuffix
+        ? (remoteBase + '/' + item.remoteSuffix).replace(/\/+/g, '/')
+        : remoteBase;
+      if (direction === 'upload') {
+        if (item.isDir) {
+          await webdavUploadDir(client, item.localPath, remoteDest);
+        } else {
+          const remoteDir = remoteDest.substring(0, remoteDest.lastIndexOf('/')) || '/';
+          await webdavEnsureDir(client, remoteDir);
+          await webdavBakRemote(client, remoteDest);
+          const content = await fs.readFile(item.localPath);
+          await client.putFileContents(remoteDest, content, { overwrite: true });
+        }
+      } else {
+        if (item.isDir) {
+          await webdavDownloadDir(client, remoteDest, item.localPath);
+        } else {
+          try {
+            await bakIfExists(item.localPath);
+            const content = await client.getFileContents(remoteDest);
+            await fs.writeFile(item.localPath, Buffer.isBuffer(content) ? content : Buffer.from(content));
+          } catch (e) {
+            if (!String(e.message).includes('404') && !String(e.message).includes('Not Found')) throw e;
+          }
+        }
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // Resolve the effective destination directory for sync.
 // The user picks a sync folder that should directly mirror writableRoot/user/.
 // For backward compat, if syncLocation/user/ already has content, use that
@@ -3730,6 +4251,7 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
 
   let applied = 0;
   const errors = [];
+  const archivedAllPaths = []; // D: paths where both sides were archived — removed from baseline
 
   for (const decision of decisions) {
     if (decision.action === 'skip') continue;
@@ -3776,6 +4298,63 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
       } else if (decision.action === 'delete-target') {
         await fs.unlink(destPath);
         applied++;
+      } else if (decision.action === 'archive-older') {
+        const [srcStat, destStat] = await Promise.all([
+          fs.stat(srcPath).catch(() => null),
+          fs.stat(destPath).catch(() => null),
+        ]);
+        if (srcStat && destStat) {
+          if (srcStat.mtimeMs < destStat.mtimeMs) {
+            // src is strictly older — archive it, copy dest → src
+            await bakIfExists(srcPath);
+            await copyOne(destPath, srcPath);
+            const s = await fs.stat(srcPath);
+            _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: s.mtimeMs, size: s.size });
+          } else if (destStat.mtimeMs < srcStat.mtimeMs) {
+            // dest is strictly older — archive it, copy src → dest
+            await bakIfExists(destPath);
+            await copyOne(srcPath, destPath);
+            const s = await fs.stat(destPath);
+            _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: s.mtimeMs, size: s.size });
+          } else {
+            // C: identical timestamps — archive both, neither wins
+            await bakIfExists(srcPath);
+            await bakIfExists(destPath);
+            archivedAllPaths.push(relPath);
+          }
+        } else if (srcStat) {
+          await bakIfExists(srcPath);
+          archivedAllPaths.push(relPath);
+        } else if (destStat) {
+          await bakIfExists(destPath);
+          archivedAllPaths.push(relPath);
+        }
+        applied++;
+      } else if (decision.action === 'archive-all') {
+        await bakIfExists(srcPath);
+        await bakIfExists(destPath);
+        archivedAllPaths.push(relPath);
+        applied++;
+      } else if (decision.action === 'bak-source') {
+        // Rename app (source) file to .bak, then copy sync → app if sync file exists
+        await bakIfExists(srcPath);
+        try {
+          await fs.access(destPath);
+          await copyOne(destPath, srcPath);
+          const stat = await fs.stat(srcPath);
+          _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+        } catch {}
+        applied++;
+      } else if (decision.action === 'bak-target') {
+        // Rename sync (target) file to .bak, then copy app → sync if app file exists
+        await bakIfExists(destPath);
+        try {
+          await fs.access(srcPath);
+          await copyOne(srcPath, destPath);
+          const stat = await fs.stat(destPath);
+          _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+        } catch {}
+        applied++;
       }
     } catch (err) {
       errors.push({ relativePath: relPath, error: String(err?.message || err) });
@@ -3789,6 +4368,7 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
     for (const e of _pendingBaselineEntries) {
       baselineMap.set(e.relativePath, { mtimeMs: e.mtimeMs, size: e.size });
     }
+    for (const p of archivedAllPaths) baselineMap.delete(p); // D: keep baseline truthful
     await saveSyncBaseline(baselineMap);
   } catch (err) {
     console.error('Failed to update sync baseline after apply:', err);
@@ -3816,6 +4396,202 @@ ipcMain.handle('app:set-auto-sync', async (_event, { enabled } = {}) => {
     stopAutoSyncWatcher();
   }
   return { ok: true, autoSync };
+});
+
+// ── FTP Sync IPC ──────────────────────────────────────────────────────────────
+
+ipcMain.handle('app:ftp-get-config', async () => {
+  const cfg = await loadFtpConfig();
+  const safe = { ...cfg };
+  delete safe.password; // password never leaves main process
+  return { ok: true, config: safe };
+});
+
+ipcMain.handle('app:ftp-save-config', async (_event, incoming = {}) => {
+  const existing = await loadFtpConfig();
+  const merged = { ...existing, ...incoming };
+  // If the renderer sent the placeholder '***' back (masked), keep existing password
+  if (incoming.password === '***') merged.password = existing.password || '';
+  await saveFtpConfig(merged);
+  await startFtpAutoSyncTimer();
+  return { ok: true };
+});
+
+ipcMain.handle('app:ftp-test', async () => {
+  const cfg = await loadFtpConfig();
+  if (!cfg.host) return { ok: false, error: 'No host configured.' };
+  const { Client } = require('basic-ftp');
+  const ftp = new Client(15000);
+  try {
+    await ftp.access({ host: cfg.host, port: cfg.port || 21, user: cfg.user || '', password: cfg.password || '', secure: cfg.secure === true });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  } finally {
+    ftp.close();
+  }
+});
+
+ipcMain.handle('app:ftp-upload',   async () => runFtpTransfer('upload'));
+ipcMain.handle('app:ftp-download', async () => runFtpTransfer('download'));
+
+// ── Google Drive Sync IPC ─────────────────────────────────────────────────────
+
+ipcMain.handle('app:drive-get-config', async () => {
+  const cfg = await loadDriveConfig();
+  return {
+    ok: true,
+    config: {
+      clientId: cfg.clientId || '',
+      clientSecretSet: !!(cfg.clientSecret),
+      driveFolderName: cfg.driveFolderName || 'Class Management Tools',
+      subfolders: cfg.subfolders || [],
+      isConnected: !!(cfg.tokens && cfg.tokens.refresh_token),
+      userEmail: cfg.userEmail || '',
+    },
+  };
+});
+
+ipcMain.handle('app:drive-save-credentials', async (_event, { clientId, clientSecret, driveFolderName, subfolders } = {}) => {
+  const existing = await loadDriveConfig();
+  const updated = { ...existing };
+  if (typeof clientId     === 'string') updated.clientId     = clientId;
+  if (typeof driveFolderName === 'string') updated.driveFolderName = driveFolderName || 'Class Management Tools';
+  if (Array.isArray(subfolders)) updated.subfolders = subfolders;
+  if (typeof clientSecret === 'string' && clientSecret) updated.clientSecret = clientSecret;
+  await saveDriveConfig(updated);
+  return { ok: true };
+});
+
+ipcMain.handle('app:drive-auth-start', async () => {
+  const cfg = await loadDriveConfig();
+  if (!cfg.clientId || !cfg.clientSecret) {
+    return { ok: false, error: 'Enter your Client ID and Client Secret first.' };
+  }
+  try {
+    return await startDriveOAuthFlow(cfg);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('app:drive-disconnect', async () => {
+  const cfg = await loadDriveConfig();
+  const { tokens: _t, userEmail: _e, driveFolderId: _f, ...rest } = cfg;
+  await saveDriveConfig(rest);
+  return { ok: true };
+});
+
+ipcMain.handle('app:drive-upload',   async () => runDriveTransfer('upload'));
+ipcMain.handle('app:drive-download', async () => runDriveTransfer('download'));
+
+// ── WebDAV Sync IPC ───────────────────────────────────────────────────────────
+
+ipcMain.handle('app:webdav-get-config', async () => {
+  const cfg = await loadWebdavConfig();
+  const safe = { ...cfg };
+  delete safe.password;
+  return { ok: true, config: safe };
+});
+
+ipcMain.handle('app:webdav-save-config', async (_event, incoming = {}) => {
+  const existing = await loadWebdavConfig();
+  const merged = { ...existing, ...incoming };
+  if (incoming.password === '***') merged.password = existing.password || '';
+  await saveWebdavConfig(merged);
+  await startWebdavAutoSyncTimer();
+  return { ok: true };
+});
+
+ipcMain.handle('app:webdav-test', async () => {
+  const cfg = await loadWebdavConfig();
+  if (!cfg.serverUrl) return { ok: false, error: 'No server URL configured.' };
+  try {
+    const { createClient } = require('webdav');
+    const client = createClient(cfg.serverUrl, { username: cfg.username || '', password: cfg.password || '' });
+    await client.getQuota(); // lightweight connectivity check
+    return { ok: true };
+  } catch (err) {
+    // Fall back to checking if root path exists — getQuota not supported on all servers
+    try {
+      const { createClient } = require('webdav');
+      const client = createClient(cfg.serverUrl, { username: cfg.username || '', password: cfg.password || '' });
+      await client.exists('/');
+      return { ok: true };
+    } catch (err2) {
+      return { ok: false, error: err2.message };
+    }
+  }
+});
+
+ipcMain.handle('app:webdav-upload',   async () => runWebdavTransfer('upload'));
+ipcMain.handle('app:webdav-download', async () => runWebdavTransfer('download'));
+
+// ── Backup file management ────────────────────────────────────────────────────
+
+const BAK_RE = /\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}\.bak$/;
+
+ipcMain.handle('app:list-bak-files', async () => {
+  const userDir = path.join(getWritableRootDir(), 'user');
+  const results = [];
+  async function scan(dir) {
+    let entries;
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await scan(full);
+      } else if (BAK_RE.test(entry.name)) {
+        const stat = await fs.stat(full).catch(() => null);
+        const originalFull = full.replace(BAK_RE, '');
+        const tsMatch = entry.name.match(/(\d{4}-\d{2}-\d{2}T\d{2}-\d{2})\.bak$/);
+        const ts = tsMatch ? tsMatch[1].replace('T', ' ').replace(/-(\d{2})$/, ':$1') : '';
+        const originalExists = await fs.access(originalFull).then(() => true).catch(() => false);
+        results.push({
+          path: full,
+          relativePath: path.relative(userDir, full).replace(/\\/g, '/'),
+          originalName: path.basename(originalFull),
+          timestamp: ts,
+          size: stat ? stat.size : 0,
+          originalExists,
+        });
+      }
+    }
+  }
+  await scan(userDir);
+  results.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  return { ok: true, files: results };
+});
+
+ipcMain.handle('app:delete-bak-files', async (_event, { paths: filePaths = [] } = {}) => {
+  const userDir = path.join(getWritableRootDir(), 'user');
+  let deleted = 0;
+  const errors = [];
+  for (const p of filePaths) {
+    if (!p.startsWith(userDir + path.sep) || !BAK_RE.test(path.basename(p))) {
+      errors.push({ path: p, error: 'Not a valid backup file path.' });
+      continue;
+    }
+    try { await fs.unlink(p); deleted++; }
+    catch (e) { errors.push({ path: p, error: e.message }); }
+  }
+  return { ok: true, deleted, errors };
+});
+
+ipcMain.handle('app:restore-bak-file', async (_event, { path: bakPath } = {}) => {
+  const userDir = path.join(getWritableRootDir(), 'user');
+  if (!bakPath.startsWith(userDir + path.sep) || !BAK_RE.test(path.basename(bakPath))) {
+    return { ok: false, error: 'Not a valid backup file path.' };
+  }
+  const originalPath = bakPath.replace(BAK_RE, '');
+  const alreadyExists = await fs.access(originalPath).then(() => true).catch(() => false);
+  if (alreadyExists) return { ok: false, error: 'original_exists' };
+  try {
+    await fs.rename(bakPath, originalPath);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4900,6 +5676,10 @@ app.whenReady().then(async () => {
   // Start auto-sync watcher if the user had it enabled.
   loadAutoSyncEnabled().then(enabled => { if (enabled) startAutoSyncWatcher(); }).catch(() => {});
 
+  // Start FTP / WebDAV auto-sync timers if configured.
+  startFtpAutoSyncTimer().catch(() => {});
+  startWebdavAutoSyncTimer().catch(() => {});
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow(initialPageFile);
@@ -4913,6 +5693,17 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+let _remoteQuitSyncDone = false;
+app.on('before-quit', (event) => {
   stopQuizServer();
+  if (_remoteQuitSyncDone) return;
+  Promise.all([loadFtpConfig(), loadWebdavConfig()]).then(([ftpCfg, wdCfg]) => {
+    const tasks = [];
+    if (ftpCfg.autoSync && ftpCfg.host) tasks.push(runFtpTransfer('upload').catch(() => {}));
+    if (wdCfg.autoSync && wdCfg.serverUrl) tasks.push(runWebdavTransfer('upload').catch(() => {}));
+    if (tasks.length === 0) return;
+    _remoteQuitSyncDone = true;
+    event.preventDefault();
+    Promise.all(tasks).finally(() => app.quit());
+  }).catch(() => {});
 });

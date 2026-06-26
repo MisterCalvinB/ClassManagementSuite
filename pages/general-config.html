@@ -610,7 +610,192 @@
       <ul id="syncAddedList" style="margin:6px 0 0 0;padding:0 0 0 18px;font-family:Consolas,'Courier New',monospace;font-size:0.8rem;line-height:1.7;max-height:220px;overflow-y:auto;"></ul>
     </details>
 
+    <!-- ── FTP Sync ─────────────────────────────────── -->
+    <hr class="section-divider">
+    <p class="subsection-title" data-i18n="gcFtpSync">FTP Sync</p>
+    <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcFtpSyncDesc">Upload or download your data to/from an FTP or FTPS server.</p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div class="field" style="flex:3;min-width:160px;">
+        <label class="field-label" for="ftpHost" data-i18n="gcFtpHost">Host</label>
+        <input type="text" id="ftpHost" data-i18n-placeholder="gcFtpHostPlaceholder" placeholder="ftp.example.com">
+      </div>
+      <div class="field" style="flex:1;min-width:70px;">
+        <label class="field-label" for="ftpPort" data-i18n="gcFtpPort">Port</label>
+        <input type="number" id="ftpPort" value="21" min="1" max="65535" style="max-width:80px;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div class="field" style="flex:1;min-width:120px;">
+        <label class="field-label" for="ftpUser" data-i18n="gcFtpUser">Username</label>
+        <input type="text" id="ftpUser" autocomplete="username">
+      </div>
+      <div class="field" style="flex:1;min-width:120px;">
+        <label class="field-label" for="ftpPassword" data-i18n="gcFtpPassword">Password</label>
+        <input type="password" id="ftpPassword" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="ftpRemotePath" data-i18n="gcFtpRemotePath">Remote path</label>
+      <input type="text" id="ftpRemotePath" placeholder="/backup/classtools">
+    </div>
+    <div class="field">
+      <label class="field-label" data-i18n="gcSyncFolders">Folders to sync</label>
+      <div id="ftpSubfolderGrid" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px;"></div>
+    </div>
+    <div style="margin-bottom:8px;">
+      <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;">
+        <input type="checkbox" id="ftpSecure" style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+        <span data-i18n="gcFtpSecure">Use FTPS (secure connection)</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <button class="btn btn-outline" id="ftpSaveBtn" type="button" data-i18n="gcFtpSaveSettings">Save Settings</button>
+      <button class="btn btn-outline" id="ftpTestBtn" type="button" data-i18n="gcFtpTest">Test Connection</button>
+    </div>
+    <div style="margin-bottom:6px;">
+      <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;">
+        <input type="checkbox" id="ftpAutoSyncToggle" style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+        <span data-i18n="gcFtpAutoSync">Auto-sync on app events</span>
+      </label>
+    </div>
+    <div id="ftpIntervalRow" style="display:none;align-items:center;gap:8px;margin-bottom:8px;font-size:0.88rem;">
+      <span data-i18n="gcFtpIntervalLabel">Sync interval</span>
+      <select id="ftpIntervalSelect" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.85rem;background:#fff;color:var(--text);cursor:pointer;">
+        <option value="5"  data-i18n="gcFtpInterval5">Every 5 minutes</option>
+        <option value="15" data-i18n="gcFtpInterval15">Every 15 minutes</option>
+        <option value="30" data-i18n="gcFtpInterval30" selected>Every 30 minutes</option>
+        <option value="60" data-i18n="gcFtpInterval60">Every hour</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="ftpUploadBtn" type="button" data-i18n="gcFtpUpload">Upload to FTP</button>
+      <button class="btn btn-outline" id="ftpDownloadBtn" type="button" data-i18n="gcFtpDownload">Download from FTP</button>
+    </div>
+    <div class="status" style="margin-top:8px;" id="ftpStatus"></div>
+
+    <!-- ── Google Drive Sync ─────────────────────────── -->
+    <hr class="section-divider">
+    <p class="subsection-title" data-i18n="gcDriveSync">Google Drive Sync</p>
+    <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcDriveSyncDesc">Sync your data with Google Drive using your own OAuth 2.0 credentials.</p>
+
+    <details id="driveCredDetails" style="margin-bottom:12px;">
+      <summary style="cursor:pointer;font-size:0.88rem;font-weight:700;user-select:none;" data-i18n="gcDriveCredentials">API Credentials ▸</summary>
+      <div style="margin-top:10px;padding:10px;background:#f8f8f8;border-radius:6px;border:1px solid var(--border);">
+        <p class="field-hint" style="margin-bottom:10px;" data-i18n="gcDriveCredentialsHint">Create a "Desktop app" OAuth 2.0 client in Google Cloud Console, enable the Drive API, then paste your credentials below.</p>
+        <div class="field">
+          <label class="field-label" for="driveClientId" data-i18n="gcDriveClientId">Client ID</label>
+          <input type="text" id="driveClientId" data-i18n-placeholder="gcDriveClientIdPlaceholder" placeholder="…apps.googleusercontent.com">
+        </div>
+        <div class="field">
+          <label class="field-label" for="driveClientSecret" data-i18n="gcDriveClientSecret">Client Secret</label>
+          <input type="password" id="driveClientSecret" placeholder="GOCSPX-…">
+        </div>
+        <div class="field">
+          <label class="field-label" for="driveFolderName" data-i18n="gcDriveFolderName">Drive folder name</label>
+          <input type="text" id="driveFolderName" value="Class Management Tools">
+        </div>
+        <button class="btn btn-outline" id="driveCredSaveBtn" type="button" data-i18n="gcDriveCredSave">Save Credentials</button>
+        <span class="save-status" id="driveCredSaveStatus" data-i18n="saved">Saved</span>
+      </div>
+    </details>
+
+    <div id="driveNotConnectedRow" style="">
+      <button class="btn" id="driveConnectBtn" type="button" data-i18n="gcDriveConnect">Connect with Google</button>
+    </div>
+    <div id="driveConnectedRow" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span id="driveConnectedEmail" style="font-size:0.88rem;"></span>
+      <button class="btn btn-outline" id="driveDisconnectBtn" type="button" data-i18n="gcDriveDisconnect">Disconnect</button>
+    </div>
+
+    <div class="field" style="margin-top:10px;">
+      <label class="field-label" data-i18n="gcSyncFolders">Folders to sync</label>
+      <div id="driveSubfolderGrid" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px;"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+      <button class="btn" id="driveUploadBtn" type="button" disabled data-i18n="gcDriveUpload">Upload to Drive</button>
+      <button class="btn btn-outline" id="driveDownloadBtn" type="button" disabled data-i18n="gcDriveDownload">Download from Drive</button>
+    </div>
+    <div class="status" style="margin-top:8px;" id="driveStatus"></div>
+
+    <!-- ── WebDAV Sync ───────────────────────────────── -->
+    <hr class="section-divider">
+    <p class="subsection-title" data-i18n="gcWebdavSync">WebDAV Sync</p>
+    <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcWebdavSyncDesc">Upload or download your data via WebDAV — compatible with kDrive, Nextcloud, ownCloud, and others.</p>
+
+    <div class="field">
+      <label class="field-label" for="webdavServerUrl" data-i18n="gcWebdavServerUrl">Server URL</label>
+      <input type="url" id="webdavServerUrl" data-i18n-placeholder="gcWebdavServerUrlPlaceholder" placeholder="https://connect.drive.infomaniak.com">
+      <p class="field-hint" style="margin-top:4px;" data-i18n="gcWebdavServerHint">kDrive: https://connect.drive.infomaniak.com &nbsp;·&nbsp; Nextcloud: https://your-server.com/remote.php/dav/files/username</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div class="field" style="flex:1;min-width:120px;">
+        <label class="field-label" for="webdavUsername" data-i18n="gcWebdavUsername">Username</label>
+        <input type="text" id="webdavUsername" autocomplete="username">
+      </div>
+      <div class="field" style="flex:1;min-width:120px;">
+        <label class="field-label" for="webdavPassword" data-i18n="gcWebdavPassword">Password / App password</label>
+        <input type="password" id="webdavPassword" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="webdavRemotePath" data-i18n="gcWebdavRemotePath">Remote path</label>
+      <input type="text" id="webdavRemotePath" placeholder="/classtools">
+    </div>
+    <div class="field">
+      <label class="field-label" data-i18n="gcSyncFolders">Folders to sync</label>
+      <div id="webdavSubfolderGrid" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <button class="btn btn-outline" id="webdavSaveBtn" type="button" data-i18n="gcFtpSaveSettings">Save Settings</button>
+      <button class="btn btn-outline" id="webdavTestBtn" type="button" data-i18n="gcFtpTest">Test Connection</button>
+    </div>
+    <div style="margin-bottom:6px;">
+      <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;">
+        <input type="checkbox" id="webdavAutoSyncToggle" style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+        <span data-i18n="gcFtpAutoSync">Auto-sync on app events</span>
+      </label>
+    </div>
+    <div id="webdavIntervalRow" style="display:none;align-items:center;gap:8px;margin-bottom:8px;font-size:0.88rem;">
+      <span data-i18n="gcFtpIntervalLabel">Sync interval</span>
+      <select id="webdavIntervalSelect" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.85rem;background:#fff;color:var(--text);cursor:pointer;">
+        <option value="5"  data-i18n="gcFtpInterval5">Every 5 minutes</option>
+        <option value="15" data-i18n="gcFtpInterval15">Every 15 minutes</option>
+        <option value="30" data-i18n="gcFtpInterval30" selected>Every 30 minutes</option>
+        <option value="60" data-i18n="gcFtpInterval60">Every hour</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="webdavUploadBtn" type="button" data-i18n="gcWebdavUpload">Upload via WebDAV</button>
+      <button class="btn btn-outline" id="webdavDownloadBtn" type="button" data-i18n="gcWebdavDownload">Download via WebDAV</button>
+    </div>
+    <div class="status" style="margin-top:8px;" id="webdavStatus"></div>
+
+  <hr class="section-divider">
+  <h3 class="subsection-title" data-i18n="gcBakManagerTitle">Backup Files</h3>
+  <p class="setting-desc" style="margin-bottom:10px;">
+    <span data-i18n="gcBakManagerBtn">Manage backup files…</span>
+  </p>
+  <button class="btn" type="button" id="openBakManagerBtn" data-i18n="gcBakManagerBtn">Manage backup files…</button>
+
   </section>
+
+<!-- ── Backup file manager modal ─────────────────────────── -->
+<div class="overlay" id="bakManagerOverlay" role="dialog" aria-modal="true">
+  <div class="modal modal-wide">
+    <h2 data-i18n="gcBakManagerTitle">Backup Files</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button type="button" class="btn" id="bakDeleteSelectedBtn" data-i18n="gcBakManagerDeleteSelected" disabled>Delete selected</button>
+      <button type="button" class="btn btn-danger" id="bakDeleteAllBtn" data-i18n="gcBakManagerDeleteAll">Delete all</button>
+    </div>
+    <div id="bakManagerStatus" class="status" style="margin-bottom:8px;"></div>
+    <div id="bakManagerBody" style="overflow-y:auto;max-height:60vh;"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" id="bakManagerClose" data-i18n="gcCancel">Close</button>
+    </div>
+  </div>
+</div>
 
   <!-- ── Per-app Notes ────────────────────────────────── -->
   <section class="config-section">
@@ -663,6 +848,8 @@
       <button type="button" id="syncBulkKeepSrc" data-i18n="gcSyncBulkKeepSrc">Keep all current</button>
       <button type="button" id="syncBulkKeepDest" data-i18n="gcSyncBulkKeepDest">Keep all sync folder</button>
       <button type="button" id="syncBulkSkip" data-i18n="gcSyncBulkSkip">Skip all</button>
+      <button type="button" id="syncBulkArchiveOlder" data-i18n="gcSyncBulkArchiveOlder">Archive older</button>
+      <button type="button" id="syncBulkArchiveAll" data-i18n="gcSyncBulkArchiveAll">Archive all</button>
     </div>
     <div class="sync-filter-bar">
       <input type="search" id="syncConflictSearch" placeholder="Search files…" autocomplete="off" data-i18n-placeholder="gcSyncSearch">
@@ -1229,9 +1416,11 @@
   var syncConflictList      = document.getElementById('syncConflictList');
   var syncConflictApply     = document.getElementById('syncConflictApply');
   var syncConflictCancel    = document.getElementById('syncConflictCancel');
-  var syncBulkKeepSrc       = document.getElementById('syncBulkKeepSrc');
-  var syncBulkKeepDest      = document.getElementById('syncBulkKeepDest');
-  var syncBulkSkip          = document.getElementById('syncBulkSkip');
+  var syncBulkKeepSrc         = document.getElementById('syncBulkKeepSrc');
+  var syncBulkKeepDest        = document.getElementById('syncBulkKeepDest');
+  var syncBulkSkip            = document.getElementById('syncBulkSkip');
+  var syncBulkArchiveOlder    = document.getElementById('syncBulkArchiveOlder');
+  var syncBulkArchiveAll      = document.getElementById('syncBulkArchiveAll');
   var syncConflictSearch       = document.getElementById('syncConflictSearch');
   var syncConflictDiffSize     = document.getElementById('syncConflictDiffSize');
   var syncConflictDateTol      = document.getElementById('syncConflictDateTol');
@@ -1514,11 +1703,11 @@
       statusHtml = isPureNew ? (isSrcOnly ? t('gcStatusAppOnly') : isDestOnly ? t('gcStatusSyncOnly') : t('gcStatusNew'))
                              : (c.kind === 'mixed' ? 'Mixed' : t('gcStatusConflict'));
       if (isSrcOnly) {
-        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option></select>';
+        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option><option value="bak-source">' + t('gcActionBakSource') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
       } else if (isDestOnly) {
-        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option></select>';
+        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option><option value="bak-target">' + t('gcActionBakTarget') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
       } else {
-        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option></select>';
+        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="bak-source">' + t('gcActionBakSource') + '</option><option value="bak-target">' + t('gcActionBakTarget') + '</option><option value="archive-older">' + t('gcActionArchiveOlder') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
       }
     } else if (c.kind === 'new') {
       tr.className = 'new-row';
@@ -1889,9 +2078,11 @@
     return decisions;
   }
 
-  syncBulkKeepSrc.addEventListener('click',  function () { setSyncBulkAction('keep-source'); });
-  syncBulkKeepDest.addEventListener('click', function () { setSyncBulkAction('keep-target'); });
-  syncBulkSkip.addEventListener('click',     function () { setSyncBulkAction('skip'); });
+  syncBulkKeepSrc.addEventListener('click',       function () { setSyncBulkAction('keep-source'); });
+  syncBulkKeepDest.addEventListener('click',      function () { setSyncBulkAction('keep-target'); });
+  syncBulkSkip.addEventListener('click',          function () { setSyncBulkAction('skip'); });
+  syncBulkArchiveOlder.addEventListener('click',  function () { setSyncBulkAction('archive-older'); });
+  syncBulkArchiveAll.addEventListener('click',    function () { setSyncBulkAction('archive-all'); });
 
   syncConflictSearch.addEventListener('input',        applySyncConflictFilters);
   syncConflictDiffSize.addEventListener('change',     applySyncConflictFilters);
@@ -1980,6 +2171,427 @@
       if (!syncConflictOverlay.classList.contains('open')) document.getElementById('runSyncBtn').disabled = false;
     }
   }
+
+  // ── Shared subfolder definitions ────────────────────────────────────────────
+  var REMOTE_FOLDERS = [
+    { id: 'config',     labelKey: 'gcSyncFolderConfig' },
+    { id: 'grades',     labelKey: 'gcSyncFolderGrades' },
+    { id: 'groups',     labelKey: 'gcSyncFolderGroups' },
+    { id: 'mindmaps',   labelKey: 'gcSyncFolderMindmaps' },
+    { id: 'customData', labelKey: 'gcSyncFolderCustomData' },
+    { id: 'classPlans', labelKey: 'gcSyncFolderClassPlans' },
+    { id: 'documents',  labelKey: 'gcSyncFolderDocuments' },
+  ];
+
+  function buildSubfolderGrid(containerId, selectedIds) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    REMOTE_FOLDERS.forEach(function (f) {
+      var lbl = document.createElement('label');
+      lbl.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:0.87rem;white-space:nowrap;';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = f.id;
+      cb.style.cssText = 'width:14px;height:14px;cursor:pointer;accent-color:var(--accent);';
+      cb.checked = !selectedIds || selectedIds.length === 0 || selectedIds.indexOf(f.id) !== -1;
+      lbl.appendChild(cb);
+      var span = document.createElement('span');
+      span.setAttribute('data-i18n', f.labelKey);
+      span.textContent = typeof t === 'function' ? t(f.labelKey) : f.id;
+      lbl.appendChild(span);
+      container.appendChild(lbl);
+    });
+  }
+
+  function getCheckedSubfolders(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return [];
+    var checked = [];
+    container.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+      if (cb.checked) checked.push(cb.value);
+    });
+    return checked;
+  }
+
+  function setRemoteStatus(elId, msg, type) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'status' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : '');
+  }
+
+  // ── FTP Sync ─────────────────────────────────────────────────────────────────
+
+  async function refreshFtpConfig() {
+    if (!window.electronApi) return;
+    var res = await window.electronApi.ftpGetConfig();
+    if (!res || !res.ok) return;
+    var cfg = res.config || {};
+    document.getElementById('ftpHost').value          = cfg.host || '';
+    document.getElementById('ftpPort').value          = cfg.port || 21;
+    document.getElementById('ftpUser').value          = cfg.user || '';
+    document.getElementById('ftpPassword').value      = cfg.password ? '***' : '';
+    document.getElementById('ftpRemotePath').value    = cfg.remotePath || '';
+    document.getElementById('ftpSecure').checked      = !!cfg.secure;
+    document.getElementById('ftpAutoSyncToggle').checked = !!cfg.autoSync;
+    var intervalSel = document.getElementById('ftpIntervalSelect');
+    if (cfg.syncIntervalMinutes) {
+      var opt = intervalSel.querySelector('option[value="' + cfg.syncIntervalMinutes + '"]');
+      if (opt) opt.selected = true;
+    }
+    document.getElementById('ftpIntervalRow').style.display = cfg.autoSync ? 'flex' : 'none';
+    buildSubfolderGrid('ftpSubfolderGrid', cfg.subfolders || []);
+  }
+
+  document.getElementById('ftpAutoSyncToggle').addEventListener('change', function () {
+    document.getElementById('ftpIntervalRow').style.display = this.checked ? 'flex' : 'none';
+  });
+
+  document.getElementById('ftpSaveBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    var pw = document.getElementById('ftpPassword').value;
+    var res = await window.electronApi.ftpSaveConfig({
+      host:                 document.getElementById('ftpHost').value.trim(),
+      port:                 parseInt(document.getElementById('ftpPort').value, 10) || 21,
+      user:                 document.getElementById('ftpUser').value.trim(),
+      password:             pw, // '***' is handled in main process (keeps existing)
+      remotePath:           document.getElementById('ftpRemotePath').value.trim(),
+      secure:               document.getElementById('ftpSecure').checked,
+      autoSync:             document.getElementById('ftpAutoSyncToggle').checked,
+      syncIntervalMinutes:  parseInt(document.getElementById('ftpIntervalSelect').value, 10) || 30,
+      subfolders:           getCheckedSubfolders('ftpSubfolderGrid'),
+    });
+    setRemoteStatus('ftpStatus', res && res.ok ? t('gcFtpSaved') : t('gcSyncFailed'), res && res.ok ? 'ok' : 'err');
+  });
+
+  document.getElementById('ftpTestBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('ftpStatus', t('gcFtpTesting'), '');
+    this.disabled = true;
+    try {
+      // Save first so main process has latest credentials
+      var pw = document.getElementById('ftpPassword').value;
+      await window.electronApi.ftpSaveConfig({
+        host: document.getElementById('ftpHost').value.trim(),
+        port: parseInt(document.getElementById('ftpPort').value, 10) || 21,
+        user: document.getElementById('ftpUser').value.trim(),
+        password: pw,
+        remotePath: document.getElementById('ftpRemotePath').value.trim(),
+        secure: document.getElementById('ftpSecure').checked,
+      });
+      var res = await window.electronApi.ftpTest();
+      setRemoteStatus('ftpStatus', res && res.ok ? t('gcFtpConnected') : tFmt('gcFtpConnFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('ftpStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('ftpUploadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('ftpStatus', t('gcFtpUploading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.ftpUpload();
+      setRemoteStatus('ftpStatus', res && res.ok ? t('gcFtpUploadDone') : tFmt('gcFtpUploadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('ftpStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('ftpDownloadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('ftpStatus', t('gcFtpDownloading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.ftpDownload();
+      setRemoteStatus('ftpStatus', res && res.ok ? t('gcFtpDownloadDone') : tFmt('gcFtpDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('ftpStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  // ── Google Drive Sync ─────────────────────────────────────────────────────────
+
+  async function refreshDriveConfig() {
+    if (!window.electronApi) return;
+    var res = await window.electronApi.driveGetConfig();
+    if (!res || !res.ok) return;
+    var cfg = res.config || {};
+    document.getElementById('driveClientId').value   = cfg.clientId || '';
+    document.getElementById('driveClientSecret').value = cfg.clientSecretSet ? '***' : '';
+    document.getElementById('driveFolderName').value = cfg.driveFolderName || 'Class Management Tools';
+    buildSubfolderGrid('driveSubfolderGrid', cfg.subfolders || []);
+    setDriveConnectedState(cfg.isConnected, cfg.userEmail);
+  }
+
+  function setDriveConnectedState(connected, email) {
+    document.getElementById('driveNotConnectedRow').style.display = connected ? 'none' : '';
+    document.getElementById('driveConnectedRow').style.display    = connected ? 'flex' : 'none';
+    document.getElementById('driveUploadBtn').disabled   = !connected;
+    document.getElementById('driveDownloadBtn').disabled = !connected;
+    if (connected && email) {
+      document.getElementById('driveConnectedEmail').textContent = tFmt('gcDriveConnected', { email: email });
+    }
+  }
+
+  document.getElementById('driveCredSaveBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    var secret = document.getElementById('driveClientSecret').value;
+    var res = await window.electronApi.driveSaveCredentials({
+      clientId:       document.getElementById('driveClientId').value.trim(),
+      clientSecret:   secret !== '***' ? secret : undefined,
+      driveFolderName: document.getElementById('driveFolderName').value.trim(),
+      subfolders:     getCheckedSubfolders('driveSubfolderGrid'),
+    });
+    if (res && res.ok) flashSaved(document.getElementById('driveCredSaveStatus'));
+    else setRemoteStatus('driveStatus', t('gcSyncFailed'), 'err');
+  });
+
+  document.getElementById('driveConnectBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    // Save credentials first
+    var secret = document.getElementById('driveClientSecret').value;
+    await window.electronApi.driveSaveCredentials({
+      clientId: document.getElementById('driveClientId').value.trim(),
+      clientSecret: secret !== '***' ? secret : undefined,
+    });
+    setRemoteStatus('driveStatus', t('gcDriveConnecting'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.driveAuthStart();
+      if (res && res.ok) {
+        setRemoteStatus('driveStatus', t('gcDriveAuthDone'), 'ok');
+        setDriveConnectedState(true, res.email);
+      } else {
+        setRemoteStatus('driveStatus', tFmt('gcDriveAuthFailed', { error: (res && res.error) || '' }), 'err');
+      }
+    } catch (e) { setRemoteStatus('driveStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('driveDisconnectBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    await window.electronApi.driveDisconnect();
+    setDriveConnectedState(false, '');
+    setRemoteStatus('driveStatus', '', '');
+  });
+
+  document.getElementById('driveUploadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    // Save subfolder selection before uploading
+    await window.electronApi.driveSaveCredentials({ subfolders: getCheckedSubfolders('driveSubfolderGrid') });
+    setRemoteStatus('driveStatus', t('gcDriveUploading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.driveUpload();
+      setRemoteStatus('driveStatus', res && res.ok ? t('gcDriveUploadDone') : tFmt('gcDriveUploadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('driveStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('driveDownloadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('driveStatus', t('gcDriveDownloading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.driveDownload();
+      setRemoteStatus('driveStatus', res && res.ok ? t('gcDriveDownloadDone') : tFmt('gcDriveDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('driveStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  // ── WebDAV Sync ───────────────────────────────────────────────────────────────
+
+  async function refreshWebdavConfig() {
+    if (!window.electronApi) return;
+    var res = await window.electronApi.webdavGetConfig();
+    if (!res || !res.ok) return;
+    var cfg = res.config || {};
+    document.getElementById('webdavServerUrl').value    = cfg.serverUrl || '';
+    document.getElementById('webdavUsername').value     = cfg.username || '';
+    document.getElementById('webdavPassword').value     = cfg.password ? '***' : '';
+    document.getElementById('webdavRemotePath').value   = cfg.remotePath || '';
+    document.getElementById('webdavAutoSyncToggle').checked = !!cfg.autoSync;
+    var intervalSel = document.getElementById('webdavIntervalSelect');
+    if (cfg.syncIntervalMinutes) {
+      var opt = intervalSel.querySelector('option[value="' + cfg.syncIntervalMinutes + '"]');
+      if (opt) opt.selected = true;
+    }
+    document.getElementById('webdavIntervalRow').style.display = cfg.autoSync ? 'flex' : 'none';
+    buildSubfolderGrid('webdavSubfolderGrid', cfg.subfolders || []);
+  }
+
+  document.getElementById('webdavAutoSyncToggle').addEventListener('change', function () {
+    document.getElementById('webdavIntervalRow').style.display = this.checked ? 'flex' : 'none';
+  });
+
+  document.getElementById('webdavSaveBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    var pw = document.getElementById('webdavPassword').value;
+    var res = await window.electronApi.webdavSaveConfig({
+      serverUrl:           document.getElementById('webdavServerUrl').value.trim(),
+      username:            document.getElementById('webdavUsername').value.trim(),
+      password:            pw,
+      remotePath:          document.getElementById('webdavRemotePath').value.trim(),
+      autoSync:            document.getElementById('webdavAutoSyncToggle').checked,
+      syncIntervalMinutes: parseInt(document.getElementById('webdavIntervalSelect').value, 10) || 30,
+      subfolders:          getCheckedSubfolders('webdavSubfolderGrid'),
+    });
+    setRemoteStatus('webdavStatus', res && res.ok ? t('gcFtpSaved') : t('gcSyncFailed'), res && res.ok ? 'ok' : 'err');
+  });
+
+  document.getElementById('webdavTestBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('webdavStatus', t('gcFtpTesting'), '');
+    this.disabled = true;
+    try {
+      var pw = document.getElementById('webdavPassword').value;
+      await window.electronApi.webdavSaveConfig({
+        serverUrl: document.getElementById('webdavServerUrl').value.trim(),
+        username:  document.getElementById('webdavUsername').value.trim(),
+        password:  pw,
+        remotePath: document.getElementById('webdavRemotePath').value.trim(),
+      });
+      var res = await window.electronApi.webdavTest();
+      setRemoteStatus('webdavStatus', res && res.ok ? t('gcFtpConnected') : tFmt('gcFtpConnFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('webdavStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('webdavUploadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('webdavStatus', t('gcWebdavUploading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.webdavUpload();
+      setRemoteStatus('webdavStatus', res && res.ok ? t('gcWebdavUploadDone') : tFmt('gcFtpUploadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('webdavStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  document.getElementById('webdavDownloadBtn').addEventListener('click', async function () {
+    if (!window.electronApi) return;
+    setRemoteStatus('webdavStatus', t('gcWebdavDownloading'), '');
+    this.disabled = true;
+    try {
+      var res = await window.electronApi.webdavDownload();
+      setRemoteStatus('webdavStatus', res && res.ok ? t('gcWebdavDownloadDone') : tFmt('gcFtpDownloadFailed', { error: (res && res.error) || '' }), res && res.ok ? 'ok' : 'err');
+    } catch (e) { setRemoteStatus('webdavStatus', String(e && e.message || e), 'err'); }
+    finally { this.disabled = false; }
+  });
+
+  // ── Backup file manager ─────────��──────────────────────────────────────────
+  (function () {
+    var overlay     = document.getElementById('bakManagerOverlay');
+    var body        = document.getElementById('bakManagerBody');
+    var statusEl    = document.getElementById('bakManagerStatus');
+    var closeBtn    = document.getElementById('bakManagerClose');
+    var delSelBtn   = document.getElementById('bakDeleteSelectedBtn');
+    var delAllBtn   = document.getElementById('bakDeleteAllBtn');
+    var openBtn     = document.getElementById('openBakManagerBtn');
+    var _files      = [];
+
+    function fmt(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function setBakStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status' + (type === 'ok' ? ' status-ok' : type === 'err' ? ' status-err' : '');
+    }
+
+    function updateDelSelBtn() {
+      var checked = body.querySelectorAll('input.bak-chk:checked').length;
+      delSelBtn.disabled = checked === 0;
+    }
+
+    function renderFiles(files) {
+      _files = files;
+      if (!files.length) {
+        body.innerHTML = '<p style="padding:12px;color:var(--muted);" data-i18n="gcBakManagerEmpty">' + t('gcBakManagerEmpty') + '</p>';
+        delSelBtn.disabled = true;
+        delAllBtn.disabled = true;
+        return;
+      }
+      delAllBtn.disabled = false;
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">'
+        + '<thead><tr>'
+        + '<th style="padding:6px;text-align:left;border-bottom:1px solid var(--border);width:28px;"><input type="checkbox" id="bakChkAll"></th>'
+        + '<th style="padding:6px;text-align:left;border-bottom:1px solid var(--border);" data-i18n="gcBakManagerFile">' + t('gcBakManagerFile') + '</th>'
+        + '<th style="padding:6px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;" data-i18n="gcBakManagerDate">' + t('gcBakManagerDate') + '</th>'
+        + '<th style="padding:6px;text-align:right;border-bottom:1px solid var(--border);" data-i18n="gcBakManagerSize">' + t('gcBakManagerSize') + '</th>'
+        + '<th style="padding:6px;border-bottom:1px solid var(--border);"></th>'
+        + '</tr></thead><tbody>';
+      files.forEach(function (f, idx) {
+        var canRestore = !f.originalExists;
+        html += '<tr data-idx="' + idx + '">'
+          + '<td style="padding:6px;"><input type="checkbox" class="bak-chk" data-path="' + f.path.replace(/"/g, '&quot;') + '"></td>'
+          + '<td style="padding:6px;word-break:break-all;">' + f.relativePath + '</td>'
+          + '<td style="padding:6px;white-space:nowrap;">' + (f.timestamp || '—') + '</td>'
+          + '<td style="padding:6px;text-align:right;">' + fmt(f.size) + '</td>'
+          + '<td style="padding:6px;"><button type="button" class="btn btn-sm bak-restore-btn" data-path="' + f.path.replace(/"/g, '&quot;') + '"'
+          + (canRestore ? '' : ' disabled title="' + t('gcBakManagerRestoreExists') + '"')
+          + ' data-i18n="gcBakManagerRestore">' + t('gcBakManagerRestore') + '</button></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table>';
+      body.innerHTML = html;
+      document.getElementById('bakChkAll').addEventListener('change', function () {
+        body.querySelectorAll('input.bak-chk').forEach(function (c) { c.checked = this.checked; }.bind(this));
+        updateDelSelBtn();
+      });
+      body.addEventListener('change', function (e) { if (e.target.classList.contains('bak-chk')) updateDelSelBtn(); });
+      body.addEventListener('click', function (e) {
+        var btn = e.target.closest('.bak-restore-btn');
+        if (!btn || btn.disabled) return;
+        var bakPath = btn.dataset.path;
+        btn.disabled = true;
+        window.electronApi.restoreBakFile({ path: bakPath }).then(function (res) {
+          if (res && res.ok) {
+            setBakStatus(t('gcBakManagerRestored'), 'ok');
+            load();
+          } else {
+            btn.disabled = false;
+            setBakStatus((res && res.error === 'original_exists') ? t('gcBakManagerRestoreExists') : (res && res.error) || '', 'err');
+          }
+        });
+      });
+      updateDelSelBtn();
+    }
+
+    function load() {
+      setBakStatus(t('gcBakManagerLoading'), '');
+      window.electronApi.listBakFiles().then(function (res) {
+        setBakStatus('', '');
+        renderFiles((res && res.files) || []);
+      }).catch(function (e) { setBakStatus(String(e && e.message ? e.message : e), 'err'); });
+    }
+
+    openBtn.addEventListener('click', function () {
+      overlay.classList.add('open');
+      load();
+    });
+    closeBtn.addEventListener('click', function () { overlay.classList.remove('open'); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.classList.remove('open'); });
+
+    delSelBtn.addEventListener('click', async function () {
+      var paths = Array.from(body.querySelectorAll('input.bak-chk:checked')).map(function (c) { return c.dataset.path; });
+      if (!paths.length) return;
+      delSelBtn.disabled = true;
+      var res = await window.electronApi.deleteBakFiles({ paths: paths });
+      setBakStatus(tFmt('gcBakManagerDeleted', { n: (res && res.deleted) || 0 }), 'ok');
+      load();
+    });
+
+    delAllBtn.addEventListener('click', async function () {
+      var paths = _files.map(function (f) { return f.path; });
+      if (!paths.length) return;
+      delAllBtn.disabled = true;
+      var res = await window.electronApi.deleteBakFiles({ paths: paths });
+      setBakStatus(tFmt('gcBakManagerDeleted', { n: (res && res.deleted) || 0 }), 'ok');
+      load();
+    });
+  })();
 
   function openCreditsModal()  { var o = document.getElementById('credits-overlay'); if (o) o.style.display = 'flex'; }
   function closeCreditsModal() { var o = document.getElementById('credits-overlay'); if (o) o.style.display = 'none'; }
@@ -2080,6 +2692,9 @@
     checkFirstRun();
     refreshBackupPath();
     refreshSyncPath();
+    refreshFtpConfig();
+    refreshDriveConfig();
+    refreshWebdavConfig();
     buildAccordion();
   }
 

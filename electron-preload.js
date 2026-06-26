@@ -255,7 +255,34 @@ const exposedApi = {
   onDataChanged(callback) {
     if (!ipcRenderer) return;
     ipcRenderer.on('app:data-changed', function (_event, data) { callback(data); });
-  }
+  },
+
+  // ── FTP Sync ────────────────────────────────────────────────────────────────
+  ftpGetConfig()         { return invoke('app:ftp-get-config'); },
+  ftpSaveConfig(request) { return invoke('app:ftp-save-config', request); },
+  ftpTest()              { return invoke('app:ftp-test'); },
+  ftpUpload()            { return invoke('app:ftp-upload'); },
+  ftpDownload()          { return invoke('app:ftp-download'); },
+
+  // ── Google Drive Sync ───────────────────────────────────────────────────────
+  driveGetConfig()                  { return invoke('app:drive-get-config'); },
+  driveSaveCredentials(request)     { return invoke('app:drive-save-credentials', request); },
+  driveAuthStart()                  { return invoke('app:drive-auth-start'); },
+  driveDisconnect()                 { return invoke('app:drive-disconnect'); },
+  driveUpload()                     { return invoke('app:drive-upload'); },
+  driveDownload()                   { return invoke('app:drive-download'); },
+
+  // ── WebDAV Sync ─────────────────────────────────────────────────────────────
+  webdavGetConfig()         { return invoke('app:webdav-get-config'); },
+  webdavSaveConfig(request) { return invoke('app:webdav-save-config', request); },
+  webdavTest()              { return invoke('app:webdav-test'); },
+  webdavUpload()            { return invoke('app:webdav-upload'); },
+  webdavDownload()          { return invoke('app:webdav-download'); },
+
+  // ── Backup file management ──────────────────────────────────────────────────
+  listBakFiles()              { return invoke('app:list-bak-files'); },
+  deleteBakFiles(request)     { return invoke('app:delete-bak-files', request); },
+  restoreBakFile(request)     { return invoke('app:restore-bak-file', request); },
 };
 
 if (contextBridge && typeof contextBridge.exposeInMainWorld === 'function') {
