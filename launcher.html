@@ -2021,7 +2021,7 @@
         (s.topic && clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
       (function(slot) {
         item.addEventListener('click', function() {
-          try { localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(e) {}
+          try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(e) {}
           openApp('planner.html');
         });
         if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
@@ -2166,7 +2166,7 @@
         (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
       item.addEventListener('click', (function(todoId) { return function() {
         if (window.Desktop && Desktop.isElectron()) {
-          try { localStorage.setItem('cmt-planner-todo', todoId); } catch(e) {}
+          try { localStorage.removeItem('cmt-planner-nav'); localStorage.setItem('cmt-planner-todo', todoId); } catch(e) {}
           Desktop.openTool('planner.html');
         }
       }; })(td.id));
@@ -2536,7 +2536,7 @@
       e.stopPropagation();
       showCtx(e.clientX, e.clientY, [
         { label: tl('sbOpenInPlanner', 'Open in Planner'), action: function() {
-          try { localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
+          try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
           openApp('planner.html');
         }}
       ]);

@@ -255,6 +255,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -533,7 +534,7 @@
     </div>
     <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()" title="Customise board defaults">Customise</button>
     <button class="action-btn btn-grey tut-trigger-btn" onclick="openBoardShortcuts()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-    <button class="action-btn btn-grey tut-trigger-btn" onclick="showBoardTourStub()" data-i18n-title="tourBtnLabel" data-i18n="tourBtnLabel">▶ Tour</button>
+    <button class="action-btn btn-grey tut-trigger-btn" onclick="showBoardTour()" data-i18n-title="tourBtnLabel" data-i18n="tourBtnLabel">▶ Tour</button>
   </div>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu">☰</button>
@@ -1305,7 +1306,7 @@
     <!-- Toolbar -->
     <div id="constellation-toolbar">
 
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-file">
         <span class="con-tb-group-label">File</span>
         <div class="con-tb-group-body">
           <button class="action-btn btn-grey" onclick="conClearAll()" data-i18n="btnClearAll" title="Remove all words from the board">🗑 Clear</button>
@@ -1322,20 +1323,20 @@
         </div>
       </div>
 
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-board">
         <span class="con-tb-group-label">Board</span>
         <div class="con-tb-group-body">
           <button class="action-btn btn-grey" onclick="conCtxSpreadSelected()" title="Spread selected words — remove overlaps">⇢ Spread</button>
           <button class="action-btn btn-grey" onclick="conCompactNodes()" title="Compact words — pull closer together without overlapping">⇠ Compact</button>
           <button class="action-btn btn-grey" onclick="conToggleMaskAll()" title="Hide all words (or reveal if already hidden)">👁 Hide/Show</button>
           <button class="action-btn btn-grey" onclick="conAddMask()" title="Add a movable mask rectangle">▭ Mask</button>
-          <button class="action-btn btn-grey" data-i18n="btnAddTable" onclick="conAddTableDialog()" title="Add an editable table to the board">⊞ Table</button>
+          <button class="action-btn btn-grey" id="con-add-table-btn" data-i18n="btnAddTable" onclick="conAddTableDialog()" title="Add an editable table to the board">⊞ Table</button>
           <button class="action-btn btn-grey" onclick="conBoardCtxCreateGroup(true)" title="Add an empty group">⬡ Group</button>
           <button class="action-btn btn-grey" id="con-snap-toggle-btn" onclick="conToggleSnap()" title="Toggle snap-to-align when dragging nodes (hold Alt to bypass snap temporarily)">📐 Snap</button>
         </div>
       </div>
 
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-draw">
         <span class="con-tb-group-label">Draw</span>
         <div class="con-tb-group-body">
           <button class="action-btn btn-grey" id="con-draw-btn" onclick="conToggleDrawMode()" title="Draw freehand annotations with pen or touch (click again to exit)">✎ Draw</button>
@@ -1344,7 +1345,7 @@
         </div>
       </div>
 
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-vocab">
         <span class="con-tb-group-label">Vocab</span>
         <div class="con-tb-group-body">
           <button class="action-btn btn-grey" onclick="conImportOpen()" data-i18n="btnImportBank" title="Import words from the word bank">📥 Import</button>
@@ -1355,7 +1356,7 @@
         </div>
       </div>
 
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-view">
         <span class="con-tb-group-label">View</span>
         <div class="con-tb-group-body">
           <span style="white-space:nowrap;display:inline-flex;align-items:center;gap:2px;">
@@ -1372,7 +1373,7 @@
           <button class="action-btn btn-grey" id="con-freeze-btn" onclick="conToggleMirrorFreeze()" title="Freeze the presentation window — board changes won't update until unfrozen">❄️ Freeze Board</button>
         </div>
       </div>
-      <div class="con-tb-group">
+      <div class="con-tb-group" id="con-tb-pages">
         <span class="con-tb-group-label">Pages</span>
         <div class="con-tb-group-body" id="con-page-bar">
           <button class="action-btn btn-grey" onclick="window.conAddPage()" title="Add a new page">&#xff0b; Add</button>
@@ -16739,9 +16740,11 @@ function hideFailure() {
           const newNode = conNodes.find(n => n.id === newId);
           if (newNode) {
             if (node.fmt) newNode.fmt = Object.assign({}, node.fmt);
-            ['background', 'color', 'fontSize', 'fontFamily'].forEach(k => {
+            ['background', 'color', 'fontFamily'].forEach(k => {
               if (node.el.style[k]) newNode.el.style[k] = node.el.style[k];
             });
+            const srcBaseSize = conGetNodeBaseFontSize(node);
+            if (srcBaseSize) conSetNodeBaseFontSize(newNode, srcBaseSize);
             newNode.borderWidth = node.borderWidth || null;
             newNode.borderStyle = node.borderStyle || null;
             newNode.highlight   = node.highlight   || null;
@@ -18766,6 +18769,7 @@ function hideFailure() {
           if (!drawOverlay) return;
           let livePoints = [], livePath = null;
           let _drawActivePointerId = null;
+          let _liveMirrorThrottle = 0;
           const _conEraserRadius = 20;
           // Shape drawing state
           let _shapeStart = null, _shapePreviewEl = null, _shapeLastPos = null;
@@ -19037,6 +19041,11 @@ function hideFailure() {
             livePath.style.pointerEvents = 'none';
             livePath.setAttribute('d', `M ${pos.x} ${pos.y}`);
             liveSvg.appendChild(livePath);
+            _liveMirrorThrottle = 0;
+            if (window._conMirrorSend) window._conMirrorSend({
+              type: 'live-path-start',
+              color: _conDrawColor, thickness: _conDrawThickness, opacity: _conDrawOpacity
+            });
           });
 
           drawOverlay.addEventListener('pointermove', function(e) {
@@ -19065,7 +19074,15 @@ function hideFailure() {
             livePoints.push(pos);
             if (livePath && livePoints.length >= 2) {
               const last = livePoints[livePoints.length - 1];
-              livePath.setAttribute('d', (livePath.getAttribute('d') || '') + ` L ${last.x} ${last.y}`);
+              const newD = (livePath.getAttribute('d') || '') + ` L ${last.x} ${last.y}`;
+              livePath.setAttribute('d', newD);
+              if (window._conMirrorSend) {
+                const _now = performance.now();
+                if (_now - _liveMirrorThrottle >= 16) {
+                  _liveMirrorThrottle = _now;
+                  window._conMirrorSend({ type: 'live-path', d: newD });
+                }
+              }
             }
           });
 
@@ -19114,6 +19131,7 @@ function hideFailure() {
             }
             livePath = null;
             livePoints = [];
+            if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-commit' });
             if (e.pointerType !== 'mouse') _conSetEraserOutlineVisible(false);
           });
 
@@ -19126,6 +19144,7 @@ function hideFailure() {
             livePoints = [];
             _shapeStart = null;
             _shapeLastPos = null;
+            if (window._conMirrorSend) window._conMirrorSend({ type: 'live-path-end' });
             _conSetEraserOutlineVisible(false);
           });
 
@@ -31812,6 +31831,7 @@ function unknownWordsCopy() {
   // Tracked main-window viewport / scroll values
   var _mvpW = 0, _mvpH = 0, _msx = 0, _msy = 0;
   var _mirrorScale = 1, _mirrorWrapOx = 0, _mirrorWrapOy = 0;
+  var _mirrorLivePath = null;
 
   // Apply transform so the mirror shows exactly the same board region as the main window.
   // The board element is 20000x20000 absolute; a fixed clip wrapper constrains what's visible.
@@ -31964,6 +31984,12 @@ function unknownWordsCopy() {
       }
       if (d.snapshot && typeof window.conRestorePageToBoard === 'function') {
         window.conRestorePageToBoard(d.snapshot, { mirrorSync: true });
+        // conDrawingsClear (called during restore) wipes con-draw-live-svg; re-attach the
+        // in-progress live path so a mid-stroke board-state doesn't erase it from view.
+        if (_mirrorLivePath) {
+          var _lsvRestore = document.getElementById('con-draw-live-svg');
+          if (_lsvRestore && !_mirrorLivePath.parentNode) _lsvRestore.appendChild(_mirrorLivePath);
+        }
         if (d.boardBgRender && d.snapshot && d.snapshot.boardBg && typeof window.conSetBoardBgCacheFromMirror === 'function') {
           window.conSetBoardBgCacheFromMirror(d.snapshot.boardBg, d.boardBgRender);
         }
@@ -32147,6 +32173,45 @@ function unknownWordsCopy() {
       if (d.ui && typeof boardApplyCmsTimerUiFromRemote === 'function') {
         boardApplyCmsTimerUiFromRemote(d.ui);
       }
+      return;
+    }
+
+    if (d.type === 'live-path-start') {
+      if (_mirrorIsFrozen) return;
+      var _lsv = document.getElementById('con-draw-live-svg');
+      if (!_lsv) return;
+      _lsv.innerHTML = '';
+      _mirrorLivePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      _mirrorLivePath.setAttribute('fill', 'none');
+      _mirrorLivePath.setAttribute('stroke', d.color || '#e53935');
+      _mirrorLivePath.setAttribute('stroke-width', String(d.thickness || 4));
+      _mirrorLivePath.setAttribute('stroke-linecap', 'round');
+      _mirrorLivePath.setAttribute('stroke-linejoin', 'round');
+      _mirrorLivePath.setAttribute('opacity', String(d.opacity || 1));
+      _mirrorLivePath.style.pointerEvents = 'none';
+      _lsv.appendChild(_mirrorLivePath);
+      return;
+    }
+
+    if (d.type === 'live-path') {
+      if (_mirrorIsFrozen) return;
+      if (_mirrorLivePath && _mirrorLivePath.parentNode && d.d) {
+        _mirrorLivePath.setAttribute('d', d.d);
+      }
+      return;
+    }
+
+    if (d.type === 'live-path-commit') {
+      // Stroke committed: keep the live path element visible until the board-state
+      // snapshot arrives and conDrawingsClear wipes it (replaced by the real drawing).
+      _mirrorLivePath = null;
+      return;
+    }
+
+    if (d.type === 'live-path-end') {
+      var _lsv2 = document.getElementById('con-draw-live-svg');
+      if (_lsv2) _lsv2.innerHTML = '';
+      _mirrorLivePath = null;
       return;
     }
   };
@@ -33458,8 +33523,50 @@ function openBoardShortcuts() {
   });
 }
 
-function showBoardTourStub() {
-  ShortcutsModal.open({ title: t('tourBtnLabel'), rows: [], noShortcutsText: t('skmTourSoon') });
+function showBoardTour() {
+  var active = '';
+  document.querySelectorAll('.game').forEach(function(el) {
+    if (!el.classList.contains('hidden')) active = el.id;
+  });
+
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+
+  if (active === 'history-section') {
+    Tutorial.start([
+      { selector: '#history-section .board-section-tabs', title: t('tutHi1Title'), text: t('tutHi1Text') },
+      { selector: '#history-toolbar',                     title: t('tutHi2Title'), text: t('tutHi2Text') },
+      { selector: '#history-view-tabs',                   title: t('tutHi3Title'), text: t('tutHi3Text') },
+      { selector: '#history-filter-bar',                  title: t('tutHi4Title'), text: t('tutHi4Text') },
+      { selector: '#history-search-bar',                  title: t('tutHi5Title'), text: t('tutHi5Text') },
+      { selector: '#history-table-wrap',                  title: t('tutHi6Title'), text: t('tutHi6Text') }
+    ], labels);
+    return;
+  }
+
+  var launch = function() {
+    Tutorial.start([
+      { selector: '#constellation-section .board-section-tabs', title: t('tutBd1Title'),  text: t('tutBd1Text')  },
+      { selector: '#con-tb-file',                               title: t('tutBd2Title'),  text: t('tutBd2Text')  },
+      { selector: '#con-tb-board',                              title: t('tutBd3Title'),  text: t('tutBd3Text')  },
+      { selector: '#con-tb-draw',                               title: t('tutBd4Title'),  text: t('tutBd4Text')  },
+      { selector: '#con-tb-vocab',                              title: t('tutBd5Title'),  text: t('tutBd5Text')  },
+      { selector: '#con-tb-view',                               title: t('tutBd6Title'),  text: t('tutBd6Text')  },
+      { selector: '#con-tb-pages',                              title: t('tutBd7Title'),  text: t('tutBd7Text')  },
+      { selector: '#con-title-group',                           title: t('tutBd8Title'),  text: t('tutBd8Text')  },
+      { selector: '#con-page-nav',                              title: t('tutBd9Title'),  text: t('tutBd9Text')  },
+      { selector: '#constellation-board', title: t('tutBd10Title'), text: t('tutBd10Text') },
+      { selector: '#constellation-board', title: t('tutBd11Title'), text: t('tutBd11Text') },
+      { selector: '#con-draw-btn',         title: t('tutBd12Title'), text: t('tutBd12Text') },
+      { selector: '#con-add-table-btn',    title: t('tutBd13Title'), text: t('tutBd13Text') }
+    ], labels);
+  };
+
+  if (active !== 'constellation-section') {
+    navTo('constellation-section');
+    setTimeout(launch, 350);
+  } else {
+    launch();
+  }
 }
 </script>
 </body>

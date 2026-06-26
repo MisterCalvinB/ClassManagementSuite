@@ -835,14 +835,55 @@
     <h2 id="syncConflictTitle" data-i18n="gcSyncConflictsTitle">Sync Conflicts</h2>
     <details class="modal-note-details">
       <summary data-i18n="gcSyncConflictsHint">How to use this dialog ▸</summary>
-      <p class="modal-note" style="margin-top:6px;">
-        Both sides have a different version of each file below.<br>
-        <strong>Current</strong> = active data folder &nbsp;|&nbsp; <strong>Sync folder</strong> = saved sync location.<br><br>
-        <strong>Keep current</strong> — overwrite sync with your data.<br>
-        <strong>Keep sync folder</strong> — overwrite your data with sync.<br>
-        <strong>Skip</strong> — leave both files unchanged.<br><br>
-        Files marked <span style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;">New</span> only exist on one side.
-      </p>
+      <div class="modal-note" style="margin-top:6px;line-height:1.6;">
+
+        <p style="margin-bottom:8px;">
+          <strong>Current</strong> = your active app data folder.&nbsp;
+          <strong>Sync folder</strong> = the saved sync location you configured.<br>
+          Pick an action for each file, then click <em>Apply</em>. Use the bulk buttons at the top to set all rows at once.
+        </p>
+
+        <p style="margin-bottom:4px;font-weight:600;">Conflict rows — both sides changed since last sync</p>
+        <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep newer</strong></td><td style="padding:3px 0;vertical-align:top;">Compares file dates. The more recently modified version overwrites the older one on the other side. The older file is lost.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep current</strong></td><td style="padding:3px 0;vertical-align:top;">Your app data wins. The sync folder copy is overwritten. The sync version is lost.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep sync folder</strong></td><td style="padding:3px 0;vertical-align:top;">The sync folder wins. Your app data copy is overwritten. The current version is lost.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip</strong></td><td style="padding:3px 0;vertical-align:top;">Both files are left exactly as they are. The conflict will reappear on the next sync.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive app (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Renames your app file to a timestamped <code>.bak</code> (e.g. <code>config.js.2026-06-26T14-30.bak</code>), then copies the sync version into the app. The app now has the sync version; the old app version is preserved as a backup.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive sync (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Renames the sync file to a timestamped <code>.bak</code>, then copies your app version to sync. The sync folder now has the app version; the old sync version is preserved as a backup.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive older (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Compares file dates. The older file is renamed to a <code>.bak</code> and the newer version replaces it on both sides. If both files have the exact same date, both are archived and neither wins.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive both (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Both files are renamed to <code>.bak</code>. Neither version remains active. Use when you want to discard both conflicting versions and start fresh.</td></tr>
+        </table>
+
+        <p style="margin-bottom:4px;font-weight:600;">New file rows — file only exists on one side
+          <span style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;margin-left:4px;">New</span>
+        </p>
+        <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Copy to sync</strong></td><td style="padding:3px 0;vertical-align:top;">(App-only files) Copies your app file to the sync folder so both sides have it.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Copy to app</strong></td><td style="padding:3px 0;vertical-align:top;">(Sync-only files) Copies the sync file into your app data so both sides have it.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Delete (app)</strong></td><td style="padding:3px 0;vertical-align:top;">Permanently deletes the file from your app data. Cannot be undone.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Delete (sync)</strong></td><td style="padding:3px 0;vertical-align:top;">Permanently deletes the file from the sync folder. Cannot be undone.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive app (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Renames the app file to a <code>.bak</code>. The file is removed from active use but preserved on disk.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive sync (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Renames the sync file to a <code>.bak</code>. The file is removed from the sync folder but preserved on disk.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive both (.bak)</strong></td><td style="padding:3px 0;vertical-align:top;">Archives whichever side has the file (since only one exists here, the effect is the same as archiving that side).</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip</strong></td><td style="padding:3px 0;vertical-align:top;">Leaves the file where it is. It will appear again on the next sync.</td></tr>
+        </table>
+
+        <p style="margin-bottom:4px;font-weight:600;">Bulk buttons</p>
+        <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all current</strong></td><td style="padding:3px 0;vertical-align:top;">Sets every row to "Keep current". App data wins everywhere.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all sync folder</strong></td><td style="padding:3px 0;vertical-align:top;">Sets every row to "Keep sync folder". Sync data wins everywhere.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip all</strong></td><td style="padding:3px 0;vertical-align:top;">Sets every row to "Skip". Nothing is changed; conflicts remain for next time.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive older</strong></td><td style="padding:3px 0;vertical-align:top;">Sets all <em>conflict</em> rows (both sides changed) to "Archive older (.bak)". New-file rows are not affected since they don't have that option.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive all</strong></td><td style="padding:3px 0;vertical-align:top;">Sets every row to "Archive both (.bak)". All conflicting files on both sides are backed up; none remain active.</td></tr>
+        </table>
+
+        <p style="font-size:0.82rem;color:var(--muted);">
+          Backup files are named <code>filename.YYYY-MM-DDTHH-MM.bak</code> and accumulate over time.
+          Use <em>Data &amp; Storage → Manage backup files</em> to review and clean them up.
+        </p>
+
+      </div>
     </details>
     <div class="bulk-row">
       <button type="button" id="syncBulkKeepSrc" data-i18n="gcSyncBulkKeepSrc">Keep all current</button>
@@ -1431,6 +1472,7 @@
   var syncChipsCat  = document.getElementById('syncChipsCat');
   var _syncDaysVal  = '0';
   var _syncCatVal   = '';
+  var _syncTolS     = (function () { try { return +(JSON.parse(localStorage.getItem('cmt-general-config') || '{}').syncMtimeTolS || 0); } catch { return 0; } })();
 
   var SYNC_CAT_RULES = {
     classdata: function(p) {
@@ -1839,7 +1881,7 @@
     _syncDaysVal = '0'; setChipActive(syncChipsDays, '0');
     _syncCatVal  = '';  setChipActive(syncChipsCat,  '');
     syncConflictDiffSize.checked = false;
-    syncConflictDateTol.value    = '0';
+    syncConflictDateTol.value    = String(_syncTolS);
     syncConflictSinceLastSync.checked = _lastSyncTime > 0;
     if (_lastSyncTime > 0) {
       syncConflictSinceLastSyncLbl.style.display = 'inline-flex';
@@ -2086,7 +2128,11 @@
 
   syncConflictSearch.addEventListener('input',        applySyncConflictFilters);
   syncConflictDiffSize.addEventListener('change',     applySyncConflictFilters);
-  syncConflictDateTol.addEventListener('input',       applySyncConflictFilters);
+  syncConflictDateTol.addEventListener('input', function () {
+    _syncTolS = parseFloat(this.value) || 0;
+    try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); c.syncMtimeTolS = _syncTolS; localStorage.setItem('cmt-general-config', JSON.stringify(c)); } catch {}
+    applySyncConflictFilters();
+  });
   syncConflictSinceLastSync.addEventListener('change', applySyncConflictFilters);
 
   syncConflictList.addEventListener('click', function(e) {
@@ -2146,7 +2192,7 @@
     setSyncStatus(t('gcSyncing'), '');
     syncAddedDetails.style.display = 'none';
     try {
-      var res = await window.electronApi.runSync({ mode: 'both' });
+      var res = await window.electronApi.runSync({ mode: 'both', mtimeTolMs: _syncTolS * 1000 });
       if (!res || !res.ok) { setSyncStatus((res && res.error) || t('gcSyncFailed'), 'err'); return; }
       var errCount    = (res.errors    && res.errors.length)    || 0;
       var hasConflicts = res.conflicts && res.conflicts.length  > 0;
@@ -2231,7 +2277,7 @@
     document.getElementById('ftpHost').value          = cfg.host || '';
     document.getElementById('ftpPort').value          = cfg.port || 21;
     document.getElementById('ftpUser').value          = cfg.user || '';
-    document.getElementById('ftpPassword').value      = cfg.password ? '***' : '';
+    document.getElementById('ftpPassword').value      = cfg.hasPassword ? '***' : '';
     document.getElementById('ftpRemotePath').value    = cfg.remotePath || '';
     document.getElementById('ftpSecure').checked      = !!cfg.secure;
     document.getElementById('ftpAutoSyncToggle').checked = !!cfg.autoSync;

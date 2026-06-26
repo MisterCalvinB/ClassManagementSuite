@@ -1446,6 +1446,24 @@ async function saveFtpConfig(cfg) {
   await fs.writeFile(getFtpConfigPath(), JSON.stringify(cfg, null, 2), 'utf8');
 }
 
+function getFtpManifestPath() {
+  return path.join(app.getPath('userData'), 'ftp-manifest.json');
+}
+
+async function loadFtpManifest() {
+  try { return JSON.parse(await fs.readFile(getFtpManifestPath(), 'utf8')); } catch { return { version: 1, files: {} }; }
+}
+
+async function saveFtpManifest(manifest) {
+  await fs.writeFile(getFtpManifestPath(), JSON.stringify(manifest, null, 2), 'utf8');
+}
+
+async function hashFile(filePath) {
+  const { createHash } = require('crypto');
+  const buf = await fs.readFile(filePath);
+  return createHash('sha256').update(buf).digest('hex');
+}
+
 let _ftpAutoSyncTimer = null;
 let _ftpQuitSyncPending = false;
 
@@ -1475,15 +1493,7 @@ function bakTimestamp() {
   return new Date().toISOString().slice(0, 16).replace(/:/g, '-');
 }
 
-// Rename an existing remote FTP file to a timestamped .bak before overwriting.
-async function ftpBakRemote(ftp, remotePath) {
-  try {
-    await ftp.rename(remotePath, `${remotePath}.${bakTimestamp()}.bak`);
-  } catch {} // file doesn't exist or server rejected rename — both are fine
-}
-
-// Manual recursive FTP upload so we can call ftpBakRemote per file.
-async function ftpUploadDir(ftp, localDir, remotePath) {
+async function ftpUploadDir(ftp, localDir, remotePath, remoteBase, manifest, updated) {
   await ftp.ensureDir(remotePath);
   let entries = [];
   try { entries = await fs.readdir(localDir, { withFileTypes: true }); } catch { return; }
@@ -1491,17 +1501,20 @@ async function ftpUploadDir(ftp, localDir, remotePath) {
     const lp = path.join(localDir, entry.name);
     const rp = remotePath.replace(/\/+$/, '') + '/' + entry.name;
     if (entry.isDirectory()) {
-      await ftpUploadDir(ftp, lp, rp);
+      await ftpUploadDir(ftp, lp, rp, remoteBase, manifest, updated);
     } else {
-      await ftpBakRemote(ftp, rp);
+      const key = rp.slice(remoteBase.length).replace(/^\//, '');
+      const hash = await hashFile(lp);
+      if (manifest.files[key] === hash) continue;
       await ftp.cd(remotePath);
       await ftp.uploadFrom(lp, entry.name);
+      updated.files[key] = hash;
+      updated._changed = true;
     }
   }
 }
 
-// Manual recursive FTP download so we can call bakIfExists per file.
-async function ftpDownloadDir(ftp, remoteAbsPath, localDir) {
+async function ftpDownloadDir(ftp, remoteAbsPath, localDir, remoteBase, remoteManifest) {
   await fs.mkdir(localDir, { recursive: true });
   let items = [];
   try {
@@ -1509,16 +1522,24 @@ async function ftpDownloadDir(ftp, remoteAbsPath, localDir) {
     items = await ftp.list();
   } catch (e) {
     if (!String(e.message).includes('550')) throw e;
-    return; // remote dir doesn't exist — skip silently
+    return;
   }
   for (const item of items) {
+    if (item.name === 'cmt-manifest.json') continue;
     const localPath = path.join(localDir, item.name);
     const remoteChild = remoteAbsPath.replace(/\/+$/, '') + '/' + item.name;
     if (item.isDirectory) {
-      await ftpDownloadDir(ftp, remoteChild, localPath);
-      await ftp.cd(remoteAbsPath); // restore CWD after recursion
+      await ftpDownloadDir(ftp, remoteChild, localPath, remoteBase, remoteManifest);
+      await ftp.cd(remoteAbsPath);
     } else {
-      await bakIfExists(localPath);
+      const key = remoteChild.slice(remoteBase.length).replace(/^\//, '');
+      const remoteHash = remoteManifest.files[key];
+      if (remoteHash) {
+        try {
+          const localHash = await hashFile(localPath);
+          if (localHash === remoteHash) continue;
+        } catch {} // file doesn't exist locally — download it
+      }
       await ftp.cd(remoteAbsPath);
       await ftp.downloadTo(localPath, item.name);
     }
@@ -1542,27 +1563,64 @@ async function runFtpTransfer(direction) {
     const remoteBase = ((cfg.remotePath || '/').replace(/\\/g, '/').replace(/\/+$/, '') || '/');
     const items = await collectRemoteItems(userDir, cfg.subfolders);
 
-    for (const item of items) {
-      const remoteDest = item.remoteSuffix
-        ? (remoteBase + '/' + item.remoteSuffix).replace(/\/+/g, '/')
-        : remoteBase;
-      if (direction === 'upload') {
+    if (direction === 'upload') {
+      const manifest = await loadFtpManifest();
+      const updated = { version: 1, files: { ...manifest.files }, _changed: false };
+
+      for (const item of items) {
+        const remoteDest = item.remoteSuffix
+          ? (remoteBase + '/' + item.remoteSuffix).replace(/\/+/g, '/')
+          : remoteBase;
         if (item.isDir) {
-          await ftpUploadDir(ftp, item.localPath, remoteDest);
+          await ftpUploadDir(ftp, item.localPath, remoteDest, remoteBase, manifest, updated);
         } else {
+          const key = item.remoteSuffix;
+          const hash = await hashFile(item.localPath);
+          if (manifest.files[key] === hash) continue;
           const remoteDir = remoteDest.substring(0, remoteDest.lastIndexOf('/')) || '/';
           await ftp.ensureDir(remoteDir);
-          await ftpBakRemote(ftp, remoteDest);
           await ftp.cd(remoteDir);
           await ftp.uploadFrom(item.localPath, path.basename(remoteDest));
+          updated.files[key] = hash;
+          updated._changed = true;
         }
-      } else {
+      }
+
+      if (updated._changed) {
+        delete updated._changed;
+        const { Readable } = require('stream');
+        await ftp.cd(remoteBase);
+        await ftp.uploadFrom(Readable.from([JSON.stringify(updated, null, 2)]), 'cmt-manifest.json');
+        await saveFtpManifest(updated);
+      }
+    } else {
+      let remoteManifest = { version: 1, files: {} };
+      try {
+        const { Writable } = require('stream');
+        const chunks = [];
+        const ws = new Writable({ write(c, _, cb) { chunks.push(c); cb(); } });
+        await ftp.cd(remoteBase);
+        await ftp.downloadTo(ws, 'cmt-manifest.json');
+        remoteManifest = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      } catch {}
+
+      for (const item of items) {
+        const remoteDest = item.remoteSuffix
+          ? (remoteBase + '/' + item.remoteSuffix).replace(/\/+/g, '/')
+          : remoteBase;
         if (item.isDir) {
-          await ftpDownloadDir(ftp, remoteDest, item.localPath);
+          await ftpDownloadDir(ftp, remoteDest, item.localPath, remoteBase, remoteManifest);
         } else {
+          const key = item.remoteSuffix;
+          const remoteHash = remoteManifest.files[key];
+          if (remoteHash) {
+            try {
+              const localHash = await hashFile(item.localPath);
+              if (localHash === remoteHash) continue;
+            } catch {}
+          }
           const remoteDir = remoteDest.substring(0, remoteDest.lastIndexOf('/')) || '/';
           try {
-            await bakIfExists(item.localPath);
             await ftp.cd(remoteDir);
             await ftp.downloadTo(item.localPath, item.remoteSuffix);
           } catch (e) {
@@ -1570,6 +1628,7 @@ async function runFtpTransfer(direction) {
           }
         }
       }
+      await saveFtpManifest(remoteManifest);
     }
     return { ok: true };
   } catch (err) {
@@ -1931,13 +1990,26 @@ function resolveSyncDestDir(syncLocation) {
 // source = writableRoot/user, dest = resolved sync destination
 // baseline: { map: Map<string,{mtimeMs,size}>, prefix: string } | null
 //   map keys are relative paths within srcDir; prefix is prepended (empty = no prefix).
-async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = null } = {}) {
+async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = null, mtimeTolMs = 0 } = {}) {
   let copied = 0;
   const errors = [];
   const conflicts = [];
   const added = [];
   const newFiles = [];
   const synced = []; // files auto-resolved via baseline; entries: { relativePath, mtimeMs, size }
+
+  function sameFile(a, b) {
+    const diff = Math.abs(a.mtimeMs - b.mtimeMs);
+    if (diff < 1000) return true;
+    if (isTzOnlyDiff(a, b)) return true;
+    return mtimeTolMs > 0 && diff <= mtimeTolMs && a.size === b.size;
+  }
+
+  function changedVsBase(entry, base) {
+    if (entry.size !== base.size) return true;
+    const diff = Math.abs(entry.mtimeMs - base.mtimeMs);
+    return diff >= 1000 && (mtimeTolMs === 0 || diff > mtimeTolMs);
+  }
 
   async function collectFiles(dir, prefix) {
     const result = new Map();
@@ -1997,7 +2069,7 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
         } else {
           newFiles.push({ relativePath: rel, side: 'src-only', srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs, destSize: null, destMtimeMs: null });
         }
-      } else if (Math.abs(srcEntry.mtimeMs - destEntry.mtimeMs) >= 1000 && !isTzOnlyDiff(srcEntry, destEntry)) {
+      } else if (!sameFile(srcEntry, destEntry)) {
         conflicts.push({
           relativePath: rel,
           srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs,
@@ -2017,7 +2089,7 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
         } else {
           newFiles.push({ relativePath: rel, side: 'dest-only', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
         }
-      } else if (Math.abs(srcEntry.mtimeMs - destEntry.mtimeMs) >= 1000 && !isTzOnlyDiff(srcEntry, destEntry)) {
+      } else if (!sameFile(srcEntry, destEntry)) {
         conflicts.push({
           relativePath: rel,
           srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs,
@@ -2045,14 +2117,14 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
             newFiles.push({ relativePath: rel, side: 'dest-only', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
           }
         } else if (srcEntry && destEntry) {
-          if (Math.abs(srcEntry.mtimeMs - destEntry.mtimeMs) < 1000 || isTzOnlyDiff(srcEntry, destEntry)) continue;
+          if (sameFile(srcEntry, destEntry)) continue;
 
           // Consult baseline to detect which side actually changed
           const baseKey = baseline ? (baseline.prefix ? baseline.prefix + '/' + rel : rel) : null;
           const base    = baseKey ? baseline.map.get(baseKey) : null;
           if (base) {
-            const srcChanged  = Math.abs(srcEntry.mtimeMs  - base.mtimeMs) >= 1000 || srcEntry.size  !== base.size;
-            const destChanged = Math.abs(destEntry.mtimeMs - base.mtimeMs) >= 1000 || destEntry.size !== base.size;
+            const srcChanged  = changedVsBase(srcEntry,  base);
+            const destChanged = changedVsBase(destEntry, base);
 
             if (!srcChanged && !destChanged) {
               // Platform rounding artefact — files are effectively identical
@@ -4177,7 +4249,7 @@ ipcMain.handle('app:pick-sync-location', async () => {
   return { ok: true, canceled: false, syncLocation: selected };
 });
 
-ipcMain.handle('app:run-sync', async (_event, { mode } = {}) => {
+ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => {
   const syncLocation = await loadSavedSyncLocation();
   if (!syncLocation) {
     return { ok: false, error: 'No sync location configured.' };
@@ -4208,7 +4280,8 @@ ipcMain.handle('app:run-sync', async (_event, { mode } = {}) => {
 
   const result = await syncTrees(srcDir, destDir, syncMode, {
     autoNew: false,
-    baseline: { map: baselineMap, prefix: '' }
+    baseline: { map: baselineMap, prefix: '' },
+    mtimeTolMs: Math.max(0, mtimeTolMs)
   });
 
   const allErrors    = result.errors;
@@ -4403,6 +4476,7 @@ ipcMain.handle('app:set-auto-sync', async (_event, { enabled } = {}) => {
 ipcMain.handle('app:ftp-get-config', async () => {
   const cfg = await loadFtpConfig();
   const safe = { ...cfg };
+  safe.hasPassword = !!cfg.password;
   delete safe.password; // password never leaves main process
   return { ok: true, config: safe };
 });

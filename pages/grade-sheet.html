@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -310,6 +311,7 @@
     .class-card-footer {
       display: flex;
       justify-content: flex-end;
+      gap: 6px;
       margin-top: 10px;
     }
 
@@ -329,6 +331,110 @@
       color: #111;
       background: #f5f5f5;
       box-shadow: none;
+    }
+
+    .all-tests-panel {
+      border: 2px solid #ccc;
+      background: #fff;
+      border-radius: 5px;
+      padding: 16px 18px;
+      box-shadow: 2px 2px 0 #ddd;
+      margin-top: 18px;
+    }
+
+    .all-tests-panel-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 14px;
+      color: #222;
+    }
+
+    .all-tests-class-group {
+      margin-bottom: 14px;
+    }
+
+    .all-tests-class-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .all-tests-class-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .all-tests-rows {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .all-test-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #333;
+      background: #f7f7f7;
+      border: 1px solid #e4e4e4;
+      border-radius: 6px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: border-color 120ms ease, background 120ms ease;
+      min-width: 0;
+    }
+
+    .all-test-item:hover {
+      border-color: #111;
+      background: #fff;
+    }
+
+    .all-test-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: #e8e8e8;
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #555;
+      flex-shrink: 0;
+    }
+
+    .all-test-name {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .all-test-date {
+      color: var(--muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .all-tests-empty {
+      font-size: 0.85rem;
+      color: #bbb;
+    }
+
+    .btn-add-test-card {
+      font-size: 0.78rem;
+      padding: 3px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 120ms ease, color 120ms ease;
+    }
+
+    .btn-add-test-card:hover {
+      border-color: #111;
+      color: #111;
+      background: #f5f5f5;
     }
 
     .form-inline {
@@ -1427,7 +1533,7 @@
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
   <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-  <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')})" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
+  <button class="tut-trigger-btn" onclick="showGsTour()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel">▶ Tour</button>
   <div id="app-hamburger" class="hm-wrap">
     <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu">☰</button>
     <div class="hm-menu"></div>
@@ -1444,11 +1550,13 @@
           <button id="btn-export" class="btn" data-i18n="gsBtnExport">Export JSON</button>
           <button id="btn-import" class="btn" data-i18n="gsBtnImport">Import JSON</button>
           <button id="btn-edit-reference-data" class="btn" data-i18n="gsBtnEditRef">Edit Criteria / Scales</button>
+          <button id="btn-add-test-overview" class="btn" data-i18n="gsBtnAddTest">Add Test</button>
           <button id="btn-add-class" class="btn primary" data-i18n="gsBtnAddClass">+ Add Class</button>
         </div>
       </div>
 
       <div id="classes-grid" class="classes-grid"></div>
+      <div id="all-tests-panel" class="all-tests-panel hidden"></div>
       <input id="import-file" type="file" accept="application/json,.js" class="hidden" />
       <input id="import-grades-file" type="file" accept="application/json" class="hidden" />
     </section>
@@ -1754,7 +1862,10 @@
   <!-- Test Options unified modal -->
   <div id="test-options-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup wide panel topt-modal" role="dialog" aria-modal="true">
-      <div class="crit-popup-title" data-i18n="gsTestOptionsTitle">Test Options</div>
+      <div class="crit-popup-title" style="display:flex;align-items:center;gap:10px;">
+        <span data-i18n="gsTestOptionsTitle">Test Options</span>
+        <button type="button" class="btn" onclick="showGsModalTour()" style="margin-left:auto;font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel">▶ Tour</button>
+      </div>
 
       <!-- Test Info -->
       <div class="topt-section" data-section="info">
@@ -2083,6 +2194,24 @@
         <div class="btn-row">
           <button id="add-class-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
           <button id="add-class-confirm" class="btn primary" type="button" data-i18n="gsAddClassBtnAdd">Add Class</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Test (class picker) modal -->
+  <div id="add-test-overview-overlay" class="crit-popup-overlay hidden">
+    <div class="crit-popup panel" role="dialog" aria-modal="true">
+      <div class="crit-popup-title" data-i18n="gsBtnAddTest">Add Test</div>
+      <div class="form-group">
+        <label for="add-test-overview-class-select" data-i18n="gsPickClassLabel">Choose class</label>
+        <select id="add-test-overview-class-select" class="input" style="min-width:260px"></select>
+      </div>
+      <div class="crit-popup-footer">
+        <div></div>
+        <div class="btn-row">
+          <button id="add-test-overview-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
+          <button id="add-test-overview-confirm" class="btn primary" type="button" data-i18n="gsBtnAddTest">Add Test</button>
         </div>
       </div>
     </div>
@@ -3524,6 +3653,7 @@
       const now = Date.now();
       for (const cls of appState.classes) {
         const subdir = cls.id;
+        const classSlug = slugifyForPath(cls.name);
         const classMeta = {
           _savedAt: now,
           classId: cls.id,
@@ -4038,6 +4168,79 @@
       }
     }
 
+    function renderAllTests() {
+      const panel = document.getElementById("all-tests-panel");
+      if (!panel) return;
+      panel.innerHTML = "";
+
+      const classesWithTests = appState.classes.filter(c => {
+        const tc = c.testCounts || { sem1: 0, sem2: 0 };
+        return tc.sem1 + tc.sem2 > 0;
+      });
+
+      if (classesWithTests.length === 0) {
+        panel.classList.add("hidden");
+        return;
+      }
+      panel.classList.remove("hidden");
+
+      const title = document.createElement("div");
+      title.className = "all-tests-panel-title";
+      title.textContent = t('gsAllTestsTitle');
+      panel.appendChild(title);
+
+      classesWithTests.forEach(c => {
+        const testCounts = c.testCounts || { sem1: 0, sem2: 0 };
+        const testConfigs = c.testConfigs || { sem1: [], sem2: [] };
+        const classSem = c.semester ? Number(c.semester) : 0;
+        const showSem1 = classSem !== 2;
+        const showSem2 = classSem !== 1;
+        const multiSem = showSem1 && showSem2;
+
+        const group = document.createElement("div");
+        group.className = "all-tests-class-group";
+
+        const label = document.createElement("div");
+        label.className = "all-tests-class-label";
+        label.textContent = c.name + (c.year ? ' · ' + c.year : '') + (c.semester ? ' · S' + c.semester : '');
+        group.appendChild(label);
+
+        const rows = document.createElement("div");
+        rows.className = "all-tests-rows";
+
+        const addTestChip = (sem, i) => {
+          const cfg = (testConfigs[sem] || [])[i];
+          const name = (cfg && cfg.testName) ? cfg.testName : `Test ${i + 1}`;
+          const date = (cfg && cfg.testDate) ? cfg.testDate : '';
+          const badge = multiSem ? (sem === 'sem1' ? `S1·T${i + 1}` : `S2·T${i + 1}`) : `T${i + 1}`;
+
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "all-test-item";
+          chip.innerHTML = `<span class="all-test-badge">${escapeHtml(badge)}</span><span class="all-test-name">${escapeHtml(name)}</span>${date ? `<span class="all-test-date">${escapeHtml(date)}</span>` : ''}`;
+          chip.addEventListener("click", () => {
+            appState.activeClassId = c.id;
+            ensureClassStructures(c);
+            renderSummary();
+            appState.activeTest = { semester: sem, testIndex: i };
+            renderTestSheet();
+            showScreen("test");
+          });
+          rows.appendChild(chip);
+        };
+
+        if (showSem1) {
+          for (let i = 0; i < testCounts.sem1; i++) addTestChip('sem1', i);
+        }
+        if (showSem2) {
+          for (let i = 0; i < testCounts.sem2; i++) addTestChip('sem2', i);
+        }
+
+        group.appendChild(rows);
+        panel.appendChild(group);
+      });
+    }
+
     function renderClasses() {
       const grid = document.getElementById("classes-grid");
       grid.innerHTML = "";
@@ -4061,7 +4264,8 @@
             <div class="class-name">${escapeHtml(c.name)}</div>
             <div class="class-meta">${c.students.length} students${c.year ? ` · ${escapeHtml(c.year)}` : ''}${c.semester ? ` · S${escapeHtml(String(c.semester))}` : ''}${c.level ? ` · Lvl ${escapeHtml(String(c.level))}` : ''}</div>
             <div class="class-card-footer">
-              <button type="button" class="btn-edit-class" data-id="${c.id}">Edit name</button>
+              <button type="button" class="btn-edit-class" data-id="${c.id}" data-i18n="gsMenuEditName">Edit name</button>
+              <button type="button" class="btn-add-test-card" data-id="${c.id}" data-i18n="gsBtnAddTest">Add Test</button>
             </div>
           `;
           card.addEventListener("click", () => {
@@ -4078,6 +4282,10 @@
               renderClasses();
             }
           });
+          card.querySelector(".btn-add-test-card").addEventListener("click", evt => {
+            evt.stopPropagation();
+            addTestForClass(c);
+          });
           card.addEventListener("contextmenu", ev => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -4085,6 +4293,7 @@
           });
           grid.appendChild(card);
         });
+      renderAllTests();
     }
 
 
@@ -6514,6 +6723,12 @@
     async function addTest() {
       const classObj = getActiveClass();
       if (!classObj) return;
+      await addTestForClass(classObj);
+    }
+
+    async function addTestForClass(classObj) {
+      if (!classObj) return;
+      ensureClassStructures(classObj);
 
       const sem = classObj.testCounts.sem1 < TEST_COUNT_PER_SEM ? "sem1" : "sem2";
 
@@ -6522,6 +6737,7 @@
         return;
       }
 
+      appState.activeClassId = classObj.id;
       const newTestIndex = classObj.testCounts[sem];
       classObj.testCounts[sem]++;
       saveState();
@@ -6530,6 +6746,25 @@
       renderTestSheet();
       showScreen("test");
       openTestOptionsModal(getTestConfig(classObj, sem, newTestIndex), classObj, sem, newTestIndex, "info");
+    }
+
+    function openAddTestFromOverviewModal() {
+      if (appState.classes.length === 0) return;
+      if (appState.classes.length === 1) {
+        addTestForClass(appState.classes[0]);
+        return;
+      }
+      const sel = document.getElementById("add-test-overview-class-select");
+      sel.innerHTML = appState.classes
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}${c.year ? ' · ' + escapeHtml(c.year) : ''}</option>`)
+        .join('');
+      document.getElementById("add-test-overview-overlay").classList.remove("hidden");
+    }
+
+    function closeAddTestFromOverviewModal() {
+      document.getElementById("add-test-overview-overlay").classList.add("hidden");
     }
 
     async function syncTestToPlanner(classObj, sem, testIndex) {
@@ -7099,6 +7334,17 @@
       document.getElementById("add-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("add-class-overlay")) closeAddClassModal(); });
       document.getElementById("add-class-name").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") closeAddClassModal(); });
       document.getElementById("add-class-year").addEventListener("keydown", e => { if (e.key === "Enter") addClassFromInput(); if (e.key === "Escape") closeAddClassModal(); });
+
+      document.getElementById("btn-add-test-overview").addEventListener("click", openAddTestFromOverviewModal);
+      document.getElementById("add-test-overview-confirm").addEventListener("click", () => {
+        const sel = document.getElementById("add-test-overview-class-select");
+        const classId = sel.value;
+        const classObj = appState.classes.find(c => c.id === classId);
+        closeAddTestFromOverviewModal();
+        if (classObj) addTestForClass(classObj);
+      });
+      document.getElementById("add-test-overview-cancel").addEventListener("click", closeAddTestFromOverviewModal);
+      document.getElementById("add-test-overview-overlay").addEventListener("click", e => { if (e.target === document.getElementById("add-test-overview-overlay")) closeAddTestFromOverviewModal(); });
 
       document.getElementById("btn-back-classes").addEventListener("click", () => {
         appState.activeClassId = null;
@@ -7918,6 +8164,36 @@
 <script>
 function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
+
+function showGsModalTour() {
+  document.querySelectorAll('#test-options-overlay .topt-section').forEach(function(s) {
+    s.classList.add('open');
+  });
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '.topt-section[data-section="info"]',       title: t('tutGsM1Title'), text: t('tutGsM1Text') },
+    { selector: '.topt-section[data-section="coeff"]',      title: t('tutGsM2Title'), text: t('tutGsM2Text') },
+    { selector: '.topt-section[data-section="grading"]',    title: t('tutGsM3Title'), text: t('tutGsM3Text') },
+    { selector: '.topt-section[data-section="criteria"]',   title: t('tutGsM4Title'), text: t('tutGsM4Text') },
+    { selector: '#test-options-overlay .crit-popup-footer', title: t('tutGsM5Title'), text: t('tutGsM5Text') }
+  ], labels);
+}
+
+function showGsTour() {
+  var onTest = !document.getElementById('screen-test').classList.contains('hidden');
+  if (!onTest) {
+    ShortcutsModal.open({ title: t('tourBtnLabel'), rows: [], noShortcutsText: t('gsTestTourNeedTest') });
+    return;
+  }
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#test-title',           title: t('tutGs1Title'), text: t('tutGs1Text') },
+    { selector: '#screen-test .btn-row', title: t('tutGs2Title'), text: t('tutGs2Text') },
+    { selector: '#test-config',          title: t('tutGs3Title'), text: t('tutGs3Text') },
+    { selector: '#test-table thead',     title: t('tutGs4Title'), text: t('tutGs4Text') },
+    { selector: '#test-table',           title: t('tutGs5Title'), text: t('tutGs5Text') }
+  ], labels);
+}
 </script>
 <script>
 (function () {

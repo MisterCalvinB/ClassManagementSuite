@@ -418,6 +418,11 @@
     .entry-btn.add-btn { border-style: dashed; color: #666; }
     .entry-btn.add-btn:hover { border-style: solid; border-color: #111; color: #111; }
     .entry-row.entry-noclass { opacity: .72; border-style: dashed; }
+    @keyframes entry-focus-blink {
+      0%, 100% { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.35); }
+      50%       { border-color: #fca5a5; box-shadow: 0 0 0 3px rgba(239,68,68,.08); }
+    }
+    .entry-row.entry-focus-blink { animation: entry-focus-blink .55s ease-in-out 9; }
     .entry-noclass .entry-color-bar { background: repeating-linear-gradient(45deg,#bbb 0,#bbb 3px,#e5e5e5 3px,#e5e5e5 6px) !important; }
     .entry-noclass .entry-class-pill { text-decoration: line-through; opacity: .7; }
     .entry-cls-pills { display: flex; flex-wrap: wrap; gap: 4px; min-height: 28px; align-items: center; padding: 2px 0; }
@@ -460,7 +465,7 @@
     .modal-close { background: none; border: none; cursor: pointer; font-size: 1.1rem; color: #555; padding: 2px 6px; border-radius: 3px; }
     .modal-close:hover { color: #111; background: #e0e0e0; }
     .modal-body { padding: 18px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 13px; }
-    .modal-footer { padding: 11px 18px; border-top: 2px solid #ccc; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .modal-footer { padding: 11px 18px; border-top: 2px solid #ccc; display: flex; align-items: center; gap: 8px; flex-shrink: 0; justify-content: flex-end; }
     .ml-auto { margin-left: auto; }
 
     /* ── Form ── */
@@ -688,6 +693,7 @@
   <div class="td-modal-box">
     <div class="td-modal-hd">
       <span class="td-modal-title" id="td-modal-title" data-i18n="td_addTodo">Add To-do</span>
+      <button type="button" class="tut-trigger-btn" onclick="startTodoModalTour()" style="margin-right:6px;font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel">▶ Tour</button>
       <button class="td-modal-close" onclick="closeTodoModal()">✕</button>
     </div>
     <div class="td-modal-body">
@@ -705,7 +711,7 @@
           <select id="td-class" class="td-select"></select>
         </div>
       </div>
-      <div>
+      <div id="td-reminder-wrap">
         <label class="td-field-lbl" data-i18n="td_todoReminder">Reminder</label>
         <div class="td-rem-row">
           <select id="td-reminder-type" class="td-select" onchange="tdToggleReminderFields()">
@@ -715,7 +721,7 @@
           <input type="datetime-local" id="td-reminder-dt" class="td-input" style="display:none">
         </div>
       </div>
-      <div>
+      <div id="td-links-wrap">
         <label class="td-field-lbl" data-i18n="td_todoLinks">Links</label>
         <div class="td-links-sec">
           <div class="td-link-row">
@@ -732,7 +738,7 @@
           </div>
         </div>
       </div>
-      <div>
+      <div id="td-subtasks-wrap">
         <label class="td-field-lbl" data-i18n="td_subtasks">Subtasks</label>
         <div id="td-subtodos-list" class="td-sub-list"></div>
         <div class="td-sub-add-row">
@@ -792,10 +798,10 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="tb-btn primary" onclick="saveSemModal()" data-i18n="btnOk">OK</button>
-      <button class="tb-btn" onclick="closeModal('semModal')" data-i18n="btnCancel">Cancel</button>
-      <button class="danger-btn ml-auto" id="del-sem-btn" style="display:none"
+      <button class="danger-btn" id="del-sem-btn" style="display:none;margin-right:auto"
               onclick="deleteActiveSem()" data-i18n="pl_deleteSem">Delete Term</button>
+      <button class="tb-btn" onclick="closeModal('semModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn primary" onclick="saveSemModal()" data-i18n="btnOk">OK</button>
     </div>
   </div>
 </div>
@@ -850,10 +856,10 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="tb-btn primary" onclick="saveClassPanel()" data-i18n="btnOk">OK</button>
-      <button class="tb-btn" onclick="closeModal('classModal')" data-i18n="btnCancel">Cancel</button>
-      <button class="danger-btn ml-auto" id="del-cls-btn" style="display:none"
+      <button class="danger-btn" id="del-cls-btn" style="display:none;margin-right:auto"
               onclick="deleteManualClass()" data-i18n="pl_deleteClass">Delete Class</button>
+      <button class="tb-btn" onclick="closeModal('classModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn primary" onclick="saveClassPanel()" data-i18n="btnOk">OK</button>
     </div>
   </div>
 </div>
@@ -995,12 +1001,12 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
-      <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
-      <button class="tb-btn ml-auto" id="dup-entry-btn" style="display:none"
-              onclick="duplicateCurrentEntry()" data-i18n="pl_btnDuplicate">Duplicate</button>
-      <button class="danger-btn" id="del-entry-btn" style="display:none"
+      <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
               onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+      <button class="tb-btn" id="dup-entry-btn" style="display:none"
+              onclick="duplicateCurrentEntry()" data-i18n="pl_btnDuplicate">Duplicate</button>
+      <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
     </div>
   </div>
 </div>
@@ -1012,8 +1018,8 @@
       <p id="confirm-msg" style="font-size:.88rem;line-height:1.6;white-space:pre-wrap"></p>
     </div>
     <div class="modal-footer">
+      <button class="tb-btn" onclick="resolveConfirm(false)" data-i18n="btnCancel">Cancel</button>
       <button class="danger-btn" onclick="resolveConfirm(true)" id="confirm-ok" data-i18n="btnOk">OK</button>
-      <button class="tb-btn ml-auto" onclick="resolveConfirm(false)" data-i18n="btnCancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -1158,9 +1164,9 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="tb-btn primary" id="ics-import-btn" onclick="doImportIcs()" style="display:none" data-i18n="pl_icsImpBtnConfirm">Import Selected</button>
+      <span id="ics-parse-status" style="font-size:.75rem;color:#666;font-weight:700;margin-right:auto"></span>
       <button class="tb-btn" onclick="closeModal('icsImportModal')" data-i18n="btnCancel">Cancel</button>
-      <span id="ics-parse-status" style="font-size:.75rem;color:#666;font-weight:700;padding-left:8px"></span>
+      <button class="tb-btn primary" id="ics-import-btn" onclick="doImportIcs()" style="display:none" data-i18n="pl_icsImpBtnConfirm">Import Selected</button>
     </div>
   </div>
 </div>
@@ -1183,8 +1189,8 @@
       <button class="add-link" onclick="addCustomTypeRow()" data-i18n="pl_addCustomType">+ Add Type</button>
     </div>
     <div class="modal-footer">
-      <button class="tb-btn primary" onclick="saveCustomFields()" data-i18n="btnOk">OK</button>
       <button class="tb-btn" onclick="closeModal('fieldsModal')" data-i18n="btnCancel">Cancel</button>
+      <button class="tb-btn primary" onclick="saveCustomFields()" data-i18n="btnOk">OK</button>
     </div>
   </div>
 </div>
@@ -1309,17 +1315,36 @@ function setAutoEnd5Min(val) {
 
 // ── Tutorial ───────────────────────────────────────────────────────────────
 function startPlTutorial() {
+  if (!_todoPanelOpen) toggleTodoPanel();
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
   Tutorial.start([
-    { selector: 'button[data-i18n="pl_btnAddSem"]', title: t('tutPl1Title'), text: t('tutPl1Text') },
-    { selector: 'button[data-i18n="pl_btnClasses"]',title: t('tutPl2Title'), text: t('tutPl2Text') },
-    { selector: '#class-filter-chips',              title: t('tutPl3Title'), text: t('tutPl3Text') },
+    { selector: 'button[data-i18n="pl_btnAddSem"]',  title: t('tutPl1Title'), text: t('tutPl1Text') },
+    { selector: 'button[data-i18n="pl_btnClasses"]', title: t('tutPl2Title'), text: t('tutPl2Text') },
+    { selector: '#class-filter-chips',               title: t('tutPl3Title'), text: t('tutPl3Text') },
     { selector: 'button[data-i18n="pl_btnAddEntry"]',title: t('tutPl4Title'), text: t('tutPl4Text') },
-    { selector: '#main',                            title: t('tutPl5Title'), text: t('tutPl5Text') },
-    { selector: 'button[data-i18n="pl_btnExport"]', title: t('tutPl6Title'), text: t('tutPl6Text') }
-  ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
+    { selector: '#main',                             title: t('tutPl5Title'), text: t('tutPl5Text') },
+    { selector: 'button[data-i18n="pl_btnExport"]',  title: t('tutPl6Title'), text: t('tutPl6Text') },
+    { selector: '#tp-tab-btn',                       title: t('tutPl7Title'), text: t('tutPl7Text') },
+    { selector: '.tp-header',                        title: t('tutPl8Title'), text: t('tutPl8Text') },
+    { selector: '#td-list',                          title: t('tutPl9Title'), text: t('tutPl9Text') }
+  ], labels);
+}
+
+function startTodoModalTour() {
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#td-text',          title: t('tutPlTd1Title'), text: t('tutPlTd1Text') },
+    { selector: '.td-2col',          title: t('tutPlTd2Title'), text: t('tutPlTd2Text') },
+    { selector: '#td-reminder-wrap', title: t('tutPlTd3Title'), text: t('tutPlTd3Text') },
+    { selector: '#td-links-wrap',    title: t('tutPlTd4Title'), text: t('tutPlTd4Text') },
+    { selector: '#td-subtasks-wrap', title: t('tutPlTd5Title'), text: t('tutPlTd5Text') },
+    { selector: '.td-modal-ft',      title: t('tutPlTd6Title'), text: t('tutPlTd6Text') }
+  ], labels);
 }
 
 // ── Boot ───────────────────────────────────────────────────────────────────
+var _plannerBooted = false;
+
 window.addEventListener('DOMContentLoaded', async function () {
   initHamburger('hmWrap');
   applyTranslations();
@@ -1329,7 +1354,20 @@ window.addEventListener('DOMContentLoaded', async function () {
   render();
   navigateToPending();
   navigateToPendingTodo();
+  _plannerBooted = true;
 });
+
+// When the window is already open and focused from launcher, process any pending nav keys.
+// Guard with _plannerBooted so focus events that fire during the async initial load
+// do not consume the localStorage keys before the DOM is ready.
+window.addEventListener('focus', function() {
+  if (!_plannerBooted) return;
+  navigateToPending();
+  navigateToPendingTodo();
+});
+
+var _navHighlightNav   = null;
+var _navHighlightUntil = 0;
 
 function navigateToPending() {
   var raw = localStorage.getItem('cmt-planner-nav');
@@ -1338,6 +1376,16 @@ function navigateToPending() {
   var nav;
   try { nav = JSON.parse(raw); } catch(e) { return; }
   if (!nav || !nav.date) return;
+  _navHighlightNav   = nav;
+  _navHighlightUntil = Date.now() + 5000;
+  setTimeout(function() { _navHighlightNav = null; }, 5500);
+  _applyNavHighlight(true);
+}
+
+// Re-apply the nav highlight after any renderAgenda/renderTable call that replaces DOM nodes.
+function _applyNavHighlight(doScroll) {
+  if (!_navHighlightNav || Date.now() > _navHighlightUntil) { _navHighlightNav = null; return; }
+  var nav = _navHighlightNav;
   var sel = '.entry-row[data-date="' + nav.date + '"]';
   if (nav.classId) sel += '[data-classid="' + nav.classId + '"]';
   if (nav.time)    sel += '[data-time="' + nav.time + '"]';
@@ -1345,21 +1393,18 @@ function navigateToPending() {
   if (!el && nav.classId) el = document.querySelector('.entry-row[data-date="' + nav.date + '"][data-classid="' + nav.classId + '"]');
   if (!el) el = document.querySelector('.entry-row[data-date="' + nav.date + '"]');
   if (!el) return;
-  var mainEl = document.getElementById('main');
-  if (mainEl) {
-    var mainRect = mainEl.getBoundingClientRect();
-    var elRect   = el.getBoundingClientRect();
-    var target   = mainEl.scrollTop + (elRect.top - mainRect.top) - mainEl.clientHeight / 2 + el.offsetHeight / 2;
-    mainEl.scrollTop = Math.max(0, target);
+  if (doScroll) {
+    var mainEl = document.getElementById('main');
+    if (mainEl) {
+      var mainRect = mainEl.getBoundingClientRect();
+      var elRect   = el.getBoundingClientRect();
+      var target   = mainEl.scrollTop + (elRect.top - mainRect.top) - mainEl.clientHeight / 2 + el.offsetHeight / 2;
+      mainEl.scrollTop = Math.max(0, target);
+    }
   }
-  el.style.borderColor = '#f0b800';
-  el.style.backgroundColor = '#fffbe0';
-  setTimeout(function() {
-    el.style.transition = 'border-color 1.4s ease-out, background-color 1.4s ease-out';
-    el.style.borderColor = '';
-    el.style.backgroundColor = '';
-    setTimeout(function() { el.style.transition = ''; }, 1500);
-  }, 1400);
+  el.classList.remove('entry-focus-blink');
+  void el.offsetWidth; // force reflow so animation restarts from the beginning
+  el.classList.add('entry-focus-blink');
 }
 
 function navigateToPendingTodo() {
@@ -1676,6 +1721,7 @@ function renderAgenda() {
   });
   if (prevWeek !== null) html += '</div>'; // close last week-group
   el.innerHTML = html;
+  _applyNavHighlight(false);
 }
 
 function renderSlot(s) {
@@ -3479,6 +3525,7 @@ function renderTable() {
 
   html += '</tbody></table></div>';
   el.innerHTML = html;
+  _applyNavHighlight(false);
 }
 
 function renderTableCell(s) {
