@@ -336,9 +336,10 @@
     return getDesktopApi().docPresentationCommand(command);
   }
 
-  async function remoteStart(port) {
+  async function remoteStart(opts) {
     if (!isElectron()) return null;
-    return getDesktopApi().remoteStart({ port });
+    const req = (opts && typeof opts === 'object') ? opts : { port: opts };
+    return getDesktopApi().remoteStart(req);
   }
 
   async function remoteStop() {
@@ -359,6 +360,21 @@
   async function remoteNewToken() {
     if (!isElectron()) return null;
     return getDesktopApi().remoteNewToken();
+  }
+
+  async function remoteConfigRead() {
+    if (!isElectron()) return null;
+    return getDesktopApi().remoteConfigRead();
+  }
+
+  async function remoteConfigSave(config) {
+    if (!isElectron()) return null;
+    return getDesktopApi().remoteConfigSave(config);
+  }
+
+  async function quizSaveResult(payload) {
+    if (!isElectron()) return null;
+    return getDesktopApi().quizSaveResult(payload);
   }
 
   async function quizServerStart(port) {
@@ -598,6 +614,9 @@
     remoteStatus,
     remotePushState,
     remoteNewToken,
+    remoteConfigRead,
+    remoteConfigSave,
+    quizSaveResult,
     quizServerStart,
     quizServerStop,
     quizServerStatus,

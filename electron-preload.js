@@ -227,6 +227,15 @@ const exposedApi = {
   remoteNewToken() {
     return invoke('app:remote-new-token');
   },
+  remoteConfigRead() {
+    return invoke('app:remote-config-read');
+  },
+  remoteConfigSave(config) {
+    return invoke('app:remote-config-save', config);
+  },
+  quizSaveResult(payload) {
+    return invoke('app:quiz-save-result', payload);
+  },
   quizServerStart(request) {
     return invoke('app:quiz-server-start', request);
   },

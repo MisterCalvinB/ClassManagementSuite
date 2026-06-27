@@ -1487,8 +1487,12 @@
           <input id="note-student-title" class="search-input" type="text" maxlength="80" placeholder="Student notes" />
         </div>
         <div>
-          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Server URL</label>
-          <input id="note-student-server" class="search-input" type="text" placeholder="http://localhost:8787" oninput="noteStudentRefreshAddressPreview()" />
+          <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Server</label>
+          <div style="display:flex;margin-bottom:4px;">
+            <button id="note-student-mode-local-btn" onclick="_noteStudentSetMode('local')" style="flex:1;padding:4px 8px;border:1.5px solid #2563eb;border-radius:4px 0 0 4px;background:#2563eb;color:#fff;font-size:0.75rem;font-weight:700;cursor:pointer;">Local</button>
+            <button id="note-student-mode-external-btn" onclick="_noteStudentSetMode('external')" style="flex:1;padding:4px 8px;border:1.5px solid #d1d5db;border-left:none;border-radius:0 4px 4px 0;background:#f1f5f9;color:#334155;font-size:0.75rem;font-weight:700;cursor:pointer;">External</button>
+          </div>
+          <input id="note-student-server" class="search-input" type="text" placeholder="https://your-server.com" oninput="noteStudentRefreshAddressPreview()" style="display:none;" />
         </div>
         <div>
           <label style="display:block;font-size:0.74rem;color:#334155;font-weight:700;margin-bottom:4px;">Room id</label>
@@ -12897,6 +12901,7 @@ function hideFailure() {
         const _mirrorCh = new BroadcastChannel('constellation-mirror');
         let _mirrorPopupRef = null;
         let _mirrorTimer = null;
+        let _mirrorLastSent = 0;
         let _mirrorFrozen = false;
         const _mirrorPeers = new Set();
         function _setPresentationActive(on) {
@@ -12916,8 +12921,25 @@ function hideFailure() {
         }
         function _mirrorBroadcast() {
           if (_mirrorFrozen) return;
-          clearTimeout(_mirrorTimer);
-          _mirrorTimer = setTimeout(async function() {
+          const _now = Date.now();
+          // Leading edge: fire immediately if enough time has passed since last send
+          if (_now - _mirrorLastSent >= 50) {
+            clearTimeout(_mirrorTimer);
+            _mirrorTimer = null;
+            _mirrorLastSent = _now;
+            _mirrorDoSend();
+            return;
+          }
+          // Trailing edge: schedule a catch-up send for the end of the burst
+          if (!_mirrorTimer) {
+            _mirrorTimer = setTimeout(function() {
+              _mirrorTimer = null;
+              _mirrorLastSent = Date.now();
+              _mirrorDoSend();
+            }, 50 - (_now - _mirrorLastSent));
+          }
+        }
+        async function _mirrorDoSend() {
             try {
               var vp = _mirrorGetViewport();
               var snap = window.conBuildPageSnapshot();
@@ -13012,7 +13034,6 @@ function hideFailure() {
                 frozen: _mirrorFrozen
               });
             } catch(e) {}
-          }, 300);
         }
         _mirrorCh.onmessage = function(e) {
           if (!e.data) return;
@@ -23023,15 +23044,40 @@ function hideFailure() {
       if (serverInput) serverInput.disabled = _noteStudentHub.connected;
     }
 
+    function _noteStudentSetMode(mode, prefillUrl) {
+      _noteStudentHub.mode = (mode === 'external') ? 'external' : 'local';
+      const isLocal = _noteStudentHub.mode === 'local';
+      const localBtn = document.getElementById('note-student-mode-local-btn');
+      const extBtn   = document.getElementById('note-student-mode-external-btn');
+      const serverInput = document.getElementById('note-student-server');
+      if (localBtn) { localBtn.style.background = isLocal ? '#2563eb' : '#f1f5f9'; localBtn.style.color = isLocal ? '#fff' : '#334155'; localBtn.style.borderColor = isLocal ? '#2563eb' : '#d1d5db'; }
+      if (extBtn)   { extBtn.style.background = !isLocal ? '#2563eb' : '#f1f5f9'; extBtn.style.color = !isLocal ? '#fff' : '#334155'; extBtn.style.borderColor = !isLocal ? '#2563eb' : '#d1d5db'; }
+      if (serverInput) {
+        serverInput.style.display = isLocal ? 'none' : '';
+        if (!isLocal && prefillUrl && !String(serverInput.value || '').trim()) serverInput.value = prefillUrl;
+      }
+      noteStudentUpdateJoinDisplay();
+      // Save to remote-config when user clicks (not during init)
+      if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        Desktop.remoteConfigRead().then(function (r) {
+          const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
+          cfg.mode = _noteStudentHub.mode;
+          if (!isLocal && serverInput) cfg.serverUrl = String(serverInput.value || '').trim();
+          Desktop.remoteConfigSave(cfg).catch(function () {});
+        }).catch(function () { Desktop.remoteConfigSave({ mode: _noteStudentHub.mode }).catch(function () {}); });
+      }
+    }
+
     function noteStudentFillClassOptions() {
       const sel = document.getElementById('note-student-class');
       if (!sel) return;
       sel.innerHTML = '';
-      const keys = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS)
-            .filter(key => !(typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
-            .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
-        : [];
+      const meta   = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const legacy = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
+      const srcKeys = Object.keys(meta).length ? Object.keys(meta) : Object.keys(legacy);
+      const keys = srcKeys
+        .filter(key => !(meta[key] && meta[key].archived))
+        .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)));
       if (!keys.length) {
         const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No classes found'; sel.appendChild(opt); return;
       }
@@ -23103,15 +23149,39 @@ function hideFailure() {
       if (roomInput) roomInput.value = _noteStudentHub.noteId;
       noteStudentApplyUiState();
       noteStudentUpdateJoinDisplay();
-      noteStudentSetStatus(_noteStudentHub.connected ? 'Connected and waiting for student submissions.' : 'Preparing local server automatically...', false);
       if (overlay) overlay.style.display = 'flex';
-      noteStudentPrimeServerAuto().then(() => {
-        if (_noteStudentHub.connected) return;
-        noteStudentSetStatus('Local server is ready. Click Connect & Open Room.', false);
-      }).catch(() => {
-        if (_noteStudentHub.connected) return;
-        noteStudentSetStatus('Could not auto-start local server. Enter server URL and connect.', true);
-      });
+
+      if (_noteStudentHub.connected) {
+        noteStudentSetStatus('Connected and waiting for student submissions.', false);
+        return;
+      }
+
+      function _noteStartLocal() {
+        noteStudentSetStatus('Preparing local server automatically...', false);
+        noteStudentPrimeServerAuto().then(function () {
+          if (_noteStudentHub.connected) return;
+          noteStudentSetStatus('Local server is ready. Click Connect & Open Room.', false);
+        }).catch(function () {
+          if (_noteStudentHub.connected) return;
+          noteStudentSetStatus('Could not auto-start local server. Enter server URL and connect.', true);
+        });
+      }
+
+      // Read remote-config to set the local/external toggle
+      if (window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        Desktop.remoteConfigRead().then(function (result) {
+          const cfg = (result && result.ok && result.config) ? result.config : {};
+          _noteStudentSetMode(cfg.mode === 'external' ? 'external' : 'local', cfg.serverUrl || '');
+          if (cfg.mode === 'external' && cfg.serverUrl) {
+            noteStudentSetStatus('External server configured. Click Connect & Open Room.', false);
+          } else {
+            _noteStartLocal();
+          }
+        }).catch(function () { _noteStudentSetMode('local'); _noteStartLocal(); });
+      } else {
+        _noteStudentSetMode('local');
+        _noteStartLocal();
+      }
     }
 
     function noteStudentPopupClose() {
@@ -23160,6 +23230,7 @@ function hideFailure() {
     async function noteStudentEnsureServerForElectron() {
       if (!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron())) return null;
       if (!(window.Desktop && typeof Desktop.quizServerStart === 'function')) return null;
+      if (_noteStudentHub.mode === 'external') return null;
       const candidatePorts = [8787, 8788];
       for (let i = 0; i < candidatePorts.length; i++) {
         const port = candidatePorts[i]; let res = null;

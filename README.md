@@ -1,5 +1,36 @@
 # Class Management Tools — User Guide
 
+## How to Begin
+
+### 1. Place the app in a writable folder
+
+Class Management Tools saves all your data (students, grades, sessions, settings) directly alongside the application files. For this to work, **the app folder must be in a location your user account can write to.**
+
+Avoid running the app from:
+- `C:\Program Files` or `C:\Program Files (x86)` — Windows blocks writes here
+- A read-only network share or a ZIP archive that was never fully extracted
+- A USB drive with write protection enabled
+
+**Recommended locations:**
+- `C:\Users\YourName\Class Management Tools\` (your home folder)
+- `Documents\Class Management Tools\`
+- The Desktop
+
+If you downloaded a ZIP file, extract the entire folder before launching. Double-clicking inside a ZIP without extracting will prevent the app from saving any data.
+
+> **How to tell if the folder is writable:** Open the app and go to **General Config → Data Location**. If a path is shown and no error appears, the app can write there. If you see a warning or the path is empty, move the folder to a writable location and relaunch.
+
+---
+
+### 2. First launch checklist
+
+1. **Open the Launcher** — double-click `Class Management Tools.exe` (or run the `.bat` file on unpackaged builds). The Launcher is the home screen for all tools.
+2. **Set your language** — click **General Config** (⚙ gear icon) and pick your language (English, French, German, or Italian). Changes take effect immediately across all tools.
+3. **Create your classes** — open **Group Editor** and add your class groups and students. This step is required before most other tools are useful, since they all read their student and class data from Group Editor.
+4. **Explore the tools** — return to the Launcher and open any tool. Each tool has a built-in **?** help button in its navigation bar.
+
+---
+
 ## Overview
 
 | File | Purpose |
@@ -495,6 +526,30 @@ Accessed from the top-right ⚙ menu:
 | **App Title** | Custom teacher or school name shown in the header |
 | **Startup Window** | Which tool opens automatically at launch |
 
+### Phone Remote
+
+Lets any phone or tablet control student scoring and badges from a browser — no app install required.
+
+Open the **📱 Phone Remote** panel from the top menu. Two connection modes are available:
+
+#### Local network mode (same WiFi)
+
+1. Select **Local network** and leave the port at the default (8787).
+2. Click **▶ Start Remote Server** — the app starts a combined classroom server on your machine.
+3. A URL, QR code, and 6-character token appear. Project or share them so phones can connect.
+4. Students open the URL in any phone browser, enter the token, and can immediately award or remove points and badges.
+
+> **Windows firewall:** the first time you run the local server, Windows may block port 8787. Follow the PowerShell command shown in the panel to add a firewall rule.
+
+#### External server mode (internet, any network)
+
+1. Deploy `js/classroom-server.js` to any Node.js hosting service (Railway, Render, Fly.io, or a VPS). The file is self-contained; the only dependency is `ws`.
+2. Select **External server** in the panel, enter your server's URL, and set a **host secret** — a password of your choice that prevents another host from taking over your relay.
+3. Click **▶ Start Remote Server** — the app connects to your hosted relay.
+4. Share the URL shown (e.g. `https://your-server.com/?t=ABCDEF`) — students can connect from any network.
+
+The host secret and mode are saved in `user/remote-config.js` so you only need to set them once. The **same Local/External toggle appears in the Multiplayer Quiz panel (Learning Tools) and the Student Input Note popup (Board)** — they all read and write the same config, so switching mode in any one of them applies everywhere.
+
 ### Presentation Mode
 
 Opens a second window intended for a projector or secondary screen.
@@ -718,6 +773,16 @@ Searches for a word or phrase across a loaded book or text file, showing every o
 3. Results show each occurrence with the surrounding paragraph (or up to 200 words of context).
 4. Useful for finding collocations, example sentences, and contextual usage before adding a word to the Board.
 
+### Student Input Note
+
+Lets students submit short text responses from their phones that appear as notes on the board. Right-click the canvas → **👥 Student Input Note**.
+
+- Select a **class group** and give the session a **title**.
+- Use the **Local / External toggle** to choose the server — reads from the shared `user/remote-config.js` so it is already set if you previously configured Phone Remote or Multiplayer Quiz.
+- Click **Connect & Open Room** — a join URL and QR code appear. Share them with the class.
+- Students open the URL on any browser, pick their name, and type a short response. Submissions appear live in the board note.
+- Click **Copy Join URL** to copy the link, or click the QR image to paste it directly onto the canvas as a scannable node.
+
 ---
 
 ## learning-tools.html
@@ -764,6 +829,28 @@ Three independent filters sit at the top of the page and carry over as you move 
 | **📋 View All Words** | Browse the entire filtered vocabulary bank. Click any entry for full details. Export to CSV or TXT. |
 | **🌐 Board** | Opens the visual word-map in board.html showing connections by theme and meaning. |
 | **➕ Add Words to DB** | Add custom vocabulary entries with word, IPA, French/English/German/Italian translations, definition, example sentence, synonyms, antonyms, and more. Saved locally; download an updated DB file to make them permanent. |
+
+### Multiplayer Quiz
+
+Run a quiz as a live multiplayer session where every student answers on their own device simultaneously.
+
+#### Local network mode
+
+1. Load a quiz, then switch to **Multiplayer Host** mode in the quiz panel.
+2. Click **Connect** — the app auto-starts the combined classroom server (same one used by Phone Remote).
+3. Share the quiz player URL that appears (e.g. `http://192.168.x.x:8787/quiz-player.html`) or its QR code.
+4. Students open the URL, select their class and name, and click **Join**.
+5. Advance questions from the host panel; students see each question in real time on their screen.
+6. At the end of the session, results are saved automatically to `user/game-results/game-results.js`.
+
+#### External server mode
+
+1. In the quiz panel, click **External** in the Local/External toggle.
+2. Enter your hosted server URL in the field that appears (pre-filled from the shared config if already set in Phone Remote).
+3. Click **Connect** — no local server starts; the app connects to your relay.
+4. Students open `https://your-server.com/quiz-player.html` from any network.
+
+> The quiz server and Phone Remote share the same combined server (`js/classroom-server.js`). The Local/External toggle is shared across Phone Remote, Multiplayer Quiz, and Student Input Note in Board — changing it in any panel updates all three.
 
 ### Team Mode
 

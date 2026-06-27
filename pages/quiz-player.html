@@ -221,26 +221,28 @@
         ? Object.fromEntries(STUDENTS_ROSTER.filter(s => s && s.uuid).map(s => [s.uuid, s]))
         : {};
       const groupUuids = Object.keys(meta).length ? Object.keys(meta) : (srcLegacy ? Object.keys(srcLegacy) : []);
-      const out = {};
+      const groups = {};
+      const labels = {};
       groupUuids.forEach(function (key) {
         if (meta[key] && meta[key].archived) return;
+        labels[String(key)] = (meta[key] && meta[key].name) ? meta[key].name : String(key);
         const students = (meta[key] && Array.isArray(meta[key].students) && meta[key].students.length)
           ? meta[key].students
           : (srcLegacy && Array.isArray(srcLegacy[key]) ? srcLegacy[key] : []);
         if (students.length > 0 && typeof students[0] === 'string' && students[0].startsWith('st-')) {
-          out[String(key)] = students.map(function (sid) {
+          groups[String(key)] = students.map(function (sid) {
             const s = roster[sid];
             return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
           }).filter(Boolean);
         } else {
-          out[String(key)] = students.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
+          groups[String(key)] = students.map(function (v) { return String(v || '').trim(); }).filter(Boolean);
         }
       });
-      return out;
+      return { groups, labels };
     }
 
     function fillStudentPicker() {
-      const groups = normalizeClassGroups();
+      const { groups } = normalizeClassGroups();
       const className = String(classPickerEl.value || '');
       let names = Array.isArray(groups[className]) ? groups[className] : [];
 
@@ -272,8 +274,10 @@
     }
 
     function fillClassPicker() {
-      const groups = normalizeClassGroups();
-      const classNames = Object.keys(groups).sort(function (a, b) { return a.localeCompare(b); });
+      const { groups, labels } = normalizeClassGroups();
+      const classNames = Object.keys(groups).sort(function (a, b) {
+        return (labels[a] || a).localeCompare(labels[b] || b);
+      });
       classPickerEl.innerHTML = '';
 
       if (!classNames.length) {
@@ -288,7 +292,7 @@
       classNames.forEach(function (className) {
         const opt = document.createElement('option');
         opt.value = className;
-        opt.textContent = className;
+        opt.textContent = labels[className] || className;
         classPickerEl.appendChild(opt);
       });
 

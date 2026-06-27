@@ -1497,10 +1497,14 @@
             <option value="multiplayer-host">Multiplayer Host (WebSocket)</option>
           </select>
         </label>
-        <label style="display:flex;flex-direction:column;gap:4px;min-width:260px;">
-          <span style="font-size:0.82rem;color:#666;">Server URL</span>
-          <input id="quiz-mp-server" class="search-input" type="text" placeholder="http://localhost:8787" style="min-width:260px;" />
-        </label>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:0.82rem;color:#666;">Server</span>
+          <div style="display:flex;">
+            <button id="quiz-mp-mode-local-btn" onclick="_quizMpSetMode('local')" style="padding:5px 12px;border:1.5px solid #2563eb;border-radius:4px 0 0 4px;background:#2563eb;color:#fff;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">Local</button>
+            <button id="quiz-mp-mode-external-btn" onclick="_quizMpSetMode('external')" style="padding:5px 12px;border:1.5px solid #d1d5db;border-left:none;border-radius:0 4px 4px 0;background:#f1f5f9;color:#334155;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">External</button>
+          </div>
+          <input id="quiz-mp-server" class="search-input" type="text" placeholder="https://your-server.com" style="min-width:220px;display:none;" />
+        </div>
         <button class="action-btn btn-blue" id="quiz-mp-connect-btn" onclick="quizMpConnect()">Connect</button>
         <button class="action-btn btn-grey" id="quiz-mp-disconnect-btn" onclick="quizMpDisconnect()">Disconnect</button>
         <button class="action-btn btn-orange" id="quiz-mp-end-btn" onclick="quizMpEndGame()">End Game & Results</button>
@@ -6519,6 +6523,10 @@ function renderSentenceWithGap(userInput) {
         quizAnswered = true;
         quizShowMessage('🏆 <strong>Winner:</strong> ' + winner, false);
         quizMpSetStatus('Game ended. Final results published to players.', false);
+        // Persist results locally (works in both local and external server mode)
+        if (window.Desktop && typeof Desktop.quizSaveResult === 'function') {
+          Desktop.quizSaveResult(payload).catch(function () {});
+        }
       } else if (msg.type === 'error') {
         quizMpSetStatus(String(msg.message || 'Server error'), true);
       }
@@ -6546,7 +6554,7 @@ function renderSentenceWithGap(userInput) {
       }
       const serverInput = document.getElementById('quiz-mp-server');
       const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
-      if (isElectron) {
+      if (isElectron && _quizMpCurrentMode !== 'external') {
         quizMpSetStatus('Starting local multiplayer server...', false);
         const serverInfo = await quizMpEnsureServerForElectron();
         if (!serverInfo) {
@@ -6558,6 +6566,11 @@ function renderSentenceWithGap(userInput) {
           serverInput.value = base;
         }
         quizMpUpdateQrCode();
+      } else if (_quizMpCurrentMode === 'external') {
+        if (!serverInput || !String(serverInput.value || '').trim()) {
+          quizMpSetStatus('Enter the external server URL first.', true);
+          return;
+        }
       }
       let wsUrl;
       try {
@@ -6953,21 +6966,50 @@ function renderSentenceWithGap(userInput) {
       showFailure('Answer: ' + correctText, function() { nextTeamTurn(); quizNextQuestion(); });
     }
 
+    let _quizMpCurrentMode = 'local';
+
+    function _quizMpSetMode(mode, prefillUrl) {
+      _quizMpCurrentMode = (mode === 'external') ? 'external' : 'local';
+      const isLocal = _quizMpCurrentMode === 'local';
+      const localBtn = document.getElementById('quiz-mp-mode-local-btn');
+      const extBtn   = document.getElementById('quiz-mp-mode-external-btn');
+      const serverInput = document.getElementById('quiz-mp-server');
+      if (localBtn) { localBtn.style.background = isLocal ? '#2563eb' : '#f1f5f9'; localBtn.style.color = isLocal ? '#fff' : '#334155'; localBtn.style.borderColor = isLocal ? '#2563eb' : '#d1d5db'; }
+      if (extBtn)   { extBtn.style.background = !isLocal ? '#2563eb' : '#f1f5f9'; extBtn.style.color = !isLocal ? '#fff' : '#334155'; extBtn.style.borderColor = !isLocal ? '#2563eb' : '#d1d5db'; }
+      if (serverInput) {
+        serverInput.style.display = isLocal ? 'none' : '';
+        if (!isLocal && prefillUrl && !String(serverInput.value || '').trim()) serverInput.value = prefillUrl;
+      }
+      if (typeof quizMpUpdateQrCode === 'function') quizMpUpdateQrCode();
+      // Save to remote-config when user clicks (not during init)
+      if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        Desktop.remoteConfigRead().then(function (r) {
+          const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
+          cfg.mode = _quizMpCurrentMode;
+          if (!isLocal && serverInput) cfg.serverUrl = String(serverInput.value || '').trim();
+          Desktop.remoteConfigSave(cfg).catch(function () {});
+        }).catch(function () { Desktop.remoteConfigSave({ mode: _quizMpCurrentMode }).catch(function () {}); });
+      }
+    }
+
     async function quizInit() {
       await ensureCustomQuizLoaded();
       quizRefreshFilterOptions(false);
       const serverInput = document.getElementById('quiz-mp-server');
       if (serverInput) {
-        if (!String(serverInput.value || '').trim()) {
-          const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
-          serverInput.value = isElectron ? 'http://localhost:8787' : location.origin;
-        }
         serverInput.addEventListener('input', quizMpUpdateQrCode);
         serverInput.addEventListener('change', quizMpUpdateQrCode);
       }
       quizApplyModeUi();
       quizUpdateStats();
       if (!quizCurrent) quizNextQuestion();
+      // Apply local/external toggle from saved config
+      if (window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        Desktop.remoteConfigRead().then(function (r) {
+          const cfg = (r && r.ok && r.config) ? r.config : {};
+          _quizMpSetMode(cfg.mode === 'external' ? 'external' : 'local', cfg.serverUrl || '');
+        }).catch(function () {});
+      }
     }
 
     // =============================================

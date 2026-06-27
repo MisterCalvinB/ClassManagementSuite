@@ -3,8 +3,9 @@ const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
 const zlib = require('zlib');
-const os   = require('os');
-const http = require('http');
+const os     = require('os');
+const http   = require('http');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 const ROOT_DIR = __dirname;
@@ -187,7 +188,9 @@ function getSaveTargets() {
     docEditorDocs: path.join(writableRoot, 'user/document-editor/docs'),
     docEditorStylesheets: path.join(writableRoot, 'user/document-editor/stylesheets'),
     docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates'),
-    docEditorSettings: path.join(writableRoot, 'user/document-editor')
+    docEditorSettings: path.join(writableRoot, 'user/document-editor'),
+    gameResults: path.join(writableRoot, 'user/game-results'),
+    gradeSheet:  path.join(writableRoot, 'user/log/grade-sheet')
   };
 }
 
@@ -202,7 +205,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.gradeSheet]: new Set(['grades', 'user']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
-  [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
+  [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
@@ -4669,21 +4672,85 @@ ipcMain.handle('app:restore-bak-file', async (_event, { path: bakPath } = {}) =>
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REMOTE CONTROL SERVER
+// SHARED LOCAL CLASSROOM SERVER  (spawned child process, used by both CMS
+// remote and quiz / note features)
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _remoteServer    = null;
-let _remoteWss       = null;
-let _remotePort      = 7823;
-let _remoteToken     = null;
-let _remoteClients   = new Set(); // Set<ws.WebSocket>
-let _remoteLastState = null;      // last broadcast state JSON (for new joiners)
+let _localServerProc = null;
+let _localServerPort = 8787;
+
+function _localServerRunning() {
+  return !!(_localServerProc && !_localServerProc.killed && _localServerProc.exitCode == null);
+}
+
+async function ensureLocalServerRunning(port) {
+  if (_localServerRunning()) return { ok: true, port: _localServerPort };
+
+  const requestedPort = Number(port) || 8787;
+  const scriptPath    = path.join(ROOT_DIR, 'js', 'classroom-server.js');
+
+  if (!fsSync.existsSync(scriptPath)) {
+    return { ok: false, error: 'classroom-server.js not found.' };
+  }
+
+  _localServerPort = requestedPort;
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', PORT: String(requestedPort) };
+
+  try {
+    const child = spawn(process.execPath, [scriptPath], {
+      cwd: ROOT_DIR, env, detached: false, stdio: 'ignore', windowsHide: true
+    });
+    child.on('exit',  () => { if (_localServerProc === child) _localServerProc = null; });
+    child.on('error', () => { if (_localServerProc === child) _localServerProc = null; });
+    _localServerProc = child;
+
+    // Brief wait for the server process to bind its port
+    await new Promise(resolve => setTimeout(resolve, 450));
+
+    // Best-effort: open Windows Firewall
+    if (process.platform === 'win32') {
+      const { exec } = require('child_process');
+      const ruleName = 'CMT Classroom Server';
+      exec(
+        `netsh advfirewall firewall delete rule name="${ruleName}" >nul 2>&1 & ` +
+        `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=allow ` +
+        `protocol=TCP localport=${requestedPort} profile=any`,
+        () => {}
+      );
+    }
+
+    return { ok: true, port: _localServerPort };
+  } catch (err) {
+    _localServerProc = null;
+    return { ok: false, error: err && err.message ? err.message : 'Failed to start server.' };
+  }
+}
+
+function stopLocalServerIfUnused() {
+  if (_cmsRelayConnected) return; // keep the server alive while CMS is connected
+  if (_localServerProc) { try { _localServerProc.kill(); } catch (_) {} _localServerProc = null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CMS REMOTE RELAY CLIENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _cmsRelayWs        = null;
+let _cmsRelayConnected = false;
+let _cmsRelayMode      = 'local';   // 'local' | 'external'
+let _remoteToken       = null;      // 6-char student token shown to phones
+let _remoteHostSecret  = null;      // host secret used to authenticate with relay
+let _cmsConnectedCount = 0;
 
 function _remoteGenToken() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let t = '';
   for (let i = 0; i < 6; i++) t += chars[Math.floor(Math.random() * chars.length)];
   return t;
+}
+
+function _remoteGenSecret() {
+  return crypto.randomBytes(16).toString('hex');
 }
 
 function _remoteGetLocalIp() {
@@ -4710,102 +4777,22 @@ function _remoteGetLocalIp() {
   return candidates.length > 0 ? candidates[0].ip : '127.0.0.1';
 }
 
-function _remoteBroadcast(data) {
-  const msg = JSON.stringify(data);
-  _remoteLastState = msg;
-  for (const ws of _remoteClients) {
-    if (ws._remoteAuth && ws.readyState === 1 /* OPEN */) {
-      try { ws.send(msg); } catch (_) {}
-    }
-  }
-}
-
-function _remoteNotifyStatus() {
+function _cmsNotifyStatus() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const count = [..._remoteClients].filter(ws => ws._remoteAuth).length;
   mainWindow.webContents.executeJavaScript(
-    `window._cmsRemoteStatusUpdate && window._cmsRemoteStatusUpdate(${count})`
+    `window._cmsRemoteStatusUpdate && window._cmsRemoteStatusUpdate(${_cmsConnectedCount})`
   ).catch(() => {});
 }
 
-function _remoteHandleMsg(ws, msg) {
-  if (!msg || typeof msg.type !== 'string') return;
+const _CMS_ALLOWED_ACTIONS = new Set(['score', 'badge_add', 'badge_remove']);
 
-  if (msg.type === 'auth') {
-    if (String(msg.token || '').toUpperCase() === _remoteToken) {
-      ws._remoteAuth = true;
-      ws.send(JSON.stringify({ type: 'auth_ok' }));
-      _remoteNotifyStatus();
-      if (_remoteLastState) { try { ws.send(_remoteLastState); } catch (_) {} }
-      // Ask the renderer to push a fresh state; the broadcast will reach this ws too
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.executeJavaScript(
-          'window._remotePushStateDebounced && window._remotePushStateDebounced()'
-        ).catch(() => {});
-      }
-    } else {
-      ws.send(JSON.stringify({ type: 'auth_fail', reason: 'Invalid token' }));
-    }
-    return;
-  }
+function _cmsDispatchAction(msg) {
+  const { action, studentId, groupName, delta, icon, label, tone } = msg;
+  if (!_CMS_ALLOWED_ACTIONS.has(action)) return;
+  if (studentId === undefined || studentId === null || typeof groupName !== 'string') return;
 
-  if (!ws._remoteAuth) {
-    ws.send(JSON.stringify({ type: 'error', reason: 'Not authenticated' }));
-    return;
-  }
-
-  if (msg.type === 'action') {
-    _remoteHandleAction(ws, msg);
-  } else if (msg.type === 'request_state') {
-    if (_remoteLastState) { try { ws.send(_remoteLastState); } catch (_) {} }
-  } else if (msg.type === 'ping') {
-    ws.send(JSON.stringify({ type: 'pong' }));
-  }
-}
-
-const _REMOTE_ALLOWED = new Set(['score', 'badge_add', 'badge_remove']);
-
-function _remoteCheckRate(ws) {
-  const now = Date.now();
-  if (!ws._rl) ws._rl = { n: 0, t: now };
-  if (now - ws._rl.t > 2000) { ws._rl = { n: 1, t: now }; return true; }
-  return (++ws._rl.n) <= 15;
-}
-
-function _remoteHandleAction(ws, msg) {
-  const { cmdId, action, studentId, groupName, delta, icon, label, tone } = msg;
-
-  if (!_REMOTE_ALLOWED.has(action)) {
-    ws.send(JSON.stringify({ type: 'error', cmdId, reason: 'Unknown action' }));
-    return;
-  }
-
-  // Deduplication
-  if (cmdId) {
-    if (!ws._seenCmds) ws._seenCmds = new Set();
-    if (ws._seenCmds.has(String(cmdId))) {
-      ws.send(JSON.stringify({ type: 'ack', cmdId, ok: true, dedup: true }));
-      return;
-    }
-    if (ws._seenCmds.size > 300) ws._seenCmds.clear();
-    ws._seenCmds.add(String(cmdId));
-  }
-
-  // Rate limit
-  if (!_remoteCheckRate(ws)) {
-    ws.send(JSON.stringify({ type: 'error', cmdId, reason: 'Rate limit exceeded' }));
-    return;
-  }
-
-  // Validate inputs
-  if (studentId === undefined || studentId === null || typeof groupName !== 'string') {
-    ws.send(JSON.stringify({ type: 'error', cmdId, reason: 'Invalid parameters' }));
-    return;
-  }
-
-  // Build a safe JS call string for the renderer
   const sId  = JSON.stringify(studentId);
-  const sGrp = JSON.stringify(groupName.substring(0, 128));
+  const sGrp = JSON.stringify(String(groupName).substring(0, 128));
   let jsCall;
 
   if (action === 'score') {
@@ -4821,194 +4808,229 @@ function _remoteHandleAction(ws, msg) {
     jsCall = `window._cmsRemoteAction && window._cmsRemoteAction({action:'badge_remove',studentId:${sId},groupName:${sGrp},icon:${sIcon}})`;
   }
 
-  if (!jsCall || !mainWindow || mainWindow.isDestroyed()) {
-    ws.send(JSON.stringify({ type: 'error', cmdId, reason: 'App not ready' }));
-    return;
+  if (jsCall && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.executeJavaScript(jsCall).catch(() => {});
   }
-
-  mainWindow.webContents.executeJavaScript(jsCall)
-    .then(() => { try { ws.send(JSON.stringify({ type: 'ack', cmdId, ok: true })); } catch (_) {} })
-    .catch(() => { try { ws.send(JSON.stringify({ type: 'error', cmdId, reason: 'Action failed' })); } catch (_) {} });
 }
 
-async function startRemoteServer(port) {
-  if (_remoteServer) return { ok: false, error: 'Server already running' };
+function _cmsRelayDisconnect() {
+  if (_cmsRelayWs) { try { _cmsRelayWs.close(); } catch (_) {} _cmsRelayWs = null; }
+  _cmsRelayConnected = false;
+  _cmsConnectedCount = 0;
+}
 
-  _remotePort  = port || 7823;
-  _remoteToken = _remoteGenToken();
+function _cmsBuildWsUrl(serverUrl) {
+  const s = String(serverUrl || '').trim().replace(/\/+$/, '');
+  if (!s) throw new Error('No server URL');
+  if (/^wss?:\/\//i.test(s)) return /\/cms-ws$/i.test(s) ? s : s + '/cms-ws';
+  const withProto = /^https?:\/\//i.test(s) ? s : 'https://' + s;
+  const u = new URL(withProto);
+  return (u.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + u.host + '/cms-ws';
+}
 
-  let WebSocketServer;
-  try { WebSocketServer = require('ws').Server; }
+function _cmsBuildHttpUrl(serverUrl) {
+  const s = String(serverUrl || '').trim().replace(/\/+$/, '');
+  if (!s) throw new Error('No server URL');
+  let base = s;
+  if (/^wss?:\/\//i.test(s)) base = s.replace(/^ws:/i, 'http:').replace(/^wss:/i, 'https:').replace(/\/cms-ws$/i, '');
+  if (!/^https?:\/\//i.test(base)) base = 'https://' + base;
+  return base.replace(/\/+$/, '') + '/remote.html';
+}
+
+async function _connectCmsRelay(wsUrl, secret, token) {
+  _cmsRelayDisconnect();
+
+  let WS;
+  try { WS = require('ws'); }
   catch { return { ok: false, error: "'ws' package not available — run: npm install" }; }
 
-  const remoteHtmlPath = path.join(ROOT_DIR, 'remote.html');
+  return new Promise((resolve) => {
+    const ws = new WS(wsUrl);
+    let settled = false;
 
-  const server = http.createServer((req, res) => {
-    const urlPath = (new URL(req.url || '/', 'http://x')).pathname;
-    if (urlPath === '/' || urlPath === '/remote' || urlPath === '/remote.html') {
-      fs.readFile(remoteHtmlPath)
-        .then(content => {
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-          res.end(content);
-        })
-        .catch(() => { res.writeHead(404); res.end('remote.html not found'); });
-    } else {
-      res.writeHead(404); res.end();
-    }
-  });
+    const fail = (reason) => {
+      if (settled) return;
+      settled = true;
+      try { ws.close(); } catch (_) {}
+      resolve({ ok: false, error: reason });
+    };
 
-  const wss = new WebSocketServer({ server, path: '/ws' });
-
-  wss.on('connection', (ws) => {
-    ws._remoteAuth = false;
-    _remoteClients.add(ws);
+    ws.on('open', () => {
+      try { ws.send(JSON.stringify({ type: 'host_hello', secret, token })); } catch (_) {}
+    });
 
     ws.on('message', (raw) => {
       let msg;
-      try { msg = JSON.parse(raw); } catch { ws.close(); return; }
-      _remoteHandleMsg(ws, msg);
+      try { msg = JSON.parse(raw); } catch { return; }
+
+      if (!settled) {
+        if (msg.type === 'host_welcome') {
+          settled = true;
+          _cmsRelayWs        = ws;
+          _cmsRelayConnected = true;
+          _cmsConnectedCount = Number(msg.clientCount || 0);
+          resolve({ ok: true });
+        } else if (msg.type === 'host_error') {
+          fail(msg.reason || 'Authentication failed');
+        }
+        return;
+      }
+
+      if (msg.type === 'client_count') {
+        _cmsConnectedCount = Number(msg.count || 0);
+        _cmsNotifyStatus();
+      } else if (msg.type === 'action') {
+        _cmsDispatchAction(msg);
+      } else if (msg.type === 'request_state') {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.executeJavaScript(
+            'window._remotePushStateDebounced && window._remotePushStateDebounced()'
+          ).catch(() => {});
+        }
+      }
     });
 
-    ws.on('close', () => { _remoteClients.delete(ws); _remoteNotifyStatus(); });
-    ws.on('error', () => { _remoteClients.delete(ws); });
+    ws.on('close', () => {
+      const wasConnected = _cmsRelayConnected;
+      _cmsRelayWs        = null;
+      _cmsRelayConnected = false;
+      if (wasConnected) _cmsNotifyStatus();
+      if (!settled) fail('Connection closed before authentication');
+    });
+
+    ws.on('error', (err) => {
+      if (!settled) fail(err && err.message ? err.message : 'WebSocket error');
+    });
+
+    setTimeout(() => fail('Connection timed out'), 8000);
   });
-
-  try {
-    await new Promise((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(_remotePort, '0.0.0.0', resolve);
-    });
-  } catch (err) {
-    return { ok: false, error: `Port ${_remotePort} in use or unavailable` };
-  }
-
-  _remoteServer = server;
-  _remoteWss    = wss;
-
-  // Best-effort: open the port in Windows Firewall so phones on the LAN can reach it
-  if (process.platform === 'win32') {
-    const { exec } = require('child_process');
-    const ruleName = 'CMS Remote Control';
-    exec(
-      `netsh advfirewall firewall delete rule name="${ruleName}" >nul 2>&1 & ` +
-      `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=allow protocol=TCP localport=${_remotePort} profile=any`,
-      () => {}
-    );
-  }
-
-  const ip = _remoteGetLocalIp();
-  return { ok: true, port: _remotePort, ip, token: _remoteToken };
-}
-
-function stopRemoteServer() {
-  for (const ws of _remoteClients) { try { ws.close(); } catch (_) {} }
-  _remoteClients.clear();
-  if (_remoteWss)    { try { _remoteWss.close();    } catch (_) {} _remoteWss    = null; }
-  if (_remoteServer) { try { _remoteServer.close(); } catch (_) {} _remoteServer = null; }
-  _remoteToken     = null;
-  _remoteLastState = null;
 }
 
 // Remote Control IPC handlers
 
-ipcMain.handle('app:remote-start', async (_event, { port } = {}) => {
-  return startRemoteServer(port || 7823);
+ipcMain.handle('app:remote-start', async (_event, opts = {}) => {
+  const { port, mode, serverUrl, hostSecret } = opts;
+  _cmsRelayMode   = mode === 'external' ? 'external' : 'local';
+  _remoteToken    = _remoteGenToken();
+
+  if (_cmsRelayMode === 'local') {
+    _remoteHostSecret = _remoteGenSecret(); // ephemeral secret, not user-visible
+    const srv = await ensureLocalServerRunning(port || 8787);
+    if (!srv.ok) return srv;
+    const wsUrl  = `ws://127.0.0.1:${_localServerPort}/cms-ws`;
+    const result = await _connectCmsRelay(wsUrl, _remoteHostSecret, _remoteToken);
+    if (!result.ok) return result;
+    const ip = _remoteGetLocalIp();
+    return { ok: true, mode: 'local', port: _localServerPort, ip, token: _remoteToken, connected: 0 };
+  }
+
+  // External mode
+  _remoteHostSecret = String(hostSecret || '').trim();
+  if (!_remoteHostSecret) return { ok: false, error: 'Host secret required for external mode.' };
+
+  let wsUrl;
+  try { wsUrl = _cmsBuildWsUrl(serverUrl); }
+  catch (e) { return { ok: false, error: 'Invalid server URL.' }; }
+
+  const result = await _connectCmsRelay(wsUrl, _remoteHostSecret, _remoteToken);
+  if (!result.ok) return result;
+
+  let httpUrl = '';
+  try { httpUrl = _cmsBuildHttpUrl(serverUrl); } catch (_) {}
+  return { ok: true, mode: 'external', serverUrl, httpUrl, token: _remoteToken, connected: 0 };
 });
 
 ipcMain.handle('app:remote-stop', async () => {
-  stopRemoteServer();
+  _cmsRelayDisconnect();
+  _remoteToken = null;
+  stopLocalServerIfUnused();
   return { ok: true };
 });
 
 ipcMain.handle('app:remote-status', async () => {
-  if (!_remoteServer) return { running: false };
-  const ip        = _remoteGetLocalIp();
-  const connected = [..._remoteClients].filter(ws => ws._remoteAuth).length;
-  return { running: true, port: _remotePort, ip, token: _remoteToken, connected };
+  if (!_cmsRelayConnected) return { running: false };
+  const ip = _remoteGetLocalIp();
+  return {
+    running: true, mode: _cmsRelayMode,
+    port: _localServerPort, ip, token: _remoteToken, connected: _cmsConnectedCount
+  };
 });
 
 ipcMain.handle('app:remote-push-state', async (_event, stateData) => {
-  if (_remoteServer && stateData) _remoteBroadcast({ type: 'state', ...stateData });
+  if (_cmsRelayConnected && _cmsRelayWs && stateData) {
+    try { _cmsRelayWs.send(JSON.stringify({ type: 'state', ...stateData })); } catch (_) {}
+  }
   return { ok: true };
 });
 
 ipcMain.handle('app:remote-new-token', async () => {
-  if (!_remoteServer) return { ok: false, error: 'Server not running' };
+  if (!_cmsRelayConnected) return { ok: false, error: 'Not connected to relay' };
   _remoteToken = _remoteGenToken();
-  // Disconnect authenticated clients so they must re-pair
-  for (const ws of _remoteClients) {
-    if (ws._remoteAuth) { ws._remoteAuth = false; try { ws.close(); } catch (_) {} }
-  }
+  try { _cmsRelayWs.send(JSON.stringify({ type: 'new_token', token: _remoteToken })); } catch (_) {}
+  _cmsConnectedCount = 0;
+  _cmsNotifyStatus();
   const ip = _remoteGetLocalIp();
-  return { ok: true, token: _remoteToken, port: _remotePort, ip };
+  return { ok: true, token: _remoteToken, mode: _cmsRelayMode, port: _localServerPort, ip };
+});
+
+ipcMain.handle('app:remote-config-read', async (event) => {
+  const pageFile = getRequestingPage(event);
+  try {
+    const { fullPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.js');
+    const raw = await fs.readFile(fullPath, 'utf8');
+    const match = raw.match(/globalThis\.__REMOTE_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+    if (match) {
+      try { return { ok: true, config: JSON.parse(match[1]) }; } catch (_) {}
+    }
+    return { ok: true, config: {} };
+  } catch (_) {
+    return { ok: true, config: {} };
+  }
+});
+
+ipcMain.handle('app:remote-config-save', async (event, config) => {
+  const pageFile = getRequestingPage(event);
+  const safe = config && typeof config === 'object' ? config : {};
+  const content =
+    'globalThis.__REMOTE_CONFIG = ' + JSON.stringify(safe, null, 2) + ';\n' +
+    'if (typeof module !== "undefined" && module.exports) ' +
+    '{ module.exports = { __REMOTE_CONFIG: globalThis.__REMOTE_CONFIG }; }\n';
+  try {
+    const { fullPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.js');
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, content, 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : 'Write failed' };
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUIZ MULTIPLAYER LOCAL SERVER (Electron-managed)
+// QUIZ MULTIPLAYER SERVER  (uses the shared combined classroom-server.js)
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _quizServerProc = null;
-let _quizServerPort = 8787;
-
 function _quizStatus() {
-  const ip = _remoteGetLocalIp();
-  const running = !!(_quizServerProc && !_quizServerProc.killed && _quizServerProc.exitCode == null);
+  const ip      = _remoteGetLocalIp();
+  const running = _localServerRunning();
   return {
     running,
-    port: _quizServerPort,
+    port:      _localServerPort,
     ip,
-    hostUrl: `http://${ip}:${_quizServerPort}/learning-tools.html`,
-    playerUrl: `http://${ip}:${_quizServerPort}/quiz-player.html`
+    hostUrl:   `http://${ip}:${_localServerPort}/learning-tools.html`,
+    playerUrl: `http://${ip}:${_localServerPort}/quiz-player.html`
   };
 }
 
-function stopQuizServer() {
-  if (!_quizServerProc) return { ok: true, ..._quizStatus() };
-  try {
-    _quizServerProc.kill();
-  } catch (_) {}
-  _quizServerProc = null;
+async function startQuizServer(port) {
+  const srv = await ensureLocalServerRunning(port || 8787);
+  if (!srv.ok) return { ok: false, error: srv.error };
   return { ok: true, ..._quizStatus() };
 }
 
-function startQuizServer(port) {
-  if (_quizServerProc && !_quizServerProc.killed && _quizServerProc.exitCode == null) {
-    return { ok: true, ..._quizStatus() };
-  }
-
-  const requestedPort = Number(port) || 8787;
-  const scriptPath = path.join(ROOT_DIR, 'quiz-multiplayer-server.js');
-  if (!fsSync.existsSync(scriptPath)) {
-    return { ok: false, error: 'quiz-multiplayer-server.js not found.' };
-  }
-
-  _quizServerPort = requestedPort;
-  const env = {
-    ...process.env,
-    ELECTRON_RUN_AS_NODE: '1',
-    QUIZ_PORT: String(requestedPort)
-  };
-
-  try {
-    const child = spawn(process.execPath, [scriptPath], {
-      cwd: ROOT_DIR,
-      env,
-      detached: false,
-      stdio: 'ignore',
-      windowsHide: true
-    });
-    child.on('exit', () => {
-      if (_quizServerProc === child) _quizServerProc = null;
-    });
-    child.on('error', () => {
-      if (_quizServerProc === child) _quizServerProc = null;
-    });
-    _quizServerProc = child;
-    return { ok: true, ..._quizStatus() };
-  } catch (error) {
-    _quizServerProc = null;
-    return { ok: false, error: error && error.message ? error.message : 'Failed to start quiz server.' };
-  }
+function stopQuizServer() {
+  // Only stop if CMS relay is also inactive
+  if (!_cmsRelayConnected) stopLocalServerIfUnused();
+  return { ok: true, ..._quizStatus() };
 }
 
 ipcMain.handle('app:quiz-server-start', async (_event, { port } = {}) => {
@@ -5021,6 +5043,36 @@ ipcMain.handle('app:quiz-server-stop', async () => {
 
 ipcMain.handle('app:quiz-server-status', async () => {
   return _quizStatus();
+});
+
+ipcMain.handle('app:quiz-save-result', async (event, resultPayload) => {
+  const pageFile = getRequestingPage(event);
+  const payload  = resultPayload && typeof resultPayload === 'object' ? resultPayload : {};
+  const entry = {
+    savedAt:         Date.now(),
+    winner:          payload.winner  || null,
+    totalPlayers:    Number(payload.totalPlayers    || 0),
+    questionsPlayed: Number(payload.questionsPlayed || 0),
+    finishedAt:      Number(payload.finishedAt      || Date.now()),
+    leaderboard:     Array.isArray(payload.leaderboard) ? payload.leaderboard : []
+  };
+  const line = 'globalThis.GAME_RESULTS_LOG.push(' + JSON.stringify(entry) + ');\n';
+  const header =
+    'globalThis.GAME_RESULTS_LOG = globalThis.GAME_RESULTS_LOG || [];\n' +
+    'if (typeof module !== "undefined" && module.exports) ' +
+    '{ module.exports = { GAME_RESULTS_LOG: globalThis.GAME_RESULTS_LOG }; }\n';
+  try {
+    const { fullPath } = resolveAllowedTargetPath(pageFile, 'gameResults', 'game-results.js');
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    // Initialise file if missing
+    let exists = false;
+    try { await fs.access(fullPath); exists = true; } catch (_) {}
+    if (!exists) await fs.writeFile(fullPath, header, 'utf8');
+    await fs.appendFile(fullPath, line, 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : 'Write failed' };
+  }
 });
 
 ipcMain.handle('app:open-external', async (_event, request = {}) => {

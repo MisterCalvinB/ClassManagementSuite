@@ -258,7 +258,7 @@
   let   reconnectTimer  = null;
   let   reconnectDelay  = 1000;
   let   connectTimeout  = null;
-  let   state       = { activeGroup: null, groupNames: [], groups: {}, badgeDefinitions: [] };
+  let   state       = { activeGroup: null, groupNames: [], groupLabels: {}, groups: {}, badgeDefinitions: [] };
   let   activeGroup = null;
   let   pendingCmds = {}; // cmdId → {resolve, reject, timer}
   let   cmdSeq      = 0;
@@ -292,7 +292,7 @@
   // ── WebSocket ──────────────────────────────────────────────
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${proto}://${location.host}/ws`;
+    return `${proto}://${location.host}/cms-ws`;
   }
 
   function connect() {
@@ -394,6 +394,7 @@
   // ── State / render ─────────────────────────────────────────
   function applyState(msg) {
     if (msg.groupNames)       state.groupNames       = msg.groupNames;
+    if (msg.groupLabels)      state.groupLabels      = msg.groupLabels;
     if (msg.groups)           state.groups           = msg.groups;
     if (msg.badgeDefinitions) state.badgeDefinitions = msg.badgeDefinitions;
     if (msg.activeGroup)      state.activeGroup      = msg.activeGroup;
@@ -412,7 +413,7 @@
     (state.groupNames || []).forEach(name => {
       const tab = document.createElement('div');
       tab.className = 'group-tab' + (name === activeGroup ? ' active' : '');
-      tab.textContent = name;
+      tab.textContent = (state.groupLabels && state.groupLabels[name]) || name;
       tab.addEventListener('click', () => {
         activeGroup = name;
         renderTabs();

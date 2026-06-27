@@ -10871,6 +10871,14 @@ const I18N = {
     tut3_text:  'Opens a countdown or stopwatch. Start it here, then project the fullscreen view for students to see.',
     tut4_title: 'Database & History',
     tut4_text:  'Save session data, export participation logs, and restore any past roster state using the Time Machine snapshots.',
+
+    // Remote control panel
+    remote_mode_local:        'Local network',
+    remote_mode_external:     'External server',
+    remote_host_secret_label: 'Host secret',
+    remote_server_url_label:  'Server URL',
+    remote_secret_hint:       'Password protecting your host connection',
+    remote_url_hint:          'e.g. https://your-server.com',
   },
 
   fr: {
@@ -11262,6 +11270,14 @@ const I18N = {
     tut3_text:  'Ouvre un compte à rebours ou un chronomètre. Lancez-le ici, puis affichez la vue plein écran pour les élèves.',
     tut4_title: 'Base de données & Historique',
     tut4_text:  'Sauvegardez les données de session, exportez les logs de participation et restaurez un état précédent via la Machine à remonter le temps.',
+
+    // Remote control panel
+    remote_mode_local:        'Réseau local',
+    remote_mode_external:     'Serveur externe',
+    remote_host_secret_label: 'Clé hôte',
+    remote_server_url_label:  'URL du serveur',
+    remote_secret_hint:       'Mot de passe protégeant votre connexion hôte',
+    remote_url_hint:          'ex. https://votre-serveur.com',
   },
 
   de: {
@@ -11653,6 +11669,14 @@ const I18N = {
     tut3_text:  'Öffnet einen Countdown oder eine Stoppuhr. Starten Sie ihn hier und projizieren Sie die Vollbild-Ansicht für Schüler.',
     tut4_title: 'Datenbank & Verlauf',
     tut4_text:  'Sitzungsdaten speichern, Teilnahmeprotokolle exportieren und frühere Zustände über die Zeitmaschine wiederherstellen.',
+
+    // Remote control panel
+    remote_mode_local:        'Lokales Netzwerk',
+    remote_mode_external:     'Externer Server',
+    remote_host_secret_label: 'Host-Schlüssel',
+    remote_server_url_label:  'Server-URL',
+    remote_secret_hint:       'Passwort zum Schutz Ihrer Host-Verbindung',
+    remote_url_hint:          'z. B. https://ihr-server.com',
   },
 
   it: {
@@ -12039,6 +12063,14 @@ const I18N = {
     tut3_text:  'Apre un conto alla rovescia o un cronometro. Avvialo qui, poi proietta la vista a schermo intero per gli studenti.',
     tut4_title: 'Database & Cronologia',
     tut4_text:  'Salva i dati della sessione, esporta i log di partecipazione e ripristina uno stato precedente con la Macchina del Tempo.',
+
+    // Remote control panel
+    remote_mode_local:        'Rete locale',
+    remote_mode_external:     'Server esterno',
+    remote_host_secret_label: 'Chiave host',
+    remote_server_url_label:  'URL server',
+    remote_secret_hint:       'Password per proteggere la connessione host',
+    remote_url_hint:          'es. https://il-tuo-server.com',
   }
 };
 
@@ -13929,17 +13961,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- Remote Control Modal -->
 <div id="remote-overlay" onclick="if(event.target===this)closeRemoteModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;max-width:460px;width:92%;padding:24px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+  <div style="background:#fff;border-radius:12px;max-width:480px;width:92%;padding:24px;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
     <button onclick="closeRemoteModal()" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;line-height:1;" title="Close">✕</button>
     <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:4px;">📱 Phone Remote</h3>
-    <p style="font-size:0.8rem;color:#64748b;margin-bottom:16px;">Start the server, then open the URL on your phone.</p>
+    <p style="font-size:0.8rem;color:#64748b;margin-bottom:14px;">Start the server, then open the URL on your phone.</p>
 
     <div id="remote-server-off" style="display:block;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <label style="font-size:0.8rem;color:#555;">Port:</label>
-        <input id="remote-port-input" type="number" value="7823" min="1024" max="65535"
-          style="width:90px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+      <!-- Mode toggle -->
+      <div style="display:flex;gap:0;margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+        <button id="remote-mode-local-btn" onclick="_remoteSetMode('local')"
+          style="flex:1;padding:8px;font-size:0.82rem;font-weight:600;border:none;cursor:pointer;background:#2563eb;color:#fff;transition:background 0.15s;">
+          <span data-i18n="remote_mode_local">Local network</span>
+        </button>
+        <button id="remote-mode-ext-btn" onclick="_remoteSetMode('external')"
+          style="flex:1;padding:8px;font-size:0.82rem;font-weight:600;border:none;border-left:1px solid #e2e8f0;cursor:pointer;background:#f8fafc;color:#334155;transition:background 0.15s;">
+          <span data-i18n="remote_mode_external">External server</span>
+        </button>
       </div>
+
+      <!-- Local fields -->
+      <div id="remote-local-fields" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:0.8rem;color:#555;">Port:</label>
+          <input id="remote-port-input" type="number" value="8787" min="1024" max="65535"
+            style="width:90px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+        </div>
+      </div>
+
+      <!-- External fields -->
+      <div id="remote-ext-fields" style="display:none;margin-bottom:10px;">
+        <div style="margin-bottom:8px;">
+          <label style="font-size:0.8rem;color:#555;font-weight:600;display:block;margin-bottom:3px;" data-i18n="remote_server_url_label">Server URL</label>
+          <input id="remote-server-url" type="url"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;box-sizing:border-box;"
+            data-i18n-placeholder="remote_url_hint">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#555;font-weight:600;display:block;margin-bottom:3px;" data-i18n="remote_host_secret_label">Host secret</label>
+          <input id="remote-host-secret" type="password"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;box-sizing:border-box;"
+            data-i18n-placeholder="remote_secret_hint">
+        </div>
+      </div>
+
       <button onclick="_remoteStartServer()" style="width:100%;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;">
         ▶ Start Remote Server
       </button>
@@ -13973,9 +14037,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
 
-      <div style="font-size:0.72rem;color:#888;margin-top:2px;line-height:1.4;">
+      <div id="remote-local-hint" style="font-size:0.72rem;color:#888;margin-top:2px;line-height:1.4;">
         💡 <strong>Phone can't connect?</strong> Windows may have blocked the port. Open PowerShell as Administrator and run:<br>
-        <code style="font-size:0.7rem;background:#f1f5f9;padding:2px 5px;border-radius:3px;display:inline-block;margin-top:3px;user-select:all;">netsh advfirewall firewall add rule name="CMS Remote" dir=in action=allow protocol=TCP localport=7823 profile=any</code>
+        <code id="remote-firewall-cmd" style="font-size:0.7rem;background:#f1f5f9;padding:2px 5px;border-radius:3px;display:inline-block;margin-top:3px;user-select:all;">netsh advfirewall firewall add rule name="CMT Classroom Server" dir=in action=allow protocol=TCP localport=8787 profile=any</code>
       </div>
       <button onclick="_remoteStopServer()" style="width:100%;padding:11px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;margin-top:10px;">
         ■ Stop Server
@@ -13993,6 +14057,8 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
 (function () {
   'use strict';
 
+  var _currentMode = 'local'; // 'local' | 'external'
+
   // ── State push (debounced 250 ms) ──────────────────────────
   let _remotePushTimer = null;
   function _remotePushStateDebounced() {
@@ -14001,9 +14067,14 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
       if (!window.Desktop || !window.Desktop.isElectron()) return;
       try {
         const groupNames = Object.keys(studentGroups || {});
+        const groupLabels = {};
+        groupNames.forEach(function (gId) {
+          groupLabels[gId] = (rawMeta[gId] && rawMeta[gId].name) ? rawMeta[gId].name : gId;
+        });
         const statePayload = {
           activeGroup: selectedGroupName,
           groupNames,
+          groupLabels,
           groups: {},
           badgeDefinitions: (badgeDefinitions || []).map(function (b) {
             return { icon: b.icon, label: b.label, tone: b.tone, isBuiltin: !!b.isBuiltin };
@@ -14070,17 +14141,66 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
     }
   };
 
+  // ── Mode toggle ────────────────────────────────────────────
+  window._remoteSetMode = function (mode) {
+    _currentMode = mode;
+    var localBtn  = document.getElementById('remote-mode-local-btn');
+    var extBtn    = document.getElementById('remote-mode-ext-btn');
+    var localFlds = document.getElementById('remote-local-fields');
+    var extFlds   = document.getElementById('remote-ext-fields');
+    if (mode === 'external') {
+      if (localBtn)  { localBtn.style.background = '#f8fafc'; localBtn.style.color = '#334155'; }
+      if (extBtn)    { extBtn.style.background   = '#2563eb'; extBtn.style.color   = '#fff'; }
+      if (localFlds) localFlds.style.display = 'none';
+      if (extFlds)   extFlds.style.display   = 'block';
+    } else {
+      if (localBtn)  { localBtn.style.background = '#2563eb'; localBtn.style.color = '#fff'; }
+      if (extBtn)    { extBtn.style.background   = '#f8fafc'; extBtn.style.color   = '#334155'; }
+      if (localFlds) localFlds.style.display = 'block';
+      if (extFlds)   extFlds.style.display   = 'none';
+    }
+    // Persist choice
+    if (window.Desktop && window.Desktop.isElectron() && typeof Desktop.remoteConfigSave === 'function') {
+      Desktop.remoteConfigSave(_remoteGetConfig()).catch(function () {});
+    }
+  };
+
+  function _remoteGetConfig() {
+    return {
+      mode:       _currentMode,
+      serverUrl:  (document.getElementById('remote-server-url')  || {}).value || '',
+      hostSecret: (document.getElementById('remote-host-secret') || {}).value || ''
+    };
+  }
+
   // ── Modal open / close ─────────────────────────────────────
   window.openRemoteModal = function () {
     var overlay = document.getElementById('remote-overlay');
-    if (overlay) {
-      overlay.style.display = 'flex';
-      // Sync current server state
-      if (window.Desktop && window.Desktop.isElectron()) {
-        window.Desktop.remoteStatus().then(function (s) {
-          if (s && s.running) { _showServerOn(s); } else { _showServerOff(); }
-        }).catch(function () { _showServerOff(); });
-      }
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+
+    if (window.Desktop && window.Desktop.isElectron()) {
+      // Load saved config then sync server state
+      var loadCfg = typeof Desktop.remoteConfigRead === 'function'
+        ? Desktop.remoteConfigRead()
+        : Promise.resolve({ ok: true, config: {} });
+
+      loadCfg.then(function (r) {
+        var cfg = (r && r.config) || {};
+        if (cfg.serverUrl) {
+          var urlEl = document.getElementById('remote-server-url');
+          if (urlEl) urlEl.value = cfg.serverUrl;
+        }
+        if (cfg.hostSecret) {
+          var secEl = document.getElementById('remote-host-secret');
+          if (secEl) secEl.value = cfg.hostSecret;
+        }
+        _remoteSetMode(cfg.mode === 'external' ? 'external' : 'local');
+
+        return Desktop.remoteStatus();
+      }).then(function (s) {
+        if (s && s.running) { _showServerOn(s); } else { _showServerOff(); }
+      }).catch(function () { _showServerOff(); });
     }
   };
 
@@ -14097,7 +14217,23 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
   function _showServerOn(s) {
     document.getElementById('remote-server-off').style.display = 'none';
     document.getElementById('remote-server-on').style.display  = 'block';
-    var url = 'http://' + s.ip + ':' + s.port + '/?t=' + s.token;
+
+    var url;
+    if (s.mode === 'external' && s.httpUrl) {
+      url = s.httpUrl.replace(/\/remote\.html$/, '') + '/?t=' + s.token;
+      var hintEl = document.getElementById('remote-local-hint');
+      if (hintEl) hintEl.style.display = 'none';
+    } else {
+      url = 'http://' + s.ip + ':' + s.port + '/?t=' + s.token;
+      var hintEl2 = document.getElementById('remote-local-hint');
+      if (hintEl2) {
+        hintEl2.style.display = 'block';
+        var cmdEl = document.getElementById('remote-firewall-cmd');
+        if (cmdEl) cmdEl.textContent =
+          'netsh advfirewall firewall add rule name="CMT Classroom Server" dir=in action=allow protocol=TCP localport=' + s.port + ' profile=any';
+      }
+    }
+
     document.getElementById('remote-url-display').textContent   = url;
     document.getElementById('remote-token-display').textContent = s.token;
     var qrImg = document.getElementById('remote-qr-img');
@@ -14106,21 +14242,31 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
       qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=4&data=' + encodeURIComponent(url);
     }
     window._cmsRemoteStatusUpdate(s.connected || 0);
-    // Push current state so phones that join get data immediately
     _remotePushStateDebounced();
   }
 
   // ── Start / stop server ────────────────────────────────────
   window._remoteStartServer = function () {
     if (!window.Desktop || !window.Desktop.isElectron()) { showToast('Desktop API not available.', true); return; }
-    var port = parseInt(document.getElementById('remote-port-input').value, 10) || 7823;
-    window.Desktop.remoteStart(port).then(function (res) {
+    var cfg = _remoteGetConfig();
+    // Save config before starting
+    if (typeof Desktop.remoteConfigSave === 'function') Desktop.remoteConfigSave(cfg).catch(function () {});
+
+    var opts = { mode: cfg.mode };
+    if (cfg.mode === 'local') {
+      opts.port = parseInt((document.getElementById('remote-port-input') || {}).value, 10) || 8787;
+    } else {
+      opts.serverUrl  = cfg.serverUrl;
+      opts.hostSecret = cfg.hostSecret;
+    }
+
+    window.Desktop.remoteStart(opts).then(function (res) {
       if (res && res.ok) {
         _showServerOn(res);
       } else {
         showToast('Could not start remote server: ' + (res && res.error ? res.error : 'Unknown error'), true);
       }
-    }).catch(function (e) { showToast('Error: ' + e.message, true); });
+    }).catch(function (e) { showToast('Error: ' + (e && e.message ? e.message : String(e)), true); });
   };
 
   window._remoteStopServer = function () {
@@ -14143,7 +14289,11 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
     if (!await showConfirm('Generate a new token? Connected phones will be disconnected.')) return;
     window.Desktop.remoteNewToken().then(function (res) {
       if (res && res.ok) {
-        var url = 'http://' + res.ip + ':' + res.port + '/?t=' + res.token;
+        var ip    = res.ip || '';
+        var port  = res.port || 8787;
+        var url   = res.mode === 'external' && res.httpUrl
+          ? res.httpUrl.replace(/\/remote\.html$/, '') + '/?t=' + res.token
+          : 'http://' + ip + ':' + port + '/?t=' + res.token;
         document.getElementById('remote-url-display').textContent   = url;
         document.getElementById('remote-token-display').textContent = res.token;
         var qrImg = document.getElementById('remote-qr-img');
