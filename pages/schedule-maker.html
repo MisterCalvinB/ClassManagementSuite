@@ -1313,10 +1313,10 @@
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const stamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
-    const filename = SCHEDULE_DIR + SCHEDULE_PREFIX + stamp + '.js';
+    const filename = SCHEDULE_PREFIX + stamp + '.js';
     const content = '/* Schedule Maker – Class Management Tools */\nvar SCHEDULE_DATA = ' + JSON.stringify(obj, null, 2) + ';\n';
     try {
-      const res = await Desktop.saveText(SCHEDULE_TARGET, filename, content);
+      const res = await Desktop.saveText(SCHEDULE_TARGET, filename, content, 'schedules');
       if (res && res.ok) {
         showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
       } else {
@@ -1341,7 +1341,7 @@
     try {
       const res = await Desktop.listByPath(SCHEDULE_TARGET, SCHEDULE_DIR, { extensions: ['.js'], recursive: false });
       const files = (res && Array.isArray(res.files))
-        ? res.files.filter(f => (f.name || f).startsWith(SCHEDULE_PREFIX))
+        ? res.files.filter(f => f.filename && f.filename.startsWith(SCHEDULE_PREFIX))
         : [];
 
       list.innerHTML = '';
@@ -1351,13 +1351,10 @@
       }
 
       // Sort newest first
-      files.sort((a, b) => {
-        const na = a.name || a, nb = b.name || b;
-        return nb.localeCompare(na);
-      });
+      files.sort((a, b) => b.filename.localeCompare(a.filename));
 
       files.forEach(f => {
-        const fname = f.name || f;
+        const fname = f.filename;
         const item = document.createElement('div');
         item.className = 'sm-modal-item';
         const nameEl = document.createElement('div');
@@ -1379,7 +1376,7 @@
   async function loadScheduleFile(filename) {
     closeLoadModal();
     try {
-      const res = await Desktop.readText(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
+      const res = await Desktop.readByPath(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
       if (!res || !res.ok) throw new Error(res && res.error || 'unknown error');
       const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
       const obj = fn();

@@ -842,6 +842,7 @@
         <p style="color:#666; font-size:0.82rem; margin:0 0 10px;" data-i18n="es_btns_desc">Add one-tap sound buttons that appear in the main panel.</p>
         <div id="custom-buttons-modal-section" class="settings-custom-buttons"></div>
         <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+            <button onclick="importSoundFiles()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="es_import_btn">⊕ Import Audio Files</button>
             <button onclick="refreshSoundFileList(true)" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="es_refresh_btn">↻ Refresh Sound Files</button>
             <button onclick="saveSoundSettings()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="es_save_btn">Save to config.js</button>
             <button onclick="resetSoundSettings()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="es_reset_btn">Reset Defaults</button>
@@ -2910,6 +2911,24 @@
     async function loadSoundFilesFromConfig(forceReload = false) {
         const config = forceReload ? await loadConfigFromDisk(true) : getLoadedConfig();
         return normalizeSoundFileList(config?.soundFiles);
+    }
+
+    async function importSoundFiles() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        const r = await Desktop.pickAndCopyFiles('data', {
+            subdir: 'sounds',
+            filters: [{ name: t('es_import_audio_filter') || 'Audio files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }],
+            title: t('es_import_btn') || 'Select audio files to import'
+        });
+        if (!r || r.canceled) return;
+        if (r.errors && r.errors.length) {
+            const names = r.errors.map(e => e.name).join(', ');
+            if (typeof mdbToast === 'function') mdbToast('⚠ ' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
+            else showToast('⚠ ' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
+        }
+        if (r.copied && r.copied.length) {
+            await refreshSoundFileList(true);
+        }
     }
 
     async function refreshSoundFileList(showFeedback = false) {
@@ -10775,6 +10794,9 @@ const I18N = {
     es_desc: 'Choose built-in sounds, load audio files from the user/custom-data/sounds folder, or write your own tune in JS.',
     es_btns_title: 'Sound Buttons',
     es_btns_desc: 'Add one-tap sound buttons that appear in the main panel.',
+    es_import_btn: '⊕ Import Audio Files',
+    es_import_audio_filter: 'Audio files',
+    es_import_errors: 'Some files could not be imported',
     es_refresh_btn: '↻ Refresh Sound Files',
     es_save_btn: 'Save to config.js',
     es_reset_btn: 'Reset Defaults',
@@ -11174,6 +11196,9 @@ const I18N = {
     es_desc: 'Choisissez des sons intégrés, chargez des fichiers audio depuis user/custom-data/sounds, ou écrivez votre propre mélodie en JS.',
     es_btns_title: 'Boutons sonores',
     es_btns_desc: 'Ajoutez des boutons sonores en un clic qui apparaissent dans le panneau principal.',
+    es_import_btn: '⊕ Importer des fichiers audio',
+    es_import_audio_filter: 'Fichiers audio',
+    es_import_errors: 'Certains fichiers n\'ont pas pu être importés',
     es_refresh_btn: '↻ Actualiser les fichiers',
     es_save_btn: 'Enregistrer dans config.js',
     es_reset_btn: 'Réinitialiser',
@@ -11573,6 +11598,9 @@ const I18N = {
     es_desc: 'Integrierte Sounds wählen, Audiodateien aus user/custom-data/sounds laden oder eigene JS-Melodien schreiben.',
     es_btns_title: 'Sound-Schaltflächen',
     es_btns_desc: 'Fügen Sie Ein-Tipp-Sound-Schaltflächen hinzu, die im Hauptbereich erscheinen.',
+    es_import_btn: '⊕ Audiodateien importieren',
+    es_import_audio_filter: 'Audiodateien',
+    es_import_errors: 'Einige Dateien konnten nicht importiert werden',
     es_refresh_btn: '↻ Dateien aktualisieren',
     es_save_btn: 'In config.js speichern',
     es_reset_btn: 'Standardwerte',
@@ -11967,6 +11995,9 @@ const I18N = {
     es_desc: 'Scegli suoni integrati, carica file audio da user/custom-data/sounds o scrivi le tue melodie in JS.',
     es_btns_title: 'Pulsanti sonori',
     es_btns_desc: 'Aggiungi pulsanti sonori a un tocco che appaiono nel pannello principale.',
+    es_import_btn: '⊕ Importa file audio',
+    es_import_audio_filter: 'File audio',
+    es_import_errors: 'Alcuni file non hanno potuto essere importati',
     es_refresh_btn: '↻ Aggiorna file',
     es_save_btn: 'Salva in config.js',
     es_reset_btn: 'Ripristina predefiniti',

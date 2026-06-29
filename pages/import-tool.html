@@ -21,6 +21,8 @@
   <script src="../js/import-modules/grammar.js"></script>
   <script src="../js/import-modules/sentence.js"></script>
   <script src="../js/import-modules/story.js"></script>
+  <script src="../js/import-modules/sounds.js"></script>
+  <script src="../js/import-modules/documents.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -586,7 +588,9 @@
       window.IMPORT_MODULE_DICTATION,
       window.IMPORT_MODULE_GRAMMAR,
       window.IMPORT_MODULE_SENTENCE,
-      window.IMPORT_MODULE_STORY
+      window.IMPORT_MODULE_STORY,
+      window.IMPORT_MODULE_SOUNDS,
+      window.IMPORT_MODULE_DOCUMENTS
     ];
 
     var selectedModule = MODULES[0];
@@ -618,7 +622,7 @@
 
     function buildDestCards() {
       var container = document.getElementById('dest-options');
-      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️', quote: '💬', error: '🔴', dictation: '🎧', grammar: '📖', sentence: '🔀', story: '📗' };
+      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️', quote: '💬', error: '🔴', dictation: '🎧', grammar: '📖', sentence: '🔀', story: '📗', sounds: '🔊', documents: '📄' };
       var descs = {
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
@@ -630,7 +634,9 @@
         dictation: tt('importDestDictationDesc', 'Add dictation texts to a custom bank'),
         grammar: tt('importDestGrammarDesc', 'Add grammar points to a custom bank'),
         sentence: tt('importDestSentenceDesc', 'Add sentence ordering exercises to a custom bank'),
-        story: tt('importDestStoryDesc', 'Add story metadata to a custom story bank')
+        story: tt('importDestStoryDesc', 'Add story metadata to a custom story bank'),
+        sounds: tt('importDestSoundsDesc', 'Copy audio files into the custom sounds folder'),
+        documents: tt('importDestDocumentsDesc', 'Copy document files into the Document Editor')
       };
       MODULES.forEach(function (mod, i) {
         var card = document.createElement('label');
@@ -652,15 +658,16 @@
         c.classList.toggle('selected', c.dataset.modId === mod.id);
       });
       var grpOpts = document.getElementById('group-options');
-      grpOpts.classList.toggle('visible', !!mod.hasGroupStep);
+      grpOpts.classList.toggle('visible', !!mod.hasGroupStep && !mod.isFileCopy);
       var wbOpts = document.getElementById('wb-options');
-      wbOpts.classList.toggle('visible', !!mod.hasWbStep);
-      if (mod.hasWbStep) {
+      wbOpts.classList.toggle('visible', !!mod.hasWbStep && !mod.isFileCopy);
+      if (mod.hasWbStep && !mod.isFileCopy) {
         var pickLabel = document.getElementById('wb-pick-label');
         if (pickLabel) pickLabel.textContent = tt(mod.filePickerLabelKey || 'importWbPickLabel', 'Target file');
         setWbMode(wbMode);
         loadWbFiles();
       }
+      updateFooterButtons();
     }
 
     window.setWbMode = function (mode) {
@@ -1204,10 +1211,58 @@
       goToStep(5);
     }
 
+    // ── File-copy import (sounds / documents) ──────────────────
+    async function runFileCopyImport() {
+      showSaving(true);
+      clearError('err-step1');
+      try {
+        var mod = selectedModule;
+        var r = await Desktop.pickAndCopyFiles(mod.target, {
+          subdir: mod.copySubdir || null,
+          filters: mod.copyFilters || [],
+          title: tt(mod.copyTitleKey, 'Select files to import')
+        });
+        showSaving(false);
+        if (!r || r.canceled) return;
+
+        var added = r.copied ? r.copied.length : 0;
+        var skipped = r.errors ? r.errors.length : 0;
+        document.getElementById('done-added').textContent = added;
+        document.getElementById('done-updated').textContent = 0;
+        document.getElementById('done-skipped').textContent = skipped;
+
+        if (r.errors && r.errors.length) {
+          showError('err-step1', tt('importFileCopyErrors', 'Some files could not be copied') + ': ' + r.errors.map(function (e) { return e.name; }).join(', '));
+        }
+
+        var doneBtn = document.getElementById('btn-done-action');
+        if (mod.doneToolPage) {
+          doneBtn.textContent = tt(mod.doneActionKey, 'Open');
+          doneBtn.style.display = '';
+          window.doneAction = (function (page) {
+            return function () {
+              if (window.Desktop && Desktop.isElectron()) Desktop.openTool(page);
+            };
+          }(mod.doneToolPage));
+        } else {
+          doneBtn.style.display = 'none';
+        }
+
+        goToStep(5);
+      } catch (err) {
+        showSaving(false);
+        showError('err-step1', String(err.message || err));
+      }
+    }
+
     // ── Wizard navigation ───────────────────────────────────────
     window.goNext = function () {
       if (currentStep === 1) {
         if (!validateStep1()) return;
+        if (selectedModule.isFileCopy) {
+          runFileCopyImport();
+          return;
+        }
         goToStep(2);
       } else if (currentStep === 2) {
         if (!validateStep2()) return;
@@ -1267,7 +1322,10 @@
       footer.style.display = '';
       btnBack.style.display = currentStep > 1 ? '' : 'none';
 
-      if (currentStep === 4) {
+      if (currentStep === 1 && selectedModule && selectedModule.isFileCopy) {
+        btnNext.setAttribute('data-i18n', 'importBtnPickFiles');
+        btnNext.textContent = tt('importBtnPickFiles', 'Pick Files…');
+      } else if (currentStep === 4) {
         btnNext.setAttribute('data-i18n', 'importBtnImport');
         btnNext.textContent = tt('importBtnImport', 'Import');
       } else {
@@ -1278,6 +1336,10 @@
 
     // ── Validation ──────────────────────────────────────────────
     function validateStep1() {
+      if (selectedModule.isFileCopy) {
+        clearError('err-step1');
+        return true;
+      }
       if (selectedModule.hasGroupStep && groupMode === 'new') {
         var name = document.getElementById('grp-name').value.trim();
         if (!name) {

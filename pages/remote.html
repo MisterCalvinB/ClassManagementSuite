@@ -260,7 +260,8 @@
   let   connectTimeout  = null;
   let   state       = { activeGroup: null, groupNames: [], groupLabels: {}, groups: {}, badgeDefinitions: [] };
   let   activeGroup = null;
-  let   pendingCmds = {}; // cmdId → {resolve, reject, timer}
+  let   pendingCmds      = {}; // cmdId → {studentId, resolve, reject, timer}
+  let   pendingStudentIds = new Set(); // student IDs with unconfirmed local changes
   let   cmdSeq      = 0;
 
   // ── DOM refs ───────────────────────────────────────────────
@@ -381,10 +382,10 @@
       applyState(msg);
     } else if (msg.type === 'ack') {
       const p = pendingCmds[msg.cmdId];
-      if (p) { clearTimeout(p.timer); delete pendingCmds[msg.cmdId]; p.resolve(msg); }
+      if (p) { clearTimeout(p.timer); pendingStudentIds.delete(p.studentId); delete pendingCmds[msg.cmdId]; p.resolve && p.resolve(msg); }
     } else if (msg.type === 'error') {
       const p = pendingCmds[msg.cmdId];
-      if (p) { clearTimeout(p.timer); delete pendingCmds[msg.cmdId]; p.reject(new Error(msg.reason)); }
+      if (p) { clearTimeout(p.timer); pendingStudentIds.delete(p.studentId); delete pendingCmds[msg.cmdId]; p.reject && p.reject(new Error(msg.reason)); }
       showToast('✗ ' + (msg.reason || 'Error'), true);
     } else if (msg.type === 'pong') {
       // heartbeat response
@@ -395,9 +396,26 @@
   function applyState(msg) {
     if (msg.groupNames)       state.groupNames       = msg.groupNames;
     if (msg.groupLabels)      state.groupLabels      = msg.groupLabels;
-    if (msg.groups)           state.groups           = msg.groups;
     if (msg.badgeDefinitions) state.badgeDefinitions = msg.badgeDefinitions;
     if (msg.activeGroup)      state.activeGroup      = msg.activeGroup;
+
+    if (msg.groups) {
+      if (pendingStudentIds.size === 0) {
+        state.groups = msg.groups;
+      } else {
+        // Preserve local optimistic changes for students with unconfirmed actions
+        const merged = {};
+        for (const gName of Object.keys(msg.groups)) {
+          const localGroup = state.groups[gName] || [];
+          merged[gName] = msg.groups[gName].map(s => {
+            if (!pendingStudentIds.has(s.id)) return s;
+            const local = localGroup.find(l => l.id === s.id);
+            return local ? { ...s, pluses: local.pluses, minuses: local.minuses, badges: local.badges } : s;
+          });
+        }
+        state.groups = merged;
+      }
+    }
 
     // Switch to active group if we haven't chosen one yet, or if the desktop switched
     if (!activeGroup || activeGroup !== state.activeGroup) {
@@ -557,12 +575,13 @@
       }
       showToast('✓ Badge removed');
     }
+    pendingStudentIds.add(student.id);
 
     try { ws.send(JSON.stringify(msg)); } catch (_) {}
 
-    // Resolve pending after timeout (server may have sent ack already)
     pendingCmds[cmdId] = {
-      timer: setTimeout(() => { delete pendingCmds[cmdId]; }, 5000)
+      studentId: student.id,
+      timer: setTimeout(() => { pendingStudentIds.delete(student.id); delete pendingCmds[cmdId]; }, 5000)
     };
   }
 

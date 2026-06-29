@@ -140,6 +140,7 @@
       <div>
         <label for="name-picker">Name</label>
         <select id="name-picker"></select>
+        <input id="name-input" type="text" placeholder="Your name" style="display:none;margin-top:0;">
       </div>
       <div>
         <label for="server-url">Server</label>
@@ -165,8 +166,29 @@
   <script src="../user/class-groups.js"></script>
   <script>
     const classPicker = document.getElementById('class-picker');
-    const namePicker = document.getElementById('name-picker');
+    const namePicker  = document.getElementById('name-picker');
+    const nameInput   = document.getElementById('name-input');
     const serverInput = document.getElementById('server-url');
+
+    let _nameMode = 'select'; // 'select' | 'text'
+    function _getStudentName() {
+      return _nameMode === 'text' ? String(nameInput.value || '').trim() : String(namePicker.value || '').trim();
+    }
+    function _switchNameMode(mode, names) {
+      _nameMode = mode;
+      if (mode === 'text') {
+        namePicker.style.display = 'none';
+        nameInput.style.display = '';
+        nameInput.disabled = false;
+      } else {
+        nameInput.style.display = 'none';
+        namePicker.style.display = '';
+        namePicker.innerHTML = '';
+        (names || []).forEach(function (n) {
+          const o = document.createElement('option'); o.value = n; o.textContent = n; namePicker.appendChild(o);
+        });
+      }
+    }
     const messageInput = document.getElementById('message-input');
     const connectBtn = document.getElementById('connect-btn');
     const sendBtn = document.getElementById('send-btn');
@@ -197,6 +219,7 @@
       const halfPicker = document.getElementById('half-picker');
       if (halfPicker) halfPicker.disabled = connected || (halfFromUrl === '1' || halfFromUrl === '2');
       namePicker.disabled = connected;
+      nameInput.disabled = connected;
       serverInput.disabled = connected;
     }
 
@@ -258,20 +281,11 @@
       if (half === '1') names = names.slice(0, Math.ceil(names.length / 2));
       else if (half === '2') names = names.slice(Math.ceil(names.length / 2));
 
-      namePicker.innerHTML = '';
       if (!names.length) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No students found';
-        namePicker.appendChild(opt);
-        return;
+        _switchNameMode('text');
+      } else {
+        _switchNameMode('select', names);
       }
-      names.forEach(function (name) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        namePicker.appendChild(opt);
-      });
       buildMeta();
     }
 
@@ -287,7 +301,11 @@
     function fillClasses() {
       const groups = normalizeClassGroups();
       const keys = Object.keys(groups).sort(function (a, b) { return _snpGroupName(a).localeCompare(_snpGroupName(b)); });
-      const visibleKeys = classFromUrl && keys.includes(classFromUrl) ? [classFromUrl] : keys;
+      // If classFromUrl is set but not in loaded data (e.g. remote server without local file),
+      // still allow it so the student can proceed with a text name input.
+      const visibleKeys = classFromUrl && keys.includes(classFromUrl) ? [classFromUrl]
+        : classFromUrl ? [classFromUrl]
+        : keys;
       classPicker.innerHTML = '';
       if (!visibleKeys.length) {
         const opt = document.createElement('option');
@@ -326,13 +344,13 @@
         return;
       }
       const className = String(classPicker.value || '').trim();
-      const studentName = String(namePicker.value || '').trim();
+      const studentName = _getStudentName();
       if (!className) {
         setStatus('Select your class first.', 'bad');
         return;
       }
       if (!studentName) {
-        setStatus('Select your name first.', 'bad');
+        setStatus('Enter your name first.', 'bad');
         return;
       }
 
@@ -371,6 +389,10 @@
         if (!msg || !msg.type) return;
 
         if (msg.type === 'welcome') {
+          // If the server sends a roster, switch to the dropdown now
+          if (Array.isArray(msg.roster) && msg.roster.length) {
+            _switchNameMode('select', msg.roster);
+          }
           setStatus('Connected. You can now send your note.', 'ok');
         } else if (msg.type === 'note_ack') {
           messageInput.value = '';

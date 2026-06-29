@@ -47,6 +47,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and Markdown export |
 | `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
+| `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
 | `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, custom CSS stylesheets, templates, and PDF export |
@@ -282,9 +283,15 @@ No keyboard shortcuts yet.
 
 ## import-tool.html
 
-Five-step wizard for bulk-importing students and class groups from CSV, XLSX, or JSON. Accessible from the Launcher (📥 Import card in the Students section) or via the **📥 Import** shortcut in the Class Management settings popup.
+Wizard for bulk-importing structured data (students, vocabulary, quizzes…) from CSV, XLSX, or JSON, as well as copying binary files (audio, documents) into their managed folders. Accessible from the Launcher (📥 Import card) or via **📥 Import** in the Class Management settings popup.
 
-### Supported formats
+### Supported destination types
+
+**Structured data (CSV / XLSX / JSON mapping wizard):** Students, Class Groups, Wordbank, Quiz, Gap-Fill, Quotes, Error Correction, Dictation, Grammar, Sentences, Story.
+
+**File-copy (OS file picker, no CSV step):** Sounds, Documents.
+
+### Supported formats for structured imports
 
 | Format | Notes |
 |---|---|
@@ -292,13 +299,22 @@ Five-step wizard for bulk-importing students and class groups from CSV, XLSX, or
 | XLSX / XLS | First sheet only. First row = column headers. Native Excel dates handled correctly. |
 | JSON | Array of objects: `[{"firstName":"…","lastName":"…"},…]`. Object keys are treated as column names. |
 
-### Wizard steps
+### Wizard steps (structured data)
 
-1. **Destination** — choose *Students* (roster only) or *Class Groups* (roster + group assignment).
+1. **Destination** — choose a destination. Step 1 also shows group or file-picker sub-options where relevant.
 2. **File** — drag-and-drop or browse. Supported: `.csv`, `.xlsx`, `.xls`, `.json`. A raw preview of the first five rows is shown immediately.
 3. **Column mapping** — each destination field gets a dropdown. Common header names in EN, FR, DE, and IT are auto-detected (green border = matched). Optional fields can be skipped.
-4. **Preview & conflicts** — all rows are listed. Rows whose first name + last name match an existing student are highlighted. Per-row choice: **Skip** (keep existing), **Overwrite** (update record), or **Import as new** (add another entry). Bulk actions apply the same decision to all conflicts at once.
-5. **Done** — summary of students added / updated / skipped. One-click shortcut to open Class Management.
+4. **Preview & conflicts** — all rows are listed. Conflicting rows are highlighted with per-row resolution choices: **Skip**, **Overwrite**, or **Import as new**. Bulk actions apply the same decision to all conflicts.
+5. **Done** — summary of records added / updated / skipped.
+
+### File-copy destinations (Sounds & Documents)
+
+Selecting **Sounds** or **Documents** in Step 1 changes the **Next** button to **Pick Files…**. Clicking it opens an OS file picker (multi-select):
+
+- **Sounds** — audio files (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.aac`, `.flac`) are copied into `user/custom-data/sounds`. Open Class Management afterwards to refresh and use them.
+- **Documents** — document files (`.html`, `.md`, `.txt`) are copied into the Document Editor's docs folder (`user/document-editor/docs`). Open Document Editor to edit them.
+
+The Done screen shows how many files were copied.
 
 ### Class Groups destination
 
@@ -311,7 +327,7 @@ Students who do not already exist in `students.js` are created automatically —
 
 ### Extensibility
 
-Each destination is a self-contained descriptor in `js/import-modules/`. To add a new destination, create a file there with `id`, `i18nKey`, `hasGroupStep`, `fields[]`, and `conflictKey()`, then register it in the `MODULES` array at the top of `pages/import-tool.html`.
+Each destination is a self-contained descriptor in `js/import-modules/`. To add a structured destination, create a file there with `id`, `i18nKey`, `hasGroupStep`, `fields[]`, and `conflictKey()`. For a file-copy destination, set `isFileCopy: true` with `target`, `copySubdir`, and `copyFilters`. Register it in the `MODULES` array at the top of `pages/import-tool.html`.
 
 ---
 
@@ -428,6 +444,52 @@ Plans oral exam sessions where one student prepares while another presents, acco
 
 ---
 
+## oral-marking.html
+
+Runs live oral exam sessions using a schedule from Schedule Maker. Tracks per-student prep and exam timers, collects criteria scores and comments, and saves results directly to Grade Sheet.
+
+### Setup
+1. Open **Oral Marking** from the launcher.
+2. Click **Load Schedule** and select a saved Schedule Maker session.
+3. The student roster, group name, and exam configuration are loaded automatically.
+4. Click **Present** to open the live presenter window on a second screen.
+
+### Session flow
+| Phase | Description |
+|---|---|
+| **Prep** | Countdown for the current student's preparation time (SEN students get the longer prep time). |
+| **Exam** | Countdown for the student's presentation. The **Finish Exam** button stops the timer early and records the actual duration. |
+| **Between students** | Timer pauses. Use **Next Student** to advance, or click a name in the sidebar to jump. |
+
+The **Skip** button marks a student as skipped and moves on without recording a grade.
+
+### Criteria scoring
+Criteria are loaded from `correction-criteria.js` (the same file used by Grade Sheet). For each criterion:
+- Click a **score pill** to assign a grade (6 / 5.5 / … / 1).
+- Type a **comment** below the pills for that criterion.
+- The **Overall grade** row shows the auto-computed average; click any pill to override it manually.
+
+A **Personal notes** field at the bottom is saved with the student's result.
+
+### 2-minute warning
+When fewer than 2 minutes remain in the exam phase, the timer bar flashes red and the presenter window background flashes dark red.
+
+### Presenter view
+The presenter window (opened via **Present**) shows the student's name, current phase, time remaining, and elapsed time in large text for a second display. It receives updates via `BroadcastChannel` — no network required.
+
+### Saving grades
+Click **Save Grades** after all students are done. The tool:
+1. Looks for an existing Grade Sheet class whose `groupId` matches the schedule's group.
+2. If found, appends a new oral-exam test to the next empty slot for that semester.
+3. If not found, creates a new class using students from `class-groups.js`.
+
+Results appear immediately in `grade-sheet.html` on the next load.
+
+### Crash recovery
+The session is auto-saved to `localStorage` (`cmt-oral-session`) each time a student finishes. If the app closes mid-session, reopening Oral Marking restores the last saved state automatically.
+
+---
+
 ## file-manager.html
 
 Browse, rename, and sync data files. Opens as a standalone tool window from the launcher.
@@ -519,7 +581,7 @@ Accessed from the top-right ⚙ menu:
 | **Edit Groups** | Add/rename classes; each group has a name, year, term, and level |
 | **Edit Teams** | Customise team names and colours (palette of 10+ colours) |
 | **Edit Badges** | Define badge icons, names, tone, and meaning |
-| **Edit Sounds** | Pick audio files or built-in sounds for every event slot (timer end, ambient, drumroll, gavel, score sounds); each slot has a 0–100 volume slider |
+| **Edit Sounds** | Pick audio files or built-in sounds for every event slot (timer end, ambient, drumroll, gavel, score sounds); each slot has a 0–100 volume slider. Use **⊕ Import Audio Files** to copy audio files directly from disk into the sounds folder, then **↻ Refresh** to make them available |
 | **Edit Roles** | Manage role titles and descriptions |
 | **Edit Autoflag** | Bottom-% threshold, elements to count, and timeline |
 | **Class Plan** | Seating layout and weekly schedule |
@@ -1133,7 +1195,7 @@ Before applying a sync, a modal lists every file that differs between source and
 The window is divided into three horizontal regions:
 
 1. **Nav bar** — grouped into hover menus:
-   - **File ▾** — New, Open, Save, Save As, Save All, History
+   - **File ▾** — New, Open, **Open from disk…** (import any file from anywhere on disk; saves as a copy on first Save), Save, Save As, Save All, History
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
    - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
@@ -1159,6 +1221,7 @@ Files are saved as `.md` under `custom-data/document-editor/docs/`.
 |---|---|
 | **New** | Clears the editor (prompts if unsaved changes) |
 | **Open** | Modal list of saved documents; click Open or Delete |
+| **Open from disk…** | OS file picker — opens any `.html`, `.md`, or `.txt` file from anywhere on disk. The content is loaded into the editor; use **Save** to store a managed copy in Documents |
 | **Save** | Saves under current name; prompts for a filename if new |
 | **Save As** | Always prompts for a new filename |
 | Ctrl+S | Save | Ctrl+N | New | Ctrl+O | Open |

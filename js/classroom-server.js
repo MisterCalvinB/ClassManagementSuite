@@ -231,6 +231,9 @@ function noteHandleHostOpen(ws, payload) {
   const noteId     = sanitizeNoteId(payload && payload.noteId);
   const classGroup = normalizeClassGroup(payload && payload.classGroup);
   const title      = String((payload && payload.title) || '').trim().slice(0, 120);
+  const roster     = Array.isArray(payload && payload.roster)
+    ? payload.roster.map(n => String(n || '').trim()).filter(Boolean).slice(0, 200)
+    : [];
 
   if (!noteId) { sendJson(ws, { type: 'error', message: 'Invalid note room id.' }); return; }
 
@@ -239,7 +242,7 @@ function noteHandleHostOpen(ws, payload) {
     sendJson(ws, { type: 'error', message: 'A different host is already using this note room id.' });
     return;
   }
-  noteHosts.set(noteId, { ws, noteId, classGroup, title });
+  noteHosts.set(noteId, { ws, noteId, classGroup, title, roster });
   sendJson(ws, { type: 'note_host_opened', payload: { noteId, classGroup, title } });
 }
 
@@ -341,7 +344,8 @@ function quizNoteOnMessage(ws, raw) {
       quizSockets.set(ws, { role: 'note-student', noteId,
         classGroup: classGroup || room.classGroup || '', name: studentName });
       sendJson(ws, { type: 'welcome', role: 'note-student', noteId,
-        classGroup: classGroup || room.classGroup || '', title: room.title || '' });
+        classGroup: classGroup || room.classGroup || '', title: room.title || '',
+        roster: room.roster || [] });
       return;
     }
 
@@ -623,6 +627,11 @@ function attachServer(wss, onMsg, onClose) {
 attachServer(quizWss, quizNoteOnMessage, quizNoteOnClose);
 attachServer(noteWss, quizNoteOnMessage, quizNoteOnClose);
 attachServer(cmsWss,  cmsOnMessage,      cmsOnClose);
+
+// Protocol-level heartbeat — keeps connections alive through proxies with idle timeouts
+setInterval(() => {
+  cmsWss.clients.forEach(ws => { if (ws.readyState === 1) try { ws.ping(); } catch (_) {} });
+}, 25000);
 
 server.on('upgrade', (req, socket, head) => {
   let pathname = '';

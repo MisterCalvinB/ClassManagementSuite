@@ -1,0 +1,2294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oral Marking</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <link rel="stylesheet" href="../css/stylesheet.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lexend', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fff;
+      color: #000;
+      min-height: 100vh;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── PRESENTER VIEW ─────────────────────────────────── */
+    #om-presenter {
+      position: fixed; inset: 0;
+      background: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      user-select: none;
+    }
+
+    #om-presenter.warning {
+      animation: presWarningFlash 0.6s ease-in-out infinite alternate;
+    }
+
+    @keyframes presWarningFlash {
+      from { background: #000; }
+      to   { background: #8b0000; }
+    }
+
+    .pres-phase {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #aaa;
+      text-transform: uppercase;
+    }
+
+    .pres-name {
+      font-size: clamp(2.5rem, 8vw, 6rem);
+      font-weight: 800;
+      text-align: center;
+      padding: 0 32px;
+      line-height: 1.1;
+    }
+
+    .pres-remaining {
+      font-size: clamp(3rem, 10vw, 8rem);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -2px;
+    }
+
+    .pres-remaining.warning { color: #ff4444; }
+
+    .pres-elapsed {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #888;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pres-warning-text {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #ff4444;
+      letter-spacing: 1px;
+    }
+
+    .pres-idle-text {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #666;
+    }
+
+    /* ── MAIN APP LAYOUT ────────────────────────────────── */
+    #om-app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .om-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 2px solid #000;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      min-height: 52px;
+    }
+
+    .om-back-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .om-back-btn:hover { background: #000; color: #fff; }
+
+    .om-header-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .om-header-meta {
+      font-size: 0.78rem;
+      color: #555;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .om-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .om-pill-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .om-pill-btn:hover { background: #000; color: #fff; }
+    .om-pill-btn.active { background: #000; color: #fff; }
+
+    /* ── SETUP SCREEN ───────────────────────────────────── */
+    #om-setup {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 32px;
+      min-height: 0;
+    }
+    #om-setup.configured {
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .om-setup-icon { font-size: 3rem; }
+
+    .om-setup-desc {
+      font-size: 0.9rem;
+      color: #555;
+      text-align: center;
+      max-width: 360px;
+    }
+
+    .om-setup-btn {
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 28px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .om-setup-btn:hover { opacity: 0.82; }
+
+    /* ── CRITERIA PICKER ────────────────────────────────── */
+    .om-config-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 2px solid #000;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .om-config-info-text { min-width: 0; }
+    .om-config-info-title {
+      font-size: 1rem; font-weight: 800;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .om-config-info-meta { font-size: 0.78rem; color: #555; margin-top: 2px; }
+
+    .om-picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 20px;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+      gap: 10px;
+    }
+    .om-picker-heading {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .om-save-tpl-btn {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .om-save-tpl-btn:hover { background: #000; color: #fff; }
+    .om-save-tpl-btn.saved { background: #060; color: #fff; border-color: #060; }
+
+    .om-picker-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+      min-height: 0;
+    }
+    .om-picker-list::-webkit-scrollbar { width: 5px; }
+    .om-picker-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+    .om-picker-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: grab;
+      user-select: none;
+    }
+    .om-picker-item:active { cursor: grabbing; }
+    .om-picker-item.dragging { opacity: 0.35; background: #f5f5f5; }
+    .om-picker-item.drag-over { border-top: 2px solid #000; }
+
+    .om-picker-drag { font-size: 1rem; color: #ccc; flex-shrink: 0; line-height: 1; }
+    .om-picker-check { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: #000; }
+    .om-picker-name { flex: 1; font-size: 0.85rem; font-weight: 600; }
+    .om-picker-name.off { color: #bbb; text-decoration: line-through; }
+
+    .om-begin-bar {
+      border-top: 2px solid #000;
+      padding: 12px 20px;
+      flex-shrink: 0;
+    }
+    .om-begin-bar .om-action-primary { width: 100%; }
+
+    .om-picker-empty { padding: 24px; text-align: center; color: #888; font-size: 0.85rem; }
+
+    /* ── SCHEDULE MODAL ─────────────────────────────────── */
+    .om-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .om-modal-box {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 10px;
+      padding: 24px;
+      width: min(520px, 92vw);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .om-modal-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    .om-modal-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .om-modal-item {
+      border: 2px solid #e0e0e0;
+      border-radius: 7px;
+      padding: 10px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.1s, background 0.1s;
+    }
+    .om-modal-item:hover { border-color: #000; background: #f5f5f5; }
+    .om-modal-item-name { font-weight: 700; font-size: 0.9rem; }
+    .om-modal-item-meta { font-size: 0.78rem; color: #777; }
+
+    .om-modal-empty {
+      color: #888;
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 16px 0;
+    }
+
+    .om-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .om-modal-cancel {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 7px 18px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .om-modal-cancel:hover { background: #000; color: #fff; }
+
+    /* ── MARKING LAYOUT ─────────────────────────────────── */
+    #om-marking {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────────── */
+    .om-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      border-right: 2px solid #000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .om-sidebar-header {
+      padding: 10px 12px;
+      border-bottom: 2px solid #000;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+
+    .om-student-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .om-student-item {
+      padding: 9px 12px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.1s;
+      position: relative;
+    }
+    .om-student-item:hover { background: #f5f5f5; }
+
+    .om-student-item.current {
+      background: #000;
+      color: #fff;
+    }
+
+    .om-student-item.done {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+
+    .om-student-item.done .om-st-badge { background: #ccc; color: #777; }
+
+    .om-student-item.skipped {
+      text-decoration: line-through;
+      color: #bbb;
+    }
+
+    .om-student-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #888;
+      min-width: 18px;
+    }
+    .om-student-item.current .om-student-num { color: #ccc; }
+
+    .om-student-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .om-st-badge {
+      font-size: 0.65rem;
+      font-weight: 800;
+      background: #000;
+      color: #fff;
+      border-radius: 3px;
+      padding: 1px 5px;
+      letter-spacing: 0.5px;
+    }
+
+    .om-st-badge.prep { background: #555; }
+    .om-st-badge.exam { background: #c00; }
+    .om-st-badge.done { background: #060; }
+
+    /* ── MAIN CONTENT ────────────────────────────────────── */
+    .om-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    /* ── TIMER BAR ──────────────────────────────────────── */
+    .om-timer-bar {
+      flex-shrink: 0;
+      border-bottom: 2px solid #000;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: #fff;
+      transition: background 0.3s;
+    }
+
+    .om-timer-bar.warning {
+      animation: timerWarningFlash 0.6s ease-in-out infinite alternate;
+    }
+
+    @keyframes timerWarningFlash {
+      from { background: #fff0f0; }
+      to   { background: #ffd5d5; }
+    }
+
+    .om-timer-phase-badge {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #000;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .om-timer-phase-badge.prep { background: #555; }
+    .om-timer-phase-badge.exam { background: #c00; }
+    .om-timer-phase-badge.idle { background: #999; }
+    .om-timer-phase-badge.done { background: #060; }
+
+    .om-timer-student {
+      font-size: 1rem;
+      font-weight: 700;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .om-timer-times {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .om-timer-remaining {
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+
+    .om-timer-remaining.warning { color: #c00; }
+
+    .om-timer-elapsed {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #777;
+    }
+
+    .om-timer-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .om-timer-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    /* ── CRITERIA PANEL ─────────────────────────────────── */
+    .om-content-row {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .om-notes-panel {
+      width: 300px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+
+    .om-notes-panel .om-notes-input {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .om-resize-handle {
+      width: 6px;
+      flex-shrink: 0;
+      background: #000;
+      cursor: col-resize;
+      transition: background 0.15s;
+      position: relative;
+      z-index: 1;
+    }
+    .om-resize-handle:hover,
+    .om-resize-handle.dragging { background: #555; }
+
+    .om-criteria-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 20px;
+      min-width: 0;
+    }
+
+    .om-section-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #000;
+      margin-bottom: 10px;
+    }
+
+    .om-criterion-block {
+      border: 2px solid #000;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .om-criterion-header {
+      padding: 8px 12px;
+      background: #000;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .om-criterion-name { flex: 1; }
+
+    .om-criterion-score-display {
+      font-size: 1rem;
+      font-weight: 900;
+      color: #fff;
+      min-width: 28px;
+      text-align: right;
+    }
+
+    .om-pills-row {
+      padding: 8px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .om-pill {
+      padding: 4px 9px;
+      border: 2px solid #ccc;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      transition: all 0.1s;
+      font-variant-numeric: tabular-nums;
+    }
+    .om-pill:hover { border-color: #000; background: #f0f0f0; }
+    .om-pill.selected { background: #000; color: #fff; border-color: #000; }
+
+    .om-crit-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 7px 10px;
+      background: #f5f5f5;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .om-sentence-chip {
+      border: 1px solid #ccc;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink, #111);
+      padding: 2px 8px;
+      font-size: 0.76em;
+      line-height: 1.2;
+      cursor: pointer;
+      text-align: left;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+
+    .om-sentence-chip:hover {
+      border-color: #111;
+      background: #f0f0f0;
+    }
+
+    .om-sentence-chip.selected {
+      background: var(--accent, #1a73e8);
+      color: #fff;
+      border-color: var(--accent, #1a73e8);
+    }
+
+    .om-sentence-chip-all {
+      font-weight: 600;
+    }
+
+    .om-sentence-chip-all.partial {
+      background: #f0f0f0;
+      border-color: #555;
+    }
+
+    .om-criterion-comment {
+      padding: 6px 10px;
+    }
+
+    .om-comment-input {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      resize: none;
+      min-height: 36px;
+    }
+    .om-comment-input:focus { outline: 2px solid #000; border-color: transparent; }
+
+    .om-notes-input {
+      width: 100%;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      resize: none;
+      margin-top: 8px;
+    }
+    .om-notes-input:focus { outline: 2px solid #555; border-color: #555; }
+
+    .om-overall-block {
+      border: 2px solid #000;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .om-overall-header {
+      padding: 8px 12px;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .om-overall-auto { font-size: 0.72rem; font-weight: 500; color: #aaa; }
+
+    .om-overall-pills { padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+
+    .om-overall-pill {
+      padding: 5px 11px;
+      border: 2px solid #aaa;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
+      background: #fff;
+      transition: all 0.1s;
+      font-variant-numeric: tabular-nums;
+    }
+    .om-overall-pill:hover { border-color: #000; background: #f0f0f0; }
+    .om-overall-pill.selected { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+    .om-overall-pill.auto-computed { background: #f5f5f5; color: #333; border-color: #333; }
+
+    /* ── ACTION BAR ─────────────────────────────────────── */
+    .om-action-bar {
+      flex-shrink: 0;
+      border-top: 2px solid #000;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fff;
+    }
+
+    .om-action-primary {
+      flex: 1;
+      padding: 12px 24px;
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: opacity 0.15s;
+    }
+    .om-action-primary:hover { opacity: 0.82; }
+    .om-action-primary:disabled { opacity: 0.35; cursor: default; }
+
+    .om-action-primary.exam { background: #c00; }
+    .om-action-primary.save { background: #060; }
+
+    .om-action-secondary {
+      padding: 10px 18px;
+      background: #fff;
+      color: #000;
+      border: 2px solid #000;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+    }
+    .om-action-secondary:hover { background: #000; color: #fff; }
+    .om-action-secondary:disabled { opacity: 0.35; cursor: default; }
+
+    .om-notice {
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      border: 2px solid #000;
+      background: #f9f9f9;
+    }
+
+    .om-notice.error { border-color: #c00; background: #fff0f0; color: #c00; }
+    .om-notice.success { border-color: #060; background: #f0fff0; color: #060; }
+
+    /* ── ALL DONE PANEL ─────────────────────────────────── */
+    .om-done-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .om-done-panel h2 { font-size: 1.5rem; font-weight: 800; }
+    .om-done-panel p { color: #555; font-size: 0.9rem; }
+
+    /* ── SCROLLBAR ──────────────────────────────────────── */
+    .om-student-list::-webkit-scrollbar,
+    .om-criteria-panel::-webkit-scrollbar { width: 5px; }
+    .om-student-list::-webkit-scrollbar-thumb,
+    .om-criteria-panel::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+    @media (max-width: 600px) {
+      .om-sidebar { width: 160px; }
+      .om-timer-times { flex-direction: column; gap: 2px; }
+      .om-timer-remaining { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── PRESENTATION MODE ──────────────────────────────── -->
+<div id="om-presenter" class="hidden">
+  <div class="pres-phase" id="pres-phase">READY</div>
+  <div class="pres-name" id="pres-name">—</div>
+  <div class="pres-remaining" id="pres-remaining">—</div>
+  <div class="pres-elapsed" id="pres-elapsed"></div>
+  <div class="pres-warning-text hidden" id="pres-warning-text"></div>
+  <div class="pres-idle-text hidden" id="pres-idle-text"></div>
+</div>
+
+<!-- ── MARKING MODE ───────────────────────────────────── -->
+<div id="om-app" class="hidden">
+
+  <!-- Header -->
+  <header class="om-header">
+    <button class="om-back-btn" onclick="goBack()" data-i18n="omBack">← Launcher</button>
+    <span class="om-header-title" id="om-exam-title" data-i18n="omTitle">Oral Marking</span>
+    <span class="om-header-meta" id="om-exam-meta"></span>
+    <div class="om-header-right">
+      <button class="om-pill-btn" id="om-load-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Load Schedule</button>
+      <button class="om-pill-btn" id="om-presenter-btn" onclick="togglePresenter()" data-i18n="omPresent">Present</button>
+    </div>
+  </header>
+
+  <!-- Setup screen -->
+  <div id="om-setup">
+    <!-- Initial: no schedule loaded -->
+    <div id="om-setup-initial">
+      <div class="om-setup-icon">🎙</div>
+      <div class="om-setup-desc" data-i18n="omSelectSchedule">Select a saved schedule to begin.</div>
+      <button class="om-setup-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Load Schedule</button>
+    </div>
+    <!-- Configured: schedule loaded — pick criteria, then begin -->
+    <div id="om-setup-configured" class="hidden">
+      <div class="om-config-info">
+        <div class="om-config-info-text">
+          <div class="om-config-info-title" id="om-config-title"></div>
+          <div class="om-config-info-meta" id="om-config-meta"></div>
+        </div>
+        <button class="om-pill-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Change</button>
+      </div>
+      <div class="om-picker-header">
+        <span class="om-picker-heading" data-i18n="omPickerTitle">Criteria for this session</span>
+        <button class="om-save-tpl-btn" id="om-save-tpl-btn" onclick="saveTemplate()" data-i18n="omSaveTemplate">Save as Template</button>
+      </div>
+      <div class="om-picker-list" id="om-picker-list"></div>
+      <div class="om-begin-bar">
+        <button class="om-action-primary" onclick="beginSession()" data-i18n="omBeginSession">Begin Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marking screen (after schedule loaded) -->
+  <div id="om-marking" class="hidden">
+
+    <!-- Sidebar: student list -->
+    <div class="om-sidebar">
+      <div class="om-sidebar-header" data-i18n="omGroupLabel">Group</div>
+      <div class="om-student-list" id="om-student-list"></div>
+    </div>
+
+    <!-- Main column -->
+    <div class="om-main">
+
+      <!-- Timer bar -->
+      <div class="om-timer-bar" id="om-timer-bar">
+        <div class="om-timer-phase-badge idle" id="om-timer-badge" data-i18n="omPhaseIdleLabel">READY</div>
+        <div class="om-timer-student" id="om-timer-student">—</div>
+        <div class="om-timer-times">
+          <div class="om-timer-group">
+            <div class="om-timer-label" data-i18n="omRemaining">remaining</div>
+            <div class="om-timer-remaining" id="om-timer-remaining">—:——</div>
+          </div>
+          <div class="om-timer-group">
+            <div class="om-timer-label" data-i18n="omElapsed">elapsed</div>
+            <div class="om-timer-elapsed" id="om-timer-elapsed">—:——</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content row: notes (middle) + criteria (right) -->
+      <div class="om-content-row">
+        <div class="om-notes-panel" id="om-notes-panel">
+          <!-- Populated by renderCriteria() -->
+        </div>
+        <div class="om-resize-handle" id="om-resize-handle"></div>
+        <div class="om-criteria-panel" id="om-criteria-panel">
+          <!-- Populated by renderCriteria() -->
+        </div>
+      </div>
+
+      <!-- Action bar -->
+      <div class="om-action-bar">
+        <div id="om-notice" class="om-notice hidden"></div>
+        <button class="om-action-secondary hidden" id="om-skip-btn" onclick="skipStudent()" data-i18n="omBtnSkip">Skip</button>
+        <button class="om-action-secondary hidden" id="om-pause-btn" onclick="togglePause()" data-i18n="omBtnPause">⏸ Pause</button>
+        <button class="om-action-primary" id="om-action-btn" onclick="handleActionBtn()">Begin</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Schedule load modal -->
+<div id="om-schedule-modal" class="om-modal-overlay hidden" onclick="closeScheduleModal()">
+  <div class="om-modal-box" onclick="event.stopPropagation()">
+    <div class="om-modal-title" data-i18n="omLoadScheduleTitle">Load a Schedule</div>
+    <div class="om-modal-list" id="om-modal-list">
+      <div class="om-modal-empty" data-i18n="omNoSchedules">No saved schedules found.</div>
+    </div>
+    <div class="om-modal-actions">
+      <button class="om-modal-cancel" onclick="closeScheduleModal()" data-i18n="btnCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Constants ────────────────────────────────────────────
+  const GRADE_STEPS = [6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1];
+  const SCHEDULE_TARGET = 'user';
+  const SCHEDULE_DIR    = 'schedules/';
+  const SCHEDULE_PREFIX = 'schedule-';
+  const SESSION_STORAGE_KEY = 'cmt-oral-session';
+  const WARNING_SECS = 120;
+  const TICK_MS = 500;
+
+  // ── State ────────────────────────────────────────────────
+  const IS_PRESENTER = new URLSearchParams(window.location.search).get('presentation') === '1';
+  const _presChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('oral-marking') : null;
+
+  let schedule         = null;
+  let criteria         = [];
+  let criteriaByName   = {};
+  let templateCriteria = [];
+  let activeCriteria   = [];  // [{name, selected}] shown in picker
+  let sessionCriteria  = [];  // names used in current scoring session
+  let classGroups      = {};
+  let classGroupsMeta  = {};
+  let studentRoster    = {};
+
+  // students[]: {name, sen, status, grade, criteriaScores, criteriaComments, notes, prepStart, examStart, examEnd, actualDuration}
+  let students    = [];
+  let currentIdx  = -1;
+  let phase       = 'idle';   // 'idle' | 'prep' | 'exam' | 'done-all'
+  let phaseStart  = null;
+  let phaseDuration = 0;
+  let timerInterval  = null;
+  let paused         = false;
+  let pausedElapsed  = 0;
+  let presenterOpen = false;
+  let sessionStarted = false;
+
+  // ── Init ─────────────────────────────────────────────────
+  function init() {
+    applyTranslations();
+    if (IS_PRESENTER) {
+      initPresenter();
+    } else {
+      initMarkingApp();
+    }
+  }
+
+  // ── PRESENTER SIDE ───────────────────────────────────────
+  function initPresenter() {
+    document.getElementById('om-presenter').classList.remove('hidden');
+    document.getElementById('pres-idle-text').textContent = t('omPhaseIdleLabel');
+    document.getElementById('pres-idle-text').classList.remove('hidden');
+    if (_presChannel) {
+      _presChannel.onmessage = (e) => updatePresenterDisplay(e.data);
+    }
+  }
+
+  function updatePresenterDisplay(state) {
+    if (!state) return;
+    const presEl    = document.getElementById('om-presenter');
+    const nameEl    = document.getElementById('pres-name');
+    const phaseEl   = document.getElementById('pres-phase');
+    const remEl     = document.getElementById('pres-remaining');
+    const elapEl    = document.getElementById('pres-elapsed');
+    const warnText  = document.getElementById('pres-warning-text');
+    const idleText  = document.getElementById('pres-idle-text');
+
+    presEl.classList.toggle('warning', !!state.warning);
+    remEl.classList.toggle('warning', !!state.warning);
+
+    if (state.phase === 'idle' || state.phase === 'done-all') {
+      nameEl.textContent    = state.studentName || '—';
+      phaseEl.textContent   = state.phase === 'done-all' ? t('omAllDone') : t('omPhaseIdleLabel');
+      remEl.textContent     = '—';
+      elapEl.textContent    = '';
+      warnText.classList.add('hidden');
+      idleText.classList.remove('hidden');
+      idleText.textContent  = state.phase === 'done-all' ? t('omAllDone') : t('omPhaseIdleLabel');
+    } else {
+      const phaseKey = state.phase === 'prep' ? 'omPhasePrepLabel' : 'omPhaseExamLabel';
+      nameEl.textContent    = state.studentName || '—';
+      phaseEl.textContent   = t(phaseKey);
+      remEl.textContent     = fmtTime(Math.max(0, state.remaining));
+      elapEl.textContent    = fmtTime(state.elapsed) + ' ' + t('omElapsed');
+      idleText.classList.add('hidden');
+      warnText.classList.toggle('hidden', !state.warning);
+      warnText.textContent  = t('omWarning2min');
+    }
+  }
+
+  // ── MARKING APP SIDE ─────────────────────────────────────
+  function initMarkingApp() {
+    document.getElementById('om-app').classList.remove('hidden');
+    initResize();
+    loadCoreData();
+    const saved = tryRestoreSession();
+    if (!saved) {
+      showSetup();
+    }
+  }
+
+  async function loadCoreData() {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    try {
+      const r = await Desktop.readText('user', 'class-groups.js');
+      if (r?.ok && r.content) {
+        const fn = new Function(r.content + '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : {}), classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
+        const parsed = fn();
+        classGroups = parsed?.classGroups || {};
+        classGroupsMeta = parsed?.classGroupsMeta || {};
+      }
+    } catch (e) { /* silently fail */ }
+    try {
+      const r = await Desktop.readText('user', 'students.js');
+      if (r?.ok && r.content) {
+        const fn = new Function(r.content + '; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+        const arr = fn();
+        if (Array.isArray(arr)) arr.forEach(s => { if (s?.uuid) studentRoster[s.uuid] = s; });
+      }
+    } catch (e) { /* silently fail */ }
+    try {
+      const r = await Desktop.readText('user', 'correction-criteria.js');
+      if (r?.ok && r.content) {
+        const fn = new Function(r.content + '; return typeof XLSM_CRITERIA !== "undefined" ? XLSM_CRITERIA : [];');
+        const arr = fn();
+        criteria = Array.isArray(arr) ? arr : [];
+        criteriaByName = {};
+        criteria.forEach(c => {
+          const n = typeof c === 'string' ? c : (c.name || '');
+          if (n) criteriaByName[n] = c;
+        });
+      }
+    } catch (e) { /* silently fail */ }
+    try {
+      const r = await Desktop.readText('user', 'oral-marking-template.js');
+      if (r?.ok && r.content) {
+        const fn = new Function(r.content + '; return typeof ORAL_MARKING_TEMPLATE !== "undefined" ? ORAL_MARKING_TEMPLATE : null;');
+        const tmpl = fn();
+        if (tmpl?.criteria) templateCriteria = Array.isArray(tmpl.criteria) ? tmpl.criteria : [];
+      }
+    } catch (e) { /* silently fail */ }
+  }
+
+  function showSetup() {
+    const setupEl = document.getElementById('om-setup');
+    setupEl.classList.remove('hidden', 'configured');
+    document.getElementById('om-setup-initial').classList.remove('hidden');
+    document.getElementById('om-setup-configured').classList.add('hidden');
+    document.getElementById('om-marking').classList.add('hidden');
+    document.getElementById('om-exam-title').setAttribute('data-i18n', 'omTitle');
+    document.getElementById('om-exam-title').textContent = t('omTitle');
+    document.getElementById('om-exam-meta').textContent = '';
+  }
+
+  function showSetupConfigured() {
+    const setupEl = document.getElementById('om-setup');
+    setupEl.classList.remove('hidden');
+    setupEl.classList.add('configured');
+    document.getElementById('om-setup-initial').classList.add('hidden');
+    document.getElementById('om-setup-configured').classList.remove('hidden');
+    document.getElementById('om-marking').classList.add('hidden');
+    document.getElementById('om-config-title').textContent = schedule.title || t('omTitle');
+    const metaParts = [];
+    if (schedule.group && classGroupsMeta[schedule.group]?.name) {
+      metaParts.push(classGroupsMeta[schedule.group].name);
+    } else if (schedule.group) {
+      metaParts.push(schedule.group);
+    }
+    if (schedule.date) metaParts.push(schedule.date);
+    if (schedule.semester) metaParts.push(schedule.semester.toUpperCase());
+    document.getElementById('om-config-meta').textContent = metaParts.join(' · ');
+    activeCriteria = buildActiveCriteria();
+    renderCriteriaPicker();
+    const btn = document.getElementById('om-save-tpl-btn');
+    btn.classList.remove('saved');
+    btn.textContent = t('omSaveTemplate');
+  }
+
+  function buildActiveCriteria() {
+    const allNames = criteria
+      .map(c => typeof c === 'string' ? c : (c.name || ''))
+      .filter(Boolean);
+    if (!templateCriteria.length) {
+      return allNames.map(name => ({ name, selected: true }));
+    }
+    const inTmpl    = templateCriteria.filter(n => allNames.includes(n));
+    const notInTmpl = allNames.filter(n => !templateCriteria.includes(n));
+    return [
+      ...inTmpl.map(name    => ({ name, selected: true  })),
+      ...notInTmpl.map(name => ({ name, selected: false }))
+    ];
+  }
+
+  function renderCriteriaPicker() {
+    const list = document.getElementById('om-picker-list');
+    list.innerHTML = '';
+    if (!activeCriteria.length) {
+      list.innerHTML = '<div class="om-picker-empty">' + t('omNoCriteria') + '</div>';
+      return;
+    }
+    let dragSrcIdx = null;
+    activeCriteria.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'om-picker-item';
+      row.draggable = true;
+      row.dataset.idx = i;
+
+      const drag = document.createElement('span');
+      drag.className = 'om-picker-drag';
+      drag.textContent = '⠿';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'om-picker-check';
+      cb.checked = item.selected;
+      cb.onclick = e => e.stopPropagation();
+      cb.onchange = () => {
+        activeCriteria[i].selected = cb.checked;
+        nameEl.classList.toggle('off', !cb.checked);
+      };
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'om-picker-name' + (item.selected ? '' : ' off');
+      nameEl.textContent = item.name;
+
+      row.appendChild(drag);
+      row.appendChild(cb);
+      row.appendChild(nameEl);
+
+      row.addEventListener('dragstart', e => {
+        dragSrcIdx = i;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(i));
+        setTimeout(() => row.classList.add('dragging'), 0);
+      });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        list.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+        if (dragSrcIdx !== i) row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        list.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+        const from = parseInt(e.dataTransfer.getData('text/plain'));
+        const to   = parseInt(row.dataset.idx);
+        if (isNaN(from) || isNaN(to) || from === to) return;
+        const [moved] = activeCriteria.splice(from, 1);
+        activeCriteria.splice(to, 0, moved);
+        renderCriteriaPicker();
+      });
+
+      list.appendChild(row);
+    });
+  }
+
+  async function saveTemplate() {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    const selected = activeCriteria.filter(c => c.selected).map(c => c.name);
+    const content  = `var ORAL_MARKING_TEMPLATE = ${JSON.stringify({ _savedAt: Date.now(), criteria: selected }, null, 2)};\n`;
+    const res = await Desktop.saveText('user', 'oral-marking-template.js', content);
+    if (res?.ok) {
+      templateCriteria = selected;
+      const btn = document.getElementById('om-save-tpl-btn');
+      btn.classList.add('saved');
+      btn.textContent = t('omTemplateSaved');
+      setTimeout(() => {
+        btn.classList.remove('saved');
+        btn.textContent = t('omSaveTemplate');
+      }, 2200);
+    }
+  }
+
+  function beginSession() {
+    sessionCriteria = activeCriteria.filter(c => c.selected).map(c => c.name);
+    showMarking();
+    sessionStarted = true;
+    renderSidebar();
+    renderCriteria(-1);
+    advanceToNext();
+  }
+
+  function showMarking() {
+    document.getElementById('om-setup').classList.add('hidden');
+    document.getElementById('om-marking').classList.remove('hidden');
+  }
+
+  // ── Schedule modal ───────────────────────────────────────
+  async function openScheduleModal() {
+    const modal = document.getElementById('om-schedule-modal');
+    modal.classList.remove('hidden');
+    const list  = document.getElementById('om-modal-list');
+    list.innerHTML = '<div class="om-modal-empty">' + t('loading') + '</div>';
+
+    if (!window.Desktop || !Desktop.isElectron()) {
+      list.innerHTML = '<div class="om-modal-empty">' + t('omLoadFailed') + '</div>';
+      return;
+    }
+
+    try {
+      const res = await Desktop.listByPath(SCHEDULE_TARGET, SCHEDULE_DIR, { extensions: ['.js'], recursive: false });
+      const files = (res?.ok && Array.isArray(res.files))
+        ? res.files.filter(f => f.filename && f.filename.startsWith(SCHEDULE_PREFIX))
+        : [];
+
+      list.innerHTML = '';
+      if (!files.length) {
+        list.innerHTML = '<div class="om-modal-empty">' + t('omNoSchedules') + '</div>';
+        return;
+      }
+
+      files.sort((a, b) => b.filename.localeCompare(a.filename)).forEach(f => {
+        const fname = f.filename;
+        const item = document.createElement('div');
+        item.className = 'om-modal-item';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'om-modal-item-name';
+        nameEl.textContent = fname.replace(SCHEDULE_PREFIX, '').replace('.js', '');
+        const metaEl = document.createElement('div');
+        metaEl.className = 'om-modal-item-meta';
+        if (f.size !== undefined) metaEl.textContent = Math.ceil(f.size / 1024) + ' KB';
+        item.appendChild(nameEl);
+        item.appendChild(metaEl);
+        item.onclick = () => loadScheduleFile(fname);
+        list.appendChild(item);
+      });
+    } catch (e) {
+      list.innerHTML = '<div class="om-modal-empty">' + t('omLoadFailed') + ' ' + e.message + '</div>';
+    }
+  }
+
+  function closeScheduleModal() {
+    document.getElementById('om-schedule-modal').classList.add('hidden');
+  }
+
+  async function loadScheduleFile(fname) {
+    closeScheduleModal();
+    try {
+      const res = await Desktop.readByPath(SCHEDULE_TARGET, SCHEDULE_DIR + fname);
+      if (!res?.ok) throw new Error(res?.error || 'read error');
+      const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
+      const obj = fn();
+      if (!obj) throw new Error('Invalid schedule file');
+      applySchedule(obj);
+    } catch (e) {
+      showNotice(t('omLoadFailed') + ' ' + e.message, true);
+    }
+  }
+
+  function applySchedule(obj) {
+    schedule    = obj;
+    sessionStarted = false;
+    phase       = 'idle';
+    currentIdx  = -1;
+
+    const nonBreaks = (obj.items || []).filter(i => i.type === 'student' && !i.excluded);
+    students = nonBreaks.map(item => ({
+      name:             item.name || '',
+      sen:              !!item.sen,
+      status:           'pending',
+      grade:            null,
+      criteriaScores:   {},
+      criteriaComments: {},
+      notes:            '',
+      prepStart:        null,
+      examStart:        null,
+      examEnd:          null,
+      actualDuration:   null
+    }));
+
+    stopTimer();
+    updateHeader();
+    showSetupConfigured();
+  }
+
+  function updateHeader() {
+    if (!schedule) return;
+    const titleEl = document.getElementById('om-exam-title');
+    titleEl.removeAttribute('data-i18n');
+    titleEl.textContent = schedule.title || t('omTitle');
+
+    const metaParts = [];
+    if (schedule.group && classGroupsMeta[schedule.group]?.name) {
+      metaParts.push(classGroupsMeta[schedule.group].name);
+    } else if (schedule.group) {
+      metaParts.push(schedule.group);
+    }
+    if (schedule.date) metaParts.push(schedule.date);
+    if (schedule.semester) metaParts.push(schedule.semester.toUpperCase());
+    document.getElementById('om-exam-meta').textContent = metaParts.join(' · ');
+  }
+
+  // ── Sidebar ──────────────────────────────────────────────
+  function renderSidebar() {
+    const list = document.getElementById('om-student-list');
+    list.innerHTML = '';
+    students.forEach((s, idx) => {
+      const item = document.createElement('div');
+      item.className = 'om-student-item';
+      if (idx === currentIdx) item.classList.add('current');
+      if (s.status === 'done') item.classList.add('done');
+      if (s.status === 'skipped') item.classList.add('skipped');
+
+      const numEl = document.createElement('span');
+      numEl.className = 'om-student-num';
+      numEl.textContent = (idx + 1) + '.';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'om-student-name';
+      nameEl.textContent = fmtStudentName(s.name);
+
+      item.appendChild(numEl);
+      item.appendChild(nameEl);
+
+      if (s.grade !== null) {
+        const badge = document.createElement('span');
+        badge.className = 'om-st-badge done';
+        badge.textContent = fmtGrade(s.grade);
+        item.appendChild(badge);
+      } else if (s.status === 'prepping') {
+        const badge = document.createElement('span');
+        badge.className = 'om-st-badge prep';
+        badge.textContent = t('omPhasePrepLabel');
+        item.appendChild(badge);
+      } else if (s.status === 'presenting') {
+        const badge = document.createElement('span');
+        badge.className = 'om-st-badge exam';
+        badge.textContent = t('omPhaseExamLabel');
+        item.appendChild(badge);
+      } else if (s.status === 'skipped') {
+        const badge = document.createElement('span');
+        badge.className = 'om-st-badge';
+        badge.style.background = '#888';
+        badge.textContent = t('omSkipped');
+        item.appendChild(badge);
+      }
+
+      item.onclick = () => jumpToStudent(idx);
+      list.appendChild(item);
+    });
+  }
+
+  function jumpToStudent(idx) {
+    if (idx < 0 || idx >= students.length) return;
+    if (idx === currentIdx) return;
+    const s = students[idx];
+    if (s.status === 'done' || s.status === 'skipped') return;
+    // Warn if interrupting an active exam
+    if (phase === 'exam' && currentIdx >= 0) {
+      if (!confirm(t('omConfirmCancelSession').replace('Cancel this session?', 'Interrupt current exam and switch students?'))) return;
+      finishCurrentExam(true);
+    }
+    startStudentPrep(idx);
+  }
+
+  // ── Criteria panel ───────────────────────────────────────
+  function renderCriteria(idx) {
+    const panel     = document.getElementById('om-criteria-panel');
+    const notesPane = document.getElementById('om-notes-panel');
+    panel.innerHTML     = '';
+    notesPane.innerHTML = '';
+
+    if (idx < 0 || !students[idx]) return;
+    const s = students[idx];
+
+    // Notes panel (middle column)
+    const notesHeader = document.createElement('div');
+    notesHeader.className = 'om-section-title';
+    notesHeader.textContent = t('omNotesLabel');
+    const notesInput = document.createElement('textarea');
+    notesInput.className = 'om-notes-input';
+    notesInput.placeholder = t('omNotesPlaceholder');
+    notesInput.value = s.notes || '';
+    notesInput.oninput = () => { s.notes = notesInput.value; };
+    notesPane.appendChild(notesHeader);
+    notesPane.appendChild(notesInput);
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'om-section-title';
+    titleEl.textContent = t('omCriteriaTitle');
+    panel.appendChild(titleEl);
+
+    sessionCriteria.forEach((name, ci) => {
+      if (!name) return;
+      const crit   = criteriaByName[name] || name;
+      const grades = getCritGrades(crit);
+      const block = document.createElement('div');
+      block.className = 'om-criterion-block';
+
+      const header = document.createElement('div');
+      header.className = 'om-criterion-header';
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'om-criterion-name';
+      nameSpan.textContent = name;
+      const scoreSpan = document.createElement('span');
+      scoreSpan.className = 'om-criterion-score-display';
+      scoreSpan.id = 'om-crit-score-' + ci;
+      scoreSpan.textContent = s.criteriaScores[name] != null ? fmtGrade(s.criteriaScores[name]) : '—';
+      header.appendChild(nameSpan);
+      header.appendChild(scoreSpan);
+      block.appendChild(header);
+
+      const pillsRow = document.createElement('div');
+      pillsRow.className = 'om-pills-row';
+      grades.forEach(g => {
+        const pill = document.createElement('button');
+        pill.className = 'om-pill';
+        if (s.criteriaScores[name] === g) pill.classList.add('selected');
+        pill.textContent = fmtGrade(g);
+        pill.onclick = () => setCritScore(idx, ci, name, g, pill, scoreSpan);
+        pillsRow.appendChild(pill);
+      });
+      block.appendChild(pillsRow);
+
+      const chipsDiv = document.createElement('div');
+      chipsDiv.className = 'om-crit-chips';
+      chipsDiv.id = 'om-crit-desc-' + ci;
+      const existingScore = s.criteriaScores[name];
+      if (existingScore != null) {
+        buildCritChips(chipsDiv, idx, ci, name, existingScore);
+      } else {
+        chipsDiv.classList.add('hidden');
+      }
+      block.appendChild(chipsDiv);
+
+      const commentDiv = document.createElement('div');
+      commentDiv.className = 'om-criterion-comment';
+      commentDiv.id = 'om-crit-comment-' + ci;
+      const hasScore   = s.criteriaScores[name]   != null;
+      const hasComment = !!s.criteriaComments[name];
+      if (!hasScore && !hasComment) commentDiv.classList.add('hidden');
+      const commentInput = document.createElement('textarea');
+      commentInput.className = 'om-comment-input';
+      commentInput.placeholder = t('omCommentPlaceholder');
+      commentInput.value = s.criteriaComments[name] || '';
+      commentInput.rows = 1;
+      commentInput.oninput = () => { s.criteriaComments[name] = commentInput.value; };
+      commentDiv.appendChild(commentInput);
+      block.appendChild(commentDiv);
+
+      panel.appendChild(block);
+    });
+
+    // Overall grade block
+    const overallBlock = document.createElement('div');
+    overallBlock.className = 'om-overall-block';
+    const overallHeader = document.createElement('div');
+    overallHeader.className = 'om-overall-header';
+    const overallTitle = document.createElement('span');
+    overallTitle.textContent = t('omOverallGrade');
+    const overallAuto = document.createElement('span');
+    overallAuto.className = 'om-overall-auto';
+    overallAuto.textContent = t('omOverallAuto');
+    overallHeader.appendChild(overallTitle);
+    overallHeader.appendChild(overallAuto);
+    overallBlock.appendChild(overallHeader);
+
+    const overallPills = document.createElement('div');
+    overallPills.className = 'om-overall-pills';
+    overallPills.id = 'om-overall-pills';
+    GRADE_STEPS.forEach(g => {
+      const pill = document.createElement('button');
+      pill.className = 'om-overall-pill';
+      if (s.grade === g) pill.classList.add('selected');
+      // Mark if this is the auto-computed average
+      const avg = computeAverage(s.criteriaScores);
+      if (avg !== null && snapToStep(avg) === g && s.grade == null) pill.classList.add('auto-computed');
+      pill.textContent = fmtGrade(g);
+      pill.dataset.grade = g;
+      pill.onclick = () => setOverallGrade(idx, g, pill);
+      overallPills.appendChild(pill);
+    });
+    overallBlock.appendChild(overallPills);
+    panel.appendChild(overallBlock);
+  }
+
+  function setCritScore(idx, ci, name, g, clickedPill, scoreSpan) {
+    const s = students[idx];
+    s.criteriaScores[name] = g;
+    // Update pills
+    const pillsRow = clickedPill.parentNode;
+    pillsRow.querySelectorAll('.om-pill').forEach(p => p.classList.remove('selected'));
+    clickedPill.classList.add('selected');
+    scoreSpan.textContent = fmtGrade(g);
+    // Show sentence chips from criteria descriptor
+    const chipsDiv = document.getElementById('om-crit-desc-' + ci);
+    if (chipsDiv) buildCritChips(chipsDiv, idx, ci, name, g);
+    // Reveal comment field and focus it so teacher can type immediately
+    const commentDiv = document.getElementById('om-crit-comment-' + ci);
+    if (commentDiv) {
+      commentDiv.classList.remove('hidden');
+      const ta = commentDiv.querySelector('textarea');
+      if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+    }
+    // Update auto-computed overall indicator
+    refreshOverallPills(idx);
+  }
+
+  function setOverallGrade(idx, g, clickedPill) {
+    students[idx].grade = g;
+    const container = document.getElementById('om-overall-pills');
+    if (!container) return;
+    container.querySelectorAll('.om-overall-pill').forEach(p => {
+      p.classList.remove('selected', 'auto-computed');
+      if (parseFloat(p.dataset.grade) === g) p.classList.add('selected');
+    });
+  }
+
+  function refreshOverallPills(idx) {
+    const container = document.getElementById('om-overall-pills');
+    if (!container) return;
+    const s = students[idx];
+    const avg = computeAverage(s.criteriaScores);
+    const snapped = avg !== null ? snapToStep(avg) : null;
+    container.querySelectorAll('.om-overall-pill').forEach(p => {
+      const g = parseFloat(p.dataset.grade);
+      p.classList.remove('selected', 'auto-computed');
+      if (s.grade === g) {
+        p.classList.add('selected');
+      } else if (snapped === g && s.grade == null) {
+        p.classList.add('auto-computed');
+      }
+    });
+  }
+
+  function computeAverage(scores) {
+    const vals = Object.values(scores).filter(v => v != null);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+
+  function snapToStep(val) {
+    return GRADE_STEPS.reduce((best, g) => Math.abs(g - val) < Math.abs(best - val) ? g : best);
+  }
+
+  function getCritGrades(crit) {
+    if (typeof crit === 'string') return GRADE_STEPS;
+    const raw = crit.grades;
+    if (Array.isArray(raw) && raw.length) return raw.map(Number).filter(n => !isNaN(n));
+    if (typeof raw === 'string' && raw.trim()) {
+      const parsed = raw.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+      if (parsed.length) return parsed;
+    }
+    return GRADE_STEPS;
+  }
+
+  function splitIntoSentences(text) {
+    const parts = text.match(/[^.!?]*[.!?]+(?:\s|$)/g);
+    return parts ? parts.map(s => s.trim()).filter(Boolean) : [text.trim()];
+  }
+
+  // Renders selectable sentence chips from the criteria descriptor into `container`.
+  function buildCritChips(container, idx, ci, name, g) {
+    container.innerHTML = '';
+    const crit = criteriaByName[name] || null;
+    const desc = getDescriptorForGrade(crit, g);
+    if (!desc) { container.classList.add('hidden'); return; }
+    container.classList.remove('hidden');
+    const sentences = splitIntoSentences(desc);
+    if (!sentences.length) { container.classList.add('hidden'); return; }
+
+    const s = students[idx];
+    const stored = s.criteriaComments[name] || '';
+    const selected = new Set(sentences.filter(sen => stored.includes(sen)));
+
+    function refreshComment() {
+      const text = sentences.filter(sen => selected.has(sen)).join(' ');
+      s.criteriaComments[name] = text;
+      const commentDiv = document.getElementById('om-crit-comment-' + ci);
+      if (commentDiv) {
+        const ta = commentDiv.querySelector('textarea');
+        if (ta) ta.value = text;
+        if (text) commentDiv.classList.remove('hidden');
+      }
+    }
+
+    function refreshAllChip() {
+      const allOn = sentences.length > 0 && selected.size === sentences.length;
+      const anyOn = selected.size > 0;
+      allChip.classList.toggle('selected', allOn);
+      allChip.classList.toggle('partial', anyOn && !allOn);
+    }
+
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'om-sentence-chip om-sentence-chip-all';
+    allChip.textContent = t('gsStudentAllChip');
+    allChip.addEventListener('click', () => {
+      const shouldSelectAll = selected.size !== sentences.length;
+      selected.clear();
+      if (shouldSelectAll) sentences.forEach(sen => selected.add(sen));
+      sentenceBtns.forEach(({ sentence, btn }) => btn.classList.toggle('selected', selected.has(sentence)));
+      refreshAllChip();
+      refreshComment();
+    });
+    container.appendChild(allChip);
+
+    const sentenceBtns = [];
+    sentences.forEach(sentence => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'om-sentence-chip';
+      chip.textContent = sentence;
+      chip.classList.toggle('selected', selected.has(sentence));
+      chip.addEventListener('click', () => {
+        if (selected.has(sentence)) selected.delete(sentence);
+        else selected.add(sentence);
+        chip.classList.toggle('selected', selected.has(sentence));
+        refreshAllChip();
+        refreshComment();
+      });
+      sentenceBtns.push({ sentence, btn: chip });
+      container.appendChild(chip);
+    });
+
+    refreshAllChip();
+  }
+
+  // Returns the descriptor text for a criterion at the nearest grade level.
+  function getDescriptorForGrade(crit, grade) {
+    if (!crit || typeof crit === 'string' || grade == null) return null;
+    const comments = crit.comments;
+    if (!comments || typeof comments !== 'object') return null;
+    const target = Number(grade);
+    if (isNaN(target)) return null;
+    // Find the highest comment key whose numeric value is <= target
+    const keys = Object.keys(comments)
+      .map(k => ({ k, v: parseFloat(k) }))
+      .filter(x => !isNaN(x.v))
+      .sort((a, b) => b.v - a.v);
+    for (const { k, v } of keys) {
+      if (target >= v - 1e-9) return comments[k] || null;
+    }
+    return keys.length ? (comments[keys[keys.length - 1].k] || null) : null;
+  }
+
+  // ── Timer ────────────────────────────────────────────────
+  function startStudentPrep(idx, prepAlreadyStartedAt) {
+    if (idx < 0 || idx >= students.length) return;
+    stopTimer();
+    currentIdx = idx;
+    const s = students[idx];
+    s.status    = 'prepping';
+    s.prepStart = Date.now();
+    phase       = 'prep';
+
+    const totalPrepDuration = (s.sen ? (schedule?.prepSen || 20) : (schedule?.prepNormal || 10)) * 60;
+
+    renderSidebar();
+    renderCriteria(idx);
+
+    if (prepAlreadyStartedAt) {
+      const alreadyElapsed = (Date.now() - prepAlreadyStartedAt) / 1000;
+      if (alreadyElapsed >= totalPrepDuration) {
+        // Prep time already fully elapsed — go straight to exam
+        startExam();
+        return;
+      }
+      // Prep started back when the previous exam began; resume from that point
+      phaseStart    = prepAlreadyStartedAt;
+      phaseDuration = totalPrepDuration;
+    } else {
+      phaseStart    = Date.now();
+      phaseDuration = totalPrepDuration;
+    }
+
+    updateTimerBar();
+    updateActionBar();
+    timerInterval = setInterval(tick, TICK_MS);
+    broadcastState();
+  }
+
+  function startExam() {
+    if (currentIdx < 0) return;
+    stopTimer();  // also resets paused/pausedElapsed
+    const s = students[currentIdx];
+    s.status    = 'presenting';
+    s.examStart = Date.now();
+    phase       = 'exam';
+    phaseStart  = Date.now();
+    phaseDuration = (schedule?.examTime || 15) * 60;
+    renderSidebar();
+    updateTimerBar();
+    updateActionBar();
+    timerInterval = setInterval(tick, TICK_MS);
+    broadcastState();
+  }
+
+  function finishCurrentExam(interrupted) {
+    if (currentIdx < 0) return;
+    stopTimer();
+    const s = students[currentIdx];
+    s.examEnd = Date.now();
+    if (s.examStart) s.actualDuration = Math.round((s.examEnd - s.examStart) / 1000);
+    s.status  = 'done';
+    // Auto-assign grade from criteria average if not manually set
+    if (s.grade == null) {
+      const avg = computeAverage(s.criteriaScores);
+      if (avg !== null) s.grade = snapToStep(avg);
+    }
+    if (!interrupted) {
+      persistSession();
+    }
+    phase = 'idle';
+    updateTimerBar();
+    broadcastState();
+  }
+
+  function skipStudent() {
+    if (currentIdx < 0) return;
+    stopTimer();
+    students[currentIdx].status = 'skipped';
+    phase = 'idle';
+    updateTimerBar();
+    broadcastState();
+    advanceToNext();
+  }
+
+  function advanceToNext() {
+    // Capture exam start of the current student BEFORE currentIdx changes.
+    // The schedule model has the next student start prepping when the current exam begins,
+    // so prep time may already be partially (or fully) elapsed.
+    const prevExamStart = currentIdx >= 0 ? students[currentIdx].examStart : null;
+    const nextIdx = findNextPending();
+    if (nextIdx >= 0) {
+      startStudentPrep(nextIdx, prevExamStart);
+    } else {
+      phase      = 'done-all';
+      currentIdx = -1;
+      renderSidebar();
+      renderCriteria(-1);
+      updateTimerBar();
+      updateActionBar();
+      broadcastState();
+    }
+  }
+
+  function findNextPending() {
+    for (let i = currentIdx + 1; i < students.length; i++) {
+      if (students[i].status === 'pending') return i;
+    }
+    return -1;
+  }
+
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    paused = false;
+    pausedElapsed = 0;
+  }
+
+  function togglePause() {
+    if (paused) {
+      paused = false;
+      phaseStart = Date.now() - pausedElapsed * 1000;
+      pausedElapsed = 0;
+      timerInterval = setInterval(tick, TICK_MS);
+    } else {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+      paused = true;
+      pausedElapsed = (Date.now() - phaseStart) / 1000;
+    }
+    updateActionBar();
+  }
+
+  function tick() {
+    if (!phaseStart) return;
+    const elapsed    = (Date.now() - phaseStart) / 1000;
+    const remaining  = Math.max(0, phaseDuration - elapsed);
+    const isWarning  = (phase === 'exam') && (remaining <= WARNING_SECS) && (remaining > 0);
+
+    updateTimerDisplay(elapsed, remaining, isWarning);
+    broadcastState(elapsed, remaining, isWarning);
+
+    if (remaining <= 0) {
+      handlePhaseEnd();
+    }
+  }
+
+  function handlePhaseEnd() {
+    stopTimer();
+    if (phase === 'prep') {
+      // Auto-advance to exam phase
+      startExam();
+    } else if (phase === 'exam') {
+      // Exam time up: record and advance
+      finishCurrentExam(false);
+      advanceToNext();
+    }
+  }
+
+  // ── Timer display ────────────────────────────────────────
+  function updateTimerBar() {
+    const bar     = document.getElementById('om-timer-bar');
+    const badge   = document.getElementById('om-timer-badge');
+    const student = document.getElementById('om-timer-student');
+    const remEl   = document.getElementById('om-timer-remaining');
+    const elapEl  = document.getElementById('om-timer-elapsed');
+
+    bar.classList.remove('warning');
+    badge.className = 'om-timer-phase-badge';
+
+    if (phase === 'done-all') {
+      badge.classList.add('done');
+      badge.textContent   = t('omAllDone');
+      student.textContent = '';
+      remEl.textContent   = '—:——';
+      elapEl.textContent  = '—:——';
+    } else if (phase === 'idle') {
+      badge.classList.add('idle');
+      badge.textContent   = t('omPhaseIdleLabel');
+      const sName = currentIdx >= 0 ? fmtStudentName(students[currentIdx].name) : '—';
+      student.textContent = sName;
+      remEl.textContent   = '—:——';
+      elapEl.textContent  = '—:——';
+    } else if (phase === 'prep') {
+      badge.classList.add('prep');
+      badge.textContent   = t('omPhasePrepLabel');
+      student.textContent = currentIdx >= 0 ? fmtStudentName(students[currentIdx].name) : '—';
+      remEl.textContent   = fmtTime(phaseDuration);
+      elapEl.textContent  = '0:00';
+    } else if (phase === 'exam') {
+      badge.classList.add('exam');
+      badge.textContent   = t('omPhaseExamLabel');
+      student.textContent = currentIdx >= 0 ? fmtStudentName(students[currentIdx].name) : '—';
+      remEl.textContent   = fmtTime(phaseDuration);
+      elapEl.textContent  = '0:00';
+    }
+  }
+
+  function updateTimerDisplay(elapsed, remaining, isWarning) {
+    const bar   = document.getElementById('om-timer-bar');
+    const remEl = document.getElementById('om-timer-remaining');
+    const elapEl = document.getElementById('om-timer-elapsed');
+    remEl.textContent  = fmtTime(remaining);
+    elapEl.textContent = fmtTime(elapsed);
+    remEl.classList.toggle('warning', isWarning);
+    bar.classList.toggle('warning', isWarning);
+  }
+
+  // ── Action bar ───────────────────────────────────────────
+  function updateActionBar() {
+    const btn      = document.getElementById('om-action-btn');
+    const skipBtn  = document.getElementById('om-skip-btn');
+    const pauseBtn = document.getElementById('om-pause-btn');
+
+    btn.className = 'om-action-primary';
+    btn.disabled  = false;
+    skipBtn.classList.add('hidden');
+    pauseBtn.classList.add('hidden');
+
+    if (phase === 'done-all') {
+      btn.className = 'om-action-primary save';
+      btn.textContent = t('omBtnSaveGrades');
+      return;
+    }
+
+    if (phase === 'idle') {
+      btn.textContent = t('omBtnNextStudent');
+      skipBtn.classList.remove('hidden');
+      return;
+    }
+
+    if (phase === 'prep') {
+      btn.className = 'om-action-primary exam';
+      btn.textContent = t('omBtnStartExam');
+      skipBtn.classList.remove('hidden');
+      pauseBtn.classList.remove('hidden');
+      pauseBtn.textContent = paused ? t('omBtnResume') : t('omBtnPause');
+      return;
+    }
+
+    if (phase === 'exam') {
+      btn.className = 'om-action-primary exam';
+      btn.textContent = t('omBtnFinishExam');
+      skipBtn.classList.remove('hidden');
+      pauseBtn.classList.remove('hidden');
+      pauseBtn.textContent = paused ? t('omBtnResume') : t('omBtnPause');
+      return;
+    }
+  }
+
+  function handleActionBtn() {
+    if (phase === 'done-all') {
+      saveGrades();
+      return;
+    }
+    if (phase === 'idle') {
+      advanceToNext();
+      return;
+    }
+    if (phase === 'prep') {
+      startExam();
+      return;
+    }
+    if (phase === 'exam') {
+      finishCurrentExam(false);
+      renderSidebar();
+      updateActionBar();
+      advanceToNext();
+      return;
+    }
+  }
+
+  // ── Presenter broadcast ──────────────────────────────────
+  function broadcastState(elapsed, remaining, isWarning) {
+    if (!_presChannel) return;
+    const s = currentIdx >= 0 ? students[currentIdx] : null;
+    const state = {
+      phase,
+      studentName: s ? fmtStudentName(s.name) : '—',
+      elapsed:     elapsed   != null ? Math.round(elapsed)   : 0,
+      remaining:   remaining != null ? Math.round(remaining) : 0,
+      totalTime:   phaseDuration,
+      warning:     !!isWarning
+    };
+    _presChannel.postMessage(state);
+  }
+
+  // ── Presenter window ─────────────────────────────────────
+  async function togglePresenter() {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    const isOpen = await Desktop.isOralPresenterOpen();
+    if (isOpen) {
+      Desktop.oralPresenterCommand('close');
+      presenterOpen = false;
+      document.getElementById('om-presenter-btn').classList.remove('active');
+    } else {
+      await Desktop.openOralPresenter();
+      presenterOpen = true;
+      document.getElementById('om-presenter-btn').classList.add('active');
+    }
+  }
+
+  // ── Save grades ──────────────────────────────────────────
+  async function saveGrades() {
+    const doneStudents = students.filter(s => s.status === 'done');
+    if (!doneStudents.length) {
+      showNotice(t('omSaveNoGrades'), true);
+      return;
+    }
+    if (!window.Desktop || !Desktop.isElectron()) {
+      showNotice('Electron required.', true);
+      return;
+    }
+
+    showNotice(t('saving') || 'Saving…', false);
+    const btn = document.getElementById('om-action-btn');
+    btn.disabled = true;
+
+    try {
+      const now = Date.now();
+      const sem = schedule?.semester || 'sem1';
+
+      // Find matching grade-sheet class
+      let classId        = null;
+      let classStudents  = [];
+      let isNewClass     = false;
+      let nextTestIndex  = 0;
+
+      const listRes = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+      if (listRes?.ok && Array.isArray(listRes.files)) {
+        const classFiles = listRes.files.filter(f => f.filename === '_class.js');
+        for (const cf of classFiles) {
+          const r = await Desktop.readByPath('grades', cf.relativePath);
+          if (!r?.content) continue;
+          const data = parseJsVar(r.content, 'GRADE_CLASS');
+          if (data?.groupId === schedule?.group) {
+            classId       = data.classId;
+            classStudents = data.students || [];
+            break;
+          }
+        }
+      }
+
+      if (!classId) {
+        // Create new class
+        isNewClass    = true;
+        classId       = generateUuid();
+        classStudents = buildClassStudents(schedule?.group);
+        const classMeta = {
+          _savedAt:        now,
+          classId,
+          groupId:         schedule?.group || '',
+          className:       getGroupName(schedule?.group) || schedule?.title || 'Oral',
+          classYear:       classGroupsMeta[schedule?.group]?.year || '',
+          classSemester:   sem,
+          classLevel:      '',
+          classCreatedAt:  new Date().toISOString(),
+          testCounts:      { sem1: 0, sem2: 0 },
+          students:        classStudents
+        };
+        await Desktop.saveText('grades', '_class.js',
+          `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
+          classId);
+      }
+
+      // Find next empty test slot
+      const semKey = sem.startsWith('sem') ? sem : 'sem1';
+      for (let i = 0; i < 8; i++) {
+        const label = `${semKey}-test-${String(i + 1).padStart(2, '0')}`;
+        const r = await Desktop.readByPath('grades', `${classId}/${label}.js`);
+        if (!r?.ok || !r?.content) { nextTestIndex = i; break; }
+        if (i === 7) nextTestIndex = 7;
+      }
+
+      // Build results
+      const results = classStudents.map(cs => {
+        const fullName = ((cs.firstName || '') + ' ' + (cs.lastName || '')).toUpperCase().trim();
+        const match = doneStudents.find(s => normalizeStudentName(s.name) === fullName) ||
+                      doneStudents.find(s => normalizeStudentName(s.name).includes(fullName) || fullName.includes(normalizeStudentName(s.name)));
+        if (!match) return { studentId: cs.id, score: null, testNotes: [], criteriaResults: {}, correctionTime: null, gradeOverride: false };
+        return {
+          studentId:       cs.id,
+          score:           match.grade,
+          testNotes:       match.notes ? [match.notes] : [],
+          criteriaResults: match.criteriaScores || {},
+          correctionTime:  match.actualDuration || null,
+          gradeOverride:   false
+        };
+      });
+
+      // Build testConfig
+      const critNames = criteria.map(c => (typeof c === 'string' ? c : (c.name || '')));
+      const testConfig = {
+        coefficient: 1,
+        fixedWeight:  null,
+        testName:     schedule?.title || 'Oral Exam',
+        testDate:     schedule?.date  || '',
+        type:         'oral',
+        scope:        '',
+        criteria:     critNames,
+        grading:      { mode: 'manual', manualThresholds: {} }
+      };
+
+      const testLabel = `${semKey}-test-${String(nextTestIndex + 1).padStart(2, '0')}`;
+      const testData  = { _savedAt: now, classId, semester: semKey, testIndex: nextTestIndex, testConfig, results };
+      await Desktop.saveText('grades', `${testLabel}.js`,
+        `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
+        classId);
+
+      const msg = isNewClass ? t('omSaveClassNew') : t('omSaveClassFound');
+      showNotice(t('omSaved') + ' ' + msg, false);
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (e) {
+      showNotice(t('omSaveFailed') + ' ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function buildClassStudents(groupId) {
+    if (!groupId || !classGroups[groupId]) return students.map((s, i) => ({
+      id: generateUuid(), index: i + 1, firstName: fmtStudentName(s.name), lastName: '', comments: ''
+    }));
+    const rawStudents = classGroups[groupId];
+    if (!Array.isArray(rawStudents)) return [];
+    return rawStudents.map((entry, i) => {
+      if (typeof entry === 'string' && entry.startsWith('st-')) {
+        const sr = studentRoster[entry];
+        return { id: entry, index: i + 1, firstName: sr?.firstName || entry, lastName: sr?.lastName || '', comments: '' };
+      }
+      if (typeof entry === 'object') {
+        return { id: entry.id || entry.uuid || generateUuid(), index: i + 1, firstName: entry.firstName || '', lastName: entry.lastName || '', comments: '' };
+      }
+      return { id: generateUuid(), index: i + 1, firstName: String(entry), lastName: '', comments: '' };
+    });
+  }
+
+  function getGroupName(groupId) {
+    if (!groupId) return '';
+    return classGroupsMeta[groupId]?.name || groupId;
+  }
+
+  // ── Session persistence ──────────────────────────────────
+  function persistSession() {
+    if (!schedule) return;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ schedule, students, sessionCriteria }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function tryRestoreSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return false;
+      const { schedule: sc, students: sts, sessionCriteria: sc2 } = JSON.parse(raw);
+      if (!sc || !Array.isArray(sts)) return false;
+      schedule         = sc;
+      students         = sts;
+      if (Array.isArray(sc2) && sc2.length) {
+        sessionCriteria = sc2;
+      } else {
+        // Legacy sessions: use all criteria names as fallback
+        sessionCriteria = criteria
+          .map(c => typeof c === 'string' ? c : (c.name || ''))
+          .filter(Boolean);
+      }
+      const lastIdx = sts.findLastIndex(s => s.status === 'presenting' || s.status === 'prepping');
+      // Restore incomplete student to pending so they can be re-done
+      if (lastIdx >= 0 && (sts[lastIdx].status === 'presenting' || sts[lastIdx].status === 'prepping')) {
+        sts[lastIdx].status = 'pending';
+      }
+      sessionStarted = sts.some(s => s.status !== 'pending');
+      updateHeader();
+      renderSidebar();
+      renderCriteria(-1);
+      updateTimerBar();
+      updateActionBar();
+      showMarking();
+      return true;
+    } catch (e) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return false;
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────
+  function fmtTime(secs) {
+    if (secs == null || isNaN(secs)) return '—:——';
+    const s = Math.floor(secs);
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return m + ':' + String(ss).padStart(2, '0');
+  }
+
+  function fmtGrade(g) {
+    if (g == null) return '—';
+    const n = Number(g);
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  }
+
+  function fmtStudentName(name) {
+    if (!name) return '—';
+    // Schedule stores names in UPPERCASE — convert to Title Case
+    return name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function normalizeStudentName(name) {
+    return (name || '').toUpperCase().trim();
+  }
+
+  function parseJsVar(content, varName) {
+    try {
+      const win = {};
+      const fn = new Function('window', content);
+      fn(win);
+      return win[varName] || null;
+    } catch (e) { return null; }
+  }
+
+  function generateUuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  function showNotice(msg, isError) {
+    const el = document.getElementById('om-notice');
+    el.textContent = msg;
+    el.className   = 'om-notice' + (isError ? ' error' : ' success');
+    el.classList.remove('hidden');
+    clearTimeout(showNotice._t);
+    if (!isError) showNotice._t = setTimeout(() => el.classList.add('hidden'), 4000);
+  }
+
+  function goBack() {
+    if (phase === 'exam' && currentIdx >= 0) {
+      if (!confirm(t('omConfirmCancelSession'))) return;
+    }
+    stopTimer();
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('launcher.html');
+    } else {
+      window.location.href = '../launcher.html';
+    }
+  }
+
+  // ── Public surface ───────────────────────────────────────
+  window.goBack             = goBack;
+  window.openScheduleModal  = openScheduleModal;
+  window.closeScheduleModal = closeScheduleModal;
+  window.handleActionBtn    = handleActionBtn;
+  window.skipStudent        = skipStudent;
+  window.togglePause        = togglePause;
+  window.togglePresenter    = togglePresenter;
+  window.saveTemplate       = saveTemplate;
+  window.beginSession       = beginSession;
+
+  // ── Panel resize ─────────────────────────────────────────
+  function initResize() {
+    const handle    = document.getElementById('om-resize-handle');
+    const notesPane = document.getElementById('om-notes-panel');
+    if (!handle || !notesPane) return;
+    let dragging = false;
+    let startX   = 0;
+    let startW   = 0;
+    handle.addEventListener('mousedown', e => {
+      dragging = true;
+      startX   = e.clientX;
+      startW   = notesPane.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.cursor       = 'col-resize';
+      document.body.style.userSelect   = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const newW = Math.max(120, Math.min(600, startW + e.clientX - startX));
+      notesPane.style.width = newW + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+    });
+  }
+
+  // ── Boot ─────────────────────────────────────────────────
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>

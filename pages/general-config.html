@@ -797,6 +797,24 @@
   </div>
 </div>
 
+  <!-- ── Remote Classroom Server ──────────────────────── -->
+  <section class="config-section">
+    <h2 data-i18n="gcSecRemoteServer">Remote Classroom Server</h2>
+    <p class="section-desc" data-i18n="gcSecRemoteServerDesc">The URL of your hosted classroom server. Set it here once — Phone Remote, Multiplayer Quiz and Student Notes will use it automatically.</p>
+    <div class="field">
+      <label class="field-label" for="remoteServerUrlInput" data-i18n="gcRemoteServerUrl">Server URL</label>
+      <input type="url" id="remoteServerUrlInput" data-i18n-placeholder="gcRemoteServerUrlPlaceholder" placeholder="https://classroom.example.com" style="font-family:Consolas,'Courier New',monospace;font-size:0.88rem;">
+    </div>
+    <div class="field">
+      <label class="field-label" for="remoteSecretInput" data-i18n="gcRemoteSecret">Host secret</label>
+      <input type="text" id="remoteSecretInput" data-i18n-placeholder="gcRemoteSecretPlaceholder" placeholder="Secret phrase">
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+      <button class="btn" type="button" id="saveRemoteServerBtn" data-i18n="gcApply">Apply</button>
+      <span class="save-status" id="remoteServerSaveStatus"></span>
+    </div>
+  </section>
+
   <!-- ── Per-app Notes ────────────────────────────────── -->
   <section class="config-section">
     <h2 data-i18n="gcSecPerAppNotes">Per-app Notes</h2>
@@ -2742,7 +2760,47 @@
     refreshDriveConfig();
     refreshWebdavConfig();
     buildAccordion();
+    refreshRemoteServerConfig();
   }
+
+  // ── Remote server config ──────────────────────────────────────────
+  var remoteServerUrlInput  = document.getElementById('remoteServerUrlInput');
+  var remoteSecretInput     = document.getElementById('remoteSecretInput');
+  var saveRemoteServerBtn   = document.getElementById('saveRemoteServerBtn');
+  var remoteServerSaveStatus = document.getElementById('remoteServerSaveStatus');
+
+  async function refreshRemoteServerConfig() {
+    if (!window.Desktop || typeof Desktop.remoteConfigRead !== 'function') return;
+    try {
+      var res = await Desktop.remoteConfigRead();
+      if (res && res.ok && res.config) {
+        remoteServerUrlInput.value = res.config.serverUrl || '';
+        remoteSecretInput.value    = res.config.hostSecret || '';
+      }
+    } catch (e) { console.warn('general-config: could not read remote-config.js:', e); }
+  }
+
+  saveRemoteServerBtn.addEventListener('click', async function () {
+    var url    = remoteServerUrlInput.value.trim();
+    var secret = remoteSecretInput.value.trim();
+    try {
+      var existing = {};
+      if (window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        var r = await Desktop.remoteConfigRead();
+        if (r && r.ok && r.config) existing = r.config;
+      }
+      // Set mode to 'external' automatically when a URL is provided
+      var mode = url ? 'external' : (existing.mode || 'local');
+      await Desktop.remoteConfigSave(Object.assign({}, existing, { serverUrl: url, hostSecret: secret, mode: mode }));
+      remoteServerSaveStatus.textContent = t('gcRemoteServerSaved');
+      remoteServerSaveStatus.className = 'save-status ok';
+    } catch (e) {
+      remoteServerSaveStatus.textContent = t('gcRemoteServerSaveFailed');
+      remoteServerSaveStatus.className = 'save-status err';
+    }
+    setTimeout(function () { remoteServerSaveStatus.textContent = ''; remoteServerSaveStatus.className = 'save-status'; }, 3000);
+  });
+
 
   document.addEventListener('DOMContentLoaded', async function () {
     await init();  // reads config from file, populates path boxes

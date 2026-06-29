@@ -958,6 +958,7 @@
     <div class="nav-group-popup">
       <button class="nav-pop-item" id="btn-new-doc">New <span class="nav-pop-hint">Ctrl+N</span></button>
       <button class="nav-pop-item" id="btn-open-doc">Open <span class="nav-pop-hint">Ctrl+O</span></button>
+      <button class="nav-pop-item" id="btn-open-from-disk" data-i18n="deOpenFromDisk">Open from disk…</button>
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-save-doc">Save <span class="nav-pop-hint">Ctrl+S</span></button>
       <button class="nav-pop-item" id="btn-save-as-doc">Save As…</button>
@@ -2007,6 +2008,48 @@ async function openDocModal() {
     body.appendChild(list);
   }
   showModal('file-modal');
+}
+
+async function openFromDisk() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast(t('deOpenFromDiskNoElectron') || 'File import requires the desktop app.', true);
+    return;
+  }
+  const r = await Desktop.pickAndReadFile([
+    { name: t('deDocFilterName') || 'Documents', extensions: ['html', 'md', 'txt'] },
+    { name: t('deAllFilesFilter') || 'All Files', extensions: ['*'] }
+  ]);
+  if (!r || r.canceled) return;
+  if (!r.ok) {
+    showToast((t('deOpenFromDiskError') || 'Could not read file: ') + (r.error || ''), true);
+    return;
+  }
+  mdEditor.setValue(r.content || '');
+  const ext = (r.name.split('.').pop() || '').toLowerCase();
+  currentDocName = r.name;
+  currentDocSubdir = null;
+  currentEditTarget = null;
+  currentEditRelPath = null;
+  currentDocType = ext === 'html' ? 'html' : 'md';
+  docModified = true;
+  updateDocIndicator();
+  const typeBtn = document.getElementById('btn-doc-type');
+  if (typeBtn) {
+    typeBtn.textContent = currentDocType.toUpperCase();
+    typeBtn.classList.toggle('html-mode', currentDocType === 'html');
+  }
+  if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
+  currentDocMeta = {};
+  resetPageLayout();
+  currentStylesheetName = null;
+  const cssEl = document.getElementById('custom-css-style');
+  if (cssEl) cssEl.textContent = '';
+  if (cssEditor) cssEditor.setValue('');
+  cssModified = false;
+  syncPopupToState && syncPopupToState();
+  applyPageLayoutToPreview && applyPageLayoutToPreview();
+  renderPreview();
+  showToast((t('deOpenFromDiskSuccess') || 'Opened — save to store a copy in Documents.').replace('{name}', r.name));
 }
 
 async function loadDoc(relativePath) {
@@ -4181,6 +4224,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-doc-type').addEventListener('click', () => setDocType(currentDocType === 'md' ? 'html' : 'md'));
   document.getElementById('btn-new-doc').addEventListener('click', newDoc);
   document.getElementById('btn-open-doc').addEventListener('click', openDocModal);
+  document.getElementById('btn-open-from-disk').addEventListener('click', openFromDisk);
   document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
   document.getElementById('btn-save-as-doc').addEventListener('click', saveDocAs);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);

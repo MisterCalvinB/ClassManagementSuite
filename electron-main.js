@@ -27,7 +27,8 @@ const PAGE_FILES = {
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
   planner: 'planner.html',
-  importTool: 'import-tool.html'
+  importTool: 'import-tool.html',
+  oralMarking: 'oral-marking.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -56,6 +57,9 @@ const PAGE_ARG_MAP = {
   groups: PAGE_FILES.groupEditor,
   schedulemaker: PAGE_FILES.scheduleMaker,
   schedule: PAGE_FILES.scheduleMaker,
+  oralmarking: PAGE_FILES.oralMarking,
+  oral: PAGE_FILES.oralMarking,
+  oralmark: PAGE_FILES.oralMarking,
   classplan: PAGE_FILES.classPlan,
   plan: PAGE_FILES.classPlan,
   classp: PAGE_FILES.classPlan,
@@ -87,7 +91,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
   [PAGE_FILES.planner]: 'Planner',
-  [PAGE_FILES.importTool]: 'Import Tool'
+  [PAGE_FILES.importTool]: 'Import Tool',
+  [PAGE_FILES.oralMarking]: 'Oral Marking'
 };
 
 function getDefaultWritableRootDir() {
@@ -216,7 +221,8 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation']),
   [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades']),
-  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks'])
+  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs']),
+  [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };
 
 let mainWindow;
@@ -400,6 +406,9 @@ function createToolWindow(pageFile, options = {}) {
     }
     if (currentPage === PAGE_FILES.classManagement && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
       cmsPresentationWindow.close();
+    }
+    if (currentPage === PAGE_FILES.oralMarking && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
+      oralPresenterWindow.close();
     }
 
     if (closingAfterExport) {
@@ -3604,6 +3613,70 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
   return { ok: true };
 });
 
+// ── Oral Marking Presenter Window ─────────────────────────────────────────────
+let oralPresenterWindow = null;
+ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
+  if (oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
+    oralPresenterWindow.focus();
+    return { ok: true, alreadyOpen: true };
+  }
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const sBounds   = senderWin ? senderWin.getBounds() : null;
+  const secondDisplay = getExtendedDisplayForBounds(sBounds);
+  let winOpts;
+  if (secondDisplay) {
+    const sourceDisplay = sBounds
+      ? (screen.getDisplayMatching(sBounds) || screen.getPrimaryDisplay())
+      : screen.getPrimaryDisplay();
+    const mappedBounds = mapWindowBoundsToDisplay(sBounds, sourceDisplay, secondDisplay)
+      || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
+    winOpts = {
+      x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
+      autoHideMenuBar: true, title: 'Oral Marking – Presenter',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+    };
+  } else {
+    const width  = sBounds ? sBounds.width  : 1200;
+    const height = sBounds ? sBounds.height : 800;
+    winOpts = {
+      width, height, autoHideMenuBar: true, title: 'Oral Marking – Presenter',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+    };
+    if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
+  }
+  oralPresenterWindow = new BrowserWindow(winOpts);
+  oralPresenterWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  oralPresenterWindow.on('closed', () => { oralPresenterWindow = null; });
+  try {
+    await oralPresenterWindow.loadFile(getToolPath(PAGE_FILES.oralMarking), { query: { presentation: '1' } });
+  } catch (err) {
+    console.error('app:open-oral-presenter load failed', err);
+    return { ok: false, error: String(err) };
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app:oral-presenter-open', () => {
+  return !!(oralPresenterWindow && !oralPresenterWindow.isDestroyed());
+});
+
+ipcMain.handle('app:oral-presenter-command', (event, command) => {
+  if (!oralPresenterWindow || oralPresenterWindow.isDestroyed()) return { ok: false, reason: 'not-open' };
+  switch (command) {
+    case 'close':      oralPresenterWindow.close(); break;
+    case 'fullscreen': oralPresenterWindow.setFullScreen(!oralPresenterWindow.isFullScreen()); break;
+    case 'maximize': {
+      if (oralPresenterWindow.isMaximized()) { oralPresenterWindow.unmaximize(); break; }
+      const targetDisplay = getExtendedDisplayForBounds(oralPresenterWindow.getBounds());
+      if (targetDisplay) { const wa = targetDisplay.workArea; oralPresenterWindow.setBounds({ x: wa.x, y: wa.y, width: wa.width, height: wa.height }); }
+      oralPresenterWindow.maximize(); break;
+    }
+    case 'minimize':   oralPresenterWindow.minimize(); break;
+    default: return { ok: false, reason: 'unknown-command' };
+  }
+  return { ok: true };
+});
+
 // ── Document Editor Presentation Window ────────────────────────────────────────
 let docPresentationWindow = null;
 ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
@@ -4159,6 +4232,65 @@ ipcMain.handle('app:export-files', async (event, request = {}) => {
   }
 
   return { ok: true, canceled: false, folderPath: destDir, exported, errors };
+});
+
+ipcMain.handle('app:pick-and-read-file', async (_event, request = {}) => {
+  const filters = Array.isArray(request.filters) ? request.filters : [];
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: String(request.title || 'Open file'),
+    properties: ['openFile'],
+    filters: filters.length ? filters : [{ name: 'All Files', extensions: ['*'] }]
+  });
+  if (canceled || !filePaths?.[0]) return { ok: false, canceled: true };
+  const filePath = filePaths[0];
+  const name = path.basename(filePath);
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    return { ok: true, canceled: false, name, content };
+  } catch (err) {
+    return { ok: false, canceled: false, error: String(err?.message || err) };
+  }
+});
+
+ipcMain.handle('app:pick-and-copy-files', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = String(request.target || '');
+  const filters = Array.isArray(request.filters) ? request.filters : [];
+
+  const targetDir = resolveAllowedTargetDir(pageFile, target);
+  const subdir = request.subdir ? sanitizeRelativePath(String(request.subdir)) : null;
+  const destDir = (subdir && subdir !== '.')
+    ? (() => {
+        const resolved = path.resolve(targetDir, subdir);
+        const targetRoot = path.resolve(targetDir);
+        if (resolved !== targetRoot && !resolved.startsWith(targetRoot + path.sep)) {
+          throw new Error('Subdir is outside the allowed target directory.');
+        }
+        return resolved;
+      })()
+    : targetDir;
+
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: String(request.title || 'Select files'),
+    properties: ['openFile', 'multiSelections'],
+    filters: filters.length ? filters : [{ name: 'All Files', extensions: ['*'] }]
+  });
+  if (canceled || !filePaths?.length) return { ok: false, canceled: true };
+
+  await fs.mkdir(destDir, { recursive: true });
+  const copied = [];
+  const errors = [];
+  for (const srcPath of filePaths) {
+    const name = path.basename(srcPath);
+    const destPath = path.join(destDir, name);
+    try {
+      await fs.copyFile(srcPath, destPath);
+      copied.push({ name });
+    } catch (err) {
+      errors.push({ name, error: String(err?.message || err) });
+    }
+  }
+  return { ok: true, canceled: false, copied, errors };
 });
 
 ipcMain.handle('app:get-backup-location', async () => {
@@ -4738,6 +4870,7 @@ function stopLocalServerIfUnused() {
 let _cmsRelayWs        = null;
 let _cmsRelayConnected = false;
 let _cmsRelayMode      = 'local';   // 'local' | 'external'
+let _cmsRelayServerUrl = '';        // external server URL, kept for status responses
 let _remoteToken       = null;      // 6-char student token shown to phones
 let _remoteHostSecret  = null;      // host secret used to authenticate with relay
 let _cmsConnectedCount = 0;
@@ -4777,9 +4910,16 @@ function _remoteGetLocalIp() {
   return candidates.length > 0 ? candidates[0].ip : '127.0.0.1';
 }
 
+function _cmsFindClassManagementWindow() {
+  return BrowserWindow.getAllWindows().find(
+    w => !w.isDestroyed() && getLoadedPageFile(w) === PAGE_FILES.classManagement
+  ) || null;
+}
+
 function _cmsNotifyStatus() {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.executeJavaScript(
+  const win = _cmsFindClassManagementWindow();
+  if (!win) return;
+  win.webContents.executeJavaScript(
     `window._cmsRemoteStatusUpdate && window._cmsRemoteStatusUpdate(${_cmsConnectedCount})`
   ).catch(() => {});
 }
@@ -4808,8 +4948,9 @@ function _cmsDispatchAction(msg) {
     jsCall = `window._cmsRemoteAction && window._cmsRemoteAction({action:'badge_remove',studentId:${sId},groupName:${sGrp},icon:${sIcon}})`;
   }
 
-  if (jsCall && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.executeJavaScript(jsCall).catch(() => {});
+  if (jsCall) {
+    const win = _cmsFindClassManagementWindow();
+    if (win) win.webContents.executeJavaScript(jsCall).catch(() => {});
   }
 }
 
@@ -4817,6 +4958,7 @@ function _cmsRelayDisconnect() {
   if (_cmsRelayWs) { try { _cmsRelayWs.close(); } catch (_) {} _cmsRelayWs = null; }
   _cmsRelayConnected = false;
   _cmsConnectedCount = 0;
+  _cmsRelayServerUrl = '';
 }
 
 function _cmsBuildWsUrl(serverUrl) {
@@ -4847,16 +4989,24 @@ async function _connectCmsRelay(wsUrl, secret, token) {
   return new Promise((resolve) => {
     const ws = new WS(wsUrl);
     let settled = false;
+    let pingInterval = null;
 
     const fail = (reason) => {
       if (settled) return;
       settled = true;
+      clearInterval(pingInterval);
       try { ws.close(); } catch (_) {}
       resolve({ ok: false, error: reason });
     };
 
     ws.on('open', () => {
       try { ws.send(JSON.stringify({ type: 'host_hello', secret, token })); } catch (_) {}
+      // Keepalive: prevents nginx/proxy from closing idle WS connections
+      pingInterval = setInterval(() => {
+        if (ws.readyState === 1) {
+          try { ws.send(JSON.stringify({ type: 'ping' })); } catch (_) {}
+        }
+      }, 20000);
     });
 
     ws.on('message', (raw) => {
@@ -4882,8 +5032,9 @@ async function _connectCmsRelay(wsUrl, secret, token) {
       } else if (msg.type === 'action') {
         _cmsDispatchAction(msg);
       } else if (msg.type === 'request_state') {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.executeJavaScript(
+        const cmsWin = _cmsFindClassManagementWindow();
+        if (cmsWin) {
+          cmsWin.webContents.executeJavaScript(
             'window._remotePushStateDebounced && window._remotePushStateDebounced()'
           ).catch(() => {});
         }
@@ -4891,6 +5042,7 @@ async function _connectCmsRelay(wsUrl, secret, token) {
     });
 
     ws.on('close', () => {
+      clearInterval(pingInterval);
       const wasConnected = _cmsRelayConnected;
       _cmsRelayWs        = null;
       _cmsRelayConnected = false;
@@ -4935,6 +5087,7 @@ ipcMain.handle('app:remote-start', async (_event, opts = {}) => {
   const result = await _connectCmsRelay(wsUrl, _remoteHostSecret, _remoteToken);
   if (!result.ok) return result;
 
+  _cmsRelayServerUrl = serverUrl;
   let httpUrl = '';
   try { httpUrl = _cmsBuildHttpUrl(serverUrl); } catch (_) {}
   return { ok: true, mode: 'external', serverUrl, httpUrl, token: _remoteToken, connected: 0 };
@@ -4950,9 +5103,14 @@ ipcMain.handle('app:remote-stop', async () => {
 ipcMain.handle('app:remote-status', async () => {
   if (!_cmsRelayConnected) return { running: false };
   const ip = _remoteGetLocalIp();
+  let httpUrl = '';
+  if (_cmsRelayMode === 'external' && _cmsRelayServerUrl) {
+    try { httpUrl = _cmsBuildHttpUrl(_cmsRelayServerUrl); } catch (_) {}
+  }
   return {
     running: true, mode: _cmsRelayMode,
-    port: _localServerPort, ip, token: _remoteToken, connected: _cmsConnectedCount
+    port: _localServerPort, ip, token: _remoteToken, connected: _cmsConnectedCount,
+    httpUrl
   };
 });
 

@@ -181,6 +181,21 @@
     return getDesktopApi().duplicateByPath({ target, relativePath });
   }
 
+  async function pickAndReadFile(filters) {
+    if (!isElectron()) return null;
+    return getDesktopApi().pickAndReadFile({ filters: filters || [] });
+  }
+
+  async function pickAndCopyFiles(target, options) {
+    if (!isElectron()) return null;
+    return getDesktopApi().pickAndCopyFiles({
+      target,
+      subdir: (options && options.subdir) || null,
+      filters: (options && options.filters) || [],
+      title: (options && options.title) || null
+    });
+  }
+
   function extractWrappedJsonValue(rawText) {
     const normalized = String(rawText || "");
     const assignmentMatch = normalized.match(/(?:window\.[A-Za-z_$][\w$]*\s*=\s*|const\s+[A-Za-z_$][\w$]*\s*=\s*|let\s+[A-Za-z_$][\w$]*\s*=\s*|var\s+[A-Za-z_$][\w$]*\s*=\s*|export\s+default\s+)/m);
@@ -319,6 +334,21 @@
   async function cmsPresentationCommand(command) {
     if (!isElectron()) return null;
     return getDesktopApi().cmsPresentationCommand(command);
+  }
+
+  async function openOralPresenter(opts) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openOralPresenter(opts || {});
+  }
+
+  async function isOralPresenterOpen() {
+    if (!isElectron()) return false;
+    return getDesktopApi().isOralPresenterOpen();
+  }
+
+  async function oralPresenterCommand(command) {
+    if (!isElectron()) return null;
+    return getDesktopApi().oralPresenterCommand(command);
   }
 
   async function openDocPresentation(opts) {
@@ -606,6 +636,9 @@
     openCmsPresentation,
     isCmsPresentationOpen,
     cmsPresentationCommand,
+    openOralPresenter,
+    isOralPresenterOpen,
+    oralPresenterCommand,
     openDocPresentation,
     isDocPresentationOpen,
     docPresentationCommand,
@@ -621,6 +654,8 @@
     quizServerStop,
     quizServerStatus,
     onDataChanged,
+    pickAndReadFile,
+    pickAndCopyFiles,
     reloadPlannerReminders() {
       var api = getDesktopApi();
       if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();

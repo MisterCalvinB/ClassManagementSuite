@@ -746,6 +746,21 @@
           <button class="sidebar-child" data-accordion="acc-sm-output" onclick="navToAccordion('schedule-maker','acc-sm-output')"><span class="sidebar-child-dot"></span>Output &amp; Save</button>
         </div>
       </div>
+      <div class="sidebar-item" id="nav-oral-marking">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="oral-marking" onclick="navTo('oral-marking')">
+            <span>🎙</span> Oral Marking
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-oral-marking')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-om-setup" onclick="navToAccordion('oral-marking','acc-om-setup')"><span class="sidebar-child-dot"></span>Setup</button>
+          <button class="sidebar-child" data-accordion="acc-om-timer" onclick="navToAccordion('oral-marking','acc-om-timer')"><span class="sidebar-child-dot"></span>Timer &amp; Phases</button>
+          <button class="sidebar-child" data-accordion="acc-om-scoring" onclick="navToAccordion('oral-marking','acc-om-scoring')"><span class="sidebar-child-dot"></span>Criteria Scoring</button>
+          <button class="sidebar-child" data-accordion="acc-om-presenter" onclick="navToAccordion('oral-marking','acc-om-presenter')"><span class="sidebar-child-dot"></span>Presenter View</button>
+          <button class="sidebar-child" data-accordion="acc-om-saving" onclick="navToAccordion('oral-marking','acc-om-saving')"><span class="sidebar-child-dot"></span>Saving to Grade Sheet</button>
+        </div>
+      </div>
       <div class="sidebar-item" id="nav-document-editor">
         <div class="sidebar-row">
           <button class="sidebar-row-main" data-section="document-editor" onclick="navTo('document-editor')">
@@ -1656,7 +1671,7 @@
         <button class="open-tool-btn" onclick="openTool('import-tool.html')">Open →</button>
       </div>
       <p class="tool-overview">
-        Bulk-import students and class groups from a CSV, XLSX, or JSON file. The wizard maps your file's columns to the app's fields automatically, lets you resolve any name conflicts row by row, and writes directly to <code>students.js</code> and <code>class-groups.js</code>.
+        Import data into the app in two ways: (1) <strong>structured import</strong> — upload a CSV, XLSX, or JSON file and map columns to fields for students, vocabulary, quizzes, and more; (2) <strong>file-copy import</strong> — pick audio or document files from disk and copy them directly into their managed folders (no CSV needed).
       </p>
 
       <div class="accordion" id="acc-it-students">
@@ -1715,6 +1730,27 @@
               <tr><td style="padding:6px 10px;"><strong>JSON</strong></td><td style="padding:6px 10px;">Must be an array of objects: <code>[{"firstName":"…","lastName":"…"},…]</code>. Object keys are used as column names for mapping.</td></tr>
             </tbody>
           </table>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-it-filecopy">
+        <button class="accordion-header" onclick="toggleAccordion('acc-it-filecopy')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Importing Sounds &amp; Documents (File Copy)</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>The <strong>Sounds</strong> and <strong>Documents</strong> destinations skip the CSV mapping steps entirely and use a simple file-copy flow:</p>
+          <ol class="steps">
+            <li>Open <button class="xlink" onclick="openTool('import-tool.html')">Import</button> from the Launcher.</li>
+            <li><strong>Step 1 — Destination:</strong> select <strong>Sounds 🔊</strong> or <strong>Documents 📄</strong>.</li>
+            <li>Click <strong>Pick Files…</strong> — an OS file picker opens (multi-select supported).</li>
+            <li>Select the files to import. They are copied immediately into their target folder:<ul>
+              <li><strong>Sounds</strong> → <code>user/custom-data/sounds</code> (mp3, wav, ogg, m4a, aac, flac)</li>
+              <li><strong>Documents</strong> → <code>user/document-editor/docs</code> (html, md, txt)</li>
+            </ul></li>
+            <li>The Done screen shows how many files were copied. Use the shortcut button to open the relevant tool.</li>
+          </ol>
+          <div class="tip">After importing sounds, open <strong>Class Management → Edit Sounds</strong> and click <strong>↻ Refresh Sound Files</strong> to see the new files in the dropdown lists.</div>
         </div></div>
       </div>
 
@@ -2555,6 +2591,99 @@
 
     </section>
 
+    <!-- ═══ ORAL MARKING ══════════════════════════════════════ -->
+    <section class="tool-section" id="oral-marking">
+      <div class="tool-header">
+        <span class="tool-icon">🎙</span>
+        <h2>Oral Marking</h2>
+        <button class="open-tool-btn" onclick="openTool('oral-marking.html')">Open →</button>
+      </div>
+      <p class="tool-overview">
+        Runs live oral exam sessions using a saved schedule from Schedule Maker. Tracks per-student prep and exam timers, collects criteria scores and comments, and saves results directly to Grade Sheet.
+      </p>
+
+      <div class="accordion" id="acc-om-setup">
+        <button class="accordion-header" onclick="toggleAccordion('acc-om-setup')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Setup</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>Click <strong>Load Schedule</strong> and select a session saved by <button class="xlink" onclick="openTool('schedule-maker.html')">Schedule Maker</button>.</li>
+            <li>The student roster, group, date, and timing settings are loaded automatically.</li>
+            <li>Criteria are loaded from <code>correction-criteria.js</code> — the same file used by Grade Sheet. If no criteria exist, you can still assign an overall grade per student.</li>
+            <li>Click <strong>Present</strong> to open the live presenter window on a second screen before starting.</li>
+            <li>Click <strong>Begin Session</strong> to start with the first student.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-om-timer">
+        <button class="accordion-header" onclick="toggleAccordion('acc-om-timer')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Timer &amp; Phases</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Each student goes through two phases:</p>
+          <ul class="steps">
+            <li><strong>Prep phase</strong> — countdown for the student's preparation time. SEN students automatically use the SEN prep duration from the schedule. Click <strong>Start Exam</strong> to advance early.</li>
+            <li><strong>Exam phase</strong> — countdown for the student's presentation. Click <strong>Finish Exam</strong> to stop the timer and record the actual duration.</li>
+          </ul>
+          <div class="tip"><strong>2-minute warning:</strong> When fewer than 2 minutes remain in the exam phase, the timer bar flashes red and the presenter window background flashes dark red.</div>
+          <p style="font-size:0.87rem;line-height:1.6;margin-top:10px;">Use <strong>Skip</strong> to mark a student as absent or unavailable. They appear struck through in the roster and no grade is recorded.</p>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-om-scoring">
+        <button class="accordion-header" onclick="toggleAccordion('acc-om-scoring')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Criteria Scoring</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>For each criterion, click a <strong>score pill</strong> to assign a grade (6 → 1 in 0.5 steps).</li>
+            <li>Type an optional <strong>comment</strong> in the text field below the pills.</li>
+            <li>The <strong>Overall grade</strong> row shows the auto-computed average of all criteria scores. Click any pill there to override the grade manually.</li>
+            <li>Use the <strong>Personal notes</strong> field for free-text remarks saved with the student's record.</li>
+          </ol>
+          <div class="tip">Scores and notes are preserved if you jump to a different student using the sidebar and come back.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-om-presenter">
+        <button class="accordion-header" onclick="toggleAccordion('acc-om-presenter')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Presenter View</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;line-height:1.6;margin-bottom:10px;">Click <strong>Present</strong> in the header to open the presenter window. It shows:</p>
+          <ul class="steps">
+            <li>Current phase (PREP / EXAM) in the top line</li>
+            <li>Student name in large text</li>
+            <li>Time remaining (large) and elapsed time</li>
+            <li>Flashing red background when 2 minutes remain</li>
+          </ul>
+          <div class="tip">The presenter window uses the <code>BroadcastChannel</code> API — both windows must be open in the same Electron process. No network or additional setup required.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-om-saving">
+        <button class="accordion-header" onclick="toggleAccordion('acc-om-saving')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Saving to Grade Sheet</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <ol class="steps">
+            <li>After all students finish (or as many as you want to grade), click <strong>Save Grades</strong>.</li>
+            <li>The tool finds the Grade Sheet class whose group matches the schedule. If one exists, it adds the oral exam as a new test in the appropriate semester. If none exists, it creates a new class automatically.</li>
+            <li>Open <button class="xlink" onclick="openTool('grade-sheet.html')">Grade Sheet</button> and find the class — the oral results appear as a test entry and can be edited, weighted, and exported normally.</li>
+          </ol>
+          <div class="tip"><strong>Crash recovery:</strong> The session is saved to <code>localStorage</code> after each completed student. If the app closes unexpectedly, reopening Oral Marking restores the last state automatically.</div>
+        </div></div>
+      </div>
+
+    </section>
+
     <!-- ═══ DOCUMENT EDITOR ══════════════════════════════════ -->
     <section class="tool-section" id="document-editor">
       <div class="tool-header">
@@ -2612,10 +2741,11 @@
           <span class="accordion-title">Documents &amp; Templates</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p><strong>Documents</strong> are <code>.md</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
+          <p><strong>Documents</strong> are <code>.md</code> or <code>.html</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
           <ul>
             <li><strong>New</strong> — clear the editor for a new document (prompts if unsaved changes exist).</li>
             <li><strong>Open</strong> — shows a list of saved documents. Click <em>Open</em> to load or <em>Del</em> to delete.</li>
+            <li><strong>Open from disk…</strong> — OS file picker that opens any <code>.html</code>, <code>.md</code>, or <code>.txt</code> file from anywhere on your computer. The content is loaded into the editor; press <strong>Save</strong> to store a managed copy in <code>docs/</code>.</li>
             <li><strong>Save</strong> — saves under the current filename; asks for a name if the document is new.</li>
             <li><strong>Save As</strong> — always prompts for a filename.</li>
           </ul>
@@ -2853,7 +2983,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','how-to-begin','connected-tools','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','document-editor'];
+  var SECTIONS = ['intro','how-to-begin','connected-tools','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','oral-marking','document-editor'];
 
   function onScroll() {
     var y = window.scrollY + 80;

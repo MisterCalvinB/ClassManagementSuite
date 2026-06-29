@@ -147,6 +147,12 @@ const exposedApi = {
   exportFiles(request) {
     return invoke('app:export-files', request);
   },
+  pickAndReadFile(request) {
+    return invoke('app:pick-and-read-file', request);
+  },
+  pickAndCopyFiles(request) {
+    return invoke('app:pick-and-copy-files', request);
+  },
   migrateClassUuids() {
     return invoke('app:migrate-class-uuids');
   },
@@ -191,6 +197,15 @@ const exposedApi = {
   },
   cmsPresentationCommand(command) {
     return invoke('app:cms-presentation-command', command);
+  },
+  openOralPresenter(request) {
+    return invoke('app:open-oral-presenter', request);
+  },
+  isOralPresenterOpen() {
+    return invoke('app:oral-presenter-open');
+  },
+  oralPresenterCommand(command) {
+    return invoke('app:oral-presenter-command', command);
   },
   openDocPresentation(request) {
     return invoke('app:open-doc-presentation', request);
