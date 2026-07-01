@@ -241,6 +241,14 @@
       return { groups, labels };
     }
 
+    function getStoredClassGroup() {
+      try {
+        return String(localStorage.getItem('active_class_group') || '').trim();
+      } catch (_) {
+        return '';
+      }
+    }
+
     function fillStudentPicker() {
       const { groups } = normalizeClassGroups();
       const className = String(classPickerEl.value || '');
@@ -275,9 +283,18 @@
 
     function fillClassPicker() {
       const { groups, labels } = normalizeClassGroups();
-      const classNames = Object.keys(groups).sort(function (a, b) {
+      const storedClassGroup = getStoredClassGroup();
+      let classNames = Object.keys(groups).sort(function (a, b) {
         return (labels[a] || a).localeCompare(labels[b] || b);
       });
+
+      if (!classNames.length && storedClassGroup) {
+        classNames = [storedClassGroup];
+        if (!Object.prototype.hasOwnProperty.call(labels, storedClassGroup)) {
+          labels[storedClassGroup] = storedClassGroup;
+        }
+      }
+
       classPickerEl.innerHTML = '';
 
       if (!classNames.length) {
@@ -295,6 +312,12 @@
         opt.textContent = labels[className] || className;
         classPickerEl.appendChild(opt);
       });
+
+      if (storedClassGroup && classNames.includes(storedClassGroup)) {
+        classPickerEl.value = storedClassGroup;
+      } else if (classNames.length) {
+        classPickerEl.value = classNames[0];
+      }
 
       fillStudentPicker();
     }

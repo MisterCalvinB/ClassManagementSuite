@@ -238,11 +238,17 @@
       return proto + '//' + u.host + '/note-ws';
     }
 
+    function getSelectedClassInfo() {
+      const classId = String(classPicker.value || '').trim();
+      const classLabel = classId ? _snpGroupName(classId) : '';
+      return { classId, classLabel };
+    }
+
     function buildMeta() {
-      const className = String(classPicker.value || '');
+      const { classLabel } = getSelectedClassInfo();
       const studentName = String(namePicker.value || '');
       const roomText = noteId ? noteId : '(missing room id)';
-      metaEl.innerHTML = '<strong>Room:</strong> ' + roomText + ' | <strong>Class:</strong> ' + (className || '-') + ' | <strong>Name:</strong> ' + (studentName || '-');
+      metaEl.innerHTML = '<strong>Room:</strong> ' + roomText + ' | <strong>Class:</strong> ' + (classLabel || '-') + ' | <strong>Name:</strong> ' + (studentName || '-');
     }
 
     function normalizeClassGroups() {
@@ -301,11 +307,13 @@
     function fillClasses() {
       const groups = normalizeClassGroups();
       const keys = Object.keys(groups).sort(function (a, b) { return _snpGroupName(a).localeCompare(_snpGroupName(b)); });
+      const classFromUrlValue = String(classFromUrl || '').trim();
+      const matchingKey = classFromUrlValue ? keys.find(function (key) {
+        return key === classFromUrlValue || _snpGroupName(key) === classFromUrlValue;
+      }) : null;
       // If classFromUrl is set but not in loaded data (e.g. remote server without local file),
       // still allow it so the student can proceed with a text name input.
-      const visibleKeys = classFromUrl && keys.includes(classFromUrl) ? [classFromUrl]
-        : classFromUrl ? [classFromUrl]
-        : keys;
+      const visibleKeys = matchingKey ? [matchingKey] : (classFromUrlValue ? [classFromUrlValue] : keys);
       classPicker.innerHTML = '';
       if (!visibleKeys.length) {
         const opt = document.createElement('option');
@@ -321,8 +329,10 @@
         opt.textContent = _snpGroupName(key);
         classPicker.appendChild(opt);
       });
-      if (classFromUrl && visibleKeys.includes(classFromUrl)) {
-        classPicker.value = classFromUrl;
+      if (matchingKey) {
+        classPicker.value = matchingKey;
+      } else if (classFromUrlValue && visibleKeys.includes(classFromUrlValue)) {
+        classPicker.value = classFromUrlValue;
       }
       classPicker.disabled = !!classFromUrl;
       refillNames();
@@ -343,9 +353,9 @@
         setStatus('Missing room id in URL. Ask your teacher for a new QR/link.', 'bad');
         return;
       }
-      const className = String(classPicker.value || '').trim();
+      const { classId, classLabel } = getSelectedClassInfo();
       const studentName = _getStudentName();
-      if (!className) {
+      if (!classId) {
         setStatus('Select your class first.', 'bad');
         return;
       }
@@ -378,7 +388,7 @@
           type: 'hello',
           role: 'note-student',
           noteId: noteId,
-          classGroup: className,
+          classGroup: classLabel || classId,
           name: studentName
         }));
       };

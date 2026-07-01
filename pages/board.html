@@ -23101,13 +23101,21 @@ function hideFailure() {
       return proto + '//' + u.host + '/note-ws';
     }
 
+    function noteStudentClassGroupLabel(classGroup) {
+      const classId = String(classGroup || '').trim();
+      if (!classId) return '';
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      return (meta[classId] && meta[classId].name) ? String(meta[classId].name) : classId;
+    }
+
     function noteStudentBuildJoinUrl(baseInput, noteId, classGroup) {
       let base = String(baseInput || '').trim();
       if (!base || /^file:/i.test(base)) base = 'http://127.0.0.1:8787';
       if (!/^https?:\/\//i.test(base)) { if (/^wss?:\/\//i.test(base)) base = base.replace(/^ws:/i,'http:').replace(/^wss:/i,'https:'); else base = 'http://' + base; }
       const u = new URL(base); const out = new URL('/student-note-player.html', u.origin);
       out.searchParams.set('note', String(noteId || ''));
-      if (classGroup) out.searchParams.set('class', String(classGroup));
+      const classLabel = noteStudentClassGroupLabel(classGroup);
+      if (classLabel) out.searchParams.set('class', classLabel);
       return out.toString();
     }
 
@@ -23424,7 +23432,8 @@ function hideFailure() {
       let wsUrl = '';
       try { wsUrl = noteStudentBuildWsUrl(serverInput.value); } catch (_) { noteStudentSetStatus('Invalid server URL.', true); return; }
       if (!_noteStudentHub.noteId) _noteStudentHub.noteId = noteStudentMakeId();
-      _noteStudentHub.classGroup = classGroup; _noteStudentHub.title = title;
+      const classLabel = noteStudentClassGroupLabel(classGroup);
+      _noteStudentHub.classGroup = classLabel || classGroup; _noteStudentHub.title = title;
       const joinBase = (electronServer && electronServer.publicBaseUrl) ? electronServer.publicBaseUrl : serverInput.value;
       _noteStudentHub.joinUrl = noteStudentBuildJoinUrl(joinBase, _noteStudentHub.noteId, classGroup);
       roomInput.value = _noteStudentHub.noteId;
