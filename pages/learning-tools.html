@@ -1540,6 +1540,10 @@
 
       <div id="quiz-mp-host-panel" class="hidden" style="margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;">
+          <label for="quiz-mp-class-select" style="font-size:0.82rem;color:#475569;font-weight:600;" data-i18n="groupSelectorLabel">Class</label>
+          <select id="quiz-mp-class-select" class="search-input" style="min-width:210px;" onchange="quizMpSelectClass(this.value)">
+            <option value="">No class selected</option>
+          </select>
           <label for="quiz-mp-half" style="font-size:0.82rem;color:#475569;font-weight:600;">Half:</label>
           <select id="quiz-mp-half" class="search-input" style="min-width:150px;" onchange="quizMpUpdateJoinDisplay()">
             <option value="">Full class</option>
@@ -2889,6 +2893,7 @@
       } catch (e) {}
 
       updateGroupSelectorTitle();
+      if (typeof quizMpRefreshClassPicker === 'function') quizMpRefreshClassPicker();
 
       if (prevGroup !== activeClassGroup && activeSection === 'words-seen-today-section') {
         renderWordsSeenToday();
@@ -6377,6 +6382,52 @@ function renderSentenceWithGap(userInput) {
       return proto + '//' + u.host + '/quiz-ws';
     }
 
+    function quizMpGetSelectedClassGroup() {
+      const classEl = document.getElementById('quiz-mp-class-select');
+      return classEl ? String(classEl.value || '').trim() : '';
+    }
+
+    function quizMpRefreshClassPicker() {
+      const classEl = document.getElementById('quiz-mp-class-select');
+      if (!classEl) return;
+      const selected = quizMpGetSelectedClassGroup() || activeClassGroup || '';
+      const groupKeys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? Object.keys(CLASS_GROUPS_META)
+            .filter(key => !(CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+            .sort(function (a, b) {
+              return _ltGroupName(a).localeCompare(_ltGroupName(b));
+            })
+        : [];
+
+      classEl.innerHTML = '';
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = t('groupSelectorNone');
+      classEl.appendChild(noneOpt);
+
+      groupKeys.forEach(function (key) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = _ltGroupName(key);
+        classEl.appendChild(opt);
+      });
+
+      if (selected && groupKeys.includes(selected)) {
+        classEl.value = selected;
+      } else if (activeClassGroup && groupKeys.includes(activeClassGroup)) {
+        classEl.value = activeClassGroup;
+      } else {
+        classEl.value = '';
+      }
+    }
+
+    function quizMpSelectClass(classGroup) {
+      const clean = String(classGroup || '').trim();
+      if (typeof setActiveClassGroup === 'function') setActiveClassGroup(clean);
+      quizMpSendClassPayload();
+      quizMpUpdateJoinDisplay();
+    }
+
     function quizMpJoinUrlForDisplay() {
       const inputEl = document.getElementById('quiz-mp-server');
       let base = String((inputEl && inputEl.value) || '').trim();
@@ -6392,7 +6443,12 @@ function renderSentenceWithGap(userInput) {
       const url = new URL(u.origin.replace(/\/+$/, '') + '/quiz-player.html');
       const halfEl = document.getElementById('quiz-mp-half');
       const half = halfEl ? String(halfEl.value || '') : '';
+      const classGroup = quizMpGetSelectedClassGroup();
       if (half) url.searchParams.set('half', half);
+      if (classGroup) {
+        const classLabel = typeof _ltGroupName === 'function' ? _ltGroupName(classGroup) : String(classGroup);
+        url.searchParams.set('class', classLabel);
+      }
       return url.toString();
     }
 
@@ -6433,6 +6489,31 @@ function renderSentenceWithGap(userInput) {
       } catch (_) {
         return false;
       }
+    }
+
+    function quizMpBuildHostClassPayload() {
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+      const cgData = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const classGroupsMeta = {};
+      Object.keys(meta).forEach(function (key) {
+        if (meta[key] && meta[key].archived) return;
+        classGroupsMeta[key] = meta[key];
+      });
+      return {
+        selectedClassGroup: quizMpGetSelectedClassGroup(),
+        classGroupsData: {
+          activeYear: cgData && cgData.activeYear ? String(cgData.activeYear) : '',
+          activeSemester: cgData && Object.prototype.hasOwnProperty.call(cgData, 'activeSemester') ? cgData.activeSemester : null,
+          activeSemesterStart: cgData && cgData.activeSemesterStart ? String(cgData.activeSemesterStart) : '',
+          activeSemesterEnd: cgData && cgData.activeSemesterEnd ? String(cgData.activeSemesterEnd) : '',
+          classGroupsMeta: classGroupsMeta
+        }
+      };
+    }
+
+    function quizMpSendClassPayload() {
+      if (!quizMp.ws || !quizMp.connected) return false;
+      return quizMpSend({ type: 'host_class_groups', payload: quizMpBuildHostClassPayload() });
     }
 
     function quizMpApplyReveal(correctIndex) {
@@ -6593,7 +6674,8 @@ function renderSentenceWithGap(userInput) {
       ws.onopen = function() {
         quizMp.connected = true;
         quizMpSetStatus('Connected. Waiting for players.', false);
-        quizMpSend({ type: 'hello', role: 'host', name: 'Teacher' });
+        quizMpSend({ type: 'hello', role: 'host', name: 'Teacher', payload: quizMpBuildHostClassPayload() });
+        quizMpSendClassPayload();
         if (quizCurrent) quizMpPushCurrentQuestion();
         quizRenderChoices();
       };
@@ -6982,13 +7064,21 @@ function renderSentenceWithGap(userInput) {
       }
       if (typeof quizMpUpdateQrCode === 'function') quizMpUpdateQrCode();
       // Save to remote-config when user clicks (not during init)
-      if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+      if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function' && typeof Desktop.remoteConfigSave === 'function') {
         Desktop.remoteConfigRead().then(function (r) {
-          const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
-          cfg.mode = _quizMpCurrentMode;
-          if (!isLocal && serverInput) cfg.serverUrl = String(serverInput.value || '').trim();
-          Desktop.remoteConfigSave(cfg).catch(function () {});
-        }).catch(function () { Desktop.remoteConfigSave({ mode: _quizMpCurrentMode }).catch(function () {}); });
+          const existing = (r && r.ok && r.config && typeof r.config === 'object') ? r.config : {};
+          const nextCfg = Object.assign({}, existing, { mode: _quizMpCurrentMode });
+          const typedUrl = serverInput ? String(serverInput.value || '').trim() : '';
+          const persistedUrl = typedUrl || String(existing.serverUrl || '').trim();
+          if (persistedUrl) {
+            nextCfg.serverUrl = persistedUrl;
+          } else {
+            delete nextCfg.serverUrl;
+          }
+          Desktop.remoteConfigSave(nextCfg).catch(function () {});
+        }).catch(function () {
+          Desktop.remoteConfigSave({ mode: _quizMpCurrentMode }).catch(function () {});
+        });
       }
     }
 
@@ -6996,10 +7086,17 @@ function renderSentenceWithGap(userInput) {
       await ensureCustomQuizLoaded();
       quizRefreshFilterOptions(false);
       const serverInput = document.getElementById('quiz-mp-server');
+      const classSelect = document.getElementById('quiz-mp-class-select');
       if (serverInput) {
         serverInput.addEventListener('input', quizMpUpdateQrCode);
         serverInput.addEventListener('change', quizMpUpdateQrCode);
       }
+      if (classSelect) {
+        classSelect.addEventListener('change', function () {
+          quizMpSelectClass(this.value);
+        });
+      }
+      quizMpRefreshClassPicker();
       quizApplyModeUi();
       quizUpdateStats();
       if (!quizCurrent) quizNextQuestion();
@@ -14734,7 +14831,6 @@ function renderSentenceWithGap(userInput) {
 <script>
 function openCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='flex';}
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
-<script>
 (function () {
   if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
   Desktop.onDataChanged(function (data) {

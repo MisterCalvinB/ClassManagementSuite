@@ -68,6 +68,7 @@ let quizHostWs    = null;
 let quizSeq       = 0;
 let quizCurrent   = null;
 let quizEnded     = false;
+let quizClassGroupsState = null;
 const quizPlayers = new Map(); // playerId → { id, name, score, ws }
 const quizSockets = new Map(); // ws → { role, playerId, name }
 
@@ -223,6 +224,26 @@ function sanitizeNoteId(value) {
   return String(value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
 }
 function normalizeClassGroup(value) { return String(value || '').trim().slice(0, 80); }
+
+function normalizeQuizClassPayload(rawPayload) {
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const classGroupsData = payload.classGroupsData && typeof payload.classGroupsData === 'object'
+    ? payload.classGroupsData
+    : null;
+  const meta = (classGroupsData && classGroupsData.classGroupsMeta) || payload.classGroupsMeta || {};
+  const normalizedMeta = meta && typeof meta === 'object' ? meta : {};
+  const normalized = {
+    selectedClassGroup: String(payload.selectedClassGroup || payload.classGroup || '').trim(),
+    classGroupsData: {
+      activeYear: String(classGroupsData && classGroupsData.activeYear ? classGroupsData.activeYear : payload.activeYear || ''),
+      activeSemester: classGroupsData && Object.prototype.hasOwnProperty.call(classGroupsData, 'activeSemester') ? classGroupsData.activeSemester : (payload.activeSemester ?? null),
+      activeSemesterStart: String(classGroupsData && classGroupsData.activeSemesterStart ? classGroupsData.activeSemesterStart : payload.activeSemesterStart || ''),
+      activeSemesterEnd: String(classGroupsData && classGroupsData.activeSemesterEnd ? classGroupsData.activeSemesterEnd : payload.activeSemesterEnd || ''),
+      classGroupsMeta: normalizedMeta
+    }
+  };
+  return normalized;
+}
 function normalizeStudentText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 600);
 }
@@ -285,6 +306,13 @@ function quizNoteOnMessage(ws, raw) {
       }
       quizHostWs = ws;
       quizSockets.set(ws, { role: 'host', name: safeName });
+      const hostClassPayload = normalizeQuizClassPayload(msg && msg.payload);
+      if (hostClassPayload && hostClassPayload.classGroupsData) {
+        quizClassGroupsState = hostClassPayload;
+        const classMessage = { type: 'class_groups', payload: quizClassGroupsState };
+        sendJson(ws, classMessage);
+        quizBroadcast(classMessage, entry => entry.role === 'player');
+      }
       sendJson(ws, { type: 'welcome', role: 'host' });
       sendJson(ws, quizPresence());
       sendJson(ws, quizAnswersPayload());
@@ -311,6 +339,9 @@ function quizNoteOnMessage(ws, raw) {
       quizPlayers.set(playerId, { id: playerId, name: safeName, score: 0, ws });
       quizSockets.set(ws, { role: 'player', playerId, name: safeName });
       sendJson(ws, { type: 'welcome', role: 'player', playerId, name: safeName });
+      if (quizClassGroupsState) {
+        sendJson(ws, { type: 'class_groups', payload: quizClassGroupsState });
+      }
       sendJson(ws, quizPresence());
       if (quizCurrent) sendJson(ws, { type: 'question', payload: quizPublicQuestion(quizCurrent) });
       if (quizCurrent && quizCurrent.revealed) {
@@ -322,6 +353,17 @@ function quizNoteOnMessage(ws, raw) {
       }
       quizBroadcast(quizPresence());
       quizBroadcast(quizAnswersPayload(), m => m.role === 'host');
+      return;
+    }
+
+    if (type === 'host_class_groups') {
+      const hostClassPayload = normalizeQuizClassPayload(msg && msg.payload);
+      if (hostClassPayload && hostClassPayload.classGroupsData) {
+        quizClassGroupsState = hostClassPayload;
+        const classMessage = { type: 'class_groups', payload: quizClassGroupsState };
+        sendJson(ws, classMessage);
+        quizBroadcast(classMessage, entry => entry.role === 'player');
+      }
       return;
     }
 

@@ -3160,7 +3160,7 @@ ipcMain.handle('app:save-file', async (event, request) => {
   // Broadcast cross-app data changes to other open windows
   if (request) {
     const isCrossApp = (
-      (request.target === 'user' && ['class-groups.js', 'config.js', 'planner-config.js'].includes(request.filename)) ||
+      (request.target === 'user' && ['class-groups.js', 'config.js', 'planner-config.js', 'todos.js'].includes(request.filename)) ||
       (request.target === 'user' && request.subdir === 'planner') ||
       (request.target === 'classPlans' && request.filename === 'plans.js')
     );

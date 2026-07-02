@@ -212,9 +212,22 @@
     let questionState = null;
     let selectedAnswer = null;
     let questionStartedAt = 0;
+    let remoteClassGroupsState = null;
+
+    const _qpQuery = new URLSearchParams(location.search);
+    const classFromUrl = String(_qpQuery.get('class') || '').trim();
+    const halfFromUrl = String(_qpQuery.get('half') || '').trim();
+
+    function _qpGetGroupLabel(groupId) {
+      try {
+        const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+        return (meta[groupId] && meta[groupId].name) ? String(meta[groupId].name) : String(groupId);
+      } catch { return String(groupId); }
+    }
 
     function normalizeClassGroups() {
-      const cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const payload = remoteClassGroupsState && remoteClassGroupsState.classGroupsData ? remoteClassGroupsState.classGroupsData : null;
+      const cgd = payload || ((typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null);
       const meta = (cgd && cgd.classGroupsMeta) || (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
       const srcLegacy = (cgd && cgd.classGroups) || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS : null);
       const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
@@ -249,6 +262,52 @@
       }
     }
 
+    function injectClassicScript(source, name) {
+      const script = document.createElement('script');
+      script.text = String(source || '') + '\n//# sourceURL=' + name;
+      document.head.appendChild(script);
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    function loadScriptBySrc(src) {
+      return new Promise(function (resolve) {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = function () { resolve(true); };
+        script.onerror = function () { resolve(false); };
+        document.head.appendChild(script);
+      });
+    }
+
+    async function loadClassGroupsData() {
+      if (typeof CLASS_GROUPS_DATA !== 'undefined' || typeof CLASS_GROUPS_META !== 'undefined') {
+        return true;
+      }
+
+      if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+        try {
+          const result = await Desktop.readText('user', 'class-groups.js');
+          if (result && result.ok && result.content) {
+            injectClassicScript(result.content, 'user/class-groups.js');
+            return true;
+          }
+        } catch (_) {}
+      }
+
+      const candidates = [
+        '../user/class-groups.js',
+        './user/class-groups.js',
+        '/user/class-groups.js',
+        'user/class-groups.js'
+      ];
+
+      for (let i = 0; i < candidates.length; i++) {
+        const ok = await loadScriptBySrc(candidates[i]);
+        if (ok) return true;
+      }
+      return false;
+    }
+
     function fillStudentPicker() {
       const { groups } = normalizeClassGroups();
       const className = String(classPickerEl.value || '');
@@ -281,18 +340,40 @@
       }
     }
 
+    function getStoredClassGroup() {
+      try {
+        return String(localStorage.getItem('active_class_group') || '').trim();
+      } catch (_) {
+        return '';
+      }
+    }
+
     function fillClassPicker() {
       const { groups, labels } = normalizeClassGroups();
       const storedClassGroup = getStoredClassGroup();
+      const classFromUrlValue = String(classFromUrl || '').trim();
+      
       let classNames = Object.keys(groups).sort(function (a, b) {
         return (labels[a] || a).localeCompare(labels[b] || b);
       });
 
-      if (!classNames.length && storedClassGroup) {
-        classNames = [storedClassGroup];
-        if (!Object.prototype.hasOwnProperty.call(labels, storedClassGroup)) {
-          labels[storedClassGroup] = storedClassGroup;
+      // Try to find a matching key for the URL parameter or stored value
+      let matchingKey = null;
+      if (classFromUrlValue) {
+        // Try exact match first
+        if (classNames.includes(classFromUrlValue)) {
+          matchingKey = classFromUrlValue;
+        } else {
+          // Try matching by display name
+          matchingKey = classNames.find(function (key) {
+            return _qpGetGroupLabel(key) === classFromUrlValue;
+          });
         }
+      }
+
+      // Fall back to stored selection if URL param didn't match
+      if (!matchingKey && storedClassGroup && classNames.includes(storedClassGroup)) {
+        matchingKey = storedClassGroup;
       }
 
       classPickerEl.innerHTML = '';
@@ -313,8 +394,8 @@
         classPickerEl.appendChild(opt);
       });
 
-      if (storedClassGroup && classNames.includes(storedClassGroup)) {
-        classPickerEl.value = storedClassGroup;
+      if (matchingKey) {
+        classPickerEl.value = matchingKey;
       } else if (classNames.length) {
         classPickerEl.value = classNames[0];
       }
@@ -504,6 +585,10 @@
             : 'No winner';
           resultEl.textContent = 'Final results posted. Winner: ' + winner;
           setStatus('Game ended by host. See final leaderboard.', false);
+        } else if (msg.type === 'class_groups') {
+          remoteClassGroupsState = msg.payload || null;
+          fillClassPicker();
+          setStatus('Class list updated from host.', false);
         } else if (msg.type === 'presence') {
           renderLeaderboard(msg.leaderboard || []);
         } else if (msg.type === 'status') {
@@ -525,9 +610,6 @@
       };
     }
 
-    const _qpQuery = new URLSearchParams(location.search);
-    const halfFromUrl = String(_qpQuery.get('half') || '').trim();
-
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
     classPickerEl.addEventListener('change', function() {
@@ -546,8 +628,11 @@
     if (halfFromUrl === '1' || halfFromUrl === '2') {
       halfPickerEl.value = halfFromUrl;
     }
-    fillClassPicker();
-    setButtons();
+
+    loadClassGroupsData().then(function () {
+      fillClassPicker();
+      setButtons();
+    });
   </script>
 </body>
 </html>
