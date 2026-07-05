@@ -186,6 +186,11 @@
     return getDesktopApi().pickAndReadFile({ filters: filters || [] });
   }
 
+  async function saveToDisk(request) {
+    if (!isElectron()) return null;
+    return getDesktopApi().saveToDisk(request || {});
+  }
+
   async function pickAndCopyFiles(target, options) {
     if (!isElectron()) return null;
     return getDesktopApi().pickAndCopyFiles({
@@ -654,6 +659,7 @@
     quizServerStop,
     quizServerStatus,
     onDataChanged,
+    saveToDisk,
     pickAndReadFile,
     pickAndCopyFiles,
     reloadPlannerReminders() {

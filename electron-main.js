@@ -4234,6 +4234,32 @@ ipcMain.handle('app:export-files', async (event, request = {}) => {
   return { ok: true, canceled: false, folderPath: destDir, exported, errors };
 });
 
+ipcMain.handle('app:save-to-disk', async (_event, request = {}) => {
+  const filters = Array.isArray(request.filters) ? request.filters : [];
+  const defaultPath = String(request.defaultPath || '').trim();
+  const options = {
+    title: String(request.title || 'Save file'),
+    filters: filters.length ? filters : [{ name: 'All Files', extensions: ['*'] }]
+  };
+  if (defaultPath) options.defaultPath = defaultPath;
+
+  const { canceled, filePath } = await dialog.showSaveDialog(options);
+  if (canceled || !filePath) {
+    return { ok: false, canceled: true };
+  }
+
+  try {
+    const encoding = request.encoding === 'base64' ? 'base64' : 'utf8';
+    const data = encoding === 'base64'
+      ? Buffer.from(String(request.content || ''), 'base64')
+      : String(request.content || '');
+    await fs.writeFile(filePath, data, encoding === 'base64' ? undefined : 'utf8');
+    return { ok: true, canceled: false, path: filePath, name: path.basename(filePath) };
+  } catch (err) {
+    return { ok: false, canceled: false, error: String(err?.message || err) };
+  }
+});
+
 ipcMain.handle('app:pick-and-read-file', async (_event, request = {}) => {
   const filters = Array.isArray(request.filters) ? request.filters : [];
   const { canceled, filePaths } = await dialog.showOpenDialog({

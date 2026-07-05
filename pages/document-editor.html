@@ -962,6 +962,7 @@
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-save-doc">Save <span class="nav-pop-hint">Ctrl+S</span></button>
       <button class="nav-pop-item" id="btn-save-as-doc">Save As…</button>
+      <button class="nav-pop-item" id="btn-save-to-folder" data-i18n="deSaveToFolder">Save to folder…</button>
       <button class="nav-pop-item" id="btn-save-all-doc">Save All <span class="nav-pop-hint">Ctrl+⇧S</span></button>
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-doc-history">History</button>
@@ -2050,6 +2051,38 @@ async function openFromDisk() {
   applyPageLayoutToPreview && applyPageLayoutToPreview();
   renderPreview();
   showToast((t('deOpenFromDiskSuccess') || 'Opened — save to store a copy in Documents.').replace('{name}', r.name));
+}
+
+async function saveDocToFolder() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast(t('deSaveToFolderNoElectron') || 'File export requires the desktop app.', true);
+    return;
+  }
+
+  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
+  const content = isInlineHtml
+    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
+    : mdEditor.getValue();
+  const suggestedBase = (currentDocName || 'document').replace(/\.(md|html)$/i, '');
+  const suggestedName = suggestedBase + '.' + currentDocType;
+
+  const r = await Desktop.saveToDisk({
+    title: t('deSaveToFolderDialogTitle') || 'Save document to folder',
+    defaultPath: suggestedName,
+    filters: [
+      { name: t('deSaveToFolderFilterName') || 'Documents', extensions: ['md', 'html'] },
+      { name: t('deAllFilesFilter') || 'All Files', extensions: ['*'] }
+    ],
+    content,
+    encoding: 'utf8'
+  });
+
+  if (!r || r.canceled) return;
+  if (!r.ok) {
+    showToast((t('deSaveToFolderError') || 'Could not save file: ') + (r.error || ''), true);
+    return;
+  }
+  showToast((t('deSaveToFolderSuccess') || 'Saved to folder: ') + (r.name || suggestedName));
 }
 
 async function loadDoc(relativePath) {
@@ -4342,6 +4375,7 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-open-from-disk').addEventListener('click', openFromDisk);
   document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
   document.getElementById('btn-save-as-doc').addEventListener('click', saveDocAs);
+  document.getElementById('btn-save-to-folder').addEventListener('click', saveDocToFolder);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);
   document.getElementById('btn-doc-history').addEventListener('click', openHistoryModal);
   document.getElementById('history-modal-close').addEventListener('click', () => hideModal('history-modal'));

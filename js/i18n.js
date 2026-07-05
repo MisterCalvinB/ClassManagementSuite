@@ -2036,6 +2036,12 @@
       deAllFilesFilter: 'All Files',
       deOpenFromDiskError: 'Could not read file: ',
       deOpenFromDiskSuccess: 'Opened — save to store a copy in Documents.',
+      deSaveToFolder: 'Save to folder…',
+      deSaveToFolderNoElectron: 'File export requires the desktop app.',
+      deSaveToFolderDialogTitle: 'Save document to folder',
+      deSaveToFolderFilterName: 'Documents',
+      deSaveToFolderSuccess: 'Saved to folder: ',
+      deSaveToFolderError: 'Could not save file: ',
 
       // Shortcuts modal
       skmTitle: '⌨ Keyboard Shortcuts',
@@ -4184,6 +4190,12 @@
       deAllFilesFilter: 'Tous les fichiers',
       deOpenFromDiskError: 'Impossible de lire le fichier : ',
       deOpenFromDiskSuccess: 'Ouvert — enregistrez pour conserver une copie dans Documents.',
+      deSaveToFolder: 'Enregistrer dans un dossier…',
+      deSaveToFolderNoElectron: 'L\'export de fichiers requiert l\'application de bureau.',
+      deSaveToFolderDialogTitle: 'Enregistrer le document dans un dossier',
+      deSaveToFolderFilterName: 'Documents',
+      deSaveToFolderSuccess: 'Enregistré dans le dossier : ',
+      deSaveToFolderError: 'Impossible d\'enregistrer le fichier : ',
 
       // Shortcuts modal
       skmTitle: '⌨ Raccourcis clavier',
@@ -5005,6 +5017,12 @@
       deAllFilesFilter: 'Alle Dateien',
       deOpenFromDiskError: 'Datei konnte nicht gelesen werden: ',
       deOpenFromDiskSuccess: 'Geöffnet — speichern, um eine Kopie in Dokumente zu legen.',
+      deSaveToFolder: 'In Ordner speichern…',
+      deSaveToFolderNoElectron: 'Dateiexport erfordert die Desktop-App.',
+      deSaveToFolderDialogTitle: 'Dokument in Ordner speichern',
+      deSaveToFolderFilterName: 'Dokumente',
+      deSaveToFolderSuccess: 'Im Ordner gespeichert: ',
+      deSaveToFolderError: 'Datei konnte nicht gespeichert werden: ',
 
       // Shortcuts modal
       skmTitle: '⌨ Tastaturkürzel',
@@ -5922,6 +5940,12 @@
       deAllFilesFilter: 'Tutti i file',
       deOpenFromDiskError: 'Impossibile leggere il file: ',
       deOpenFromDiskSuccess: 'Aperto — salva per conservare una copia in Documenti.',
+      deSaveToFolder: 'Salva nella cartella…',
+      deSaveToFolderNoElectron: 'L\'esportazione di file richiede l\'app desktop.',
+      deSaveToFolderDialogTitle: 'Salva documento nella cartella',
+      deSaveToFolderFilterName: 'Documenti',
+      deSaveToFolderSuccess: 'Salvato nella cartella: ',
+      deSaveToFolderError: 'Impossibile salvare il file: ',
 
       // Shortcuts modal
       skmTitle: '⌨ Scorciatoie da tastiera',

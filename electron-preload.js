@@ -147,6 +147,9 @@ const exposedApi = {
   exportFiles(request) {
     return invoke('app:export-files', request);
   },
+  saveToDisk(request) {
+    return invoke('app:save-to-disk', request);
+  },
   pickAndReadFile(request) {
     return invoke('app:pick-and-read-file', request);
   },
