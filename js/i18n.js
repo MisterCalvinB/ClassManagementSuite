@@ -1,4 +1,4 @@
-﻿// Shared i18n module for Class Management Tools.
+// Shared i18n module for Class Management Tools.
 // Reads language from cmt-lang-{page} (per-page override) or cmt-general-config.language (default: 'fr').
 (function () {
   'use strict';
@@ -2112,6 +2112,7 @@
       omBtnStartExam: 'Start Exam',
       omBtnFinishExam: 'Finish Exam',
       omBtnNextStudent: 'Next Student',
+      omBtnBegin: 'Begin ▶',
       omBtnSaveGrades: 'Save Grades',
       omBtnSkip: 'Skip',
       omBtnPause: '⏸ Pause',
@@ -2153,6 +2154,8 @@
       omSaveTemplate: 'Save as Template',
       omTemplateSaved: 'Template saved!',
       omNoCriteria: 'No criteria found. Open Grade Sheet to add correction criteria.',
+      omBtnDoneReview: '✓ Done Editing',
+      omReviewMode: 'Editing grades for {name}',
     },
 
     fr: {
@@ -4257,6 +4260,7 @@
       omBtnStartExam: 'Démarrer l\'oral',
       omBtnFinishExam: 'Terminer l\'oral',
       omBtnNextStudent: 'Élève suivant',
+      omBtnBegin: 'Commencer ▶',
       omBtnSaveGrades: 'Enregistrer les notes',
       omBtnSkip: 'Passer',
       omBtnPause: '⏸ Pause',
@@ -4298,6 +4302,8 @@
       omSaveTemplate: 'Enregistrer comme modèle',
       omTemplateSaved: 'Modèle enregistré !',
       omNoCriteria: 'Aucun critère trouvé. Ouvrez le carnet de notes pour ajouter des critères.',
+      omBtnDoneReview: '✓ Terminer',
+      omReviewMode: 'Modifier les notes de {name}',
     },
 
     de: {
@@ -5171,6 +5177,7 @@
       omBtnStartExam: 'Prüfung starten',
       omBtnFinishExam: 'Prüfung beenden',
       omBtnNextStudent: 'Nächster Schüler',
+      omBtnBegin: 'Beginnen ▶',
       omBtnSaveGrades: 'Noten speichern',
       omBtnSkip: 'Überspringen',
       omBtnPause: '⏸ Pause',
@@ -5212,6 +5219,8 @@
       omSaveTemplate: 'Als Vorlage speichern',
       omTemplateSaved: 'Vorlage gespeichert!',
       omNoCriteria: 'Keine Kriterien gefunden. Öffnen Sie das Notenblatt, um Korrekturkriterien hinzuzufügen.',
+      omBtnDoneReview: '✓ Fertig',
+      omReviewMode: 'Noten bearbeiten für {name}',
     },
 
     it: {
@@ -6085,6 +6094,7 @@
       omBtnStartExam: 'Inizia esame',
       omBtnFinishExam: 'Termina esame',
       omBtnNextStudent: 'Studente successivo',
+      omBtnBegin: 'Inizia ▶',
       omBtnSaveGrades: 'Salva voti',
       omBtnSkip: 'Salta',
       omBtnPause: '⏸ Pausa',
@@ -6126,6 +6136,8 @@
       omSaveTemplate: 'Salva come modello',
       omTemplateSaved: 'Modello salvato!',
       omNoCriteria: 'Nessun criterio trovato. Aprire il registro voti per aggiungere criteri di correzione.',
+      omBtnDoneReview: '✓ Fine modifica',
+      omReviewMode: 'Modifica voti per {name}',
     }
   };
 

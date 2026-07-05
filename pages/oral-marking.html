@@ -414,11 +414,17 @@
     }
 
     .om-student-item.done {
-      text-decoration: line-through;
-      color: #aaa;
+      color: #555;
     }
 
-    .om-student-item.done .om-st-badge { background: #ccc; color: #777; }
+    .om-student-item.done .om-st-badge { background: #060; color: #fff; }
+    .om-student-item.done:hover { background: #f0fff0; }
+
+    .om-student-item.reviewing {
+      background: #e8f5e9;
+      outline: 2px solid #060;
+      outline-offset: -2px;
+    }
 
     .om-student-item.skipped {
       text-decoration: line-through;
@@ -434,6 +440,17 @@
     .om-student-item.current .om-student-num { color: #ccc; }
 
     .om-student-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .om-student-time {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: #999;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.2px;
+      flex-shrink: 0;
+    }
+    .om-student-item.current .om-student-time { color: #aaa; }
+    .om-student-item.done    .om-student-time { color: #888; }
 
     .om-st-badge {
       font-size: 0.65rem;
@@ -826,6 +843,21 @@
     .om-done-panel h2 { font-size: 1.5rem; font-weight: 800; }
     .om-done-panel p { color: #555; font-size: 0.9rem; }
 
+    /* ── REVIEW BANNER ──────────────────────────────────── */
+    .om-review-banner {
+      flex-shrink: 0;
+      background: #e8f5e9;
+      border-bottom: 2px solid #060;
+      padding: 7px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #060;
+    }
+    .om-review-banner .om-review-icon { font-size: 1rem; }
+
     /* ── SCROLLBAR ──────────────────────────────────────── */
     .om-student-list::-webkit-scrollbar,
     .om-criteria-panel::-webkit-scrollbar { width: 5px; }
@@ -861,6 +893,7 @@
     <span class="om-header-meta" id="om-exam-meta"></span>
     <div class="om-header-right">
       <button class="om-pill-btn" id="om-load-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Load Schedule</button>
+      <button class="om-pill-btn hidden" id="om-save-gs-btn" onclick="saveGrades()" data-i18n="omBtnSaveGrades">Save to Grade Sheet</button>
       <button class="om-pill-btn" id="om-presenter-btn" onclick="togglePresenter()" data-i18n="omPresent">Present</button>
     </div>
   </header>
@@ -995,6 +1028,7 @@
   let pausedElapsed  = 0;
   let presenterOpen = false;
   let sessionStarted = false;
+  let reviewingIdx   = -1;    // index of a 'done' student being reviewed (grade edit mode)
 
   // ── Init ─────────────────────────────────────────────────
   function init() {
@@ -1238,9 +1272,12 @@
     sessionCriteria = activeCriteria.filter(c => c.selected).map(c => c.name);
     showMarking();
     sessionStarted = true;
+    phase = 'idle';
+    currentIdx = -1;
     renderSidebar();
     renderCriteria(-1);
-    advanceToNext();
+    updateTimerBar();
+    updateActionBar();
   }
 
   function showMarking() {
@@ -1272,19 +1309,44 @@
         return;
       }
 
-      files.sort((a, b) => b.filename.localeCompare(a.filename)).forEach(f => {
-        const fname = f.filename;
+      files.sort((a, b) => b.filename.localeCompare(a.filename));
+
+      // Read all schedule files in parallel to extract their title/meta
+      const fileData = await Promise.all(files.map(async f => {
+        try {
+          const r = await Desktop.readByPath(SCHEDULE_TARGET, SCHEDULE_DIR + f.filename);
+          if (r?.ok && r.content) {
+            const fn = new Function(r.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
+            const obj = fn();
+            if (obj) return { filename: f.filename, title: obj.title || null, group: obj.group || null, date: obj.date || null, studentCount: ((obj.items || []).filter(i => i.type === 'student' && !i.excluded)).length };
+          }
+        } catch (e) { /* ignore */ }
+        return { filename: f.filename, title: null, group: null, date: null, studentCount: null };
+      }));
+
+      fileData.forEach(fd => {
         const item = document.createElement('div');
         item.className = 'om-modal-item';
+
         const nameEl = document.createElement('div');
         nameEl.className = 'om-modal-item-name';
-        nameEl.textContent = fname.replace(SCHEDULE_PREFIX, '').replace('.js', '');
+        // Prefer schedule title; fall back to cleaned filename
+        nameEl.textContent = fd.title || fd.filename.replace(SCHEDULE_PREFIX, '').replace('.js', '');
+
         const metaEl = document.createElement('div');
         metaEl.className = 'om-modal-item-meta';
-        if (f.size !== undefined) metaEl.textContent = Math.ceil(f.size / 1024) + ' KB';
+        const metaParts = [];
+        if (fd.group) {
+          const gName = classGroupsMeta[fd.group]?.name || fd.group;
+          metaParts.push(gName);
+        }
+        if (fd.date) metaParts.push(fd.date);
+        if (fd.studentCount != null) metaParts.push(fd.studentCount + ' ' + t('omStudents'));
+        metaEl.textContent = metaParts.join(' · ');
+
         item.appendChild(nameEl);
         item.appendChild(metaEl);
-        item.onclick = () => loadScheduleFile(fname);
+        item.onclick = () => loadScheduleFile(fd.filename);
         list.appendChild(item);
       });
     } catch (e) {
@@ -1353,14 +1415,58 @@
     document.getElementById('om-exam-meta').textContent = metaParts.join(' · ');
   }
 
+  // ── Schedule time computation ────────────────────────────
+  // Returns an array of scheduled exam-start times (HH:MM strings) for each student.
+  // Uses schedule.startTime, prepNormal/prepSen, examTime.
+  function computeScheduleTimes() {
+    if (!schedule) return students.map(() => null);
+    const startTime = schedule.startTime || null;
+    if (!startTime) return students.map(() => null);
+
+    // Parse HH:MM
+    const match = String(startTime).match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return students.map(() => null);
+
+    let cursor = parseInt(match[1]) * 60 + parseInt(match[2]); // minutes from midnight
+
+    const items = (schedule.items || []).filter(i => i.type === 'student' && !i.excluded);
+    const times = [];
+
+    // We walk all items in order. For each student:
+    //   1. Add prep time → that is the exam start
+    //   2. Add exam time → that is the next student's prep start
+    for (const item of items) {
+      const isSen = !!item.sen;
+      const prepMins = isSen ? (schedule.prepSen || 20) : (schedule.prepNormal || 10);
+      const examMins = schedule.examTime || 15;
+      const examStartMins = cursor + prepMins;
+      // Format exam start time
+      const hh = Math.floor(examStartMins / 60) % 24;
+      const mm = examStartMins % 60;
+      times.push(`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
+      cursor = examStartMins + examMins; // next student starts here (overlap: next's prep begins now)
+    }
+
+    return times;
+  }
+
   // ── Sidebar ──────────────────────────────────────────────
+  function updateSaveBtn() {
+    const btn = document.getElementById('om-save-gs-btn');
+    if (!btn) return;
+    const hasDone = sessionStarted && students.some(s => s.status === 'done');
+    btn.classList.toggle('hidden', !hasDone);
+  }
+
   function renderSidebar() {
     const list = document.getElementById('om-student-list');
     list.innerHTML = '';
+    const scheduledTimes = computeScheduleTimes();
     students.forEach((s, idx) => {
       const item = document.createElement('div');
       item.className = 'om-student-item';
       if (idx === currentIdx) item.classList.add('current');
+      if (idx === reviewingIdx) item.classList.add('reviewing');
       if (s.status === 'done') item.classList.add('done');
       if (s.status === 'skipped') item.classList.add('skipped');
 
@@ -1374,6 +1480,14 @@
 
       item.appendChild(numEl);
       item.appendChild(nameEl);
+
+      // Scheduled exam-start time
+      if (scheduledTimes[idx]) {
+        const timeEl = document.createElement('span');
+        timeEl.className = 'om-student-time';
+        timeEl.textContent = scheduledTimes[idx];
+        item.appendChild(timeEl);
+      }
 
       if (s.grade !== null) {
         const badge = document.createElement('span');
@@ -1401,13 +1515,31 @@
       item.onclick = () => jumpToStudent(idx);
       list.appendChild(item);
     });
+    updateSaveBtn();
   }
 
   function jumpToStudent(idx) {
     if (idx < 0 || idx >= students.length) return;
-    if (idx === currentIdx) return;
     const s = students[idx];
-    if (s.status === 'done' || s.status === 'skipped') return;
+
+    // Done student → open in review/grade-edit mode
+    if (s.status === 'done') {
+      reviewStudent(idx);
+      return;
+    }
+
+    if (s.status === 'skipped') return;
+    if (idx === currentIdx && reviewingIdx < 0) return;
+
+    // If we were reviewing, just close review and continue
+    if (reviewingIdx >= 0) {
+      reviewingIdx = -1;
+      renderSidebar();
+      renderCriteria(currentIdx);
+      updateActionBar();
+      return;
+    }
+
     // Warn if interrupting an active exam
     if (phase === 'exam' && currentIdx >= 0) {
       if (!confirm(t('omConfirmCancelSession').replace('Cancel this session?', 'Interrupt current exam and switch students?'))) return;
@@ -1416,12 +1548,54 @@
     startStudentPrep(idx);
   }
 
+  // Open a finished student's criteria panel for grade/note editing.
+  // The timer is not touched.
+  function reviewStudent(idx) {
+    if (idx < 0 || idx >= students.length) return;
+    reviewingIdx = idx;
+    renderSidebar();
+    renderCriteriaReview(idx);
+    updateActionBar();
+  }
+
+  function closeReview() {
+    persistSession();
+    reviewingIdx = -1;
+    renderSidebar();
+    // Restore the active student's panel (or blank if none)
+    renderCriteria(phase !== 'idle' && phase !== 'done-all' ? currentIdx : -1);
+    updateActionBar();
+  }
+
+  // Renders the criteria panel for a reviewed (done) student
+  // — identical to renderCriteria but with the review banner inserted above.
+  function renderCriteriaReview(idx) {
+    const s = students[idx];
+    // Inject review banner in the notes panel header area
+    const notesPane = document.getElementById('om-notes-panel');
+    const criteriaPane = document.getElementById('om-criteria-panel');
+    notesPane.innerHTML = '';
+    criteriaPane.innerHTML = '';
+
+    // Review banner (inside criteria pane, at the top)
+    const banner = document.createElement('div');
+    banner.className = 'om-review-banner';
+    banner.innerHTML = '<span class="om-review-icon">✏️</span>' +
+      '<span>' + t('omReviewMode').replace('{name}', fmtStudentName(s.name)) + '</span>';
+    criteriaPane.appendChild(banner);
+
+    // Now render full panel inline (reuse renderCriteria logic, skip clearing the panel)
+    renderCriteria(idx, true);
+  }
+
   // ── Criteria panel ───────────────────────────────────────
-  function renderCriteria(idx) {
+  function renderCriteria(idx, skipBanner) {
     const panel     = document.getElementById('om-criteria-panel');
     const notesPane = document.getElementById('om-notes-panel');
-    panel.innerHTML     = '';
-    notesPane.innerHTML = '';
+    if (!skipBanner) {
+      panel.innerHTML     = '';
+      notesPane.innerHTML = '';
+    }
 
     if (idx < 0 || !students[idx]) return;
     const s = students[idx];
@@ -1845,9 +2019,10 @@
       // Auto-advance to exam phase
       startExam();
     } else if (phase === 'exam') {
-      // Exam time up: record and advance
+      // Exam time up: record result, then wait for teacher to advance
       finishCurrentExam(false);
-      advanceToNext();
+      renderSidebar();
+      updateActionBar();
     }
   }
 
@@ -1911,6 +2086,13 @@
     skipBtn.classList.add('hidden');
     pauseBtn.classList.add('hidden');
 
+    // Review mode: show a "Done Editing" button regardless of timer phase
+    if (reviewingIdx >= 0) {
+      btn.className = 'om-action-primary save';
+      btn.textContent = t('omBtnDoneReview') || '✓ Done Editing';
+      return;
+    }
+
     if (phase === 'done-all') {
       btn.className = 'om-action-primary save';
       btn.textContent = t('omBtnSaveGrades');
@@ -1918,7 +2100,7 @@
     }
 
     if (phase === 'idle') {
-      btn.textContent = t('omBtnNextStudent');
+      btn.textContent = (currentIdx < 0) ? t('omBtnBegin') : t('omBtnNextStudent');
       skipBtn.classList.remove('hidden');
       return;
     }
@@ -1943,6 +2125,11 @@
   }
 
   function handleActionBtn() {
+    // Review mode: close review and return
+    if (reviewingIdx >= 0) {
+      closeReview();
+      return;
+    }
     if (phase === 'done-all') {
       saveGrades();
       return;
@@ -1959,7 +2146,6 @@
       finishCurrentExam(false);
       renderSidebar();
       updateActionBar();
-      advanceToNext();
       return;
     }
   }

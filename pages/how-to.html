@@ -243,6 +243,81 @@
       margin-bottom: 16px;
     }
 
+    /* ── Storage panel ───────────────────────────────────── */
+    .storage-panel {
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 0 0 16px;
+      background: #fff;
+    }
+    .storage-title {
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .storage-subtitle {
+      font-size: 0.75rem;
+      margin-bottom: 8px;
+      color: #000;
+      opacity: 0.75;
+    }
+    .storage-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .storage-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1.5px solid #000;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.78rem;
+    }
+    .storage-item-main {
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .storage-label {
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .storage-path {
+      font-family: 'Segoe UI', monospace;
+      font-size: 0.75rem;
+      word-break: break-all;
+    }
+    .storage-action {
+      background: none;
+      border: none;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #000;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .storage-action:hover { opacity: 0.6; }
+    .storage-action[disabled] {
+      cursor: not-allowed;
+      opacity: 0.4;
+      text-decoration: none;
+    }
+
     /* ── Overview feature cards ────────────────────────────── */
     .overview-grid {
       display: grid;
@@ -613,6 +688,13 @@
           <button class="sidebar-row-main" data-section="import-tool" onclick="navTo('import-tool')">
             <span>📥</span> Import
           </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-import-tool')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-it-students" onclick="navToAccordion('import-tool','acc-it-students')"><span class="sidebar-child-dot"></span>Importing Students</button>
+          <button class="sidebar-child" data-accordion="acc-it-classgroups" onclick="navToAccordion('import-tool','acc-it-classgroups')"><span class="sidebar-child-dot"></span>Importing into a Class Group</button>
+          <button class="sidebar-child" data-accordion="acc-it-formats" onclick="navToAccordion('import-tool','acc-it-formats')"><span class="sidebar-child-dot"></span>Supported File Formats</button>
+          <button class="sidebar-child" data-accordion="acc-it-filecopy" onclick="navToAccordion('import-tool','acc-it-filecopy')"><span class="sidebar-child-dot"></span>Importing Sounds &amp; Documents</button>
         </div>
       </div>
 
@@ -2713,7 +2795,7 @@
             <li><strong>Insert ▾</strong> — Table, Image, Books (book text import)</li>
             <li><strong>Format ▾</strong> — Templates, Page Layout</li>
             <li><strong>Export ▾</strong> — PDF, DOCX, Preview, Presentation Mode</li>
-            <li><strong>⚙ Settings</strong> — snippets, keyboard shortcuts, triggers, preferences</li>
+            <li><strong>⚙ Settings</strong> — snippets, keyboard shortcuts, triggers, preferences, and whether the stylesheet is stored inline with the document</li>
           </ul>
           <div class="tip"><strong>Shortcuts:</strong> Ctrl+S saves · Ctrl+N new document · Ctrl+O open document · Esc closes any open modal.</div>
         </div></div>
@@ -2731,6 +2813,7 @@
             <li><strong>Quick Rule builder</strong> — type a selector, choose a CSS property from the dropdown, type a value, and press <strong>+ Add</strong>. The rule is appended to the CSS editor and applied to the preview immediately.</li>
             <li><strong>CSS Editor ▾</strong> — click to expand a full Monaco CSS editor showing the active stylesheet. Changes are applied live. Click <em>Save</em> to persist them.</li>
           </ul>
+          <p style="margin-top:.7em"><strong>Preferences</strong> includes <em>Include stylesheet inline with the document</em>, which stores the CSS inside the document metadata instead of as a separate stylesheet file.</p>
           <div class="tip">Use <code>.doc-preview</code> as a root selector to scope your rules to the preview area, e.g. <code>.doc-preview h1 { color: #2c3e50; }</code>.</div>
         </div></div>
       </div>
@@ -3051,9 +3134,236 @@
     noResults.classList.toggle('visible', !anyVisible);
   }
 
+  // ── Storage paths by section ─────────────────────────────
+
+  var SECTION_STORAGE_MAP = {
+    'intro': [
+      { label: 'Core settings', path: 'user/config.js' },
+      { label: 'Class groups', path: 'user/class-groups.js' },
+      { label: 'Students', path: 'user/students.js' },
+      { label: 'Grades', path: 'user/grades/', type: 'dir' },
+      { label: 'Custom data root', path: 'user/custom-data/', type: 'dir' }
+    ],
+    'how-to-begin': [
+      { label: 'App config', path: 'user/config.js' },
+      { label: 'Class groups', path: 'user/class-groups.js' },
+      { label: 'Students', path: 'user/students.js' },
+      { label: 'Roles', path: 'user/roles.js' },
+      { label: 'Data root', path: 'user/custom-data/', type: 'dir' }
+    ],
+    'connected-tools': [
+      { label: 'Shared class data', path: 'user/class-groups.js' },
+      { label: 'Shared students', path: 'user/students.js' },
+      { label: 'Planner config', path: 'user/planner-config.js' },
+      { label: 'Board config', path: 'user/board-config.js' },
+      { label: 'Shared settings', path: 'user/config.js' },
+      { label: 'Planner entries', path: 'user/planner/', type: 'dir' },
+      { label: 'Participation logs', path: 'user/group-participation/', type: 'dir' },
+      { label: 'Class plans', path: 'user/class-plans/', type: 'dir' }
+    ],
+    'general-config': [
+      { label: 'Global config', path: 'user/config.js' },
+      { label: 'Remote config', path: 'user/remote-config.js' },
+      { label: 'Planner config', path: 'user/planner-config.js' },
+      { label: 'Board config', path: 'user/board-config.js' },
+      { label: 'UI preferences', path: 'user/ui-prefs.json' },
+      { label: 'Sync baseline', path: 'user/sync-baseline.json' }
+    ],
+    'board': [
+      { label: 'Board config', path: 'user/board-config.js' },
+      { label: 'Board session backup', path: 'user/board-sessions-backup.json' },
+      { label: 'UI preferences', path: 'user/ui-prefs.json' },
+      { label: 'Mind maps', path: 'user/mindmaps/', type: 'dir' },
+      { label: 'Word banks', path: 'user/custom-data/wordbanks/', type: 'dir' },
+      { label: 'Quote banks', path: 'user/custom-data/quotebanks/', type: 'dir' },
+      { label: 'Gap-fill banks', path: 'user/custom-data/gapfillbanks/', type: 'dir' },
+      { label: 'Error banks', path: 'user/custom-data/errorbanks/', type: 'dir' }
+    ],
+    'class-management': [
+      { label: 'App config', path: 'user/config.js' },
+      { label: 'Class groups', path: 'user/class-groups.js' },
+      { label: 'Roles', path: 'user/roles.js' },
+      { label: 'Students', path: 'user/students.js' },
+      { label: 'Participation sessions', path: 'user/group-participation/', type: 'dir' },
+      { label: 'Grades', path: 'user/grades/', type: 'dir' },
+      { label: 'Sounds', path: 'user/custom-data/sounds/', type: 'dir' }
+    ],
+    'group-editor': [
+      { label: 'Class groups', path: 'user/class-groups.js' },
+      { label: 'Students', path: 'user/students.js' },
+      { label: 'Grades', path: 'user/grades/', type: 'dir' },
+      { label: 'Grade Sheet logs', path: 'user/log/grade-sheet/', type: 'dir' },
+      { label: 'Class plans', path: 'user/class-plans/', type: 'dir' },
+      { label: 'Planner config', path: 'user/planner-config.js' }
+    ],
+    'import-tool': [
+      { label: 'Students import target', path: 'user/students.js' },
+      { label: 'Class groups import target', path: 'user/class-groups.js' },
+      { label: 'Wordbanks import folder', path: 'user/custom-data/wordbanks/', type: 'dir' },
+      { label: 'Quizzes import folder', path: 'user/custom-data/quizzes/', type: 'dir' },
+      { label: 'Gap-fill import folder', path: 'user/custom-data/gapfillbanks/', type: 'dir' },
+      { label: 'Quote import folder', path: 'user/custom-data/quotebanks/', type: 'dir' },
+      { label: 'Error import folder', path: 'user/custom-data/errorbanks/', type: 'dir' },
+      { label: 'Dictation import folder', path: 'user/custom-data/dictations/', type: 'dir' },
+      { label: 'Grammar import folder', path: 'user/custom-data/grammarbanks/', type: 'dir' },
+      { label: 'Sentence import folder', path: 'user/custom-data/sentencebanks/', type: 'dir' },
+      { label: 'Story import folder', path: 'user/custom-data/storybanks/', type: 'dir' },
+      { label: 'Sounds import folder', path: 'user/custom-data/sounds/', type: 'dir' },
+      { label: 'Documents import folder', path: 'user/document-editor/docs/', type: 'dir' }
+    ],
+    'planner': [
+      { label: 'Planner config', path: 'user/planner-config.js' },
+      { label: 'Planner entries', path: 'user/planner/', type: 'dir' },
+      { label: 'To-do list', path: 'user/todos.js' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Grades (read)', path: 'user/grades/', type: 'dir' }
+    ],
+    'participation-tracker': [
+      { label: 'Session files', path: 'user/group-participation/', type: 'dir' },
+      { label: 'Tracker notes', path: 'user/group-participation/pt-notes.js' },
+      { label: 'Deleted records log', path: 'user/group-participation/pt-deleted.js' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' }
+    ],
+    'grade-sheet': [
+      { label: 'Correction criteria', path: 'user/correction-criteria.js' },
+      { label: 'Grade scale models', path: 'user/grade-scale-models.js' },
+      { label: 'Grades', path: 'user/grades/', type: 'dir' },
+      { label: 'Grade Sheet logs', path: 'user/log/grade-sheet/', type: 'dir' },
+      { label: 'Grade Sheet data', path: 'user/log/grade-sheet/grade-sheet-data.json' },
+      { label: 'Deleted class backup', path: 'user/log/grade-sheet/deleted-class-ids-backup.json' }
+    ],
+    'learning-tools': [
+      { label: 'Word bank', path: 'user/custom-data/wordbanks/wordDb.js' },
+      { label: 'Quiz bank', path: 'user/custom-data/quizzes/quiz.js' },
+      { label: 'Quote banks', path: 'user/custom-data/quotebanks/', type: 'dir' },
+      { label: 'Gap-fill banks', path: 'user/custom-data/gapfillbanks/', type: 'dir' },
+      { label: 'Error banks', path: 'user/custom-data/errorbanks/', type: 'dir' },
+      { label: 'Dictation banks', path: 'user/custom-data/dictations/', type: 'dir' },
+      { label: 'Grammar banks', path: 'user/custom-data/grammarbanks/', type: 'dir' },
+      { label: 'Sentence banks', path: 'user/custom-data/sentencebanks/', type: 'dir' },
+      { label: 'Story banks', path: 'user/custom-data/storybanks/', type: 'dir' },
+      { label: 'Werewolf roles', path: 'user/custom-data/werewolf/', type: 'dir' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Multiplayer results', path: 'user/game-results/', type: 'dir' }
+    ],
+    'manage-database': [
+      { label: 'Word banks', path: 'user/custom-data/wordbanks/', type: 'dir' },
+      { label: 'Quote banks', path: 'user/custom-data/quotebanks/', type: 'dir' },
+      { label: 'Dictation banks', path: 'user/custom-data/dictations/', type: 'dir' },
+      { label: 'Grammar banks', path: 'user/custom-data/grammarbanks/', type: 'dir' },
+      { label: 'Gap-fill banks', path: 'user/custom-data/gapfillbanks/', type: 'dir' },
+      { label: 'Error banks', path: 'user/custom-data/errorbanks/', type: 'dir' },
+      { label: 'Sentence banks', path: 'user/custom-data/sentencebanks/', type: 'dir' },
+      { label: 'Story banks', path: 'user/custom-data/storybanks/', type: 'dir' },
+      { label: 'Quiz banks', path: 'user/custom-data/quizzes/', type: 'dir' }
+    ],
+    'file-manager': [
+      { label: 'Mind maps', path: 'user/mindmaps/', type: 'dir' },
+      { label: 'Custom data', path: 'user/custom-data/', type: 'dir' },
+      { label: 'Grades', path: 'user/grades/', type: 'dir' },
+      { label: 'Participation logs', path: 'user/group-participation/', type: 'dir' },
+      { label: 'Document Editor docs', path: 'user/document-editor/docs/', type: 'dir' },
+      { label: 'Templates', path: 'user/document-editor/templates/', type: 'dir' },
+      { label: 'Stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' }
+    ],
+    'class-plan': [
+      { label: 'Seat plans', path: 'user/class-plans/plans.js' },
+      { label: 'Shared app config', path: 'user/config.js' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Class plans folder', path: 'user/class-plans/', type: 'dir' }
+    ],
+    'schedule-maker': [
+      { label: 'Schedules', path: 'user/schedules/', type: 'dir' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Students roster (read)', path: 'user/students.js' }
+    ],
+    'oral-marking': [
+      { label: 'Assessment template', path: 'user/oral-marking-template.js' },
+      { label: 'Correction criteria (read)', path: 'user/correction-criteria.js' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Students roster (read)', path: 'user/students.js' },
+      { label: 'Grades (save target)', path: 'user/grades/', type: 'dir' }
+    ],
+    'document-editor': [
+      { label: 'Documents', path: 'user/document-editor/docs/', type: 'dir' },
+      { label: 'Templates', path: 'user/document-editor/templates/', type: 'dir' },
+      { label: 'Stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' },
+      { label: 'Editor settings', path: 'user/document-editor/settings.js' },
+      { label: 'Books library (read)', path: 'user/custom-data/books/', type: 'dir' }
+    ]
+  };
+
+  function toUserRelativePath(storagePath) {
+    var p = String(storagePath || '').trim();
+    if (p.indexOf('user/') === 0) return p.slice(5);
+    return p;
+  }
+
+  function escapeHtml(text) {
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  async function revealStoragePath(path, isDir) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    var rel = toUserRelativePath(path).replace(/\/$/, '');
+    if (!rel) return;
+    try {
+      if (isDir) {
+        await Desktop.openNative('user', rel);
+      } else {
+        await Desktop.showInFolder('user', rel);
+      }
+    } catch (_err) {}
+  }
+
+  function buildStoragePanel(sectionId, entries) {
+    var listItems = entries.map(function (entry) {
+      var isDir = entry.type === 'dir';
+      var actionLabel = isDir ? 'Open folder' : 'Reveal folder';
+      var safePath = escapeHtml(entry.path);
+      var safeLabel = escapeHtml(entry.label);
+      var clickExpr = "revealStoragePath('" + String(entry.path).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "', " + (isDir ? 'true' : 'false') + ")";
+      return '<li class="storage-item">'
+        + '<div class="storage-item-main">'
+        + '<span class="storage-label">' + safeLabel + ':</span>'
+        + '<span class="storage-path">' + safePath + '</span>'
+        + '</div>'
+        + '<button class="storage-action" onclick="' + clickExpr + '"' + (window.Desktop && Desktop.isElectron() ? '' : ' disabled') + '>' + actionLabel + '</button>'
+        + '</li>';
+    }).join('');
+
+    var panel = document.createElement('div');
+    panel.className = 'storage-panel';
+    panel.innerHTML = ''
+      + '<div class="storage-title">Saved In</div>'
+      + '<div class="storage-subtitle">Paths are relative to the app data root.</div>'
+      + '<ul class="storage-list">' + listItems + '</ul>';
+    panel.setAttribute('data-storage-panel', sectionId);
+    return panel;
+  }
+
+  function injectStoragePanels() {
+    Object.keys(SECTION_STORAGE_MAP).forEach(function (sectionId) {
+      var section = document.getElementById(sectionId);
+      if (!section) return;
+      if (section.querySelector('[data-storage-panel]')) return;
+
+      var panel = buildStoragePanel(sectionId, SECTION_STORAGE_MAP[sectionId]);
+      var anchor = section.querySelector('.tool-overview') || section.querySelector('.tool-header');
+      if (!anchor || !anchor.parentNode) return;
+      anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+    });
+  }
+
   // ── Init ──────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
+    injectStoragePanels();
     onScroll();
   });
 </script>

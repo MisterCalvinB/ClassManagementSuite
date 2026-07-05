@@ -2076,28 +2076,27 @@ async function loadDoc(relativePath) {
         if (metaR && metaR.ok && metaR.content) {
           const meta = JSON.parse(metaR.content);
           currentDocMeta = meta;
+          if (meta.stylesheetInline) {
+            applyInlineStylesheetMeta(meta);
+          }
           const ss = meta.stylesheet || null;
           const sel = document.getElementById('stylesheet-select');
-          if (ss && meta.stylesheetInDocs) {
+          if (meta.stylesheetInline) {
+            sel.value = '';
+          } else if (ss && meta.stylesheetInDocs) {
             // Co-located stylesheet — may be inside doc's folder
             const cssPath = currentDocSubdir ? currentDocSubdir + '/' + ss : ss;
             const cssR = await Desktop.readByPath('docEditorDocs', cssPath).catch(() => null);
             const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
-            cssEditor && cssEditor.setValue(cssContent);
-            document.getElementById('custom-css-style').textContent = cssContent;
-            cssModified = false;
+            applyStylesheetContent(cssContent, '@docs@' + ss);
             injectPairedSSOption(ss);
-            currentStylesheetName = '@docs@' + ss;
           } else if (ss && [...sel.options].some(o => o.value === ss)) {
             sel.value = ss;
             await loadStylesheet(ss);
             localStorage.setItem('cmt-doceditor-last-ss', ss);
           } else if (!ss) {
             sel.value = '';
-            currentStylesheetName = null;
-            cssEditor && cssEditor.setValue('');
-            document.getElementById('custom-css-style').textContent = '';
-            cssModified = false;
+            applyStylesheetContent('', null);
           }
           if (meta.pageLayout) {
             Object.assign(pageLayout, meta.pageLayout);
@@ -2145,27 +2144,26 @@ async function loadExternalDoc(target, relPath) {
         if (metaR && metaR.ok && metaR.content) {
           const meta = JSON.parse(metaR.content);
           currentDocMeta = meta;
+          if (meta.stylesheetInline) {
+            applyInlineStylesheetMeta(meta);
+          }
           const ss = meta.stylesheet || null;
           const sel = document.getElementById('stylesheet-select');
-          if (ss && meta.stylesheetInDocs) {
+          if (meta.stylesheetInline) {
+            sel.value = '';
+          } else if (ss && meta.stylesheetInDocs) {
             const cssPath = docSubdir ? docSubdir + '/' + ss : ss;
             const cssR = await Desktop.readByPath(target, cssPath).catch(() => null);
             const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
-            cssEditor && cssEditor.setValue(cssContent);
-            document.getElementById('custom-css-style').textContent = cssContent;
-            cssModified = false;
+            applyStylesheetContent(cssContent, '@docs@' + ss);
             injectPairedSSOption(ss);
-            currentStylesheetName = '@docs@' + ss;
           } else if (ss && [...sel.options].some(o => o.value === ss)) {
             sel.value = ss;
             await loadStylesheet(ss);
             localStorage.setItem('cmt-doceditor-last-ss', ss);
           } else if (!ss) {
             sel.value = '';
-            currentStylesheetName = null;
-            cssEditor && cssEditor.setValue('');
-            document.getElementById('custom-css-style').textContent = '';
-            cssModified = false;
+            applyStylesheetContent('', null);
           }
           if (meta.pageLayout) {
             Object.assign(pageLayout, meta.pageLayout);
@@ -2183,7 +2181,10 @@ async function loadExternalDoc(target, relPath) {
 }
 
 async function saveExternalDoc() {
-  const content = mdEditor.getValue();
+  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
+  const content = isInlineHtml
+    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
+    : mdEditor.getValue();
   const relPath = currentEditRelPath;
   const lastSlash = relPath.lastIndexOf('/');
   const filename = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
@@ -2191,6 +2192,9 @@ async function saveExternalDoc() {
   try {
     const r = await Desktop.saveText(currentEditTarget, filename, content, subdir);
     if (r && r.ok) {
+      syncDocStylesheetMeta();
+      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+      await Desktop.saveText(currentEditTarget, filename + '.json', JSON.stringify(currentDocMeta), subdir);
       docModified = false;
       updateDocIndicator();
       showToast('Saved: ' + filename);
@@ -2232,10 +2236,16 @@ async function saveDocAs() {
 async function doSaveDoc(filename) {
   if (!mdEditor) return;
   try {
-    const content = mdEditor.getValue();
+    const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
+    const content = isInlineHtml
+      ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
+      : mdEditor.getValue();
     const hasCSS = !!currentStylesheetName;
     const newSubdir = filename.replace(/\.(md|html)$/i, '');
     const wasFlat = currentDocSubdir === null && currentDocName === filename;
+    const inlineStylesheet = isInlineStylesheetEnabled();
+    const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
+    const cssRelPath = getDocStylesheetRelPath(filename, wasFlat ? null : currentDocSubdir);
 
     const r = await Desktop.saveText('docEditorDocs', filename, content, newSubdir);
     if (r && r.ok) {
@@ -2246,9 +2256,14 @@ async function doSaveDoc(filename) {
         const oldPaired = parsePairedSS(currentStylesheetName);
         if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
       }
-      // Bundle CSS into folder when CSS is active
-      const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
-      if (newSubdir && hasCSS) {
+      // Bundle CSS into folder when CSS is active and inline mode is disabled.
+      if (inlineStylesheet) {
+        await Desktop.deleteByPath('docEditorDocs', cssRelPath).catch(() => {});
+        syncDocStylesheetMeta();
+        currentStylesheetName = cssEditor && cssEditor.getValue().trim() ? '@inline@' : null;
+        document.getElementById('custom-css-style').textContent = cssEditor ? cssEditor.getValue() : '';
+        cssModified = false;
+      } else if (newSubdir && hasCSS) {
         const cssContent = cssEditor ? cssEditor.getValue() : '';
         await Desktop.saveText('docEditorDocs', cssFilename, cssContent, newSubdir);
         cssModified = false;
@@ -2261,9 +2276,11 @@ async function doSaveDoc(filename) {
       docModified = false;
       updateDocIndicator();
       hideModal('save-modal');
-      const metaSS = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
-      currentDocMeta.stylesheet = metaSS;
-      currentDocMeta.stylesheetInDocs = !!(newSubdir && hasCSS);
+      syncDocStylesheetMeta();
+      if (!currentDocMeta.stylesheetInline) {
+        currentDocMeta.stylesheet = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
+        currentDocMeta.stylesheetInDocs = !!(newSubdir && hasCSS);
+      }
       currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
       await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
       showToast('Saved: ' + filename);
@@ -2277,21 +2294,35 @@ async function doSaveDoc(filename) {
 async function autosaveDoc() {
   if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
   const paired = parsePairedSS(currentStylesheetName);
+  const inlineStylesheet = isInlineStylesheetEnabled();
+  const isInlineHtml = currentDocType === 'html' && inlineStylesheet;
   const needsDocSave = docModified;
-  const needsCssSave = cssModified && paired && currentDocSubdir && cssEditor;
-  if (!needsDocSave && !needsCssSave) return;
+  const needsCssSave = !inlineStylesheet && cssModified && paired && currentDocSubdir && cssEditor;
+  const needsMetaSave = inlineStylesheet && cssModified;
+  if (!needsDocSave && !needsCssSave && !needsMetaSave) return;
   try {
     if (needsDocSave) {
-      const r = await Desktop.saveText('docEditorDocs', currentDocName, mdEditor.getValue(), currentDocSubdir);
+      const docContent = isInlineHtml
+        ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
+        : mdEditor.getValue();
+      const r = await Desktop.saveText('docEditorDocs', currentDocName, docContent, currentDocSubdir);
       if (r && r.ok) {
         docModified = false;
         updateDocIndicator();
-        const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.(md|html)$/i, '') + '.css' : (currentStylesheetName || null);
-        currentDocMeta.stylesheet = metaSS;
-        currentDocMeta.stylesheetInDocs = !!(currentDocSubdir && paired);
+        syncDocStylesheetMeta();
+        if (!currentDocMeta.stylesheetInline) {
+          const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.(md|html)$/i, '') + '.css' : (currentStylesheetName || null);
+          currentDocMeta.stylesheet = metaSS;
+          currentDocMeta.stylesheetInDocs = !!(currentDocSubdir && paired);
+        }
         currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
         await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir);
       }
+    }
+    if (needsMetaSave && !needsDocSave) {
+      syncDocStylesheetMeta();
+      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+      await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir);
     }
     if (needsCssSave) {
       const cssFilename = currentDocName.replace(/\.(md|html)$/i, '') + '.css';
@@ -2321,14 +2352,19 @@ async function saveAll() {
 async function doSaveAll(filename) {
   if (!mdEditor) return;
   const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
-  const content = mdEditor.getValue();
+  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
+  var content = isInlineHtml
+    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
+    : mdEditor.getValue();
   const css = cssEditor ? cssEditor.getValue() : '';
   const newSubdir = filename.replace(/\.(md|html)$/i, ''); // Save All always creates a folder
   const wasFlat = currentDocSubdir === null && currentDocName === filename;
-  try {
+  const inlineStylesheet = isInlineStylesheetEnabled();
+  const cssRelPath = getDocStylesheetRelPath(filename, newSubdir);
+   try {
     const [docR, cssR] = await Promise.all([
       Desktop.saveText('docEditorDocs', filename, content, newSubdir),
-      Desktop.saveText('docEditorDocs', cssFilename, css, newSubdir)
+      inlineStylesheet ? Promise.resolve({ ok: true }) : Desktop.saveText('docEditorDocs', cssFilename, css, newSubdir)
     ]);
     if (docR && docR.ok && cssR && cssR.ok) {
       if (wasFlat) {
@@ -2343,14 +2379,25 @@ async function doSaveAll(filename) {
       cssModified = false;
       updateDocIndicator();
       hideModal('save-modal');
-      currentDocMeta.stylesheet = cssFilename;
-      currentDocMeta.stylesheetInDocs = true;
+      if (inlineStylesheet) {
+        await Desktop.deleteByPath('docEditorDocs', cssRelPath).catch(() => {});
+        currentDocMeta.stylesheet = null;
+        currentDocMeta.stylesheetInDocs = false;
+        currentDocMeta.stylesheetInline = true;
+        currentDocMeta.stylesheetContent = css;
+        currentStylesheetName = css.trim() ? '@inline@' : null;
+      } else {
+        currentDocMeta.stylesheet = cssFilename;
+        currentDocMeta.stylesheetInDocs = true;
+        currentDocMeta.stylesheetInline = false;
+        currentDocMeta.stylesheetContent = '';
+        injectPairedSSOption(cssFilename);
+        currentStylesheetName = '@docs@' + cssFilename;
+      }
       currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
       await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
-      injectPairedSSOption(cssFilename);
-      currentStylesheetName = '@docs@' + cssFilename;
       document.getElementById('custom-css-style').textContent = css;
-      showToast('Saved: ' + filename + ' + ' + cssFilename);
+      showToast('Saved: ' + filename + (inlineStylesheet ? ' + inline CSS' : ' + ' + cssFilename));
       saveHistorySnapshot(filename, content);
     } else {
       showToast('Save failed', true);
@@ -3529,7 +3576,7 @@ let editorSettings = {
   snippets: [],
   shortcuts: [],
   typingTriggers: [],
-  editorPrefs: { fontSize: 14, wordWrap: 'on', lineNumbers: 'on', tabSize: 2 }
+  editorPrefs: { fontSize: 14, wordWrap: 'on', lineNumbers: 'on', tabSize: 2, inlineStylesheet: false }
 };
 
 let _completionDisposable = null;
@@ -3577,6 +3624,64 @@ function applyEditorPrefs() {
     lineNumbers: p.lineNumbers || 'on',
     tabSize:     p.tabSize     || 2
   });
+}
+
+function isInlineStylesheetEnabled() {
+  return !!editorSettings.editorPrefs.inlineStylesheet;
+}
+
+function applyStylesheetContent(cssContent, sourceName) {
+  const css = cssContent || '';
+  currentStylesheetName = sourceName || null;
+  if (cssEditor) cssEditor.setValue(css);
+  const cssEl = document.getElementById('custom-css-style');
+  if (cssEl) cssEl.textContent = css;
+  cssModified = false;
+}
+
+function applyInlineStylesheetMeta(meta) {
+  const css = meta && typeof meta.stylesheetContent === 'string' ? meta.stylesheetContent : '';
+  applyStylesheetContent(css, css ? '@inline@' : null);
+}
+
+function syncDocStylesheetMeta() {
+  currentDocMeta.stylesheetInline = isInlineStylesheetEnabled();
+  currentDocMeta.stylesheetContent = currentDocMeta.stylesheetInline && cssEditor ? cssEditor.getValue() : '';
+  if (currentDocMeta.stylesheetInline) {
+    currentDocMeta.stylesheet = null;
+    currentDocMeta.stylesheetInDocs = false;
+  } else {
+    const stylesheetName = currentStylesheetName && currentStylesheetName !== '@inline@' ? currentStylesheetName : null;
+    currentDocMeta.stylesheet = stylesheetName;
+    currentDocMeta.stylesheetInDocs = !!parsePairedSS(stylesheetName);
+    currentDocMeta.stylesheetContent = '';
+  }
+}
+
+function getDocStylesheetRelPath(docName, subdir) {
+  const cssName = String(docName || '').replace(/\.(md|html)$/i, '') + '.css';
+  return subdir ? subdir + '/' + cssName : cssName;
+}
+
+function injectInlineStylesheetIntoHtml(html, css) {
+  const source = String(html || '');
+  const sheet = String(css || '');
+  if (!sheet.trim()) return source;
+
+  const cleaned = source.replace(/<style\b[^>]*data-cmt-inline-stylesheet(?:="true")?[^>]*>[\s\S]*?<\/style>\s*/gi, '');
+  const tag = '<style data-cmt-inline-stylesheet="true">\n' + sheet + '\n</style>\n';
+
+  if (/<head\b[^>]*>/i.test(cleaned)) {
+    return cleaned.replace(/<\/head>/i, tag + '</head>');
+  }
+
+  if (/<html\b[^>]*>/i.test(cleaned)) {
+    return cleaned.replace(/<html\b[^>]*>/i, function(match) {
+      return match + '\n' + tag;
+    });
+  }
+
+  return tag + cleaned;
 }
 
 const EDITOR_ACTIONS = [
@@ -4167,7 +4272,8 @@ function renderPrefsPanel() {
   return `<div class="stg-info">
     Settings for the markdown editor pane. Changes apply immediately and are saved automatically.<br>
     <strong>Word wrap</strong> — <em>On</em> wraps long lines at the pane edge; <em>Column (80)</em> wraps at 80 characters; <em>Off</em> shows a horizontal scrollbar.<br>
-    <strong>Line numbers</strong> — <em>Relative</em> shows the distance to the current line, useful for keyboard-based navigation.
+    <strong>Line numbers</strong> — <em>Relative</em> shows the distance to the current line, useful for keyboard-based navigation.<br>
+    <strong>Stylesheet storage</strong> — when enabled, the current CSS is stored in the document metadata instead of a separate stylesheet file.
   </div>
   <div class="prefs-grid">
     <div class="stg-field">
@@ -4194,6 +4300,13 @@ function renderPrefsPanel() {
         <option value="relative"${p.lineNumbers === 'relative' ? ' selected' : ''}>Relative</option>
       </select>
     </div>
+    <div class="stg-field">
+      <label class="stg-label">Stylesheet Storage</label>
+      <label class="stg-radio-label" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <input type="checkbox" id="pref-inline-stylesheet"${p.inlineStylesheet ? ' checked' : ''}>
+        Include stylesheet inline with the document
+      </label>
+    </div>
   </div>`;
 }
 
@@ -4203,6 +4316,7 @@ function bindPrefsEvents() {
     editorSettings.editorPrefs.tabSize     = parseInt(document.getElementById('pref-tab-size').value)   || 2;
     editorSettings.editorPrefs.wordWrap    = document.getElementById('pref-word-wrap').value;
     editorSettings.editorPrefs.lineNumbers = document.getElementById('pref-line-numbers').value;
+    editorSettings.editorPrefs.inlineStylesheet = document.getElementById('pref-inline-stylesheet').checked;
     applyEditorPrefs();
     saveEditorSettings();
   }
@@ -4211,6 +4325,7 @@ function bindPrefsEvents() {
     el.addEventListener('change', onPrefChange);
     if (el.type === 'number') el.addEventListener('input', onPrefChange);
   });
+  document.getElementById('pref-inline-stylesheet').addEventListener('change', onPrefChange);
 }
 
 // ── DOM init ──────────────────────────────────────────────

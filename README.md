@@ -188,6 +188,8 @@ Click the **Panel** button in the header to show or hide the sidebar. Each secti
 | **ℹ️ Credits** | Opens the credits modal |
 | **Panel** | Toggles the sidebar panel (Upcoming Events, To-do, Recent Docs) |
 
+In the **How To** guide, every section now includes a **Saved In** panel showing the relative storage paths used by that tool/config area, plus a **Reveal folder** / **Open folder** link to jump directly to the containing folder in the desktop app.
+
 ### Startup Behaviour
 
 The launcher can automatically open tools at startup. Configure this in **General Config → Startup & Launch**:
@@ -1199,7 +1201,7 @@ The window is divided into three horizontal regions:
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
    - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
-   - **⚙ Settings** — snippets, shortcuts, triggers, preferences
+  - **⚙ Settings** — snippets, shortcuts, triggers, preferences, and whether the stylesheet is stored inline with the document
    - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
 3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
@@ -1250,6 +1252,8 @@ The top panel exposes three ways to customise how the preview looks:
 | **Stylesheet picker** | Select, create (New), save, or delete a `.css` file stored under `custom-data/document-editor/stylesheets/` |
 | **Quick Rule builder** | Type a CSS selector, choose a property from the dropdown, type a value, press **+ Add** — the rule is appended to the CSS editor and applied immediately |
 | **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw content of the active stylesheet; changes apply to the preview in real time |
+
+In **⚙ Settings → Preferences**, you can enable **Include stylesheet inline with the document** to store the CSS inside the document metadata instead of writing a separate stylesheet file.
 
 Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
 
