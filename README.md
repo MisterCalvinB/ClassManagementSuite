@@ -471,7 +471,7 @@ Criteria are loaded from `correction-criteria.js` (the same file used by Grade S
 - Type a **comment** below the pills for that criterion.
 - The **Overall grade** row shows the auto-computed average; click any pill to override it manually.
 
-A **Personal notes** field at the bottom is saved with the student's result.
+A **Personal notes** field at the bottom is saved with the student's result and appears in Grade Sheet under the student's **Teacher observations** section for that test.
 
 ### 2-minute warning
 When fewer than 2 minutes remain in the exam phase, the timer bar flashes red and the presenter window background flashes dark red.
@@ -482,8 +482,10 @@ The presenter window (opened via **Present**) shows the student's name, current 
 ### Saving grades
 Click **Save Grades** after all students are done. The tool:
 1. Looks for an existing Grade Sheet class whose `groupId` matches the schedule's group.
-2. If found, appends a new oral-exam test to the next empty slot for that semester.
+2. If found, appends a new oral-exam test to the next empty slot for that semester and auto-creates/registers that test slot in class metadata.
 3. If not found, creates a new class using students from `class-groups.js`.
+4. Saves the session's selected criteria and each student's per-criterion points/comments in Grade Sheet-compatible format.
+5. Repeated manual saves in the same oral session update that same linked test (by test UUID) instead of creating extra test entries.
 
 Results appear immediately in `grade-sheet.html` on the next load.
 

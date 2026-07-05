@@ -644,6 +644,14 @@
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      border-bottom: 0;
+      flex: 0 0 auto;
+    }
+
+    .om-score-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
       border-bottom: 1px solid #e0e0e0;
     }
 
@@ -668,7 +676,10 @@
       gap: 4px;
       padding: 7px 10px;
       background: #f5f5f5;
-      border-top: 1px solid #e0e0e0;
+      border-top: 0;
+      flex: 1;
+      align-self: stretch;
+      min-width: 0;
     }
 
     .om-sentence-chip {
@@ -868,6 +879,19 @@
       .om-sidebar { width: 160px; }
       .om-timer-times { flex-direction: column; gap: 2px; }
       .om-timer-remaining { font-size: 1.4rem; }
+
+      .om-score-row {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .om-pills-row {
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .om-crit-chips {
+        border-top: 0;
+      }
     }
   </style>
 </head>
@@ -1013,6 +1037,8 @@
   let templateCriteria = [];
   let activeCriteria   = [];  // [{name, selected}] shown in picker
   let sessionCriteria  = [];  // names used in current scoring session
+  let oralSessionId    = generateUuid();
+  let linkedGradeTest  = null; // { classId, semester, testIndex, testUuid }
   let classGroups      = {};
   let classGroupsMeta  = {};
   let studentRoster    = {};
@@ -1377,6 +1403,8 @@
     sessionStarted = false;
     phase       = 'idle';
     currentIdx  = -1;
+    oralSessionId = generateUuid();
+    linkedGradeTest = null;
 
     const nonBreaks = (obj.items || []).filter(i => i.type === 'student' && !i.excluded);
     students = nonBreaks.map(item => ({
@@ -1647,8 +1675,6 @@
         pill.onclick = () => setCritScore(idx, ci, name, g, pill, scoreSpan);
         pillsRow.appendChild(pill);
       });
-      block.appendChild(pillsRow);
-
       const chipsDiv = document.createElement('div');
       chipsDiv.className = 'om-crit-chips';
       chipsDiv.id = 'om-crit-desc-' + ci;
@@ -1658,7 +1684,12 @@
       } else {
         chipsDiv.classList.add('hidden');
       }
-      block.appendChild(chipsDiv);
+
+      const scoreRow = document.createElement('div');
+      scoreRow.className = 'om-score-row';
+      scoreRow.appendChild(pillsRow);
+      scoreRow.appendChild(chipsDiv);
+      block.appendChild(scoreRow);
 
       const commentDiv = document.createElement('div');
       commentDiv.className = 'om-criterion-comment';
@@ -2203,6 +2234,7 @@
       // Find matching grade-sheet class
       let classId        = null;
       let classStudents  = [];
+      let classMeta      = null;
       let isNewClass     = false;
       let nextTestIndex  = 0;
 
@@ -2216,6 +2248,7 @@
           if (data?.groupId === schedule?.group) {
             classId       = data.classId;
             classStudents = data.students || [];
+            classMeta     = data;
             break;
           }
         }
@@ -2226,7 +2259,7 @@
         isNewClass    = true;
         classId       = generateUuid();
         classStudents = buildClassStudents(schedule?.group);
-        const classMeta = {
+        classMeta = {
           _savedAt:        now,
           classId,
           groupId:         schedule?.group || '',
@@ -2238,19 +2271,88 @@
           testCounts:      { sem1: 0, sem2: 0 },
           students:        classStudents
         };
-        await Desktop.saveText('grades', '_class.js',
-          `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
-          classId);
       }
 
       // Find next empty test slot
       const semKey = sem.startsWith('sem') ? sem : 'sem1';
-      for (let i = 0; i < 8; i++) {
-        const label = `${semKey}-test-${String(i + 1).padStart(2, '0')}`;
-        const r = await Desktop.readByPath('grades', `${classId}/${label}.js`);
-        if (!r?.ok || !r?.content) { nextTestIndex = i; break; }
-        if (i === 7) nextTestIndex = 7;
+      const existingLinked = linkedGradeTest
+        && linkedGradeTest.classId === classId
+        && linkedGradeTest.semester === semKey
+        && Number.isInteger(linkedGradeTest.testIndex)
+        && linkedGradeTest.testIndex >= 0
+        && linkedGradeTest.testIndex < 8
+        ? linkedGradeTest
+        : null;
+
+      if (existingLinked) {
+        nextTestIndex = existingLinked.testIndex;
+      } else {
+        for (let i = 0; i < 8; i++) {
+          const label = `${semKey}-test-${String(i + 1).padStart(2, '0')}`;
+          let r = null;
+          try {
+            r = await Desktop.readByPath('grades', `${classId}/${label}.js`);
+          } catch (e) {
+            // Missing file means this slot is available.
+            nextTestIndex = i;
+            break;
+          }
+          if (!r?.ok || !r?.content) { nextTestIndex = i; break; }
+          if (i === 7) nextTestIndex = 7;
+        }
       }
+
+      // Auto-create/register the test slot in class metadata so Grade Sheet exposes it.
+      if (!classMeta || typeof classMeta !== 'object') {
+        classMeta = {
+          _savedAt: now,
+          classId,
+          groupId: schedule?.group || '',
+          className: getGroupName(schedule?.group) || schedule?.title || 'Oral',
+          classYear: classGroupsMeta[schedule?.group]?.year || '',
+          classSemester: semKey,
+          classLevel: '',
+          classCreatedAt: new Date().toISOString(),
+          testCounts: { sem1: 0, sem2: 0 },
+          students: classStudents
+        };
+      }
+      if (!classMeta.testCounts || typeof classMeta.testCounts !== 'object') {
+        classMeta.testCounts = { sem1: 0, sem2: 0 };
+      }
+      if (typeof classMeta.testCounts.sem1 !== 'number') classMeta.testCounts.sem1 = 0;
+      if (typeof classMeta.testCounts.sem2 !== 'number') classMeta.testCounts.sem2 = 0;
+      classMeta._savedAt = now;
+      classMeta.classSemester = semKey;
+      classMeta.students = classStudents;
+      classMeta.testCounts[semKey] = Math.max(classMeta.testCounts[semKey] || 0, nextTestIndex + 1);
+
+      await Desktop.saveText(
+        'grades',
+        '_class.js',
+        `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
+        classId
+      );
+
+      // Build Grade Sheet-compatible criteria config from the criteria used in this oral session.
+      const selectedCriteriaNames = (Array.isArray(sessionCriteria) && sessionCriteria.length)
+        ? sessionCriteria.slice()
+        : criteria
+            .map(c => (typeof c === 'string' ? c : (c.name || '')))
+            .filter(Boolean);
+
+      const criteriaDefs = selectedCriteriaNames.map((name, i) => {
+        const crit = criteriaByName[name] || name;
+        const grades = getCritGrades(crit).filter(g => Number.isFinite(Number(g)));
+        const maxPoints = grades.length ? Math.max(...grades.map(Number)) : 6;
+        return {
+          id: `om-crit-${i + 1}`,
+          name,
+          maxPoints: Math.max(1, maxPoints),
+          pointCoefficient: 1,
+          isBonus: false
+        };
+      });
 
       // Build results
       const results = classStudents.map(cs => {
@@ -2258,38 +2360,63 @@
         const match = doneStudents.find(s => normalizeStudentName(s.name) === fullName) ||
                       doneStudents.find(s => normalizeStudentName(s.name).includes(fullName) || fullName.includes(normalizeStudentName(s.name)));
         if (!match) return { studentId: cs.id, score: null, testNotes: [], criteriaResults: {}, correctionTime: null, gradeOverride: false };
+
+        const criteriaResults = {};
+        criteriaDefs.forEach(def => {
+          const rawPoints = match.criteriaScores ? match.criteriaScores[def.name] : null;
+          const rawComment = match.criteriaComments ? match.criteriaComments[def.name] : '';
+          if (rawPoints == null && !rawComment) return;
+          const pointsNum = rawPoints == null ? null : Number(rawPoints);
+          criteriaResults[def.id] = {
+            points: Number.isFinite(pointsNum) ? pointsNum : null,
+            comment: typeof rawComment === 'string' ? rawComment : ''
+          };
+        });
+
         return {
           studentId:       cs.id,
           score:           match.grade,
-          testNotes:       match.notes ? [match.notes] : [],
-          criteriaResults: match.criteriaScores || {},
+          testNotes:       match.notes
+            ? [{ label: 'Teacher observations', text: match.notes, checklist: [] }]
+            : [],
+          criteriaResults,
           correctionTime:  match.actualDuration || null,
           gradeOverride:   false
         };
       });
 
       // Build testConfig
-      const critNames = criteria.map(c => (typeof c === 'string' ? c : (c.name || '')));
+      const testUuid = existingLinked?.testUuid || generateUuid();
       const testConfig = {
+        testUuid,
+        source: 'oral-marking',
+        sourceOralSessionId: oralSessionId,
         coefficient: 1,
         fixedWeight:  null,
         testName:     schedule?.title || 'Oral Exam',
         testDate:     schedule?.date  || '',
         type:         'oral',
         scope:        '',
-        criteria:     critNames,
+        criteria:     criteriaDefs,
         grading:      { mode: 'manual', manualThresholds: {} }
       };
 
       const testLabel = `${semKey}-test-${String(nextTestIndex + 1).padStart(2, '0')}`;
-      const testData  = { _savedAt: now, classId, semester: semKey, testIndex: nextTestIndex, testConfig, results };
+      const testData  = { _savedAt: now, classId, semester: semKey, testIndex: nextTestIndex, testUuid, testConfig, results };
       await Desktop.saveText('grades', `${testLabel}.js`,
         `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
         classId);
 
+      linkedGradeTest = {
+        classId,
+        semester: semKey,
+        testIndex: nextTestIndex,
+        testUuid
+      };
+      persistSession();
+
       const msg = isNewClass ? t('omSaveClassNew') : t('omSaveClassFound');
       showNotice(t('omSaved') + ' ' + msg, false);
-      localStorage.removeItem(SESSION_STORAGE_KEY);
     } catch (e) {
       showNotice(t('omSaveFailed') + ' ' + e.message, true);
     } finally {
@@ -2324,7 +2451,13 @@
   function persistSession() {
     if (!schedule) return;
     try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ schedule, students, sessionCriteria }));
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        schedule,
+        students,
+        sessionCriteria,
+        oralSessionId,
+        linkedGradeTest
+      }));
     } catch (e) { /* ignore */ }
   }
 
@@ -2332,10 +2465,18 @@
     try {
       const raw = localStorage.getItem(SESSION_STORAGE_KEY);
       if (!raw) return false;
-      const { schedule: sc, students: sts, sessionCriteria: sc2 } = JSON.parse(raw);
+      const {
+        schedule: sc,
+        students: sts,
+        sessionCriteria: sc2,
+        oralSessionId: sid,
+        linkedGradeTest: lgt
+      } = JSON.parse(raw);
       if (!sc || !Array.isArray(sts)) return false;
       schedule         = sc;
       students         = sts;
+      oralSessionId    = typeof sid === 'string' && sid ? sid : generateUuid();
+      linkedGradeTest  = (lgt && typeof lgt === 'object') ? lgt : null;
       if (Array.isArray(sc2) && sc2.length) {
         sessionCriteria = sc2;
       } else {
@@ -2433,6 +2574,7 @@
   window.skipStudent        = skipStudent;
   window.togglePause        = togglePause;
   window.togglePresenter    = togglePresenter;
+  window.saveGrades         = saveGrades;
   window.saveTemplate       = saveTemplate;
   window.beginSession       = beginSession;
 
