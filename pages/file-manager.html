@@ -633,11 +633,15 @@
         <option value="user" data-i18n="fmTargetUser">User Data</option>
         <option value="data" data-i18n="fmTargetData">Custom Data</option>
         <option value="grades" data-i18n="fmTargetGrades">Grades</option>
-        <option value="gradeSheet" data-i18n="fmTargetGradeSheet">Grade Sheets</option>
         <option value="groupParticipation" data-i18n="fmTargetParticipation">Participation</option>
-        <option value="docEditorDocs">Doc Editor – Documents</option>
-        <option value="docEditorStylesheets">Doc Editor – Stylesheets</option>
-        <option value="docEditorTemplates">Doc Editor – Templates</option>
+        <option value="docEditor">Doc Editor</option>
+      </select>
+      <select id="browseSortOrder">
+        <option value="name-asc" data-i18n="rfSortNameAZ">Name A→Z</option>
+        <option value="name-desc" data-i18n="rfSortNameZA">Name Z→A</option>
+        <option value="date-desc" data-i18n="rfSortNewest">Newest first</option>
+        <option value="date-asc" data-i18n="rfSortOldest">Oldest first</option>
+        <option value="size-desc" data-i18n="rfSortLargest">Largest first</option>
       </select>
       <input type="search" id="browseSearch" class="browse-search" placeholder="Filter…" data-i18n-placeholder="fmBrowseFilter">
       <button id="browseRefresh" class="btn-refresh" data-i18n="fmRefresh">↺ Refresh</button>
@@ -1126,6 +1130,11 @@ function makeRfRow(file, isSession, snippet, isArchived) {
 function makeEditorDocRow(file, isArchived) {
   var row = document.createElement('div');
   row.className = 'file-row';
+  if (window.Desktop && Desktop.isElectron()) {
+    (function(f) {
+      row.addEventListener('contextmenu', function(e) { fmCtxRecent(e, f); });
+    })(file);
+  }
 
   var ext = (file.filename || '').split('.').pop().toLowerCase();
   var tag = document.createElement('span');
@@ -1336,14 +1345,7 @@ async function loadRecent() {
     if (e && e.ok && Array.isArray(e.files)) {
       var allEditorDocs = e.files.filter(function(f) {
         var rel = normPath(f.relativePath || f.filename || '');
-        if (rel.startsWith('history/')) return false;
-        var parts = rel.split('/');
-        if (parts.length === 1) return true;
-        if (parts.length === 2) {
-          var base = parts[0];
-          return parts[1] === base + '.md' || parts[1] === base + '.html';
-        }
-        return false;
+        return !rel.startsWith('history/');
       }).map(function(f) { return Object.assign({}, f, { target: 'docEditorDocs' }); });
       rfEditorDocs = allEditorDocs.filter(function(f) {
         return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') === -1;
@@ -1374,9 +1376,7 @@ var TARGET_LABELS = {
   grades:                'Grades',
   gradeSheet:            'Grade Sheets',
   groupParticipation:    'Participation',
-  docEditorDocs:         'Doc Editor – Documents',
-  docEditorStylesheets:  'Doc Editor – Stylesheets',
-  docEditorTemplates:    'Doc Editor – Templates'
+  docEditor:             'Doc Editor'
 };
 
 function startFolderRename(row, folderName, nameEl, prefix) {
@@ -1529,15 +1529,22 @@ function renderBreadcrumb() {
 
 function renderBrowse() {
   var searchVal = document.getElementById('browseSearch').value.trim().toLowerCase();
+  var sortOrder = (document.getElementById('browseSortOrder') || {}).value || 'name-asc';
   var list = document.getElementById('browseList');
   list.innerHTML = '';
+
+  var isMergedDocEditor = browseTarget === 'docEditor';
+  function getBrowseRel(f) {
+    if (isMergedDocEditor) return normPath(f._browseRel || f.relativePath || f.filename || '');
+    return normPath(f.relativePath || f.filename || '');
+  }
 
   var prefix = browsePath ? browsePath + '/' : '';
 
   // Derive immediate subdirectories
   var folderCounts = {};
   browseAllFiles.forEach(function(f) {
-    var rel = normPath(f.relativePath || f.filename || '');
+    var rel = getBrowseRel(f);
     if (prefix && !rel.startsWith(prefix)) return;
     var rest = rel.slice(prefix.length);
     var slash = rest.indexOf('/');
@@ -1549,7 +1556,7 @@ function renderBrowse() {
 
   // Files directly at current level (no sub-slash after prefix)
   var levelFiles = browseAllFiles.filter(function(f) {
-    var rel = normPath(f.relativePath || f.filename || '');
+    var rel = getBrowseRel(f);
     if (prefix && !rel.startsWith(prefix)) return false;
     var rest = rel.slice(prefix.length);
     return rest.indexOf('/') === -1 && rest.length > 0;
@@ -1558,11 +1565,37 @@ function renderBrowse() {
   // Apply search filter
   if (searchVal) {
     levelFiles = levelFiles.filter(function(f) {
-      return (f.filename || '').toLowerCase().indexOf(searchVal) !== -1;
+      var filename = (f.filename || '').toLowerCase();
+      var rel = getBrowseRel(f).toLowerCase();
+      var kind = String(f._docKindLabel || '').toLowerCase();
+      return filename.indexOf(searchVal) !== -1 || rel.indexOf(searchVal) !== -1 || kind.indexOf(searchVal) !== -1;
     });
   }
 
-  var folders = Object.keys(folderCounts).sort();
+  var folders = Object.keys(folderCounts).sort(function(a, b) {
+    var aCount = Number(folderCounts[a]) || 0;
+    var bCount = Number(folderCounts[b]) || 0;
+    if (sortOrder === 'name-desc') return b.localeCompare(a);
+    if (sortOrder === 'size-desc') {
+      if (bCount !== aCount) return bCount - aCount;
+      return a.localeCompare(b);
+    }
+    return a.localeCompare(b);
+  });
+
+  levelFiles.sort(function(a, b) {
+    var aName = String(a.filename || '');
+    var bName = String(b.filename || '');
+    var aDate = Number(a.mtimeMs) || 0;
+    var bDate = Number(b.mtimeMs) || 0;
+    var aSize = Number(a.size) || 0;
+    var bSize = Number(b.size) || 0;
+    if (sortOrder === 'name-desc') return bName.localeCompare(aName);
+    if (sortOrder === 'date-desc') return bDate - aDate;
+    if (sortOrder === 'date-asc')  return aDate - bDate;
+    if (sortOrder === 'size-desc') return bSize - aSize;
+    return aName.localeCompare(bName);
+  });
 
   if (!showVersions && browseTarget === 'mindmaps') {
     folders = folders.filter(function(f) { return f !== 'history'; });
@@ -1649,7 +1682,7 @@ function renderBrowse() {
 
   // Render files
   levelFiles.forEach(function(f) {
-    var fileObj = Object.assign({}, f, { target: browseTarget });
+    var fileObj = Object.assign({}, f, { target: f.target || browseTarget });
     list.appendChild(makeBrowseRow(fileObj));
   });
 }
@@ -1683,13 +1716,14 @@ function makeBrowseRow(file) {
   var nameEl = document.createElement('div');
   nameEl.className = 'file-name';
   nameEl.textContent = file.filename;
-  nameEl.title = normPath(file.relativePath || file.filename);
+  nameEl.title = normPath(file._browseRel || file.relativePath || file.filename);
   info.appendChild(nameEl);
 
   var meta = document.createElement('div');
   meta.className = 'file-meta';
   var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
-  meta.textContent = formatDate(file.mtimeMs || 0) + (kb ? ' · ' + kb : '');
+  var src = file._docKindLabel ? (file._docKindLabel + ' · ') : '';
+  meta.textContent = src + formatDate(file.mtimeMs || 0) + (kb ? ' · ' + kb : '');
   info.appendChild(meta);
   row.appendChild(info);
 
@@ -1797,8 +1831,30 @@ async function loadBrowse() {
   }
 
   try {
-    var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true });
-    browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
+    if (browseTarget === 'docEditor') {
+      var merged = [];
+      var docTargets = [
+        { target: 'docEditorDocs', label: 'Documents' },
+        { target: 'docEditorStylesheets', label: 'CSS' },
+        { target: 'docEditorTemplates', label: 'Templates' }
+      ];
+      for (var i = 0; i < docTargets.length; i++) {
+        var t = docTargets[i];
+        var r = await Desktop.listByPath(t.target, '', { extensions:[], recursive:true });
+        var files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
+        files.forEach(function(f) {
+          merged.push(Object.assign({}, f, {
+            target: t.target,
+            _docKindLabel: t.label,
+            _browseRel: normPath(t.label + '/' + (f.relativePath || f.filename || ''))
+          }));
+        });
+      }
+      browseAllFiles = merged;
+    } else {
+      var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true });
+      browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
+    }
   } catch(e) {
     list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + escHtml('Error: ' + (e && e.message ? e.message : String(e))) + '</div>';
     return;
@@ -1853,6 +1909,9 @@ document.getElementById('browseRefresh').addEventListener('click', function() {
   loadBrowse();
 });
 document.getElementById('browseSearch').addEventListener('input', function() {
+  renderBrowse();
+});
+document.getElementById('browseSortOrder').addEventListener('change', function() {
   renderBrowse();
 });
 document.getElementById('browseShowVersions').addEventListener('change', function() {
