@@ -2902,6 +2902,10 @@ async function saveAll() {
     showToast('File saving requires the Electron app.', true);
     return;
   }
+  if (currentEditTarget) {
+    await saveExternalDoc();
+    return;
+  }
   if (currentDocName) {
     await doSaveAll(currentDocName);
   } else {
