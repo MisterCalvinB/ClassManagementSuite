@@ -1740,8 +1740,7 @@ function _cfmCancel() {
     var r = await Desktop.readText('user', 'class-groups.js');
     if (!r || !r.ok) return;
     // eslint-disable-next-line no-new-func
-    var fn = new Function(r.content + '
-return (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : {}), classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
+    var fn = new Function(r.content + 'return (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : {}), classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
     var parsed = fn();
     if (parsed && (parsed.classGroupsMeta || parsed.classGroups)) {
       window.CLASS_GROUPS = parsed.classGroups || {};
@@ -1753,8 +1752,7 @@ return (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classG
     var r = await Desktop.readText('classPlans', 'plans.js');
     if (!r || !r.ok) return;
     // eslint-disable-next-line no-new-func
-    var fn = new Function(r.content + '
-return (typeof SAVED_CLASS_PLANS !== "undefined") ? SAVED_CLASS_PLANS : null;');
+    var fn = new Function(r.content + 'return (typeof SAVED_CLASS_PLANS !== "undefined") ? SAVED_CLASS_PLANS : null;');
     var result = fn();
     if (result) window.SAVED_CLASS_PLANS = result;
   }
@@ -1768,8 +1766,7 @@ return (typeof SAVED_CLASS_PLANS !== "undefined") ? SAVED_CLASS_PLANS : null;');
         if (r && r.ok) {
           try {
             // eslint-disable-next-line no-new-func
-            var cfgFn = new Function(r.content + '
-return (typeof CLASS_MANAGEMENT_CONFIG !== "undefined") ? CLASS_MANAGEMENT_CONFIG : null;');
+            var cfgFn = new Function(r.content + 'return (typeof CLASS_MANAGEMENT_CONFIG !== "undefined") ? CLASS_MANAGEMENT_CONFIG : null;');
             var cfgResult = cfgFn();
             if (cfgResult) window.CLASS_MANAGEMENT_CONFIG = cfgResult;
           } catch (e) {}
