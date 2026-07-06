@@ -873,6 +873,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
     .filter(Boolean)
     .map((ext) => (ext.startsWith('.') ? ext : `.${ext}`));
   const recursive = request.recursive !== false;
+  const includeDirectories = request.includeDirectories === true;
 
   const candidateDirs = [fullPath];
   if (target === 'data') {
@@ -897,8 +898,30 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       const childRelative = relativeDir
         ? path.posix.join(relativeDir, dirent.name)
         : dirent.name;
+      const relativePathFromTarget = path.posix.join(safeRelative, childRelative);
+      const dedupeKey = relativePathFromTarget.toLowerCase();
 
       if (dirent.isDirectory()) {
+        if (includeDirectories && !seen.has(dedupeKey)) {
+          let stats;
+          try {
+            stats = await fs.stat(absolutePath);
+          } catch {
+            stats = null;
+          }
+
+          seen.add(dedupeKey);
+          files.push({
+            filename: dirent.name,
+            relativePath: relativePathFromTarget,
+            path: absolutePath,
+            size: 0,
+            birthtimeMs: stats ? stats.birthtimeMs : 0,
+            mtimeMs: stats ? stats.mtimeMs : 0,
+            isDirectory: true
+          });
+        }
+
         if (recursive) {
           await walkDirectory(baseDir, absolutePath, childRelative);
         }
@@ -909,8 +932,6 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       const ext = path.extname(dirent.name).toLowerCase();
       if (normalizedExtensions.length && !normalizedExtensions.includes(ext)) continue;
 
-      const relativePathFromTarget = path.posix.join(safeRelative, childRelative);
-      const dedupeKey = relativePathFromTarget.toLowerCase();
       if (seen.has(dedupeKey)) continue;
 
       let stats;
@@ -945,6 +966,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
         size: stats.size,
         birthtimeMs: stats.birthtimeMs,
         mtimeMs: stats.mtimeMs,
+        isDirectory: false,
         ...jsonMeta
       });
     }
@@ -962,6 +984,15 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
 
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: 'base' }));
   return files;
+}
+
+async function createAllowedPathDirectory(pageFile, target, relativePath) {
+  const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
+  await fs.mkdir(fullPath, { recursive: true });
+  return {
+    relativePath: safeRelative,
+    path: fullPath
+  };
 }
 
 async function deleteAllowedPathEntry(pageFile, target, relativePath, options = {}) {
@@ -3794,6 +3825,7 @@ ipcMain.handle('app:print-html', async (event, request = {}) => {
 ipcMain.handle('app:print-pdf', async (event, request = {}) => {
   const html = String(request.html || '');
   const tmpFile = path.join(os.tmpdir(), `cmt-pdf-${Date.now()}.html`);
+  const pageFile = getRequestingPage(event);
   try {
     const win = new BrowserWindow({ show: false, webPreferences: {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
@@ -3840,6 +3872,28 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
     const defaultName = (typeof request.defaultName === 'string' && request.defaultName.trim())
       ? request.defaultName.trim()
       : `results-${dateStr}.pdf`;
+
+    if (typeof request.absolutePath === 'string' && request.absolutePath.trim()) {
+      const absolutePath = path.resolve(request.absolutePath.trim());
+      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+      await fs.writeFile(absolutePath, pdfBuffer);
+      try { win.close(); } catch {}
+      return { ok: true, path: absolutePath, name: path.basename(absolutePath) };
+    }
+
+    if (request.target) {
+      const savedFile = await writeAllowedFile(pageFile, request.target, {
+        filename: typeof request.filename === 'string' && request.filename.trim()
+          ? request.filename.trim()
+          : defaultName,
+        subdir: request.subdir ? String(request.subdir) : null,
+        content: pdfBuffer.toString('base64'),
+        encoding: 'base64'
+      });
+      try { win.close(); } catch {}
+      return { ok: true, path: savedFile.path, name: savedFile.filename };
+    }
+
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Save PDF',
       defaultPath: path.join(app.getPath('downloads'), defaultName),
@@ -3871,6 +3925,16 @@ ipcMain.handle('app:list-by-path', async (event, request = {}) => {
     request
   );
   return { ok: true, files };
+});
+
+ipcMain.handle('app:create-directory-by-path', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const created = await createAllowedPathDirectory(
+    pageFile,
+    request.target,
+    request.relativePath
+  );
+  return { ok: true, created };
 });
 
 ipcMain.handle('app:rename-file', async (event, request = {}) => {

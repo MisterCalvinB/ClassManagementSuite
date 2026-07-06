@@ -42,6 +42,9 @@ const exposedApi = {
   listByPath(request) {
     return invoke('app:list-by-path', request);
   },
+  createDirectoryByPath(request) {
+    return invoke('app:create-directory-by-path', request);
+  },
   readFile(request) {
     return invoke('app:read-file', request);
   },

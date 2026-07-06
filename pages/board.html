@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Board</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -252,6 +253,7 @@
         });
     });
   </script>
+  <script src="../modules/katex/dist/katex.min.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
@@ -20496,7 +20498,7 @@ function hideFailure() {
           if (cb.checked) cb.setAttribute('checked', 'checked');
           else cb.removeAttribute('checked');
         });
-        noteData.html = editor.innerHTML;
+        noteData.html = wnRenderMathHtml(editor.innerHTML);
         noteData.text = wnNormalizeNoteText(editor.innerText || editor.textContent || '');
       }
       if (noteData.tokId) {
@@ -22348,6 +22350,7 @@ function hideFailure() {
       ta.spellcheck = false;
       ta.setAttribute('data-placeholder', 'Note...');
       ta.innerHTML = noteData.html ? String(noteData.html) : boardEscapeHtml(noteData.text || '').replace(/\n/g, '<br>');
+      ta.innerHTML = wnRenderMathHtml(ta.innerHTML);
       wnSyncNoteDataFromEditor(noteData, ta);
 
       function applyNoteStyle() {
@@ -22402,6 +22405,12 @@ function hideFailure() {
 
       ta.addEventListener('input', e => {
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
+        conNoteAutosize(ta, noteData);
+      });
+      ta.addEventListener('blur', () => {
+        const rendered = wnRenderMathHtml(ta.innerHTML);
+        if (rendered !== ta.innerHTML) ta.innerHTML = rendered;
+        wnSyncNoteDataFromEditor(noteData, ta);
         conNoteAutosize(ta, noteData);
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
@@ -23336,7 +23345,8 @@ function hideFailure() {
       noteData.text = clean; noteData.html = '';
       const editor = document.querySelector(`.con-word-note[data-id="${noteData.id}"] .wn-note-editor`);
       if (editor) {
-        editor.textContent = clean;
+        editor.innerHTML = wnRenderMathHtml(boardEscapeHtml(clean).replace(/\n/g, '<br>'));
+        noteData.html = editor.innerHTML;
         if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
       }
     }
@@ -23645,6 +23655,76 @@ function hideFailure() {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function wnRenderMathFragment(text) {
+      const frag = document.createDocumentFragment();
+      const source = String(text || '');
+      const pattern = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+      let lastIndex = 0;
+      let match;
+
+      while ((match = pattern.exec(source))) {
+        if (match.index > lastIndex) {
+          frag.appendChild(document.createTextNode(source.slice(lastIndex, match.index)));
+        }
+
+        const displayMode = !!match[1];
+        const tex = String(match[1] || match[2] || '');
+        const span = document.createElement('span');
+        span.className = displayMode ? 'wn-katex-display' : 'wn-katex-inline';
+        span.dataset.katexTex = tex;
+        span.dataset.katexDisplayMode = displayMode ? '1' : '0';
+
+        try {
+          if (typeof katex !== 'undefined' && katex && typeof katex.renderToString === 'function') {
+            span.innerHTML = katex.renderToString(tex, {
+              displayMode,
+              throwOnError: false
+            });
+          } else {
+            span.textContent = tex;
+          }
+        } catch (err) {
+          span.className = 'wn-katex-error';
+          span.textContent = tex;
+        }
+
+        frag.appendChild(span);
+        lastIndex = pattern.lastIndex;
+      }
+
+      if (lastIndex < source.length) {
+        frag.appendChild(document.createTextNode(source.slice(lastIndex)));
+      }
+
+      return frag;
+    }
+
+    function wnRenderMathHtml(html) {
+      const source = String(html || '');
+      if (!source || typeof document === 'undefined') return source;
+      if (typeof katex === 'undefined' || !katex || typeof katex.renderToString !== 'function') return source;
+
+      const root = document.createElement('div');
+      root.innerHTML = source;
+
+      const walk = node => {
+        Array.from(node.childNodes).forEach(child => {
+          if (child.nodeType === Node.TEXT_NODE) {
+            child.replaceWith(wnRenderMathFragment(child.nodeValue));
+            return;
+          }
+          if (child.nodeType !== Node.ELEMENT_NODE) return;
+          if (child.classList.contains('katex')) return;
+          const tag = child.tagName;
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA' || tag === 'CODE' || tag === 'PRE') return;
+          walk(child);
+        });
+      };
+
+      walk(root);
+      return root.innerHTML;
     }
 
     function boardMakeSessionId(section) {

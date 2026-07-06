@@ -679,6 +679,46 @@
       transition: background .1s, color .1s;
     }
     .modal-toolbar-btn:hover { background: #000; color: #fff; }
+    .file-browser-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .file-browser-breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      min-width: 0;
+      flex: 1;
+    }
+    .file-browser-crumb {
+      background: #fff;
+      border: 1.5px solid #d4d4d4;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: .78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .file-browser-crumb:hover { border-color: #000; }
+    .file-browser-sep { color: #777; font-size: .74rem; }
+    .file-browser-savebar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .file-browser-savebar .modal-input {
+      margin-bottom: 0;
+      flex: 1;
+    }
+    .file-row-dir .file-row-name::before {
+      content: '📁 ';
+    }
     .modal-box-history { max-width: 580px; }
     #hist-preview-pane {
       margin-top: 12px;
@@ -1142,7 +1182,7 @@
   <div class="nav-group">
     <button class="nav-btn">Export ▾</button>
     <div class="nav-group-popup">
-      <button class="nav-pop-item" id="btn-export-pdf">Export PDF</button>
+      <button class="nav-pop-item" id="btn-export-pdf" data-i18n="deExportPdf">Export PDF</button>
       <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-preview">Preview</button>
@@ -1309,6 +1349,25 @@
   </div>
 </div>
 
+<!-- ── PDF export modal ──────────────────────────────────── -->
+<div id="pdf-export-modal" class="modal-overlay" hidden>
+  <div class="modal-box modal-narrow">
+    <div class="modal-header">
+      <span class="modal-title" id="pdf-export-modal-title">Export PDF</span>
+      <button class="modal-close-btn" id="pdf-export-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="pdf-export-modal-text" style="margin:0 0 12px;font-size:.94rem;line-height:1.5;color:#333;"></p>
+      <div class="modal-empty" id="pdf-export-same-folder-hint" style="margin:0 0 12px;padding:12px;text-align:left;"></div>
+      <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
+        <button class="modal-btn" id="btn-pdf-export-same-folder"></button>
+        <button class="modal-btn" id="btn-pdf-export-picker"></button>
+        <button class="modal-btn modal-btn-cancel" id="btn-pdf-export-cancel"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── History modal ─────────────────────────────────────── -->
 <div id="history-modal" class="modal-overlay" hidden>
   <div class="modal-box modal-box-history">
@@ -1364,15 +1423,19 @@
 let mdEditor = null;
 let cssEditor = null;
 let currentDocName = null;
-let currentDocSubdir = null; // null = flat file; string = folder basename (e.g. 'my-doc')
+let currentDocSubdir = null; // null = legacy flat file; otherwise the full relative bundle path (e.g. 'unit-1/my-doc')
 let currentStylesheetName = null;
 let currentEditTarget = null;   // non-null when editing a file from an external target
 let currentEditRelPath = null;
+let currentDocStoredInDocs = false;
+let currentOpenedDiskPath = null;
 let cssEditorVisible = false;
 let splitFraction = 0.5;
 let renderTimer = null;
 let saveModalCallback = null;
+let pdfExportModalCallback = null;
 let fileModalMode = null;
+let fileBrowserState = null;
 let currentDocType = 'md'; // 'md' or 'html'
 let docModified = false;
 let cssModified = false;
@@ -1947,6 +2010,459 @@ require(['vs/editor/editor.main'], function() {
 });
 
 // ── Document management ──────────────────────────────────
+function deNormalizeRelPath(relativePath) {
+  const cleaned = String(relativePath || '')
+    .replace(/\\/g, '/')
+    .trim()
+    .replace(/^\.\//, '')
+    .replace(/^\/+|\/+$/g, '');
+  return cleaned === '.' ? '' : cleaned;
+}
+
+function deJoinRelPath(basePath, childName) {
+  const parts = [deNormalizeRelPath(basePath), deNormalizeRelPath(childName)].filter(Boolean);
+  return parts.join('/');
+}
+
+function deBasename(relativePath) {
+  const normalized = deNormalizeRelPath(relativePath);
+  if (!normalized) return '';
+  const idx = normalized.lastIndexOf('/');
+  return idx >= 0 ? normalized.slice(idx + 1) : normalized;
+}
+
+function deDirname(relativePath) {
+  const normalized = deNormalizeRelPath(relativePath);
+  if (!normalized) return '';
+  const idx = normalized.lastIndexOf('/');
+  return idx >= 0 ? normalized.slice(0, idx) : '';
+}
+
+function deNativeSiblingPath(filePath, filename) {
+  const source = String(filePath || '').trim();
+  const name = String(filename || '').trim();
+  if (!source || !name) return '';
+  const slashIdx = Math.max(source.lastIndexOf('/'), source.lastIndexOf('\\'));
+  if (slashIdx < 0) return name;
+  return source.slice(0, slashIdx + 1) + name;
+}
+
+function deRelativeFromCurrent(relativePath, currentPath) {
+  const target = deNormalizeRelPath(relativePath);
+  const current = deNormalizeRelPath(currentPath);
+  if (!current) return target;
+  if (target === current) return '';
+  const prefix = current + '/';
+  return target.startsWith(prefix) ? target.slice(prefix.length) : null;
+}
+
+function deSplitTargetPath(relativePath) {
+  const normalized = deNormalizeRelPath(relativePath);
+  return {
+    subdir: deDirname(normalized) || null,
+    filename: deBasename(normalized)
+  };
+}
+
+function deDocContainerPathFromBundle(bundlePath) {
+  return deDirname(deNormalizeRelPath(bundlePath));
+}
+
+function deDocBrowserDisplayName(relativePath) {
+  return deBasename(relativePath);
+}
+
+function deTemplateBrowserDisplayName(relativePath) {
+  return deBasename(relativePath).replace(/\.md$/i, '');
+}
+
+function deStylesheetBrowserDisplayName(relativePath) {
+  return deBasename(relativePath);
+}
+
+async function deListTargetEntries(target, currentPath, extensions) {
+  const result = await Desktop.listByPath(target, currentPath || '', {
+    extensions,
+    recursive: true,
+    includeDirectories: true
+  });
+  return (result && result.ok && Array.isArray(result.files)) ? result.files : [];
+}
+
+function deBuildBundleBrowserEntries(rawEntries, currentPath, extensions, displayNameFn) {
+  const folders = new Map();
+  const bundleFiles = new Map();
+  const directFiles = [];
+  const allowedExts = new Set((extensions || []).map(ext => String(ext || '').toLowerCase()));
+
+  rawEntries.forEach(entry => {
+    const relativePath = deNormalizeRelPath(entry.relativePath || entry.filename || '');
+    const inner = deRelativeFromCurrent(relativePath, currentPath);
+    if (!inner) return;
+    const parts = inner.split('/').filter(Boolean);
+    if (!parts.length) return;
+
+    if (entry.isDirectory) {
+      if (parts.length === 1) {
+        folders.set(parts[0], {
+          kind: 'dir',
+          name: parts[0],
+          relativePath: deJoinRelPath(currentPath, parts[0])
+        });
+      }
+      return;
+    }
+
+    if (parts.length === 1) {
+      directFiles.push({
+        kind: 'file',
+        name: deBasename(relativePath),
+        displayName: displayNameFn(relativePath),
+        relativePath,
+        suggestedName: deBasename(relativePath),
+        isBundle: false
+      });
+      return;
+    }
+
+    if (parts.length === 2) {
+      const folderName = parts[0];
+      const fileName = parts[1];
+      const ext = fileName.includes('.') ? ('.' + fileName.split('.').pop().toLowerCase()) : '';
+      if (!allowedExts.has(ext)) return;
+      if (fileName.toLowerCase() !== (folderName + ext).toLowerCase()) return;
+      if (!bundleFiles.has(folderName)) {
+        bundleFiles.set(folderName, {
+          kind: 'file',
+          name: fileName,
+          displayName: displayNameFn(relativePath),
+          relativePath,
+          suggestedName: fileName,
+          isBundle: true,
+          bundlePath: deJoinRelPath(currentPath, folderName)
+        });
+      }
+    }
+  });
+
+  const rows = [];
+  folders.forEach((entry, folderName) => {
+    if (!bundleFiles.has(folderName)) rows.push(entry);
+  });
+  bundleFiles.forEach(entry => rows.push(entry));
+  directFiles.forEach(entry => rows.push(entry));
+
+  rows.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
+    return a.displayName ? a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+      : a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
+
+  return rows;
+}
+
+function deBuildPlainBrowserEntries(rawEntries, currentPath, displayNameFn) {
+  const rows = [];
+  rawEntries.forEach(entry => {
+    const relativePath = deNormalizeRelPath(entry.relativePath || entry.filename || '');
+    const inner = deRelativeFromCurrent(relativePath, currentPath);
+    if (!inner) return;
+    const parts = inner.split('/').filter(Boolean);
+    if (!parts.length) return;
+
+    if (entry.isDirectory) {
+      if (parts.length === 1) {
+        rows.push({ kind: 'dir', name: parts[0], relativePath: deJoinRelPath(currentPath, parts[0]) });
+      }
+      return;
+    }
+
+    if (parts.length === 1) {
+      rows.push({
+        kind: 'file',
+        name: deBasename(relativePath),
+        displayName: displayNameFn(relativePath),
+        relativePath,
+        suggestedName: deBasename(relativePath),
+        isBundle: false
+      });
+    }
+  });
+
+  rows.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
+    return (a.displayName || a.name).localeCompare((b.displayName || b.name), undefined, { sensitivity: 'base' });
+  });
+
+  return rows;
+}
+
+async function deRenderFileBrowser() {
+  if (!fileBrowserState) return;
+  const state = fileBrowserState;
+  const body = document.getElementById('file-modal-body');
+  const rawEntries = await deListTargetEntries(state.target, state.currentPath, state.extensions);
+  state.entries = state.bundleMode
+    ? deBuildBundleBrowserEntries(rawEntries, state.currentPath, state.extensions, state.displayNameFn)
+    : deBuildPlainBrowserEntries(rawEntries, state.currentPath, state.displayNameFn);
+
+  body.innerHTML = '';
+
+  const nav = document.createElement('div');
+  nav.className = 'file-browser-nav';
+
+  const upBtn = document.createElement('button');
+  upBtn.className = 'modal-toolbar-btn';
+  upBtn.textContent = t('deFileBrowserUp') || 'Up';
+  upBtn.disabled = !state.currentPath;
+  upBtn.onclick = async () => {
+    if (!state.currentPath) return;
+    state.currentPath = deDirname(state.currentPath);
+    await deRenderFileBrowser();
+  };
+  nav.appendChild(upBtn);
+
+  const crumbs = document.createElement('div');
+  crumbs.className = 'file-browser-breadcrumbs';
+  const rootBtn = document.createElement('button');
+  rootBtn.className = 'file-browser-crumb';
+  rootBtn.textContent = state.rootLabel || (t('deFileBrowserRoot') || 'Root');
+  rootBtn.onclick = async () => {
+    state.currentPath = '';
+    await deRenderFileBrowser();
+  };
+  crumbs.appendChild(rootBtn);
+  const segments = state.currentPath ? state.currentPath.split('/').filter(Boolean) : [];
+  let builtPath = '';
+  segments.forEach(segment => {
+    const sep = document.createElement('span');
+    sep.className = 'file-browser-sep';
+    sep.textContent = '›';
+    crumbs.appendChild(sep);
+    builtPath = deJoinRelPath(builtPath, segment);
+    const crumbBtn = document.createElement('button');
+    crumbBtn.className = 'file-browser-crumb';
+    crumbBtn.textContent = segment;
+    crumbBtn.onclick = async () => {
+      state.currentPath = builtPath;
+      await deRenderFileBrowser();
+    };
+    crumbs.appendChild(crumbBtn);
+  });
+  nav.appendChild(crumbs);
+
+  const actions = document.createElement('div');
+  actions.className = 'modal-toolbar';
+  if (Array.isArray(state.toolbarButtons)) {
+    state.toolbarButtons.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'modal-toolbar-btn';
+      btn.textContent = item.label;
+      btn.onclick = item.onClick;
+      actions.appendChild(btn);
+    });
+  }
+  if (state.allowCreateFolder) {
+    const folderBtn = document.createElement('button');
+    folderBtn.className = 'modal-toolbar-btn';
+    folderBtn.textContent = t('deFileBrowserNewFolder') || 'New Folder';
+    folderBtn.onclick = async () => {
+      state.showNewFolderInput = !state.showNewFolderInput;
+      if (!state.showNewFolderInput) state.newFolderName = '';
+      await deRenderFileBrowser();
+    };
+    actions.appendChild(folderBtn);
+  }
+  if (actions.children.length) nav.appendChild(actions);
+  body.appendChild(nav);
+
+  if (state.allowCreateFolder && state.showNewFolderInput) {
+    const folderBar = document.createElement('div');
+    folderBar.className = 'file-browser-savebar';
+
+    const folderInput = document.createElement('input');
+    folderInput.className = 'modal-input';
+    folderInput.id = 'file-browser-folder-input';
+    folderInput.type = 'text';
+    folderInput.autocomplete = 'off';
+    folderInput.spellcheck = false;
+    folderInput.placeholder = t('deFileBrowserFolderPrompt') || 'Folder name';
+    folderInput.value = state.newFolderName || '';
+    folderInput.oninput = () => {
+      state.newFolderName = folderInput.value;
+    };
+
+    const createBtn = document.createElement('button');
+    createBtn.className = 'modal-btn';
+    createBtn.textContent = t('deFileBrowserCreateFolder') || 'Create';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'modal-btn modal-btn-cancel';
+    cancelBtn.textContent = t('btnCancel') || 'Cancel';
+
+    const handleCreateFolder = async () => {
+      const folderName = String(folderInput.value || '').trim().replace(/[\\/:*?"<>|]/g, '');
+      if (!folderName) {
+        showToast(t('deFileBrowserFolderPrompt') || 'Folder name', true);
+        folderInput.focus();
+        return;
+      }
+      const folderPath = deJoinRelPath(state.currentPath, folderName);
+      const r = await Desktop.createDirectoryByPath(state.target, folderPath);
+      if (!r || !r.ok) {
+        showToast((t('deFileBrowserFolderCreateError') || 'Could not create folder: ') + ((r && r.error) || ''), true);
+        return;
+      }
+      state.showNewFolderInput = false;
+      state.newFolderName = '';
+      showToast((t('deFileBrowserFolderCreated') || 'Folder created: ') + folderName);
+      await deRenderFileBrowser();
+    };
+
+    createBtn.onclick = handleCreateFolder;
+    cancelBtn.onclick = async () => {
+      state.showNewFolderInput = false;
+      state.newFolderName = '';
+      await deRenderFileBrowser();
+    };
+    folderInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleCreateFolder();
+      if (e.key === 'Escape') cancelBtn.click();
+    });
+
+    folderBar.appendChild(folderInput);
+    folderBar.appendChild(createBtn);
+    folderBar.appendChild(cancelBtn);
+    body.appendChild(folderBar);
+
+    setTimeout(() => {
+      folderInput.focus();
+      folderInput.select();
+    }, 40);
+  }
+
+  if (state.mode === 'save') {
+    const saveBar = document.createElement('div');
+    saveBar.className = 'file-browser-savebar';
+    const input = document.createElement('input');
+    input.className = 'modal-input';
+    input.id = 'file-browser-name-input';
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = state.placeholder || '';
+    input.value = state.suggestedName || '';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'modal-btn';
+    saveBtn.textContent = state.saveButtonLabel || (t('save') || 'Save');
+    const handleSave = async () => {
+      const typedName = String(input.value || '').trim();
+      if (!typedName) {
+        showToast(t('deFileBrowserEnterName') || 'Enter a file name.', true);
+        input.focus();
+        return;
+      }
+      if (state.confirmOverwrite) {
+        const existing = (state.entries || []).find(entry => entry.kind === 'file' && String(entry.suggestedName || '').toLowerCase() === typedName.toLowerCase());
+        if (existing && !await showConfirm((t('deFileBrowserOverwriteConfirm') || 'Overwrite "{name}"?').replace('{name}', existing.suggestedName || typedName))) return;
+      }
+      await state.onSave(typedName, state.currentPath);
+    };
+    saveBtn.onclick = handleSave;
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSave();
+    });
+    saveBar.appendChild(input);
+    saveBar.appendChild(saveBtn);
+    body.appendChild(saveBar);
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 40);
+  }
+
+  if (!(state.entries || []).length) {
+    const empty = document.createElement('div');
+    empty.className = 'modal-empty';
+    empty.innerHTML = state.emptyText || (t('deFileBrowserFolderEmpty') || 'This folder is empty.');
+    body.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement('div');
+  list.className = 'file-list';
+  state.entries.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'file-row' + (entry.kind === 'dir' ? ' file-row-dir' : '');
+
+    const info = document.createElement('div');
+    info.className = 'file-row-info';
+    info.style.cursor = 'pointer';
+    info.innerHTML = '<span class="file-row-name">' + escHtml(entry.displayName || entry.name) + '</span>';
+    info.onclick = async () => {
+      if (entry.kind === 'dir') {
+        state.currentPath = entry.relativePath;
+        await deRenderFileBrowser();
+        return;
+      }
+      if (state.mode === 'save') {
+        const input = document.getElementById('file-browser-name-input');
+        if (input) {
+          input.value = entry.suggestedName || entry.name;
+          input.focus();
+          input.select();
+        }
+      } else {
+        await state.onOpen(entry.relativePath, entry);
+      }
+    };
+    row.appendChild(info);
+
+    const actionBtn = document.createElement('button');
+    actionBtn.className = 'file-row-btn' + (state.mode === 'save' ? ' file-row-btn-outline' : '');
+    actionBtn.textContent = entry.kind === 'dir'
+      ? (t('deFileBrowserOpenFolder') || 'Open')
+      : (state.mode === 'save' ? (t('deFileBrowserSelectName') || 'Select') : (state.openButtonLabel || (t('deFileBrowserOpen') || 'Open')));
+    actionBtn.onclick = info.onclick;
+    row.appendChild(actionBtn);
+
+    if (entry.kind === 'file' || (entry.kind === 'dir' && state.allowDeleteFolders)) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'file-row-btn file-row-btn-del';
+      delBtn.textContent = t('deFileBrowserDelete') || 'Del';
+      delBtn.onclick = async () => {
+        const label = entry.displayName || entry.name;
+        const confirmText = entry.kind === 'dir'
+          ? (t('deFileBrowserDeleteFolderConfirm') || 'Delete folder "{name}"?').replace('{name}', label)
+          : (t('deFileBrowserDeleteFileConfirm') || 'Delete "{name}"?').replace('{name}', label);
+        if (!await showConfirm(confirmText)) return;
+        await state.onDelete(entry);
+        await deRenderFileBrowser();
+      };
+      row.appendChild(delBtn);
+    }
+
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+}
+
+async function deOpenFileBrowser(config) {
+  fileBrowserState = Object.assign({
+    currentPath: '',
+    toolbarButtons: [],
+    allowCreateFolder: true,
+    allowDeleteFolders: false,
+    confirmOverwrite: false,
+    bundleMode: false,
+    rootLabel: t('deFileBrowserRoot') || 'Root'
+  }, config || {});
+  fileBrowserState.currentPath = deNormalizeRelPath(fileBrowserState.currentPath);
+  document.getElementById('file-modal-title').textContent = fileBrowserState.title || 'Files';
+  await deRenderFileBrowser();
+  showModal('file-modal');
+}
+
 async function refreshDocList() {
   if (!window.Desktop || !Desktop.isElectron()) return [];
   try {
@@ -1964,51 +2480,29 @@ async function refreshDocList() {
 }
 
 async function openDocModal() {
-  const files = await refreshDocList();
   fileModalMode = 'open-doc';
-  document.getElementById('file-modal-title').textContent = 'Open Document';
-  const body = document.getElementById('file-modal-body');
-  if (!files.length) {
-    body.innerHTML = '<div class="modal-empty">No saved documents yet.<br>Use <strong>Save</strong> to create one.</div>';
-  } else {
-    body.innerHTML = '';
-    const list = document.createElement('div');
-    list.className = 'file-list';
-    files.forEach(f => {
-      const rp = f.relativePath || f.filename || '';
-      const displayName = f.filename || rp;
-      const isFolder = rp.includes('/');
-      const row = document.createElement('div');
-      row.className = 'file-row';
-      const info = document.createElement('div');
-      info.className = 'file-row-info';
-      info.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>'
-        + (rp !== displayName ? '<span class="file-row-path">' + escHtml(rp) + '</span>' : '');
-      row.appendChild(info);
-      const openBtn = document.createElement('button');
-      openBtn.className = 'file-row-btn';
-      openBtn.textContent = 'Open';
-      openBtn.onclick = () => loadDoc(rp);
-      const delBtn = document.createElement('button');
-      delBtn.className = 'file-row-btn file-row-btn-del';
-      delBtn.textContent = 'Del';
-      delBtn.onclick = async () => {
-        if (!await showConfirm('Delete "' + displayName + '"?')) return;
-        if (isFolder) {
-          await Desktop.deleteByPath('docEditorDocs', rp.split('/')[0]).catch(() => {});
-        } else {
-          await Desktop.deleteByPath('docEditorDocs', rp).catch(() => {});
-          await Desktop.deleteByPath('docEditorDocs', rp + '.json').catch(() => {});
-        }
-        openDocModal();
-      };
-      row.appendChild(openBtn);
-      row.appendChild(delBtn);
-      list.appendChild(row);
-    });
-    body.appendChild(list);
-  }
-  showModal('file-modal');
+  await deOpenFileBrowser({
+    title: t('skmDeOpen') || 'Open document',
+    target: 'docEditorDocs',
+    currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+    extensions: ['.md', '.html'],
+    bundleMode: true,
+    displayNameFn: deDocBrowserDisplayName,
+    rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
+    openButtonLabel: t('deFileBrowserOpen') || 'Open',
+    emptyText: '<div>' + (t('deFileBrowserNoDocuments') || 'No saved documents yet.') + '<br>' + (t('deFileBrowserUseSaveHint') || 'Use Save to create one.') + '</div>',
+    onOpen: async relativePath => {
+      await loadDoc(relativePath);
+    },
+    onDelete: async entry => {
+      if (entry.isBundle && entry.bundlePath) {
+        await Desktop.deleteByPath('docEditorDocs', entry.bundlePath).catch(() => {});
+        return;
+      }
+      await Desktop.deleteByPath('docEditorDocs', entry.relativePath).catch(() => {});
+      await Desktop.deleteByPath('docEditorDocs', entry.relativePath + '.json').catch(() => {});
+    }
+  });
 }
 
 async function openFromDisk() {
@@ -2031,6 +2525,8 @@ async function openFromDisk() {
   currentDocSubdir = null;
   currentEditTarget = null;
   currentEditRelPath = null;
+  currentDocStoredInDocs = false;
+  currentOpenedDiskPath = r.path || null;
   currentDocType = ext === 'html' ? 'html' : 'md';
   docModified = true;
   updateDocIndicator();
@@ -2091,9 +2587,10 @@ async function loadDoc(relativePath) {
     const r = await Desktop.readByPath('docEditorDocs', relativePath);
     if (r && r.ok) {
       mdEditor.setValue(r.content || '');
-      const parts = relativePath.split('/');
-      currentDocName = parts[parts.length - 1];
-      currentDocSubdir = parts.length > 1 ? parts[0] : null;
+      currentDocName = deBasename(relativePath);
+      currentDocSubdir = deDirname(relativePath) || null;
+      currentDocStoredInDocs = true;
+      currentOpenedDiskPath = null;
       currentDocType = relativePath.toLowerCase().endsWith('.html') ? 'html' : 'md';
       docModified = false;
       updateDocIndicator();
@@ -2163,6 +2660,8 @@ async function loadExternalDoc(target, relPath) {
       currentDocSubdir = null;
       currentEditTarget = target;
       currentEditRelPath = relPath;
+      currentDocStoredInDocs = false;
+      currentOpenedDiskPath = null;
       currentDocType = relPath.toLowerCase().endsWith('.html') ? 'html' : 'md';
       docModified = false;
       updateDocIndicator();
@@ -2248,10 +2747,24 @@ async function saveDoc() {
     await doSaveDoc(currentDocName);
   } else {
     const ext = '.' + currentDocType;
-    openSaveModal('Save Document', ext, async name => {
-      if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
-      else name += ext;
-      await doSaveDoc(name);
+    await deOpenFileBrowser({
+      title: t('deFileBrowserSaveDocument') || 'Save document',
+      target: 'docEditorDocs',
+      currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+      extensions: ['.md', '.html'],
+      bundleMode: true,
+      displayNameFn: deDocBrowserDisplayName,
+      rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
+      mode: 'save',
+      placeholder: 'my-document' + ext,
+      suggestedName: currentDocName || '',
+      confirmOverwrite: true,
+      onSave: async (name, folderPath) => {
+        let nextName = name;
+        if (/\.(md|html)$/i.test(nextName)) setDocType(/\.html$/i.test(nextName) ? 'html' : 'md');
+        else nextName += ext;
+        await doSaveDoc(nextName, folderPath);
+      }
     });
   }
 }
@@ -2259,14 +2772,28 @@ async function saveDoc() {
 async function saveDocAs() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   const ext = '.' + currentDocType;
-  openSaveModal('Save Document As', ext, async name => {
-    if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
-    else name += ext;
-    await doSaveDoc(name);
+  await deOpenFileBrowser({
+    title: t('deFileBrowserSaveDocumentAs') || 'Save document as',
+    target: 'docEditorDocs',
+    currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+    extensions: ['.md', '.html'],
+    bundleMode: true,
+    displayNameFn: deDocBrowserDisplayName,
+    rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
+    mode: 'save',
+    placeholder: 'my-document' + ext,
+    suggestedName: currentDocName || '',
+    confirmOverwrite: true,
+    onSave: async (name, folderPath) => {
+      let nextName = name;
+      if (/\.(md|html)$/i.test(nextName)) setDocType(/\.html$/i.test(nextName) ? 'html' : 'md');
+      else nextName += ext;
+      await doSaveDoc(nextName, folderPath);
+    }
   });
 }
 
-async function doSaveDoc(filename) {
+async function doSaveDoc(filename, folderPath = null) {
   if (!mdEditor) return;
   try {
     const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
@@ -2274,7 +2801,10 @@ async function doSaveDoc(filename) {
       ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
       : mdEditor.getValue();
     const hasCSS = !!currentStylesheetName;
-    const newSubdir = filename.replace(/\.(md|html)$/i, '');
+    const targetContainer = folderPath == null
+      ? deDocContainerPathFromBundle(currentDocSubdir || '')
+      : deNormalizeRelPath(folderPath);
+    const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, ''));
     const wasFlat = currentDocSubdir === null && currentDocName === filename;
     const inlineStylesheet = isInlineStylesheetEnabled();
     const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
@@ -2306,9 +2836,11 @@ async function doSaveDoc(filename) {
       }
       currentDocName = filename;
       currentDocSubdir = newSubdir;
+      currentDocStoredInDocs = true;
+      currentOpenedDiskPath = null;
       docModified = false;
       updateDocIndicator();
-      hideModal('save-modal');
+      hideModal('file-modal');
       syncDocStylesheetMeta();
       if (!currentDocMeta.stylesheetInline) {
         currentDocMeta.stylesheet = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
@@ -2374,15 +2906,29 @@ async function saveAll() {
     await doSaveAll(currentDocName);
   } else {
     const ext = '.' + currentDocType;
-    openSaveModal('Save All', ext, async name => {
-      if (/\.(md|html)$/i.test(name)) { setDocType(/\.html$/i.test(name) ? 'html' : 'md'); }
-      else name += ext;
-      await doSaveAll(name);
+    await deOpenFileBrowser({
+      title: t('deFileBrowserSaveAll') || 'Save all',
+      target: 'docEditorDocs',
+      currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+      extensions: ['.md', '.html'],
+      bundleMode: true,
+      displayNameFn: deDocBrowserDisplayName,
+      rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
+      mode: 'save',
+      placeholder: 'my-document' + ext,
+      suggestedName: currentDocName || '',
+      confirmOverwrite: true,
+      onSave: async (name, folderPath) => {
+        let nextName = name;
+        if (/\.(md|html)$/i.test(nextName)) setDocType(/\.html$/i.test(nextName) ? 'html' : 'md');
+        else nextName += ext;
+        await doSaveAll(nextName, folderPath);
+      }
     });
   }
 }
 
-async function doSaveAll(filename) {
+async function doSaveAll(filename, folderPath = null) {
   if (!mdEditor) return;
   const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
   const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
@@ -2390,7 +2936,10 @@ async function doSaveAll(filename) {
     ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
     : mdEditor.getValue();
   const css = cssEditor ? cssEditor.getValue() : '';
-  const newSubdir = filename.replace(/\.(md|html)$/i, ''); // Save All always creates a folder
+  const targetContainer = folderPath == null
+    ? deDocContainerPathFromBundle(currentDocSubdir || '')
+    : deNormalizeRelPath(folderPath);
+  const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, '')); // Save All always creates a folder
   const wasFlat = currentDocSubdir === null && currentDocName === filename;
   const inlineStylesheet = isInlineStylesheetEnabled();
   const cssRelPath = getDocStylesheetRelPath(filename, newSubdir);
@@ -2408,10 +2957,12 @@ async function doSaveAll(filename) {
       }
       currentDocName = filename;
       currentDocSubdir = newSubdir;
+      currentDocStoredInDocs = true;
+      currentOpenedDiskPath = null;
       docModified = false;
       cssModified = false;
       updateDocIndicator();
-      hideModal('save-modal');
+      hideModal('file-modal');
       if (inlineStylesheet) {
         await Desktop.deleteByPath('docEditorDocs', cssRelPath).catch(() => {});
         currentDocMeta.stylesheet = null;
@@ -2447,6 +2998,8 @@ async function newDoc() {
   currentDocSubdir = null;
   currentEditTarget = null;
   currentEditRelPath = null;
+  currentDocStoredInDocs = false;
+  currentOpenedDiskPath = null;
   currentDocMeta = {};
   docModified = false;
   updateDocIndicator();
@@ -2616,56 +3169,27 @@ async function refreshTemplateList() {
 }
 
 async function openTemplateModal() {
-  const files = await refreshTemplateList();
-  document.getElementById('file-modal-title').textContent = 'Templates';
-  const body = document.getElementById('file-modal-body');
-  body.innerHTML = '';
-
-  const toolbar = document.createElement('div');
-  toolbar.className = 'modal-toolbar';
-  const saveTemplBtn = document.createElement('button');
-  saveTemplBtn.className = 'modal-toolbar-btn';
-  saveTemplBtn.textContent = '+ Save current doc as template';
-  saveTemplBtn.onclick = saveAsTemplate;
-  toolbar.appendChild(saveTemplBtn);
-  body.appendChild(toolbar);
-
-  if (!files.length) {
-    const empty = document.createElement('div');
-    empty.className = 'modal-empty';
-    empty.textContent = 'No templates yet.';
-    body.appendChild(empty);
-  } else {
-    const list = document.createElement('div');
-    list.className = 'file-list';
-    files.forEach(f => {
-      const relativePath = f.relativePath || f.filename || '';
-      const parts = relativePath.split('/');
-      const displayName = parts.length > 1 ? parts[0] : relativePath.replace(/\.md$/i, '');
-      const loadPath = relativePath;
-      const deletePath = parts.length > 1 ? parts[0] : relativePath;
-      const row = document.createElement('div');
-      row.className = 'file-row';
-      row.innerHTML = '<span class="file-row-name">' + escHtml(displayName) + '</span>';
-      const useBtn = document.createElement('button');
-      useBtn.className = 'file-row-btn';
-      useBtn.textContent = 'Use';
-      useBtn.onclick = () => loadTemplate(loadPath);
-      const delBtn = document.createElement('button');
-      delBtn.className = 'file-row-btn file-row-btn-del';
-      delBtn.textContent = 'Del';
-      delBtn.onclick = async () => {
-        if (!await showConfirm('Delete template "' + displayName + '"?')) return;
-        await Desktop.deleteByPath('docEditorTemplates', deletePath);
-        openTemplateModal();
-      };
-      row.appendChild(useBtn);
-      row.appendChild(delBtn);
-      list.appendChild(row);
-    });
-    body.appendChild(list);
-  }
-  showModal('file-modal');
+  await deOpenFileBrowser({
+    title: t('deFileBrowserTemplatesTitle') || 'Templates',
+    target: 'docEditorTemplates',
+    currentPath: '',
+    extensions: ['.md'],
+    bundleMode: true,
+    displayNameFn: deTemplateBrowserDisplayName,
+    rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
+    openButtonLabel: t('deFileBrowserUse') || 'Use',
+    emptyText: t('deFileBrowserNoTemplates') || 'No templates yet.',
+    toolbarButtons: [{
+      label: t('deFileBrowserSaveCurrentTemplate') || '+ Save current doc as template',
+      onClick: saveAsTemplate
+    }],
+    onOpen: async relativePath => {
+      await loadTemplate(relativePath);
+    },
+    onDelete: async entry => {
+      await Desktop.deleteByPath('docEditorTemplates', entry.isBundle && entry.bundlePath ? entry.bundlePath : entry.relativePath).catch(() => {});
+    }
+  });
 }
 
 async function loadTemplate(filename) {
@@ -2690,61 +3214,37 @@ async function loadTemplate(filename) {
 
 async function saveAsTemplate() {
   if (!window.Desktop || !Desktop.isElectron()) return;
-  const files = await refreshTemplateList();
-  document.getElementById('file-modal-title').textContent = 'Save as Template';
-  const body = document.getElementById('file-modal-body');
-  const suggested = currentDocName ? currentDocName.replace(/\.md$/, '') + '.md' : '';
-
-  let html = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-    <input class="modal-input" id="save-tmpl-name" type="text"
-      placeholder="template-name.md" value="${escHtml(suggested)}"
-      autocomplete="off" spellcheck="false" style="margin-bottom:0;flex:1">
-    <button class="modal-btn" id="btn-save-tmpl-confirm"
-      style="flex:0 0 auto;white-space:nowrap;min-width:70px">Save</button>
-  </div>`;
-
-  if (files.length) {
-    html += `<div style="font-size:.7rem;font-weight:800;text-transform:uppercase;
-      letter-spacing:.5px;color:#666;margin-bottom:8px">Existing — click to overwrite</div>
-      <div class="file-list">`;
-    files.forEach(f => {
-      const rp = f.relativePath || f.filename || '';
-      const rparts = rp.split('/');
-      const displayName = rparts.length > 1 ? rparts[0] : rp.replace(/\.md$/i, '');
-      const selectName = (f.filename || '').replace(/\.md$/i, '');
-      html += `<div class="file-row">
-        <span class="file-row-name">${escHtml(displayName)}</span>
-        <button class="file-row-btn file-row-btn-outline" data-name="${escHtml(selectName)}">Select</button>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  body.innerHTML = html;
-  showModal('file-modal');
-  const input = document.getElementById('save-tmpl-name');
-  setTimeout(() => { input.focus(); input.select(); }, 40);
-
-  async function doSave(name) {
-    name = name.trim();
-    if (!name) { showToast('Enter a filename', true); return; }
-    if (!name.endsWith('.md')) name += '.md';
-    try {
-      const subdir = name.replace(/\.md$/i, '');
-      const r = await Desktop.saveText('docEditorTemplates', name, mdEditor.getValue(), subdir);
-      if (r && r.ok) {
-        hideModal('file-modal');
-        showToast('Template saved: ' + name);
-      } else {
-        showToast('Save failed', true);
+  const suggested = currentDocName ? currentDocName.replace(/\.md$/i, '') + '.md' : '';
+  await deOpenFileBrowser({
+    title: t('deFileBrowserSaveTemplate') || 'Save as template',
+    target: 'docEditorTemplates',
+    currentPath: '',
+    extensions: ['.md'],
+    bundleMode: true,
+    displayNameFn: deTemplateBrowserDisplayName,
+    rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
+    mode: 'save',
+    placeholder: 'template-name.md',
+    suggestedName: suggested,
+    confirmOverwrite: true,
+    onSave: async (name, folderPath) => {
+      let nextName = String(name || '').trim();
+      if (!nextName) {
+        showToast(t('deFileBrowserEnterName') || 'Enter a file name.', true);
+        return;
       }
-    } catch(e) { showToast('Error: ' + e.message, true); }
-  }
-
-  document.getElementById('btn-save-tmpl-confirm').addEventListener('click', () => doSave(input.value));
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSave(input.value); });
-  document.querySelectorAll('#file-modal-body .file-row-btn[data-name]').forEach(btn => {
-    btn.addEventListener('click', function() { input.value = this.dataset.name; input.focus(); });
+      if (!nextName.endsWith('.md')) nextName += '.md';
+      try {
+        const subdir = deJoinRelPath(folderPath, nextName.replace(/\.md$/i, ''));
+        const r = await Desktop.saveText('docEditorTemplates', nextName, mdEditor.getValue(), subdir);
+        if (r && r.ok) {
+          hideModal('file-modal');
+          showToast((t('omTemplateSaved') || 'Template saved!').replace('!', '') + ': ' + nextName);
+        } else {
+          showToast('Save failed', true);
+        }
+      } catch(e) { showToast('Error: ' + e.message, true); }
+    }
   });
 }
 
@@ -2776,7 +3276,7 @@ function injectPairedSSOption(cssFilename) {
 async function refreshStylesheetList() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   try {
-    const r = await Desktop.listByPath('docEditorStylesheets', '', { extensions: ['.css'] });
+    const r = await Desktop.listByPath('docEditorStylesheets', '', { extensions: ['.css'], recursive: true });
     const files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
     const sel = document.getElementById('stylesheet-select');
     const prev = sel.value;
@@ -2786,8 +3286,9 @@ async function refreshStylesheetList() {
     }
     files.forEach(f => {
       const opt = document.createElement('option');
-      opt.value = f.filename || f.relativePath;
-      opt.textContent = f.filename || f.relativePath;
+      const rel = f.relativePath || f.filename;
+      opt.value = rel;
+      opt.textContent = rel;
       sel.appendChild(opt);
     });
     if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
@@ -2831,23 +3332,40 @@ async function loadStylesheet(filename) {
 }
 
 async function newStylesheet() {
-  openSaveModal('New Stylesheet', '.css', async name => {
-    if (!name.endsWith('.css')) name += '.css';
-    if (!window.Desktop || !Desktop.isElectron()) return;
-    try {
-      const initial = '/* Custom styles for Document Editor */\n\n.doc-preview {\n  /* override preview defaults here */\n}\n';
-      const r = await Desktop.saveText('docEditorStylesheets', name, initial);
-      if (r && r.ok) {
-        await refreshStylesheetList();
-        document.getElementById('stylesheet-select').value = name;
-        currentStylesheetName = name;
-        cssEditor && cssEditor.setValue(initial);
-        document.getElementById('custom-css-style').textContent = initial;
-        cssModified = false;
-        hideModal('save-modal');
-        showToast('Stylesheet created: ' + name);
-      }
-    } catch(e) { showToast('Error: ' + e.message, true); }
+  const ext = '.css';
+  await deOpenFileBrowser({
+    title: t('deFileBrowserNewStylesheet') || 'New stylesheet',
+    target: 'docEditorStylesheets',
+    currentPath: deDirname(parsePairedSS(currentStylesheetName) ? '' : currentStylesheetName),
+    extensions: ['.css'],
+    bundleMode: false,
+    displayNameFn: deStylesheetBrowserDisplayName,
+    rootLabel: t('deFileBrowserStylesheetsRoot') || 'Stylesheets',
+    mode: 'save',
+    placeholder: 'my-stylesheet' + ext,
+    suggestedName: '',
+    confirmOverwrite: true,
+    onSave: async (name, folderPath) => {
+      let nextName = String(name || '').trim();
+      if (!nextName.endsWith('.css')) nextName += '.css';
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      try {
+        const initial = '/* Custom styles for Document Editor */\n\n.doc-preview {\n  /* override preview defaults here */\n}\n';
+        const saveParts = deSplitTargetPath(deJoinRelPath(folderPath, nextName));
+        const r = await Desktop.saveText('docEditorStylesheets', saveParts.filename, initial, saveParts.subdir);
+        if (r && r.ok) {
+          const savedRelPath = deJoinRelPath(folderPath, nextName);
+          await refreshStylesheetList();
+          document.getElementById('stylesheet-select').value = savedRelPath;
+          currentStylesheetName = savedRelPath;
+          cssEditor && cssEditor.setValue(initial);
+          document.getElementById('custom-css-style').textContent = initial;
+          cssModified = false;
+          hideModal('file-modal');
+          showToast('Stylesheet created: ' + savedRelPath);
+        }
+      } catch(e) { showToast('Error: ' + e.message, true); }
+    }
   });
 }
 
@@ -2862,7 +3380,8 @@ async function saveStylesheet() {
   const filename = paired ? paired                  : currentStylesheetName;
   const css = cssEditor ? cssEditor.getValue() : '';
   try {
-    const r = await Desktop.saveText(target, filename, css);
+    const saveParts = paired ? { filename, subdir: currentDocSubdir || null } : deSplitTargetPath(filename);
+    const r = await Desktop.saveText(target, saveParts.filename, css, saveParts.subdir);
     if (r && r.ok) {
       cssModified = false;
       showToast('Stylesheet saved');
@@ -2880,7 +3399,8 @@ async function deleteStylesheet() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   const target = paired ? 'docEditorDocs' : 'docEditorStylesheets';
   try {
-    await Desktop.deleteByPath(target, displayName);
+    const deletePath = paired ? deJoinRelPath(currentDocSubdir || '', paired) : displayName;
+    await Desktop.deleteByPath(target, deletePath);
     if (paired) clearPairedSSOptions();
     currentStylesheetName = null;
     cssEditor && cssEditor.setValue('');
@@ -2913,13 +3433,95 @@ function addCssRule() {
 }
 
 // ── PDF Export ────────────────────────────────────────────
+function getPdfExportBaseName() {
+  const rawName = currentDocName || (currentEditRelPath ? deBasename(currentEditRelPath) : 'document');
+  const baseName = String(rawName || 'document').replace(/\.[^.]+$/i, '').trim();
+  return baseName || 'document';
+}
+
+function getPdfSameFolderTarget() {
+  const filename = getPdfExportBaseName() + '.pdf';
+  if (currentEditTarget && currentEditRelPath) {
+    const relDir = deDirname(currentEditRelPath) || null;
+    const label = relDir ? (currentEditTarget + ' / ' + relDir + ' / ' + filename) : (currentEditTarget + ' / ' + filename);
+    return { available: true, target: currentEditTarget, subdir: relDir, filename, label };
+  }
+  if (currentOpenedDiskPath) {
+    const absolutePath = deNativeSiblingPath(currentOpenedDiskPath, filename);
+    return { available: !!absolutePath, target: null, subdir: null, filename, absolutePath, label: absolutePath };
+  }
+  if (currentDocStoredInDocs && currentDocName) {
+    const relDir = currentDocSubdir || null;
+    const rootLabel = t('deFileBrowserDocumentsRoot') || 'Documents';
+    const label = relDir ? (rootLabel + ' / ' + relDir + ' / ' + filename) : (rootLabel + ' / ' + filename);
+    return { available: true, target: 'docEditorDocs', subdir: relDir, filename, label };
+  }
+  return {
+    available: false,
+    target: null,
+    subdir: null,
+    filename,
+    label: '',
+    reason: t('deExportPdfSameFolderUnavailable') || 'Save the document in Documents or open a managed file to use the same-folder option.'
+  };
+}
+
+function closePdfExportModal(choice = null) {
+  hideModal('pdf-export-modal');
+  const callback = pdfExportModalCallback;
+  pdfExportModalCallback = null;
+  if (callback) callback(choice);
+}
+
+function openPdfExportModal(sameFolderInfo) {
+  const titleEl = document.getElementById('pdf-export-modal-title');
+  const textEl = document.getElementById('pdf-export-modal-text');
+  const hintEl = document.getElementById('pdf-export-same-folder-hint');
+  const sameBtn = document.getElementById('btn-pdf-export-same-folder');
+  const pickerBtn = document.getElementById('btn-pdf-export-picker');
+  const cancelBtn = document.getElementById('btn-pdf-export-cancel');
+
+  titleEl.textContent = t('deExportPdfDestinationTitle') || 'Export PDF';
+  textEl.textContent = t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?';
+  sameBtn.textContent = t('deExportPdfSameFolder') || 'Save in same folder';
+  pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
+  cancelBtn.textContent = t('btnCancel') || 'Cancel';
+
+  if (sameFolderInfo && sameFolderInfo.available) {
+    sameBtn.disabled = false;
+    sameBtn.style.opacity = '';
+    sameBtn.style.cursor = '';
+    hintEl.textContent = (t('deExportPdfSameFolderPath') || 'Same-folder PDF: ') + sameFolderInfo.label;
+  } else {
+    sameBtn.disabled = true;
+    sameBtn.style.opacity = '.45';
+    sameBtn.style.cursor = 'default';
+    hintEl.textContent = (sameFolderInfo && sameFolderInfo.reason) || (t('deExportPdfSameFolderUnavailable') || 'Save the document in Documents or open a managed file to use the same-folder option.');
+  }
+
+  if (pdfExportModalCallback) pdfExportModalCallback(null);
+
+  return new Promise(resolve => {
+    pdfExportModalCallback = resolve;
+    showModal('pdf-export-modal');
+    setTimeout(() => {
+      if (sameFolderInfo && sameFolderInfo.available) sameBtn.focus();
+      else pickerBtn.focus();
+    }, 0);
+  });
+}
+
 async function exportPdf() {
   if (!window.Desktop || !Desktop.isElectron()) {
-    showToast('PDF export requires the Electron desktop app.', true);
+    showToast(t('deExportPdfNoElectron') || 'PDF export requires the Electron desktop app.', true);
     return;
   }
 
-  showToast('Preparing PDF…');
+  const sameFolderInfo = getPdfSameFolderTarget();
+  const destination = await openPdfExportModal(sameFolderInfo);
+  if (!destination) return;
+
+  showToast(t('deExportPdfPreparing') || 'Preparing PDF…');
 
   let katexCssLink = '';
   try {
@@ -3015,12 +3617,26 @@ async function exportPdf() {
       '</div>';
   }
 
-  const defaultName = (currentDocName || 'document').replace(/\.(md|html)$/, '') + '.pdf';
-  const result = await Desktop.printPdf({ html, defaultName, pdfOptions });
+  const defaultName = getPdfExportBaseName() + '.pdf';
+  const request = { html, defaultName, pdfOptions };
+  if (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available) {
+    if (sameFolderInfo.absolutePath) {
+      request.absolutePath = sameFolderInfo.absolutePath;
+    } else {
+      request.target = sameFolderInfo.target;
+      request.subdir = sameFolderInfo.subdir;
+      request.filename = sameFolderInfo.filename;
+    }
+  }
+  const result = await Desktop.printPdf(request);
   if (result && !result.ok && !result.canceled) {
-    showToast('PDF export failed: ' + (result.error || 'unknown'), true);
+    showToast((t('deExportPdfFailed') || 'PDF export failed: ') + (result.error || 'unknown'), true);
   } else if (result && result.ok) {
-    showToast('PDF exported');
+    showToast(
+      destination === 'same-folder'
+        ? ((t('deExportPdfSameFolderSuccess') || 'PDF saved in the same folder: ') + (sameFolderInfo.filename || defaultName))
+        : (t('deExportPdfSuccess') || 'PDF exported')
+    );
   }
 }
 
@@ -4429,6 +5045,18 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('save-filename-input').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') document.getElementById('btn-save-confirm').click();
     if (e.key === 'Escape') hideModal('save-modal');
+  });
+
+  // PDF export modal
+  document.getElementById('btn-pdf-export-same-folder').addEventListener('click', () => closePdfExportModal('same-folder'));
+  document.getElementById('btn-pdf-export-picker').addEventListener('click', () => closePdfExportModal('picker'));
+  document.getElementById('btn-pdf-export-cancel').addEventListener('click', () => closePdfExportModal(null));
+  document.getElementById('pdf-export-modal-close').addEventListener('click', () => closePdfExportModal(null));
+  document.getElementById('pdf-export-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePdfExportModal(null);
+  });
+  document.getElementById('pdf-export-modal').addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePdfExportModal(null);
   });
 
   // File modal

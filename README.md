@@ -50,7 +50,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
-| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, custom CSS stylesheets, templates, PDF export, and Save to folder (OS Save As) |
+| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, custom CSS stylesheets, templates, PDF export with same-folder or Save As choice, and Save to folder |
 | `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
 
 All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
@@ -1224,18 +1224,20 @@ Files are saved as `.md` under `custom-data/document-editor/docs/`.
 | Action | How |
 |---|---|
 | **New** | Clears the editor (prompts if unsaved changes) |
-| **Open** | Modal list of saved documents; click Open or Delete |
+| **Open** | Folder browser modal for Documents. Navigate folders/subfolders, create folders, then open or delete a document |
 | **Open from disk…** | OS file picker — opens any `.html`, `.md`, or `.txt` file from anywhere on disk. The content is loaded into the editor; use **Save** to store a managed copy in Documents |
-| **Save** | Saves under current name; prompts for a filename if new |
-| **Save As** | Always prompts for a new filename |
+| **Save** | Saves under current name; if the document is new, opens the same folder browser so you can choose a folder and filename |
+| **Save As** | Opens the folder browser so you can pick a folder/subfolder, create folders, and save under a new filename |
 | Ctrl+S | Save | Ctrl+N | New | Ctrl+O | Open |
+
+Saved documents can now be organised into folders and subfolders. The browser shows the folder tree, lets you create new folders in place, and still keeps each managed document's sidecar files bundled internally.
 
 ### Templates
 
 Templates are `.md` files under `custom-data/document-editor/templates/`. Use the **Format ▾** menu to:
 
-- **Open template…** — insert a template into the editor (replaces current content).
-- **Save as template…** — save the current editor content as a named template.
+- **Open template…** — open the Templates browser, navigate folders/subfolders, and insert a template into the editor.
+- **Save as template…** — save the current editor content through the same browser, including into newly created template folders.
 
 ### Book Text Import
 
@@ -1251,11 +1253,11 @@ The top panel exposes three ways to customise how the preview looks:
 
 | Control | Purpose |
 |---|---|
-| **Stylesheet picker** | Select, create (New), save, or delete a `.css` file stored under `custom-data/document-editor/stylesheets/` |
+| **Stylesheet picker** | Select a `.css` file stored under `custom-data/document-editor/stylesheets/`, including nested paths |
 | **Quick Rule builder** | Type a CSS selector, choose a property from the dropdown, type a value, press **+ Add** — the rule is appended to the CSS editor and applied immediately |
 | **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw content of the active stylesheet; changes apply to the preview in real time |
 
-In **⚙ Settings → Preferences**, you can enable **Include stylesheet inline with the document** to store the CSS inside the document metadata instead of writing a separate stylesheet file.
+Use **New** to create a stylesheet in any folder/subfolder and **Save/Delete** to manage the currently selected stylesheet path. In **⚙ Settings → Preferences**, you can enable **Include stylesheet inline with the document** to store the CSS inside the document metadata instead of writing a separate stylesheet file.
 
 Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
 
@@ -1270,7 +1272,7 @@ Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector t
 
 ### PDF Export
 
-Click **Export PDF** to render the current preview (including custom CSS and KaTeX fonts) as a PDF and save it via the system save dialog.
+Click **Export PDF** to render the current preview (including custom CSS and KaTeX fonts) as a PDF, then choose whether to save it beside the current managed document or a file opened from disk, or via the system Save As dialog.
 
 ### Keyboard Shortcuts
 

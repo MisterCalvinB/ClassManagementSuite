@@ -80,7 +80,19 @@
       target,
       relativePath,
       extensions: Array.isArray(options.extensions) ? options.extensions : [],
-      recursive: options.recursive !== false
+      recursive: options.recursive !== false,
+      includeDirectories: options.includeDirectories === true
+    });
+  }
+
+  async function createDirectoryByPath(target, relativePath) {
+    if (!isElectron()) {
+      return null;
+    }
+
+    return getDesktopApi().createDirectoryByPath({
+      target,
+      relativePath
     });
   }
 
@@ -607,6 +619,7 @@
     goToLauncher,
     isElectron,
     isTimerWindowOpen,
+    createDirectoryByPath,
     listByPath,
     listFiles,
     openExternal,
