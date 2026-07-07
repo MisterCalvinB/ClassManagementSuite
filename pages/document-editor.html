@@ -2067,6 +2067,28 @@ function deDocContainerPathFromBundle(bundlePath) {
   return deDirname(deNormalizeRelPath(bundlePath));
 }
 
+function deDocBaseName(filename) {
+  return String(filename || '').replace(/\.(md|html)$/i, '');
+}
+
+function deDocIsBundledPath(subdir, filename) {
+  const normalized = deNormalizeRelPath(subdir || '');
+  if (!normalized) return false;
+  return deBasename(normalized).toLowerCase() === deDocBaseName(filename).toLowerCase();
+}
+
+function deDocTargetContainerFromCurrent(subdir, filename) {
+  const normalized = deNormalizeRelPath(subdir || '');
+  if (!normalized) return '';
+  return deDocIsBundledPath(normalized, filename)
+    ? deDirname(normalized)
+    : normalized;
+}
+
+function deDocFlatRelPath(subdir, filename) {
+  return deJoinRelPath(subdir || '', filename || '');
+}
+
 function deDocBrowserDisplayName(relativePath) {
   return deBasename(relativePath);
 }
@@ -2801,22 +2823,26 @@ async function doSaveDoc(filename, folderPath = null) {
       : mdEditor.getValue();
     const hasCSS = !!currentStylesheetName;
     const targetContainer = folderPath == null
-      ? deDocContainerPathFromBundle(currentDocSubdir || '')
+      ? deDocTargetContainerFromCurrent(currentDocSubdir || '', filename)
       : deNormalizeRelPath(folderPath);
     const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, ''));
-    const wasFlat = currentDocSubdir === null && currentDocName === filename;
+    const wasFlat = currentDocName === filename && !deDocIsBundledPath(currentDocSubdir || '', filename);
     const inlineStylesheet = isInlineStylesheetEnabled();
     const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
-    const cssRelPath = getDocStylesheetRelPath(filename, wasFlat ? null : currentDocSubdir);
+    const cssRelPath = getDocStylesheetRelPath(filename, currentDocSubdir || null);
 
     const r = await Desktop.saveText('docEditorDocs', filename, content, newSubdir);
     if (r && r.ok) {
       // Migrate flat → folder: delete old flat files
       if (wasFlat && newSubdir) {
-        await Desktop.deleteByPath('docEditorDocs', filename).catch(() => {});
-        await Desktop.deleteByPath('docEditorDocs', filename + '.json').catch(() => {});
+        const oldFlatPath = deDocFlatRelPath(currentDocSubdir || '', filename);
+        await Desktop.deleteByPath('docEditorDocs', oldFlatPath).catch(() => {});
+        await Desktop.deleteByPath('docEditorDocs', oldFlatPath + '.json').catch(() => {});
         const oldPaired = parsePairedSS(currentStylesheetName);
-        if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
+        if (oldPaired) {
+          const oldPairedPath = deDocFlatRelPath(currentDocSubdir || '', oldPaired);
+          await Desktop.deleteByPath('docEditorDocs', oldPairedPath).catch(() => {});
+        }
       }
       // Bundle CSS into folder when CSS is active and inline mode is disabled.
       if (inlineStylesheet) {
@@ -2940,12 +2966,12 @@ async function doSaveAll(filename, folderPath = null) {
     : mdEditor.getValue();
   const css = cssEditor ? cssEditor.getValue() : '';
   const targetContainer = folderPath == null
-    ? deDocContainerPathFromBundle(currentDocSubdir || '')
+    ? deDocTargetContainerFromCurrent(currentDocSubdir || '', filename)
     : deNormalizeRelPath(folderPath);
   const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, '')); // Save All always creates a folder
-  const wasFlat = currentDocSubdir === null && currentDocName === filename;
+  const wasFlat = currentDocName === filename && !deDocIsBundledPath(currentDocSubdir || '', filename);
   const inlineStylesheet = isInlineStylesheetEnabled();
-  const cssRelPath = getDocStylesheetRelPath(filename, newSubdir);
+  const cssRelPath = getDocStylesheetRelPath(filename, currentDocSubdir || null);
    try {
     const [docR, cssR] = await Promise.all([
       Desktop.saveText('docEditorDocs', filename, content, newSubdir),
@@ -2953,10 +2979,14 @@ async function doSaveAll(filename, folderPath = null) {
     ]);
     if (docR && docR.ok && cssR && cssR.ok) {
       if (wasFlat) {
-        await Desktop.deleteByPath('docEditorDocs', filename).catch(() => {});
-        await Desktop.deleteByPath('docEditorDocs', filename + '.json').catch(() => {});
+        const oldFlatPath = deDocFlatRelPath(currentDocSubdir || '', filename);
+        await Desktop.deleteByPath('docEditorDocs', oldFlatPath).catch(() => {});
+        await Desktop.deleteByPath('docEditorDocs', oldFlatPath + '.json').catch(() => {});
         const oldPaired = parsePairedSS(currentStylesheetName);
-        if (oldPaired) await Desktop.deleteByPath('docEditorDocs', oldPaired).catch(() => {});
+        if (oldPaired) {
+          const oldPairedPath = deDocFlatRelPath(currentDocSubdir || '', oldPaired);
+          await Desktop.deleteByPath('docEditorDocs', oldPairedPath).catch(() => {});
+        }
       }
       currentDocName = filename;
       currentDocSubdir = newSubdir;

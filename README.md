@@ -1199,7 +1199,8 @@ Before applying a sync, a modal lists every file that differs between source and
 The window is divided into three horizontal regions:
 
 1. **Nav bar** — grouped into hover menus:
-   - **File ▾** — New, Open, **Open from disk…** (import any file from anywhere on disk; saves as a copy on first Save), Save, Save As, Save All, History
+  - **File ▾** — New, Open, **Open from disk…** (import any file from anywhere on disk; saves as a copy on first Save), Save, Save As, Save All, History
+  - **Save / Save All behavior** — if a file was opened from a specific location (Documents bundle, another managed target, or disk), Save and Save All now write back to that same location instead of creating duplicate markdown files in a second path.
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
    - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
