@@ -44,7 +44,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
 | `group-editor.html` | Create, edit, archive, and delete class groups; set the active year and term shared by all tools |
 | `import-tool.html` | Bulk-import students and class groups from CSV, XLSX, or JSON with automatic column mapping and conflict resolution |
-| `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and Markdown export |
+| `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and HTML table export |
 | `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
 | `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
 | `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
@@ -376,10 +376,11 @@ A collapsible **To-do** panel sits on the right side of the planner. Click the *
 
 | Format | Description |
 |---|---|
-| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class. |
-| **PDF** | Print-ready week view for the selected term. |
-| **CSV** | Spreadsheet of all entries with full field data. |
-| **Markdown** | Structured text document for notes apps or plain-text sharing. |
+| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class, including entries with no assigned class, and optionally include lesson slots from the weekly schedule. |
+| **PDF** | Compact print-ready table with 2 columns: date + week number, and activities. Filter by class (including entries with no assigned class), optionally include lesson slots from the weekly schedule, and use the "fit on one page" option to aggressively reduce margins, font sizes, and padding for single-page output. |
+| **CSV** | Spreadsheet of all entries with full field data. Filter by class (including entries with no assigned class) and optionally include lesson slots from the weekly schedule. |
+| **HTML Table** | Structured HTML table document for browser viewing or sharing. Filter by class (including entries with no assigned class) and optionally include lesson slots from the weekly schedule. |
+| **DOCX** | Editable Word document with the same two-column table structure as PDF (date + week number, activities), with the same class filters and lesson-slot options. |
 
 ### Keyboard Shortcuts
 
@@ -1066,7 +1067,9 @@ Opened by clicking a class card. Shows all tests (T1–T8) for the selected term
 
 - Columns: student names + one column per test + calculated average/total.
 - Click a test header to open the individual test sheet.
-- Toolbar buttons: **Back to Classes** · **Add Student** · **Add Test** · **Import Test** · **Print Term** · **Import Grades** · **Edit Class** · **Delete Class**.
+- Toolbar buttons: **Back to Classes** · **Add Student** · **Add Test** · **Import Test** · **Print Term** · **Export DOCX** · **Export HTML** · **Import Grades** · **Edit Class** · **Delete Class**.
+
+- **Export HTML (term)** downloads a standalone HTML report with draggable/resizable columns.
 
 ### Test Screen
 
@@ -1076,6 +1079,8 @@ The detailed view for one test. An editable table shows one row per student with
 - **Apply Criteria to Grades** — auto-calculates student grades from criterion scores.
 - **Criteria Reference** — shows descriptor text for each criterion level.
 - **Print Results** — prints the test sheet.
+- **Export Test DOCX** — downloads the same test-results report content as Print Results, in editable DOCX format.
+- **Export Test HTML** — downloads the same per-student report format as Print Results (grade + criteria + observations + scale) in HTML, with draggable/resizable table columns.
 - **Duplicate / Import** — copies the test configuration (criteria, scale, weight) from another class/term/test slot.
 - **Delete Test** / **Clear Test** — remove or zero the test data.
 

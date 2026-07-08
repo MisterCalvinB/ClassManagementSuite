@@ -23288,7 +23288,8 @@ function hideFailure() {
 
     function noteStudentBuildInitialConstellationText() {
       const lines = [];
-      const title = (_noteStudentHub.title || 'Student notes') + (_noteStudentHub.classGroup ? (' (' + _noteStudentHub.classGroup + ')') : '');
+      const classDisplay = _noteStudentHub.classGroup ? (noteStudentClassGroupLabel(_noteStudentHub.classGroup) || _noteStudentHub.classGroup) : '';
+      const title = (_noteStudentHub.title || 'Student notes') + (classDisplay ? (' (' + classDisplay + ')') : '');
       lines.push(title);
       if (_noteStudentHub.joinUrl) lines.push('Join: ' + _noteStudentHub.joinUrl);
       lines.push('');
@@ -23402,7 +23403,8 @@ function hideFailure() {
         const noteData = noteStudentEnsureConstellationNote();
         if (noteData) {
           const lines = String(noteData.text || '').replace(/\r/g, '').split('\n');
-          if (lines.length > 0) lines[0] = (_noteStudentHub.title || 'Student notes') + (_noteStudentHub.classGroup ? (' (' + _noteStudentHub.classGroup + ')') : '');
+          const classDisplay = _noteStudentHub.classGroup ? (noteStudentClassGroupLabel(_noteStudentHub.classGroup) || _noteStudentHub.classGroup) : '';
+          if (lines.length > 0) lines[0] = (_noteStudentHub.title || 'Student notes') + (classDisplay ? (' (' + classDisplay + ')') : '');
           if (lines.length > 1 && lines[1].startsWith('Join: ')) lines[1] = 'Join: ' + (_noteStudentHub.joinUrl || '');
           noteStudentApplyConstellationText(noteData, lines.join('\n'));
         }
@@ -23442,8 +23444,7 @@ function hideFailure() {
       let wsUrl = '';
       try { wsUrl = noteStudentBuildWsUrl(serverInput.value); } catch (_) { noteStudentSetStatus('Invalid server URL.', true); return; }
       if (!_noteStudentHub.noteId) _noteStudentHub.noteId = noteStudentMakeId();
-      const classLabel = noteStudentClassGroupLabel(classGroup);
-      _noteStudentHub.classGroup = classLabel || classGroup; _noteStudentHub.title = title;
+      _noteStudentHub.classGroup = classGroup; _noteStudentHub.title = title;
       const joinBase = (electronServer && electronServer.publicBaseUrl) ? electronServer.publicBaseUrl : serverInput.value;
       _noteStudentHub.joinUrl = noteStudentBuildJoinUrl(joinBase, _noteStudentHub.noteId, classGroup);
       roomInput.value = _noteStudentHub.noteId;
@@ -23458,7 +23459,7 @@ function hideFailure() {
         const _nhRoster = (function() {
           const _m = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
           const _l = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) ? CLASS_GROUPS : {};
-          const _g = _noteStudentHub.classGroup;
+          const _g = classGroup;
           if (!_g) return [];
           const _gm = _m[_g];
           if (_gm && Array.isArray(_gm.students) && _gm.students.length) {
@@ -23471,7 +23472,7 @@ function hideFailure() {
           }
           return Array.isArray(_l[_g]) ? _l[_g].map(String).filter(Boolean) : [];
         })();
-        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: _noteStudentHub.classGroup, title: _noteStudentHub.title, roster: _nhRoster } }));
+        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: classGroup, title: _noteStudentHub.title, roster: _nhRoster } }));
       };
       ws.onmessage = function(event) { let msg = null; try { msg = JSON.parse(event.data); } catch (_) { return; } noteStudentHandleMessage(msg); };
       ws.onerror = function() { noteStudentSetStatus('Websocket error.', true); };

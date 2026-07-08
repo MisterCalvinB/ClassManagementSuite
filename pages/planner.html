@@ -1053,6 +1053,7 @@
         <label data-i18n="pl_icsFilter">Filter by class (optional)</label>
         <select id="exp-cls" class="field-select">
           <option value="" data-i18n="pl_icsAllClasses">All classes</option>
+          <option value="__no_class__" data-i18n="pl_icsUnassignedClass">No assigned class</option>
         </select>
       </div>
       <div class="field-group">
@@ -1063,6 +1064,7 @@
           <label class="cb-label"><input type="checkbox" id="exp-t-assignment" checked> <span data-i18n="pl_typeAssignment">Assignment Due</span></label>
           <label class="cb-label"><input type="checkbox" id="exp-t-holiday" checked> <span data-i18n="pl_typeHoliday">Holiday</span></label>
           <label class="cb-label"><input type="checkbox" id="exp-t-noclass"> <span data-i18n="pl_typeNoclass">No Class</span></label>
+          <label class="cb-label"><input type="checkbox" id="exp-include-slots"> <span data-i18n="pl_exportIncludeLessonSlots">Lesson slots (schedule)</span></label>
           <span id="exp-custom-types"></span>
         </div>
       </div>
@@ -1078,16 +1080,22 @@
           <label class="cb-label"><input type="checkbox" id="exp-f-custom" checked> <span data-i18n="pl_exportFieldCustom">Custom fields</span></label>
         </div>
       </div>
+      <div class="field-group">
+        <div class="modal-section-label" data-i18n="pl_exportLayout">Layout</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+          <label class="cb-label"><input type="checkbox" id="exp-pdf-fit-page"> <span data-i18n="pl_exportPdfFitOnePage">PDF: fit on one page</span></label>
+        </div>
+      </div>
       <div class="export-grid">
         <button class="export-card" onclick="doExportIcs()">
           <span class="ec-icon">📅</span>
           <span class="ec-label" data-i18n="pl_exportIcsLabel">ICS Calendar</span>
           <span class="ec-desc" data-i18n="pl_exportIcsDesc">Import into Google / Apple Calendar (.ics)</span>
         </button>
-        <button class="export-card" onclick="doExportMd()">
+        <button class="export-card" onclick="doExportHtml()">
           <span class="ec-icon">📄</span>
-          <span class="ec-label" data-i18n="pl_exportMdLabel">Markdown</span>
-          <span class="ec-desc" data-i18n="pl_exportMdDesc">Structured plain-text document (.md)</span>
+          <span class="ec-label" data-i18n="pl_exportMdLabel">HTML Table</span>
+          <span class="ec-desc" data-i18n="pl_exportMdDesc">Structured HTML table document (.html)</span>
         </button>
         <button class="export-card" onclick="doExportCsv()">
           <span class="ec-icon">📊</span>
@@ -1098,6 +1106,11 @@
           <span class="ec-icon">🖨</span>
           <span class="ec-label" data-i18n="pl_exportPdfLabel">PDF</span>
           <span class="ec-desc" data-i18n="pl_exportPdfDesc">Print-ready document (.pdf)</span>
+        </button>
+        <button class="export-card" onclick="doExportDocx()">
+          <span class="ec-icon">📝</span>
+          <span class="ec-label" data-i18n="pl_exportDocxLabel">DOCX</span>
+          <span class="ec-desc" data-i18n="pl_exportDocxDesc">Editable Word document (.docx)</span>
         </button>
       </div>
     </div>
@@ -1582,7 +1595,7 @@ function populateSelects() {
   var ids = getPlannerClassIds();
   var expCls = document.getElementById('exp-cls');
   if (expCls) {
-    while (expCls.options.length > 1) expCls.remove(1);
+    while (expCls.options.length > 2) expCls.remove(2);
     ids.forEach(function (id) { expCls.add(new Option(plannerClassDisplayName(id), id)); });
   }
   document.getElementById('no-cls-msg').style.display = ids.length ? 'none' : '';
@@ -2981,6 +2994,8 @@ function getExportFilters() {
   });
   return {
     types:  types,
+    includeLessonSlots: chk('exp-include-slots'),
+    pdfFitOnePage: chk('exp-pdf-fit-page'),
     fields: { topic: chk('exp-f-topic'), objective: chk('exp-f-objective'),
                readings: chk('exp-f-readings'), activities: chk('exp-f-activities'),
                homework: chk('exp-f-homework'), notes: chk('exp-f-notes'),
@@ -2988,8 +3003,63 @@ function getExportFilters() {
   };
 }
 
+var EXPORT_CLASS_FILTER_UNASSIGNED = '__no_class__';
+
+function isUnassignedExportClassFilter(clsFilter) {
+  return clsFilter === EXPORT_CLASS_FILTER_UNASSIGNED;
+}
+
+function entryMatchesExportClassFilter(entry, clsFilter) {
+  var cids = entryClassIds(entry);
+  if (!clsFilter) return true;
+  if (isUnassignedExportClassFilter(clsFilter)) return cids.length === 0;
+  return cids.indexOf(clsFilter) >= 0;
+}
+
+function getExportSlotRows(clsFilter, typeFilter) {
+  var sem = getActiveSem();
+  if (!sem || !sem.semesterStart || !sem.semesterEnd) return [];
+  if (typeFilter && !typeFilter.lesson) return [];
+
+  var prevShowPast = showPast;
+  var prevShowOutsideTerm = showOutsideTerm;
+  var prevFilterClasses = filterClasses;
+
+  try {
+    showPast = true;
+    showOutsideTerm = true;
+    filterClasses = new Set();
+    if (clsFilter && !isUnassignedExportClassFilter(clsFilter)) {
+      filterClasses.add(clsFilter);
+    }
+
+    return (buildSlots(sem) || []).filter(function (s) {
+      if (s.isGlobalHoliday) return false;
+      if (s.entry) return false;
+      if (!clsFilter) return true;
+      if (isUnassignedExportClassFilter(clsFilter)) return !s.classId;
+      return s.classId === clsFilter;
+    }).map(function (s) {
+      return {
+        date: s.date,
+        kind: 'slot',
+        slot: {
+          classId: s.classId || '',
+          time: s.time || '',
+          timeEnd: s.timeEnd || ''
+        }
+      };
+    });
+  } finally {
+    showPast = prevShowPast;
+    showOutsideTerm = prevShowOutsideTerm;
+    filterClasses = prevFilterClasses;
+  }
+}
+
 // ── Shared export data builder ─────────────────────────────────────────────
-function getExportData(clsFilter, typeFilter) {
+function getExportData(clsFilter, typeFilter, options) {
+  options = options || {};
   var sem = getActiveSem();
   var semStart = sem && sem.semesterStart || '';
   var semEnd   = sem && sem.semesterEnd   || '';
@@ -2997,7 +3067,7 @@ function getExportData(clsFilter, typeFilter) {
 
   // Entries in active semester
   entries.filter(function (e) {
-    if (clsFilter && entryClassIds(e).indexOf(clsFilter) < 0) return false;
+    if (!entryMatchesExportClassFilter(e, clsFilter)) return false;
     if ((classGroupsMeta[e.classId] || {}).archived) return false;
     if (semStart && e.date < semStart) return false;
     if (semEnd   && e.date > semEnd)   return false;
@@ -3015,10 +3085,15 @@ function getExportData(clsFilter, typeFilter) {
     });
   }
 
+  if (options.includeLessonSlots) {
+    rows = rows.concat(getExportSlotRows(clsFilter, typeFilter));
+  }
+
   rows.sort(function (a, b) {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.kind !== b.kind) return a.kind === 'holiday' ? -1 : 1;
-    var at = (a.entry && a.entry.time) || '', bt = (b.entry && b.entry.time) || '';
+    var at = (a.entry && a.entry.time) || (a.slot && a.slot.time) || '';
+    var bt = (b.entry && b.entry.time) || (b.slot && b.slot.time) || '';
     return at < bt ? -1 : at > bt ? 1 : 0;
   });
   return { sem: sem, rows: rows };
@@ -3058,10 +3133,10 @@ function doExportIcs() {
   var icsFilters = getExportFilters();
   entries.forEach(function (e) {
     if (e.type === 'no-class') return;
-    if (clsFilter && entryClassIds(e).indexOf(clsFilter) < 0) return;
+    if (!entryMatchesExportClassFilter(e, clsFilter)) return;
     if (!icsFilters.types[e.type || 'lesson']) return;
     var prefix  = e.type==='test' ? 'TEST: ' : e.type==='assignment' ? 'DUE: ' : '';
-    var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || e.classId || '';
+    var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || e.classId || t('pl_noClass');
     var summary = prefix + clsLabel + (e.topic ? ' – '+e.topic : '');
     var dtstart, dtend;
     var icsEndDate = (e.dateTo && e.dateTo > e.date) ? e.dateTo : null;
@@ -3094,6 +3169,24 @@ function doExportIcs() {
     vevent('entry-'+e.id, dtstart, dtend, summary, desc);
   });
 
+  if (icsFilters.includeLessonSlots) {
+    getExportSlotRows(clsFilter, icsFilters.types).forEach(function (row) {
+      var s = row.slot;
+      var clsLabel = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+      var summary = clsLabel + ' – ' + t('pl_exportLessonSlotLabel');
+      var dtstart, dtend;
+      if (s.time) {
+        dtstart = ':' + row.date.replace(/-/g,'') + 'T' + s.time.replace(':','') + '00';
+        var endT = s.timeEnd || timeAddHour(s.time);
+        dtend = ':' + row.date.replace(/-/g,'') + 'T' + endT.replace(':','') + '00';
+      } else {
+        dtstart = ';VALUE=DATE:' + row.date.replace(/-/g,'');
+        dtend = ';VALUE=DATE:' + datePlus1(row.date);
+      }
+      vevent('slot-' + row.date + '-' + (s.classId || 'noclass') + '-' + (s.time || 'all'), dtstart, dtend, summary, '');
+    });
+  }
+
   lines.push('END:VCALENDAR');
   var blob = new Blob([lines.join('\r\n')], { type:'text/calendar;charset=utf-8' });
   var url  = URL.createObjectURL(blob);
@@ -3104,57 +3197,144 @@ function doExportIcs() {
   closeModal('exportModal');
 }
 
-// ── MD export ──────────────────────────────────────────────────────────────
-function doExportMd() {
+// ── HTML table export ───────────────────────────────────────────────────────
+function doExportHtml() {
   var clsFilter = document.getElementById('exp-cls').value;
   var filters = getExportFilters();
-  var data = getExportData(clsFilter, filters.types);
+  var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
   var fi   = filters.fields;
   var sem  = data.sem;
   var title = sem ? (sem.label || 'Planner') : 'Planner';
-  var lines = ['# ' + title, '> ' + new Date().toLocaleDateString(), ''];
-  var prevDate = null;
+  var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+  var headers = [t('pl_entryDate'), t('pl_entryClass'), t('pl_entryTime'), t('pl_entryType')];
+  if (fi.topic) headers.push(t('pl_entryTopic'));
+  if (fi.objective) headers.push(t('pl_entryObjective'));
+  if (fi.readings) headers.push(t('pl_entryReadings'));
+  if (fi.activities) headers.push(t('pl_entryActivities'));
+  if (fi.homework) headers.push(t('pl_entryHomework'));
+  if (fi.notes) headers.push(t('pl_entryNotes'));
+  customNames.forEach(function (n) { headers.push(n); });
 
-  data.rows.forEach(function (row) {
-    if (row.date !== prevDate) {
-      prevDate = row.date;
-      var d = new Date(row.date + 'T12:00:00');
-      lines.push('---');
-      lines.push('## ' + d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' }));
-      lines.push('');
-    }
+  function rowCellsHtml(cells) {
+    return '<tr>' + cells.map(function (v, idx) {
+      return '<td data-col="' + idx + '">' + esc(v || '') + '</td>';
+    }).join('') + '</tr>';
+  }
+
+  var rows = data.rows.map(function (row) {
     if (row.kind === 'holiday') {
       var holStr = row.label || t('pl_typeHoliday');
       if (row.dateTo) {
-        var d1 = new Date(row.date   + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
         var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
-        holStr += ' (' + d1 + ' – ' + d2 + ')';
+        holStr += ' (' + d1 + ' - ' + d2 + ')';
       }
-      lines.push('> 🏖 ' + holStr);
-      lines.push(''); return;
+      var holidayCells = [row.date, t('pl_noClass'), '', t('pl_typeHoliday')];
+      if (fi.topic) holidayCells.push(holStr);
+      if (fi.objective) holidayCells.push('');
+      if (fi.readings) holidayCells.push('');
+      if (fi.activities) holidayCells.push('');
+      if (fi.homework) holidayCells.push('');
+      if (fi.notes) holidayCells.push('');
+      customNames.forEach(function () { holidayCells.push(''); });
+      return rowCellsHtml(holidayCells);
     }
+    if (row.kind === 'slot') {
+      var s = row.slot || {};
+      var slotTime = (s.time || '') + (s.timeEnd ? '-' + s.timeEnd : '');
+      var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+      var slotCells = [row.date, slotClass, slotTime, t('pl_exportLessonSlotLabel')];
+      if (fi.topic) slotCells.push(t('pl_exportLessonSlotLabel'));
+      if (fi.objective) slotCells.push('');
+      if (fi.readings) slotCells.push('');
+      if (fi.activities) slotCells.push('');
+      if (fi.homework) slotCells.push('');
+      if (fi.notes) slotCells.push('');
+      customNames.forEach(function () { slotCells.push(''); });
+      return rowCellsHtml(slotCells);
+    }
+
     var e = row.entry;
-    var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
-    var typeLbl = typeLabel(e.type || 'lesson');
     var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-    var dateRangeLabel = (e.dateTo && e.dateTo > e.date) ? e.date + ' → ' + e.dateTo : '';
-    lines.push('### ' + clsLabel + (dateRangeLabel ? ' · ' + dateRangeLabel : '') + (timeLabel ? ' · ' + timeLabel : '') + (typeLbl ? ' · ' + typeLbl : ''));
-    if (fi.topic      && e.topic)      lines.push('**' + t('pl_entryTopic')      + ':** ' + e.topic);
-    if (fi.objective  && e.objective)  lines.push('**' + t('pl_entryObjective')  + ':** ' + e.objective);
-    if (fi.readings   && e.readings)   lines.push('**' + t('pl_entryReadings')   + ':** ' + e.readings);
-    if (fi.activities && e.activities) lines.push('**' + t('pl_entryActivities') + ':** ' + e.activities);
-    if (fi.homework   && e.homework)   lines.push('**' + t('pl_entryHomework')   + ':** ' + e.homework);
-    if (fi.notes      && e.notes)      lines.push('**' + t('pl_entryNotes')      + ':** ' + e.notes);
-    if (fi.custom && e.customFields) {
-      Object.keys(e.customFields).forEach(function (k) {
-        if (e.customFields[k]) lines.push('**' + k + ':** ' + e.customFields[k]);
-      });
-    }
-    lines.push('');
+    var timeLabel = (e.time || '') + (e.timeEnd ? '-' + e.timeEnd : '');
+    var rowCells = [e.date, clsLabel, timeLabel, typeLabel(e.type || 'lesson')];
+    if (fi.topic) rowCells.push(e.topic || '');
+    if (fi.objective) rowCells.push(e.objective || '');
+    if (fi.readings) rowCells.push(e.readings || '');
+    if (fi.activities) rowCells.push(e.activities || '');
+    if (fi.homework) rowCells.push(e.homework || '');
+    if (fi.notes) rowCells.push(e.notes || '');
+    customNames.forEach(function (n) { rowCells.push((e.customFields && e.customFields[n]) || ''); });
+    return rowCellsHtml(rowCells);
   });
 
-  downloadText(lines.join('\n'),
-    'planner-' + new Date().toISOString().slice(0, 10) + '.md', 'text/markdown');
+  if (!rows.length) {
+    rows.push('<tr><td data-col="0" colspan="' + headers.length + '">' + esc(t('pl_noEntries')) + '</td></tr>');
+  }
+
+  var colControls = headers.map(function (h, idx) {
+    return '<label class="col-opt"><input type="checkbox" class="col-toggle" data-col="' + idx + '" checked> ' + esc(h) + '</label>';
+  }).join('');
+
+  var colGroup = '<colgroup>' + headers.map(function (_h, idx) {
+    return '<col data-col="' + idx + '">';
+  }).join('') + '</colgroup>';
+
+  var tableHead = headers.map(function (h, idx) {
+    return '<th data-col="' + idx + '"><span class="th-label">' + esc(h) + '</span><span class="col-resizer" data-col="' + idx + '" title="Drag to resize"></span></th>';
+  }).join('');
+
+  var html = '' +
+    '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
+    '<style>' +
+    'body{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#111}' +
+    'h1{margin:0 0 6px;font-size:24px} .meta{margin:0 0 14px;color:#555;font-size:13px}' +
+    '.table-toolbar{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px;border:1px solid #d7d7d7;background:#fafafa;border-radius:6px}' +
+    '.tb-label{font-size:12px;color:#444;font-weight:700;line-height:1.9}' +
+    '.col-options{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center}' +
+    '.col-opt{font-size:12px;color:#333;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;user-select:none}' +
+    'table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}' +
+    'th,td{border:1px solid #d7d7d7;padding:7px 8px;vertical-align:top;text-align:left;word-break:break-word}' +
+    'thead th{background:#f2f4f7;font-weight:700;position:relative}' +
+    '.th-label{display:block;padding-right:10px}' +
+    '.col-resizer{position:absolute;top:0;right:-3px;width:8px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:2}' +
+    '.col-resizer::after{content:"";position:absolute;right:3px;top:20%;bottom:20%;width:1px;background:#b8bcc4}' +
+    'tbody tr:nth-child(even){background:#fafafa}' +
+    '</style></head><body>' +
+    '<h1>' + esc(title) + '</h1>' +
+    '<p class="meta">' + esc(new Date().toLocaleDateString()) + '</p>' +
+    '<div class="table-toolbar"><span class="tb-label">Columns</span><div class="col-options">' + colControls + '</div></div>' +
+    '<table id="planner-export-table">' + colGroup + '<thead><tr>' + tableHead + '</tr></thead>' +
+    '<tbody>' + rows.join('') + '</tbody></table>' +
+    '<script>(function(){' +
+    'var table=document.getElementById("planner-export-table");if(!table)return;' +
+    'function setColVisible(colIndex,visible){' +
+      'var colEl=table.querySelector("col[data-col=\'"+colIndex+"\']");if(colEl)colEl.style.display=visible?"":"none";' +
+      'var cells=table.querySelectorAll("th[data-col=\'"+colIndex+"\'],td[data-col=\'"+colIndex+"\']");' +
+      'for(var i=0;i<cells.length;i++)cells[i].style.display=visible?"":"none";' +
+    '}' +
+    'var toggles=document.querySelectorAll(".col-toggle");' +
+    'for(var t=0;t<toggles.length;t++){' +
+      'toggles[t].addEventListener("change",function(e){' +
+        'var col=e.target.getAttribute("data-col");setColVisible(col,!!e.target.checked);' +
+      '});' +
+    '}' +
+    'var active=null,startX=0,startW=0,minW=56;' +
+    'function onMove(e){if(!active)return;var w=Math.max(minW,startW+(e.clientX-startX));active.col.style.width=w+"px";active.th.style.width=w+"px";}' +
+    'function onUp(){if(!active)return;active=null;document.body.style.cursor="";window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);}' +
+    'var handles=table.querySelectorAll(".col-resizer");' +
+    'for(var h=0;h<handles.length;h++){' +
+      'handles[h].addEventListener("mousedown",function(e){' +
+        'e.preventDefault();var idx=e.target.getAttribute("data-col");var th=e.target.parentNode;var col=table.querySelector("col[data-col=\'"+idx+"\']");' +
+        'if(!th||!col)return;active={th:th,col:col};startX=e.clientX;startW=th.getBoundingClientRect().width;document.body.style.cursor="col-resize";' +
+        'window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);' +
+      '});' +
+    '}' +
+    '})();<\/script>' +
+    '</body></html>';
+
+  downloadText(html,
+    'planner-' + new Date().toISOString().slice(0, 10) + '.html', 'text/html;charset=utf-8');
   closeModal('exportModal');
 }
 
@@ -3163,7 +3343,7 @@ function doExportCsv() {
   var clsFilter = document.getElementById('exp-cls').value;
   var filters = getExportFilters();
   var fi = filters.fields;
-  var data = getExportData(clsFilter, filters.types);
+  var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
   var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
   var header = ['Date','EndDate','Class','StartTime','EndTime','Type'];
   if (fi.topic)      header.push('Topic');
@@ -3175,9 +3355,23 @@ function doExportCsv() {
   customNames.forEach(function (n) { header.push(n); });
   var rows = [header];
   data.rows.forEach(function (row) {
+    if (row.kind === 'slot') {
+      var s = row.slot;
+      var slotCells = [row.date, '', s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass'), s.time || '', s.timeEnd || '', 'lesson-slot'];
+      if (fi.topic)      slotCells.push(t('pl_exportLessonSlotLabel'));
+      if (fi.objective)  slotCells.push('');
+      if (fi.readings)   slotCells.push('');
+      if (fi.activities) slotCells.push('');
+      if (fi.homework)   slotCells.push('');
+      if (fi.notes)      slotCells.push('');
+      customNames.forEach(function () { slotCells.push(''); });
+      rows.push(slotCells);
+      return;
+    }
     if (row.kind !== 'entry') return;
     var e = row.entry;
-    var cells = [e.date, e.dateTo||'', entryClassIds(e).map(plannerClassDisplayName).join(', '), e.time||'', e.timeEnd||'', e.type||''];
+    var clsCell = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
+    var cells = [e.date, e.dateTo||'', clsCell, e.time||'', e.timeEnd||'', e.type||''];
     if (fi.topic)      cells.push(e.topic      || '');
     if (fi.objective)  cells.push(e.objective  || '');
     if (fi.readings)   cells.push(e.readings   || '');
@@ -3211,87 +3405,247 @@ async function doExportPdf() {
     defaultName: 'planner-' + new Date().toISOString().slice(0, 10) + '.pdf' });
 }
 
-function buildExportHtml(clsFilter, filters) {
-  filters = filters || { types: null, fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
-  var fi = filters.fields;
-  var data = getExportData(clsFilter, filters.types);
+function mdEscCell(s) {
+  return String(s == null ? '' : s)
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+}
+
+function buildExportDocxMarkdown(clsFilter, filters) {
+  filters = filters || { types: null, includeLessonSlots: false, pdfFitOnePage: false,
+    fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
+
+  var fi = filters.fields || {};
+  var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
   var sem  = data.sem;
   var title = sem ? (sem.label || 'Planner') : 'Planner';
-  var body = '', prevDate = null;
+  var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+  var byDate = {};
 
   data.rows.forEach(function (row) {
-    if (row.date !== prevDate) {
-      if (prevDate) body += '</div>';
-      prevDate = row.date;
-      var d = new Date(row.date + 'T12:00:00');
-      body += '<div class="day-group"><h2>' +
-        esc(d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' })) + '</h2>';
-    }
+    if (!byDate[row.date]) byDate[row.date] = [];
+    byDate[row.date].push(row);
+  });
+
+  function rowActivityText(row) {
     if (row.kind === 'holiday') {
       var holStr = row.label || t('pl_typeHoliday');
       if (row.dateTo) {
-        var d1 = new Date(row.date   + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
         var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
         holStr += ' (' + d1 + ' – ' + d2 + ')';
       }
-      body += '<div class="holiday">🏖 ' + esc(holStr) + '</div>'; return;
+      return '🏖 ' + holStr;
     }
+    if (row.kind === 'slot') {
+      var s = row.slot || {};
+      var slotTime = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+      var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+      return (slotTime ? slotTime + ' · ' : '') + slotClass + ' · ' + t('pl_exportLessonSlotLabel');
+    }
+
     var e = row.entry;
-    var eCids = entryClassIds(e);
-    var clsCfg = cfg.classes[eCids[0] || e.classId] || {};
-    var color  = clsCfg.color || '#aaa';
     var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
-    body += '<div class="entry" style="border-left:3px solid ' + color + '">';
-    body += '<div class="entry-head">';
-    var clsLabel = eCids.map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-    body += '<span class="cls-pill" style="background:' + color + '">' + esc(clsLabel) + '</span>';
-    if (e.dateTo && e.dateTo > e.date) body += '<span class="time">→ ' + esc(e.dateTo) + '</span>';
-    if (timeLabel) body += '<span class="time">' + esc(timeLabel) + '</span>';
-    if (e.type) body += '<span class="badge ' + typeBadgeCls(e.type) + '">' + esc(typeLabel(e.type)) + '</span>';
-    body += '</div>';
-    if (fi.topic && e.topic) body += '<div class="topic">' + esc(e.topic) + '</div>';
-    var fields = [];
-    if (fi.objective  && e.objective)  fields.push([t('pl_entryObjective'),  e.objective]);
-    if (fi.readings   && e.readings)   fields.push([t('pl_entryReadings'),   e.readings]);
-    if (fi.activities && e.activities) fields.push([t('pl_entryActivities'), e.activities]);
-    if (fi.homework   && e.homework)   fields.push([t('pl_entryHomework'),   e.homework]);
-    if (fi.notes      && e.notes)      fields.push([t('pl_entryNotes'),      e.notes]);
+    var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
+    var parts = [];
+    if (timeLabel) parts.push(timeLabel);
+    parts.push(clsLabel);
+    if (e.type) parts.push(typeLabel(e.type));
+    if (fi.topic && e.topic) parts.push(e.topic);
+
+    var extra = [];
+    if (fi.objective  && e.objective)  extra.push(t('pl_entryObjective') + ': ' + e.objective);
+    if (fi.readings   && e.readings)   extra.push(t('pl_entryReadings') + ': ' + e.readings);
+    if (fi.activities && e.activities) extra.push(t('pl_entryActivities') + ': ' + e.activities);
+    if (fi.homework   && e.homework)   extra.push(t('pl_entryHomework') + ': ' + e.homework);
+    if (fi.notes      && e.notes)      extra.push(t('pl_entryNotes') + ': ' + e.notes);
     if (fi.custom && e.customFields) {
       Object.keys(e.customFields).forEach(function (k) {
-        if (e.customFields[k]) fields.push([k, e.customFields[k]]);
+        if (e.customFields[k]) extra.push(k + ': ' + e.customFields[k]);
       });
     }
-    if (fields.length) {
-      body += '<dl>';
-      fields.forEach(function (f) { body += '<dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd>'; });
-      body += '</dl>';
-    }
-    body += '</div>';
-  });
-  if (prevDate) body += '</div>';
+    if (extra.length) parts.push('(' + extra.join('; ') + ')');
+    return parts.join(' · ');
+  }
 
-  var css = '* {box-sizing:border-box;margin:0;padding:0}'
-    + 'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:11pt;color:#111;padding:16mm 20mm}'
-    + 'h1{font-size:17pt;font-weight:900;margin-bottom:2px}'
-    + '.meta{font-size:9pt;color:#888;margin-bottom:20px}'
-    + '.day-group{margin-bottom:14px;page-break-inside:avoid}'
-    + 'h2{font-size:10.5pt;font-weight:800;border-bottom:1.5px solid #e0e0e0;padding-bottom:3px;margin-bottom:6px}'
-    + '.holiday{color:#666;font-style:italic;padding:4px 8px;margin-bottom:5px;font-size:10pt}'
-    + '.entry{padding:6px 10px;margin-bottom:5px;background:#fafafa;border-radius:0 4px 4px 0}'
-    + '.entry-head{display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap}'
-    + '.cls-pill{color:#fff;padding:1px 7px;border-radius:8px;font-size:8pt;font-weight:800}'
-    + '.time{font-size:9pt;color:#666}'
-    + '.badge{font-size:7.5pt;font-weight:800;text-transform:uppercase;padding:1px 5px;border-radius:3px}'
-    + '.badge-lesson{background:#e0f2fe;color:#0369a1}'
-    + '.badge-test{background:#fce7f3;color:#9d174d}'
-    + '.badge-assignment{background:#fef3c7;color:#92400e}'
-    + '.badge-holiday{background:#f0f0f0;color:#666}'
-    + '.badge-custom{background:#e9d5ff;color:#4c1d95}'
-    + '.badge-noclass{background:#fee2e2;color:#991b1b}'
-    + '.topic{font-weight:700;font-size:10.5pt;margin-bottom:3px}'
-    + 'dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;font-size:9.5pt}'
-    + 'dt{font-weight:700;color:#555;white-space:nowrap}'
-    + 'dd{color:#222}';
+  var dateKeys = Object.keys(byDate).sort();
+  var lines = [];
+  lines.push('# ' + title);
+  lines.push('');
+  lines.push(new Date().toLocaleDateString());
+  lines.push('');
+  lines.push('| ' + mdEscCell(t('pl_entryDate')) + ' | ' + mdEscCell(t('pl_exportActivitiesCol')) + ' |');
+  lines.push('| --- | --- |');
+
+  if (!dateKeys.length) {
+    lines.push('| ' + mdEscCell(t('pl_noEntries')) + ' | |');
+    return lines.join('\n');
+  }
+
+  dateKeys.forEach(function (date) {
+    var d = new Date(date + 'T12:00:00');
+    var dateLabel = d.toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+    var weekLabel = '';
+    if (sem && sem.semesterStart && sem.semesterEnd && date >= sem.semesterStart && date <= sem.semesterEnd && totalWeeks > 0) {
+      var wn = getWeekNumber(date, sem.semesterStart);
+      weekLabel = tFmt('pl_weekLabel', { n: wn, total: totalWeeks });
+    }
+
+    var activities = byDate[date].map(function (row) {
+      return '• ' + rowActivityText(row);
+    }).join('<br>');
+
+    var left = dateLabel + (weekLabel ? ' (' + weekLabel + ')' : '');
+    lines.push('| ' + mdEscCell(left) + ' | ' + mdEscCell(activities) + ' |');
+  });
+
+  return lines.join('\n');
+}
+
+async function doExportDocx() {
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast(t('pl_exportDocxLabel') + ': desktop only'); return;
+  }
+  var clsFilter = document.getElementById('exp-cls').value;
+  var filters = getExportFilters();
+  var markdown = buildExportDocxMarkdown(clsFilter, filters);
+  closeModal('exportModal');
+  var fit = !!filters.pdfFitOnePage;
+  var result = await Desktop.exportDocx({
+    markdown: markdown,
+    defaultName: 'planner-' + new Date().toISOString().slice(0, 10),
+    fontFamily: 'Segoe UI',
+    fontSize: fit ? '8pt' : '10pt',
+    lineHeight: fit ? '1.1' : '1.25',
+    margins: fit
+      ? { top: 8, right: 8, bottom: 8, left: 8 }
+      : { top: 18, right: 16, bottom: 18, left: 16 },
+    size: 'A4',
+    orientation: 'portrait'
+  });
+  if (result && result.ok) return;
+  if (result && !result.canceled) {
+    showToast(t('pl_exportDocxLabel') + ' failed', true);
+  }
+}
+
+function buildExportHtml(clsFilter, filters) {
+  filters = filters || { types: null, fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
+  var fi = filters.fields;
+  var fitOnePage = !!filters.pdfFitOnePage;
+  var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
+  var sem  = data.sem;
+  var title = sem ? (sem.label || 'Planner') : 'Planner';
+  var byDate = {};
+  data.rows.forEach(function (row) {
+    if (!byDate[row.date]) byDate[row.date] = [];
+    byDate[row.date].push(row);
+  });
+  var dateKeys = Object.keys(byDate).sort();
+  var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+
+  function formatActivity(row) {
+    if (row.kind === 'holiday') {
+      var holStr = row.label || t('pl_typeHoliday');
+      if (row.dateTo) {
+        var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short' });
+        var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' });
+        holStr += ' (' + d1 + ' – ' + d2 + ')';
+      }
+      return '<li class="act holiday">🏖 ' + esc(holStr) + '</li>';
+    }
+    if (row.kind === 'slot') {
+      var s = row.slot;
+      var timeSlot = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+      var clsSlot = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+      return '<li class="act"><span class="main">' +
+        esc((timeSlot ? timeSlot + ' · ' : '') + clsSlot + ' · ' + t('pl_exportLessonSlotLabel')) +
+        '</span></li>';
+    }
+
+    var e = row.entry;
+    var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
+    var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
+    var mainParts = [];
+    if (timeLabel) mainParts.push(timeLabel);
+    mainParts.push(clsLabel);
+    if (e.type) mainParts.push(typeLabel(e.type));
+    if (fi.topic && e.topic) mainParts.push(e.topic);
+
+    var extraParts = [];
+    if (fi.objective  && e.objective)  extraParts.push(t('pl_entryObjective') + ': ' + e.objective);
+    if (fi.readings   && e.readings)   extraParts.push(t('pl_entryReadings') + ': ' + e.readings);
+    if (fi.activities && e.activities) extraParts.push(t('pl_entryActivities') + ': ' + e.activities);
+    if (fi.homework   && e.homework)   extraParts.push(t('pl_entryHomework') + ': ' + e.homework);
+    if (fi.notes      && e.notes)      extraParts.push(t('pl_entryNotes') + ': ' + e.notes);
+    if (fi.custom && e.customFields) {
+      Object.keys(e.customFields).forEach(function (k) {
+        if (e.customFields[k]) extraParts.push(k + ': ' + e.customFields[k]);
+      });
+    }
+
+    var out = '<li class="act"><span class="main">' + esc(mainParts.join(' · ')) + '</span>';
+    if (extraParts.length) out += '<span class="extra">' + esc(extraParts.join(' ; ')) + '</span>';
+    out += '</li>';
+    return out;
+  }
+
+  var body = '<table class="exp-table"><thead><tr><th>' +
+    esc(t('pl_entryDate')) + '</th><th>' + esc(t('pl_exportActivitiesCol')) + '</th></tr></thead><tbody>';
+
+  if (!dateKeys.length) {
+    body += '<tr><td colspan="2" class="empty-row">' + esc(t('pl_noEntries')) + '</td></tr>';
+  } else {
+    dateKeys.forEach(function (date) {
+      var d = new Date(date + 'T12:00:00');
+      var dateLabel = d.toLocaleDateString(undefined, { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+      var weekLabel = '';
+      if (sem && sem.semesterStart && sem.semesterEnd && date >= sem.semesterStart && date <= sem.semesterEnd && totalWeeks > 0) {
+        var wn = getWeekNumber(date, sem.semesterStart);
+        weekLabel = tFmt('pl_weekLabel', { n: wn, total: totalWeeks });
+      }
+      var acts = byDate[date].map(formatActivity).filter(Boolean).join('');
+      body += '<tr><td class="col-date"><div class="date-main">' + esc(dateLabel) + '</div>' +
+        (weekLabel ? '<div class="date-week">' + esc(weekLabel) + '</div>' : '') +
+        '</td><td class="col-acts"><ul>' + acts + '</ul></td></tr>';
+    });
+  }
+
+  body += '</tbody></table>';
+
+  var pageMargin = fitOnePage ? '3mm' : '9mm';
+  var bodyFont = fitOnePage ? '7pt' : '9pt';
+  var bodyPad = fitOnePage ? '2mm 3mm' : '10mm 12mm';
+  var titleSize = fitOnePage ? '10pt' : '14pt';
+  var metaSize = fitOnePage ? '6.4pt' : '8pt';
+  var cellPad = fitOnePage ? '2px 3px' : '4px 6px';
+  var thSize = fitOnePage ? '6.4pt' : '8pt';
+  var dateMainSize = fitOnePage ? '6.6pt' : '8.8pt';
+  var weekSize = fitOnePage ? '6pt' : '7.6pt';
+  var actMainSize = fitOnePage ? '6.4pt' : '8.6pt';
+  var actExtraSize = fitOnePage ? '5.8pt' : '7.6pt';
+  var colDateWidth = fitOnePage ? '24%' : '27%';
+  var rowGap = fitOnePage ? '1px' : '2px';
+
+  var css = '@page{size:A4 portrait;margin:' + pageMargin + '}'
+    + '* {box-sizing:border-box;margin:0;padding:0}'
+    + 'html,body{width:100%;height:100%}'
+    + 'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:' + bodyFont + ';color:#111;padding:' + bodyPad + ';overflow:hidden}'
+    + 'h1{font-size:' + titleSize + ';font-weight:800;margin-bottom:1px;line-height:1.1}'
+    + '.meta{font-size:' + metaSize + ';color:#666;margin-bottom:' + (fitOnePage ? '4px' : '8px') + ';line-height:1.1}'
+    + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed}'
+    + '.exp-table th,.exp-table td{border:1px solid #d6d6d6;vertical-align:top;padding:' + cellPad + '}'
+    + '.exp-table th{background:#f4f4f4;font-size:' + thSize + ';text-transform:uppercase;letter-spacing:.3px;text-align:left}'
+    + '.col-date{width:' + colDateWidth + '}'
+    + '.date-main{font-weight:700;font-size:' + dateMainSize + ';line-height:1.15}'
+    + '.date-week{font-size:' + weekSize + ';color:#666;margin-top:1px;line-height:1.1}'
+    + '.col-acts ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:' + rowGap + '}'
+    + '.act{line-height:1.25}'
+    + '.act .main{display:block;font-size:' + actMainSize + ';line-height:1.2}'
+    + '.act .extra{display:block;font-size:' + actExtraSize + ';color:#555;margin-top:1px;line-height:1.15}'
+    + '.act.holiday .main,.act.holiday{font-style:italic;color:#444}'
+    + '.empty-row{text-align:center;color:#666;font-style:italic}';
 
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
     + '<style>' + css + '</style></head><body>'

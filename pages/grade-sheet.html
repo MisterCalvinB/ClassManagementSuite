@@ -1573,6 +1573,8 @@
           <button id="btn-add-test" class="btn" data-i18n="gsBtnAddTest">Add Test</button>
           <button id="btn-import-test" class="btn" data-i18n="gsBtnImportTest">Import Test</button>
           <button id="btn-print-semester" class="btn" data-i18n="gsBtnPrintSemester">Print Term</button>
+          <button id="btn-export-semester-docx" class="btn" data-i18n="gsBtnExportDocx">Export DOCX</button>
+          <button id="btn-export-semester-html" class="btn" data-i18n="gsBtnExportHtml">Export HTML</button>
           <button id="btn-export-semester-csv" class="btn" data-i18n="gsBtnExportCsv">Export CSV</button>
           <button id="btn-import-grades" class="btn" data-i18n="gsBtnImportGrades">Import Grades</button>
           <button id="btn-edit-class" class="btn" data-i18n="gsBtnEditClass">Edit Class</button>
@@ -1607,6 +1609,8 @@
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef">Criteria Reference</button>
           <button id="btn-apply-criteria-grades" class="btn" data-i18n="gsBtnApplyCriteria">Apply Criteria to Grades</button>
           <button id="btn-print-results" class="btn" data-i18n="gsBtnPrintResults">Print Results</button>
+          <button id="btn-export-test-docx" class="btn" data-i18n="gsBtnExportTestDocx">Export Test DOCX</button>
+          <button id="btn-export-test-html" class="btn" data-i18n="gsBtnExportTestHtml">Export Test HTML</button>
           <button id="btn-duplicate-test" class="btn" data-i18n="gsBtnDuplicate">Duplicate / Import</button>
           <button id="btn-delete-test" class="btn" data-i18n="gsBtnDeleteTest">Delete Test</button>
           <button id="btn-reset-test" class="btn" data-i18n="gsBtnClearTest">Clear Test</button>
@@ -5846,6 +5850,655 @@
       win.print();
     }
 
+    function buildSemesterReportData(classObj, sem) {
+      ensureClassStructures(classObj);
+      const semLabel = sem === "sem1" ? t('gsSem1') : t('gsSem2');
+      const n = classObj.testCounts[sem];
+
+      function stats(values) {
+        const v = values.filter(x => x != null);
+        if (!v.length) return { avg: null, min: null, max: null, median: null };
+        v.sort((a, b) => a - b);
+        const avg = v.reduce((a, b) => a + b, 0) / v.length;
+        const mid = Math.floor(v.length / 2);
+        const median = v.length % 2 === 0 ? (v[mid - 1] + v[mid]) / 2 : v[mid];
+        return { avg, min: v[0], max: v[v.length - 1], median };
+      }
+
+      const rows = classObj.students.map(student => {
+        const grades = Array.from({ length: n }, (_, i) => getTestDisplayGrade(student, classObj, sem, i));
+        const c = computeStudent(student);
+        const semAvg = sem === "sem1" ? c.sem1Avg : c.sem2Avg;
+        return { student, grades, semAvg };
+      });
+
+      const testStats = Array.from({ length: n }, (_, i) => stats(rows.map(r => r.grades[i])));
+      const semAvgStats = stats(rows.map(r => r.semAvg));
+      const testNames = Array.from({ length: n }, (_, i) => {
+        const cfg = classObj.testConfigs[sem][i];
+        return cfg.testName ? String(cfg.testName) : `T${i + 1}`;
+      });
+
+      return {
+        className: classObj.name || "",
+        sem,
+        semLabel,
+        rows,
+        testNames,
+        testStats,
+        semAvgStats,
+        printedDate: new Date().toLocaleDateString()
+      };
+    }
+
+    function gradeColor(g) {
+      if (g == null) return "";
+      if (g >= 6) return "background:#2ecc40;color:#fff;";
+      if (g >= 5) return "background:#a5d6a7;color:#1a3a1a;";
+      if (g >= 4) return "background:#ffb74d;color:#3a1800;";
+      if (g >= 3) return "background:#ef9a9a;color:#3a0000;";
+      return "background:#e53935;color:#fff;";
+    }
+
+    function buildColumnResizeScript(tableId) {
+      return `(function(){
+        const table = document.getElementById(${JSON.stringify(tableId)});
+        if (!table) return;
+        const minW = 48;
+        let active = null;
+        let startX = 0;
+        let startW = 0;
+
+        function onMove(e) {
+          if (!active) return;
+          const w = Math.max(minW, startW + (e.clientX - startX));
+          active.col.style.width = w + 'px';
+        }
+
+        function onUp() {
+          if (!active) return;
+          active = null;
+          document.body.style.cursor = '';
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+
+        table.querySelectorAll('.col-resizer').forEach(handle => {
+          handle.addEventListener('mousedown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = handle.getAttribute('data-col');
+            const col = table.querySelector('col[data-col="' + idx + '"]');
+            if (!col) return;
+            active = { col };
+            startX = e.clientX;
+            startW = col.getBoundingClientRect().width;
+            document.body.style.cursor = 'col-resize';
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          });
+        });
+      })();`;
+    }
+
+    function buildSemesterReportHtml(report) {
+      const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
+      const columns = ["#", "Name", ...report.testNames, "Sem. Avg"];
+      const colGroup = columns.map((_, i) => {
+        const w = i === 0 ? "60px" : (i === 1 ? "220px" : "96px");
+        return `<col data-col="${i}" style="width:${w}">`;
+      }).join("");
+      const css = `
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 16mm 14mm; }
+        h1 { font-size: 16px; color: #2d6a4f; margin-bottom: 2px; }
+        .subtitle { font-size: 11px; color: #5a6a5a; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td { border: 1px solid #d3dac8; padding: 5px 7px; text-align: center; white-space: nowrap; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+        th { background: #f0faf3; font-weight: 700; color: #2d6a4f; position: sticky; top: 0; }
+        th.left, td.left { text-align: left; }
+        .stats-row td { background: #f3f7ec; font-weight: 700; font-size: 10px; border-top: 2px solid #2d6a4f; }
+        .stats-label { font-weight: 700; color: #2d6a4f; }
+        tr:nth-child(even) td:not(.stats-row td) { background: #fafdf8; }
+        .th-wrap { position: relative; display: block; padding-right: 8px; }
+        .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
+        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #b6c5b7; }
+        @media print { body { padding: 0; } }
+      `;
+
+      const headerCells = columns.map((name, i) => {
+        const cls = i < 2 ? " class=\"left\"" : "";
+        return `<th${cls}><span class="th-wrap">${esc(name)}<span class="col-resizer" data-col="${i}"></span></span></th>`;
+      }).join("");
+      const studentRows = report.rows.map(({ student, grades, semAvg }) => {
+        const gradeCells = grades.map(g => `<td style="${gradeColor(g)}">${g != null ? fmtN(g) : "-"}</td>`).join("");
+        const avgStyle = gradeColor(semAvg);
+        return `<tr>
+          <td class="left">${esc(String(student.index))}</td>
+          <td class="left">${esc((student.firstName + " " + student.lastName).trim())}</td>
+          ${gradeCells}
+          <td style="font-weight:700;${avgStyle}">${semAvg != null ? fmt(semAvg) : "-"}</td>
+        </tr>`;
+      }).join("");
+
+      function statRow(label, fn) {
+        const cells = report.testStats.map(s => `<td>${s[fn] != null ? fmtN(s[fn]) : "-"}</td>`).join("");
+        const sv = report.semAvgStats[fn];
+        return `<tr class="stats-row">
+          <td colspan="2" class="left stats-label">${label}</td>
+          ${cells}
+          <td>${sv != null ? fmt(sv) : "-"}</td>
+        </tr>`;
+      }
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>${esc(report.className)} - ${esc(report.semLabel)}</title>
+        <style>${css}</style></head><body>
+        <h1>${esc(report.className)} - ${esc(report.semLabel)}</h1>
+        <div class="subtitle">Printed ${esc(report.printedDate)}</div>
+        <table id="semester-report-table">
+          <colgroup>${colGroup}</colgroup>
+          <thead><tr>
+            ${headerCells}
+          </tr></thead>
+          <tbody>
+            ${studentRows}
+            ${statRow("Avg", "avg")}
+            ${statRow("Max", "max")}
+            ${statRow("Min", "min")}
+            ${statRow("Median", "median")}
+          </tbody>
+        </table>
+        ${'<script>' + buildColumnResizeScript("semester-report-table") + '</' + 'script>'}
+      </body></html>`;
+    }
+
+    function buildTestReportData(classObj, sem, testIndex) {
+      ensureClassStructures(classObj);
+      const config = getTestConfig(classObj, sem, testIndex);
+      const testNo = testIndex + 1;
+      const testLabel = config.testName ? String(config.testName) : `T${testNo}`;
+      const defaultTotals = calcCriteriaTotals(config, {});
+      const thresholds = getThresholds(config);
+
+      const students = classObj.students.filter(student => {
+        if (config.criteria.length === 0) return true;
+        const criteriaMap = student.criteriaResults[sem][testIndex] || {};
+        return config.criteria.every(cr => {
+          const entry = criteriaMap[cr.id];
+          return entry != null && entry.points != null;
+        });
+      }).map(student => {
+        const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+        const grade = sourceArray[testIndex];
+        const criteriaMap = student.criteriaResults[sem][testIndex] || {};
+        const totals = calcCriteriaTotals(config, criteriaMap);
+        const noteArray = student.testNotes[sem];
+        const notes = Array.isArray(noteArray[testIndex]) ? noteArray[testIndex] : [];
+
+        return {
+          fullName: `${student.firstName || ""} ${student.lastName || ""}`.trim(),
+          grade,
+          criteriaRows: config.criteria.map(cr => {
+            const entry = criteriaMap[cr.id] || { points: null, comment: "" };
+            const pts = entry.points;
+            const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
+            return {
+              criterionName: cr.name,
+              pointsText: ptsStr,
+              commentHtml: entry.comment ? escapeHtml(entry.comment) : '<span class="no-data">—</span>'
+            };
+          }),
+          totalPtsText: totals.totalPossible > 0
+            ? `${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(totals.totalPossible)}${(totals.totalBonusScored && totals.totalBonusScored > 0) ? ` (+${fmtN(totals.totalBonusScored)} bonus)` : ""}`
+            : "—",
+          observations: notes.filter(s => sectionHasContent(s)).map(s => ({
+            label: s.label || "",
+            text: sectionDisplayText(s)
+          }))
+        };
+      });
+
+      return {
+        className: classObj.name || "",
+        sem,
+        semLabel: sem === "sem1" ? t('gsSem1') : t('gsSem2'),
+        testNo,
+        testLabel,
+        testDate: config.testDate || "",
+        scope: config.scope || "",
+        type: config.type || "",
+        printedDate: new Date().toLocaleDateString(),
+        totalPossible: defaultTotals.totalPossible,
+        thresholds,
+        students
+      };
+    }
+
+    function buildAllTablesResizeScript() {
+      return `(function(){
+        const minW = 48;
+        let active = null;
+        let startX = 0;
+        let startW = 0;
+
+        function onMove(e) {
+          if (!active) return;
+          const w = Math.max(minW, startW + (e.clientX - startX));
+          active.col.style.width = w + 'px';
+        }
+
+        function onUp() {
+          if (!active) return;
+          active = null;
+          document.body.style.cursor = '';
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+
+        document.querySelectorAll('table.resizable-table').forEach(table => {
+          table.querySelectorAll('.col-resizer').forEach(handle => {
+            handle.addEventListener('mousedown', e => {
+              e.preventDefault();
+              e.stopPropagation();
+              const idx = handle.getAttribute('data-col');
+              const col = table.querySelector('col[data-col="' + idx + '"]');
+              if (!col) return;
+              active = { col };
+              startX = e.clientX;
+              startW = col.getBoundingClientRect().width;
+              document.body.style.cursor = 'col-resize';
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            });
+          });
+        });
+      })();`;
+    }
+
+    function buildTestReportHtml(report) {
+      const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");
+
+      const css = `
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+        .student-page {
+          width: 210mm;
+          min-height: 297mm;
+          padding: 18mm 18mm 15mm 18mm;
+          page-break-after: always;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .page-header {
+          border-bottom: 2px solid #2d6a4f;
+          padding-bottom: 8px;
+          margin-bottom: 4px;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+        .student-name { font-size: 18px; font-weight: 700; }
+        .test-label { font-size: 13px; color: #4a5a4a; }
+        .test-meta { font-size: 11px; color: #6a7a6a; margin-top: 2px; }
+        .grade-badge {
+          font-size: 28px;
+          font-weight: 800;
+          color: #2d6a4f;
+          border: 2.5px solid #2d6a4f;
+          border-radius: 10px;
+          padding: 2px 14px;
+          white-space: nowrap;
+        }
+        .section-title {
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.07em;
+          color: #4a5a4a;
+          border-bottom: 1px solid #d3dac8;
+          padding-bottom: 3px;
+          margin-bottom: 6px;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+        th {
+          background: #f0faf3;
+          font-weight: 700;
+          text-align: left;
+          padding: 5px 8px;
+          border: 1px solid #d3dac8;
+        }
+        td { padding: 5px 8px; border: 1px solid #d3dac8; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+        .pts-cell { text-align: right; white-space: nowrap; font-weight: 600; }
+        .total-row td { font-weight: 700; background: #f7fbf8; }
+        .obs-section { margin-bottom: 8px; }
+        .obs-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #2d6a4f;
+          margin-bottom: 2px;
+        }
+        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .no-data { color: #888; font-style: italic; font-size: 12px; }
+        .scale-wrap { margin-top: 2px; }
+        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; }
+        .scale-table th, .scale-table td { padding: 2px 5px; border: 1px solid #d3dac8; text-align: center; white-space: nowrap; }
+        .scale-table thead th { background: #f0faf3; font-weight: 700; }
+        .scale-table .row-label { background: #f0faf3; font-weight: 700; text-align: left; }
+        .scale-grade-pass { font-weight: 800; color: #2d6a4f; }
+        .th-wrap { position: relative; display: block; padding-right: 8px; }
+        .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
+        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #b6c5b7; }
+        @media print {
+          body { margin: 0; }
+          .student-page { page-break-after: always; }
+        }
+      `;
+
+      const pagesHtml = report.students.map((student, idx) => {
+        const criteriaTableId = `test-report-criteria-${idx}`;
+        const scaleTableId = `test-report-scale-${idx}`;
+
+        let criteriaHtml = "";
+        if (student.criteriaRows.length > 0) {
+          const criteriaRows = student.criteriaRows.map(r => `
+            <tr>
+              <td>${esc(r.criterionName)}</td>
+              <td class="pts-cell">${esc(r.pointsText)}</td>
+              <td>${r.commentHtml}</td>
+            </tr>
+          `).join("");
+
+          criteriaHtml = `
+            <div>
+              <div class="section-title">Criteria</div>
+              <table class="resizable-table" id="${criteriaTableId}">
+                <colgroup>
+                  <col data-col="0" style="width:35%">
+                  <col data-col="1" style="width:14%">
+                  <col data-col="2" style="width:51%">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th><span class="th-wrap">Criterion<span class="col-resizer" data-col="0"></span></span></th>
+                    <th><span class="th-wrap">Points<span class="col-resizer" data-col="1"></span></span></th>
+                    <th><span class="th-wrap">Comment<span class="col-resizer" data-col="2"></span></span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${criteriaRows}
+                  <tr class="total-row">
+                    <td>Total</td>
+                    <td class="pts-cell">${esc(student.totalPtsText)}</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        const obsHtml = student.observations.length > 0
+          ? `<div><div class="section-title">Observations</div>${student.observations.map(o => {
+              const labelHtml = o.label ? `<div class="obs-label">${esc(o.label)}</div>` : "";
+              return `<div class="obs-section">${labelHtml}<div class="obs-text">${esc(o.text)}</div></div>`;
+            }).join("")}</div>`
+          : "";
+
+        const scaleGradeHeaders = report.thresholds.map(t =>
+          `<th>${t.grade === 4 ? `<span class="scale-grade-pass">${t.grade}*</span>` : t.grade}<span class="col-resizer" data-col="${Number(t.grade) === Number(t.grade) ? report.thresholds.indexOf(t) + 1 : report.thresholds.indexOf(t) + 1}"></span></th>`
+        ).join("");
+        const scalePctCells = report.thresholds.map(t => `<td>${Math.round(t.ratio * 100)}%</td>`).join("");
+        const scalePtsCells = report.thresholds.map(t => `<td>${report.totalPossible > 0 ? fmtN(t.ratio * report.totalPossible) : "-"}</td>`).join("");
+        const scaleColGroup = ['<col data-col="0" style="width:20%">']
+          .concat(report.thresholds.map((_, i2) => `<col data-col="${i2 + 1}" style="width:${(80 / Math.max(1, report.thresholds.length)).toFixed(4)}%">`))
+          .join('');
+        const scaleHeaderResized = report.thresholds.map((t, i2) =>
+          `<th><span class="th-wrap">${t.grade === 4 ? `<span class="scale-grade-pass">${t.grade}*</span>` : t.grade}<span class="col-resizer" data-col="${i2 + 1}"></span></span></th>`
+        ).join("");
+        const scaleHtml = `<div class="scale-wrap">
+          <div class="section-title">Grading Scale</div>
+          <table class="scale-table resizable-table" id="${scaleTableId}">
+            <colgroup>${scaleColGroup}</colgroup>
+            <thead><tr><th><span class="th-wrap">Grade<span class="col-resizer" data-col="0"></span></span></th>${scaleHeaderResized}</tr></thead>
+            <tbody>
+              <tr><td class="row-label">Min %</td>${scalePctCells}</tr>
+              <tr><td class="row-label">Min pts (/ ${fmtN(report.totalPossible)})</td>${scalePtsCells}</tr>
+            </tbody>
+          </table>
+        </div>`;
+
+        const metaParts = [];
+        if (report.testDate) metaParts.push(esc(report.testDate));
+        if (report.scope) metaParts.push(esc(report.scope));
+        if (report.type) metaParts.push(esc(report.type));
+        const metaHtml = metaParts.length ? `<div class="test-meta">${metaParts.join(" &nbsp;·&nbsp; ")}</div>` : "";
+
+        return `<div class="student-page">
+          <div class="page-header">
+            <div>
+              <div class="student-name">${esc(student.fullName)}</div>
+              <div class="test-label">${esc(`${report.className} — ${report.sem.toUpperCase()} — Test T${report.testNo}`)}</div>
+              ${metaHtml}
+            </div>
+            <div class="grade-badge">${student.grade != null ? esc(String(student.grade)) : '—'}</div>
+          </div>
+          ${criteriaHtml}
+          ${obsHtml}
+          ${scaleHtml}
+        </div>`;
+      }).join("");
+
+      return `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>Results - ${esc(report.className)} ${esc(report.sem.toUpperCase())} T${report.testNo}</title>
+        <style>${css}</style></head><body>
+        ${pagesHtml}
+        ${'<script>' + buildAllTablesResizeScript() + '</' + 'script>'}
+      </body></html>`;
+    }
+
+    function buildSemesterReportMarkdown(report) {
+      const mdEsc = value => String(value == null ? "" : value).replace(/\|/g, "\\|").replace(/\n/g, " ");
+      const header = ["#", "Name", ...report.testNames, "Sem. Avg"];
+      const lines = [
+        `# ${report.className} - ${report.semLabel}`,
+        "",
+        `Printed ${report.printedDate}`,
+        "",
+        `| ${header.map(mdEsc).join(" | ")} |`,
+        `| ${header.map(() => "---").join(" | ")} |`
+      ];
+
+      report.rows.forEach(({ student, grades, semAvg }) => {
+        const row = [
+          String(student.index == null ? "" : student.index),
+          (student.firstName + " " + student.lastName).trim(),
+          ...grades.map(g => g != null ? fmtN(g) : "-"),
+          semAvg != null ? fmt(semAvg) : "-"
+        ];
+        lines.push(`| ${row.map(mdEsc).join(" | ")} |`);
+      });
+
+      function statsRow(label, fn) {
+        const values = report.testStats.map(s => s[fn] != null ? fmtN(s[fn]) : "-");
+        const semValue = report.semAvgStats[fn] != null ? fmt(report.semAvgStats[fn]) : "-";
+        return [label, "", ...values, semValue];
+      }
+
+      [
+        statsRow("Avg", "avg"),
+        statsRow("Max", "max"),
+        statsRow("Min", "min"),
+        statsRow("Median", "median")
+      ].forEach(row => lines.push(`| ${row.map(mdEsc).join(" | ")} |`));
+
+      return lines.join("\n");
+    }
+
+    async function pickSemesterForReport() {
+      const semStr = await showPrompt(t('gsPromptPrintSem'), "1");
+      if (!semStr) return null;
+      return semStr.trim() === "2" ? "sem2" : "sem1";
+    }
+
+    async function exportSemesterDocx(classObj, sem) {
+      if (!window.Desktop || !Desktop.isElectron()) {
+        await showAlert(t('gsAlertDocxDesktopOnly'));
+        return;
+      }
+      const report = buildSemesterReportData(classObj, sem);
+      const markdown = buildSemesterReportMarkdown(report);
+      const slug = slugifyForPath(classObj.name || "class");
+      const result = await Desktop.exportDocx({
+        markdown,
+        defaultName: `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}`,
+        fontFamily: 'Segoe UI',
+        fontSize: '10pt',
+        lineHeight: '1.2',
+        margins: { top: 18, right: 16, bottom: 18, left: 16 },
+        size: 'A4',
+        orientation: 'portrait'
+      });
+      if (result && result.ok) return;
+      if (result && !result.canceled) {
+        await showAlert(t('gsAlertDocxExportFailed'));
+      }
+    }
+
+    async function exportSemesterHtml(classObj, sem) {
+      const report = buildSemesterReportData(classObj, sem);
+      const html = buildSemesterReportHtml(report);
+      const slug = slugifyForPath(classObj.name || "class");
+      const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.html`;
+      downloadTextFile(html, filename, "text/html;charset=utf-8");
+    }
+
+    async function exportActiveTestHtml() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const sem = appState.activeTest.semester;
+      const testIndex = appState.activeTest.testIndex;
+      const report = buildTestReportData(classObj, sem, testIndex);
+      if (!report.students || report.students.length === 0) {
+        await showAlert(t('gsAlertNoStudentsCriteria'));
+        return;
+      }
+      const html = buildTestReportHtml(report);
+      const slug = slugifyForPath(classObj.name || "class");
+      const filename = `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}.html`;
+      downloadTextFile(html, filename, "text/html;charset=utf-8");
+    }
+
+    function buildTestResultsDocxMarkdown(classObj, sem, testIndex) {
+      const config = getTestConfig(classObj, sem, testIndex);
+      const testNo = testIndex + 1;
+      const defaultTotals = calcCriteriaTotals(config, {});
+      const thresholds = getThresholds(config);
+      const mdEsc = value => String(value == null ? "" : value).replace(/\|/g, "\\|").replace(/\n/g, " ");
+
+      const sections = [];
+      sections.push(`# ${classObj.name} - ${sem.toUpperCase()} - T${testNo}`);
+      sections.push("");
+      sections.push(`Printed ${new Date().toLocaleDateString()}`);
+      sections.push("");
+
+      classObj.students.filter(student => {
+        if (config.criteria.length === 0) return true;
+        const criteriaMap = student.criteriaResults[sem][testIndex] || {};
+        return config.criteria.every(cr => {
+          const entry = criteriaMap[cr.id];
+          return entry != null && entry.points != null;
+        });
+      }).forEach(student => {
+        const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+        const grade = sourceArray[testIndex];
+        const criteriaMap = student.criteriaResults[sem][testIndex] || {};
+        const totals = calcCriteriaTotals(config, criteriaMap);
+        const noteArray = student.testNotes[sem];
+        const notes = Array.isArray(noteArray[testIndex]) ? noteArray[testIndex] : [];
+
+        const fullName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+        sections.push(`## ${fullName} - Grade ${grade != null ? grade : "-"}`);
+        if (config.testDate || config.scope || config.type) {
+          const metaParts = [];
+          if (config.testDate) metaParts.push(config.testDate);
+          if (config.scope) metaParts.push(config.scope);
+          if (config.type) metaParts.push(config.type);
+          sections.push(metaParts.join(" · "));
+        }
+        sections.push("");
+
+        if (config.criteria.length > 0) {
+          sections.push("### Criteria");
+          sections.push(`| Criterion | Points | Comment |`);
+          sections.push(`| --- | --- | --- |`);
+          config.criteria.forEach(cr => {
+            const entry = criteriaMap[cr.id] || { points: null, comment: "" };
+            const pts = entry.points;
+            const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `- / ${fmtN(cr.maxPoints)}`;
+            const comment = entry.comment ? entry.comment : "-";
+            sections.push(`| ${mdEsc(cr.name)} | ${mdEsc(ptsStr)} | ${mdEsc(comment)} |`);
+          });
+          const bonusText = (totals.totalBonusScored && totals.totalBonusScored > 0) ? ` (+${fmtN(totals.totalBonusScored)} bonus)` : "";
+          const displayedScored = fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0));
+          const totalPtsStr = totals.totalPossible > 0
+            ? `${displayedScored} / ${fmtN(totals.totalPossible)}${bonusText}`
+            : "-";
+          sections.push(`| **Total** | **${mdEsc(totalPtsStr)}** | |`);
+          sections.push("");
+        }
+
+        if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
+          sections.push("### Observations");
+          notes.filter(s => sectionHasContent(s)).forEach(s => {
+            const label = s.label ? `${s.label}: ` : "";
+            sections.push(`- ${label}${sectionDisplayText(s)}`);
+          });
+          sections.push("");
+        }
+
+        sections.push("### Grading Scale");
+        sections.push(`| Grade | Min % | Min pts |`);
+        sections.push(`| --- | --- | --- |`);
+        thresholds.forEach(t => {
+          const pct = `${Math.round(t.ratio * 100)}%`;
+          const pts = defaultTotals.totalPossible > 0 ? fmtN(t.ratio * defaultTotals.totalPossible) : "-";
+          sections.push(`| ${mdEsc(t.grade)} | ${mdEsc(pct)} | ${mdEsc(pts)} |`);
+        });
+        sections.push("");
+      });
+
+      return sections.join("\n");
+    }
+
+    async function exportActiveTestDocx() {
+      if (!window.Desktop || !Desktop.isElectron()) {
+        await showAlert(t('gsAlertDocxDesktopOnly'));
+        return;
+      }
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const sem = appState.activeTest.semester;
+      const testIndex = appState.activeTest.testIndex;
+      const markdown = buildTestResultsDocxMarkdown(classObj, sem, testIndex);
+      const slug = slugifyForPath(classObj.name || "class");
+      const result = await Desktop.exportDocx({
+        markdown,
+        defaultName: `${slug}-${sem}-t${testIndex + 1}-${new Date().toISOString().slice(0, 10)}`,
+        fontFamily: 'Segoe UI',
+        fontSize: '10pt',
+        lineHeight: '1.2',
+        margins: { top: 18, right: 16, bottom: 18, left: 16 },
+        size: 'A4',
+        orientation: 'portrait'
+      });
+      if (result && result.ok) return;
+      if (result && !result.canceled) {
+        await showAlert(t('gsAlertDocxExportFailed'));
+      }
+    }
+
     function openStudentModal(student, classObj, sem, testIndex, tr, config) {
       // Deep-clone working copies
       const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
@@ -7388,6 +8041,8 @@
       document.getElementById("btn-apply-criteria-grades").addEventListener("click", applyCriteriaToGrades);
       document.getElementById("btn-criteria-ref").addEventListener("click", openCriteriaRef);
       document.getElementById("btn-print-results").addEventListener("click", printTestResults);
+      document.getElementById("btn-export-test-docx").addEventListener("click", exportActiveTestDocx);
+      document.getElementById("btn-export-test-html").addEventListener("click", exportActiveTestHtml);
 
       // Student modal buttons
       document.getElementById("student-modal-save").addEventListener("click", commitStudentModal);
@@ -7535,10 +8190,25 @@
       document.getElementById("btn-print-semester").addEventListener("click", async () => {
         const classObj = getActiveClass();
         if (!classObj) return;
-        const semStr = await showPrompt(t('gsPromptPrintSem'), "1");
-        if (!semStr) return;
-        const sem = semStr.trim() === "2" ? "sem2" : "sem1";
+        const sem = await pickSemesterForReport();
+        if (!sem) return;
         printSemesterGrades(classObj, sem);
+      });
+
+      document.getElementById("btn-export-semester-docx").addEventListener("click", async () => {
+        const classObj = getActiveClass();
+        if (!classObj) return;
+        const sem = await pickSemesterForReport();
+        if (!sem) return;
+        exportSemesterDocx(classObj, sem);
+      });
+
+      document.getElementById("btn-export-semester-html").addEventListener("click", async () => {
+        const classObj = getActiveClass();
+        if (!classObj) return;
+        const sem = await pickSemesterForReport();
+        if (!sem) return;
+        exportSemesterHtml(classObj, sem);
       });
 
       document.getElementById("btn-export").addEventListener("click", exportJson);

@@ -1439,6 +1439,7 @@ let currentDocType = 'md'; // 'md' or 'html'
 let docModified = false;
 let cssModified = false;
 let currentDocMeta = {}; // in-memory copy of the sidecar .json for the open document
+let docSaveInProgress = false;
 
 // ── Marked + KaTeX setup ─────────────────────────────────
 function setupMarked() {
@@ -2377,6 +2378,7 @@ async function deRenderFileBrowser() {
     saveBtn.className = 'modal-btn';
     saveBtn.textContent = state.saveButtonLabel || (t('save') || 'Save');
     const handleSave = async () => {
+      if (state.saving) return;
       const typedName = String(input.value || '').trim();
       if (!typedName) {
         showToast(t('deFileBrowserEnterName') || 'Enter a file name.', true);
@@ -2387,7 +2389,14 @@ async function deRenderFileBrowser() {
         const existing = (state.entries || []).find(entry => entry.kind === 'file' && String(entry.suggestedName || '').toLowerCase() === typedName.toLowerCase());
         if (existing && !await showConfirm((t('deFileBrowserOverwriteConfirm') || 'Overwrite "{name}"?').replace('{name}', existing.suggestedName || typedName))) return;
       }
-      await state.onSave(typedName, state.currentPath);
+      state.saving = true;
+      saveBtn.disabled = true;
+      try {
+        await state.onSave(typedName, state.currentPath);
+      } finally {
+        state.saving = false;
+        saveBtn.disabled = false;
+      }
     };
     saveBtn.onclick = handleSave;
     input.addEventListener('keydown', e => {
@@ -2734,6 +2743,8 @@ async function loadExternalDoc(target, relPath) {
 }
 
 async function saveExternalDoc() {
+  if (docSaveInProgress) return;
+  docSaveInProgress = true;
   const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
   const content = isInlineHtml
     ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
@@ -2755,6 +2766,7 @@ async function saveExternalDoc() {
       showToast('Save failed.', true);
     }
   } catch(e) { showToast('Save error: ' + e.message, true); }
+  finally { docSaveInProgress = false; }
 }
 
 async function saveDoc() {
@@ -2816,6 +2828,8 @@ async function saveDocAs() {
 
 async function doSaveDoc(filename, folderPath = null) {
   if (!mdEditor) return;
+  if (docSaveInProgress) return;
+  docSaveInProgress = true;
   try {
     const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
     const content = isInlineHtml
@@ -2879,9 +2893,11 @@ async function doSaveDoc(filename, folderPath = null) {
       showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'), true);
     }
   } catch(e) { showToast('Save error: ' + e.message, true); }
+  finally { docSaveInProgress = false; }
 }
 
 async function autosaveDoc() {
+  if (docSaveInProgress) return;
   if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
   const paired = parsePairedSS(currentStylesheetName);
   const inlineStylesheet = isInlineStylesheetEnabled();
@@ -2959,6 +2975,8 @@ async function saveAll() {
 
 async function doSaveAll(filename, folderPath = null) {
   if (!mdEditor) return;
+  if (docSaveInProgress) return;
+  docSaveInProgress = true;
   const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
   const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
   var content = isInlineHtml
@@ -3020,6 +3038,7 @@ async function doSaveAll(filename, folderPath = null) {
       showToast('Save failed', true);
     }
   } catch(e) { showToast('Save error: ' + e.message, true); }
+  finally { docSaveInProgress = false; }
 }
 
 async function newDoc() {
@@ -5103,10 +5122,13 @@ window.addEventListener('DOMContentLoaded', function() {
 
   // Global keyboard shortcuts
   document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') { e.preventDefault(); saveAll(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveDoc(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); newDoc(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); openDocModal(); }
+    // Avoid running the same command twice when Monaco already handles it.
+    if (mdEditor && typeof mdEditor.hasTextFocus === 'function' && mdEditor.hasTextFocus()) return;
+    const key = String(e.key || '').toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 's') { e.preventDefault(); saveAll(); return; }
+    if ((e.ctrlKey || e.metaKey) && key === 's') { e.preventDefault(); saveDoc(); }
+    if ((e.ctrlKey || e.metaKey) && key === 'n') { e.preventDefault(); newDoc(); }
+    if ((e.ctrlKey || e.metaKey) && key === 'o') { e.preventDefault(); openDocModal(); }
     if (e.key === 'Escape') {
       hideModal('file-modal');
       hideModal('save-modal');

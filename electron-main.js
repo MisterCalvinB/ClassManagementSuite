@@ -127,13 +127,13 @@ function getDefaultWritableRootDir() {
 }
 
 function getWritableRootDir() {
-  if (!app.isPackaged) {
-    return ROOT_DIR;
-  }
-
   const portableOverride = String(process.env.PORTABLE_ROOT || '').trim();
   if (portableOverride) {
     return path.resolve(portableOverride);
+  }
+
+  if (!app.isPackaged) {
+    return ROOT_DIR;
   }
 
   // Electron sets this for portable Windows builds.
@@ -2296,12 +2296,12 @@ async function checkIsFirstRun() {
 }
 
 async function ensureWritableSeedDataWithFallback() {
+  // Restore previously chosen data folder across launches.
+  await loadSavedPortableRoot();
+
   if (!app.isPackaged) {
     return;
   }
-
-  // Restore previously chosen data folder across launches.
-  await loadSavedPortableRoot();
 
   // Detect first run before seed data creates the folders.
   firstRunDetected = await checkIsFirstRun();
