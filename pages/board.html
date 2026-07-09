@@ -4822,6 +4822,13 @@ function hideFailure() {
       return w[l] || w.french || w.translation || '';
     }
 
+    function boardT(key) {
+      const shared = t(key);
+      if (shared !== key) return shared;
+      const dict = I18N[currentLang] || I18N.en || {};
+      return dict[key] || (I18N.en && I18N.en[key]) || key;
+    }
+
     const I18N = {
       en: {
         siteTitle:'Board',
@@ -4839,6 +4846,8 @@ function hideFailure() {
         excellent:'Excellent!', pointsAwarded:'Points Awarded',
         btnNextWord:'Next Word →', btnTryAgain:'Try Again',
         notQuite:'Not Quite!', betterLuck:'Better luck next time', btnClose:'Close',
+        presMenuTitle:'Presentation Menu', presStop:'Stop presentation', presFreeze:'Freeze presentation', presUnfreeze:'Unfreeze presentation',
+        presResize:'Resize window', presRight:'To the right', presLeft:'To the left',
         titleDefMatch:'Definition Match', titleFlashCards:'Flash Cards', titleHangman:'Hangman',
         titleScramble:'Scrambled Word', titleWordQuest:'Word Quest', titleSentence:'Sentence Builder',
         titleQuote:'Quote Analyser', titleGapFill:'Gap Fill Challenge', titleFindError:'🔴 Find the Error',
@@ -4975,6 +4984,8 @@ function hideFailure() {
         excellent:'Ausgezeichnet!', pointsAwarded:'Punkte vergeben',
         btnNextWord:'Nächstes Wort →', btnTryAgain:'Nochmal',
         notQuite:'Nicht ganz!', betterLuck:'Beim nächsten Mal mehr Glück', btnClose:'Schließen',
+        presMenuTitle:'Präsentationsmenü', presStop:'Präsentation beenden', presFreeze:'Präsentation einfrieren', presUnfreeze:'Präsentation auftauen',
+        presResize:'Fenstergröße anpassen', presRight:'Nach rechts', presLeft:'Nach links',
         titleDefMatch:'Definition zuordnen', titleFlashCards:'Lernkarten', titleHangman:'Galgenmännchen',
         titleScramble:'Buchstabensalat', titleWordQuest:'Wortsuche', titleSentence:'Satzbausteine',
         titleQuote:'Zitat-Analyse', titleGapFill:'Lückentext-Aufgabe', titleFindError:'🔴 Fehler finden',
@@ -5110,6 +5121,8 @@ function hideFailure() {
         excellent:'Eccellente!', pointsAwarded:'Punti assegnati',
         btnNextWord:'Parola successiva →', btnTryAgain:'Riprova',
         notQuite:'Non proprio!', betterLuck:'Meglio la prossima volta', btnClose:'Chiudi',
+        presMenuTitle:'Menu presentazione', presStop:'Ferma presentazione', presFreeze:'Blocca presentazione', presUnfreeze:'Sblocca presentazione',
+        presResize:'Ridimensiona finestra', presRight:'A destra', presLeft:'A sinistra',
         titleDefMatch:'Abbina la Definizione', titleFlashCards:'Flashcard', titleHangman:"L'Impiccato",
         titleScramble:'Parola Mescolata', titleWordQuest:'Caccia alla Parola', titleSentence:'Costruisci la Frase',
         titleQuote:'Analisi Citazione', titleGapFill:'Sfida del Riempimento', titleFindError:"🔴 Trova l'Errore",
@@ -5245,6 +5258,8 @@ function hideFailure() {
         excellent:'Excellent !', pointsAwarded:'Points attribués',
         btnNextWord:'Mot suivant →', btnTryAgain:'Réessayer',
         notQuite:'Pas tout à fait !', betterLuck:'Bonne chance la prochaine fois', btnClose:'Fermer',
+        presMenuTitle:'Menu de présentation', presStop:'Arrêter la présentation', presFreeze:'Figer la présentation', presUnfreeze:'Défiger la présentation',
+        presResize:'Redimensionner la fenêtre', presRight:'Vers la droite', presLeft:'Vers la gauche',
         titleDefMatch:'Associer la Définition', titleFlashCards:'Cartes Flash', titleHangman:'Le Pendu',
         titleScramble:'Mot Mélangé', titleWordQuest:'Chasse aux Mots', titleSentence:'Construction de Phrases',
         titleQuote:'Analyse de Citation', titleGapFill:'Texte à Trous', titleFindError:'🔴 Trouver l\'Erreur',
@@ -12928,8 +12943,45 @@ function hideFailure() {
         let _mirrorLastSent = 0;
         let _mirrorFrozen = false;
         const _mirrorPeers = new Set();
+        let _mirrorControlMenuEl = null;
+        function _updateMirrorControlMenuVisibility() {
+          if (_mirrorControlMenuEl) {
+            _mirrorControlMenuEl.style.display = _mirrorPeers.size > 0 ? 'flex' : 'none';
+          }
+        }
+        function _ensureMirrorControlMenu() {
+          if (_mirrorControlMenuEl) return;
+          const menu = document.createElement('div');
+          menu.id = 'con-pres-menu';
+          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+          menu.innerHTML = ''
+            + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + boardT('presMenuTitle') + '</div>'
+            + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
+            + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
+            + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+            + '<div style="display:flex;gap:4px;">'
+            + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
+            + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
+            + '</div>';
+          menu.addEventListener('click', function(event) {
+            const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
+            if (!btn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const action = btn.getAttribute('data-pres-action');
+            if (action === 'close') window.conCloseMirrorWindow();
+            else if (action === 'freeze') window.conToggleMirrorFreeze();
+            else if (action === 'resize') window.conMirrorResizeWindow();
+            else if (action === 'right') window.conMirrorDockRight();
+            else if (action === 'left') window.conMirrorDockLeft();
+          });
+          document.body.appendChild(menu);
+          _mirrorControlMenuEl = menu;
+          _updateMirrorControlMenuVisibility();
+        }
         function _setPresentationActive(on) {
           document.documentElement.classList.toggle('con-presentation-active', !!on);
+          _updateMirrorControlMenuVisibility();
         }
         function _mirrorGetViewport() {
           var brd = document.getElementById('constellation-board');
@@ -13065,6 +13117,20 @@ function hideFailure() {
             _mirrorBroadcast();
             return;
           }
+          if (e.data.type === 'mirror-control') {
+            if (e.data.command === 'close') {
+              window.conCloseMirrorWindow();
+            } else if (e.data.command === 'freeze') {
+              window.conToggleMirrorFreeze();
+            } else if (e.data.command === 'resize') {
+              window.conMirrorResizeWindow();
+            } else if (e.data.command === 'right') {
+              window.conMirrorDockRight();
+            } else if (e.data.command === 'left') {
+              window.conMirrorDockLeft();
+            }
+            return;
+          }
           if (e.data.type === 'mirror-presence') {
             const mirrorId = String(e.data.id || 'default');
             if (e.data.online) _mirrorPeers.add(mirrorId);
@@ -13196,6 +13262,42 @@ function hideFailure() {
           }
           if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
             _mirrorPopupRef.close();
+          }
+        };
+        window.conMirrorResizeWindow = async function() {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('resize-window');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(420, Math.round(window.outerWidth || 1200));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            _mirrorPopupRef.resizeTo(width, height);
+          }
+        };
+        window.conMirrorDockLeft = async function() {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('dock-left');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(260, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) * 0.2));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            _mirrorPopupRef.resizeTo(width, height);
+            _mirrorPopupRef.moveTo(0, 0);
+          }
+        };
+        window.conMirrorDockRight = async function() {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('dock-right');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            const width = Math.max(260, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) * 0.2));
+            const height = Math.max(300, Math.round(window.outerHeight || 800));
+            const left = Math.max(0, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) - width));
+            _mirrorPopupRef.resizeTo(width, height);
+            _mirrorPopupRef.moveTo(left, 0);
           }
         };
       } else {
@@ -18517,6 +18619,7 @@ function hideFailure() {
         conInitBorderSwatches();
         conInitPresetButtons();
         conSetDefaultWordFontSize(conDefaultNewWordFontSize);
+        if (typeof _ensureMirrorControlMenu === 'function') _ensureMirrorControlMenu();
         // Reflect initial snap state on button
         const snapBtn = document.getElementById('con-snap-toggle-btn');
         if (snapBtn) snapBtn.classList.toggle('con-panel-active', conSnapEnabled);
@@ -32140,6 +32243,41 @@ function unknownWordsCopy() {
     }
   }
 
+  var _mirrorControlMenuEl = null;
+  function _setMirrorMenuFrozen(on) {
+    if (!_mirrorControlMenuEl) return;
+    var freezeBtn = _mirrorControlMenuEl.querySelector('[data-mirror-action="freeze"]');
+    if (freezeBtn) {
+      freezeBtn.textContent = on ? boardT('presUnfreeze') : boardT('presFreeze');
+      freezeBtn.title = on ? boardT('presUnfreeze') : boardT('presFreeze');
+    }
+  }
+  function _ensureMirrorControlMenu() {
+    if (_mirrorControlMenuEl) return;
+    var menu = document.createElement('div');
+    menu.id = 'con-pres-menu';
+    menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+    menu.innerHTML = ''
+      + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + boardT('presMenuTitle') + '</div>'
+      + '<button type="button" data-mirror-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
+      + '<button type="button" data-mirror-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
+      + '<button type="button" data-mirror-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+      + '<div style="display:flex;gap:4px;">'
+      + '  <button type="button" data-mirror-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
+      + '  <button type="button" data-mirror-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
+      + '</div>';
+    menu.addEventListener('click', function(event) {
+      var btn = event.target && event.target.closest ? event.target.closest('[data-mirror-action]') : null;
+      if (!btn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      try { ch.postMessage({ type: 'mirror-control', command: btn.getAttribute('data-mirror-action') }); } catch(e) {}
+    });
+    document.body.appendChild(menu);
+    _mirrorControlMenuEl = menu;
+    _setMirrorMenuFrozen(_mirrorIsFrozen);
+  }
+
   // Convert viewport-relative normalised coords back to mirror screen coords.
   // nx/ny are fractions of the visible board area (0..1), matching _normBrd in the main window.
   function _brdVP(nx, ny) {
@@ -32389,6 +32527,7 @@ function unknownWordsCopy() {
     if (d.type === 'freeze-state') {
       _mirrorIsFrozen = !!d.on;
       _setMirrorFrozenUi(_mirrorIsFrozen);
+      _setMirrorMenuFrozen(_mirrorIsFrozen);
       return;
     }
 

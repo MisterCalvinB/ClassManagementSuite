@@ -353,6 +353,11 @@
     return getDesktopApi().cmsPresentationCommand(command);
   }
 
+  async function learningToolsPresentationCommand(command) {
+    if (!isElectron()) return null;
+    return getDesktopApi().learningToolsPresentationCommand(command);
+  }
+
   async function openOralPresenter(opts) {
     if (!isElectron()) return null;
     return getDesktopApi().openOralPresenter(opts || {});
@@ -672,6 +677,7 @@
     quizServerStop,
     quizServerStatus,
     onDataChanged,
+    learningToolsPresentationCommand,
     saveToDisk,
     pickAndReadFile,
     pickAndCopyFiles,

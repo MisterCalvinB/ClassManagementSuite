@@ -147,9 +147,9 @@ Four tools support a detached second window for projection on a second monitor:
 
 | Tool | How to open | What is projected |
 |---|---|---|
-| **Board** | Toolbar → 📽️ Presentation Mode | Live canvas; supports a mouse-pointer dot and a Freeze toggle |
-| **Class Management** | Top menu → Presentation | Roster with roles, badges, and animated effects; can be frozen independently |
-| **Learning Tools** | Individual game → Presentation icon | Game view on a student-facing display; teacher controls stay on the main screen |
+| **Board** | Toolbar → 📽️ Presentation Mode | Live canvas; includes a compact, localized popup with stop, freeze, resize, and left/right window controls |
+| **Class Management** | Top menu → Presentation | Roster with roles, badges, and animated effects; includes the same compact popup controls and can be frozen independently |
+| **Learning Tools** | Individual game → Presentation icon | Game view on a student-facing display; includes the same compact popup controls while teacher controls stay on the main screen |
 | **Document Editor** | Export ▾ → Presentation Mode | Live document preview on a dark background; updates with every keystroke |
 
 ---
@@ -555,6 +555,7 @@ The main panel shows every student in the active class.
 - **Multi-select** (Shift+click or checkboxes) lets you bulk-apply actions — create teams, assign roles, flag a group.
 - Inline indicators show badges, strikes, and cumulative points for each student.
 - Name size can be adjusted with **−/+** controls so the roster fits any screen.
+- Roster settings can be **pinned** so they stay docked at the bottom of the roster panel.
 
 ### Teams & Roles
 
@@ -788,6 +789,7 @@ Paste a table from any source (a web page, Word, Excel, Google Sheets) directly 
 - **📽️ Presentation Mode**: mirrors the board to a second monitor window.
 - **🖱 Mouse Pointer**: shows a laser dot at the cursor position in the presentation window.
 - **❄️ Freeze Board**: stops the presentation from updating while you prepare the next state.
+- A fixed popup menu in the presentation window provides stop, freeze, resize, and left/right window controls.
 
 ---
 

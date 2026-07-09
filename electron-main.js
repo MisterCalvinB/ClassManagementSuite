@@ -407,6 +407,9 @@ function createToolWindow(pageFile, options = {}) {
     if (currentPage === PAGE_FILES.classManagement && cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
       cmsPresentationWindow.close();
     }
+    if (currentPage === PAGE_FILES.learningTools && learningToolsPresentationWindow && !learningToolsPresentationWindow.isDestroyed()) {
+      learningToolsPresentationWindow.close();
+    }
     if (currentPage === PAGE_FILES.oralMarking && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
       oralPresenterWindow.close();
     }
@@ -3071,10 +3074,23 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
     }
   }
 
-  const toolWin = createToolWindow(pageFile, query ? { query } : {});
-
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   const senderBounds = senderWin && !senderWin.isDestroyed() ? senderWin.getBounds() : null;
+  const toolWin = createToolWindow(pageFile, query ? { query } : {});
+  const isLearningToolsPresentation =
+    pageFile === PAGE_FILES.learningTools
+    && query
+    && (String(query.wwPresentation || '') === '1' || String(query.ltPresentation || '') === '1');
+
+  if (isLearningToolsPresentation) {
+    learningToolsPresentationWindow = toolWin;
+    learningToolsPresentationSourceWindow = senderWin || null;
+    toolWin.once('closed', () => {
+      if (learningToolsPresentationWindow === toolWin) learningToolsPresentationWindow = null;
+      if (learningToolsPresentationSourceWindow === senderWin) learningToolsPresentationSourceWindow = null;
+    });
+  }
+
   const wantsSecondary = !!(
     request.openOnSecondScreen
     || (
@@ -3388,6 +3404,11 @@ ipcMain.handle('app:open-html', async (event, request = {}) => {
 });
 
 let mirrorWindow = null;
+let mirrorWindowSource = null;
+let cmsPresentationWindow = null;
+let cmsPresentationSourceWindow = null;
+let learningToolsPresentationWindow = null;
+let learningToolsPresentationSourceWindow = null;
 
 function getExtendedDisplayForBounds(bounds) {
   const allDisplays = screen.getAllDisplays();
@@ -3440,6 +3461,35 @@ function mapWindowBoundsToDisplay(sourceBounds, sourceDisplay, targetDisplay) {
   return { x, y, width, height };
 }
 
+function syncTargetWindowToSource(targetWindow, sourceWindow) {
+  if (!targetWindow || targetWindow.isDestroyed()) return false;
+  const sourceBounds = sourceWindow && !sourceWindow.isDestroyed() ? sourceWindow.getBounds() : null;
+  if (!sourceBounds) return false;
+  if (targetWindow.isFullScreen()) targetWindow.setFullScreen(false);
+  if (targetWindow.isMaximized()) targetWindow.unmaximize();
+  const targetBounds = targetWindow.getBounds();
+  targetWindow.setBounds({
+    x: targetBounds.x,
+    y: targetBounds.y,
+    width: sourceBounds.width,
+    height: sourceBounds.height
+  });
+  return true;
+}
+
+function dockTargetWindow(targetWindow, edge, ratio = 0.2) {
+  if (!targetWindow || targetWindow.isDestroyed()) return false;
+  if (targetWindow.isFullScreen()) targetWindow.setFullScreen(false);
+  if (targetWindow.isMaximized()) targetWindow.unmaximize();
+  const display = screen.getDisplayMatching(targetWindow.getBounds()) || screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  const width = Math.max(260, Math.round(wa.width * ratio));
+  const bounds = { y: wa.y, width, height: wa.height };
+  bounds.x = edge === 'left' ? wa.x : wa.x + wa.width - width;
+  targetWindow.setBounds(bounds);
+  return true;
+}
+
 ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   if (mirrorWindow && !mirrorWindow.isDestroyed()) {
     mirrorWindow.focus();
@@ -3447,6 +3497,7 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   }
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   const sBounds   = senderWin ? senderWin.getBounds() : null;
+  mirrorWindowSource = senderWin || null;
 
   // Detect second screen
   const allDisplays = screen.getAllDisplays();
@@ -3537,14 +3588,21 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
     case 'close':
       mirrorWindow.close();
       break;
+    case 'resize-window':
+      syncTargetWindowToSource(mirrorWindow, mirrorWindowSource);
+      break;
+    case 'dock-left':
+      dockTargetWindow(mirrorWindow, 'left');
+      break;
+    case 'dock-right':
+      dockTargetWindow(mirrorWindow, 'right');
+      break;
     default:
       return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
 });
 
-// ── CMS Presentation Window ───────────────────────────────────────────────────
-let cmsPresentationWindow = null;
 ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
   if (cmsPresentationWindow && !cmsPresentationWindow.isDestroyed()) {
     cmsPresentationWindow.focus();
@@ -3552,6 +3610,7 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
   }
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   const sBounds   = senderWin ? senderWin.getBounds() : null;
+  cmsPresentationSourceWindow = senderWin || null;
 
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
 
@@ -3616,6 +3675,7 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
   switch (command) {
     case 'close':      cmsPresentationWindow.close(); break;
     case 'fullscreen': cmsPresentationWindow.setFullScreen(!cmsPresentationWindow.isFullScreen()); break;
+    case 'resize-window': syncTargetWindowToSource(cmsPresentationWindow, cmsPresentationSourceWindow); break;
     case 'maximize': {
       if (cmsPresentationWindow.isMaximized()) {
         cmsPresentationWindow.unmaximize();
@@ -3630,16 +3690,38 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
       break;
     }
     case 'minimize':   cmsPresentationWindow.minimize(); break;
+    case 'dock-left': {
+      dockTargetWindow(cmsPresentationWindow, 'left');
+      break;
+    }
     case 'dock-right': {
-      if (cmsPresentationWindow.isFullScreen()) cmsPresentationWindow.setFullScreen(false);
-      if (cmsPresentationWindow.isMaximized()) cmsPresentationWindow.unmaximize();
-      const disp = screen.getDisplayMatching(cmsPresentationWindow.getBounds());
-      const { x, y, width, height } = disp.workArea;
-      const w = Math.round(width * 0.2);
-      cmsPresentationWindow.setBounds({ x: x + width - w, y, width: w, height });
+      dockTargetWindow(cmsPresentationWindow, 'right');
       break;
     }
     default: return { ok: false, reason: 'unknown-command' };
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app:learning-tools-presentation-command', (event, command) => {
+  if (!learningToolsPresentationWindow || learningToolsPresentationWindow.isDestroyed()) {
+    return { ok: false, reason: 'not-open' };
+  }
+  switch (command) {
+    case 'close':
+      learningToolsPresentationWindow.close();
+      break;
+    case 'resize-window':
+      syncTargetWindowToSource(learningToolsPresentationWindow, learningToolsPresentationSourceWindow);
+      break;
+    case 'dock-left':
+      dockTargetWindow(learningToolsPresentationWindow, 'left');
+      break;
+    case 'dock-right':
+      dockTargetWindow(learningToolsPresentationWindow, 'right');
+      break;
+    default:
+      return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
 });

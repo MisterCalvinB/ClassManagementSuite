@@ -460,9 +460,24 @@
             <div class="roster-panel-header">
                 <h2 data-i18n-prefix="students_label">Students <span id="students-present-count" style="font-weight:normal; font-size:0.85em; color:#666;"></span>: <span id="display-name">--</span></h2>
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <div style="position:relative;display:inline-block;">
+                    <div id="roster-settings-anchor" style="position:relative;display:inline-block;">
                         <button id="roster-settings-btn" class="btn-toggle-badges" onclick="toggleRosterSettingsPopup(event)" title="Roster settings" data-i18n-title="rsp_roster_settings_title" style="padding:2px 6px;font-size:0.8rem;">⚙</button>
                         <div id="roster-settings-popup" class="roster-settings-popup">
+                            <div class="rsp-section">
+                                <div class="rsp-pin-row">
+                                    <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn" onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings at the bottom of the roster panel" data-i18n-title="rsp_pin_title">📌 Pin menu</button>
+                                </div>
+                                <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
+                                <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
+                                <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
+                                    <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
+                                    <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
+                                    <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
+                                    <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
+                                    <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
+                                </div>
+                            </div>
+                            <hr class="rsp-divider">
                             <div class="rsp-section">
                                 <div class="rsp-size-row">
                                     <div class="rsp-size-btns">
@@ -523,18 +538,6 @@
                                 <button class="rsp-item" onclick="closeRosterSettingsPopup(); addStudentToGroup()" data-i18n="btn_add_student">Add student</button>
                                 <button class="rsp-item" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores" data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
                             </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
-                                <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
-                                <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -569,6 +572,7 @@
 			<button class="btn-pick" id="pick-btn" onclick="pickStudent()" disabled data-i18n="btn_pick">Random Student</button>
 			<button class="btn-pick" id="pick-team-btn" onclick="pickTeam()" disabled data-i18n="btn_pick_team" style="display:none">Random Team</button>
 			</div>
+            <div id="roster-settings-dock" class="roster-settings-dock" aria-hidden="true"></div>
         </div>
     </div>
 </div>
@@ -1187,6 +1191,8 @@
     function _updatePresWindowControls() {
         const el = document.getElementById('rsp-pres-controls');
         if (el) el.style.display = _presWindowOpen ? '' : 'none';
+        const popup = document.getElementById('cms-pres-popup');
+        if (popup) popup.style.display = _presWindowOpen ? 'flex' : 'none';
     }
 
     function _broadcastPresentationState() {
@@ -1420,13 +1426,67 @@
         }
     }
 
-    function toggleFreezePresentation() {
-        _presFrozen = !_presFrozen;
+    async function cmsPresentationDockLeft() {
+        if (window.Desktop && typeof Desktop.cmsPresentationCommand === 'function') {
+            await Desktop.cmsPresentationCommand('dock-left');
+        }
+    }
+
+    async function cmsPresentationResizeWindow() {
+        if (window.Desktop && typeof Desktop.cmsPresentationCommand === 'function') {
+            await Desktop.cmsPresentationCommand('resize-window');
+        }
+    }
+
+    function syncPresentationFreezeButtons() {
         const btn = document.getElementById('rsp-pres-freeze-btn');
         if (btn) {
             btn.textContent = _presFrozen ? '❄ Frozen' : '❄ Freeze';
             btn.style.background = _presFrozen ? '#4a90d9' : '';
             btn.style.color = _presFrozen ? '#fff' : '';
+        }
+        const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="freeze"]');
+        if (popupBtn) {
+            popupBtn.textContent = _presFrozen ? t('pres_unfreeze') : t('pres_freeze');
+            popupBtn.title = _presFrozen ? t('pres_unfreeze_title') : t('pres_freeze_title');
+        }
+    }
+
+    function ensurePresentationPopupMenu() {
+        if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
+        const popup = document.createElement('div');
+        popup.id = 'cms-pres-popup';
+        popup.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+        popup.innerHTML = ''
+            + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + t('pres_menu_title') + '</div>'
+            + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
+            + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_freeze') + '</button>'
+            + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_resize') + '</button>'
+            + '<div style="display:flex;gap:4px;">'
+            + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('pres_left') + '</button>'
+            + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('pres_right') + '</button>'
+            + '</div>';
+        popup.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-pres-action]');
+            if (!btn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const action = btn.getAttribute('data-pres-action');
+            if (action === 'close') cmsPresentationClose();
+            else if (action === 'freeze') toggleFreezePresentation();
+            else if (action === 'resize') cmsPresentationResizeWindow();
+            else if (action === 'right') cmsPresentationDockRight();
+            else if (action === 'left') cmsPresentationDockLeft();
+        });
+        document.body.appendChild(popup);
+        syncPresentationFreezeButtons();
+    }
+
+    function toggleFreezePresentation() {
+        _presFrozen = !_presFrozen;
+        syncPresentationFreezeButtons();
+        if (_presChannel) {
+            try { _presChannel.postMessage({ type: 'pres-frozen-state', on: _presFrozen }); } catch (_) {}
         }
         if (!_presFrozen) _broadcastPresentationState();
     }
@@ -3692,6 +3752,22 @@ function updateUtilityButtons() {
     const teamBtn = document.getElementById('pick-team-btn');
     if (teamBtn) { teamBtn.style.display = currentTeamsActive ? '' : 'none'; teamBtn.disabled = !currentTeamsActive; }
 }
+
+function updateRosterSettingsPopupContext() {
+    const hasTeams = !!currentTeamsActive;
+    const hasRoles = getAssignedRolesForSelectedGroup().length > 0;
+    ['rsp-reshuffle-teams-btn','rsp-clear-teams-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = hasTeams ? '' : 'none';
+    });
+    const toggleRolesEl = document.getElementById('rsp-toggle-roles-btn');
+    if (toggleRolesEl) toggleRolesEl.style.display = hasRoles ? '' : 'none';
+    ['rsp-role-info-btn','rsp-reassign-roles-btn','rsp-clear-roles-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = hasRoles ? '' : 'none';
+    });
+    syncRosterInlineToggleButtonStates();
+}
 function reshuffleTeams() {
     if (!selectedGroupName || !currentTeamsActive) return;
 
@@ -4829,6 +4905,7 @@ function setStudentRole(studentOrId, role) {
     }
 
     updatePresentCount();
+    updateRosterSettingsPopupContext();
     if (PRESENTATION_MODE) _presAdjustRosterColumns();
 }
 
@@ -6061,6 +6138,60 @@ function exportToCSV() {
     let autoFlagVisible = true;
     let animationsEnabled = true;
     let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false };
+    let rosterSettingsPinned = false;
+    const ROSTER_SETTINGS_PIN_KEY = 'cmt-cms-roster-settings-pinned';
+
+    function updateRosterSettingsPinUi() {
+        const pinBtn = document.getElementById('rsp-pin-btn');
+        if (!pinBtn) return;
+        const labelKey = rosterSettingsPinned ? 'rsp_unpin_btn' : 'rsp_pin_btn';
+        const titleKey = rosterSettingsPinned ? 'rsp_unpin_title' : 'rsp_pin_title';
+        pinBtn.textContent = `📌 ${t(labelKey)}`;
+        pinBtn.title = t(titleKey);
+        pinBtn.classList.toggle('is-off', !rosterSettingsPinned);
+    }
+
+    function setRosterSettingsPinned(pinned, persist = true) {
+        const popup = document.getElementById('roster-settings-popup');
+        const anchor = document.getElementById('roster-settings-anchor');
+        const dock = document.getElementById('roster-settings-dock');
+        const btn = document.getElementById('roster-settings-btn');
+        if (!popup || !anchor || !dock) return;
+
+        rosterSettingsPinned = !!pinned;
+        if (persist) {
+            try {
+                localStorage.setItem(ROSTER_SETTINGS_PIN_KEY, rosterSettingsPinned ? '1' : '0');
+            } catch (_) {}
+        }
+
+        if (rosterSettingsPinned) {
+            dock.appendChild(popup);
+            popup.classList.add('pinned', 'open');
+            dock.classList.add('active');
+            if (btn) btn.classList.add('active');
+            updateRosterSettingsPopupContext();
+        } else {
+            anchor.appendChild(popup);
+            popup.classList.remove('pinned', 'open');
+            dock.classList.remove('active');
+            if (btn) btn.classList.remove('active');
+        }
+
+        updateRosterSettingsPinUi();
+    }
+
+    function toggleRosterSettingsPin() {
+        setRosterSettingsPinned(!rosterSettingsPinned, true);
+    }
+
+    function initRosterSettingsPinState() {
+        let saved = '0';
+        try {
+            saved = localStorage.getItem(ROSTER_SETTINGS_PIN_KEY) || '0';
+        } catch (_) {}
+        setRosterSettingsPinned(saved === '1', false);
+    }
 
 function updateDateTime() {
     const now = new Date();
@@ -9925,30 +10056,27 @@ function toggleRosterSettingsPopup(event) {
     if (event) { event.stopPropagation(); event.preventDefault(); }
     const popup = document.getElementById('roster-settings-popup');
     const btn = document.getElementById('roster-settings-btn');
+    if (rosterSettingsPinned) {
+        popup.classList.add('open');
+        if (btn) btn.classList.add('active');
+        updateRosterSettingsPopupContext();
+        return;
+    }
     const isOpen = popup.classList.contains('open');
     if (isOpen) {
         closeRosterSettingsPopup();
     } else {
-        // Show/hide conditional items
-        const hasTeams = !!currentTeamsActive;
-        const hasRoles = getAssignedRolesForSelectedGroup().length > 0;
-        ['rsp-reshuffle-teams-btn','rsp-clear-teams-btn'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = hasTeams ? '' : 'none';
-        });
-        const toggleRolesEl = document.getElementById('rsp-toggle-roles-btn');
-        if (toggleRolesEl) toggleRolesEl.style.display = hasRoles ? '' : 'none';
-        ['rsp-role-info-btn','rsp-reassign-roles-btn','rsp-clear-roles-btn'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.style.display = hasRoles ? '' : 'none';
-        });
-        syncRosterInlineToggleButtonStates();
+        updateRosterSettingsPopupContext();
         popup.classList.add('open');
         if (btn) btn.classList.add('active');
     }
 }
 
-function closeRosterSettingsPopup() {
+function closeRosterSettingsPopup(force = false) {
+    if (rosterSettingsPinned && !force) {
+        updateRosterSettingsPopupContext();
+        return;
+    }
     const popup = document.getElementById('roster-settings-popup');
     const btn = document.getElementById('roster-settings-btn');
     if (popup) popup.classList.remove('open');
@@ -9977,7 +10105,7 @@ document.addEventListener('click', function(e) {
 
     const rosterSettingsPopup = document.getElementById('roster-settings-popup');
     const rosterSettingsBtn = document.getElementById('roster-settings-btn');
-    if (rosterSettingsPopup && rosterSettingsPopup.classList.contains('open') && !rosterSettingsPopup.contains(e.target) && e.target !== rosterSettingsBtn && !rosterSettingsBtn.contains(e.target)) {
+    if (!rosterSettingsPinned && rosterSettingsPopup && rosterSettingsPopup.classList.contains('open') && !rosterSettingsPopup.contains(e.target) && e.target !== rosterSettingsBtn && !rosterSettingsBtn.contains(e.target)) {
         closeRosterSettingsPopup();
     }
 });
@@ -10441,10 +10569,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     } else {
+        ensurePresentationPopupMenu();
         // Main window: respond to state requests from the presentation window
         if (_presChannel) {
             _presChannel.addEventListener('message', (e) => {
                 if (e.data && e.data.type === 'request-state') _broadcastPresentationState();
+                if (e.data && e.data.type === 'pres-control') {
+                    if (e.data.command === 'close') cmsPresentationClose();
+                    else if (e.data.command === 'freeze') toggleFreezePresentation();
+                    else if (e.data.command === 'resize') cmsPresentationResizeWindow();
+                    else if (e.data.command === 'right') cmsPresentationDockRight();
+                    else if (e.data.command === 'left') cmsPresentationDockLeft();
+                }
+                if (e.data && e.data.type === 'pres-frozen-state') {
+                    _presFrozen = !!e.data.on;
+                    syncPresentationFreezeButtons();
+                }
                 if (e.data && e.data.type === 'pres-window-closing') {
                     _presWindowOpen = false;
                     _updatePresWindowControls();
@@ -10825,6 +10965,10 @@ const I18N = {
     af_since: 'Since',
 
     rsp_roster_settings_title: 'Roster settings',
+    rsp_pin_title: 'Pin roster settings at the bottom of the roster panel',
+    rsp_unpin_title: 'Unpin roster settings from the roster panel',
+    rsp_pin_btn: 'Pin menu',
+    rsp_unpin_btn: 'Unpin menu',
     rsp_decrease_title: 'Decrease name size',
     rsp_reset_title: 'Reset name size',
     rsp_increase_title: 'Increase name size',
@@ -10856,6 +11000,19 @@ const I18N = {
     rsp_max_pres_title: 'Maximise presentation window',
     rsp_min_pres_title: 'Minimise presentation window',
     rsp_right_pres_title: 'Move presentation window to the right (20% width)',
+    pres_menu_title: 'Presentation Menu',
+    pres_stop: 'Stop presentation',
+    pres_stop_title: 'Stop the presentation window',
+    pres_freeze: 'Freeze presentation',
+    pres_unfreeze: 'Unfreeze presentation',
+    pres_freeze_title: 'Freeze the presentation window',
+    pres_unfreeze_title: 'Unfreeze the presentation window',
+    pres_resize: 'Resize window',
+    pres_resize_title: 'Match the original window size',
+    pres_right: 'To the right',
+    pres_right_title: 'Dock the presentation window to the right',
+    pres_left: 'To the left',
+    pres_left_title: 'Dock the presentation window to the left',
 
     rp_group_teams: '🎲 Group by teams',
     rp_group_teams_title: 'Automatically fill seats grouping present students by team',
@@ -11227,6 +11384,10 @@ const I18N = {
     af_since: 'Depuis le',
 
     rsp_roster_settings_title: 'Paramètres de la liste',
+    rsp_pin_title: 'Épingler les paramètres de la liste en bas du panneau',
+    rsp_unpin_title: 'Désépingler les paramètres de la liste du panneau',
+    rsp_pin_btn: 'Épingler le menu',
+    rsp_unpin_btn: 'Désépingler le menu',
     rsp_decrease_title: 'Réduire la taille du nom',
     rsp_reset_title: 'Réinitialiser la taille',
     rsp_increase_title: 'Augmenter la taille du nom',
@@ -11258,6 +11419,19 @@ const I18N = {
     rsp_max_pres_title: 'Maximiser la fenêtre de présentation',
     rsp_min_pres_title: 'Minimiser la fenêtre de présentation',
     rsp_right_pres_title: 'Déplacer la présentation à droite (20% de largeur)',
+    pres_menu_title: 'Menu de présentation',
+    pres_stop: 'Arrêter la présentation',
+    pres_stop_title: 'Arrêter la fenêtre de présentation',
+    pres_freeze: 'Figer la présentation',
+    pres_unfreeze: 'Défiger la présentation',
+    pres_freeze_title: 'Figer la fenêtre de présentation',
+    pres_unfreeze_title: 'Défiger la fenêtre de présentation',
+    pres_resize: 'Redimensionner la fenêtre',
+    pres_resize_title: 'Ajuster à la taille de la fenêtre d’origine',
+    pres_right: 'Vers la droite',
+    pres_right_title: 'Ancrer la fenêtre de présentation à droite',
+    pres_left: 'Vers la gauche',
+    pres_left_title: 'Ancrer la fenêtre de présentation à gauche',
 
     rp_group_teams: '🎲 Regrouper par équipes',
     rp_group_teams_title: 'Remplir les places en regroupant les élèves par équipe',
@@ -11629,6 +11803,10 @@ const I18N = {
     af_since: 'Seit dem',
 
     rsp_roster_settings_title: 'Listeneinstellungen',
+    rsp_pin_title: 'Listeneinstellungen unten im Listenbereich anheften',
+    rsp_unpin_title: 'Listeneinstellungen vom Listenbereich lösen',
+    rsp_pin_btn: 'Menü anheften',
+    rsp_unpin_btn: 'Menü lösen',
     rsp_decrease_title: 'Namensgröße verringern',
     rsp_reset_title: 'Namensgröße zurücksetzen',
     rsp_increase_title: 'Namensgröße erhöhen',
@@ -11660,6 +11838,19 @@ const I18N = {
     rsp_max_pres_title: 'Präsentationsfenster maximieren',
     rsp_min_pres_title: 'Präsentationsfenster minimieren',
     rsp_right_pres_title: 'Präsentation rechts positionieren (20% Breite)',
+    pres_menu_title: 'Präsentationsmenü',
+    pres_stop: 'Präsentation beenden',
+    pres_stop_title: 'Das Präsentationsfenster beenden',
+    pres_freeze: 'Präsentation einfrieren',
+    pres_unfreeze: 'Präsentation auftauen',
+    pres_freeze_title: 'Das Präsentationsfenster einfrieren',
+    pres_unfreeze_title: 'Das Präsentationsfenster auftauen',
+    pres_resize: 'Fenstergröße anpassen',
+    pres_resize_title: 'An die Größe des Originalfensters anpassen',
+    pres_right: 'Nach rechts',
+    pres_right_title: 'Präsentationsfenster rechts andocken',
+    pres_left: 'Nach links',
+    pres_left_title: 'Präsentationsfenster links andocken',
 
     rp_group_teams: '🎲 Nach Teams gruppieren',
     rp_group_teams_title: 'Plätze automatisch nach Teams besetzen',
@@ -12026,6 +12217,10 @@ const I18N = {
     af_since: 'Dal',
 
     rsp_roster_settings_title: 'Impostazioni lista',
+    rsp_pin_title: 'Fissa le impostazioni lista in basso nel pannello elenco',
+    rsp_unpin_title: 'Sblocca le impostazioni lista dal pannello elenco',
+    rsp_pin_btn: 'Fissa menu',
+    rsp_unpin_btn: 'Sblocca menu',
     rsp_decrease_title: 'Riduci dimensione nome',
     rsp_reset_title: 'Reimposta dimensione nome',
     rsp_increase_title: 'Aumenta dimensione nome',
@@ -12057,6 +12252,19 @@ const I18N = {
     rsp_max_pres_title: 'Massimizza la finestra di presentazione',
     rsp_min_pres_title: 'Minimizza la finestra di presentazione',
     rsp_right_pres_title: 'Sposta la presentazione a destra (20% larghezza)',
+    pres_menu_title: 'Menu presentazione',
+    pres_stop: 'Ferma presentazione',
+    pres_stop_title: 'Ferma la finestra di presentazione',
+    pres_freeze: 'Blocca presentazione',
+    pres_unfreeze: 'Sblocca presentazione',
+    pres_freeze_title: 'Blocca la finestra di presentazione',
+    pres_unfreeze_title: 'Sblocca la finestra di presentazione',
+    pres_resize: 'Ridimensiona finestra',
+    pres_resize_title: 'Allinea alla dimensione della finestra originale',
+    pres_right: 'A destra',
+    pres_right_title: 'Aggancia la finestra di presentazione a destra',
+    pres_left: 'A sinistra',
+    pres_left_title: 'Aggancia la finestra di presentazione a sinistra',
 
     rp_group_teams: '🎲 Raggruppa per squadre',
     rp_group_teams_title: 'Riempi i posti raggruppando gli studenti per squadra',
@@ -12297,6 +12505,7 @@ function applyLang() {
 
   // Dynamic utility buttons (re-render)
   if (typeof renderUtilityButtons === 'function') renderUtilityButtons();
+    if (typeof updateRosterSettingsPinUi === 'function') updateRosterSettingsPinUi();
 
   // Roles modal (re-render if open)
   if (typeof renderRolesLibrary === 'function') {
@@ -12324,6 +12533,7 @@ function applyLang() {
 
 // Override renderUtilityButtons after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initRosterSettingsPinState === 'function') initRosterSettingsPinState();
   const origRender = window.renderUtilityButtons;
   if (origRender) {
     window.renderUtilityButtons = function() {
@@ -14375,7 +14585,8 @@ if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
     }
   };
   Desktop.onDataChanged(function (data) {
-    if (data && (data.filename === 'class-groups.js' || data.filename === 'config.js')) {
+        if (PRESENTATION_MODE) return;
+        if (data && (data.filename === 'class-groups.js' || data.filename === 'config.js')) {
       showDataChangedBanner(data);
     }
   });
