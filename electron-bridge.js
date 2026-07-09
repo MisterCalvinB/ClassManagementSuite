@@ -355,7 +355,11 @@
 
   async function learningToolsPresentationCommand(command) {
     if (!isElectron()) return null;
-    return getDesktopApi().learningToolsPresentationCommand(command);
+    const api = getDesktopApi();
+    if (!api || typeof api.learningToolsPresentationCommand !== 'function') {
+      return { ok: false, reason: 'unavailable' };
+    }
+    return api.learningToolsPresentationCommand(command);
   }
 
   async function openOralPresenter(opts) {

@@ -204,6 +204,9 @@ const exposedApi = {
   cmsPresentationCommand(command) {
     return invoke('app:cms-presentation-command', command);
   },
+  learningToolsPresentationCommand(command) {
+    return invoke('app:learning-tools-presentation-command', command);
+  },
   openOralPresenter(request) {
     return invoke('app:open-oral-presenter', request);
   },
