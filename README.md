@@ -214,6 +214,13 @@ Set a custom **app title** (displayed in the header of all tool windows).
 
 Choose the UI language: **EN · FR · DE · IT**. The selection applies to all tools and is stored in `localStorage` under `cmt-general-config.language`.
 
+### Development Features
+
+Use **General Config → Startup & Launch → Show features in development** to show or hide beta features.
+
+- Off (default): hides **Phone Remote** (Class Management), **Student Input Note** (Board), and **Multiplayer Host** (Learning Tools quiz).
+- On: shows those features again.
+
 ### Startup & Launch
 
 Choose which apps open automatically when the launcher starts, and how they are arranged:

@@ -146,7 +146,7 @@
         <button class="btn-objectives" onclick="toggleObjectivesBar()" data-i18n="btn_objectives">Objectives</button>
         <button class="btn-db-hub" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title" title="Database &amp; Time Machine">🗄 DB</button>
         <button class="btn-objectives" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings" data-i18n-title="settings_btn_title">⚙ Settings</button>
-        <button class="btn-objectives" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote" data-i18n-title="remote_btn_title" style="display:flex;align-items:center;gap:6px;">
+        <button class="btn-objectives" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote" data-i18n-title="remote_btn_title" style="display:none;align-items:center;gap:6px;">
             <span>📱 Remote</span>
             <span id="remote-connected-badge" style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
         </button>
@@ -2164,6 +2164,17 @@
     async function initApp() {
         await Promise.resolve(window.__cmUserBootstrapPromise).catch(function () {});
         await loadConfigFromDisk();
+
+        let showDevFeatures = !!(getLoadedConfig()?.launcherSettings?.showDevFeatures);
+        if (!showDevFeatures) {
+            try {
+                const generalCfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+                showDevFeatures = generalCfg.showDevFeatures === true;
+            } catch (_) {}
+        }
+        const remoteBtn = document.getElementById('remote-settings-btn');
+        if (remoteBtn) remoteBtn.style.display = showDevFeatures ? 'flex' : 'none';
+
         const config = getLoadedConfig();
         if (config?.classGroups && Object.keys(config.classGroups).length) {
             rawData = config.classGroups;

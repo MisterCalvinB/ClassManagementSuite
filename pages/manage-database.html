@@ -2019,7 +2019,36 @@ function copyAIPrompt(btn) {
     btn.textContent = t('mdbAiCopied');
     setTimeout(() => { btn.textContent = orig; }, 1800);
   };
-  navigator.clipboard.writeText(template).then(markCopied).catch(() => markCopied());
+  const fallbackCopy = () => {
+    const ta = document.createElement('textarea');
+    ta.value = template;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    if (ta.parentNode) ta.parentNode.removeChild(ta);
+    return ok;
+  };
+
+  const writeClipboard = async () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(template);
+        return true;
+      } catch (_) {}
+    }
+    return fallbackCopy();
+  };
+
+  writeClipboard().then(ok => {
+    if (ok) markCopied();
+    else showToast(t('mdbErrClipboardUnavailable') || 'Clipboard unavailable.', true);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────

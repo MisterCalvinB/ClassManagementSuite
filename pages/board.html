@@ -794,7 +794,7 @@
     <button onclick="conBoardCtxConfirmNote()" title="Add note"
             style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">📌</button>
   </div>
-  <div class="con-ctx-item" onclick="conBoardCtxOpenStudentNote()">👥 Student Input Note</div>
+  <div class="con-ctx-item" id="con-ctx-student-note-dev" onclick="conBoardCtxOpenStudentNote()" style="display:none;">👥 Student Input Note</div>
   <div class="con-ctx-item" onclick="conBoardCtxImportText()">📂 Import Text</div>
   <div class="con-ctx-item" onclick="conBoardCtxAddMask()">▭ Add Mask</div>
   <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
@@ -4075,7 +4075,8 @@ function hideFailure() {
         const result = await Desktop.listByPath('customWordbanks', '', { extensions: ['.js'] });
         if (!result || !result.ok || !result.files || !result.files.length) return;
         for (const file of result.files) {
-          const sourceId = file.filename.replace(/\.js$/i, '');
+          const sourceIdRaw = file.filename.replace(/\.js$/i, '');
+          const sourceId = /^worddb$/i.test(sourceIdRaw) ? 'worddb' : sourceIdRaw;
           if (!_customDbSources.includes(sourceId)) _customDbSources.push(sourceId);
           const content = await Desktop.readByPath('customWordbanks', file.relativePath);
           if (!content || !content.ok || !content.content) continue;
@@ -4120,6 +4121,7 @@ function hideFailure() {
         if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
         if (typeof dictPopulateThemeFilter === 'function') dictPopulateThemeFilter();
         if (typeof conImportPopulateThemes === 'function') conImportPopulateThemes();
+        if (typeof conImportPopulateSources === 'function') conImportPopulateSources();
       })();
       return _customDbInitPromise;
     }
@@ -4798,6 +4800,21 @@ function hideFailure() {
       } catch(e){}
     })();
     let currentLang = getLang();
+
+    function showDevFeaturesEnabled() {
+      try {
+        const cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+        return cfg.showDevFeatures === true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function applyDevFeatureVisibility() {
+      const studentNoteItem = document.getElementById('con-ctx-student-note-dev');
+      if (studentNoteItem) studentNoteItem.style.display = showDevFeaturesEnabled() ? 'block' : 'none';
+    }
+    applyDevFeatureVisibility();
 
     function getTranslation(w, lang) {
       const l = lang || currentLang;
@@ -19780,6 +19797,19 @@ function hideFailure() {
     let conImportFilteredItems = [];
     let conImportShownCount = 200;
 
+    function conNormalizeSourceId(sourceId) {
+      const s = String(sourceId || '').trim();
+      if (!s) return '';
+      if (/^worddb$/i.test(s)) return 'worddb';
+      if (/^custom$/i.test(s)) return 'custom';
+      return s;
+    }
+
+    function conGetItemSourceIds(item) {
+      const arr = Array.isArray(item && item._sources) && item._sources.length ? item._sources : [item && item._source];
+      return [...new Set(arr.map(conNormalizeSourceId).filter(Boolean))];
+    }
+
     function conImportPopulateThemes() {
       const sel = document.getElementById('con-import-theme');
       if (!sel) return;
@@ -19811,7 +19841,10 @@ function hideFailure() {
       const sel = document.getElementById('con-import-source');
       if (!sel) return;
       const SOURCE_LABELS = { worddb: 'Word DB', custom: 'Custom Added' };
-      const sources = [...new Set([...vocabBank.map(w => w._source).filter(Boolean), ..._customDbSources])].sort();
+      const sources = [...new Set([
+        ...vocabBank.flatMap(conGetItemSourceIds),
+        ..._customDbSources.map(conNormalizeSourceId).filter(Boolean)
+      ])].sort((a, b) => a.localeCompare(b));
       const current = sel.value;
       sel.innerHTML = '<option value="all">All Sources</option>';
       sources.forEach(s => {
@@ -19857,7 +19890,7 @@ function hideFailure() {
       const pos     = document.getElementById('con-import-pos').value;
       const keyword = document.getElementById('con-import-keyword').value;
       const srcSel  = document.getElementById('con-import-source');
-      const source  = srcSel ? srcSel.value : 'all';
+      const source  = srcSel ? conNormalizeSourceId(srcSel.value) : 'all';
       const q           = document.getElementById('con-import-search').value.trim().toLowerCase();
       const starredOnly = !!(document.getElementById('con-import-starred-only') && document.getElementById('con-import-starred-only').checked);
       return vocabBank.filter(item => {
@@ -19865,7 +19898,7 @@ function hideFailure() {
         if (theme   !== 'all' && !getItemThemes(item).includes(theme)) return false;
         if (pos     !== 'all' && (!item.partOfSpeech  || !(Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => p.toLowerCase() === pos)))   return false;
         if (keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
-        if (source  !== 'all' && item._source !== source) return false;
+        if (source  !== 'all' && !conGetItemSourceIds(item).includes(source)) return false;
         if (q && !wildcardTest(q, item.word, item.french, item.german, item.italian, item.english)) return false;
         if (starredOnly && !item.starred) return false;
         return true;
@@ -19945,7 +19978,7 @@ function hideFailure() {
       const pos     = document.getElementById('con-import-pos').value;
       const keyword = document.getElementById('con-import-keyword').value;
       const srcEl   = document.getElementById('con-import-source');
-      const source  = srcEl ? srcEl.value : 'all';
+      const source  = srcEl ? conNormalizeSourceId(srcEl.value) : 'all';
       const q       = document.getElementById('con-import-search').value.trim().toLowerCase();
 
       function bankWithout(skip) {
@@ -19954,7 +19987,7 @@ function hideFailure() {
           if (skip !== 'theme'   && theme !== 'all'   && !getItemThemes(item).includes(theme)) return false;
           if (skip !== 'pos'     && pos !== 'all'     && !(item.partOfSpeech && (Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => p.toLowerCase() === pos))) return false;
           if (skip !== 'keyword' && keyword !== 'all' && !(item.keywords || []).includes(keyword)) return false;
-          if (skip !== 'source'  && source !== 'all'  && item._source !== source) return false;
+          if (skip !== 'source'  && source !== 'all'  && !conGetItemSourceIds(item).includes(source)) return false;
           if (q && !wildcardTest(q, item.word, item.french)) return false;
           return true;
         });
@@ -20004,7 +20037,11 @@ function hideFailure() {
       if (srcEl) {
         applyToSelect('con-import-source', bankWithout('source'), bank => {
           const m = {};
-          bank.forEach(item => { if (item._source) m[item._source] = (m[item._source] || 0) + 1; });
+          bank.forEach(item => {
+            conGetItemSourceIds(item).forEach(s => {
+              m[s] = (m[s] || 0) + 1;
+            });
+          });
           return m;
         });
       }

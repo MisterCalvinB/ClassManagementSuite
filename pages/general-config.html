@@ -541,6 +541,14 @@
     <p class="field-hint" style="margin-top:8px;">
       <span data-i18n="gcStartupNote">The launcher stays open after apps are launched.</span> <span class="save-status" id="startupSaveStatus" data-i18n="saved">Saved</span>
     </p>
+
+    <div class="field" style="margin-top:14px;">
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
+        <input type="checkbox" id="showDevFeaturesToggle" style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+        <span data-i18n="gcShowDevFeatures">Show features in development</span>
+      </label>
+      <p class="field-hint" data-i18n="gcShowDevFeaturesHint">When off, hides beta tools (Phone Remote, Student Input Note, Multiplayer Host).</p>
+    </div>
   </section>
 
   <!-- ── First-run banner ─────────────────────────────── -->
@@ -1049,6 +1057,12 @@
     btn.classList.add('active');
     patchLauncherSettings({ language: btn.dataset.lang });
     flashSaved(langStatus);
+  });
+
+  var showDevFeaturesToggle = document.getElementById('showDevFeaturesToggle');
+  showDevFeaturesToggle.addEventListener('change', function () {
+    patchLauncherSettings({ showDevFeatures: !!showDevFeaturesToggle.checked });
+    flashSaved(startupStatus);
   });
 
   /* ── startup layout ────────────────────────────────── */
@@ -2751,6 +2765,8 @@
     var pct = Math.round((cfg.startupSplitFraction || 0.5) * 100);
     splitSlider.value = pct;
     splitPct.textContent = pct + ' / ' + (100 - pct);
+
+    showDevFeaturesToggle.checked = cfg.showDevFeatures === true;
 
     refreshCurrentPath();
     checkFirstRun();
