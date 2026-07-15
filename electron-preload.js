@@ -72,6 +72,15 @@ const exposedApi = {
   renameByPath(request) {
     return invoke('app:rename-by-path', request);
   },
+  statByPath(request) {
+    return invoke('app:stat-by-path', request);
+  },
+  copyByPath(request) {
+    return invoke('app:copy-by-path', request);
+  },
+  moveByPath(request) {
+    return invoke('app:move-by-path', request);
+  },
   deleteFile(request) {
     return invoke('app:delete-file', request);
   },

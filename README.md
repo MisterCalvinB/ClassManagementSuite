@@ -516,7 +516,13 @@ Browse, rename, and sync data files. Opens as a standalone tool window from the 
 - **Target selector** — switch between Constellation Maps, User Data, Custom Data, Grades, Grade Sheets, or Participation logs.
 - **Folder navigation** — click into subdirectories; breadcrumb trail shows your current path.
 - **Search** — filter filenames at the current folder level.
+- **Add Folder** — create a new folder in the current path directly from the toolbar.
 - **Rename** — inline rename any file; the change is written to disk immediately.
+- **Multi-select** — click to select; use **Ctrl/Cmd+click** to toggle items and **Shift+click** for range selection.
+- **Drag & drop move** — drag any selected item and drop on a folder row or breadcrumb segment to move all selected items.
+- **Context menu move/copy** — right-click and use **Move to...** or **Copy to...** to open a destination-folder picker.
+- **Paste workflow** — copy/cut selected items and paste into the current folder.
+- **Conflict dialog** — on name collisions choose per item: **Rename** (auto unique), **Replace**, or **Skip**.
 
 ### Sync tab
 - **Sync location** — shows the configured sync folder (set in General Config or directly here).
@@ -530,6 +536,9 @@ Browse, rename, and sync data files. Opens as a standalone tool window from the 
 |---|---|
 | Enter | Confirm inline rename |
 | Escape | Cancel inline rename |
+| Ctrl/Cmd + C | Copy selected files/folders |
+| Ctrl/Cmd + X | Cut (move) selected files/folders |
+| Ctrl/Cmd + V | Paste into current Browse folder |
 
 ---
 

@@ -301,6 +301,21 @@
       transition: box-shadow 0.1s, transform 0.1s;
     }
     .folder-row:hover { box-shadow: 3px 3px 0 #000; transform: translate(-1px, -1px); background: #f8f8f8; }
+    .file-row.is-selected,
+    .folder-row.is-selected {
+      background: #111;
+      color: #fff;
+      box-shadow: 3px 3px 0 #000;
+    }
+    .file-row.is-selected .file-meta,
+    .file-row.is-selected .file-snippet,
+    .folder-row.is-selected .folder-count { color: #ddd; }
+    .file-row.drop-target,
+    .folder-row.drop-target,
+    .breadcrumb-seg.drop-target {
+      outline: 3px dashed #1a7f37;
+      outline-offset: 2px;
+    }
     .folder-icon { font-size: 1.05rem; flex-shrink: 0; }
     .folder-name { font-size: 0.92rem; font-weight: 700; }
     .folder-count { font-size: 0.76rem; font-weight: 600; color: #555; margin-left: auto; }
@@ -558,6 +573,115 @@
       font-weight: 600;
       line-height: 1.7;
     }
+
+    /* ── Move/Copy picker + conflict modal ───────────────────────────── */
+    .fm-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 18px;
+    }
+    .fm-modal {
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 12px;
+      width: min(680px, 96vw);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 5px 5px 0 #000;
+    }
+    .fm-modal-header {
+      padding: 14px 16px;
+      border-bottom: 2px solid #000;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+    .fm-modal-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: auto;
+    }
+    .fm-picker-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .fm-picker-toolbar select,
+    .fm-picker-toolbar button {
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #fff;
+      color: #000;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .fm-picker-path {
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #f5f5f5;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-family: Consolas, 'Courier New', monospace;
+      word-break: break-all;
+    }
+    .fm-picker-list {
+      border: 2px solid #000;
+      border-radius: 8px;
+      min-height: 160px;
+      max-height: 320px;
+      overflow: auto;
+      background: #fff;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .fm-picker-folder {
+      border: 2px solid #000;
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+    }
+    .fm-picker-folder:hover { background: #f5f5f5; }
+    .fm-modal-footer {
+      border-top: 2px solid #000;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .fm-conflict-name {
+      border: 2px solid #000;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      font-family: Consolas, 'Courier New', monospace;
+      word-break: break-all;
+      background: #f8f8f8;
+    }
+    .fm-conflict-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -645,6 +769,7 @@
       </select>
       <input type="search" id="browseSearch" class="browse-search" placeholder="Filter…" data-i18n-placeholder="fmBrowseFilter">
       <button id="browseRefresh" class="btn-refresh" data-i18n="fmRefresh">↺ Refresh</button>
+      <button id="browseAddFolder" class="btn-refresh" data-i18n="fmAddFolder">+ Folder</button>
       <label id="browseVersionsToggleLabel" style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:700;cursor:pointer;white-space:nowrap;">
         <input type="checkbox" id="browseShowVersions" style="width:14px;height:14px;accent-color:#000;cursor:pointer;">
         <span data-i18n="rfShowVersions">Show versions</span>
@@ -779,6 +904,40 @@
         <button class="btn-outline" id="resetBackStep3Btn">← Back</button>
       </div>
       <div id="resetExecStatus" style="font-size:0.85rem;font-weight:600;margin-top:8px;min-height:1.2em;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="fmPickerOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="fm-modal">
+    <div class="fm-modal-header" id="fmPickerTitle">Move to...</div>
+    <div class="fm-modal-body">
+      <div class="fm-picker-toolbar">
+        <label for="fmPickerTarget" style="font-size:0.8rem;font-weight:700;">Target</label>
+        <select id="fmPickerTarget"></select>
+        <button id="fmPickerUpBtn" type="button">Up</button>
+      </div>
+      <div class="fm-picker-path" id="fmPickerPath">/</div>
+      <div class="fm-picker-list" id="fmPickerList"></div>
+    </div>
+    <div class="fm-modal-footer">
+      <button class="btn-outline" id="fmPickerCancelBtn" type="button" data-i18n="btnCancel">Cancel</button>
+      <button class="btn" id="fmPickerChooseBtn" type="button">Choose this folder</button>
+    </div>
+  </div>
+</div>
+
+<div id="fmConflictOverlay" class="fm-modal-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <div class="fm-modal" style="max-width:560px;">
+    <div class="fm-modal-header" id="fmConflictTitle">Conflict Detected</div>
+    <div class="fm-modal-body">
+      <p id="fmConflictMsg" style="font-size:0.88rem;font-weight:600;line-height:1.45;"></p>
+      <div id="fmConflictName" class="fm-conflict-name"></div>
+      <div class="fm-conflict-actions">
+        <button class="btn-outline" id="fmConflictRenameBtn" type="button">Rename</button>
+        <button class="btn-outline" id="fmConflictReplaceBtn" type="button">Replace</button>
+        <button class="btn-outline" id="fmConflictSkipBtn" type="button">Skip</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1368,6 +1527,23 @@ var browseTarget     = 'mindmaps';
 var browsePath       = '';
 var gradeClassNames  = {};
 var groupClassNames  = {};
+var fmSelection = new Map();
+var fmVisibleOrder = [];
+var fmLastAnchorKey = '';
+var fmClipboard = null;
+var fmDragSelection = null;
+var fmTransferBusy = false;
+
+var FM_PICKER_TARGETS = [
+  { value: 'mindmaps', label: 'Constellation Maps' },
+  { value: 'user', label: 'User Data' },
+  { value: 'data', label: 'Custom Data' },
+  { value: 'grades', label: 'Grades' },
+  { value: 'groupParticipation', label: 'Participation' },
+  { value: 'docEditorDocs', label: 'Doc Editor: Documents' },
+  { value: 'docEditorStylesheets', label: 'Doc Editor: Stylesheets' },
+  { value: 'docEditorTemplates', label: 'Doc Editor: Templates' }
+];
 
 var TARGET_LABELS = {
   mindmaps:              'Constellation Maps',
@@ -1376,8 +1552,414 @@ var TARGET_LABELS = {
   grades:                'Grades',
   gradeSheet:            'Grade Sheets',
   groupParticipation:    'Participation',
-  docEditor:             'Doc Editor'
+  docEditor:             'Doc Editor',
+  docEditorDocs:         'Doc Editor: Documents',
+  docEditorStylesheets:  'Doc Editor: Stylesheets',
+  docEditorTemplates:    'Doc Editor: Templates'
 };
+
+function fmKeyFor(item) {
+  return [item.kind, item.target, normPath(item.relativePath || '')].join('|').toLowerCase();
+}
+
+function fmBaseName(relPath) {
+  var rel = normPath(relPath || '');
+  if (!rel) return '';
+  var idx = rel.lastIndexOf('/');
+  return idx === -1 ? rel : rel.slice(idx + 1);
+}
+
+function fmDirName(relPath) {
+  var rel = normPath(relPath || '');
+  if (!rel) return '';
+  var idx = rel.lastIndexOf('/');
+  return idx === -1 ? '' : rel.slice(0, idx);
+}
+
+function fmJoinPath(prefix, leaf) {
+  var p = normPath(prefix || '').replace(/^\/+|\/+$/g, '');
+  var l = normPath(leaf || '').replace(/^\/+|\/+$/g, '');
+  if (!p) return l;
+  if (!l) return p;
+  return p + '/' + l;
+}
+
+function fmResolveDocEditorVirtualPath(virtualPath) {
+  var rel = normPath(virtualPath || '').replace(/^\/+|\/+$/g, '');
+  if (!rel) return null;
+  var parts = rel.split('/');
+  var head = parts.shift();
+  var target = null;
+  if (head === 'Documents') target = 'docEditorDocs';
+  else if (head === 'CSS') target = 'docEditorStylesheets';
+  else if (head === 'Templates') target = 'docEditorTemplates';
+  if (!target) return null;
+  return { target: target, path: parts.join('/') };
+}
+
+function fmResolveDestination(target, relPath) {
+  if (target !== 'docEditor') {
+    return { target: target, path: normPath(relPath || '').replace(/^\/+|\/+$/g, '') };
+  }
+  return fmResolveDocEditorVirtualPath(relPath);
+}
+
+function fmGetCurrentBrowseSelection() {
+  return Array.from(fmSelection.values()).filter(function(item) {
+    return item && item.scope === 'browse';
+  });
+}
+
+function fmClearSelection() {
+  fmSelection.clear();
+  fmLastAnchorKey = '';
+  fmUpdateSelectionUI();
+}
+
+function fmSetSingleSelection(item) {
+  fmSelection.clear();
+  fmSelection.set(item.key, item);
+  fmLastAnchorKey = item.key;
+  fmUpdateSelectionUI();
+}
+
+function fmHandleBrowseSelection(item, evt) {
+  var ctrlLike = !!(evt.ctrlKey || evt.metaKey);
+  var shift = !!evt.shiftKey;
+
+  if (shift && fmLastAnchorKey && fmVisibleOrder.indexOf(fmLastAnchorKey) !== -1) {
+    var a = fmVisibleOrder.indexOf(fmLastAnchorKey);
+    var b = fmVisibleOrder.indexOf(item.key);
+    if (b === -1) {
+      fmSetSingleSelection(item);
+      return;
+    }
+    var lo = Math.min(a, b);
+    var hi = Math.max(a, b);
+    if (!ctrlLike) fmSelection.clear();
+    for (var i = lo; i <= hi; i++) {
+      var key = fmVisibleOrder[i];
+      var row = document.querySelector('[data-fm-key="' + CSS.escape(key) + '"]');
+      if (!row) continue;
+      fmSelection.set(key, {
+        key: key,
+        scope: 'browse',
+        kind: row.dataset.fmKind,
+        target: row.dataset.fmTarget,
+        relativePath: normPath(row.dataset.fmRelPath || ''),
+        isDirectory: row.dataset.fmKind === 'folder'
+      });
+    }
+    fmUpdateSelectionUI();
+    return;
+  }
+
+  if (ctrlLike) {
+    if (fmSelection.has(item.key)) fmSelection.delete(item.key);
+    else fmSelection.set(item.key, item);
+    fmLastAnchorKey = item.key;
+    fmUpdateSelectionUI();
+    return;
+  }
+
+  fmSetSingleSelection(item);
+}
+
+function fmUpdateSelectionUI() {
+  document.querySelectorAll('[data-fm-key]').forEach(function(row) {
+    var key = row.dataset.fmKey;
+    row.classList.toggle('is-selected', fmSelection.has(key));
+  });
+}
+
+function fmEnsureSelectionForContext(item) {
+  var selected = fmGetCurrentBrowseSelection();
+  var alreadySelected = fmSelection.has(item.key);
+  if (!alreadySelected || !selected.length) {
+    fmSetSingleSelection(item);
+    return [item];
+  }
+  return selected;
+}
+
+async function fmEnsureUniqueDestinationName(target, folderPath, baseName) {
+  var name = String(baseName || '').trim();
+  var dot = name.lastIndexOf('.');
+  var hasExt = dot > 0;
+  var stem = hasExt ? name.slice(0, dot) : name;
+  var ext = hasExt ? name.slice(dot) : '';
+  var n = 1;
+  while (n < 500) {
+    var candidate = n === 1 ? (stem + ' - Copy' + ext) : (stem + ' - Copy (' + n + ')' + ext);
+    var rel = fmJoinPath(folderPath, candidate);
+    var stat = await Desktop.statByPath(target, rel);
+    if (!stat || !stat.exists) return candidate;
+    n += 1;
+  }
+  return stem + ' - Copy ' + Date.now() + ext;
+}
+
+function fmPromptConflict(itemLabel, destinationRel) {
+  var overlay = document.getElementById('fmConflictOverlay');
+  var title = document.getElementById('fmConflictTitle');
+  var msg = document.getElementById('fmConflictMsg');
+  var name = document.getElementById('fmConflictName');
+  var btnRename = document.getElementById('fmConflictRenameBtn');
+  var btnReplace = document.getElementById('fmConflictReplaceBtn');
+  var btnSkip = document.getElementById('fmConflictSkipBtn');
+
+  title.textContent = tt('fmConflictTitle', 'Conflict Detected');
+  msg.textContent = tt('fmConflictMsg', 'An item with the same name already exists at destination.');
+  name.textContent = destinationRel + ' \u2190 ' + itemLabel;
+  btnRename.textContent = tt('fmConflictRename', 'Rename');
+  btnReplace.textContent = tt('fmConflictReplace', 'Replace');
+  btnSkip.textContent = tt('fmConflictSkipOne', 'Skip');
+
+  overlay.style.display = 'flex';
+
+  return new Promise(function(resolve) {
+    var done = false;
+    function close(action) {
+      if (done) return;
+      done = true;
+      overlay.style.display = 'none';
+      btnRename.onclick = null;
+      btnReplace.onclick = null;
+      btnSkip.onclick = null;
+      resolve(action);
+    }
+    btnRename.onclick = function() { close('rename'); };
+    btnReplace.onclick = function() { close('replace'); };
+    btnSkip.onclick = function() { close('skip'); };
+  });
+}
+
+function fmOpenDestinationPicker(opts) {
+  opts = opts || {};
+  var overlay = document.getElementById('fmPickerOverlay');
+  var title = document.getElementById('fmPickerTitle');
+  var targetSel = document.getElementById('fmPickerTarget');
+  var upBtn = document.getElementById('fmPickerUpBtn');
+  var pathEl = document.getElementById('fmPickerPath');
+  var listEl = document.getElementById('fmPickerList');
+  var chooseBtn = document.getElementById('fmPickerChooseBtn');
+  var cancelBtn = document.getElementById('fmPickerCancelBtn');
+
+  var currentTarget = opts.target || browseTarget || 'mindmaps';
+  var currentPath = normPath(opts.path || '');
+
+  title.textContent = opts.title || tt('fmMoveTo', 'Move to...');
+  chooseBtn.textContent = tt('fmChooseFolder', 'Choose this folder');
+  upBtn.textContent = tt('fmFolderUp', 'Up');
+
+  targetSel.innerHTML = '';
+  var added = new Set();
+  FM_PICKER_TARGETS.forEach(function(ti) {
+    if (added.has(ti.value)) return;
+    added.add(ti.value);
+    var o = document.createElement('option');
+    o.value = ti.value;
+    o.textContent = tt('fmTargetLabel_' + ti.value, TARGET_LABELS[ti.value] || ti.label);
+    targetSel.appendChild(o);
+  });
+  if (!added.has(currentTarget)) {
+    var extra = document.createElement('option');
+    extra.value = currentTarget;
+    extra.textContent = TARGET_LABELS[currentTarget] || currentTarget;
+    targetSel.appendChild(extra);
+  }
+  targetSel.value = currentTarget;
+
+  async function renderFolders() {
+    pathEl.textContent = (TARGET_LABELS[currentTarget] || currentTarget) + '/' + (currentPath || '');
+    listEl.innerHTML = '<div class="state-msg" style="padding:16px 10px;">' + escHtml(tt('rfLoading', 'Loading...')) + '</div>';
+    try {
+      var res = await Desktop.listByPath(currentTarget, currentPath, { recursive: false, includeDirectories: true, extensions: [] });
+      var dirs = (res && res.ok && Array.isArray(res.files) ? res.files : []).filter(function(f) {
+        return !!f.isDirectory;
+      }).sort(function(a, b) { return String(a.filename || '').localeCompare(String(b.filename || '')); });
+      listEl.innerHTML = '';
+      if (!dirs.length) {
+        listEl.innerHTML = '<div class="state-msg" style="padding:16px 10px;">' + escHtml(tt('fmNoSubfolders', 'No subfolders here.')) + '</div>';
+        return;
+      }
+      dirs.forEach(function(d) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'fm-picker-folder';
+        b.textContent = '📁 ' + d.filename;
+        b.addEventListener('click', function() {
+          currentPath = normPath(d.relativePath || fmJoinPath(currentPath, d.filename));
+          renderFolders();
+        });
+        listEl.appendChild(b);
+      });
+    } catch (e) {
+      listEl.innerHTML = '<div class="state-msg" style="padding:16px 10px;">' + escHtml((e && e.message) ? e.message : String(e)) + '</div>';
+    }
+  }
+
+  overlay.style.display = 'flex';
+  renderFolders();
+
+  return new Promise(function(resolve) {
+    var done = false;
+    function close(val) {
+      if (done) return;
+      done = true;
+      overlay.style.display = 'none';
+      chooseBtn.onclick = null;
+      cancelBtn.onclick = null;
+      upBtn.onclick = null;
+      targetSel.onchange = null;
+      resolve(val);
+    }
+
+    chooseBtn.onclick = function() { close({ target: currentTarget, path: currentPath }); };
+    cancelBtn.onclick = function() { close(null); };
+    upBtn.onclick = function() {
+      if (!currentPath) return;
+      currentPath = fmDirName(currentPath);
+      renderFolders();
+    };
+    targetSel.onchange = function() {
+      currentTarget = targetSel.value;
+      currentPath = '';
+      renderFolders();
+    };
+    overlay.onclick = function(ev) {
+      if (ev.target === overlay) close(null);
+    };
+  });
+}
+
+async function fmRunTransfer(items, destinationTarget, destinationFolderPath, mode) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  var hasStatByPath = typeof Desktop.statByPath === 'function';
+  var hasCopyByPath = typeof Desktop.copyByPath === 'function';
+  var hasMoveByPath = typeof Desktop.moveByPath === 'function';
+  var hasRenameByPath = typeof Desktop.renameByPath === 'function';
+
+  if (mode === 'copy' && !hasCopyByPath) {
+    showToast(tt('fmTransferApiMissing', 'Transfer API is unavailable. Please restart the app.'), true);
+    return;
+  }
+  if (mode === 'move' && !hasMoveByPath && !hasRenameByPath) {
+    showToast(tt('fmTransferApiMissing', 'Transfer API is unavailable. Please restart the app.'), true);
+    return;
+  }
+  if (!Array.isArray(items) || !items.length) return;
+  if (fmTransferBusy) {
+    showToast(tt('fmBusy', 'Another transfer is already running.'), true);
+    return;
+  }
+  fmTransferBusy = true;
+
+  var copied = 0;
+  var moved = 0;
+  var skipped = 0;
+  var errors = 0;
+  var firstErrMsg = '';
+
+  try {
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var srcRel = normPath(item.relativePath || '');
+      var srcTarget = item.target;
+      var baseName = fmBaseName(srcRel);
+      var destName = baseName;
+      var replace = false;
+
+      if (!baseName) { skipped++; continue; }
+      var destRel = fmJoinPath(destinationFolderPath, destName);
+
+      if (srcTarget === destinationTarget && srcRel === destRel) { skipped++; continue; }
+      if (item.kind === 'folder' && srcTarget === destinationTarget) {
+        if (destRel === srcRel || destRel.startsWith(srcRel + '/')) {
+          skipped++;
+          continue;
+        }
+      }
+
+      var stat = null;
+      if (hasStatByPath) {
+        stat = await Desktop.statByPath(destinationTarget, destRel);
+      }
+      if (stat && stat.exists) {
+        var decision = await fmPromptConflict(baseName, destRel);
+        if (decision === 'skip') {
+          skipped++;
+          continue;
+        }
+        if (decision === 'rename') {
+          destName = await fmEnsureUniqueDestinationName(destinationTarget, destinationFolderPath, baseName);
+          destRel = fmJoinPath(destinationFolderPath, destName);
+        } else if (decision === 'replace') {
+          replace = true;
+        }
+      }
+
+      try {
+        if (mode === 'move') {
+          if (hasMoveByPath) {
+            await Desktop.moveByPath(srcTarget, srcRel, destinationTarget, destRel, { replace: replace });
+          } else if (hasRenameByPath && srcTarget === destinationTarget && !replace) {
+            // Fallback for stale renderer/preload windows: same-target moves can be done as rename.
+            await Desktop.renameByPath(srcTarget, srcRel, destRel);
+          } else {
+            throw new Error(tt('fmTransferApiMissing', 'Transfer API is unavailable. Please restart the app.'));
+          }
+          moved++;
+        } else {
+          await Desktop.copyByPath(srcTarget, srcRel, destinationTarget, destRel, { replace: replace });
+          copied++;
+        }
+      } catch (err) {
+        errors++;
+        if (!firstErrMsg) {
+          firstErrMsg = (err && err.message) ? err.message : String(err);
+        }
+      }
+    }
+  } finally {
+    fmTransferBusy = false;
+  }
+
+  if (mode === 'move' && fmClipboard && fmClipboard.mode === 'move') {
+    fmClipboard = null;
+  }
+
+  if (errors) {
+    showToast(tt('fmTransferSummaryErr', 'Transfer done with errors.') + ' ' + moved + '/' + copied + '/' + skipped + '/' + errors + (firstErrMsg ? ' · ' + firstErrMsg : ''), true);
+  } else {
+    showToast(tt('fmTransferSummary', 'Transfer complete.') + ' ' + moved + '/' + copied + '/' + skipped);
+  }
+
+  if (document.getElementById('tab-browse').classList.contains('active')) await loadBrowse({ preservePath: true });
+  if (document.getElementById('tab-recent').classList.contains('active')) await loadRecent();
+  fmClearSelection();
+}
+
+async function fmMoveCopyViaPicker(items, mode) {
+  if (!items || !items.length) return;
+  var defaultPickerTarget = items[0].target;
+  var defaultPickerPath = browsePath;
+  if (browseTarget === 'docEditor') {
+    var resolvedCurrent = fmResolveDocEditorVirtualPath(browsePath);
+    if (resolvedCurrent && resolvedCurrent.target === defaultPickerTarget) {
+      defaultPickerPath = resolvedCurrent.path;
+    } else {
+      defaultPickerPath = fmDirName(items[0].relativePath || '');
+    }
+  }
+  var picker = await fmOpenDestinationPicker({
+    title: mode === 'move' ? tt('fmMoveTo', 'Move to...') : tt('fmCopyTo', 'Copy to...'),
+    target: defaultPickerTarget,
+    path: defaultPickerPath
+  });
+  if (!picker) return;
+  await fmRunTransfer(items, picker.target, picker.path, mode);
+}
 
 function startFolderRename(row, folderName, nameEl, prefix) {
   if (row.dataset.renaming === '1') return;
@@ -1490,10 +2072,27 @@ function renderBreadcrumb() {
   var bc = document.getElementById('breadcrumb');
   bc.innerHTML = '';
   var parts = browsePath ? browsePath.split('/') : [];
+  var canDrop = true;
 
   var rootBtn = document.createElement('button');
   rootBtn.className = 'breadcrumb-seg';
   rootBtn.textContent = TARGET_LABELS[browseTarget] || browseTarget;
+  rootBtn.dataset.fmDropPath = '';
+  rootBtn.addEventListener('dragover', function(ev) {
+    if (!canDrop || browseTarget === 'docEditor') return;
+    if (!fmDragSelection || !fmDragSelection.length) return;
+    ev.preventDefault();
+    rootBtn.classList.add('drop-target');
+  });
+  rootBtn.addEventListener('dragleave', function() { rootBtn.classList.remove('drop-target'); });
+  rootBtn.addEventListener('drop', function(ev) {
+    if (!canDrop || browseTarget === 'docEditor') return;
+    ev.preventDefault();
+    rootBtn.classList.remove('drop-target');
+    if (fmDragSelection && fmDragSelection.length) {
+      fmRunTransfer(fmDragSelection, browseTarget, '', 'move');
+    }
+  });
   rootBtn.addEventListener('click', function() { browsePath = ''; renderBrowse(); renderBreadcrumb(); });
   bc.appendChild(rootBtn);
 
@@ -1512,6 +2111,24 @@ function renderBreadcrumb() {
         : part;
     seg.textContent = segLabel;
     seg.title = part;
+    var segPath = parts.slice(0, idx + 1).join('/');
+    var segDest = fmResolveDestination(browseTarget, segPath);
+    seg.dataset.fmDropPath = segPath;
+    seg.addEventListener('dragover', function(ev) {
+      if (!canDrop || !segDest) return;
+      if (!fmDragSelection || !fmDragSelection.length) return;
+      ev.preventDefault();
+      seg.classList.add('drop-target');
+    });
+    seg.addEventListener('dragleave', function() { seg.classList.remove('drop-target'); });
+    seg.addEventListener('drop', function(ev) {
+      if (!canDrop || !segDest) return;
+      ev.preventDefault();
+      seg.classList.remove('drop-target');
+      if (fmDragSelection && fmDragSelection.length) {
+        fmRunTransfer(fmDragSelection, segDest.target, segDest.path, 'move');
+      }
+    });
     if (idx === parts.length - 1) {
       seg.disabled = true;
     } else {
@@ -1532,8 +2149,10 @@ function renderBrowse() {
   var sortOrder = (document.getElementById('browseSortOrder') || {}).value || 'name-asc';
   var list = document.getElementById('browseList');
   list.innerHTML = '';
+  fmVisibleOrder = [];
 
   var isMergedDocEditor = browseTarget === 'docEditor';
+  var canBrowseTransfer = true;
   function getBrowseRel(f) {
     if (isMergedDocEditor) return normPath(f._browseRel || f.relativePath || f.filename || '');
     return normPath(f.relativePath || f.filename || '');
@@ -1547,10 +2166,14 @@ function renderBrowse() {
     var rel = getBrowseRel(f);
     if (prefix && !rel.startsWith(prefix)) return;
     var rest = rel.slice(prefix.length);
+    if (!rest) return;
     var slash = rest.indexOf('/');
     if (slash !== -1) {
       var folder = rest.slice(0, slash);
       folderCounts[folder] = (folderCounts[folder] || 0) + 1;
+    } else if (f.isDirectory) {
+      // Keep empty folders visible.
+      folderCounts[rest] = (folderCounts[rest] || 0);
     }
   });
 
@@ -1559,7 +2182,7 @@ function renderBrowse() {
     var rel = getBrowseRel(f);
     if (prefix && !rel.startsWith(prefix)) return false;
     var rest = rel.slice(prefix.length);
-    return rest.indexOf('/') === -1 && rest.length > 0;
+    return rest.indexOf('/') === -1 && rest.length > 0 && !f.isDirectory;
   });
 
   // Apply search filter
@@ -1613,6 +2236,14 @@ function renderBrowse() {
       var row = document.createElement('div');
       row.className = 'folder-row';
       row.style.cursor = 'default';
+      row.draggable = canBrowseTransfer;
+      var folderVirtualPath = normPath(prefix + folder);
+      var resolvedFolder = fmResolveDestination(browseTarget, folderVirtualPath);
+      row.dataset.fmKind = 'folder';
+      row.dataset.fmTarget = resolvedFolder ? resolvedFolder.target : browseTarget;
+      row.dataset.fmRelPath = resolvedFolder ? resolvedFolder.path : folderVirtualPath;
+      row.dataset.fmKey = fmKeyFor({ kind: 'folder', target: row.dataset.fmTarget, relativePath: row.dataset.fmRelPath });
+      fmVisibleOrder.push(row.dataset.fmKey);
 
       var icon = document.createElement('span');
       icon.className = 'folder-icon';
@@ -1639,6 +2270,55 @@ function renderBrowse() {
       row.appendChild(nameEl);
       row.appendChild(cnt);
 
+      row.addEventListener('click', function(ev) {
+        if (ev.target.closest('button')) return;
+        fmHandleBrowseSelection({
+          key: row.dataset.fmKey,
+          scope: 'browse',
+          kind: 'folder',
+          target: row.dataset.fmTarget,
+          relativePath: normPath(row.dataset.fmRelPath),
+          isDirectory: true
+        }, ev);
+      });
+
+      if (canBrowseTransfer) {
+        row.addEventListener('dragstart', function(ev) {
+          var selected = fmEnsureSelectionForContext({
+            key: row.dataset.fmKey,
+            scope: 'browse',
+            kind: 'folder',
+            target: row.dataset.fmTarget,
+            relativePath: normPath(row.dataset.fmRelPath),
+            isDirectory: true
+          });
+          fmDragSelection = selected;
+          if (ev.dataTransfer) {
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', 'fm-drag');
+          }
+        });
+        row.addEventListener('dragend', function() {
+          fmDragSelection = null;
+          row.classList.remove('drop-target');
+        });
+        row.addEventListener('dragover', function(ev) {
+          if (!fmDragSelection || !fmDragSelection.length) return;
+          ev.preventDefault();
+          row.classList.add('drop-target');
+        });
+        row.addEventListener('dragleave', function() { row.classList.remove('drop-target'); });
+        row.addEventListener('drop', function(ev) {
+          ev.preventDefault();
+          row.classList.remove('drop-target');
+          if (fmDragSelection && fmDragSelection.length) {
+            if (resolvedFolder) {
+              fmRunTransfer(fmDragSelection, resolvedFolder.target, resolvedFolder.path, 'move');
+            }
+          }
+        });
+      }
+
       (function(folderName) {
         icon.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
         nameEl.addEventListener('click', function() { browsePath = prefix + folderName; renderBrowse(); renderBreadcrumb(); });
@@ -1649,29 +2329,30 @@ function renderBrowse() {
       if (window.Desktop && Desktop.isElectron()) {
         var acts = document.createElement('div');
         acts.className = 'file-actions';
+        if (!isMergedDocEditor) {
+          var rnBtn = document.createElement('button');
+          rnBtn.className = 'btn-rename';
+          rnBtn.textContent = tt('fmRename', 'Rename');
+          (function(folderName, ne) {
+            rnBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              startFolderRename(row, folderName, ne, prefix);
+            });
+          })(folder, nameEl);
+          acts.appendChild(rnBtn);
 
-        var rnBtn = document.createElement('button');
-        rnBtn.className = 'btn-rename';
-        rnBtn.textContent = tt('fmRename', 'Rename');
-        (function(folderName, ne) {
-          rnBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            startFolderRename(row, folderName, ne, prefix);
-          });
-        })(folder, nameEl);
-        acts.appendChild(rnBtn);
-
-        var delBtn = document.createElement('button');
-        delBtn.className = 'btn-action';
-        delBtn.style.cssText = 'color:#c00;border-color:#c00;';
-        delBtn.textContent = tt('fmDelete', 'Delete');
-        (function(folderName) {
-          delBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            deleteFolderConfirm(folderName, folderCounts[folderName], prefix, row);
-          });
-        })(folder);
-        acts.appendChild(delBtn);
+          var delBtn = document.createElement('button');
+          delBtn.className = 'btn-action';
+          delBtn.style.cssText = 'color:#c00;border-color:#c00;';
+          delBtn.textContent = tt('fmDelete', 'Delete');
+          (function(folderName) {
+            delBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              deleteFolderConfirm(folderName, folderCounts[folderName], prefix, row);
+            });
+          })(folder);
+          acts.appendChild(delBtn);
+        }
 
         row.appendChild(acts);
       }
@@ -1685,15 +2366,54 @@ function renderBrowse() {
     var fileObj = Object.assign({}, f, { target: f.target || browseTarget });
     list.appendChild(makeBrowseRow(fileObj));
   });
+
+  fmUpdateSelectionUI();
 }
 
 function makeBrowseRow(file) {
   var row = document.createElement('div');
   row.className = 'file-row';
+  row.draggable = browseTarget !== 'docEditor';
+  row.dataset.fmKind = 'file';
+  row.dataset.fmTarget = file.target || browseTarget;
+  row.dataset.fmRelPath = normPath(file.relativePath || file.filename);
+  row.dataset.fmKey = fmKeyFor({ kind: 'file', target: row.dataset.fmTarget, relativePath: row.dataset.fmRelPath });
+  fmVisibleOrder.push(row.dataset.fmKey);
   if (window.Desktop && Desktop.isElectron()) {
     (function(f) {
       row.addEventListener('contextmenu', function(e) { fmCtxBrowse(e, f); });
     })(file);
+  }
+
+  row.addEventListener('click', function(ev) {
+    if (ev.target.closest('button,input,a')) return;
+    fmHandleBrowseSelection({
+      key: row.dataset.fmKey,
+      scope: 'browse',
+      kind: 'file',
+      target: row.dataset.fmTarget,
+      relativePath: row.dataset.fmRelPath,
+      isDirectory: false
+    }, ev);
+  });
+
+  if (browseTarget !== 'docEditor') {
+    row.addEventListener('dragstart', function(ev) {
+      var selected = fmEnsureSelectionForContext({
+        key: row.dataset.fmKey,
+        scope: 'browse',
+        kind: 'file',
+        target: row.dataset.fmTarget,
+        relativePath: row.dataset.fmRelPath,
+        isDirectory: false
+      });
+      fmDragSelection = selected;
+      if (ev.dataTransfer) {
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', 'fm-drag');
+      }
+    });
+    row.addEventListener('dragend', function() { fmDragSelection = null; });
   }
 
   var extRaw = (file.filename || '').split('.').pop().toLowerCase();
@@ -1817,9 +2537,11 @@ function makeBrowseRow(file) {
   return row;
 }
 
-async function loadBrowse() {
+async function loadBrowse(options) {
+  options = options || {};
   browseTarget = document.getElementById('browseTarget').value;
-  browsePath   = '';
+  if (!options.preservePath) browsePath = '';
+  fmClearSelection();
   renderBreadcrumb();
 
   var list = document.getElementById('browseList');
@@ -1840,7 +2562,7 @@ async function loadBrowse() {
       ];
       for (var i = 0; i < docTargets.length; i++) {
         var t = docTargets[i];
-        var r = await Desktop.listByPath(t.target, '', { extensions:[], recursive:true });
+        var r = await Desktop.listByPath(t.target, '', { extensions:[], recursive:true, includeDirectories:true });
         var files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
         files.forEach(function(f) {
           merged.push(Object.assign({}, f, {
@@ -1852,7 +2574,7 @@ async function loadBrowse() {
       }
       browseAllFiles = merged;
     } else {
-      var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true });
+      var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true, includeDirectories:true });
       browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
     }
   } catch(e) {
@@ -1908,6 +2630,39 @@ document.getElementById('browseRefresh').addEventListener('click', function() {
   browsePath = '';
   loadBrowse();
 });
+document.getElementById('browseAddFolder').addEventListener('click', async function() {
+  if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.createDirectoryByPath !== 'function') {
+    showToast(tt('rfElectronRequiredPage','Requires the Electron app.'), true);
+    return;
+  }
+
+  var dest = fmResolveDestination(browseTarget, browsePath || '');
+  if (!dest) {
+    showToast(tt('fmAddFolderRootHint', 'Open Documents, CSS, or Templates first.'), true);
+    return;
+  }
+
+  var name = await showPrompt(tt('fmAddFolderPrompt', 'New folder name:'), '');
+  if (name == null) return;
+  var folderName = String(name || '').trim();
+  if (!folderName || /[/\\<>:"|?*\x00-\x1f]/.test(folderName) || folderName === '.' || folderName === '..') {
+    showToast(tt('fmAddFolderInvalidName', 'Invalid folder name.'), true);
+    return;
+  }
+
+  var relPath = fmJoinPath(dest.path || '', folderName);
+  try {
+    var res = await Desktop.createDirectoryByPath(dest.target, relPath);
+    if (res && res.ok) {
+      showToast(tt('fmAddFolderCreated', 'Folder created.'));
+      await loadBrowse({ preservePath: true });
+    } else {
+      showToast(tt('fmAddFolderFailed', 'Could not create folder.'), true);
+    }
+  } catch (e) {
+    showToast(tt('fmAddFolderFailed', 'Could not create folder:') + ' ' + (e && e.message ? e.message : String(e)), true);
+  }
+});
 document.getElementById('browseSearch').addEventListener('input', function() {
   renderBrowse();
 });
@@ -1918,6 +2673,55 @@ document.getElementById('browseShowVersions').addEventListener('change', functio
   showVersions = this.checked;
   document.getElementById('rfShowVersions').checked = this.checked;
   renderBrowse();
+});
+
+document.getElementById('browseList').addEventListener('click', function(ev) {
+  if (ev.target === this) fmClearSelection();
+});
+
+document.addEventListener('keydown', function(ev) {
+  var isBrowseActive = document.getElementById('tab-browse').classList.contains('active');
+  var inEditable = !!(ev.target && (ev.target.closest('input,textarea,[contenteditable="true"]')));
+  if (ev.key === 'Escape') {
+    fmClearSelection();
+    return;
+  }
+  if (!isBrowseActive || inEditable) return;
+  var mod = ev.ctrlKey || ev.metaKey;
+  if (!mod) return;
+
+  var selected = fmGetCurrentBrowseSelection();
+
+  if (ev.key.toLowerCase() === 'c') {
+    if (!selected.length) return;
+    ev.preventDefault();
+    fmClipboard = { mode: 'copy', items: selected.map(function(it) { return Object.assign({}, it); }) };
+    showToast(tt('fmClipboardCopied', 'Copied.') + ' ' + selected.length);
+    return;
+  }
+
+  if (ev.key.toLowerCase() === 'x') {
+    if (!selected.length) return;
+    ev.preventDefault();
+    fmClipboard = { mode: 'move', items: selected.map(function(it) { return Object.assign({}, it); }) };
+    showToast(tt('fmClipboardCut', 'Cut.') + ' ' + selected.length);
+    return;
+  }
+
+  if (ev.key.toLowerCase() === 'v') {
+    if (!fmClipboard || !fmClipboard.items || !fmClipboard.items.length) return;
+    ev.preventDefault();
+    if (browseTarget === 'docEditor') {
+      var docDest = fmResolveDocEditorVirtualPath(browsePath);
+      if (!docDest) {
+        showToast(tt('fmDocEditorPasteHint', 'Open a concrete Doc Editor target to paste (Documents / Stylesheets / Templates).'), true);
+        return;
+      }
+      fmRunTransfer(fmClipboard.items, docDest.target, docDest.path, fmClipboard.mode === 'move' ? 'move' : 'copy');
+      return;
+    }
+    fmRunTransfer(fmClipboard.items, browseTarget, browsePath, fmClipboard.mode === 'move' ? 'move' : 'copy');
+  }
 });
 
 /* ════════════════════════════════════════════
@@ -2499,6 +3303,27 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
       })(rowEl);
     }
 
+    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+      fmMoveCopyViaPicker([{
+        key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
+        scope: 'recent',
+        kind: 'file',
+        target: file.target,
+        relativePath: normPath(relPath),
+        isDirectory: false
+      }], 'move');
+    }});
+    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+      fmMoveCopyViaPicker([{
+        key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
+        scope: 'recent',
+        kind: 'file',
+        target: file.target,
+        relativePath: normPath(relPath),
+        isDirectory: false
+      }], 'copy');
+    }});
+
     items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
       if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
       try {
@@ -2526,6 +3351,15 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     var isConst = /\.(js|json)$/i.test(file.filename) && file.target === 'mindmaps';
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
+    var itemForContext = {
+      key: rowEl ? rowEl.dataset.fmKey : fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
+      scope: 'browse',
+      kind: 'file',
+      target: file.target,
+      relativePath: normPath(relPath),
+      isDirectory: false
+    };
+    var selectedForContext = fmEnsureSelectionForContext(itemForContext);
     var items = [];
 
     if (isConst) {
@@ -2537,6 +3371,13 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
 
     items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
     items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+    items.push('-');
+    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+      fmMoveCopyViaPicker(selectedForContext, 'move');
+    }});
+    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+      fmMoveCopyViaPicker(selectedForContext, 'copy');
+    }});
     items.push('-');
     items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
       try {
@@ -2575,6 +3416,15 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     var relPath = (prefix || '') + folderName;
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('folder-row')) rowEl = rowEl.parentElement;
+    var itemForContext = {
+      key: rowEl ? rowEl.dataset.fmKey : fmKeyFor({ kind: 'folder', target: browseTarget, relativePath: relPath }),
+      scope: 'browse',
+      kind: 'folder',
+      target: rowEl && rowEl.dataset.fmTarget ? rowEl.dataset.fmTarget : browseTarget,
+      relativePath: rowEl && rowEl.dataset.fmRelPath ? normPath(rowEl.dataset.fmRelPath) : normPath(relPath),
+      isDirectory: true
+    };
+    var selectedForContext = fmEnsureSelectionForContext(itemForContext);
     var nameEl = rowEl ? rowEl.querySelector('.folder-name') : null;
     var cnt = folderName ? (browseAllFiles.filter(function(f) {
       var r = normPath(f.relativePath || f.filename || '');
@@ -2582,14 +3432,36 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     }).length) : 0;
     var items = [];
 
-    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(browseTarget, relPath); } });
+    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
+    items.push('-');
+    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+      fmMoveCopyViaPicker(selectedForContext, 'move');
+    }});
+    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+      fmMoveCopyViaPicker(selectedForContext, 'copy');
+    }});
     items.push('-');
     (function(row, ne) {
-      items.push({ label: tt('fmRename','Rename'), action: function() {
-        if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
-      }});
-      items.push({ label: tt('fmDelete','Delete'), danger: true, action: function() {
-        if (row) deleteFolderConfirm(folderName, cnt, prefix || '', row);
+      if (browseTarget !== 'docEditor') {
+        items.push({ label: tt('fmRename','Rename'), action: function() {
+          if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
+        }});
+      }
+
+      items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+        var folderLabel = (browseTarget === 'docEditor') ? (itemForContext.relativePath || folderName) : folderName;
+        var msg = tt('fmDeleteFolderConfirm', 'Delete folder "{name}"?\n\nThis will permanently delete all files inside. This cannot be undone.').replace('{name}', folderLabel);
+        if (!await showConfirm(msg)) return;
+        try {
+          var r = await Desktop.deleteByPath(itemForContext.target, itemForContext.relativePath, { recursive: true, force: true });
+          if (r && r.ok) {
+            await loadBrowse({ preservePath: true });
+          } else {
+            showToast(tt('fmDeleteFailed','Delete failed.'), true);
+          }
+        } catch (ex) {
+          showToast(tt('fmDeleteFailed','Delete failed.') + ' ' + (ex && ex.message ? ex.message : String(ex)), true);
+        }
       }});
     })(rowEl, nameEl);
 
@@ -2604,7 +3476,10 @@ function openFmShortcuts() {
     noShortcutsText: t('skmNone'),
     rows: [
       { keys: ['Enter'], desc: t('skmFmConfirm') },
-      { keys: ['Escape'], desc: t('skmFmCancel') }
+      { keys: ['Escape'], desc: t('skmFmCancel') },
+      { keys: ['Ctrl/Cmd', 'C'], desc: tt('fmClipboardCopied', 'Copy selected') },
+      { keys: ['Ctrl/Cmd', 'X'], desc: tt('fmClipboardCut', 'Cut selected') },
+      { keys: ['Ctrl/Cmd', 'V'], desc: tt('fmClipboardPaste', 'Paste into current folder') }
     ]
   });
 }

@@ -1021,6 +1021,150 @@ async function renameAllowedPathEntry(pageFile, target, oldRelativePath, newRela
   };
 }
 
+async function statAllowedPathEntry(pageFile, target, relativePath) {
+  const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
+  try {
+    const stats = await fs.stat(fullPath);
+    return {
+      ok: true,
+      exists: true,
+      relativePath: safeRelative,
+      path: fullPath,
+      isDirectory: stats.isDirectory(),
+      isFile: stats.isFile(),
+      size: stats.size,
+      mtimeMs: stats.mtimeMs
+    };
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return { ok: true, exists: false, relativePath: safeRelative, path: fullPath };
+    }
+    throw error;
+  }
+}
+
+function isSamePath(a, b) {
+  const left = path.resolve(String(a || ''));
+  const right = path.resolve(String(b || ''));
+  if (process.platform === 'win32') {
+    return left.toLowerCase() === right.toLowerCase();
+  }
+  return left === right;
+}
+
+function isPathInside(parentPath, childPath) {
+  const parent = path.resolve(String(parentPath || ''));
+  const child = path.resolve(String(childPath || ''));
+  if (isSamePath(parent, child)) return true;
+  if (process.platform === 'win32') {
+    return child.toLowerCase().startsWith(parent.toLowerCase() + path.sep);
+  }
+  return child.startsWith(parent + path.sep);
+}
+
+async function copyAllowedPathEntry(pageFile, request = {}) {
+  const source = resolveAllowedTargetPath(pageFile, request.sourceTarget, request.sourceRelativePath);
+  const destination = resolveAllowedTargetPath(pageFile, request.destinationTarget, request.destinationRelativePath);
+  const replace = request.replace === true;
+
+  if (isSamePath(source.fullPath, destination.fullPath)) {
+    const err = new Error('Source and destination are the same.');
+    err.code = 'EINVAL';
+    throw err;
+  }
+
+  const srcStats = await fs.stat(source.fullPath);
+  if (srcStats.isDirectory() && isPathInside(source.fullPath, destination.fullPath)) {
+    const err = new Error('Cannot copy a folder into itself.');
+    err.code = 'EINVAL';
+    throw err;
+  }
+
+  const destExists = await fs.access(destination.fullPath).then(() => true).catch(() => false);
+  if (destExists && !replace) {
+    const err = new Error('Destination already exists.');
+    err.code = 'EEXIST';
+    throw err;
+  }
+  if (destExists && replace) {
+    await fs.rm(destination.fullPath, { recursive: true, force: true });
+  }
+
+  await fs.mkdir(path.dirname(destination.fullPath), { recursive: true });
+  if (srcStats.isDirectory()) {
+    await fs.cp(source.fullPath, destination.fullPath, { recursive: true, force: false, errorOnExist: true });
+  } else {
+    await fs.copyFile(source.fullPath, destination.fullPath);
+  }
+
+  const outStats = await fs.stat(destination.fullPath);
+  return {
+    ok: true,
+    sourceRelativePath: source.safeRelative,
+    destinationRelativePath: destination.safeRelative,
+    isDirectory: outStats.isDirectory(),
+    size: outStats.size,
+    mtimeMs: outStats.mtimeMs
+  };
+}
+
+async function moveAllowedPathEntry(pageFile, request = {}) {
+  const source = resolveAllowedTargetPath(pageFile, request.sourceTarget, request.sourceRelativePath);
+  const destination = resolveAllowedTargetPath(pageFile, request.destinationTarget, request.destinationRelativePath);
+  const replace = request.replace === true;
+
+  if (isSamePath(source.fullPath, destination.fullPath)) {
+    const err = new Error('Source and destination are the same.');
+    err.code = 'EINVAL';
+    throw err;
+  }
+
+  const srcStats = await fs.stat(source.fullPath);
+  if (srcStats.isDirectory() && isPathInside(source.fullPath, destination.fullPath)) {
+    const err = new Error('Cannot move a folder into itself.');
+    err.code = 'EINVAL';
+    throw err;
+  }
+
+  const destExists = await fs.access(destination.fullPath).then(() => true).catch(() => false);
+  if (destExists && !replace) {
+    const err = new Error('Destination already exists.');
+    err.code = 'EEXIST';
+    throw err;
+  }
+  if (destExists && replace) {
+    await fs.rm(destination.fullPath, { recursive: true, force: true });
+  }
+
+  await fs.mkdir(path.dirname(destination.fullPath), { recursive: true });
+
+  try {
+    await fs.rename(source.fullPath, destination.fullPath);
+  } catch (error) {
+    if (error && error.code === 'EXDEV') {
+      if (srcStats.isDirectory()) {
+        await fs.cp(source.fullPath, destination.fullPath, { recursive: true, force: false, errorOnExist: true });
+        await fs.rm(source.fullPath, { recursive: true, force: true });
+      } else {
+        await fs.copyFile(source.fullPath, destination.fullPath);
+        await fs.unlink(source.fullPath);
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  const outStats = await fs.stat(destination.fullPath);
+  return {
+    ok: true,
+    sourceRelativePath: source.safeRelative,
+    destinationRelativePath: destination.safeRelative,
+    isDirectory: outStats.isDirectory(),
+    size: outStats.size,
+    mtimeMs: outStats.mtimeMs
+  };
+}
+
 async function copyMissingTree(sourceDir, destinationDir, options = {}, relativePrefix = '') {
   const skipRelativePaths = options && options.skipRelativePaths instanceof Set
     ? options.skipRelativePaths
@@ -4057,6 +4201,21 @@ ipcMain.handle('app:rename-by-path', async (event, request = {}) => {
     request.newRelativePath
   );
   return { ok: true, renamed };
+});
+
+ipcMain.handle('app:stat-by-path', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  return statAllowedPathEntry(pageFile, request.target, request.relativePath);
+});
+
+ipcMain.handle('app:copy-by-path', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  return copyAllowedPathEntry(pageFile, request);
+});
+
+ipcMain.handle('app:move-by-path', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  return moveAllowedPathEntry(pageFile, request);
 });
 
 // ── UUID helpers for class migration ────────────────────────────────────────

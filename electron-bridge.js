@@ -162,6 +162,54 @@
     return getDesktopApi().renameByPath({ target, oldRelativePath, newRelativePath });
   }
 
+  async function statByPath(target, relativePath) {
+    if (!isElectron()) {
+      return null;
+    }
+
+    var api = getDesktopApi();
+    if (!api || typeof api.statByPath !== 'function') {
+      return { ok: false, error: 'statByPath API unavailable' };
+    }
+    return api.statByPath({ target, relativePath });
+  }
+
+  async function copyByPath(sourceTarget, sourceRelativePath, destinationTarget, destinationRelativePath, options = {}) {
+    if (!isElectron()) {
+      return null;
+    }
+
+    var api = getDesktopApi();
+    if (!api || typeof api.copyByPath !== 'function') {
+      return { ok: false, error: 'copyByPath API unavailable' };
+    }
+    return api.copyByPath({
+      sourceTarget,
+      sourceRelativePath,
+      destinationTarget,
+      destinationRelativePath,
+      replace: options.replace === true
+    });
+  }
+
+  async function moveByPath(sourceTarget, sourceRelativePath, destinationTarget, destinationRelativePath, options = {}) {
+    if (!isElectron()) {
+      return null;
+    }
+
+    var api = getDesktopApi();
+    if (!api || typeof api.moveByPath !== 'function') {
+      return { ok: false, error: 'moveByPath API unavailable' };
+    }
+    return api.moveByPath({
+      sourceTarget,
+      sourceRelativePath,
+      destinationTarget,
+      destinationRelativePath,
+      replace: options.replace === true
+    });
+  }
+
   async function deleteFile(target, filename, options = {}) {
     if (!isElectron()) {
       return null;
@@ -644,6 +692,9 @@
     migrateClassUuids,
     renameFile,
     renameByPath,
+    statByPath,
+    copyByPath,
+    moveByPath,
     deleteFile,
     deleteByPath,
     openHtml,
