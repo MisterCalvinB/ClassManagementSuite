@@ -3536,8 +3536,23 @@ function hideFailure() {
       catch (e) { return dateStr; }
     }
 
+    function bpClassDisplayName(classId) {
+      const id = String(classId || '').trim();
+      if (!id) return '—';
+      try {
+        const fromGroups = _cgDisplayName(id);
+        if (fromGroups && fromGroups !== id) return fromGroups;
+      } catch (e) {}
+      try {
+        const cfg = window.PLANNER_CONFIG;
+        const cls = cfg && cfg.classes && cfg.classes[id];
+        if (cls && cls.name) return String(cls.name);
+      } catch (e) {}
+      return id;
+    }
+
     function bpBuildLabel(e) {
-      const cls   = _cgDisplayName(e.classId || '') || e.classId || '?';
+      const cls   = bpClassDisplayName(e.classId);
       const dt    = bpFmtDate(e.date);
       const time  = e.time ? ' ' + e.time + (e.timeEnd ? '–' + e.timeEnd : '') : '';
       const topic = e.topic ? ' · ' + e.topic : '';
@@ -3609,13 +3624,18 @@ function hideFailure() {
       if (e.classId) setActiveClassGroup(e.classId);
       bpUpdateBtn();
 
+      // Persist timeslot linking even when board content itself is unchanged.
+      if (typeof boardAutosaveAllNow === 'function') {
+        boardAutosaveAllNow({ force: true });
+      }
+
       // Auto-fill title when it still looks like the auto-generated timestamp
       const titleInput = document.getElementById('con-title-input');
       if (titleInput) {
         const cur = (titleInput.value || '').trim();
         const isAutoTitle = !cur || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(cur);
         if (isAutoTitle) {
-          const cls   = e.classId || '';
+          const cls   = bpClassDisplayName(e.classId);
           const dt    = bpFmtDate(e.date);
           const time  = e.time ? ' ' + e.time : '';
           const topic = e.topic ? ' – ' + e.topic : '';
@@ -3630,6 +3650,11 @@ function hideFailure() {
       bpClose();
       activePlannerEntryId = '';
       bpUpdateBtn();
+
+      // Persist unlink so planner badges do not remain stale.
+      if (typeof boardAutosaveAllNow === 'function') {
+        boardAutosaveAllNow({ force: true });
+      }
     }
 
     function bpUpdateBtn() {
@@ -3680,11 +3705,37 @@ function hideFailure() {
           if (!byClass[cid]) byClass[cid] = [];
           byClass[cid].push(e);
         });
-        Object.keys(byClass).sort().forEach(cid => {
-          const head = document.createElement('div');
-          head.style.cssText = 'font-weight:900;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#555;padding:8px 0 4px;border-top:1px solid #eee;margin-top:4px;';
-          head.textContent = cid;
-          listEl.appendChild(head);
+        const sortedCids = Object.keys(byClass).sort((a, b) => bpClassDisplayName(a).localeCompare(bpClassDisplayName(b)));
+        const activeEntry = activePlannerEntryId ? all.find(e => e.id === activePlannerEntryId) : null;
+        const activeCid = activeEntry ? (activeEntry.classId || '—') : '';
+        sortedCids.forEach((cid, idx) => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'border-top:1px solid #eee;margin-top:4px;padding-top:4px;';
+
+          const head = document.createElement('button');
+          head.type = 'button';
+          head.className = 'action-btn btn-grey';
+          head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-weight:900;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#555;padding:6px 8px;';
+
+          const label = document.createElement('span');
+          label.textContent = bpClassDisplayName(cid);
+          const count = document.createElement('span');
+          count.style.cssText = 'font-size:0.66rem;font-weight:700;color:#888;letter-spacing:0;text-transform:none;';
+          count.textContent = '(' + byClass[cid].length + ')';
+
+          const left = document.createElement('span');
+          left.style.cssText = 'display:flex;align-items:center;gap:7px;min-width:0;';
+          const chevron = document.createElement('span');
+          chevron.style.cssText = 'display:inline-block;width:10px;text-align:center;font-size:0.7rem;';
+          left.appendChild(chevron);
+          left.appendChild(label);
+
+          head.appendChild(left);
+          head.appendChild(count);
+
+          const group = document.createElement('div');
+          group.style.cssText = 'padding:4px 0 2px 0;';
+
           byClass[cid].forEach(e => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -3696,8 +3747,24 @@ function hideFailure() {
             const topic = e.topic ? ' · ' + e.topic : '';
             btn.textContent = dt + time + topic;
             btn.addEventListener('click', () => { bpSelect(e); bpAllClose(); });
-            listEl.appendChild(btn);
+            group.appendChild(btn);
           });
+
+          const shouldOpen = (activeCid && cid === activeCid) || (!activeCid && idx === 0);
+          const setOpen = (open) => {
+            group.style.display = open ? '' : 'none';
+            chevron.textContent = open ? '▾' : '▸';
+            head.setAttribute('aria-expanded', open ? 'true' : 'false');
+          };
+          setOpen(shouldOpen);
+          head.addEventListener('click', () => {
+            const isOpen = group.style.display !== 'none';
+            setOpen(!isOpen);
+          });
+
+          wrap.appendChild(head);
+          wrap.appendChild(group);
+          listEl.appendChild(wrap);
         });
       }
       overlay.style.display = 'flex';

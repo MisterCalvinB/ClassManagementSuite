@@ -1440,6 +1440,10 @@ let docModified = false;
 let cssModified = false;
 let currentDocMeta = {}; // in-memory copy of the sidecar .json for the open document
 let docSaveInProgress = false;
+const DE_INLINE_STYLE_ATTR = 'data-cmt-inline-stylesheet="true"';
+const DE_LAYOUT_START = '/* cmt-layout:start */';
+const DE_LAYOUT_END = '/* cmt-layout:end */';
+let deSyncingLayoutCss = false;
 
 // ── Marked + KaTeX setup ─────────────────────────────────
 function setupMarked() {
@@ -1513,6 +1517,462 @@ function renderPreview() {
 function scheduleRender() {
   if (renderTimer) clearTimeout(renderTimer);
   renderTimer = setTimeout(renderPreview, 150);
+}
+
+function deCloneDefaultPageLayout() {
+  return {
+    ...DEFAULT_PAGE_LAYOUT,
+    margins: { ...DEFAULT_PAGE_LAYOUT.margins }
+  };
+}
+
+function deClampNumber(value, fallback, min, max) {
+  const n = parseFloat(value);
+  if (!Number.isFinite(n)) return fallback;
+  if (Number.isFinite(min)) return Math.max(min, Math.min(max, n));
+  return n;
+}
+
+function deDetectMarginPreset(margins) {
+  const m = margins || {};
+  return Object.keys(MARGIN_PRESETS).find(k => {
+    const p = MARGIN_PRESETS[k];
+    return Math.abs((p.top || 0) - (m.top || 0)) < 0.2 &&
+           Math.abs((p.right || 0) - (m.right || 0)) < 0.2 &&
+           Math.abs((p.bottom || 0) - (m.bottom || 0)) < 0.2 &&
+           Math.abs((p.left || 0) - (m.left || 0)) < 0.2;
+  }) || null;
+}
+
+function deSanitizePageLayout(layout) {
+  const base = deCloneDefaultPageLayout();
+  const src = layout && typeof layout === 'object' ? layout : {};
+  const sizes = Object.keys(PAGE_SIZES).concat('Custom');
+  base.orientation = src.orientation === 'landscape' ? 'landscape' : 'portrait';
+  base.size = sizes.includes(src.size) ? src.size : base.size;
+  base.customW = deClampNumber(src.customW, base.customW, 50, 1200);
+  base.customH = deClampNumber(src.customH, base.customH, 50, 1200);
+  const sm = src.margins && typeof src.margins === 'object' ? src.margins : {};
+  base.margins.top = deClampNumber(sm.top, base.margins.top, 0, 100);
+  base.margins.right = deClampNumber(sm.right, base.margins.right, 0, 100);
+  base.margins.bottom = deClampNumber(sm.bottom, base.margins.bottom, 0, 100);
+  base.margins.left = deClampNumber(sm.left, base.margins.left, 0, 100);
+  base.fontFamily = String(src.fontFamily || base.fontFamily);
+  base.fontSize = deClampNumber(src.fontSize, base.fontSize, 6, 72);
+  base.pageNumbers = !!src.pageNumbers;
+  base.pageNumbersPos = ['left', 'center', 'right'].includes(src.pageNumbersPos) ? src.pageNumbersPos : 'center';
+  base.footer = !!src.footer;
+  base.footerText = String(src.footerText || '');
+  base.footerAlign = ['left', 'center', 'right'].includes(src.footerAlign) ? src.footerAlign : 'center';
+  base.imageWidth = ['auto', '100%', '75%', '50%'].includes(src.imageWidth) ? src.imageWidth : 'auto';
+  return base;
+}
+
+function deClonePageLayout(layout) {
+  const next = deSanitizePageLayout(layout);
+  return {
+    ...next,
+    margins: { ...next.margins }
+  };
+}
+
+function deParseCssStringValue(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try { return JSON.parse(value); } catch(e) {}
+  }
+  return value.replace(/^['"]|['"]$/g, '');
+}
+
+function deParseMmValue(raw, fallback) {
+  const match = String(raw || '').trim().match(/-?\d+(?:\.\d+)?/);
+  return match ? parseFloat(match[0]) : fallback;
+}
+
+function deCssVar(css, name) {
+  const match = String(css || '').match(new RegExp('--' + name + '\\s*:\\s*([^;]+);', 'i'));
+  return match ? match[1].trim() : null;
+}
+
+function deStripManagedLayoutCss(css) {
+  const source = String(css || '');
+  const start = source.indexOf(DE_LAYOUT_START);
+  const end = source.indexOf(DE_LAYOUT_END);
+  if (start === -1 || end === -1 || end < start) return source.trim();
+  return (source.slice(0, start) + source.slice(end + DE_LAYOUT_END.length)).trim();
+}
+
+function deParsePageLayoutFromCss(css) {
+  const source = String(css || '');
+  const layout = deCloneDefaultPageLayout();
+  const hasLayoutVars = source.includes('--cmt-page-size') || source.includes('--cmt-page-orientation');
+  if (!hasLayoutVars) return { found: false, layout };
+
+  layout.size = deParseCssStringValue(deCssVar(source, 'cmt-page-size')) || layout.size;
+  layout.orientation = deParseCssStringValue(deCssVar(source, 'cmt-page-orientation')) || layout.orientation;
+  layout.customW = deParseMmValue(deCssVar(source, 'cmt-page-custom-width'), layout.customW);
+  layout.customH = deParseMmValue(deCssVar(source, 'cmt-page-custom-height'), layout.customH);
+  layout.margins.top = deParseMmValue(deCssVar(source, 'cmt-page-margin-top'), layout.margins.top);
+  layout.margins.right = deParseMmValue(deCssVar(source, 'cmt-page-margin-right'), layout.margins.right);
+  layout.margins.bottom = deParseMmValue(deCssVar(source, 'cmt-page-margin-bottom'), layout.margins.bottom);
+  layout.margins.left = deParseMmValue(deCssVar(source, 'cmt-page-margin-left'), layout.margins.left);
+  layout.fontFamily = deParseCssStringValue(deCssVar(source, 'cmt-font-family')) || layout.fontFamily;
+  layout.fontSize = deParseFloatValue(deCssVar(source, 'cmt-font-size'), layout.fontSize);
+  layout.pageNumbers = deParseCssStringValue(deCssVar(source, 'cmt-page-numbers')) === 'true';
+  layout.pageNumbersPos = deParseCssStringValue(deCssVar(source, 'cmt-page-numbers-pos')) || layout.pageNumbersPos;
+  layout.footer = deParseCssStringValue(deCssVar(source, 'cmt-footer-enabled')) === 'true';
+  layout.footerText = deParseCssStringValue(deCssVar(source, 'cmt-footer-text')) || '';
+  layout.footerAlign = deParseCssStringValue(deCssVar(source, 'cmt-footer-align')) || layout.footerAlign;
+  layout.imageWidth = deParseCssStringValue(deCssVar(source, 'cmt-image-width')) || layout.imageWidth;
+  return { found: true, layout };
+}
+
+function deParseFloatValue(raw, fallback) {
+  const match = String(raw || '').trim().match(/-?\d+(?:\.\d+)?/);
+  return match ? parseFloat(match[0]) : fallback;
+}
+
+function deBuildManagedLayoutCss(layout) {
+  const m = layout.margins || DEFAULT_PAGE_LAYOUT.margins;
+  const sizeToken = layout.size === 'Custom'
+    ? round1(layout.customW) + 'mm ' + round1(layout.customH) + 'mm'
+    : layout.size;
+  const pageSizeRule = layout.orientation === 'landscape'
+    ? sizeToken + ' landscape'
+    : sizeToken + ' portrait';
+  const imageRule = layout.imageWidth && layout.imageWidth !== 'auto'
+    ? '  width: ' + layout.imageWidth + ';\n  max-width: 100%;\n  height: auto;'
+    : '  max-width: 100%;\n  height: auto;';
+  return [
+    DE_LAYOUT_START,
+    ':root {',
+    '  --cmt-page-size: ' + JSON.stringify(layout.size || 'A4') + ';',
+    '  --cmt-page-orientation: ' + JSON.stringify(layout.orientation || 'portrait') + ';',
+    '  --cmt-page-custom-width: ' + round1(layout.customW || 210) + 'mm;',
+    '  --cmt-page-custom-height: ' + round1(layout.customH || 297) + 'mm;',
+    '  --cmt-page-margin-top: ' + round1(m.top) + 'mm;',
+    '  --cmt-page-margin-right: ' + round1(m.right) + 'mm;',
+    '  --cmt-page-margin-bottom: ' + round1(m.bottom) + 'mm;',
+    '  --cmt-page-margin-left: ' + round1(m.left) + 'mm;',
+    '  --cmt-font-family: ' + JSON.stringify(layout.fontFamily || "'Segoe UI', system-ui, sans-serif") + ';',
+    '  --cmt-font-size: ' + (layout.fontSize || 11) + 'pt;',
+    '  --cmt-page-numbers: ' + JSON.stringify(layout.pageNumbers ? 'true' : 'false') + ';',
+    '  --cmt-page-numbers-pos: ' + JSON.stringify(layout.pageNumbersPos || 'center') + ';',
+    '  --cmt-footer-enabled: ' + JSON.stringify(layout.footer ? 'true' : 'false') + ';',
+    '  --cmt-footer-text: ' + JSON.stringify(layout.footerText || '') + ';',
+    '  --cmt-footer-align: ' + JSON.stringify(layout.footerAlign || 'center') + ';',
+    '  --cmt-image-width: ' + JSON.stringify(layout.imageWidth || 'auto') + ';',
+    '}',
+    '',
+    '@page {',
+    '  size: ' + pageSizeRule + ';',
+    '  margin: ' + round1(m.top) + 'mm ' + round1(m.right) + 'mm ' + round1(m.bottom) + 'mm ' + round1(m.left) + 'mm;',
+    '}',
+    '',
+    '.doc-preview {',
+    '  font-family: ' + (layout.fontFamily || "'Segoe UI', system-ui, sans-serif") + ';',
+    '  font-size: ' + (layout.fontSize || 11) + 'pt;',
+    '  padding: ' + round1(m.top) + 'mm ' + round1(m.right) + 'mm ' + round1(m.bottom) + 'mm ' + round1(m.left) + 'mm;',
+    '}',
+    '',
+    '.doc-preview img {',
+    imageRule,
+    '}',
+    DE_LAYOUT_END
+  ].join('\n');
+}
+
+function deComposeManagedStylesheet(css) {
+  const userCss = deStripManagedLayoutCss(css);
+  const parts = [deBuildManagedLayoutCss(pageLayout)];
+  if (userCss) parts.push(userCss);
+  return parts.join('\n\n').trim();
+}
+
+function deSetCssEditorValue(css, preserveModified) {
+  const content = String(css || '');
+  currentStylesheetName = '@inline@';
+  deSyncingLayoutCss = true;
+  if (cssEditor) cssEditor.setValue(content);
+  deSyncingLayoutCss = false;
+  const cssEl = document.getElementById('custom-css-style');
+  if (cssEl) cssEl.textContent = deBuildScopedPreviewCss(content, '#preview-content');
+  cssModified = !!preserveModified;
+}
+
+function deSyncCssEditorWithLayout(preserveModified) {
+  const baseCss = cssEditor ? cssEditor.getValue() : '';
+  const nextCss = deComposeManagedStylesheet(baseCss);
+  if (cssEditor && nextCss === cssEditor.getValue()) {
+    const cssEl = document.getElementById('custom-css-style');
+    if (cssEl) cssEl.textContent = deBuildScopedPreviewCss(nextCss, '#preview-content');
+    if (preserveModified) cssModified = true;
+    return;
+  }
+  deSetCssEditorValue(nextCss, preserveModified);
+}
+
+function deExtractStyleBlocks(content) {
+  const styles = [];
+  const stripped = String(content || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>\s*/gi, function(match, css) {
+    const text = String(css || '').trim();
+    if (text) styles.push(text);
+    return '';
+  });
+  return {
+    content: stripped.replace(/^\s+/, ''),
+    cssText: styles.join('\n\n').trim()
+  };
+}
+
+function deMergeCssText(primaryCss, secondaryCss) {
+  const parts = [deStripManagedLayoutCss(primaryCss), deStripManagedLayoutCss(secondaryCss)]
+    .map(part => String(part || '').trim())
+    .filter(Boolean);
+  return parts.join('\n\n').trim();
+}
+
+function deSplitSelectorList(selectorText) {
+  const selectors = [];
+  let current = '';
+  let depthParen = 0;
+  let depthBracket = 0;
+  let inString = '';
+
+  for (let i = 0; i < selectorText.length; i++) {
+    const ch = selectorText[i];
+    const prev = i > 0 ? selectorText[i - 1] : '';
+
+    if (inString) {
+      current += ch;
+      if (ch === inString && prev !== '\\') inString = '';
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inString = ch;
+      current += ch;
+      continue;
+    }
+
+    if (ch === '(') depthParen++;
+    else if (ch === ')' && depthParen > 0) depthParen--;
+    else if (ch === '[') depthBracket++;
+    else if (ch === ']' && depthBracket > 0) depthBracket--;
+
+    if (ch === ',' && depthParen === 0 && depthBracket === 0) {
+      selectors.push(current);
+      current = '';
+      continue;
+    }
+
+    current += ch;
+  }
+
+  if (current) selectors.push(current);
+  return selectors;
+}
+
+function deScopeSingleSelector(selector, scopeSelector) {
+  const original = String(selector || '');
+  const trimmed = original.trim();
+  if (!trimmed) return original;
+  if (trimmed.startsWith(scopeSelector)) return trimmed;
+
+  const rootPrefix = /^(?:(?:html|body|:root)\b\s*)+/i;
+  if (rootPrefix.test(trimmed)) {
+    return scopeSelector + trimmed.replace(rootPrefix, '');
+  }
+
+  return scopeSelector + ' ' + trimmed;
+}
+
+function deFindMatchingBrace(source, openIndex) {
+  let depth = 0;
+  let inString = '';
+  let inComment = false;
+  for (let i = openIndex; i < source.length; i++) {
+    const ch = source[i];
+    const next = i + 1 < source.length ? source[i + 1] : '';
+    const prev = i > 0 ? source[i - 1] : '';
+
+    if (inComment) {
+      if (ch === '*' && next === '/') {
+        inComment = false;
+        i++;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (ch === inString && prev !== '\\') inString = '';
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      inComment = true;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inString = ch;
+      continue;
+    }
+
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function deScopeCssForContainer(cssText, scopeSelector) {
+  const source = String(cssText || '');
+
+  function rewrite(blockSource) {
+    let out = '';
+    let i = 0;
+
+    while (i < blockSource.length) {
+      const open = blockSource.indexOf('{', i);
+      if (open === -1) {
+        out += blockSource.slice(i);
+        break;
+      }
+
+      const pre = blockSource.slice(i, open);
+      const close = deFindMatchingBrace(blockSource, open);
+      if (close === -1) {
+        out += blockSource.slice(i);
+        break;
+      }
+
+      const body = blockSource.slice(open + 1, close);
+      const headTrim = pre.trim();
+      const atName = headTrim.match(/^@[-a-z]+/i);
+
+      if (atName) {
+        const name = atName[0].toLowerCase();
+        if (name === '@media' || name === '@supports' || name === '@container' || name === '@layer' || name === '@document') {
+          out += pre + '{' + rewrite(body) + '}';
+        } else {
+          out += pre + '{' + body + '}';
+        }
+      } else {
+        const selectors = deSplitSelectorList(pre);
+        const scoped = selectors
+          .map(sel => deScopeSingleSelector(sel, scopeSelector))
+          .join(', ');
+        out += scoped + '{' + body + '}';
+      }
+
+      i = close + 1;
+    }
+
+    return out;
+  }
+
+  return rewrite(source);
+}
+
+function deBuildScopedPreviewCss(cssText, scopeSelector) {
+  const userCss = deStripManagedLayoutCss(cssText);
+  return deScopeCssForContainer(userCss, scopeSelector);
+}
+
+function deInjectInlineStyles(content, docType, css) {
+  const bodyContent = deExtractStyleBlocks(content).content;
+  const stylesheet = deComposeManagedStylesheet(css);
+  const styleTag = '<style ' + DE_INLINE_STYLE_ATTR + '>\n' + stylesheet + '\n</style>';
+  if (docType === 'html') {
+    if (/<head\b[^>]*>/i.test(bodyContent)) {
+      return bodyContent.replace(/<\/head>/i, styleTag + '\n</head>');
+    }
+    if (/<html\b[^>]*>/i.test(bodyContent)) {
+      return bodyContent.replace(/<html\b[^>]*>/i, function(match) {
+        return match + '\n<head>\n' + styleTag + '\n</head>';
+      });
+    }
+    return styleTag + '\n' + bodyContent;
+  }
+  return styleTag + '\n\n' + bodyContent;
+}
+
+function deBuildPersistedCurrentDocContent() {
+  const extracted = deExtractStyleBlocks(mdEditor ? mdEditor.getValue() : '');
+  const mergedCss = deMergeCssText(cssEditor ? cssEditor.getValue() : '', extracted.cssText);
+  return deInjectInlineStyles(extracted.content, currentDocType, mergedCss);
+}
+
+async function deLoadLegacyManagedDocState(relativePath) {
+  const legacy = { cssText: '', pageLayout: null };
+  if (!window.Desktop || !Desktop.isElectron()) return legacy;
+  try {
+    const metaR = await Desktop.readByPath('docEditorDocs', relativePath + '.json');
+    if (!metaR || !metaR.ok || !metaR.content) return legacy;
+    const meta = JSON.parse(metaR.content);
+    if (meta && meta.pageLayout) legacy.pageLayout = meta.pageLayout;
+    if (meta && typeof meta.stylesheetContent === 'string' && meta.stylesheetContent.trim()) {
+      legacy.cssText = meta.stylesheetContent;
+      return legacy;
+    }
+    if (meta && meta.stylesheet) {
+      const cssFromDocs = meta.stylesheetInDocs;
+      const cssPath = cssFromDocs ? deJoinRelPath(deDirname(relativePath), meta.stylesheet) : meta.stylesheet;
+      const target = cssFromDocs ? 'docEditorDocs' : 'docEditorStylesheets';
+      const cssR = await Desktop.readByPath(target, cssPath).catch(() => null);
+      if (cssR && cssR.ok && cssR.content) legacy.cssText = cssR.content;
+    }
+  } catch(e) {}
+  return legacy;
+}
+
+async function deDeleteLegacyManagedArtifacts(filename, subdir) {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  const cssFilename = String(filename || '').replace(/\.(md|html)$/i, '') + '.css';
+  const normalizedSubdir = subdir || null;
+  await Desktop.deleteByPath('docEditorDocs', deJoinRelPath(normalizedSubdir || '', filename + '.json')).catch(() => {});
+  await Desktop.deleteByPath('docEditorDocs', deJoinRelPath(normalizedSubdir || '', cssFilename)).catch(() => {});
+}
+
+function deApplyManagedDocState(cssText, fallbackLayout) {
+  resetPageLayout();
+  const parsed = deParsePageLayoutFromCss(cssText);
+  if (parsed.found) {
+    pageLayout = parsed.layout;
+  } else if (fallbackLayout) {
+    const fallback = deClonePageLayout(fallbackLayout);
+    Object.assign(pageLayout, fallback);
+    pageLayout.margins = { ...fallback.margins };
+  }
+  deSetCssEditorValue(deComposeManagedStylesheet(cssText), false);
+}
+
+async function deSaveManagedDocSnapshot(target, filename, subdir) {
+  const content = deBuildPersistedCurrentDocContent();
+  const result = await Desktop.saveText(target, filename, content, subdir || null);
+  if (result && result.ok) {
+    cssModified = false;
+    document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : '', '#preview-content');
+  }
+  return result;
+}
+
+function deConfigureInlineStylesheetUi() {
+  const sel = document.getElementById('stylesheet-select');
+  if (sel) {
+    sel.innerHTML = '<option value="@inline@">Inline style tag</option>';
+    sel.value = '@inline@';
+    sel.disabled = true;
+  }
+  ['btn-new-ss', 'btn-save-ss', 'btn-delete-ss'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = true;
+  });
 }
 
 // ── Insert text at editor cursor ──────────────────────────
@@ -2001,7 +2461,18 @@ require(['vs/editor/editor.main'], function() {
 
   cssEditor.onDidChangeModelContent(function() {
     cssModified = true;
-    document.getElementById('custom-css-style').textContent = cssEditor.getValue();
+    currentStylesheetName = '@inline@';
+    const cssText = cssEditor.getValue();
+    document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssText, '#preview-content');
+    if (!deSyncingLayoutCss) {
+      const parsed = deParsePageLayoutFromCss(cssText);
+      if (parsed.found) {
+        pageLayout = parsed.layout;
+        syncPopupToState();
+        applyPageLayoutToPreview();
+        updatePreviewFooter();
+      }
+    }
   });
 
   renderPreview();
@@ -2514,9 +2985,9 @@ async function openDocModal() {
   await deOpenFileBrowser({
     title: t('skmDeOpen') || 'Open document',
     target: 'docEditorDocs',
-    currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+    currentPath: currentDocSubdir || '',
     extensions: ['.md', '.html'],
-    bundleMode: true,
+    bundleMode: false,
     displayNameFn: deDocBrowserDisplayName,
     rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
     openButtonLabel: t('deFileBrowserOpen') || 'Open',
@@ -2525,12 +2996,8 @@ async function openDocModal() {
       await loadDoc(relativePath);
     },
     onDelete: async entry => {
-      if (entry.isBundle && entry.bundlePath) {
-        await Desktop.deleteByPath('docEditorDocs', entry.bundlePath).catch(() => {});
-        return;
-      }
       await Desktop.deleteByPath('docEditorDocs', entry.relativePath).catch(() => {});
-      await Desktop.deleteByPath('docEditorDocs', entry.relativePath + '.json').catch(() => {});
+      await deDeleteLegacyManagedArtifacts(entry.name || deBasename(entry.relativePath), deDirname(entry.relativePath) || null);
     }
   });
 }
@@ -2549,15 +3016,17 @@ async function openFromDisk() {
     showToast((t('deOpenFromDiskError') || 'Could not read file: ') + (r.error || ''), true);
     return;
   }
-  mdEditor.setValue(r.content || '');
   const ext = (r.name.split('.').pop() || '').toLowerCase();
+  const diskDocType = ext === 'html' ? 'html' : 'md';
+  const inlineState = deExtractStyleBlocks(r.content || '');
+  mdEditor.setValue(inlineState.content || '');
   currentDocName = r.name;
   currentDocSubdir = null;
   currentEditTarget = null;
   currentEditRelPath = null;
   currentDocStoredInDocs = false;
   currentOpenedDiskPath = r.path || null;
-  currentDocType = ext === 'html' ? 'html' : 'md';
+  currentDocType = diskDocType;
   docModified = true;
   updateDocIndicator();
   const typeBtn = document.getElementById('btn-doc-type');
@@ -2567,12 +3036,7 @@ async function openFromDisk() {
   }
   if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
   currentDocMeta = {};
-  resetPageLayout();
-  currentStylesheetName = null;
-  const cssEl = document.getElementById('custom-css-style');
-  if (cssEl) cssEl.textContent = '';
-  if (cssEditor) cssEditor.setValue('');
-  cssModified = false;
+  deApplyManagedDocState(inlineState.cssText || '', null);
   syncPopupToState && syncPopupToState();
   applyPageLayoutToPreview && applyPageLayoutToPreview();
   renderPreview();
@@ -2585,10 +3049,7 @@ async function saveDocToFolder() {
     return;
   }
 
-  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
-  const content = isInlineHtml
-    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
-    : mdEditor.getValue();
+  const content = deBuildPersistedCurrentDocContent();
   const suggestedBase = (currentDocName || 'document').replace(/\.(md|html)$/i, '');
   const suggestedName = suggestedBase + '.' + currentDocType;
 
@@ -2616,10 +3077,15 @@ async function loadDoc(relativePath) {
   try {
     const r = await Desktop.readByPath('docEditorDocs', relativePath);
     if (r && r.ok) {
-      mdEditor.setValue(r.content || '');
+      const inlineState = deExtractStyleBlocks(r.content || '');
+      const legacy = await deLoadLegacyManagedDocState(relativePath);
+      const mergedCss = deMergeCssText(inlineState.cssText, legacy.cssText);
+      mdEditor.setValue(inlineState.content || '');
       currentDocName = deBasename(relativePath);
       currentDocSubdir = deDirname(relativePath) || null;
       currentDocStoredInDocs = true;
+      currentEditTarget = null;
+      currentEditRelPath = null;
       currentOpenedDiskPath = null;
       currentDocType = relativePath.toLowerCase().endsWith('.html') ? 'html' : 'md';
       docModified = false;
@@ -2628,42 +3094,8 @@ async function loadDoc(relativePath) {
       if (typeBtn) { typeBtn.textContent = currentDocType.toUpperCase(); typeBtn.classList.toggle('html-mode', currentDocType === 'html'); }
       if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
       hideModal('file-modal');
-      // Restore associated stylesheet and page layout
       currentDocMeta = {};
-      resetPageLayout();
-      try {
-        const metaR = await Desktop.readByPath('docEditorDocs', relativePath + '.json');
-        if (metaR && metaR.ok && metaR.content) {
-          const meta = JSON.parse(metaR.content);
-          currentDocMeta = meta;
-          if (meta.stylesheetInline) {
-            applyInlineStylesheetMeta(meta);
-          }
-          const ss = meta.stylesheet || null;
-          const sel = document.getElementById('stylesheet-select');
-          if (meta.stylesheetInline) {
-            sel.value = '';
-          } else if (ss && meta.stylesheetInDocs) {
-            // Co-located stylesheet — may be inside doc's folder
-            const cssPath = currentDocSubdir ? currentDocSubdir + '/' + ss : ss;
-            const cssR = await Desktop.readByPath('docEditorDocs', cssPath).catch(() => null);
-            const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
-            applyStylesheetContent(cssContent, '@docs@' + ss);
-            injectPairedSSOption(ss);
-          } else if (ss && [...sel.options].some(o => o.value === ss)) {
-            sel.value = ss;
-            await loadStylesheet(ss);
-            localStorage.setItem('cmt-doceditor-last-ss', ss);
-          } else if (!ss) {
-            sel.value = '';
-            applyStylesheetContent('', null);
-          }
-          if (meta.pageLayout) {
-            Object.assign(pageLayout, meta.pageLayout);
-            if (meta.pageLayout.margins) pageLayout.margins = { ...meta.pageLayout.margins };
-          }
-        }
-      } catch(e) {}
+      deApplyManagedDocState(mergedCss, legacy.pageLayout);
       syncPopupToState();
       applyPageLayoutToPreview();
       renderPreview();
@@ -2683,9 +3115,9 @@ async function loadExternalDoc(target, relPath) {
   try {
     const r = await Desktop.readByPath(target, relPath);
     if (r && r.ok) {
-      mdEditor.setValue(r.content || '');
+      const inlineState = deExtractStyleBlocks(r.content || '');
+      mdEditor.setValue(inlineState.content || '');
       const lastSlash = relPath.lastIndexOf('/');
-      const docSubdir = lastSlash >= 0 ? relPath.slice(0, lastSlash) : null;
       currentDocName = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
       currentDocSubdir = null;
       currentEditTarget = target;
@@ -2698,41 +3130,8 @@ async function loadExternalDoc(target, relPath) {
       const typeBtn2 = document.getElementById('btn-doc-type');
       if (typeBtn2) { typeBtn2.textContent = currentDocType.toUpperCase(); typeBtn2.classList.toggle('html-mode', currentDocType === 'html'); }
       if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
-      // Restore associated stylesheet and page layout from co-located metadata
       currentDocMeta = {};
-      resetPageLayout();
-      try {
-        const metaR = await Desktop.readByPath(target, relPath + '.json');
-        if (metaR && metaR.ok && metaR.content) {
-          const meta = JSON.parse(metaR.content);
-          currentDocMeta = meta;
-          if (meta.stylesheetInline) {
-            applyInlineStylesheetMeta(meta);
-          }
-          const ss = meta.stylesheet || null;
-          const sel = document.getElementById('stylesheet-select');
-          if (meta.stylesheetInline) {
-            sel.value = '';
-          } else if (ss && meta.stylesheetInDocs) {
-            const cssPath = docSubdir ? docSubdir + '/' + ss : ss;
-            const cssR = await Desktop.readByPath(target, cssPath).catch(() => null);
-            const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
-            applyStylesheetContent(cssContent, '@docs@' + ss);
-            injectPairedSSOption(ss);
-          } else if (ss && [...sel.options].some(o => o.value === ss)) {
-            sel.value = ss;
-            await loadStylesheet(ss);
-            localStorage.setItem('cmt-doceditor-last-ss', ss);
-          } else if (!ss) {
-            sel.value = '';
-            applyStylesheetContent('', null);
-          }
-          if (meta.pageLayout) {
-            Object.assign(pageLayout, meta.pageLayout);
-            if (meta.pageLayout.margins) pageLayout.margins = { ...meta.pageLayout.margins };
-          }
-        }
-      } catch(e) {}
+      deApplyManagedDocState(inlineState.cssText || '', null);
       syncPopupToState();
       applyPageLayoutToPreview();
       renderPreview();
@@ -2745,10 +3144,7 @@ async function loadExternalDoc(target, relPath) {
 async function saveExternalDoc() {
   if (docSaveInProgress) return;
   docSaveInProgress = true;
-  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
-  const content = isInlineHtml
-    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
-    : mdEditor.getValue();
+  const content = deBuildPersistedCurrentDocContent();
   const relPath = currentEditRelPath;
   const lastSlash = relPath.lastIndexOf('/');
   const filename = lastSlash >= 0 ? relPath.slice(lastSlash + 1) : relPath;
@@ -2756,9 +3152,7 @@ async function saveExternalDoc() {
   try {
     const r = await Desktop.saveText(currentEditTarget, filename, content, subdir);
     if (r && r.ok) {
-      syncDocStylesheetMeta();
-      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
-      await Desktop.saveText(currentEditTarget, filename + '.json', JSON.stringify(currentDocMeta), subdir);
+      cssModified = false;
       docModified = false;
       updateDocIndicator();
       showToast('Saved: ' + filename);
@@ -2783,9 +3177,9 @@ async function saveDoc() {
     await deOpenFileBrowser({
       title: t('deFileBrowserSaveDocument') || 'Save document',
       target: 'docEditorDocs',
-      currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+      currentPath: currentDocSubdir || '',
       extensions: ['.md', '.html'],
-      bundleMode: true,
+      bundleMode: false,
       displayNameFn: deDocBrowserDisplayName,
       rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
       mode: 'save',
@@ -2808,9 +3202,9 @@ async function saveDocAs() {
   await deOpenFileBrowser({
     title: t('deFileBrowserSaveDocumentAs') || 'Save document as',
     target: 'docEditorDocs',
-    currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+    currentPath: currentDocSubdir || '',
     extensions: ['.md', '.html'],
-    bundleMode: true,
+    bundleMode: false,
     displayNameFn: deDocBrowserDisplayName,
     rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
     mode: 'save',
@@ -2831,64 +3225,21 @@ async function doSaveDoc(filename, folderPath = null) {
   if (docSaveInProgress) return;
   docSaveInProgress = true;
   try {
-    const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
-    const content = isInlineHtml
-      ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
-      : mdEditor.getValue();
-    const hasCSS = !!currentStylesheetName;
-    const targetContainer = folderPath == null
-      ? deDocTargetContainerFromCurrent(currentDocSubdir || '', filename)
-      : deNormalizeRelPath(folderPath);
-    const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, ''));
-    const wasFlat = currentDocName === filename && !deDocIsBundledPath(currentDocSubdir || '', filename);
-    const inlineStylesheet = isInlineStylesheetEnabled();
-    const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
-    const cssRelPath = getDocStylesheetRelPath(filename, currentDocSubdir || null);
-
-    const r = await Desktop.saveText('docEditorDocs', filename, content, newSubdir);
+    const targetSubdir = folderPath == null ? (currentDocSubdir || null) : (deNormalizeRelPath(folderPath) || null);
+    const r = await deSaveManagedDocSnapshot('docEditorDocs', filename, targetSubdir);
     if (r && r.ok) {
-      // Migrate flat → folder: delete old flat files
-      if (wasFlat && newSubdir) {
-        const oldFlatPath = deDocFlatRelPath(currentDocSubdir || '', filename);
-        await Desktop.deleteByPath('docEditorDocs', oldFlatPath).catch(() => {});
-        await Desktop.deleteByPath('docEditorDocs', oldFlatPath + '.json').catch(() => {});
-        const oldPaired = parsePairedSS(currentStylesheetName);
-        if (oldPaired) {
-          const oldPairedPath = deDocFlatRelPath(currentDocSubdir || '', oldPaired);
-          await Desktop.deleteByPath('docEditorDocs', oldPairedPath).catch(() => {});
-        }
-      }
-      // Bundle CSS into folder when CSS is active and inline mode is disabled.
-      if (inlineStylesheet) {
-        await Desktop.deleteByPath('docEditorDocs', cssRelPath).catch(() => {});
-        syncDocStylesheetMeta();
-        currentStylesheetName = cssEditor && cssEditor.getValue().trim() ? '@inline@' : null;
-        document.getElementById('custom-css-style').textContent = cssEditor ? cssEditor.getValue() : '';
-        cssModified = false;
-      } else if (newSubdir && hasCSS) {
-        const cssContent = cssEditor ? cssEditor.getValue() : '';
-        await Desktop.saveText('docEditorDocs', cssFilename, cssContent, newSubdir);
-        cssModified = false;
-        injectPairedSSOption(cssFilename);
-        currentStylesheetName = '@docs@' + cssFilename;
-        document.getElementById('custom-css-style').textContent = cssContent;
-      }
       currentDocName = filename;
-      currentDocSubdir = newSubdir;
+      currentDocSubdir = targetSubdir;
       currentDocStoredInDocs = true;
+      currentEditTarget = null;
+      currentEditRelPath = null;
       currentOpenedDiskPath = null;
       docModified = false;
       updateDocIndicator();
       hideModal('file-modal');
-      syncDocStylesheetMeta();
-      if (!currentDocMeta.stylesheetInline) {
-        currentDocMeta.stylesheet = newSubdir && hasCSS ? cssFilename : (currentStylesheetName || null);
-        currentDocMeta.stylesheetInDocs = !!(newSubdir && hasCSS);
-      }
-      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
-      await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
+      await deDeleteLegacyManagedArtifacts(filename, targetSubdir);
       showToast('Saved: ' + filename);
-      saveHistorySnapshot(filename, content);
+      saveHistorySnapshot(filename, deBuildPersistedCurrentDocContent());
     } else {
       showToast('Save failed: ' + (r && r.error ? r.error : 'unknown'), true);
     }
@@ -2899,41 +3250,18 @@ async function doSaveDoc(filename, folderPath = null) {
 async function autosaveDoc() {
   if (docSaveInProgress) return;
   if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
-  const paired = parsePairedSS(currentStylesheetName);
-  const inlineStylesheet = isInlineStylesheetEnabled();
-  const isInlineHtml = currentDocType === 'html' && inlineStylesheet;
-  const needsDocSave = docModified;
-  const needsCssSave = !inlineStylesheet && cssModified && paired && currentDocSubdir && cssEditor;
-  const needsMetaSave = inlineStylesheet && cssModified;
-  if (!needsDocSave && !needsCssSave && !needsMetaSave) return;
+  const needsManagedSave = currentDocStoredInDocs && (docModified || cssModified);
+  if (!needsManagedSave && !(docModified || cssModified)) return;
   try {
-    if (needsDocSave) {
-      const docContent = isInlineHtml
-        ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
-        : mdEditor.getValue();
-      const r = await Desktop.saveText('docEditorDocs', currentDocName, docContent, currentDocSubdir);
+    if (currentDocStoredInDocs) {
+      const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
       if (r && r.ok) {
         docModified = false;
         updateDocIndicator();
-        syncDocStylesheetMeta();
-        if (!currentDocMeta.stylesheetInline) {
-          const metaSS = currentDocSubdir && paired ? currentDocName.replace(/\.(md|html)$/i, '') + '.css' : (currentStylesheetName || null);
-          currentDocMeta.stylesheet = metaSS;
-          currentDocMeta.stylesheetInDocs = !!(currentDocSubdir && paired);
-        }
-        currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
-        await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir);
+        await deDeleteLegacyManagedArtifacts(currentDocName, currentDocSubdir || null);
       }
-    }
-    if (needsMetaSave && !needsDocSave) {
-      syncDocStylesheetMeta();
-      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
-      await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir);
-    }
-    if (needsCssSave) {
-      const cssFilename = currentDocName.replace(/\.(mdf|html)$/i, '') + '.css';
-      const r = await Desktop.saveText('docEditorDocs', cssFilename, cssEditor.getValue(), currentDocSubdir);
-      if (r && r.ok) cssModified = false;
+    } else if (currentEditTarget && currentEditRelPath) {
+      await saveExternalDoc();
     }
   } catch(e) { /* silent */ }
 }
@@ -2954,9 +3282,9 @@ async function saveAll() {
     await deOpenFileBrowser({
       title: t('deFileBrowserSaveAll') || 'Save all',
       target: 'docEditorDocs',
-      currentPath: deDocContainerPathFromBundle(currentDocSubdir || ''),
+      currentPath: currentDocSubdir || '',
       extensions: ['.md', '.html'],
-      bundleMode: true,
+      bundleMode: false,
       displayNameFn: deDocBrowserDisplayName,
       rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
       mode: 'save',
@@ -2977,63 +3305,24 @@ async function doSaveAll(filename, folderPath = null) {
   if (!mdEditor) return;
   if (docSaveInProgress) return;
   docSaveInProgress = true;
-  const cssFilename = filename.replace(/\.(md|html)$/i, '') + '.css';
-  const isInlineHtml = currentDocType === 'html' && isInlineStylesheetEnabled();
-  var content = isInlineHtml
-    ? injectInlineStylesheetIntoHtml(mdEditor.getValue(), cssEditor ? cssEditor.getValue() : '')
-    : mdEditor.getValue();
-  const css = cssEditor ? cssEditor.getValue() : '';
-  const targetContainer = folderPath == null
-    ? deDocTargetContainerFromCurrent(currentDocSubdir || '', filename)
-    : deNormalizeRelPath(folderPath);
-  const newSubdir = deJoinRelPath(targetContainer, filename.replace(/\.(md|html)$/i, '')); // Save All always creates a folder
-  const wasFlat = currentDocName === filename && !deDocIsBundledPath(currentDocSubdir || '', filename);
-  const inlineStylesheet = isInlineStylesheetEnabled();
-  const cssRelPath = getDocStylesheetRelPath(filename, currentDocSubdir || null);
+  const targetSubdir = folderPath == null ? (currentDocSubdir || null) : (deNormalizeRelPath(folderPath) || null);
    try {
-    const [docR, cssR] = await Promise.all([
-      Desktop.saveText('docEditorDocs', filename, content, newSubdir),
-      inlineStylesheet ? Promise.resolve({ ok: true }) : Desktop.saveText('docEditorDocs', cssFilename, css, newSubdir)
-    ]);
-    if (docR && docR.ok && cssR && cssR.ok) {
-      if (wasFlat) {
-        const oldFlatPath = deDocFlatRelPath(currentDocSubdir || '', filename);
-        await Desktop.deleteByPath('docEditorDocs', oldFlatPath).catch(() => {});
-        await Desktop.deleteByPath('docEditorDocs', oldFlatPath + '.json').catch(() => {});
-        const oldPaired = parsePairedSS(currentStylesheetName);
-        if (oldPaired) {
-          const oldPairedPath = deDocFlatRelPath(currentDocSubdir || '', oldPaired);
-          await Desktop.deleteByPath('docEditorDocs', oldPairedPath).catch(() => {});
-        }
-      }
+    const docR = await deSaveManagedDocSnapshot('docEditorDocs', filename, targetSubdir);
+    if (docR && docR.ok) {
       currentDocName = filename;
-      currentDocSubdir = newSubdir;
+      currentDocSubdir = targetSubdir;
       currentDocStoredInDocs = true;
+      currentEditTarget = null;
+      currentEditRelPath = null;
       currentOpenedDiskPath = null;
       docModified = false;
       cssModified = false;
       updateDocIndicator();
       hideModal('file-modal');
-      if (inlineStylesheet) {
-        await Desktop.deleteByPath('docEditorDocs', cssRelPath).catch(() => {});
-        currentDocMeta.stylesheet = null;
-        currentDocMeta.stylesheetInDocs = false;
-        currentDocMeta.stylesheetInline = true;
-        currentDocMeta.stylesheetContent = css;
-        currentStylesheetName = css.trim() ? '@inline@' : null;
-      } else {
-        currentDocMeta.stylesheet = cssFilename;
-        currentDocMeta.stylesheetInDocs = true;
-        currentDocMeta.stylesheetInline = false;
-        currentDocMeta.stylesheetContent = '';
-        injectPairedSSOption(cssFilename);
-        currentStylesheetName = '@docs@' + cssFilename;
-      }
-      currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
-      await Desktop.saveText('docEditorDocs', filename + '.json', JSON.stringify(currentDocMeta), newSubdir);
-      document.getElementById('custom-css-style').textContent = css;
-      showToast('Saved: ' + filename + (inlineStylesheet ? ' + inline CSS' : ' + ' + cssFilename));
-      saveHistorySnapshot(filename, content);
+      await deDeleteLegacyManagedArtifacts(filename, targetSubdir);
+      document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : '', '#preview-content');
+      showToast('Saved: ' + filename);
+      saveHistorySnapshot(filename, deBuildPersistedCurrentDocContent());
     } else {
       showToast('Save failed', true);
     }
@@ -3055,17 +3344,9 @@ async function newDoc() {
   currentDocMeta = {};
   docModified = false;
   updateDocIndicator();
-  resetPageLayout();
+  deApplyManagedDocState('', null);
   syncPopupToState();
   applyPageLayoutToPreview();
-  if (currentStylesheetName && parsePairedSS(currentStylesheetName)) {
-    clearPairedSSOptions();
-    currentStylesheetName = null;
-    cssEditor && cssEditor.setValue('');
-    document.getElementById('custom-css-style').textContent = '';
-    document.getElementById('stylesheet-select').value = '';
-    cssModified = false;
-  }
 }
 
 // ── Version history ──────────────────────────────────────
@@ -3226,7 +3507,7 @@ async function openTemplateModal() {
     target: 'docEditorTemplates',
     currentPath: '',
     extensions: ['.md'],
-    bundleMode: true,
+    bundleMode: false,
     displayNameFn: deTemplateBrowserDisplayName,
     rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
     openButtonLabel: t('deFileBrowserUse') || 'Use',
@@ -3239,7 +3520,7 @@ async function openTemplateModal() {
       await loadTemplate(relativePath);
     },
     onDelete: async entry => {
-      await Desktop.deleteByPath('docEditorTemplates', entry.isBundle && entry.bundlePath ? entry.bundlePath : entry.relativePath).catch(() => {});
+      await Desktop.deleteByPath('docEditorTemplates', entry.relativePath).catch(() => {});
     }
   });
 }
@@ -3252,12 +3533,19 @@ async function loadTemplate(filename) {
   try {
     const r = await Desktop.readByPath('docEditorTemplates', filename);
     if (r && r.ok) {
-      mdEditor.setValue(r.content || '');
+      const inlineState = deExtractStyleBlocks(r.content || '');
+      mdEditor.setValue(inlineState.content || '');
       currentDocName = null;
       currentDocSubdir = null;
+      currentEditTarget = null;
+      currentEditRelPath = null;
+      currentDocStoredInDocs = false;
       docModified = false;
       updateDocIndicator();
+      deApplyManagedDocState(inlineState.cssText || '', null);
       hideModal('file-modal');
+      syncPopupToState();
+      applyPageLayoutToPreview();
       renderPreview();
       showToast('Template loaded');
     }
@@ -3272,7 +3560,7 @@ async function saveAsTemplate() {
     target: 'docEditorTemplates',
     currentPath: '',
     extensions: ['.md'],
-    bundleMode: true,
+    bundleMode: false,
     displayNameFn: deTemplateBrowserDisplayName,
     rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
     mode: 'save',
@@ -3287,8 +3575,7 @@ async function saveAsTemplate() {
       }
       if (!nextName.endsWith('.md')) nextName += '.md';
       try {
-        const subdir = deJoinRelPath(folderPath, nextName.replace(/\.md$/i, ''));
-        const r = await Desktop.saveText('docEditorTemplates', nextName, mdEditor.getValue(), subdir);
+        const r = await Desktop.saveText('docEditorTemplates', nextName, deBuildPersistedCurrentDocContent(), deNormalizeRelPath(folderPath) || null);
         if (r && r.ok) {
           hideModal('file-modal');
           showToast((t('omTemplateSaved') || 'Template saved!').replace('!', '') + ': ' + nextName);
@@ -3326,142 +3613,40 @@ function injectPairedSSOption(cssFilename) {
 }
 
 async function refreshStylesheetList() {
-  if (!window.Desktop || !Desktop.isElectron()) return;
-  try {
-    const r = await Desktop.listByPath('docEditorStylesheets', '', { extensions: ['.css'], recursive: true });
-    const files = (r && r.ok && Array.isArray(r.files)) ? r.files : [];
-    const sel = document.getElementById('stylesheet-select');
-    const prev = sel.value;
-    // Preserve any paired (@docs@) option — remove only regular stylesheet entries
-    for (let i = sel.options.length - 1; i >= 1; i--) {
-      if (!sel.options[i].value.startsWith('@docs@')) sel.remove(i);
-    }
-    files.forEach(f => {
-      const opt = document.createElement('option');
-      const rel = f.relativePath || f.filename;
-      opt.value = rel;
-      opt.textContent = rel;
-      sel.appendChild(opt);
-    });
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
-  } catch(e) {}
+  deConfigureInlineStylesheetUi();
 }
 
 async function onStylesheetChange() {
-  const val = document.getElementById('stylesheet-select').value;
-  if (!val) {
-    currentStylesheetName = null;
-    cssEditor && cssEditor.setValue('');
-    document.getElementById('custom-css-style').textContent = '';
-    cssModified = false;
-    return;
-  }
-  const paired = parsePairedSS(val);
-  if (paired) {
-    currentStylesheetName = val;
-    const cssPath = currentDocSubdir ? currentDocSubdir + '/' + paired : paired;
-    const cssR = await Desktop.readByPath('docEditorDocs', cssPath).catch(() => null);
-    const cssContent = (cssR && cssR.ok) ? (cssR.content || '') : '';
-    cssEditor && cssEditor.setValue(cssContent);
-    document.getElementById('custom-css-style').textContent = cssContent;
-    cssModified = false;
-  } else {
-    await loadStylesheet(val);
-  }
+  deConfigureInlineStylesheetUi();
 }
 
 async function loadStylesheet(filename) {
-  if (!window.Desktop || !Desktop.isElectron()) return;
-  try {
-    const r = await Desktop.readByPath('docEditorStylesheets', filename);
-    if (r && r.ok) {
-      currentStylesheetName = filename;
-      cssEditor && cssEditor.setValue(r.content || '');
-      document.getElementById('custom-css-style').textContent = r.content || '';
-      cssModified = false;
-    }
-  } catch(e) { showToast('Could not load stylesheet: ' + e.message, true); }
+  deConfigureInlineStylesheetUi();
 }
 
 async function newStylesheet() {
-  const ext = '.css';
-  await deOpenFileBrowser({
-    title: t('deFileBrowserNewStylesheet') || 'New stylesheet',
-    target: 'docEditorStylesheets',
-    currentPath: deDirname(parsePairedSS(currentStylesheetName) ? '' : currentStylesheetName),
-    extensions: ['.css'],
-    bundleMode: false,
-    displayNameFn: deStylesheetBrowserDisplayName,
-    rootLabel: t('deFileBrowserStylesheetsRoot') || 'Stylesheets',
-    mode: 'save',
-    placeholder: 'my-stylesheet' + ext,
-    suggestedName: '',
-    confirmOverwrite: true,
-    onSave: async (name, folderPath) => {
-      let nextName = String(name || '').trim();
-      if (!nextName.endsWith('.css')) nextName += '.css';
-      if (!window.Desktop || !Desktop.isElectron()) return;
-      try {
-        const initial = '/* Custom styles for Document Editor */\n\n.doc-preview {\n  /* override preview defaults here */\n}\n';
-        const saveParts = deSplitTargetPath(deJoinRelPath(folderPath, nextName));
-        const r = await Desktop.saveText('docEditorStylesheets', saveParts.filename, initial, saveParts.subdir);
-        if (r && r.ok) {
-          const savedRelPath = deJoinRelPath(folderPath, nextName);
-          await refreshStylesheetList();
-          document.getElementById('stylesheet-select').value = savedRelPath;
-          currentStylesheetName = savedRelPath;
-          cssEditor && cssEditor.setValue(initial);
-          document.getElementById('custom-css-style').textContent = initial;
-          cssModified = false;
-          hideModal('file-modal');
-          showToast('Stylesheet created: ' + savedRelPath);
-        }
-      } catch(e) { showToast('Error: ' + e.message, true); }
-    }
-  });
+  showToast('Stylesheets are stored inline in the document.');
 }
 
 async function saveStylesheet() {
-  if (!window.Desktop || !Desktop.isElectron()) return;
-  if (!currentStylesheetName) {
-    await newStylesheet();
-    return;
-  }
-  const paired = parsePairedSS(currentStylesheetName);
-  const target   = paired ? 'docEditorDocs'        : 'docEditorStylesheets';
-  const filename = paired ? paired                  : currentStylesheetName;
-  const css = cssEditor ? cssEditor.getValue() : '';
-  try {
-    const saveParts = paired ? { filename, subdir: currentDocSubdir || null } : deSplitTargetPath(filename);
-    const r = await Desktop.saveText(target, saveParts.filename, css, saveParts.subdir);
+  if (currentDocStoredInDocs && currentDocName) {
+    const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
     if (r && r.ok) {
       cssModified = false;
-      showToast('Stylesheet saved');
-    } else {
-      showToast('Save failed', true);
+      docModified = false;
+      updateDocIndicator();
+      showToast('Styles saved in document');
     }
-  } catch(e) { showToast('Error: ' + e.message, true); }
+    return;
+  }
+  showToast('Stylesheets are stored inline in the document.');
 }
 
 async function deleteStylesheet() {
-  if (!currentStylesheetName) return;
-  const paired = parsePairedSS(currentStylesheetName);
-  const displayName = paired || currentStylesheetName;
-  if (!await showConfirm('Delete stylesheet "' + displayName + '"?')) return;
-  if (!window.Desktop || !Desktop.isElectron()) return;
-  const target = paired ? 'docEditorDocs' : 'docEditorStylesheets';
-  try {
-    const deletePath = paired ? deJoinRelPath(currentDocSubdir || '', paired) : displayName;
-    await Desktop.deleteByPath(target, deletePath);
-    if (paired) clearPairedSSOptions();
-    currentStylesheetName = null;
-    cssEditor && cssEditor.setValue('');
-    document.getElementById('custom-css-style').textContent = '';
-    document.getElementById('stylesheet-select').value = '';
-    cssModified = false;
-    if (!paired) await refreshStylesheetList();
-    showToast('Stylesheet deleted');
-  } catch(e) { showToast('Error: ' + e.message, true); }
+  if (!cssEditor) return;
+  deSetCssEditorValue(deComposeManagedStylesheet(''), true);
+  updatePreviewFooter();
+  showToast('Inline stylesheet cleared');
 }
 
 // ── CSS Rule Builder ──────────────────────────────────────
@@ -3569,6 +3754,12 @@ async function exportPdf() {
     return;
   }
 
+  // Capture current popup values even if inputs haven't blurred yet.
+  deSyncPageLayoutFromControls();
+  deSyncCssEditorWithLayout(true);
+  applyPageLayoutToPreview();
+  updatePreviewFooter();
+
   const sameFolderInfo = getPdfSameFolderTarget();
   const destination = await openPdfExportModal(sameFolderInfo);
   if (!destination) return;
@@ -3585,7 +3776,7 @@ async function exportPdf() {
     }
   } catch(e) {}
 
-  const customCss = cssEditor ? cssEditor.getValue() : '';
+  const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
   const _previewClone = document.getElementById('preview-content').cloneNode(true);
   _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
   const previewContent = _previewClone.innerHTML;
@@ -3634,9 +3825,8 @@ async function exportPdf() {
   const pdfOptions = {
     landscape: pageLayout.orientation === 'landscape',
     pageSize: pdfSize,
-    margins: {
-      marginType: 'none'   // margins handled entirely by @page CSS
-    }
+    marginsType: 1, // no browser-imposed PDF margins; use @page margin from generated CSS
+    preferCSSPageSize: true
   };
 
   const hasPageNums = pageLayout.pageNumbers;
@@ -3748,6 +3938,8 @@ async function exportDocx() {
     showToast('DOCX export requires the Electron desktop app.', true);
     return;
   }
+  deSyncPageLayoutFromControls();
+  deSyncCssEditorWithLayout(true);
   showToast('Preparing DOCX…');
   const markdown = mdEditor.getValue();
   const [cssStyles, images] = await Promise.all([
@@ -3807,11 +3999,13 @@ const DEFAULT_PAGE_LAYOUT = {
   imageWidth: 'auto'
 };
 
-let pageLayout = { ...DEFAULT_PAGE_LAYOUT, margins: { ...DEFAULT_PAGE_LAYOUT.margins } };
+let pageLayout = deCloneDefaultPageLayout();
+let editorLayoutDefaults = deCloneDefaultPageLayout();
 
 function resetPageLayout() {
-  Object.assign(pageLayout, DEFAULT_PAGE_LAYOUT);
-  pageLayout.margins = { ...DEFAULT_PAGE_LAYOUT.margins };
+  const defaults = deClonePageLayout(editorLayoutDefaults);
+  Object.assign(pageLayout, defaults);
+  pageLayout.margins = { ...defaults.margins };
 }
 
 function getPageDims() {
@@ -3862,6 +4056,33 @@ function applyPageLayoutToPreview() {
   deBroadcastState();
 }
 
+function deSyncPageLayoutFromControls() {
+  const getEl = id => document.getElementById(id);
+  const sizeEl = getEl('pl-size');
+  if (!sizeEl) return;
+
+  pageLayout.orientation = getEl('pl-landscape') && getEl('pl-landscape').classList.contains('active')
+    ? 'landscape'
+    : 'portrait';
+  pageLayout.size = sizeEl.value || pageLayout.size;
+  pageLayout.customW = parseFloat(getEl('pl-custom-w') && getEl('pl-custom-w').value) || pageLayout.customW;
+  pageLayout.customH = parseFloat(getEl('pl-custom-h') && getEl('pl-custom-h').value) || pageLayout.customH;
+  pageLayout.margins.top = parseFloat(getEl('pl-mt') && getEl('pl-mt').value) || 0;
+  pageLayout.margins.right = parseFloat(getEl('pl-mr') && getEl('pl-mr').value) || 0;
+  pageLayout.margins.bottom = parseFloat(getEl('pl-mb') && getEl('pl-mb').value) || 0;
+  pageLayout.margins.left = parseFloat(getEl('pl-ml') && getEl('pl-ml').value) || 0;
+  pageLayout.fontFamily = (getEl('pl-font-family') && getEl('pl-font-family').value) || pageLayout.fontFamily;
+  pageLayout.fontSize = parseFloat(getEl('pl-font-size') && getEl('pl-font-size').value) || pageLayout.fontSize;
+  pageLayout.imageWidth = (getEl('pl-image-width') && getEl('pl-image-width').value) || pageLayout.imageWidth;
+  pageLayout.pageNumbers = !!(getEl('pl-page-numbers') && getEl('pl-page-numbers').checked);
+  pageLayout.pageNumbersPos = (getEl('pl-page-numbers-pos') && getEl('pl-page-numbers-pos').value) || pageLayout.pageNumbersPos;
+  pageLayout.footer = !!(getEl('pl-footer') && getEl('pl-footer').checked);
+  pageLayout.footerText = (getEl('pl-footer-text') && getEl('pl-footer-text').value) || '';
+  pageLayout.footerAlign = getEl('pl-footer-left') && getEl('pl-footer-left').classList.contains('active')
+    ? 'left'
+    : (getEl('pl-footer-right') && getEl('pl-footer-right').classList.contains('active') ? 'right' : 'center');
+}
+
 // ── Presentation mode ─────────────────────────────────────
 let _dePresCh = null;
 let _dePresOpen = false;
@@ -3886,7 +4107,7 @@ function deBroadcastState() {
   const previewEl = document.getElementById('preview-content');
   if (!previewEl) return;
   const cssEl = document.getElementById('custom-css-style');
-  const css = cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : '');
+  const css = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : ''));
   const docName = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
   try {
     _dePresCh.postMessage({
@@ -3933,7 +4154,7 @@ function showFullPreview() {
 
   // Apply active custom CSS
   document.getElementById('full-preview-custom-css').textContent =
-    cssEditor ? cssEditor.getValue() : document.getElementById('custom-css-style').textContent;
+    deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : document.getElementById('custom-css-style').textContent, '#full-preview-content');
 
   // Apply page layout (paper width + margins) as inline style
   const MM2PX = 3.7795;
@@ -3960,19 +4181,24 @@ function hideFullPreview() {
 
 let _saveLayoutTimer = null;
 function savePageLayout() {
-  if (!currentDocName || !window.Desktop || !Desktop.isElectron()) return;
-  currentDocMeta.pageLayout = { ...pageLayout, margins: { ...pageLayout.margins } };
+  deSyncCssEditorWithLayout(true);
+  if (!currentDocName || !window.Desktop || !Desktop.isElectron() || !currentDocStoredInDocs) return;
   clearTimeout(_saveLayoutTimer);
   _saveLayoutTimer = setTimeout(async () => {
     try {
-      await Desktop.saveText('docEditorDocs', currentDocName + '.json', JSON.stringify(currentDocMeta), currentDocSubdir || null);
+      const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
+      if (r && r.ok) {
+        docModified = false;
+        cssModified = false;
+        updateDocIndicator();
+        await deDeleteLegacyManagedArtifacts(currentDocName, currentDocSubdir || null);
+      }
     } catch(e) {}
   }, 300);
 }
 
 function loadPageLayout() {
-  // Layout is now loaded per-file from the sidecar .json in loadDoc().
-  // At startup (no file open) the default pageLayout values are already in place.
+  deSyncCssEditorWithLayout(false);
 }
 
 function syncPopupToState() {
@@ -3987,13 +4213,7 @@ function syncPopupToState() {
   document.getElementById('pl-mr').value = round1(pageLayout.margins.right);
   document.getElementById('pl-mb').value = round1(pageLayout.margins.bottom);
   document.getElementById('pl-ml').value = round1(pageLayout.margins.left);
-  // Detect preset
-  const m = pageLayout.margins;
-  const preset = Object.keys(MARGIN_PRESETS).find(k => {
-    const p = MARGIN_PRESETS[k];
-    return Math.abs(p.top-m.top)<0.2 && Math.abs(p.right-m.right)<0.2 &&
-           Math.abs(p.bottom-m.bottom)<0.2 && Math.abs(p.left-m.left)<0.2;
-  });
+  const preset = deDetectMarginPreset(pageLayout.margins);
   document.getElementById('pl-margin-preset').value = preset || 'Custom';
   document.getElementById('pl-font-family').value = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
   document.getElementById('pl-font-size').value   = pageLayout.fontSize   || 11;
@@ -4210,19 +4430,18 @@ async function loadPersistedState() {
     if (s) splitFraction = Math.max(0.15, Math.min(0.85, parseFloat(s) || 0.5));
   } catch(e) {}
   applySplit();
-  await refreshStylesheetList();
-  const lastSS = localStorage.getItem('cmt-doceditor-last-ss');
-  if (lastSS) {
-    const sel = document.getElementById('stylesheet-select');
-    if ([...sel.options].some(o => o.value === lastSS)) {
-      sel.value = lastSS;
-      await loadStylesheet(lastSS);
-    }
-  }
+  deConfigureInlineStylesheetUi();
   await loadEditorSettings();
   applyEditorPrefs();
   applyShortcuts();
   applySnippetCompletions();
+  if (!currentDocName && mdEditor && !mdEditor.getValue().trim()) {
+    resetPageLayout();
+    syncPopupToState();
+    applyPageLayoutToPreview();
+    updatePreviewFooter();
+    deSyncCssEditorWithLayout(false);
+  }
 }
 
 // ── Modals ────────────────────────────────────────────────
@@ -4277,7 +4496,14 @@ let editorSettings = {
   snippets: [],
   shortcuts: [],
   typingTriggers: [],
-  editorPrefs: { fontSize: 14, wordWrap: 'on', lineNumbers: 'on', tabSize: 2, inlineStylesheet: false }
+  editorPrefs: {
+    fontSize: 14,
+    wordWrap: 'on',
+    lineNumbers: 'on',
+    tabSize: 2,
+    inlineStylesheet: true,
+    defaultLayout: deCloneDefaultPageLayout()
+  }
 };
 
 let _completionDisposable = null;
@@ -4307,11 +4533,16 @@ async function loadEditorSettings() {
       }
     }
   } catch(e) {}
+  editorSettings.editorPrefs.inlineStylesheet = true;
+  editorLayoutDefaults = deClonePageLayout(editorSettings.editorPrefs.defaultLayout);
+  editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
 }
 
 async function saveEditorSettings() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   try {
+    editorSettings.editorPrefs.inlineStylesheet = true;
+    editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
     await Desktop.saveJson('docEditorSettings', 'settings.js', editorSettings);
   } catch(e) { showToast('Settings save failed', true); }
 }
@@ -4328,16 +4559,13 @@ function applyEditorPrefs() {
 }
 
 function isInlineStylesheetEnabled() {
-  return !!editorSettings.editorPrefs.inlineStylesheet;
+  return true;
 }
 
 function applyStylesheetContent(cssContent, sourceName) {
-  const css = cssContent || '';
-  currentStylesheetName = sourceName || null;
-  if (cssEditor) cssEditor.setValue(css);
-  const cssEl = document.getElementById('custom-css-style');
-  if (cssEl) cssEl.textContent = css;
-  cssModified = false;
+  const css = deComposeManagedStylesheet(cssContent || '');
+  currentStylesheetName = sourceName || '@inline@';
+  deSetCssEditorValue(css, false);
 }
 
 function applyInlineStylesheetMeta(meta) {
@@ -4346,17 +4574,10 @@ function applyInlineStylesheetMeta(meta) {
 }
 
 function syncDocStylesheetMeta() {
-  currentDocMeta.stylesheetInline = isInlineStylesheetEnabled();
-  currentDocMeta.stylesheetContent = currentDocMeta.stylesheetInline && cssEditor ? cssEditor.getValue() : '';
-  if (currentDocMeta.stylesheetInline) {
-    currentDocMeta.stylesheet = null;
-    currentDocMeta.stylesheetInDocs = false;
-  } else {
-    const stylesheetName = currentStylesheetName && currentStylesheetName !== '@inline@' ? currentStylesheetName : null;
-    currentDocMeta.stylesheet = stylesheetName;
-    currentDocMeta.stylesheetInDocs = !!parsePairedSS(stylesheetName);
-    currentDocMeta.stylesheetContent = '';
-  }
+  currentDocMeta.stylesheetInline = true;
+  currentDocMeta.stylesheetContent = cssEditor ? cssEditor.getValue() : '';
+  currentDocMeta.stylesheet = null;
+  currentDocMeta.stylesheetInDocs = false;
 }
 
 function getDocStylesheetRelPath(docName, subdir) {
@@ -4365,24 +4586,7 @@ function getDocStylesheetRelPath(docName, subdir) {
 }
 
 function injectInlineStylesheetIntoHtml(html, css) {
-  const source = String(html || '');
-  const sheet = String(css || '');
-  if (!sheet.trim()) return source;
-
-  const cleaned = source.replace(/<style\b[^>]*data-cmt-inline-stylesheet(?:="true")?[^>]*>[\s\S]*?<\/style>\s*/gi, '');
-  const tag = '<style data-cmt-inline-stylesheet="true">\n' + sheet + '\n</style>\n';
-
-  if (/<head\b[^>]*>/i.test(cleaned)) {
-    return cleaned.replace(/<\/head>/i, tag + '</head>');
-  }
-
-  if (/<html\b[^>]*>/i.test(cleaned)) {
-    return cleaned.replace(/<html\b[^>]*>/i, function(match) {
-      return match + '\n' + tag;
-    });
-  }
-
-  return tag + cleaned;
+  return deInjectInlineStyles(html, 'html', css);
 }
 
 const EDITOR_ACTIONS = [
@@ -4970,11 +5174,13 @@ function bindTriggerEvents() {
 
 function renderPrefsPanel() {
   const p = editorSettings.editorPrefs;
+  const l = deClonePageLayout(editorLayoutDefaults);
+  const marginPreset = deDetectMarginPreset(l.margins) || 'Custom';
   return `<div class="stg-info">
     Settings for the markdown editor pane. Changes apply immediately and are saved automatically.<br>
     <strong>Word wrap</strong> — <em>On</em> wraps long lines at the pane edge; <em>Column (80)</em> wraps at 80 characters; <em>Off</em> shows a horizontal scrollbar.<br>
     <strong>Line numbers</strong> — <em>Relative</em> shows the distance to the current line, useful for keyboard-based navigation.<br>
-    <strong>Stylesheet storage</strong> — when enabled, the current CSS is stored in the document metadata instead of a separate stylesheet file.
+    <strong>Stylesheet storage</strong> — the current CSS and page layout are always stored inside the document's inline <code>&lt;style&gt;</code> tag.
   </div>
   <div class="prefs-grid">
     <div class="stg-field">
@@ -5004,9 +5210,134 @@ function renderPrefsPanel() {
     <div class="stg-field">
       <label class="stg-label">Stylesheet Storage</label>
       <label class="stg-radio-label" style="display:flex;gap:8px;align-items:center;margin-top:6px">
-        <input type="checkbox" id="pref-inline-stylesheet"${p.inlineStylesheet ? ' checked' : ''}>
-        Include stylesheet inline with the document
+        <input type="checkbox" id="pref-inline-stylesheet" checked disabled>
+        Always store stylesheet inline with the document
       </label>
+    </div>
+  </div>
+
+  <div class="stg-form" style="margin-top:18px">
+    <div class="stg-form-title">Default layout properties</div>
+    <p class="stg-hint" style="margin:-2px 0 12px">
+      These defaults are used for new documents and any document with no embedded layout settings yet.
+    </p>
+
+    <div class="stg-field">
+      <label class="stg-label">Orientation</label>
+      <div class="pl-row">
+        <button class="pl-orient-btn${l.orientation === 'portrait' ? ' active' : ''}" id="pref-layout-portrait">▯ Portrait</button>
+        <button class="pl-orient-btn${l.orientation === 'landscape' ? ' active' : ''}" id="pref-layout-landscape">▭ Landscape</button>
+      </div>
+    </div>
+
+    <div class="stg-form-row">
+      <div class="stg-field">
+        <label class="stg-label">Paper size</label>
+        <select class="stg-select" id="pref-layout-size">
+          <option value="A4"${l.size === 'A4' ? ' selected' : ''}>A4 (210 × 297 mm)</option>
+          <option value="A3"${l.size === 'A3' ? ' selected' : ''}>A3 (297 × 420 mm)</option>
+          <option value="A5"${l.size === 'A5' ? ' selected' : ''}>A5 (148 × 210 mm)</option>
+          <option value="Letter"${l.size === 'Letter' ? ' selected' : ''}>Letter (216 × 279 mm)</option>
+          <option value="Legal"${l.size === 'Legal' ? ' selected' : ''}>Legal (216 × 356 mm)</option>
+          <option value="Custom"${l.size === 'Custom' ? ' selected' : ''}>Custom...</option>
+        </select>
+      </div>
+      <div class="stg-field" id="pref-layout-custom-dims"${l.size === 'Custom' ? '' : ' style="display:none"'}>
+        <label class="stg-label">Custom size (mm)</label>
+        <div class="stg-form-row">
+          <input class="stg-input" type="number" id="pref-layout-custom-w" min="50" max="1200" step="0.5" value="${round1(l.customW)}" placeholder="W">
+          <input class="stg-input" type="number" id="pref-layout-custom-h" min="50" max="1200" step="0.5" value="${round1(l.customH)}" placeholder="H">
+        </div>
+      </div>
+    </div>
+
+    <div class="stg-field">
+      <label class="stg-label">Margins</label>
+      <select class="stg-select" id="pref-layout-margin-preset" style="margin-bottom:8px">
+        <option value="Normal"${marginPreset === 'Normal' ? ' selected' : ''}>Normal (25 mm)</option>
+        <option value="Narrow"${marginPreset === 'Narrow' ? ' selected' : ''}>Narrow (13 mm)</option>
+        <option value="Wide"${marginPreset === 'Wide' ? ' selected' : ''}>Wide (25 mm top/bottom, 38 mm sides)</option>
+        <option value="Minimal"${marginPreset === 'Minimal' ? ' selected' : ''}>Minimal (10 mm)</option>
+        <option value="None"${marginPreset === 'None' ? ' selected' : ''}>None (0 mm)</option>
+        <option value="Custom"${marginPreset === 'Custom' ? ' selected' : ''}>Custom...</option>
+      </select>
+      <div class="stg-form-row">
+        <input class="stg-input" type="number" id="pref-layout-mt" min="0" max="100" step="0.5" value="${round1(l.margins.top)}" placeholder="Top">
+        <input class="stg-input" type="number" id="pref-layout-mr" min="0" max="100" step="0.5" value="${round1(l.margins.right)}" placeholder="Right">
+        <input class="stg-input" type="number" id="pref-layout-mb" min="0" max="100" step="0.5" value="${round1(l.margins.bottom)}" placeholder="Bottom">
+        <input class="stg-input" type="number" id="pref-layout-ml" min="0" max="100" step="0.5" value="${round1(l.margins.left)}" placeholder="Left">
+      </div>
+    </div>
+
+    <div class="stg-form-row">
+      <div class="stg-field">
+        <label class="stg-label">Font family</label>
+        <select class="stg-select" id="pref-layout-font-family">
+          <option value="'Segoe UI', system-ui, sans-serif"${l.fontFamily === "'Segoe UI', system-ui, sans-serif" ? ' selected' : ''}>Segoe UI (default)</option>
+          <option value="'Lexend', sans-serif"${l.fontFamily === "'Lexend', sans-serif" ? ' selected' : ''}>Lexend</option>
+          <option value="Arial, Helvetica, sans-serif"${l.fontFamily === 'Arial, Helvetica, sans-serif' ? ' selected' : ''}>Arial</option>
+          <option value="Georgia, serif"${l.fontFamily === 'Georgia, serif' ? ' selected' : ''}>Georgia</option>
+          <option value="Garamond, 'EB Garamond', serif"${l.fontFamily === "Garamond, 'EB Garamond', serif" ? ' selected' : ''}>Garamond</option>
+          <option value="'Times New Roman', Times, serif"${l.fontFamily === "'Times New Roman', Times, serif" ? ' selected' : ''}>Times New Roman</option>
+          <option value="'Calibri', sans-serif"${l.fontFamily === "'Calibri', sans-serif" ? ' selected' : ''}>Calibri</option>
+          <option value="'Palatino Linotype', Palatino, serif"${l.fontFamily === "'Palatino Linotype', Palatino, serif" ? ' selected' : ''}>Palatino</option>
+          <option value="'Courier New', Courier, monospace"${l.fontFamily === "'Courier New', Courier, monospace" ? ' selected' : ''}>Courier New</option>
+        </select>
+      </div>
+      <div class="stg-field">
+        <label class="stg-label">Font size (pt)</label>
+        <input type="number" class="stg-input" id="pref-layout-font-size" min="6" max="72" step="0.5" value="${round1(l.fontSize)}">
+      </div>
+    </div>
+
+    <div class="stg-form-row">
+      <div class="stg-field">
+        <label class="stg-label">Page numbers</label>
+        <label class="stg-radio-label" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <input type="checkbox" id="pref-layout-page-numbers"${l.pageNumbers ? ' checked' : ''}>
+          Show page numbers
+        </label>
+      </div>
+      <div class="stg-field" id="pref-layout-page-numbers-pos-row"${l.pageNumbers ? '' : ' style="display:none"'}>
+        <label class="stg-label">Number position</label>
+        <select class="stg-select" id="pref-layout-page-numbers-pos">
+          <option value="center"${l.pageNumbersPos === 'center' ? ' selected' : ''}>Center</option>
+          <option value="left"${l.pageNumbersPos === 'left' ? ' selected' : ''}>Left</option>
+          <option value="right"${l.pageNumbersPos === 'right' ? ' selected' : ''}>Right</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="stg-field">
+      <label class="stg-label">Footer</label>
+      <label class="stg-radio-label" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <input type="checkbox" id="pref-layout-footer"${l.footer ? ' checked' : ''}>
+        Show footer
+      </label>
+      <div id="pref-layout-footer-rows" style="display:${l.footer ? 'flex' : 'none'};flex-direction:column;gap:8px;margin-top:8px">
+        <input type="text" class="stg-input" id="pref-layout-footer-text" value="${escH(l.footerText || '')}" placeholder="Footer text...">
+        <div class="pl-row">
+          <button class="pl-orient-btn${l.footerAlign === 'left' ? ' active' : ''}" id="pref-layout-footer-left">Left</button>
+          <button class="pl-orient-btn${l.footerAlign !== 'left' && l.footerAlign !== 'right' ? ' active' : ''}" id="pref-layout-footer-center">Center</button>
+          <button class="pl-orient-btn${l.footerAlign === 'right' ? ' active' : ''}" id="pref-layout-footer-right">Right</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stg-form-row">
+      <div class="stg-field">
+        <label class="stg-label">Image width</label>
+        <select class="stg-select" id="pref-layout-image-width">
+          <option value="auto"${l.imageWidth === 'auto' ? ' selected' : ''}>Auto (intrinsic size)</option>
+          <option value="100%"${l.imageWidth === '100%' ? ' selected' : ''}>Fit to page width</option>
+          <option value="75%"${l.imageWidth === '75%' ? ' selected' : ''}>75% of page width</option>
+          <option value="50%"${l.imageWidth === '50%' ? ' selected' : ''}>50% of page width</option>
+        </select>
+      </div>
+      <div class="stg-field" style="display:flex;align-items:flex-end;gap:8px;justify-content:flex-end">
+        <button class="stg-btn stg-btn-cancel" id="pref-layout-reset-defaults" type="button">Reset defaults</button>
+        <button class="stg-btn" id="pref-layout-apply-now" type="button">Apply to current document</button>
+      </div>
     </div>
   </div>`;
 }
@@ -5017,16 +5348,154 @@ function bindPrefsEvents() {
     editorSettings.editorPrefs.tabSize     = parseInt(document.getElementById('pref-tab-size').value)   || 2;
     editorSettings.editorPrefs.wordWrap    = document.getElementById('pref-word-wrap').value;
     editorSettings.editorPrefs.lineNumbers = document.getElementById('pref-line-numbers').value;
-    editorSettings.editorPrefs.inlineStylesheet = document.getElementById('pref-inline-stylesheet').checked;
+    editorSettings.editorPrefs.inlineStylesheet = true;
     applyEditorPrefs();
     saveEditorSettings();
   }
+
+  function setActive(ids, activeId) {
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('active', id === activeId);
+    });
+  }
+
+  function syncLayoutPrefUi() {
+    const sizeSel = document.getElementById('pref-layout-size');
+    const customDims = document.getElementById('pref-layout-custom-dims');
+    if (sizeSel && customDims) customDims.style.display = sizeSel.value === 'Custom' ? '' : 'none';
+    const pageNums = document.getElementById('pref-layout-page-numbers');
+    const pagePosRow = document.getElementById('pref-layout-page-numbers-pos-row');
+    if (pageNums && pagePosRow) pagePosRow.style.display = pageNums.checked ? '' : 'none';
+    const footer = document.getElementById('pref-layout-footer');
+    const footerRows = document.getElementById('pref-layout-footer-rows');
+    if (footer && footerRows) footerRows.style.display = footer.checked ? 'flex' : 'none';
+  }
+
+  function saveLayoutDefaultsFromUi() {
+    const orientation = document.getElementById('pref-layout-landscape').classList.contains('active') ? 'landscape' : 'portrait';
+    const size = document.getElementById('pref-layout-size').value || 'A4';
+    const customW = parseFloat(document.getElementById('pref-layout-custom-w').value);
+    const customH = parseFloat(document.getElementById('pref-layout-custom-h').value);
+    const marginPreset = document.getElementById('pref-layout-margin-preset').value;
+    const margins = marginPreset !== 'Custom' && MARGIN_PRESETS[marginPreset]
+      ? { ...MARGIN_PRESETS[marginPreset] }
+      : {
+          top: parseFloat(document.getElementById('pref-layout-mt').value),
+          right: parseFloat(document.getElementById('pref-layout-mr').value),
+          bottom: parseFloat(document.getElementById('pref-layout-mb').value),
+          left: parseFloat(document.getElementById('pref-layout-ml').value)
+        };
+    const footerAlign = document.getElementById('pref-layout-footer-left').classList.contains('active')
+      ? 'left'
+      : (document.getElementById('pref-layout-footer-right').classList.contains('active') ? 'right' : 'center');
+
+    editorLayoutDefaults = deClonePageLayout({
+      orientation,
+      size,
+      customW,
+      customH,
+      margins,
+      fontFamily: document.getElementById('pref-layout-font-family').value,
+      fontSize: parseFloat(document.getElementById('pref-layout-font-size').value),
+      pageNumbers: !!document.getElementById('pref-layout-page-numbers').checked,
+      pageNumbersPos: document.getElementById('pref-layout-page-numbers-pos').value,
+      footer: !!document.getElementById('pref-layout-footer').checked,
+      footerText: document.getElementById('pref-layout-footer-text').value,
+      footerAlign,
+      imageWidth: document.getElementById('pref-layout-image-width').value
+    });
+
+    editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
+    saveEditorSettings();
+  }
+
   ['pref-font-size','pref-tab-size','pref-word-wrap','pref-line-numbers'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('change', onPrefChange);
     if (el.type === 'number') el.addEventListener('input', onPrefChange);
   });
-  document.getElementById('pref-inline-stylesheet').addEventListener('change', onPrefChange);
+
+  document.getElementById('pref-layout-portrait').addEventListener('click', function(e) {
+    e.preventDefault();
+    setActive(['pref-layout-portrait', 'pref-layout-landscape'], 'pref-layout-portrait');
+    saveLayoutDefaultsFromUi();
+  });
+  document.getElementById('pref-layout-landscape').addEventListener('click', function(e) {
+    e.preventDefault();
+    setActive(['pref-layout-portrait', 'pref-layout-landscape'], 'pref-layout-landscape');
+    saveLayoutDefaultsFromUi();
+  });
+
+  document.getElementById('pref-layout-margin-preset').addEventListener('change', function() {
+    if (this.value !== 'Custom' && MARGIN_PRESETS[this.value]) {
+      const p = MARGIN_PRESETS[this.value];
+      document.getElementById('pref-layout-mt').value = round1(p.top);
+      document.getElementById('pref-layout-mr').value = round1(p.right);
+      document.getElementById('pref-layout-mb').value = round1(p.bottom);
+      document.getElementById('pref-layout-ml').value = round1(p.left);
+    }
+    saveLayoutDefaultsFromUi();
+  });
+
+  ['pref-layout-mt','pref-layout-mr','pref-layout-mb','pref-layout-ml'].forEach(id => {
+    const el = document.getElementById(id);
+    const marginHandler = function() {
+      document.getElementById('pref-layout-margin-preset').value = 'Custom';
+      saveLayoutDefaultsFromUi();
+    };
+    el.addEventListener('change', marginHandler);
+    el.addEventListener('input', marginHandler);
+  });
+
+  ['pref-layout-size','pref-layout-custom-w','pref-layout-custom-h','pref-layout-font-family','pref-layout-font-size',
+   'pref-layout-page-numbers','pref-layout-page-numbers-pos','pref-layout-footer','pref-layout-footer-text',
+   'pref-layout-image-width'].forEach(id => {
+    const el = document.getElementById(id);
+    const handler = function() {
+      syncLayoutPrefUi();
+      saveLayoutDefaultsFromUi();
+    };
+    el.addEventListener('change', handler);
+    if (el.tagName === 'INPUT') el.addEventListener('input', handler);
+  });
+
+  document.getElementById('pref-layout-footer-left').addEventListener('click', function(e) {
+    e.preventDefault();
+    setActive(['pref-layout-footer-left', 'pref-layout-footer-center', 'pref-layout-footer-right'], 'pref-layout-footer-left');
+    saveLayoutDefaultsFromUi();
+  });
+  document.getElementById('pref-layout-footer-center').addEventListener('click', function(e) {
+    e.preventDefault();
+    setActive(['pref-layout-footer-left', 'pref-layout-footer-center', 'pref-layout-footer-right'], 'pref-layout-footer-center');
+    saveLayoutDefaultsFromUi();
+  });
+  document.getElementById('pref-layout-footer-right').addEventListener('click', function(e) {
+    e.preventDefault();
+    setActive(['pref-layout-footer-left', 'pref-layout-footer-center', 'pref-layout-footer-right'], 'pref-layout-footer-right');
+    saveLayoutDefaultsFromUi();
+  });
+
+  document.getElementById('pref-layout-reset-defaults').addEventListener('click', function() {
+    editorLayoutDefaults = deCloneDefaultPageLayout();
+    editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
+    saveEditorSettings();
+    renderSettingsModal();
+    showToast('Default layout properties reset');
+  });
+
+  document.getElementById('pref-layout-apply-now').addEventListener('click', function() {
+    const defaults = deClonePageLayout(editorLayoutDefaults);
+    Object.assign(pageLayout, defaults);
+    pageLayout.margins = { ...defaults.margins };
+    syncPopupToState();
+    applyPageLayoutToPreview();
+    updatePreviewFooter();
+    savePageLayout();
+    showToast('Default layout applied to current document');
+  });
+
+  syncLayoutPrefUi();
 }
 
 // ── DOM init ──────────────────────────────────────────────
@@ -5176,7 +5645,7 @@ window.addEventListener('DOMContentLoaded', function() {
     var css = document.getElementById('de-pres-custom-css');
     if (!doc) return;
     if (typeof data.html === 'string') doc.innerHTML = data.html;
-    if (css && typeof data.css === 'string') css.textContent = data.css;
+    if (css && typeof data.css === 'string') css.textContent = deScopeCssForContainer(data.css, '#de-pres-doc');
     if (data.layoutStyle) Object.assign(doc.style, data.layoutStyle);
     if (data.docName) document.title = data.docName + ' – Presentation';
   }

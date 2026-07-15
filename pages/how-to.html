@@ -928,7 +928,7 @@
         <ul style="margin:8px 0 0 16px;padding:0;line-height:1.7">
           <li><strong>Upcoming Events</strong> — pulls lessons, tests, and assignments from the Planner with dates on or after today, sorted by date. Click any entry to jump directly to that date in the Planner.</li>
           <li><strong>To-do</strong> — lists incomplete to-do items from the Planner sorted by due date. Overdue items are highlighted in red. Click the <strong>+</strong> button to open the Planner and add a new item.</li>
-          <li><strong>Recent Docs</strong> — shows the most recently modified constellation maps (Board sessions) and Document Editor files. Click any entry to open it directly in Board or Document Editor.</li>
+          <li><strong>Recent Docs</strong> — shows the most recently modified constellation maps (Board sessions) and Document Editor files. Click any entry to open it directly in Board or Document Editor; right-click a Board session to delete it and its companion folder.</li>
         </ul>
         <p style="margin:8px 0 0">The small number button (e.g. <strong>5</strong>) in each section header controls how many items are shown (1–20); the setting is saved per device. The interactive <strong>▶ Tour</strong> button in the launcher header includes steps for all three sidebar sections.</p>
       </div>
@@ -1883,6 +1883,7 @@
             <li>Assign the class to <strong>Term 1</strong>, <strong>Term 2</strong>, or both.</li>
             <li>Define a <strong>Weekly Schedule</strong> — which days and times the class meets. The planner uses this to pre-populate the week view and warn about scheduling conflicts.</li>
             <li>Add <strong>Learning Objectives</strong> for the term — these can be attached to individual lesson entries.</li>
+            <li>In table view, class columns are shown with class titles rather than internal IDs.</li>
           </ol>
         </div></div>
       </div>
@@ -1929,11 +1930,11 @@
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
             <li>Click <strong>Export</strong> in the toolbar and choose a format.</li>
-            <li><strong>ICS</strong> — exports a calendar file you can import into Google Calendar, Apple Calendar, or Outlook. Optionally filter by class (including entries with no assigned class) and include lesson slots from the weekly schedule.</li>
+            <li><strong>ICS</strong> — exports a calendar file you can import into Google Calendar, Apple Calendar, or Outlook. Optionally filter by class and include lesson slots from the weekly schedule. Choose <strong>No assigned class</strong> to export only unassigned entries.</li>
             <li><strong>PDF</strong> — exports a compact two-column table: <em>Date + week number</em> and <em>Activities</em>. You can apply the same class filter, include lesson slots from the weekly schedule, and enable <strong>fit on one page</strong> to shrink margins, fonts, and padding for single-page output.</li>
-            <li><strong>CSV</strong> — a spreadsheet of all entries with full field data. Supports the same class filter and can include lesson slots from the weekly schedule.</li>
-            <li><strong>HTML Table</strong> — a structured HTML table document, useful for opening in a browser or sharing as a formatted table. Supports the same class filter and can include lesson slots from the weekly schedule.</li>
-            <li><strong>DOCX</strong> — exports an editable Word document using the same compact two-column table as PDF, with the same class filters and lesson-slot options.</li>
+            <li><strong>CSV</strong> — a spreadsheet of all entries with full field data. Supports the same class filter and can include lesson slots from the weekly schedule. Unassigned entries appear only in <strong>All classes</strong> or <strong>No assigned class</strong>.</li>
+            <li><strong>HTML Table</strong> — a structured HTML table document, useful for opening in a browser or sharing as a formatted table. Supports the same class filter and can include lesson slots from the weekly schedule. Unassigned entries appear only in <strong>All classes</strong> or <strong>No assigned class</strong>.</li>
+            <li><strong>DOCX</strong> — exports an editable Word document using the same compact two-column table as PDF, with the same class filters and lesson-slot options. Unassigned entries appear only in <strong>All classes</strong> or <strong>No assigned class</strong>.</li>
           </ol>
         </div></div>
       </div>
@@ -2783,7 +2784,7 @@
         <button class="open-tool-btn" onclick="openTool('document-editor.html')">Open →</button>
       </div>
       <p class="tool-overview">
-        A dual-pane Markdown editor with live KaTeX maths rendering, custom CSS stylesheets, document and template management, PDF/DOCX export, and book text import. Write on the left; see the formatted output on the right.
+        A dual-pane Markdown editor with live KaTeX maths rendering, single-file inline CSS + layout styling, document and template management, PDF/DOCX export, and book text import. Write on the left; see the formatted output on the right.
       </p>
 
       <div class="accordion" id="acc-de-editor">
@@ -2805,7 +2806,7 @@
             <li><strong>Insert ▾</strong> — Table, Image, Books (book text import)</li>
             <li><strong>Format ▾</strong> — Templates, Page Layout</li>
             <li><strong>Export ▾</strong> — PDF, DOCX, Preview, Presentation Mode</li>
-            <li><strong>⚙ Settings</strong> — snippets, keyboard shortcuts, triggers, preferences, and whether the stylesheet is stored inline with the document</li>
+            <li><strong>⚙ Settings</strong> — snippets, keyboard shortcuts, triggers, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)</li>
           </ul>
           <div class="tip"><strong>Shortcuts:</strong> Ctrl+S saves · Ctrl+N new document · Ctrl+O open document · Esc closes any open modal.</div>
         </div></div>
@@ -2819,12 +2820,13 @@
         <div class="accordion-body"><div class="accordion-inner">
           <p>The top panel lets you control the visual appearance of the preview. It has three parts:</p>
           <ul>
-            <li><strong>Stylesheet picker</strong> — select a saved <code>.css</code> file, including nested paths. Use <em>New / Save / Delete</em> to create and manage stylesheet files in folders/subfolders under <code>custom-data/document-editor/stylesheets/</code>.</li>
+            <li><strong>Inline stylesheet</strong> — every document carries one inline <code>&lt;style&gt;</code> tag. The selector row remains visible, but separate stylesheet files are no longer used for new saves.</li>
             <li><strong>Quick Rule builder</strong> — type a selector, choose a CSS property from the dropdown, type a value, and press <strong>+ Add</strong>. The rule is appended to the CSS editor and applied to the preview immediately.</li>
-            <li><strong>CSS Editor ▾</strong> — click to expand a full Monaco CSS editor showing the active stylesheet. Changes are applied live. Click <em>Save</em> to persist them.</li>
+            <li><strong>CSS Editor ▾</strong> — click to expand a full Monaco CSS editor showing the document's inline stylesheet. Changes are applied live and save back into the document file.</li>
           </ul>
-          <p style="margin-top:.7em"><strong>Preferences</strong> includes <em>Include stylesheet inline with the document</em>, which stores the CSS inside the document metadata instead of as a separate stylesheet file.</p>
+          <p style="margin-top:.7em"><strong>Page Layout</strong> also writes into this same stylesheet. Paper size, margins, typography, footer, page numbers, and image width now travel inside the document's inline <code>&lt;style&gt;</code> tag.</p>
           <div class="tip">Use <code>.doc-preview</code> as a root selector to scope your rules to the preview area, e.g. <code>.doc-preview h1 { color: #2c3e50; }</code>.</div>
+          <div class="tip">Generic selectors like <code>div</code>, <code>p</code>, or <code>table</code> are auto-scoped to the document preview so they do not affect the surrounding app interface.</div>
         </div></div>
       </div>
 
@@ -2834,7 +2836,7 @@
           <span class="accordion-title">Documents &amp; Templates</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p><strong>Documents</strong> are <code>.md</code> or <code>.html</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
+          <p><strong>Documents</strong> are single <code>.md</code> or <code>.html</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
           <ul>
             <li><strong>New</strong> — clear the editor for a new document (prompts if unsaved changes exist).</li>
             <li><strong>Open</strong> — opens a folder browser for Documents. Navigate folders/subfolders, create folders, then click <em>Open</em> or <em>Del</em>.</li>
@@ -2843,7 +2845,7 @@
             <li><strong>Save As</strong> — opens the browser so you can pick a folder/subfolder, create folders, and save under a new filename.</li>
             <li><strong>Save to folder…</strong> — opens the system Save As picker and writes the current document directly to any folder as <code>.md</code> or <code>.html</code>.</li>
           </ul>
-          <p style="margin-top:.7em"><strong>Templates</strong> are <code>.md</code> files under <code>custom-data/document-editor/templates/</code>. Use <strong>Format ▾</strong> to open the same folder browser for template folders/subfolders, or to save the current content into a new template folder.</p>
+          <p style="margin-top:.7em"><strong>Templates</strong> are <code>.md</code> files under <code>custom-data/document-editor/templates/</code>. Like normal documents, they now store styling inline in the same file.</p>
         </div></div>
       </div>
 
@@ -3275,7 +3277,7 @@
       { label: 'Participation logs', path: 'user/group-participation/', type: 'dir' },
       { label: 'Document Editor docs', path: 'user/document-editor/docs/', type: 'dir' },
       { label: 'Templates', path: 'user/document-editor/templates/', type: 'dir' },
-      { label: 'Stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' }
+      { label: 'Legacy stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' }
     ],
     'class-plan': [
       { label: 'Seat plans', path: 'user/class-plans/plans.js' },
@@ -3298,7 +3300,7 @@
     'document-editor': [
       { label: 'Documents', path: 'user/document-editor/docs/', type: 'dir' },
       { label: 'Templates', path: 'user/document-editor/templates/', type: 'dir' },
-      { label: 'Stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' },
+      { label: 'Legacy stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' },
       { label: 'Editor settings', path: 'user/document-editor/settings.js' },
       { label: 'Books library (read)', path: 'user/custom-data/books/', type: 'dir' }
     ]

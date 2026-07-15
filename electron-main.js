@@ -3945,8 +3945,20 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
       })();
     `, true);
 
-    const reqOpts = (request.pdfOptions && typeof request.pdfOptions === 'object') ? request.pdfOptions : {};
-    const pdfOptions = Object.assign({ landscape: false, pageSize: 'A4', marginsType: 0 }, reqOpts, { printBackground: true });
+    const reqOpts = (request.pdfOptions && typeof request.pdfOptions === 'object') ? { ...request.pdfOptions } : {};
+    if (typeof reqOpts.marginsType !== 'number' && reqOpts.margins && typeof reqOpts.margins === 'object') {
+      const mt = String(reqOpts.margins.marginType || '').toLowerCase();
+      if (mt === 'none') reqOpts.marginsType = 1;
+      else if (mt === 'minimum') reqOpts.marginsType = 2;
+      else if (mt === 'custom') reqOpts.marginsType = 3;
+      else if (mt === 'default') reqOpts.marginsType = 0;
+      delete reqOpts.margins;
+    }
+    const pdfOptions = Object.assign(
+      { landscape: false, pageSize: 'A4', marginsType: 1, preferCSSPageSize: true },
+      reqOpts,
+      { printBackground: true }
+    );
     const pdfBuffer = await win.webContents.printToPDF(pdfOptions);
 
     // Ask user where to save

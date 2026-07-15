@@ -978,20 +978,7 @@
           <input type="text" id="e-obj-custom" class="field-input"
                  style="margin-top:4px;display:none" data-i18n-placeholder="pl_objectivePlaceholder">
         </div>
-        <div class="field-group">
-          <label data-i18n="pl_entryReadings">Reading</label>
-          <textarea id="e-readings" class="field-textarea"></textarea>
-        </div>
-        <div class="field-group">
-          <label data-i18n="pl_entryActivities">In-class Activities</label>
-          <textarea id="e-activities" class="field-textarea"></textarea>
-        </div>
-        <div class="field-group">
-          <label data-i18n="pl_entryHomework">Homework</label>
-          <textarea id="e-homework" class="field-textarea"></textarea>
-        </div>
         <div id="e-custom-section" style="display:none">
-          <div class="modal-section-label" data-i18n="pl_customFieldsTitle">Custom Fields</div>
           <div id="e-custom-fields" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
         </div>
       </div>
@@ -1073,9 +1060,6 @@
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
           <label class="cb-label"><input type="checkbox" id="exp-f-topic" checked> <span data-i18n="pl_exportFieldTopic">Topic</span></label>
           <label class="cb-label"><input type="checkbox" id="exp-f-objective" checked> <span data-i18n="pl_exportFieldObjective">Objective</span></label>
-          <label class="cb-label"><input type="checkbox" id="exp-f-readings" checked> <span data-i18n="pl_exportFieldReadings">Reading</span></label>
-          <label class="cb-label"><input type="checkbox" id="exp-f-activities" checked> <span data-i18n="pl_exportFieldActivities">Activities</span></label>
-          <label class="cb-label"><input type="checkbox" id="exp-f-homework" checked> <span data-i18n="pl_exportFieldHomework">Homework</span></label>
           <label class="cb-label"><input type="checkbox" id="exp-f-notes" checked> <span data-i18n="pl_exportFieldNotes">Notes</span></label>
           <label class="cb-label"><input type="checkbox" id="exp-f-custom" checked> <span data-i18n="pl_exportFieldCustom">Custom fields</span></label>
         </div>
@@ -1523,8 +1507,9 @@ async function loadBoardSessions() {
     ['constellation', 'textanalysis', 'notes'].forEach(function (section) {
       var list = Array.isArray(store[section]) ? store[section] : [];
       list.forEach(function (e) {
-        if (!e || !e.plannerEntryId || !e.id) return;
-        var eid = e.plannerEntryId;
+        if (!e || !e.id) return;
+        var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
+        if (!eid) return;
         if (!boardSessionsByEntryId[eid]) boardSessionsByEntryId[eid] = [];
         boardSessionsByEntryId[eid].push({ id: String(e.id), name: String(e.name || ''), section: section, savedAt: Number(e.savedAt) || 0 });
       });
@@ -1539,6 +1524,19 @@ function openLinkedBoard(entryId) {
   var s = sessions.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
   if (!window.Desktop || !Desktop.isElectron()) return;
   Desktop.openTool('board.html', { query: { openLocalSession: '1', openLocalMode: s.section, openLocalEntryId: s.id } });
+}
+
+function plannerBoardLinkId(slot, entry) {
+  if (entry && entry.id) return String(entry.id);
+  if (!slot || !slot.classId || !slot.date) return '';
+  return 'sched:' + String(slot.classId) + ':' + String(slot.date) + ':' + String(slot.time || '');
+}
+
+function plannerBoardSessionsForSlot(slot, entry) {
+  var linkId = plannerBoardLinkId(slot, entry);
+  if (!linkId) return { linkId: '', sessions: null };
+  var sessions = boardSessionsByEntryId[linkId];
+  return { linkId: linkId, sessions: Array.isArray(sessions) ? sessions : null };
 }
 
 // ── Active-class helpers ───────────────────────────────────────────────────
@@ -1570,6 +1568,25 @@ function getPlannerClassIds() {
 
 function getActiveSem() {
   return cfg.semesters.find(function (s) { return s.id === activeSemId; }) || null;
+}
+
+function getSemToggleKeyFor(semOrId) {
+  var sem = (typeof semOrId === 'string')
+    ? (cfg.semesters || []).find(function (s) { return s.id === semOrId; })
+    : semOrId;
+  if (!sem) return null;
+
+  var termsPerYear = getTermsPerYear();
+  var year = sem.year || '';
+  var sameYear = (cfg.semesters || []).filter(function (s) { return (s.year || '') === year; });
+  var idxInYear = sameYear.findIndex(function (s) { return s.id === sem.id; });
+  if (idxInYear < 0) {
+    var fallbackIdx = (cfg.semesters || []).findIndex(function (s) { return s.id === sem.id; });
+    if (fallbackIdx < 0) return null;
+    idxInYear = fallbackIdx;
+  }
+
+  return 'sem' + ((idxInYear % termsPerYear) + 1);
 }
 
 function makeSem(label) {
@@ -1793,13 +1810,12 @@ function renderSlot(s) {
   }
   if (showDot)         r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
   if (entry && entry.gsLink) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
-  if (entry) {
-    var _bSess = boardSessionsByEntryId[entry.id];
-    if (_bSess && _bSess.length) {
-      var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
-      var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name;
-      r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(entry.id) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
-    }
+  var _boardLink = plannerBoardSessionsForSlot(s, entry);
+  var _bSess = _boardLink.sessions;
+  if (_bSess && _bSess.length) {
+    var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+    var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name;
+    r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
   }
   r += '<div class="entry-actions" onclick="event.stopPropagation()">';
   if (entry)
@@ -1812,9 +1828,6 @@ function renderSlot(s) {
   if (entry && (viewOpts.details || viewOpts.custom)) {
     var parts = [];
     if (viewOpts.details) {
-      if (entry.readings)   parts.push(t('pl_entryReadings')   + ': ' + entry.readings.slice(0, 80));
-      if (entry.activities) parts.push(t('pl_entryActivities') + ': ' + entry.activities.slice(0, 80));
-      if (entry.homework)   parts.push(t('pl_entryHomework')   + ': ' + entry.homework.slice(0, 80));
       if (entry.notes)      parts.push(t('pl_entryNotes')      + ': ' + entry.notes.slice(0, 80));
     }
     if (viewOpts.custom && entry.customFields) {
@@ -1900,9 +1913,8 @@ function buildSlots(activeSem) {
     // Hide archived classes from agenda
     classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
     // Hide classes not active in the current term
-    var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
-    if (semIdx >= 0) {
-      var semKey = 'sem' + (semIdx + 1);
+    var semKey = getSemToggleKeyFor(activeSem);
+    if (semKey) {
       classIds = classIds.filter(function (id) {
         var sems = (cfg.classes[id] || {}).semesters;
         return !sems || sems[semKey] !== false;
@@ -1929,14 +1941,14 @@ function buildSlots(activeSem) {
   holRanges.forEach(function (hr) { slots.push(hr); });
 
   // Compute semester-slot key for orphan filtering (same logic as main loop)
-  var semIdx = cfg.semesters.findIndex(function (s) { return s.id === activeSem.id; });
-  var activeSemKey = semIdx >= 0 ? 'sem' + (semIdx + 1) : null;
+  var activeSemKey = getSemToggleKeyFor(activeSem);
 
   // Orphan entries (clamped to semester range; excluded from holiday dates)
   entries.forEach(function (e) {
     var cids = entryClassIds(e);
     var dates = expandEntryDates(e);
     if (!cids.length) {
+      if (filterClasses.size) return;
       dates.forEach(function(ds) {
         var k = ds + '|__' + e.id;
         if (consumed[k]) return;
@@ -2452,9 +2464,7 @@ function openAddEntry(classId, date, time, timeEnd) {
   document.getElementById('e-recur-row').style.display = '';
   populateTypeSelect('lesson');
   document.getElementById('e-topic').value      = '';
-  document.getElementById('e-readings').value   = '';
-  document.getElementById('e-activities').value = '';
-  document.getElementById('e-homework').value   = '';
+  
   document.getElementById('e-notes').value      = '';
   document.getElementById('e-reminder').value     = '';
   document.getElementById('e-reminder-end').value = '';
@@ -2490,9 +2500,6 @@ function openEditEntry(id) {
   }
   populateTypeSelect(e.type || 'lesson');
   document.getElementById('e-topic').value      = e.topic      || '';
-  document.getElementById('e-readings').value   = e.readings   || '';
-  document.getElementById('e-activities').value = e.activities || '';
-  document.getElementById('e-homework').value   = e.homework   || '';
   document.getElementById('e-notes').value      = e.notes      || '';
   document.getElementById('e-reminder').value     = (e.reminder    && e.reminder.minutesBefore)    ? String(e.reminder.minutesBefore)    : '';
   document.getElementById('e-reminder-end').value = (e.reminderEnd && e.reminderEnd.minutesBefore) ? String(e.reminderEnd.minutesBefore) : '';
@@ -2654,9 +2661,6 @@ function commitEntry() {
       type:         newType,
       topic:        document.getElementById('e-topic').value.trim(),
       objective:    objective,
-      readings:     document.getElementById('e-readings').value.trim(),
-      activities:   document.getElementById('e-activities').value.trim(),
-      homework:     document.getElementById('e-homework').value.trim(),
       notes:        document.getElementById('e-notes').value.trim(),
       reminder:     (function() { var v = document.getElementById('e-reminder').value;     return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
       reminderEnd:  (function() { var v = document.getElementById('e-reminder-end').value; return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
@@ -2786,9 +2790,6 @@ function duplicateCurrentEntry() {
   document.getElementById('e-time-end').value   = src.timeEnd    || '';
   populateTypeSelect(src.type || 'lesson');
   document.getElementById('e-topic').value      = src.topic      || '';
-  document.getElementById('e-readings').value   = src.readings   || '';
-  document.getElementById('e-activities').value = src.activities || '';
-  document.getElementById('e-homework').value   = src.homework   || '';
   document.getElementById('e-notes').value      = src.notes      || '';
   document.getElementById('e-reminder').value     = (src.reminder    && src.reminder.minutesBefore)    ? String(src.reminder.minutesBefore)    : '';
   document.getElementById('e-reminder-end').value = (src.reminderEnd && src.reminderEnd.minutesBefore) ? String(src.reminderEnd.minutesBefore) : '';
@@ -2839,8 +2840,11 @@ async function findGradeSheetClass(classId) {
 
 // Determine which GS semester (sem1/sem2) a date belongs to, based on planner semester order
 function getGsSemesterForDate(date) {
-  var idx = cfg.semesters.findIndex(function (s) { return s.id === activeSemId; });
-  return idx === 1 ? 'sem2' : 'sem1'; // second planner semester → GS sem2
+  var semKey = getSemToggleKeyFor(activeSemId);
+  if (!semKey) return 'sem1';
+  var n = parseInt(String(semKey).replace('sem', ''), 10);
+  if (!isFinite(n) || n <= 0) return 'sem1';
+  return (n % 2 === 0) ? 'sem2' : 'sem1';
 }
 
 async function syncTestToGradeSheet(entry, isUpdate) {
@@ -2981,6 +2985,11 @@ function openExportModal() {
     lbl.innerHTML = '<input type="checkbox" id="' + esc(id) + '" checked data-custom-type="' + esc(name) + '"> <span>' + esc(name) + '</span>';
     wrap.appendChild(lbl);
   });
+  var clsSel = document.getElementById('exp-cls');
+  if (clsSel) {
+    var onlyClass = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
+    clsSel.value = onlyClass;
+  }
   openModal('exportModal');
 }
 
@@ -2997,8 +3006,7 @@ function getExportFilters() {
     includeLessonSlots: chk('exp-include-slots'),
     pdfFitOnePage: chk('exp-pdf-fit-page'),
     fields: { topic: chk('exp-f-topic'), objective: chk('exp-f-objective'),
-               readings: chk('exp-f-readings'), activities: chk('exp-f-activities'),
-               homework: chk('exp-f-homework'), notes: chk('exp-f-notes'),
+               notes: chk('exp-f-notes'),
                custom: chk('exp-f-custom') }
   };
 }
@@ -3155,9 +3163,6 @@ function doExportIcs() {
     var fi = icsFilters.fields;
     var descParts = [
       fi.objective && e.objective,
-      fi.readings  && e.readings  && ('Readings: '   + e.readings),
-      fi.activities&& e.activities&& ('Activities: ' + e.activities),
-      fi.homework  && e.homework  && ('HW: '         + e.homework),
       fi.notes     && e.notes     && ('Notes: '      + e.notes)
     ];
     if (fi.custom && e.customFields) {
@@ -3209,9 +3214,6 @@ function doExportHtml() {
   var headers = [t('pl_entryDate'), t('pl_entryClass'), t('pl_entryTime'), t('pl_entryType')];
   if (fi.topic) headers.push(t('pl_entryTopic'));
   if (fi.objective) headers.push(t('pl_entryObjective'));
-  if (fi.readings) headers.push(t('pl_entryReadings'));
-  if (fi.activities) headers.push(t('pl_entryActivities'));
-  if (fi.homework) headers.push(t('pl_entryHomework'));
   if (fi.notes) headers.push(t('pl_entryNotes'));
   customNames.forEach(function (n) { headers.push(n); });
 
@@ -3232,9 +3234,6 @@ function doExportHtml() {
       var holidayCells = [row.date, t('pl_noClass'), '', t('pl_typeHoliday')];
       if (fi.topic) holidayCells.push(holStr);
       if (fi.objective) holidayCells.push('');
-      if (fi.readings) holidayCells.push('');
-      if (fi.activities) holidayCells.push('');
-      if (fi.homework) holidayCells.push('');
       if (fi.notes) holidayCells.push('');
       customNames.forEach(function () { holidayCells.push(''); });
       return rowCellsHtml(holidayCells);
@@ -3246,9 +3245,6 @@ function doExportHtml() {
       var slotCells = [row.date, slotClass, slotTime, t('pl_exportLessonSlotLabel')];
       if (fi.topic) slotCells.push(t('pl_exportLessonSlotLabel'));
       if (fi.objective) slotCells.push('');
-      if (fi.readings) slotCells.push('');
-      if (fi.activities) slotCells.push('');
-      if (fi.homework) slotCells.push('');
       if (fi.notes) slotCells.push('');
       customNames.forEach(function () { slotCells.push(''); });
       return rowCellsHtml(slotCells);
@@ -3260,9 +3256,6 @@ function doExportHtml() {
     var rowCells = [e.date, clsLabel, timeLabel, typeLabel(e.type || 'lesson')];
     if (fi.topic) rowCells.push(e.topic || '');
     if (fi.objective) rowCells.push(e.objective || '');
-    if (fi.readings) rowCells.push(e.readings || '');
-    if (fi.activities) rowCells.push(e.activities || '');
-    if (fi.homework) rowCells.push(e.homework || '');
     if (fi.notes) rowCells.push(e.notes || '');
     customNames.forEach(function (n) { rowCells.push((e.customFields && e.customFields[n]) || ''); });
     return rowCellsHtml(rowCells);
@@ -3348,9 +3341,6 @@ function doExportCsv() {
   var header = ['Date','EndDate','Class','StartTime','EndTime','Type'];
   if (fi.topic)      header.push('Topic');
   if (fi.objective)  header.push('Objective');
-  if (fi.readings)   header.push('Readings');
-  if (fi.activities) header.push('Activities');
-  if (fi.homework)   header.push('Homework');
   if (fi.notes)      header.push('Notes');
   customNames.forEach(function (n) { header.push(n); });
   var rows = [header];
@@ -3360,9 +3350,6 @@ function doExportCsv() {
       var slotCells = [row.date, '', s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass'), s.time || '', s.timeEnd || '', 'lesson-slot'];
       if (fi.topic)      slotCells.push(t('pl_exportLessonSlotLabel'));
       if (fi.objective)  slotCells.push('');
-      if (fi.readings)   slotCells.push('');
-      if (fi.activities) slotCells.push('');
-      if (fi.homework)   slotCells.push('');
       if (fi.notes)      slotCells.push('');
       customNames.forEach(function () { slotCells.push(''); });
       rows.push(slotCells);
@@ -3374,9 +3361,6 @@ function doExportCsv() {
     var cells = [e.date, e.dateTo||'', clsCell, e.time||'', e.timeEnd||'', e.type||''];
     if (fi.topic)      cells.push(e.topic      || '');
     if (fi.objective)  cells.push(e.objective  || '');
-    if (fi.readings)   cells.push(e.readings   || '');
-    if (fi.activities) cells.push(e.activities || '');
-    if (fi.homework)   cells.push(e.homework   || '');
     if (fi.notes)      cells.push(e.notes      || '');
     customNames.forEach(function (n) { cells.push((e.customFields && e.customFields[n]) || ''); });
     rows.push(cells);
@@ -3414,7 +3398,7 @@ function mdEscCell(s) {
 
 function buildExportDocxMarkdown(clsFilter, filters) {
   filters = filters || { types: null, includeLessonSlots: false, pdfFitOnePage: false,
-    fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
+    fields: { topic:true, objective:true,  notes:true, custom:true } };
 
   var fi = filters.fields || {};
   var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
@@ -3456,9 +3440,6 @@ function buildExportDocxMarkdown(clsFilter, filters) {
 
     var extra = [];
     if (fi.objective  && e.objective)  extra.push(t('pl_entryObjective') + ': ' + e.objective);
-    if (fi.readings   && e.readings)   extra.push(t('pl_entryReadings') + ': ' + e.readings);
-    if (fi.activities && e.activities) extra.push(t('pl_entryActivities') + ': ' + e.activities);
-    if (fi.homework   && e.homework)   extra.push(t('pl_entryHomework') + ': ' + e.homework);
     if (fi.notes      && e.notes)      extra.push(t('pl_entryNotes') + ': ' + e.notes);
     if (fi.custom && e.customFields) {
       Object.keys(e.customFields).forEach(function (k) {
@@ -3531,7 +3512,7 @@ async function doExportDocx() {
 }
 
 function buildExportHtml(clsFilter, filters) {
-  filters = filters || { types: null, fields: { topic:true, objective:true, readings:true, activities:true, homework:true, notes:true, custom:true } };
+  filters = filters || { types: null, fields: { topic:true, objective:true, notes:true, custom:true } };
   var fi = filters.fields;
   var fitOnePage = !!filters.pdfFitOnePage;
   var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
@@ -3575,9 +3556,6 @@ function buildExportHtml(clsFilter, filters) {
 
     var extraParts = [];
     if (fi.objective  && e.objective)  extraParts.push(t('pl_entryObjective') + ': ' + e.objective);
-    if (fi.readings   && e.readings)   extraParts.push(t('pl_entryReadings') + ': ' + e.readings);
-    if (fi.activities && e.activities) extraParts.push(t('pl_entryActivities') + ': ' + e.activities);
-    if (fi.homework   && e.homework)   extraParts.push(t('pl_entryHomework') + ': ' + e.homework);
     if (fi.notes      && e.notes)      extraParts.push(t('pl_entryNotes') + ': ' + e.notes);
     if (fi.custom && e.customFields) {
       Object.keys(e.customFields).forEach(function (k) {
@@ -3823,7 +3801,7 @@ function renderTable() {
   var html = '<div class="table-wrap"><table class="agenda-table"><thead><tr><th></th>';
   classIds.forEach(function (cid) {
     var color = (cfg.classes[cid] || {}).color || '#aaa';
-    html += '<th class="at-cls-th" style="--col:' + color + '">' + esc(cid) + '</th>';
+    html += '<th class="at-cls-th" style="--col:' + color + '">' + esc(plannerClassDisplayName(cid)) + '</th>';
   });
   html += '</tr></thead><tbody>';
 
@@ -3886,12 +3864,17 @@ function renderTableCell(s) {
   var entry  = s.entry;
   var color  = (cfg.classes[s.classId] || {}).color || '#aaa';
   var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+  var _boardLink = plannerBoardSessionsForSlot(s, entry);
+  var _atBSess = _boardLink.sessions;
 
   if (!entry) {
-    return '<div class="at-cell-empty" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
+    var _empty = '<div class="at-cell-empty" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
       esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' + esc(s.timeEnd||'') + '\')">' +
       (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
-      '<span class="at-add">+</span></div>';
+      '<span class="at-add">+</span>';
+    if (_atBSess && _atBSess.length)
+      _empty += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+    return _empty + '</div>';
   }
 
   var type      = entry.type || '';
@@ -3903,9 +3886,8 @@ function renderTableCell(s) {
   if (badgeText)  r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
   if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
   if (entry.gsLink) r += '<span class="gs-badge">GS</span>';
-  var _atBSess = boardSessionsByEntryId[entry.id];
   if (_atBSess && _atBSess.length)
-    r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+    r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
   r += '</div>';
   return r;
 }
@@ -4438,9 +4420,6 @@ function doImportIcs() {
       type:        type,
       topic:       ev.summary     || '',
       objective:   '',
-      readings:    '',
-      activities:  '',
-      homework:    '',
       notes:       ev.description || '',
       customFields: undefined,
       gsLink:       null
@@ -4504,6 +4483,10 @@ function doImportIcs() {
   };
 
   Desktop.onDataChanged(function (data) {
+    if (data && data.filename === 'board-sessions-backup.json') {
+      if (typeof loadBoardSessions === 'function') loadBoardSessions();
+      return;
+    }
     if (data && (data.filename === 'planner-config.js' || data.filename === 'class-groups.js' || data.subdir === 'planner')) {
       showDataChangedBanner(data);
     }

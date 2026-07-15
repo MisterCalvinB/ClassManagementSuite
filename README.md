@@ -50,7 +50,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
-| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, custom CSS stylesheets, templates, PDF export with same-folder or Save As choice, and Save to folder |
+| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, single-file inline styles, templates, PDF export with same-folder or Save As choice, and Save to folder |
 | `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
 
 All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
@@ -173,7 +173,7 @@ The launcher has a collapsible right-side panel with three sections:
 
 - **Upcoming Events** — pulls entries from the Planner (lessons, tests, assignments) with dates on or after today, sorted by date. Click an entry to open the Planner.
 - **To-do** — shows incomplete to-do items from the Planner, sorted by due date. Overdue items are highlighted. Click an item to open the Planner.
-- **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor.
+- **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor; right-click a Board session to delete it and its companion folder.
 
 Click the **Panel** button in the header to show or hide the sidebar. Each section has a small count button (e.g. **5**) in its header — click it to change how many items are shown (1–20). Counts are saved per-device.
 
@@ -356,6 +356,7 @@ Week-by-week planning tool for lessons, tests, assignments, and holidays. Data i
 - Click **Classes** in the toolbar to configure which class groups are tracked in the Planner.
 - Each class gets a **colour** for the week view, is assigned to **Term 1**, **Term 2**, or both, and can have a **weekly schedule** (which days and times it meets) and **learning objectives** for the term.
 - The class list is drawn from `class-groups.js` — add groups in Group Editor first.
+- In table view, class columns use class titles (not internal IDs).
 
 ### Entries
 
@@ -383,10 +384,10 @@ A collapsible **To-do** panel sits on the right side of the planner. Click the *
 
 | Format | Description |
 |---|---|
-| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class, including entries with no assigned class, and optionally include lesson slots from the weekly schedule. |
-| **PDF** | Compact print-ready table with 2 columns: date + week number, and activities. Filter by class (including entries with no assigned class), optionally include lesson slots from the weekly schedule, and use the "fit on one page" option to aggressively reduce margins, font sizes, and padding for single-page output. |
-| **CSV** | Spreadsheet of all entries with full field data. Filter by class (including entries with no assigned class) and optionally include lesson slots from the weekly schedule. |
-| **HTML Table** | Structured HTML table document for browser viewing or sharing. Filter by class (including entries with no assigned class) and optionally include lesson slots from the weekly schedule. |
+| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class, and optionally include lesson slots from the weekly schedule. Use the "No assigned class" filter to export only unassigned entries. |
+| **PDF** | Compact print-ready table with 2 columns: date + week number, and activities. Filter by class, optionally include lesson slots from the weekly schedule, and use the "fit on one page" option to aggressively reduce margins, font sizes, and padding for single-page output. Unassigned entries appear only in "All classes" or "No assigned class". |
+| **CSV** | Spreadsheet of all entries with full field data. Filter by class and optionally include lesson slots from the weekly schedule. Unassigned entries appear only in "All classes" or "No assigned class". |
+| **HTML Table** | Structured HTML table document for browser viewing or sharing. Filter by class and optionally include lesson slots from the weekly schedule. Unassigned entries appear only in "All classes" or "No assigned class". |
 | **DOCX** | Editable Word document with the same two-column table structure as PDF (date + week number, activities), with the same class filters and lesson-slot options. |
 
 ### Keyboard Shortcuts
@@ -1206,7 +1207,7 @@ Before applying a sync, a modal lists every file that differs between source and
 
 ## document-editor.html
 
-**Document Editor** — a dual-pane Markdown editor with live KaTeX maths rendering, custom CSS stylesheets, document/template management, and PDF export.
+**Document Editor** — a dual-pane Markdown editor with live KaTeX maths rendering, inline CSS + layout styling, document/template management, and PDF export.
 
 ### Layout
 
@@ -1218,7 +1219,7 @@ The window is divided into three horizontal regions:
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
    - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
-  - **⚙ Settings** — snippets, shortcuts, triggers, preferences, and whether the stylesheet is stored inline with the document
+  - **⚙ Settings** — snippets, shortcuts, triggers, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)
    - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
 3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
@@ -1234,7 +1235,7 @@ Write standard [GitHub Flavored Markdown](https://github.github.com/gfm/). Maths
 
 ### Documents
 
-Files are saved as `.md` under `custom-data/document-editor/docs/`.
+Files are saved as single `.md` or `.html` documents under `custom-data/document-editor/docs/`.
 
 | Action | How |
 |---|---|
@@ -1245,7 +1246,7 @@ Files are saved as `.md` under `custom-data/document-editor/docs/`.
 | **Save As** | Opens the folder browser so you can pick a folder/subfolder, create folders, and save under a new filename |
 | Ctrl+S | Save | Ctrl+N | New | Ctrl+O | Open |
 
-Saved documents can now be organised into folders and subfolders. The browser shows the folder tree, lets you create new folders in place, and still keeps each managed document's sidecar files bundled internally.
+Saved documents can be organised into folders and subfolders. The browser shows the folder tree, lets you create new folders in place, and each managed document now saves as a single file with its CSS and page layout embedded inline.
 
 ### Templates
 
@@ -1264,17 +1265,18 @@ The **Insert ▾ → Books** dropdown lists all files in `custom-data/books/` (`
 
 ### CSS Panel
 
-The top panel exposes three ways to customise how the preview looks:
+The top panel customises how the preview looks:
 
 | Control | Purpose |
 |---|---|
-| **Stylesheet picker** | Select a `.css` file stored under `custom-data/document-editor/stylesheets/`, including nested paths |
+| **Inline stylesheet** | The document always carries one inline `<style>` tag. The selector row remains visible, but separate stylesheet files are no longer used for new saves |
 | **Quick Rule builder** | Type a CSS selector, choose a property from the dropdown, type a value, press **+ Add** — the rule is appended to the CSS editor and applied immediately |
-| **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw content of the active stylesheet; changes apply to the preview in real time |
+| **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw inline stylesheet; changes apply to the preview in real time and save back into the document file |
 
-Use **New** to create a stylesheet in any folder/subfolder and **Save/Delete** to manage the currently selected stylesheet path. In **⚙ Settings → Preferences**, you can enable **Include stylesheet inline with the document** to store the CSS inside the document metadata instead of writing a separate stylesheet file.
+The stylesheet now stores both presentation CSS and the page-layout settings from **Format ▾ → Page Layout**. The editor writes those settings into the same inline `<style>` tag, so page size, margins, typography, footer, page numbers, and image width travel with the document.
 
 Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
+Generic selectors (for example `div`, `p`, `table`) are automatically scoped to the editor preview so they do not restyle the surrounding app chrome.
 
 ### Presentation Mode
 
