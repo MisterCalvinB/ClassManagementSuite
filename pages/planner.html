@@ -2993,6 +2993,15 @@ function openExportModal() {
   openModal('exportModal');
 }
 
+function getExportFilenameBase(clsFilter) {
+  var datePart = new Date().toISOString().slice(0, 10);
+  if (clsFilter && !isUnassignedExportClassFilter(clsFilter)) {
+    var classTitle = plannerClassDisplayName(clsFilter) || clsFilter;
+    return slugifyForPath(classTitle);
+  }
+  return 'planner-' + datePart;
+}
+
 function getExportFilters() {
   function chk(id) { var el = document.getElementById(id); return !el || el.checked; }
   var types = { lesson: chk('exp-t-lesson'), test: chk('exp-t-test'),
@@ -3110,6 +3119,7 @@ function getExportData(clsFilter, typeFilter, options) {
 // ── ICS export ─────────────────────────────────────────────────────────────
 function doExportIcs() {
   var clsFilter = document.getElementById('exp-cls').value;
+  var fileBase = getExportFilenameBase(clsFilter);
   var now = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
   var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Class Management Tools//Planner//EN',
                'CALSCALE:GREGORIAN','METHOD:PUBLISH'];
@@ -3196,7 +3206,7 @@ function doExportIcs() {
   var blob = new Blob([lines.join('\r\n')], { type:'text/calendar;charset=utf-8' });
   var url  = URL.createObjectURL(blob);
   var a    = document.createElement('a');
-  a.href = url; a.download = 'planner.ics';
+  a.href = url; a.download = fileBase + '.ics';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   closeModal('exportModal');
@@ -3205,6 +3215,7 @@ function doExportIcs() {
 // ── HTML table export ───────────────────────────────────────────────────────
 function doExportHtml() {
   var clsFilter = document.getElementById('exp-cls').value;
+  var fileBase = getExportFilenameBase(clsFilter);
   var filters = getExportFilters();
   var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
   var fi   = filters.fields;
@@ -3327,13 +3338,14 @@ function doExportHtml() {
     '</body></html>';
 
   downloadText(html,
-    'planner-' + new Date().toISOString().slice(0, 10) + '.html', 'text/html;charset=utf-8');
+    fileBase + '.html', 'text/html;charset=utf-8');
   closeModal('exportModal');
 }
 
 // ── CSV export ─────────────────────────────────────────────────────────────
 function doExportCsv() {
   var clsFilter = document.getElementById('exp-cls').value;
+  var fileBase = getExportFilenameBase(clsFilter);
   var filters = getExportFilters();
   var fi = filters.fields;
   var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
@@ -3372,7 +3384,7 @@ function doExportCsv() {
     }).join(',');
   }).join('\r\n');
   downloadText('﻿' + csv,
-    'planner-' + new Date().toISOString().slice(0, 10) + '.csv', 'text/csv;charset=utf-8');
+    fileBase + '.csv', 'text/csv;charset=utf-8');
   closeModal('exportModal');
 }
 
@@ -3382,11 +3394,12 @@ async function doExportPdf() {
     showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
   }
   var clsFilter = document.getElementById('exp-cls').value;
+  var fileBase = getExportFilenameBase(clsFilter);
   var filters = getExportFilters();
   var html = buildExportHtml(clsFilter, filters);
   closeModal('exportModal');
   await Desktop.printPdf({ html: html,
-    defaultName: 'planner-' + new Date().toISOString().slice(0, 10) + '.pdf' });
+    defaultName: fileBase + '.pdf' });
 }
 
 function mdEscCell(s) {
@@ -3489,13 +3502,14 @@ async function doExportDocx() {
     showToast(t('pl_exportDocxLabel') + ': desktop only'); return;
   }
   var clsFilter = document.getElementById('exp-cls').value;
+  var fileBase = getExportFilenameBase(clsFilter);
   var filters = getExportFilters();
   var markdown = buildExportDocxMarkdown(clsFilter, filters);
   closeModal('exportModal');
   var fit = !!filters.pdfFitOnePage;
   var result = await Desktop.exportDocx({
     markdown: markdown,
-    defaultName: 'planner-' + new Date().toISOString().slice(0, 10),
+    defaultName: fileBase,
     fontFamily: 'Segoe UI',
     fontSize: fit ? '8pt' : '10pt',
     lineHeight: fit ? '1.1' : '1.25',

@@ -175,6 +175,8 @@ The launcher has a collapsible right-side panel with three sections:
 - **To-do** — shows incomplete to-do items from the Planner, sorted by due date. Overdue items are highlighted. Click an item to open the Planner.
 - **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor; right-click a Board session to delete it and its companion folder.
 
+The launcher now refreshes Recent Docs automatically when those files are saved, renamed, moved, copied, or deleted from other tools, so names and modified dates stay current without reopening the launcher.
+
 Click the **Panel** button in the header to show or hide the sidebar. Each section has a small count button (e.g. **5**) in its header — click it to change how many items are shown (1–20). Counts are saved per-device.
 
 ### Header Buttons
@@ -1228,7 +1230,7 @@ The window is divided into three horizontal regions:
    - **Insert ▾** — Table, Image, Books (import text from the books folder)
    - **Format ▾** — Open template, Save as template, Page Layout
    - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
-  - **⚙ Settings** — snippets, shortcuts, triggers, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)
+  - **⚙ Settings** — snippets, shortcuts, triggers, **Custom CSS Rules** repository, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)
    - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
 3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
@@ -1283,6 +1285,14 @@ The top panel customises how the preview looks:
 | **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw inline stylesheet; changes apply to the preview in real time and save back into the document file |
 
 The stylesheet now stores both presentation CSS and the page-layout settings from **Format ▾ → Page Layout**. The editor writes those settings into the same inline `<style>` tag, so page size, margins, typography, footer, page numbers, and image width travel with the document.
+
+### Settings: Custom CSS Rules
+
+Inside **⚙ Settings → Custom CSS Rules**, you can build a reusable repository of named CSS blocks.
+
+- **New Rule / Edit / Del** — manage reusable rule entries (name + full CSS block) in `user/document-editor/settings.js`.
+- **Add to document CSS** — appends that rule to the current document stylesheet only when clicked.
+- **Duplicate rule handling** — if the exact block already exists in the current document CSS, the editor asks whether to insert it again.
 
 Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
 Generic selectors (for example `div`, `p`, `table`) are automatically scoped to the editor preview so they do not restyle the surrounding app chrome.

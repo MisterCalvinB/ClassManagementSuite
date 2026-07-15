@@ -1660,25 +1660,10 @@
     Desktop.openTool('board.html', { query: { openSession: '1', openTarget: target, openFilename: filename, openRelPath: relativePath || filename } });
   }
 
-  async function openRecentFilesModal() {
-    var overlay = document.getElementById('rfModal');
-    rfAllFiles = []; rfAllDocs = []; rfAllArchivedFiles = [];
-    rfContentCache.clear();
-    if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
-    document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⏳</span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
-    document.getElementById('rfDocsList').innerHTML = '';
-    document.getElementById('rfDocsHeading').style.display = 'none';
-    document.getElementById('rfResultCount').textContent = '';
-    document.getElementById('rfSearchBox').value = '';
-    document.getElementById('rfTypeFilter').value = 'all';
-    document.getElementById('rfSortOrder').value = 'date-desc';
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
-
-    if (!window.Desktop || !Desktop.isElectron()) {
-      document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⚠</span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
-      return;
-    }
+  async function rfLoadRecentSources() {
+    rfAllFiles = [];
+    rfAllDocs = [];
+    rfAllArchivedFiles = [];
 
     try {
       var r = await Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true });
@@ -1714,8 +1699,52 @@
         if (cgd && cgd.classGroupsMeta) rfGroupMeta = cgd.classGroupsMeta;
       }
     } catch(e) {}
+  }
+
+  async function openRecentFilesModal() {
+    var overlay = document.getElementById('rfModal');
+    rfAllFiles = []; rfAllDocs = []; rfAllArchivedFiles = [];
+    rfContentCache.clear();
+    if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
+    document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⏳</span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
+    document.getElementById('rfDocsList').innerHTML = '';
+    document.getElementById('rfDocsHeading').style.display = 'none';
+    document.getElementById('rfResultCount').textContent = '';
+    document.getElementById('rfSearchBox').value = '';
+    document.getElementById('rfTypeFilter').value = 'all';
+    document.getElementById('rfSortOrder').value = 'date-desc';
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    if (!window.Desktop || !Desktop.isElectron()) {
+      document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⚠</span>' + (typeof t === 'function' ? t('rfElectronRequiredPage') : 'This page requires the Electron desktop app.') + '</div>';
+      return;
+    }
+
+    await rfLoadRecentSources();
 
     rfApplyFilters();
+  }
+
+  async function launcherRefreshDocsLive() {
+    var sidebarOpen = (typeof sbIsOpen === 'function') ? sbIsOpen() : false;
+    if (sidebarOpen && typeof sbLoadDocs === 'function') {
+      await sbLoadDocs().catch(function () {});
+    }
+    var rfModal = document.getElementById('rfModal');
+    if (rfModal && rfModal.classList.contains('open') && window.Desktop && Desktop.isElectron()) {
+      await rfLoadRecentSources();
+      rfApplyFilters();
+    }
+  }
+
+  var _launcherDocsRefreshTimer = null;
+  function launcherScheduleDocsRefresh() {
+    if (_launcherDocsRefreshTimer) clearTimeout(_launcherDocsRefreshTimer);
+    _launcherDocsRefreshTimer = setTimeout(function() {
+      _launcherDocsRefreshTimer = null;
+      launcherRefreshDocsLive().catch(function () {});
+    }, 180);
   }
 
   function closeRecentFilesModal() {
@@ -2278,11 +2307,30 @@
   if (!window.Desktop || typeof Desktop.onDataChanged !== 'function') return;
   Desktop.onDataChanged(function (data) {
     if (!data) return;
+    var normalizePath = function(v) { return String(v || '').replace(/\\/g, '/').replace(/^\/+/, ''); };
+    var dataSubdir = normalizePath(data.subdir);
+    var dataRel = normalizePath(data.relativePath);
+    var dataOldRel = normalizePath(data.oldRelativePath);
+    var dataNewRel = normalizePath(data.newRelativePath);
     var isPlannerRelated = (
       data.filename === 'planner-config.js' ||
       data.filename === 'todos.js' ||
       data.filename === 'class-groups.js' ||
-      data.subdir === 'planner'
+      dataSubdir === 'planner' ||
+      dataRel.indexOf('planner/') === 0 ||
+      dataOldRel.indexOf('planner/') === 0 ||
+      dataNewRel.indexOf('planner/') === 0
+    );
+    var isLauncherDocsRelated = (
+      data.target === 'mindmaps' ||
+      data.target === 'docEditorDocs' ||
+      (data.target === 'user' && (
+        dataSubdir === 'custom-data' ||
+        dataSubdir.indexOf('custom-data/') === 0 ||
+        dataRel.indexOf('custom-data/') === 0 ||
+        dataOldRel.indexOf('custom-data/') === 0 ||
+        dataNewRel.indexOf('custom-data/') === 0
+      ))
     );
     if (data.filename === 'config.js') {
       showDataChangedBanner(data);
@@ -2290,6 +2338,9 @@
     }
     if (isPlannerRelated && typeof sbLoadAll === 'function' && sbIsOpen()) {
       sbLoadAll().catch(function () {});
+    }
+    if (isLauncherDocsRelated) {
+      launcherScheduleDocsRefresh();
     }
   });
 })();

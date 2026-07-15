@@ -919,6 +919,25 @@
       background: #e8ecf0; border-radius: 3px; padding: 1px 4px;
       font-family: 'Consolas', monospace; font-size: .9em;
     }
+    .stg-inline-actions { display: flex; gap: 8px; align-items: center; }
+    .stg-rule-editor {
+      width: 100%;
+      height: 190px;
+      border: 1.5px solid #bbb;
+      border-radius: 5px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .stg-item-btn-add {
+      border-color: #0a5;
+      background: #fff;
+      color: #0a5;
+    }
+    .stg-item-btn-add:hover {
+      background: #e9fff5;
+      border-color: #074;
+      color: #074;
+    }
     .prefs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
 
     /* ── Table insert picker ──────────────────────────────── */
@@ -4454,6 +4473,11 @@ function hideModal(id) {
   document.getElementById(id).setAttribute('hidden', '');
 }
 
+function closeSettingsModal() {
+  hideModal('settings-modal');
+  disposeStgCssRuleEditor();
+}
+
 function openSaveModal(title, ext, callback) {
   document.getElementById('save-modal-title').textContent = title;
   document.getElementById('save-modal-label').textContent = 'Filename (' + ext + ')';
@@ -4496,6 +4520,7 @@ let editorSettings = {
   snippets: [],
   shortcuts: [],
   typingTriggers: [],
+  customCssRules: [],
   editorPrefs: {
     fontSize: 14,
     wordWrap: 'on',
@@ -4513,7 +4538,9 @@ let _stgTab = 'snippets';
 let _stgSnippetEdit = null;
 let _stgShortcutEdit = null;
 let _stgTriggerEdit = null;
+let _stgCssRuleEdit = null;
 let _stgKeyData = null;
+let _stgCssRuleEditor = null;
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -4528,6 +4555,7 @@ async function loadEditorSettings() {
       if (Array.isArray(d.snippets))       editorSettings.snippets       = d.snippets;
       if (Array.isArray(d.shortcuts))      editorSettings.shortcuts      = d.shortcuts;
       if (Array.isArray(d.typingTriggers)) editorSettings.typingTriggers = d.typingTriggers;
+      if (Array.isArray(d.customCssRules)) editorSettings.customCssRules = d.customCssRules;
       if (d.editorPrefs && typeof d.editorPrefs === 'object') {
         Object.assign(editorSettings.editorPrefs, d.editorPrefs);
       }
@@ -4543,6 +4571,7 @@ async function saveEditorSettings() {
   try {
     editorSettings.editorPrefs.inlineStylesheet = true;
     editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
+    if (!Array.isArray(editorSettings.customCssRules)) editorSettings.customCssRules = [];
     await Desktop.saveJson('docEditorSettings', 'settings.js', editorSettings);
   } catch(e) { showToast('Settings save failed', true); }
 }
@@ -4762,6 +4791,7 @@ function openSettingsModal() {
   _stgSnippetEdit = null;
   _stgShortcutEdit = null;
   _stgTriggerEdit = null;
+  _stgCssRuleEdit = null;
   _stgKeyData = null;
   renderSettingsModal();
   showModal('settings-modal');
@@ -4772,8 +4802,10 @@ function renderSettingsModal() {
     { id: 'snippets',  label: 'Snippets'     },
     { id: 'shortcuts', label: 'Shortcuts'    },
     { id: 'triggers',  label: 'Triggers'     },
+    { id: 'css-rules', label: 'Custom CSS Rules' },
     { id: 'prefs',     label: 'Preferences'  }
   ];
+  if (_stgTab !== 'css-rules') disposeStgCssRuleEditor();
   document.getElementById('stg-tabs').innerHTML = tabs.map(t =>
     `<button class="stg-tab${_stgTab === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`
   ).join('');
@@ -4781,7 +4813,8 @@ function renderSettingsModal() {
     btn.addEventListener('click', function() {
       _stgTab = this.dataset.tab;
       _stgSnippetEdit = null; _stgShortcutEdit = null;
-      _stgTriggerEdit = null; _stgKeyData = null;
+      _stgTriggerEdit = null; _stgCssRuleEdit = null;
+      _stgKeyData = null;
       renderSettingsModal();
     });
   });
@@ -4789,6 +4822,7 @@ function renderSettingsModal() {
   if      (_stgTab === 'snippets')  { body.innerHTML = renderSnippetsPanel();  bindSnippetEvents();  }
   else if (_stgTab === 'shortcuts') { body.innerHTML = renderShortcutsPanel(); bindShortcutEvents(); }
   else if (_stgTab === 'triggers')  { body.innerHTML = renderTriggersPanel();  bindTriggerEvents();  }
+  else if (_stgTab === 'css-rules') { body.innerHTML = renderCssRulesPanel();  bindCssRuleEvents();  }
   else if (_stgTab === 'prefs')     { body.innerHTML = renderPrefsPanel();     bindPrefsEvents();    }
 }
 
@@ -5170,6 +5204,187 @@ function bindTriggerEvents() {
   });
 }
 
+// ── Custom CSS Rules tab ─────────────────────────────────
+
+function disposeStgCssRuleEditor() {
+  if (_stgCssRuleEditor) {
+    try { _stgCssRuleEditor.dispose(); } catch(e) {}
+    _stgCssRuleEditor = null;
+  }
+}
+
+function deNormalizeCssRuleBlock(cssText) {
+  return String(cssText || '').trim();
+}
+
+function deCssRuleAlreadyExists(docCss, ruleCss) {
+  const existing = deNormalizeCssRuleBlock(docCss);
+  const candidate = deNormalizeCssRuleBlock(ruleCss);
+  if (!existing || !candidate) return false;
+  return existing.includes(candidate);
+}
+
+function renderCssRulesPanel() {
+  const e = _stgCssRuleEdit;
+  let html = `<div class="stg-info">
+    <strong>Custom CSS Rules</strong> stores reusable CSS blocks in one place.<br>
+    Click <strong>Add to document CSS</strong> beside any rule to append it to the current document stylesheet.<br>
+    Rule insertion only happens when you click the button.
+  </div>
+  <div class="stg-toolbar"><button class="stg-add-btn" id="stg-cssr-add">+ New Rule</button></div>`;
+
+  if (e !== null) {
+    html += `<div class="stg-form">
+      <div class="stg-form-title">${e.id ? 'Edit' : 'New'} CSS Rule</div>
+      <div class="stg-field">
+        <label class="stg-label">Rule name</label>
+        <input class="stg-input" id="stg-cssr-name" value="${escH(e.name)}" placeholder="e.g. Table style" spellcheck="false">
+      </div>
+      <div class="stg-field">
+        <label class="stg-label">CSS block</label>
+        <div class="stg-rule-editor" id="stg-cssr-editor"></div>
+      </div>
+      <p class="stg-hint">Write one or more full CSS rules (selector + declarations).</p>
+      <div class="stg-form-actions">
+        <button class="stg-btn" id="stg-cssr-save">Save</button>
+        <button class="stg-btn stg-btn-cancel" id="stg-cssr-cancel">Cancel</button>
+      </div>
+    </div>`;
+  }
+
+  const rules = Array.isArray(editorSettings.customCssRules) ? editorSettings.customCssRules : [];
+  if (!rules.length) {
+    if (e === null) html += '<div class="stg-empty">No custom CSS rules yet.<br>Click <strong>+ New Rule</strong> to create one.</div>';
+  } else {
+    rules.forEach((r, i) => {
+      const oneLine = String(r.css || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+      html += `<div class="stg-item-row">
+        <div class="stg-item-main">
+          <div class="stg-item-title">${escH(r.name || 'Untitled rule')}</div>
+          <div class="stg-item-sub">${escH(oneLine || '(empty)')}</div>
+        </div>
+        <button class="stg-item-btn stg-item-btn-add" data-css-add="${i}">Add to document CSS</button>
+        <button class="stg-item-btn stg-item-btn-edit" data-css-edit="${i}">Edit</button>
+        <button class="stg-item-btn stg-item-btn-del" data-css-del="${i}">Del</button>
+      </div>`;
+    });
+  }
+  return html;
+}
+
+function bindCssRuleEvents() {
+  if (!Array.isArray(editorSettings.customCssRules)) editorSettings.customCssRules = [];
+
+  const addBtn = document.getElementById('stg-cssr-add');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      _stgCssRuleEdit = { name: '', css: '' };
+      renderSettingsModal();
+    });
+  }
+
+  if (_stgCssRuleEdit !== null) {
+    disposeStgCssRuleEditor();
+    const editorEl = document.getElementById('stg-cssr-editor');
+    if (editorEl && typeof monaco !== 'undefined' && monaco.editor) {
+      _stgCssRuleEditor = monaco.editor.create(editorEl, {
+        value: String(_stgCssRuleEdit.css || ''),
+        language: 'css',
+        minimap: { enabled: false },
+        fontSize: 13,
+        lineNumbers: 'on',
+        tabSize: 2,
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+      });
+      setTimeout(() => {
+        if (_stgCssRuleEditor) _stgCssRuleEditor.layout();
+      }, 20);
+    }
+
+    const saveBtn = document.getElementById('stg-cssr-save');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const name = document.getElementById('stg-cssr-name').value.trim();
+        const cssText = deNormalizeCssRuleBlock(
+          _stgCssRuleEditor ? _stgCssRuleEditor.getValue() : ''
+        );
+        if (!name) { showToast('Rule name is required', true); return; }
+        if (!cssText) { showToast('CSS block is required', true); return; }
+
+        const entry = {
+          id: _stgCssRuleEdit.id || genId(),
+          name,
+          css: cssText
+        };
+        if (_stgCssRuleEdit.id) {
+          const idx = editorSettings.customCssRules.findIndex(r => r.id === _stgCssRuleEdit.id);
+          if (idx >= 0) editorSettings.customCssRules[idx] = entry;
+          else editorSettings.customCssRules.push(entry);
+        } else {
+          editorSettings.customCssRules.push(entry);
+        }
+        _stgCssRuleEdit = null;
+        saveEditorSettings();
+        renderSettingsModal();
+        showToast('Custom CSS rule saved');
+      });
+    }
+
+    const cancelBtn = document.getElementById('stg-cssr-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        _stgCssRuleEdit = null;
+        renderSettingsModal();
+      });
+    }
+  }
+
+  document.querySelectorAll('[data-css-edit]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = Number(this.dataset.cssEdit);
+      if (!Number.isFinite(idx) || !editorSettings.customCssRules[idx]) return;
+      _stgCssRuleEdit = { ...editorSettings.customCssRules[idx] };
+      renderSettingsModal();
+    });
+  });
+
+  document.querySelectorAll('[data-css-del]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = Number(this.dataset.cssDel);
+      if (!Number.isFinite(idx) || !editorSettings.customCssRules[idx]) return;
+      editorSettings.customCssRules.splice(idx, 1);
+      saveEditorSettings();
+      renderSettingsModal();
+      showToast('Custom CSS rule deleted');
+    });
+  });
+
+  document.querySelectorAll('[data-css-add]').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const idx = Number(this.dataset.cssAdd);
+      const entry = editorSettings.customCssRules[idx];
+      if (!entry || !cssEditor) return;
+      const block = deNormalizeCssRuleBlock(entry.css);
+      if (!block) {
+        showToast('Rule has no CSS content', true);
+        return;
+      }
+
+      const currentCss = cssEditor.getValue() || '';
+      const userCss = deStripManagedLayoutCss(currentCss);
+      if (deCssRuleAlreadyExists(userCss, block)) {
+        const ok = await showConfirm('This rule already exists in the document CSS. Add it again?');
+        if (!ok) return;
+      }
+
+      const nextCss = currentCss.replace(/\s+$/, '');
+      cssEditor.setValue((nextCss ? nextCss + '\n\n' : '') + block + '\n');
+      showToast('Rule added to document CSS');
+    });
+  });
+}
+
 // ── Preferences tab ───────────────────────────────────────
 
 function renderPrefsPanel() {
@@ -5524,9 +5739,9 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-preview').addEventListener('click', showFullPreview);
   document.getElementById('btn-pres-mode').addEventListener('click', deOpenPresentation);
   document.getElementById('btn-editor-settings').addEventListener('click', openSettingsModal);
-  document.getElementById('stg-close').addEventListener('click', () => hideModal('settings-modal'));
+  document.getElementById('stg-close').addEventListener('click', closeSettingsModal);
   document.getElementById('settings-modal').addEventListener('click', function(e) {
-    if (e.target === this) hideModal('settings-modal');
+    if (e.target === this) closeSettingsModal();
   });
   document.getElementById('btn-close-preview').addEventListener('click', hideFullPreview);
   document.getElementById('btn-toggle-css-editor').addEventListener('click', toggleCssEditor);
@@ -5601,7 +5816,7 @@ window.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') {
       hideModal('file-modal');
       hideModal('save-modal');
-      hideModal('settings-modal');
+      closeSettingsModal();
       hideModal('history-modal');
       hideFullPreview();
       deBookCloseModal();

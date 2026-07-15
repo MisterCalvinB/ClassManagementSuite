@@ -3342,28 +3342,56 @@ ipcMain.handle('app:arrange-side-by-side', async (event, request = {}) => {
   return { ok: true };
 });
 
+function _normalizeDataChangedPath(value) {
+  return String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function _isCrossAppDataChange(payload = {}) {
+  const target = payload.target;
+  const filename = payload.filename;
+  const subdir = _normalizeDataChangedPath(payload.subdir);
+  const relativePath = _normalizeDataChangedPath(payload.relativePath);
+  const oldRelativePath = _normalizeDataChangedPath(payload.oldRelativePath);
+  const newRelativePath = _normalizeDataChangedPath(payload.newRelativePath);
+
+  if (target === 'docEditorDocs' || target === 'mindmaps') return true;
+
+  if (target === 'user') {
+    if (['class-groups.js', 'config.js', 'planner-config.js', 'todos.js'].includes(filename)) return true;
+    if (subdir === 'planner' || relativePath.startsWith('planner/') || oldRelativePath.startsWith('planner/') || newRelativePath.startsWith('planner/')) return true;
+    if (subdir === 'custom-data' || subdir.startsWith('custom-data/') || relativePath.startsWith('custom-data/') || oldRelativePath.startsWith('custom-data/') || newRelativePath.startsWith('custom-data/')) return true;
+  }
+
+  if (target === 'classPlans' && filename === 'plans.js') return true;
+  if (target === 'classPlans' && (relativePath === 'plans.js' || oldRelativePath === 'plans.js' || newRelativePath === 'plans.js')) return true;
+
+  return false;
+}
+
+function _broadcastDataChanged(event, pageFile, payload = {}) {
+  if (!_isCrossAppDataChange(payload)) return;
+  const sourceTitle = PAGE_LABELS[pageFile] || pageFile;
+  const mergedPayload = Object.assign({}, payload, { sourceTitle });
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && win.webContents !== event.sender) {
+      win.webContents.send('app:data-changed', mergedPayload);
+    }
+  }
+}
+
 ipcMain.handle('app:save-file', async (event, request) => {
   const pageFile = getRequestingPage(event);
   const savedFile = await writeAllowedFile(pageFile, request.target, request);
   if (request && (request.filename === 'planner-entries.js' || request.subdir === 'planner')) {
     _loadPlannerEntries();
   }
-  // Broadcast cross-app data changes to other open windows
   if (request) {
-    const isCrossApp = (
-      (request.target === 'user' && ['class-groups.js', 'config.js', 'planner-config.js', 'todos.js'].includes(request.filename)) ||
-      (request.target === 'user' && request.subdir === 'planner') ||
-      (request.target === 'classPlans' && request.filename === 'plans.js')
-    );
-    if (isCrossApp) {
-      const sourceTitle = PAGE_LABELS[pageFile] || pageFile;
-      const payload = { filename: request.filename, target: request.target, subdir: request.subdir || null, sourceTitle };
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed() && win.webContents !== event.sender) {
-          win.webContents.send('app:data-changed', payload);
-        }
-      }
-    }
+    _broadcastDataChanged(event, pageFile, {
+      action: 'save-file',
+      filename: request.filename,
+      target: request.target,
+      subdir: request.subdir || null
+    });
   }
   return { ok: true, file: savedFile };
 });
@@ -3376,6 +3404,12 @@ ipcMain.handle('app:save-files', async (event, request) => {
   for (const file of files) {
     savedFiles.push(await writeAllowedFile(pageFile, request.target, file));
   }
+
+  _broadcastDataChanged(event, pageFile, {
+    action: 'save-files',
+    target: request.target,
+    fileCount: files.length
+  });
 
   return { ok: true, files: savedFiles };
 });
@@ -4189,6 +4223,13 @@ ipcMain.handle('app:rename-file', async (event, request = {}) => {
     if (err.message === 'A file with that name already exists.') throw err;
   }
   await fs.rename(oldPath, newPath);
+  _broadcastDataChanged(event, pageFile, {
+    action: 'rename-file',
+    target: request.target,
+    filename: newName,
+    oldFilename: oldName,
+    newFilename: newName
+  });
   return { ok: true, filename: newName };
 });
 
@@ -4200,6 +4241,13 @@ ipcMain.handle('app:rename-by-path', async (event, request = {}) => {
     request.oldRelativePath,
     request.newRelativePath
   );
+  _broadcastDataChanged(event, pageFile, {
+    action: 'rename-by-path',
+    target: request.target,
+    oldRelativePath: request.oldRelativePath,
+    newRelativePath: request.newRelativePath,
+    relativePath: request.newRelativePath
+  });
   return { ok: true, renamed };
 });
 
@@ -4210,12 +4258,29 @@ ipcMain.handle('app:stat-by-path', async (event, request = {}) => {
 
 ipcMain.handle('app:copy-by-path', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
-  return copyAllowedPathEntry(pageFile, request);
+  const result = await copyAllowedPathEntry(pageFile, request);
+  _broadcastDataChanged(event, pageFile, {
+    action: 'copy-by-path',
+    target: request.destinationTarget || request.target,
+    relativePath: request.destinationRelativePath,
+    sourceTarget: request.sourceTarget,
+    sourceRelativePath: request.sourceRelativePath
+  });
+  return result;
 });
 
 ipcMain.handle('app:move-by-path', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
-  return moveAllowedPathEntry(pageFile, request);
+  const result = await moveAllowedPathEntry(pageFile, request);
+  _broadcastDataChanged(event, pageFile, {
+    action: 'move-by-path',
+    target: request.destinationTarget || request.target,
+    oldRelativePath: request.sourceRelativePath,
+    newRelativePath: request.destinationRelativePath,
+    relativePath: request.destinationRelativePath,
+    sourceTarget: request.sourceTarget
+  });
+  return result;
 });
 
 // ── UUID helpers for class migration ────────────────────────────────────────
@@ -4471,6 +4536,13 @@ ipcMain.handle('app:delete-file', async (event, request = {}) => {
     }
   }
 
+  _broadcastDataChanged(event, pageFile, {
+    action: 'delete-file',
+    target: request.target,
+    filename,
+    deleteCompanionFolder: companionFolderDeleted
+  });
+
   return { ok: true, companionFolderDeleted };
 });
 
@@ -4485,6 +4557,11 @@ ipcMain.handle('app:delete-by-path', async (event, request = {}) => {
       force: request.force
     }
   );
+  _broadcastDataChanged(event, pageFile, {
+    action: 'delete-by-path',
+    target: request.target,
+    relativePath: request.relativePath
+  });
   return { ok: true, deleted };
 });
 
