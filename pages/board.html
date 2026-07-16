@@ -1400,23 +1400,24 @@
             </div>
           </div>
         </div>
-        <div id="con-class-pills"></div>
+        <div id="con-class-dropdown" class="con-class-dropdown">
+          <button id="con-class-dropdown-btn" class="action-btn btn-grey con-class-dropdown-btn" type="button" onclick="conToggleClassDropdown()"></button>
+          <ul id="con-class-pills" class="con-class-dropdown-menu"></ul>
+        </div>
       </div>
 
     </div>
 
     <div id="con-page-nav">
       <div id="con-page-nav-main">
-        <button id="con-page-prev-btn" class="action-btn btn-grey" onclick="window.conGoToPrevPage()" disabled title="Go to previous page">&#8592;</button>
-        <span id="con-page-indicator">Page 1 / 1</span>
-        <button id="con-page-next-btn" class="action-btn btn-grey" onclick="window.conGoToNextPage()" disabled title="Go to next page">&#8594;</button>
-      </div>
-      <div id="con-page-mini-nav" aria-live="polite">
-        <div class="con-page-mini-nav-top">
-          <span id="con-page-mini-nav-label" data-i18n="conFileNavLabel">Navigation</span>
-          <span id="con-page-mini-status">Page 1/1</span>
+        <div class="con-page-nav-main-top">
+          <button id="con-page-prev-btn" class="action-btn btn-grey" onclick="window.conGoToPrevPage()" disabled title="Go to previous page">&#8592;</button>
+          <span id="con-page-indicator">Page 1 / 1</span>
+          <button id="con-page-next-btn" class="action-btn btn-grey" onclick="window.conGoToNextPage()" disabled title="Go to next page">&#8594;</button>
         </div>
-        <div id="con-page-mini-strip"></div>
+        <div id="con-page-mini-nav" aria-live="polite">
+          <div id="con-page-mini-strip"></div>
+        </div>
       </div>
     </div>
 
@@ -3375,6 +3376,7 @@ function hideFailure() {
         boardAutosaveAllNow({ classGroup: prevGroup, force: true });
       }
       activeClassGroup = nextGroup;
+      conUpdateClassDropdownButton();
       const pillsEl = document.getElementById('con-class-pills');
       if (pillsEl) {
         pillsEl.querySelectorAll('.con-class-pill').forEach(p => {
@@ -3392,6 +3394,45 @@ function hideFailure() {
       }
     }
 
+    function conUpdateClassDropdownButton() {
+      const btn = document.getElementById('con-class-dropdown-btn');
+      if (!btn) return;
+      const label = activeClassGroup ? _cgDisplayName(activeClassGroup) : 'All classes';
+      btn.textContent = label + ' ▾';
+      btn.title = activeClassGroup ? ('Class group: ' + label) : 'Choose class group';
+      btn.setAttribute('aria-expanded', document.getElementById('con-class-dropdown')?.classList.contains('open') ? 'true' : 'false');
+    }
+
+    function conCloseClassDropdown() {
+      const wrap = document.getElementById('con-class-dropdown');
+      const btn = document.getElementById('con-class-dropdown-btn');
+      if (!wrap) return;
+      wrap.classList.remove('open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', conCloseClassDropdownOnOutsideClick, true);
+    }
+
+    function conToggleClassDropdown(forceOpen) {
+      const wrap = document.getElementById('con-class-dropdown');
+      if (!wrap) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !wrap.classList.contains('open');
+      if (shouldOpen) {
+        wrap.classList.add('open');
+        conUpdateClassDropdownButton();
+        document.addEventListener('click', conCloseClassDropdownOnOutsideClick, true);
+      } else {
+        conCloseClassDropdown();
+        document.removeEventListener('click', conCloseClassDropdownOnOutsideClick, true);
+      }
+    }
+
+    function conCloseClassDropdownOnOutsideClick(ev) {
+      const wrap = document.getElementById('con-class-dropdown');
+      if (!wrap || wrap.contains(ev.target)) return;
+      conCloseClassDropdown();
+      document.removeEventListener('click', conCloseClassDropdownOnOutsideClick, true);
+    }
+
     function initClassGroupSelector() {
       const pillsEl = document.getElementById('con-class-pills');
       if (!pillsEl) return;
@@ -3403,29 +3444,30 @@ function hideFailure() {
             .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
         : [];
 
-      const nonePill = document.createElement('span');
+      const nonePill = document.createElement('li');
       nonePill.className = 'con-class-pill none-pill';
       nonePill.textContent = '–';
       nonePill.title = 'No class prefix';
       nonePill.dataset.group = '';
-      nonePill.addEventListener('click', () => setActiveClassGroup(''));
+      nonePill.addEventListener('click', () => { setActiveClassGroup(''); conCloseClassDropdown(); });
       pillsEl.appendChild(nonePill);
 
       groupKeys.forEach(key => {
-        const pill = document.createElement('span');
+        const pill = document.createElement('li');
         pill.className = 'con-class-pill';
         const displayName = _cgDisplayName(key);
         const count = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[key] && Array.isArray(CLASS_GROUPS_META[key].students)) ? CLASS_GROUPS_META[key].students.length : 0;
         pill.textContent = displayName;
         pill.title = displayName + (count ? ' (' + count + ' students)' : '');
         pill.dataset.group = key;
-        pill.addEventListener('click', () => setActiveClassGroup(key));
+        pill.addEventListener('click', () => { setActiveClassGroup(key); conCloseClassDropdown(); });
         pillsEl.appendChild(pill);
       });
 
       let saved = '';
       try { saved = sessionStorage.getItem(CLASS_GROUP_STORAGE_KEY) || ''; } catch (e) {}
       setActiveClassGroup(saved, { preserveBoardState: true });
+      conUpdateClassDropdownButton();
     }
 
     // ================================================================
@@ -12590,14 +12632,27 @@ function hideFailure() {
       window.conUpdatePageBar = conUpdatePageBar;
 
       async function conResolveMiniPageSnapshotUrl(pageIndex) {
-        if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.resolvePath === 'function')) return '';
+        if (!(window.Desktop && Desktop.isElectron())) return '';
         if (!_conCurrentFolderName) return '';
         const padded = String((pageIndex || 0) + 1).padStart(3, '0');
+        const relPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
         try {
-          const resolved = await Desktop.resolvePath('mindmaps', _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png');
-          const fullPath = String((resolved && resolved.path) || '').trim();
-          if (!fullPath) return '';
-          return 'file:///' + fullPath.replace(/\\/g, '/');
+          if (typeof Desktop.readByPath === 'function') {
+            const res = await Desktop.readByPath('mindmaps', relPath, { encoding: 'base64' });
+            if (res && res.ok && res.content) {
+              return 'data:image/png;base64,' + res.content;
+            }
+            return '';
+          }
+
+          if (typeof Desktop.resolvePath === 'function') {
+            const resolved = await Desktop.resolvePath('mindmaps', relPath);
+            const fullPath = String((resolved && resolved.path) || '').trim();
+            if (!fullPath) return '';
+            return 'file:///' + fullPath.replace(/\\/g, '/');
+          }
+
+          return '';
         } catch (_) {
           return '';
         }
@@ -12606,72 +12661,92 @@ function hideFailure() {
       async function conRenderMiniPageNav() {
         const root = document.getElementById('con-page-mini-nav');
         const strip = document.getElementById('con-page-mini-strip');
-        const status = document.getElementById('con-page-mini-status');
-        if (!root || !strip || !status) return;
+        if (!root || !strip) return;
 
         const total = Array.isArray(conPageSnapshots) ? conPageSnapshots.length : 0;
         const cur = Math.max(0, Math.min(Number(conCurrentPageIndex) || 0, Math.max(0, total - 1)));
         const hasSavedFile = (typeof _conCurrentFileName !== 'undefined') && !!String(_conCurrentFileName || '').trim();
         const show = hasSavedFile && total >= 2;
 
-        if (show && typeof conSaveCurrentPageSnapshotPng === 'function') {
-          conSaveCurrentPageSnapshotPng(cur).catch(() => {});
+        if (show && typeof conQueueCurrentPageSnapshotPng === 'function') {
+          conQueueCurrentPageSnapshotPng(cur);
         }
 
         root.classList.toggle('active', show);
         if (!show) {
           strip.innerHTML = '';
-          status.textContent = tFmt('conFileNavStatus', { cur: 1, total: Math.max(1, total || 1) });
+          strip.dataset.pageCount = '0';
           return;
         }
 
-        status.textContent = tFmt('conFileNavStatus', { cur: cur + 1, total: total });
-
-        const liveCurrent = conBuildPageSnapshot();
-        const frag = document.createDocumentFragment();
-        for (let i = 0; i < total; i += 1) {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'con-page-mini-thumb' + (i === cur ? ' active' : '');
-          const navTitle = tFmt('conFileNavGoPage', { n: i + 1 });
-          btn.title = navTitle;
-          btn.setAttribute('aria-label', navTitle);
-          btn.onclick = function() { window.conGoToPage(i); };
-
-          const canvas = document.createElement('canvas');
-          canvas.width = 56;
-          canvas.height = 36;
-          const snap = i === cur ? liveCurrent : (conPageSnapshots[i] || conBuildEmptyPageSnapshot());
-          conRenderPageThumbnail(snap, canvas);
-          const img = document.createElement('img');
-          img.alt = navTitle;
-          img.className = 'con-page-mini-png';
-          img.style.display = 'none';
-
+        const pageCount = String(total);
+        const needsRebuild = strip.dataset.pageCount !== pageCount || strip.children.length !== total;
+        const refreshMiniThumbSnapshot = function(btn, i, forceRefresh) {
+          const canvas = btn.querySelector('canvas');
+          const img = btn.querySelector('img');
+          if (!canvas || !img) return;
+          if (!forceRefresh && img.dataset.pngLoaded === '1') return;
           conResolveMiniPageSnapshotUrl(i).then(url => {
             if (!url) return;
             img.onload = function() {
               canvas.style.display = 'none';
               img.style.display = 'block';
+              img.dataset.pngLoaded = '1';
             };
             img.onerror = function() {
               img.style.display = 'none';
               canvas.style.display = 'block';
+              img.dataset.pngLoaded = '0';
             };
             img.src = url;
           });
+        };
 
-          const num = document.createElement('span');
-          num.className = 'con-page-mini-num';
-          num.textContent = String(i + 1);
+        if (needsRebuild) {
+          const liveCurrent = conBuildPageSnapshot();
+          const frag = document.createDocumentFragment();
+          for (let i = 0; i < total; i += 1) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'con-page-mini-thumb' + (i === cur ? ' active' : '');
+            const navTitle = tFmt('conFileNavGoPage', { n: i + 1 });
+            btn.title = navTitle;
+            btn.setAttribute('aria-label', navTitle);
+            btn.onclick = function() { window.conGoToPage(i); };
 
-          btn.appendChild(canvas);
-          btn.appendChild(img);
-          btn.appendChild(num);
-          frag.appendChild(btn);
+            const canvas = document.createElement('canvas');
+            canvas.width = 56;
+            canvas.height = 36;
+            const snap = i === cur ? liveCurrent : (conPageSnapshots[i] || conBuildEmptyPageSnapshot());
+            conRenderPageThumbnail(snap, canvas);
+            const img = document.createElement('img');
+            img.alt = navTitle;
+            img.className = 'con-page-mini-png';
+            img.style.display = 'none';
+            img.dataset.pngLoaded = '0';
+
+            const num = document.createElement('span');
+            num.className = 'con-page-mini-num';
+            num.textContent = String(i + 1);
+
+            btn.appendChild(canvas);
+            btn.appendChild(img);
+            btn.appendChild(num);
+            refreshMiniThumbSnapshot(btn, i, true);
+            frag.appendChild(btn);
+          }
+          strip.innerHTML = '';
+          strip.appendChild(frag);
+          strip.dataset.pageCount = pageCount;
+        } else {
+          const thumbs = strip.querySelectorAll('.con-page-mini-thumb');
+          thumbs.forEach((btn, i) => {
+            btn.classList.toggle('active', i === cur);
+            const img = btn.querySelector('img');
+            const shouldRefresh = (i === cur) || !img || img.dataset.pngLoaded !== '1';
+            if (shouldRefresh) refreshMiniThumbSnapshot(btn, i, i === cur);
+          });
         }
-        strip.innerHTML = '';
-        strip.appendChild(frag);
 
         const activeThumb = strip.querySelector('.con-page-mini-thumb.active');
         if (activeThumb && typeof activeThumb.scrollIntoView === 'function') {
@@ -12683,7 +12758,7 @@ function hideFailure() {
         // Capture the current live board into its slot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         // Save PNG of the page we're leaving
-        conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+        conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         // Create a new empty page and switch to it
         conPageSnapshots.push(conBuildEmptyPageSnapshot());
         conCurrentPageIndex = conPageSnapshots.length - 1;
@@ -12696,7 +12771,7 @@ function hideFailure() {
         // Save current live board
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         // Save PNG of the page we're leaving
-        conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+        conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         conCurrentPageIndex = idx;
         _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
         conUpdatePageBar();
@@ -24626,7 +24701,8 @@ function hideFailure() {
         boardBg: _conBoardBg ? { attachmentId: String(_conBoardBg.attachmentId || ''), pageNumber: Math.max(1, Number(_conBoardBg.pageNumber) || 1) } : null,
         boardBgColor: _conBoardBgColor || null,
         boardBackgroundColor: _conBoardBgColor || null,
-        tables: window.conSerializeTables ? window.conSerializeTables() : []
+        tables: window.conSerializeTables ? window.conSerializeTables() : [],
+        boardStickers: (window._conBoardStickers || []).map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x)||0, y: Number(s.y)||0, size: Number(s.size)||40 }))
       };
     }
 
@@ -24652,7 +24728,8 @@ function hideFailure() {
         backgroundPdf: (snapshot && snapshot.backgroundPdf) || null,
         boardBg: (snapshot && snapshot.boardBg) || null,
         boardBgColor: (snapshot && (snapshot.boardBgColor || snapshot.boardBackgroundColor || snapshot.backgroundColor)) || null,
-        boardBackgroundColor: (snapshot && (snapshot.boardBgColor || snapshot.boardBackgroundColor || snapshot.backgroundColor)) || null
+        boardBackgroundColor: (snapshot && (snapshot.boardBgColor || snapshot.boardBackgroundColor || snapshot.backgroundColor)) || null,
+        boardStickers: (snapshot && snapshot.boardStickers) || []
       });
     }
 
@@ -26163,6 +26240,32 @@ function hideFailure() {
       }]).catch(() => {});
     }
 
+    let _conPageSnapshotSaveTimer = null;
+    let _conPageSnapshotSaveQueued = null;
+    function conQueueCurrentPageSnapshotPng(pageIndex) {
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
+      if (!_conCurrentFolderName) return;
+      _conPageSnapshotSaveQueued = pageIndex;
+      if (_conPageSnapshotSaveTimer) return;
+
+      const schedule = window.requestIdleCallback
+        ? function(cb) { return window.requestIdleCallback(cb, { timeout: 1000 }); }
+        : function(cb) { return setTimeout(cb, 0); };
+
+      _conPageSnapshotSaveTimer = schedule(async function() {
+        _conPageSnapshotSaveTimer = null;
+        const nextIndex = _conPageSnapshotSaveQueued;
+        _conPageSnapshotSaveQueued = null;
+        if (nextIndex === null || nextIndex === undefined) return;
+        try {
+          await conSaveCurrentPageSnapshotPng(nextIndex);
+        } catch (_) {}
+        if (_conPageSnapshotSaveQueued !== null && _conPageSnapshotSaveQueued !== undefined) {
+          conQueueCurrentPageSnapshotPng(_conPageSnapshotSaveQueued);
+        }
+      });
+    }
+
     async function conSaveSessionFolderBundle(sessionFilename, persistedData) {
       const bundle = await conBuildSessionFolderBundle(sessionFilename, persistedData);
 
@@ -26704,7 +26807,8 @@ function hideFailure() {
             backgroundPdf: p.backgroundPdf || null,
             boardBg: p.boardBg || null,
             boardBgColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
-            boardBackgroundColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null
+            boardBackgroundColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
+            boardStickers: p.boardStickers || []
           } : {});
           conCurrentPageIndex = restoreIdx;
           const pageData = conPageSnapshots[restoreIdx];
@@ -26725,7 +26829,8 @@ function hideFailure() {
             backgroundPdf: pageData.backgroundPdf || null,
             boardBg: pageData.boardBg || null,
             boardBgColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
-            boardBackgroundColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null
+            boardBackgroundColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
+            boardStickers: pageData.boardStickers || []
           };
         } else {
           // Single-page format — reset to one page
@@ -26751,6 +26856,10 @@ function hideFailure() {
       if (window.conDrawingsClear) window.conDrawingsClear();
       if (window.conTablesClear) window.conTablesClear();
       if (!isMirrorSync && window.conMediaClear) window.conMediaClear();
+      // Clear board-level emoji stickers (added via node emoji picker)
+      const _boardEl = document.getElementById('constellation-board');
+      if (_boardEl) _boardEl.querySelectorAll(':scope > .wn-emoji-sticker').forEach(s => s.remove());
+      window._conBoardStickers = [];
       conPageBackgroundPdf = null;
       conRenderPagePdfBackground({ silent: true });
       _conBoardBg = null;
@@ -26941,6 +27050,15 @@ function hideFailure() {
       window.conRedrawEdges();
       if (window.conGroupRefitAll) window.conGroupRefitAll();
       if (window.conUpdatePageBar) window.conUpdatePageBar();
+
+      // Restore board-level emoji stickers (placed near nodes)
+      const _brd = document.getElementById('constellation-board');
+      if (_brd && Array.isArray(data.boardStickers) && data.boardStickers.length) {
+        window._conBoardStickers = data.boardStickers.map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x)||0, y: Number(s.y)||0, size: Number(s.size)||40 }));
+        window._conBoardStickers.forEach(sd => {
+          if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brd);
+        });
+      }
     }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
