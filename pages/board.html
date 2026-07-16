@@ -1315,6 +1315,7 @@
           <button class="action-btn btn-grey" onclick="conExport()" title="Export words from the board as PNG, CSV or PDF">⬇ Export</button>
           <button class="action-btn btn-grey" onclick="boardNewSession('constellation')" title="Save current board and start a new one">✚ New</button>
           <button class="action-btn btn-grey" onclick="conSaveSession()" title="Save board to a .js file">💾 Save</button>
+          <button class="action-btn btn-grey" onclick="conDuplicateCurrentFile()" title="Duplicate the current board file">⧉ Duplicate</button>
           <button class="action-btn btn-grey" onclick="openSessionLoadPopup('constellation')" title="Load a saved board .js file">📂 Load</button>
           <button class="action-btn btn-grey" onclick="conCloseSession()" title="Close the current file without saving">✕ Close</button>
           <button class="action-btn btn-grey" onclick="conOpenTemplatePopup()" title="Save/load reusable board templates">📋 Templates</button>
@@ -3323,6 +3324,7 @@ function hideFailure() {
     const CLASS_GROUP_STORAGE_KEY = 'active_class_group';
     let activeClassGroup = '';
     let activePlannerEntryId = '';
+    let _conPendingDuplicateRelinkRename = false;
 
     function sanitizeFilenamePart(raw) {
       return String(raw || '')
@@ -3559,6 +3561,74 @@ function hideFailure() {
       return cls + ' · ' + dt + time + topic;
     }
 
+    function conPlannerSlotBaseName(e) {
+      if (!e) return 'planner-entry';
+      const bits = [];
+      if (e.date) bits.push(String(e.date));
+      if (e.classId) bits.push(bpClassDisplayName(e.classId));
+      if (e.time) bits.push(String(e.time).replace(/:/g, '-'));
+      if (e.topic) bits.push(String(e.topic).trim());
+      const base = bits
+        .filter(Boolean)
+        .join(' - ')
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return base || 'planner-entry';
+    }
+
+    async function conRenameCurrentBundleToPlannerSlot(e) {
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) return false;
+      if (!_conCurrentFileName) return false;
+
+      const nextFilename = conPlannerSlotBaseName(e) + '.js';
+      const oldFilename = _conCurrentFileName;
+      if (nextFilename === oldFilename) return true;
+
+      const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
+      const newFolder = boardStripJsonExt(nextFilename);
+
+      try {
+        if (oldFolder && oldFolder !== newFolder) {
+          await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
+        }
+        if (oldFilename !== nextFilename) {
+          await Desktop.renameByPath('mindmaps', newFolder + '/' + oldFilename, newFolder + '/' + nextFilename);
+        }
+
+        if (typeof Desktop.listByPath === 'function') {
+          const oldBase = boardStripJsonExt(oldFilename);
+          const newBase = boardStripJsonExt(nextFilename);
+          if (oldBase !== newBase) {
+            const histPath = newFolder + '/history';
+            try {
+              const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json'], recursive: false });
+              const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+              for (const vf of vFiles) {
+                const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
+                if (vfname.startsWith(oldBase + '.v')) {
+                  const suffix = vfname.slice(oldBase.length);
+                  await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => {});
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        _conCurrentFileName = nextFilename;
+        _conCurrentFolderName = newFolder;
+        if (window.conSetTitle) window.conSetTitle(newFolder);
+        const titleEl = document.getElementById('con-title-input');
+        if (titleEl) titleEl.value = newFolder;
+        if (typeof historyRefreshList === 'function') await historyRefreshList();
+        mdbToast('✅ Renamed to slot: ' + nextFilename);
+        return true;
+      } catch (error) {
+        mdbToast('⚠️ Linked, but could not rename file to slot name.');
+        return false;
+      }
+    }
+
     function bpOpen() {
       const pop = document.getElementById('con-bp-popover');
       if (!pop) return;
@@ -3619,7 +3689,7 @@ function hideFailure() {
       document.removeEventListener('click', _bpOutsideClick, true);
     }
 
-    function bpSelect(e) {
+    async function bpSelect(e) {
       activePlannerEntryId = e.id || '';
       if (e.classId) setActiveClassGroup(e.classId);
       bpUpdateBtn();
@@ -3643,6 +3713,11 @@ function hideFailure() {
           titleInput.value = newTitle;
           if (window.conSetTitle) conSetTitle(newTitle);
         }
+      }
+
+      if (_conPendingDuplicateRelinkRename) {
+        const ok = await conRenameCurrentBundleToPlannerSlot(e);
+        if (ok) _conPendingDuplicateRelinkRename = false;
       }
     }
 
@@ -26090,6 +26165,113 @@ function hideFailure() {
       sfnOpen(filename, blob, 'mindmaps', savedName => { if (savedName) _conCurrentFileName = savedName; });
     }
 
+    async function conSuggestDuplicateFilename(baseName) {
+      const sourceBase = boardStripJsonExt(String(baseName || '').trim()) || 'constellation';
+      const takenBases = new Set();
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+        try {
+          const listed = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true });
+          const files = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+          files.forEach(file => {
+            const rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+            if (!rel) return;
+            const parts = rel.split('/').filter(Boolean);
+            const leaf = parts.length ? parts[parts.length - 1] : '';
+            const leafBase = boardStripJsonExt(leaf).toLowerCase();
+            if (!leafBase) return;
+            if (parts.length === 2 && boardStripJsonExt(parts[1]).toLowerCase() === parts[0].toLowerCase()) {
+              takenBases.add(parts[0].toLowerCase());
+              return;
+            }
+            if (parts.length === 1) {
+              takenBases.add(leafBase);
+            }
+          });
+        } catch (_) {}
+      }
+
+      const baseLower = sourceBase.toLowerCase();
+      let candidate = sourceBase + ' (copy)';
+      if (candidate.toLowerCase() === baseLower) candidate = sourceBase + ' (copy 2)';
+      if (!takenBases.has(candidate.toLowerCase())) return candidate + '.js';
+
+      for (let i = 2; i <= 999; i++) {
+        const numbered = sourceBase + ' (copy ' + i + ')';
+        if (!takenBases.has(numbered.toLowerCase())) return numbered + '.js';
+      }
+
+      return sourceBase + ' (copy ' + Date.now() + ').js';
+    }
+
+    async function conDuplicateCurrentFile() {
+      if (!(window.Desktop && Desktop.isElectron())) {
+        mdbToast('⚠️ Duplicating files requires the Electron desktop app.');
+        return;
+      }
+      if (typeof Desktop.saveFiles !== 'function') {
+        mdbToast('⚠️ Duplicate is not available in this app version.');
+        return;
+      }
+
+      const data = conBuildSessionData();
+      if (!conSessionHasContent(data)) {
+        mdbToast('⚠️ Nothing to duplicate yet. Add at least one node, note, or title first.');
+        return;
+      }
+
+      if (!_conCurrentFileName && !_conCurrentFolderName) {
+        mdbToast('⚠️ Save this board first, then duplicate the file.');
+        return;
+      }
+
+      let relinkAfterDuplicate = false;
+      if (activePlannerEntryId) {
+        const linkedEntry = bpGetAllEntries().find(e => e.id === activePlannerEntryId);
+        const linkedLabel = linkedEntry ? ('\n\nCurrent link: ' + bpBuildLabel(linkedEntry)) : '';
+        const proceed = await showConfirm(
+          'This file is linked to a Planner class timeslot.'
+          + '\nDuplicating it will break that link in the duplicate file.'
+          + linkedLabel
+          + '\n\nContinue with duplication?'
+        );
+        if (!proceed) return;
+
+        relinkAfterDuplicate = await showConfirm(
+          'After duplicating, do you want to create a new Planner link for the duplicate file?'
+          + '\n\nOK = open class timeslot picker'
+          + '\nCancel = keep duplicate unlinked'
+        );
+      }
+
+      try {
+        const sourceName = _conCurrentFileName || (_conCurrentFolderName ? (_conCurrentFolderName + '.js') : boardDefaultFileName('constellation', window.conGetTitle ? window.conGetTitle() : '') + '.js');
+        const duplicateFilename = await conSuggestDuplicateFilename(sourceName);
+
+        const persistedData = boardBuildPersistedSessionData('constellation', data);
+        delete persistedData._plannerEntryId;
+
+        const saved = await conSaveSessionFolderBundle(duplicateFilename, persistedData);
+        activePlannerEntryId = '';
+        bpUpdateBtn();
+        boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
+        boardSetAutosaveFingerprint('constellation', saved.data);
+        conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
+
+        if (typeof historyRefreshList === 'function') historyRefreshList();
+
+        mdbToast('✅ Duplicated: ' + saved.folderName + '/' + saved.filename);
+
+        if (relinkAfterDuplicate) {
+          _conPendingDuplicateRelinkRename = true;
+          mdbToast('📅 Choose a class timeslot to link this duplicate file.');
+          bpShowAll();
+        }
+      } catch (error) {
+        mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
+      }
+    }
+
     function conFormatVersionDate(filename) {
       const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.js$/i);
       if (!m) return filename;
@@ -26827,6 +27009,41 @@ function hideFailure() {
 
     function historyEntryIsNestedPath(entry) {
       return historyEntryRelativePath(entry).includes('/');
+    }
+
+    function historyNormalizeRelativePath(value) {
+      return String(value || '').replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+    }
+
+    function historyCurrentConstellationPathCandidates() {
+      const out = new Set();
+      const file = String(_conCurrentFileName || '').trim();
+      const folder = String(_conCurrentFolderName || '').trim();
+      if (!file) return out;
+
+      if (folder) {
+        out.add(historyNormalizeRelativePath(folder + '/' + file));
+      } else {
+        out.add(historyNormalizeRelativePath(file));
+      }
+      return out;
+    }
+
+    function historyUnlinkDeletedCurrentConstellation(entry) {
+      if (!(entry && entry.target === 'mindmaps')) return;
+      if (!_conCurrentFileName) return;
+
+      const deletedRel = historyNormalizeRelativePath(historyEntryRelativePath(entry));
+      if (!deletedRel) return;
+
+      const candidates = historyCurrentConstellationPathCandidates();
+      if (!candidates.has(deletedRel)) return;
+
+      _conCurrentFileName = null;
+      _conCurrentFolderName = null;
+      boardResetSessionFileMeta('constellation');
+      boardAutosaveFingerprint.constellation = '';
+      mdbToast('ℹ️ Current board unlinked from deleted file. It will not be recreated on close.');
     }
 
     function historyEntryKey(entry) {
@@ -27790,6 +28007,9 @@ function hideFailure() {
           }
         }
 
+        if (result && result.ok) {
+          historyUnlinkDeletedCurrentConstellation(entry);
+        }
         return result;
       }
 
@@ -27811,6 +28031,10 @@ function hideFailure() {
             await Desktop.deleteByPath(entry.target, companionPath, { recursive: true, force: true });
           } catch {}
         }
+      }
+
+      if (result && result.ok) {
+        historyUnlinkDeletedCurrentConstellation(entry);
       }
 
       return result;
@@ -28214,22 +28438,67 @@ function hideFailure() {
           throw new Error(readResult && readResult.error ? readResult.error : 'Could not read file.');
         }
 
+        let duplicateContent = String(readResult.content || '');
+        let relinkAfterDuplicate = false;
+        if (entry.section === 'constellation') {
+          let parsed = null;
+          try { parsed = boardParseSessionText(duplicateContent); } catch (e) {}
+          if (parsed && typeof parsed === 'object') {
+            const linkedId = String(parsed._plannerEntryId || parsed.plannerEntryId || '').trim();
+            if (linkedId) {
+              const linkedEntry = bpGetAllEntries().find(e => e.id === linkedId);
+              const linkedLabel = linkedEntry ? ('\n\nCurrent link: ' + bpBuildLabel(linkedEntry)) : '';
+              const proceed = await showConfirm(
+                'This file is linked to a Planner class timeslot.'
+                + '\nDuplicating it will break that link in the duplicate file.'
+                + linkedLabel
+                + '\n\nContinue with duplication?'
+              );
+              if (!proceed) return;
+
+              relinkAfterDuplicate = await showConfirm(
+                'After duplicating, do you want to create a new Planner link for the duplicate file?'
+                + '\n\nOK = open class timeslot picker'
+                + '\nCancel = keep duplicate unlinked'
+              );
+            }
+            delete parsed._plannerEntryId;
+            delete parsed.plannerEntryId;
+            duplicateContent = boardBuildSessionFileContent(parsed, 'CONSTELLATION_SESSION_EXPORT');
+          }
+        }
+
         let saveResult;
         if (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry) && typeof Desktop.saveFiles === 'function') {
           saveResult = await Desktop.saveFiles(entry.target, [{
             filename: duplicateFilename,
             subdir: boardStripJsonExt(duplicateFilename),
-            content: String(readResult.content || ''),
+            content: duplicateContent,
             encoding: 'utf8'
           }]);
         } else {
-          saveResult = await Desktop.saveText(entry.target, duplicateFilename, String(readResult.content || ''));
+          saveResult = await Desktop.saveText(entry.target, duplicateFilename, duplicateContent);
         }
         if (!saveResult || !saveResult.ok) {
           throw new Error(saveResult && saveResult.error ? saveResult.error : 'Duplicate failed.');
         }
 
         await historyRefreshList();
+
+        if (entry.section === 'constellation' && relinkAfterDuplicate) {
+          const relPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
+            ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
+            : duplicateFilename;
+          await historyLoadSavedFile({
+            target: entry.target,
+            filename: duplicateFilename,
+            relativePath: relPath,
+            section: 'constellation'
+          });
+          _conPendingDuplicateRelinkRename = true;
+          mdbToast('📅 Choose a class timeslot to link this duplicate file.');
+          bpShowAll();
+        }
       } catch (error) {
         mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
       }

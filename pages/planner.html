@@ -20,6 +20,7 @@
     }
     window.__plannerBoot = (async function () {
       if (!window.Desktop || !Desktop.isElectron()) return;
+      window.__plannerKnownClassFiles = window.__plannerKnownClassFiles || {};
       async function load(target, file) {
         try {
           var r = await Desktop.readText(target, file);
@@ -40,6 +41,13 @@
         var _lr = await Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] });
         if (_lr && _lr.ok && Array.isArray(_lr.files)) {
           for (var _i = 0; _i < _lr.files.length; _i++) {
+            var _rp = String((_lr.files[_i] && _lr.files[_i].relativePath) || '');
+            var _base = _rp.split('/').pop() || '';
+            if (/\.js$/i.test(_base)) {
+              var _cid = _base.replace(/\.js$/i, '');
+              if (_cid === '__unassigned') _cid = '';
+              window.__plannerKnownClassFiles[_cid] = true;
+            }
             await loadByPath('user', _lr.files[_i].relativePath);
           }
         }
@@ -444,6 +452,18 @@
       cursor: pointer;
     }
     .board-session-badge:hover { background: #ddd6fe; }
+    .planner-board-menu {
+      position: fixed; display: none; z-index: 1100; min-width: 180px;
+      background: #fff; border: 2px solid #111; border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 6px;
+    }
+    .planner-board-menu.active { display: block; }
+    .planner-board-menu button {
+      width: 100%; border: none; background: none; text-align: left; cursor: pointer;
+      padding: 8px 10px; border-radius: 6px; font: inherit; font-size: .82rem; font-weight: 700;
+      color: #111;
+    }
+    .planner-board-menu button:hover { background: #ede9fe; }
 
     /* ── Modals ── */
     .modal-overlay {
@@ -990,12 +1010,18 @@
     <div class="modal-footer">
       <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
               onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+      <button class="tb-btn" id="board-entry-btn" style="display:none"
+              onclick="plannerBoardEntryAction()" data-i18n="pl_boardCreate">Create board file</button>
       <button class="tb-btn" id="dup-entry-btn" style="display:none"
               onclick="duplicateCurrentEntry()" data-i18n="pl_btnDuplicate">Duplicate</button>
       <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
       <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
     </div>
   </div>
+</div>
+
+<div id="planner-board-menu" class="planner-board-menu" onclick="event.stopPropagation()">
+  <button type="button" id="planner-board-menu-btn" onclick="plannerBoardEntryAction()" data-i18n="pl_boardCreate">Create board file</button>
 </div>
 
 <!-- ════ CONFIRM MODAL ════ -->
@@ -1258,6 +1284,10 @@ var classGroups = {};
 var classGroupsMeta = {};
 var partDates = {};
 var boardSessionsByEntryId = {};
+var plannerKnownClassFiles = window.__plannerKnownClassFiles || {};
+var plannerDeletedClassFiles = window.__plannerDeletedClassFiles || {};
+window.__plannerKnownClassFiles = plannerKnownClassFiles;
+window.__plannerDeletedClassFiles = plannerDeletedClassFiles;
 var filterClasses = new Set();
 var showPast = false;
 var showOutsideTerm = false;
@@ -1361,6 +1391,7 @@ window.addEventListener('focus', function() {
   if (!_plannerBooted) return;
   navigateToPending();
   navigateToPendingTodo();
+  if (typeof loadBoardSessions === 'function') loadBoardSessions();
 });
 
 var _navHighlightNav   = null;
@@ -1481,6 +1512,63 @@ async function loadData() {
   loadTodos();
 }
 
+function plannerClassIdFromPlannerPath(relPath) {
+  var p = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!p || p.indexOf('planner/') !== 0) return null;
+  var base = p.split('/').pop() || '';
+  if (!/\.js$/i.test(base)) return null;
+  var cid = base.replace(/\.js$/i, '');
+  return cid === '__unassigned' ? '' : cid;
+}
+
+function plannerClassIdFromPlannerFilename(filename) {
+  var base = String(filename || '');
+  if (!/\.js$/i.test(base)) return null;
+  var cid = base.replace(/\.js$/i, '');
+  return cid === '__unassigned' ? '' : cid;
+}
+
+function plannerClassIdFromDeleteEvent(data) {
+  if (!data || data.target !== 'user') return null;
+  if (data.action === 'delete-by-path') return plannerClassIdFromPlannerPath(data.relativePath);
+  if (data.action === 'delete-file' && String(data.subdir || '').replace(/\\/g, '/') === 'planner') {
+    return plannerClassIdFromPlannerFilename(data.filename);
+  }
+  return null;
+}
+
+function plannerMarkClassFileDeleted(classId) {
+  if (classId == null) return;
+  var cid = String(classId);
+  plannerDeletedClassFiles[cid] = true;
+  delete plannerKnownClassFiles[cid];
+  if (window.PLANNER_ENTRIES_BY_CLASS && Object.prototype.hasOwnProperty.call(window.PLANNER_ENTRIES_BY_CLASS, cid)) {
+    delete window.PLANNER_ENTRIES_BY_CLASS[cid];
+  }
+  var before = entries.length;
+  entries = entries.filter(function (e) { return String(e.classId || '') !== cid; });
+  if (before !== entries.length) render();
+}
+
+async function plannerRefreshDeletedClassFiles() {
+  if (!window.Desktop || !Desktop.isElectron()) return;
+  var cids = Object.keys(plannerKnownClassFiles || {});
+  for (var i = 0; i < cids.length; i++) {
+    var cid = cids[i];
+    var relPath = 'planner/' + (cid || '__unassigned') + '.js';
+    try {
+      var st = await Desktop.statByPath('user', relPath);
+      if (!st || !st.ok || st.exists !== true) {
+        plannerDeletedClassFiles[cid] = true;
+        delete plannerKnownClassFiles[cid];
+      }
+    } catch (_e) {
+      plannerDeletedClassFiles[cid] = true;
+      delete plannerKnownClassFiles[cid];
+    }
+  }
+}
+
 async function loadPartDates() {
   if (!window.Desktop || !Desktop.isElectron()) return;
   var ids = getActiveClassIds();
@@ -1499,30 +1587,111 @@ async function loadPartDates() {
 
 async function loadBoardSessions() {
   if (!window.Desktop || !Desktop.isElectron()) return;
+  function addLinkedBoardSession(linkId, session, dedupe) {
+    if (!linkId || !session) return;
+    if (!boardSessionsByEntryId[linkId]) boardSessionsByEntryId[linkId] = [];
+    var key = String(dedupe || session.id || '') + '|' + String(session.openKind || 'local');
+    var arr = boardSessionsByEntryId[linkId];
+    if (arr.some(function (x) { return (String(x._k || '') === key); })) return;
+    session._k = key;
+    arr.push(session);
+  }
+
+  function extractPlannerEntryId(content) {
+    var txt = String(content || '');
+    var m = txt.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
+    if (!m) m = txt.match(/"plannerEntryId"\s*:\s*"([^"]*)"/);
+    return m ? String(m[1] || '').trim() : '';
+  }
+
+  function isMindmapSessionFile(file) {
+    var rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+    var parts = rel.split('/').filter(Boolean);
+    var filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
+    if (!filename) return false;
+    if (parts.length <= 1) return true;
+    if (parts.length === 2) {
+      var folder = parts[0];
+      return filename.replace(/\.(js|json)$/i, '').toLowerCase() === folder.toLowerCase();
+    }
+    return false;
+  }
+
   try {
     var r = await Desktop.readJson('user', 'board-sessions-backup.json');
-    if (!r || !r.ok || !r.data) return;
-    var store = r.data;
     boardSessionsByEntryId = {};
-    ['constellation', 'textanalysis', 'notes'].forEach(function (section) {
-      var list = Array.isArray(store[section]) ? store[section] : [];
-      list.forEach(function (e) {
-        if (!e || !e.id) return;
-        var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
-        if (!eid) return;
-        if (!boardSessionsByEntryId[eid]) boardSessionsByEntryId[eid] = [];
-        boardSessionsByEntryId[eid].push({ id: String(e.id), name: String(e.name || ''), section: section, savedAt: Number(e.savedAt) || 0 });
+    var store = (r && r.ok && r.data) ? r.data : null;
+    if (store) {
+      ['constellation', 'textanalysis', 'notes'].forEach(function (section) {
+        var list = Array.isArray(store[section]) ? store[section] : [];
+        list.forEach(function (e) {
+          if (!e || !e.id) return;
+          // Constellation links in Planner must be file-backed to avoid reopening stale
+          // local backup entries that can recreate deleted files via board silent-save.
+          if (section === 'constellation') return;
+          var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
+          if (!eid) return;
+          addLinkedBoardSession(eid, {
+            id: String(e.id),
+            name: String(e.name || ''),
+            section: section,
+            savedAt: Number(e.savedAt) || 0,
+            openKind: 'local'
+          }, section + ':' + String(e.id));
+        });
       });
-    });
+    }
+
+    if (typeof Desktop.listByPath === 'function' && typeof Desktop.readByPath === 'function') {
+      var filesRes = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true });
+      var files = (filesRes && filesRes.ok && Array.isArray(filesRes.files)) ? filesRes.files : [];
+      var candidates = files.filter(isMindmapSessionFile);
+      for (var i = 0; i < candidates.length; i++) {
+        var f = candidates[i];
+        var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
+        if (!relPath) continue;
+        try {
+          var fileRes = await Desktop.readByPath('mindmaps', relPath);
+          if (!fileRes || !fileRes.ok || !fileRes.content) continue;
+          var peid = extractPlannerEntryId(fileRes.content);
+          if (!peid) continue;
+          var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json)$/i, '');
+          addLinkedBoardSession(peid, {
+            id: 'path:' + relPath,
+            name: label,
+            section: 'constellation',
+            savedAt: Number(f.mtimeMs) || 0,
+            openKind: 'file',
+            target: 'mindmaps',
+            filename: String(f.filename || relPath.split('/').pop() || ''),
+            relativePath: relPath
+          }, 'file:' + relPath);
+        } catch (_fileErr) {}
+      }
+    }
   } catch (_) {}
+
+  if (typeof tdPruneMissingMindmapLinks === 'function') tdPruneMissingMindmapLinks();
   renderAgenda();
 }
 
 function openLinkedBoard(entryId) {
   var sessions = boardSessionsByEntryId[entryId];
   if (!sessions || !sessions.length) return;
-  var s = sessions.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+  var files = sessions.filter(function (x) { return x && x.openKind === 'file' && x.target && x.relativePath; });
+  var s = (files.length ? files : sessions).slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
   if (!window.Desktop || !Desktop.isElectron()) return;
+  if (s.openKind === 'file' && s.target && s.relativePath) {
+    Desktop.openTool('board.html', {
+      query: {
+        openSession: '1',
+        openTarget: s.target,
+        openFilename: s.filename || (String(s.relativePath).split('/').pop() || ''),
+        openRelPath: s.relativePath
+      }
+    });
+    return;
+  }
   Desktop.openTool('board.html', { query: { openLocalSession: '1', openLocalMode: s.section, openLocalEntryId: s.id } });
 }
 
@@ -1694,8 +1863,28 @@ function updateSemToolbar() {
 function render() { renderAgenda(); }
 
 function renderAgenda() {
-  if (tableView) { renderTable(); return; }
   var el = document.getElementById('agenda');
+
+  if (!el._plannerBoardMenuBound) {
+    el._plannerBoardMenuBound = true;
+    el.addEventListener('contextmenu', function (event) {
+      var target = event.target && event.target.closest ? event.target.closest('.entry-row[data-date], .at-cell[data-entry-id], .at-cell-empty[data-date]') : null;
+      if (!target) return;
+      var entryId = target.getAttribute('data-entry-id') || '';
+      if (entryId) {
+        plannerShowBoardEntryMenu(event, entryId, null);
+        return;
+      }
+      plannerShowBoardEntryMenu(event, '', {
+        classId: target.getAttribute('data-classid') || '',
+        date: target.getAttribute('data-date') || '',
+        time: target.getAttribute('data-time') || '',
+        timeEnd: target.getAttribute('data-timeend') || ''
+      });
+    });
+  }
+
+  if (tableView) { renderTable(); return; }
   var activeSem = getActiveSem();
 
   if (!activeSem) {
@@ -1786,7 +1975,7 @@ function renderSlot(s) {
 
   var timeLabel = s.time || '';
   if (s.timeEnd) timeLabel += '–' + s.timeEnd;
-  var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId||'') + '" data-time="' + esc(s.time||'') + '" style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+  var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId||'') + '" data-time="' + esc(s.time||'') + '" data-timeend="' + esc(s.timeEnd||'') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
     esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' +
     esc(s.timeEnd||'') + '\',\'' + (entry ? entry.id : '') + '\')">';
   r += '<div class="entry-color-bar"></div>';
@@ -2472,6 +2661,7 @@ function openAddEntry(classId, date, time, timeEnd) {
   renderCustomFieldInputs(null);
   onEntryClassChange();
   document.getElementById('e-obj-sel').value = '';
+  plannerUpdateBoardEntryControls(null);
   openModal('entryModal');
 }
 
@@ -2511,7 +2701,199 @@ function openEditEntry(id) {
   if (opts.indexOf(objVal) >= 0) { objSel.value = objVal; objCustom.style.display = 'none'; }
   else if (objVal) { objSel.value = '__other__'; objCustom.value = objVal; objCustom.style.display = ''; }
   else { objSel.value = ''; objCustom.style.display = 'none'; }
+  plannerUpdateBoardEntryControls(e);
   openModal('entryModal');
+}
+
+var _plannerBoardMenuEntryId = '';
+var _plannerBoardMenuSlot = null;
+
+function plannerBoardEntryBaseName(entry) {
+  if (!entry) return 'planner-entry';
+  var bits = [];
+  if (entry.date) bits.push(String(entry.date));
+  if (entry.classId) bits.push(plannerClassDisplayName(entry.classId));
+  if (entry.time) bits.push(String(entry.time).replace(/:/g, '-'));
+  if (entry.topic) bits.push(String(entry.topic).trim());
+  var base = bits.filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
+  return base || 'planner-entry';
+}
+
+function plannerBoardEntryFileName(entry) {
+  return plannerBoardEntryBaseName(entry) + '.js';
+}
+
+function plannerBoardEntryFolderName(entry) {
+  return plannerBoardEntryBaseName(entry);
+}
+
+function plannerBoardEntrySessionData(entry, plannerLinkId) {
+  var now = Date.now();
+  var linkId = String(plannerLinkId || (entry && entry.id) || '').trim();
+  return {
+    _type: 'constellation',
+    _version: 1,
+    _createdAt: now,
+    _savedAt: now,
+    _plannerEntryId: linkId,
+    _classGroup: String(entry && entry.classId || ''),
+    dateCreated: new Date(now).toISOString(),
+    title: plannerBoardEntryBaseName(entry),
+    attachments: [],
+    currentPage: 0,
+    nodes: [],
+    edges: [],
+    groups: [],
+    masks: [],
+    notes: [],
+    drawings: [],
+    shapes: [],
+    tables: [],
+    media: [],
+    backgroundPdf: null,
+    boardBg: null,
+    boardBgColor: null,
+    boardBackgroundColor: null
+  };
+}
+
+function plannerBoardEntryFileContent(entry, plannerLinkId) {
+  return 'window.CONSTELLATION_SESSION_EXPORT = ' + JSON.stringify(plannerBoardEntrySessionData(entry, plannerLinkId), null, 2) + ';\n';
+}
+
+function plannerBoardDraftEntryFromSlot(slot) {
+  if (!slot || !slot.classId || !slot.date) return null;
+  return {
+    id: '',
+    classId: String(slot.classId || ''),
+    date: String(slot.date || ''),
+    time: String(slot.time || ''),
+    timeEnd: String(slot.timeEnd || ''),
+    topic: '',
+    notes: '',
+    type: 'lesson'
+  };
+}
+
+function plannerBoardDraftEntryFromModal() {
+  var modal = document.getElementById('entryModal');
+  if (!modal || !modal.classList.contains('active')) return null;
+  var date = (document.getElementById('e-date') || {}).value || '';
+  if (!date) return null;
+  var classIds = getSelectedEntryClassIds();
+  var classId = classIds[0] || '';
+  if (!classId) return null;
+  return {
+    id: '',
+    classId: classId,
+    date: date,
+    time: (document.getElementById('e-time') || {}).value || '',
+    timeEnd: (document.getElementById('e-time-end') || {}).value || '',
+    topic: (document.getElementById('e-topic') || {}).value || '',
+    notes: (document.getElementById('e-notes') || {}).value || '',
+    type: (document.getElementById('e-type') || {}).value || 'lesson'
+  };
+}
+
+function plannerUpdateBoardEntryControls(entry) {
+  var btn = document.getElementById('board-entry-btn');
+  var menuBtn = document.getElementById('planner-board-menu-btn');
+  var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+  var linkId = entry && entry.id ? String(entry.id) : (draft ? plannerBoardLinkId({ classId: draft.classId, date: draft.date, time: draft.time }, null) : '');
+  var canCreate = !!linkId;
+  var linked = !!(linkId && boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length);
+  var label = linked ? t('pl_boardOpen') : t('pl_boardCreate');
+  if (btn) {
+    btn.style.display = canCreate ? '' : 'none';
+    btn.textContent = label;
+  }
+  if (menuBtn) menuBtn.textContent = label;
+}
+
+function plannerHideBoardEntryMenu() {
+  var menu = document.getElementById('planner-board-menu');
+  if (menu) menu.classList.remove('active');
+}
+
+function plannerShowBoardEntryMenu(event, entryId, slot) {
+  var entry = entryId ? entries.find(function (e) { return e.id === entryId; }) : null;
+  var slotDraft = plannerBoardDraftEntryFromSlot(slot);
+  if (!entry && !slotDraft) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  _plannerBoardMenuEntryId = entry ? String(entry.id) : '';
+  _plannerBoardMenuSlot = slotDraft ? {
+    classId: slotDraft.classId,
+    date: slotDraft.date,
+    time: slotDraft.time,
+    timeEnd: slotDraft.timeEnd
+  } : null;
+  var menuBtn = document.getElementById('planner-board-menu-btn');
+  var linkId = entry ? String(entry.id) : plannerBoardLinkId(_plannerBoardMenuSlot, null);
+  var linked = !!(linkId && boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length);
+  if (menuBtn) menuBtn.textContent = linked ? t('pl_boardOpen') : t('pl_boardCreate');
+  var menu = document.getElementById('planner-board-menu');
+  if (!menu) return false;
+  var x = Math.max(8, Math.min(event.clientX || 0, window.innerWidth - 220));
+  var y = Math.max(8, Math.min(event.clientY || 0, window.innerHeight - 80));
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('active');
+  return false;
+}
+
+async function plannerBoardEntryAction(entryId) {
+  var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+  plannerHideBoardEntryMenu();
+  var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+  var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+  var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+  var source = entry || draft || slotDraft;
+  if (!source) return;
+  var linkId = entry && entry.id ? String(entry.id) : plannerBoardLinkId({ classId: source.classId, date: source.date, time: source.time }, null);
+  if (!linkId) return;
+  if (boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length) {
+    openLinkedBoard(linkId);
+    return;
+  }
+  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) {
+    mdbToast('⚠️ ' + t('pl_boardCreateErr'));
+    return;
+  }
+  try {
+    var result = await Desktop.saveFiles('mindmaps', [{
+      filename: plannerBoardEntryFileName(source),
+      subdir: plannerBoardEntryFolderName(source),
+      content: plannerBoardEntryFileContent(source, linkId),
+      encoding: 'utf8'
+    }]);
+    if (!result || result.ok === false) {
+      throw new Error(result && result.error ? result.error : t('pl_boardCreateErr'));
+    }
+    await loadBoardSessions();
+    plannerUpdateBoardEntryControls(source);
+    openLinkedBoard(linkId);
+  } catch (err) {
+    mdbToast('⚠️ ' + (err && err.message ? err.message : t('pl_boardCreateErr')));
+  }
+}
+
+if (!document._plannerBoardMenuDismissBound) {
+  document._plannerBoardMenuDismissBound = true;
+  document.addEventListener('click', function (event) {
+    if (!event.target || !event.target.closest || !event.target.closest('#planner-board-menu')) {
+      _plannerBoardMenuEntryId = '';
+      _plannerBoardMenuSlot = null;
+      plannerHideBoardEntryMenu();
+    }
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      _plannerBoardMenuEntryId = '';
+      _plannerBoardMenuSlot = null;
+      plannerHideBoardEntryMenu();
+    }
+  });
 }
 
 function onEntryClassChange() {
@@ -2525,6 +2907,7 @@ function onEntryClassChange() {
   var found = Array.from(sel.options).some(function (o) { return o.value === prev; });
   sel.value = found ? prev : '';
   document.getElementById('e-obj-custom').style.display = sel.value === '__other__' ? '' : 'none';
+  if (!editingId) plannerUpdateBoardEntryControls(null);
 }
 function onObjSelChange() {
   document.getElementById('e-obj-custom').style.display =
@@ -2605,7 +2988,7 @@ function cancelRecurScope() {
   _recurScopeAction = _recurScopeEntryId = _editingRecurScope = null;
   document.getElementById('recurScopeModal').style.display = 'none';
 }
-function applyRecurScope(scope) {
+async function applyRecurScope(scope) {
   var action  = _recurScopeAction;
   var entryId = _recurScopeEntryId;
   document.getElementById('recurScopeModal').style.display = 'none';
@@ -2623,7 +3006,7 @@ function applyRecurScope(scope) {
       var cutDate = entry.date;
       entries = entries.filter(function(e) { return !(e.recurrenceId === rid && e.date >= cutDate); });
     }
-    persistEntries();
+    await persistEntries();
     closeModal('entryModal');
     render();
   } else {
@@ -2756,9 +3139,9 @@ function deleteCurrentEntry() {
     openRecurScopeModal('delete', editingId);
     return;
   }
-  var doDelete = function () {
+  var doDelete = async function () {
     entries = entries.filter(function (e) { return e.id !== editingId; });
-    persistEntries();
+    await persistEntries();
     closeModal('entryModal');
     render();
     if (entry && entry.gsLink) removeTestFromGradeSheet(entry);
@@ -3680,24 +4063,38 @@ async function persistCfg() {
 }
 async function persistEntries() {
   if (!window.Desktop || !Desktop.isElectron()) return;
+  await plannerRefreshDeletedClassFiles();
   var byClass = {};
   entries.forEach(function(e) {
     if (!byClass[e.classId]) byClass[e.classId] = [];
     byClass[e.classId].push(e);
   });
-  // Preserve files for classes that previously had entries but now have none
-  Object.keys(window.PLANNER_ENTRIES_BY_CLASS || {}).forEach(function(cid) {
-    if (!byClass[cid]) byClass[cid] = [];
-  });
-  window.PLANNER_ENTRIES_BY_CLASS = byClass;
+  var persistedByClass = {};
   var cids = Object.keys(byClass);
   for (var i = 0; i < cids.length; i++) {
     var cid = cids[i];
+    if (plannerDeletedClassFiles[cid]) continue;
+    persistedByClass[cid] = byClass[cid];
     var content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
                   'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(cid) + '] = ' +
                   JSON.stringify(byClass[cid], null, 2) + ';\n';
     await Desktop.saveText('user', (cid || '__unassigned') + '.js', content, 'planner');
+    plannerKnownClassFiles[cid] = true;
   }
+
+  // Remove stale planner files for classes that no longer have entries.
+  var knownCids = Object.keys(plannerKnownClassFiles || {});
+  for (var j = 0; j < knownCids.length; j++) {
+    var knownCid = knownCids[j];
+    if (plannerDeletedClassFiles[knownCid]) continue;
+    if (Object.prototype.hasOwnProperty.call(byClass, knownCid)) continue;
+    try {
+      await Desktop.deleteByPath('user', 'planner/' + (knownCid || '__unassigned') + '.js');
+    } catch (e) {}
+    delete plannerKnownClassFiles[knownCid];
+  }
+
+  window.PLANNER_ENTRIES_BY_CLASS = persistedByClass;
   if (_legacyMigration) {
     try { await Desktop.deleteFile('user', 'planner-entries.js'); } catch(e) {}
     _legacyMigration = false;
@@ -3882,7 +4279,7 @@ function renderTableCell(s) {
   var _atBSess = _boardLink.sessions;
 
   if (!entry) {
-    var _empty = '<div class="at-cell-empty" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
+    var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time||'') + '" data-timeend="' + esc(s.timeEnd||'') + '" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
       esc(s.date) + '\',\'' + esc(s.time||'') + '\',\'' + esc(s.timeEnd||'') + '\')">' +
       (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
       '<span class="at-add">+</span>';
@@ -3895,7 +4292,7 @@ function renderTableCell(s) {
   var badgeCls  = type ? 'entry-type-badge ' + typeBadgeCls(type) : '';
   var badgeText = type ? typeLabel(type) : '';
 
-  var r = '<div class="at-cell" style="--col:' + color + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
+  var r = '<div class="at-cell" data-entry-id="' + esc(entry.id) + '" style="--col:' + color + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
   if (timeLabel)  r += '<span class="at-time">' + esc(timeLabel) + '</span>';
   if (badgeText)  r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
   if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
@@ -4497,6 +4894,15 @@ function doImportIcs() {
   };
 
   Desktop.onDataChanged(function (data) {
+    var deletedCid = plannerClassIdFromDeleteEvent(data);
+    if (deletedCid !== null) {
+      plannerMarkClassFileDeleted(deletedCid);
+      return;
+    }
+    if (data && data.target === 'mindmaps') {
+      if (typeof loadBoardSessions === 'function') loadBoardSessions();
+      return;
+    }
     if (data && data.filename === 'board-sessions-backup.json') {
       if (typeof loadBoardSessions === 'function') loadBoardSessions();
       return;
@@ -4516,7 +4922,35 @@ var _tdModalSubtodos = [];
 
 function loadTodos() {
   todos = Array.isArray(window.TODOS) ? window.TODOS.slice() : [];
+  tdPruneMissingMindmapLinks();
   renderTodos();
+}
+
+function tdGetKnownMindmapLinkIds() {
+  var ids = new Set();
+  Object.keys(boardSessionsByEntryId || {}).forEach(function (eid) {
+    (boardSessionsByEntryId[eid] || []).forEach(function (s) {
+      if (s && s.id) ids.add(String(s.id));
+    });
+  });
+  return ids;
+}
+
+function tdPruneMissingMindmapLinks() {
+  if (!Array.isArray(todos) || !todos.length) return;
+  var knownIds = tdGetKnownMindmapLinkIds();
+  var changed = false;
+  todos.forEach(function (td) {
+    if (!td || !td.links || !td.links.mindmapPath) return;
+    var id = String(td.links.mindmapPath);
+    if (knownIds.has(id)) return;
+    td.links.mindmapPath = null;
+    changed = true;
+  });
+  if (changed) {
+    persistTodos();
+    renderTodos();
+  }
 }
 
 async function persistTodos() {

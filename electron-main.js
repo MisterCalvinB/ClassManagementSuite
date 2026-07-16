@@ -220,7 +220,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation']),
-  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades']),
+  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps']),
   [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };

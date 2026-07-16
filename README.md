@@ -127,6 +127,7 @@ Board sessions can be tagged to a specific Planner lesson, test, or assignment e
 - Click an entry to tag the current board session to it. The tag is stored with every manual save and autosave so it persists when the session is reloaded.
 - When you load a previously saved session its planner tag is restored automatically, keeping the link intact.
 - The `_plannerEntryId` field in saved `.js` constellation files holds the reference.
+- In the Planner, right-click an entry or use the modal button to create or open its linked board file directly from the schedule.
 
 ### Class Management ↔ Board: live sync
 
@@ -359,6 +360,7 @@ Week-by-week planning tool for lessons, tests, assignments, and holidays. Data i
 - Each class gets a **colour** for the week view, is assigned to **Term 1**, **Term 2**, or both, and can have a **weekly schedule** (which days and times it meets) and **learning objectives** for the term.
 - The class list is drawn from `class-groups.js` — add groups in Group Editor first.
 - In table view, class columns use class titles (not internal IDs).
+- Right-click any entry, or open it in the entry modal, to create or open its linked board file in `user/mindmaps`.
 
 ### Entries
 
@@ -765,6 +767,7 @@ Paste a table from any source (a web page, Word, Excel, Google Sheets) directly 
 #### Saving & Exporting
 
 - **💾 Save** — downloads the board as a `.js` file (includes `_createdAt` / `_savedAt` timestamps; loadable back into the board).
+- **⧉ Duplicate** — creates a duplicate of the current board file. If the current file is linked to a Planner timeslot, a warning popup explains that the duplicate will be unlinked and offers to open the timeslot picker so you can relink the duplicate to another class slot.
 - **📂 Load** — opens a saved `.js` or `.json` board file.
 - **✚ New** — saves the current board and starts a fresh one.
 - **⬇ Export** — export the board as a **PNG image**, **CSV word list**, or **PDF**.
