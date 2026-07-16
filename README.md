@@ -736,6 +736,7 @@ A board can have multiple pages:
 - **➕** Add a new blank page; **⎘ Copy** / **⎗ Paste** to duplicate a page.
 - **⊞ Preview** shows thumbnails of all pages and lets you reorder or delete them.
 - Navigate with ← / → buttons; the current page indicator shows "Page X / N".
+- When a saved board file is open and has at least 2 pages, the **File** menu also shows a compact navigation strip with tiny thumbnails and page numbers for quick jumps.
 - Each page has an editable inline title (up to 60 characters).
 
 #### Vocabulary Overlays
