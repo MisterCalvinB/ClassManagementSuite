@@ -78,8 +78,34 @@
     /* ── Toolbar ── */
     #toolbar {
       background: #fff; border-bottom: 2px solid #999;
-      padding: 8px 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       flex-shrink: 0;
+    }
+    .tb-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 5px 8px;
+      border: 1.5px solid #d2d2d2;
+      border-radius: 8px;
+      background: #fafafa;
+      min-height: 38px;
+    }
+    .tb-group.filter-group {
+      border-color: #666;
+      background: #f3f3f3;
+    }
+
+    .tb-group-label {
+      font-size: .63rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .85px;
+      color: #666;
+      white-space: nowrap;
+      margin-right: 1px;
+      padding-right: 2px;
     }
     .toolbar-sep { width: 1.5px; height: 22px; background: #bbb; margin: 0 2px; flex-shrink: 0; }
     .tb-btn {
@@ -100,21 +126,31 @@
     }
     .tb-select:focus { outline: none; border-color: #111; }
     #save-status { font-size: .72rem; color: #555; font-weight: 700; padding: 0 4px; }
+    .tb-group.filter-group #sem-chips,
+    .tb-group.filter-group #class-filter-chips {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
     .cls-chip-bar { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
     .cls-chip {
-      cursor: pointer; padding: 3px 9px; border-radius: 12px; font-size: .72rem;
+      cursor: pointer; padding: 2px 3px; border-radius: 6px; font-size: .65rem;
       font-weight: 800; border: 2px solid #bbb; background: #f5f5f5; color: #555;
       white-space: nowrap; transition: background .12s, border-color .12s, color .12s;
     }
     .cls-chip:hover { border-color: #888; color: #111; }
     .cls-chip.active { background: var(--chip-color, #555); border-color: var(--chip-color, #555); color: #fff; }
     .cls-chip.all-chip.active { background: #333; border-color: #333; color: #fff; }
-    .sem-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 9px; }
+    .sem-chip { display: inline-flex; align-items: center; gap: 4px;}
     .sem-chip > span:first-child { cursor: pointer; }
     .sem-chip-edit { cursor: pointer; font-size: .75rem; opacity: .55; padding: 0 2px; }
     .sem-chip-edit:hover { opacity: 1; }
     .sem-year-label { font-size: .69rem; font-weight: 800; text-transform: uppercase; letter-spacing: .55px; color: #888; align-self: center; white-space: nowrap; padding-right: 1px; }
     .sem-year-sep { display: inline-block; width: 1px; height: 14px; background: #ddd; margin: 0 5px; align-self: center; flex-shrink: 0; }
+    @media (max-width: 980px) {
+      .tb-group.actions-group { margin-left: 0; }
+      .tb-group { width: 100%; }
+    }
 
     /* ── Main ── */
     #planner-body { flex: 1; display: flex; overflow: hidden; }
@@ -647,39 +683,47 @@
 
 <!-- ── Toolbar ── -->
 <div id="toolbar">
-  <!-- Semester controls -->
-  <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Term</button>
-  <div id="sem-chips" class="cls-chip-bar" style="display:none"></div>
-  <div class="toolbar-sep"></div>
-  <!-- Class setup -->
-  <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses">Classes</button>
-  <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields">Fields</button>
-  <div class="toolbar-sep"></div>
-  <!-- Class filter chips -->
-  <div id="class-filter-chips" class="cls-chip-bar">
-    <span class="cls-chip all-chip active" data-i18n="pl_allClasses" onclick="clearClassFilter()">All</span>
+  <div class="tb-group">
+    <span class="tb-group-label" data-i18n="pl_toolbarSetup">Setup</span>
+    <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Term</button>
+    <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses">Classes</button>
+    <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields">Fields</button>
   </div>
-  <div class="toolbar-sep"></div>
-  <!-- Show past / view toggles -->
-  <button class="tb-btn" id="pastBtn" onclick="toggleShowPast()" data-i18n="pl_showPast">Show past</button>
-  <button class="tb-btn" id="outsideBtn" onclick="toggleShowOutsideTerm()" data-i18n="pl_showOutside">All terms</button>
-  <button class="tb-btn icon-btn" id="viewBtn" onclick="toggleView()" data-i18n="pl_viewTable">⊞</button>
-  <div class="disp-wrap" id="dispWrap">
-    <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
-    <div class="disp-popover" id="dispPopover">
-      <label class="cb-label"><input type="checkbox" id="vo-badges" checked onchange="setViewOpt('badges',this.checked)"> <span data-i18n="pl_viewBadges">Type badges</span></label>
-      <label class="cb-label"><input type="checkbox" id="vo-topic" checked onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
-      <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)"> <span data-i18n="pl_viewDetails">Detail fields</span></label>
-      <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)"> <span data-i18n="pl_viewCustom">Custom fields</span></label>
-      <hr style="border:none;border-top:1px solid #e0e0e0;margin:6px 0">
-      <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked onchange="setAutoEnd5Min(this.checked)"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5 min)</span></label>
+   <div class="tb-group">
+    <span class="tb-group-label" data-i18n="pl_toolbarView">View</span>
+    <button class="tb-btn" id="pastBtn" onclick="toggleShowPast()" data-i18n="pl_showPast">Show past</button>
+    <button class="tb-btn" id="outsideBtn" onclick="toggleShowOutsideTerm()" data-i18n="pl_showOutside">All terms</button>
+    <button class="tb-btn icon-btn" id="viewBtn" onclick="toggleView()" data-i18n="pl_viewTable">⊞</button>
+    <div class="disp-wrap" id="dispWrap">
+      <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
+      <div class="disp-popover" id="dispPopover">
+        <label class="cb-label"><input type="checkbox" id="vo-badges" checked onchange="setViewOpt('badges',this.checked)"> <span data-i18n="pl_viewBadges">Type badges</span></label>
+        <label class="cb-label"><input type="checkbox" id="vo-topic" checked onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
+        <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)"> <span data-i18n="pl_viewDetails">Detail fields</span></label>
+        <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)"> <span data-i18n="pl_viewCustom">Custom fields</span></label>
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:6px 0">
+        <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked onchange="setAutoEnd5Min(this.checked)"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5 min)</span></label>
+      </div>
     </div>
   </div>
-  <!-- Right-side actions -->
-  <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" style="margin-left:auto" data-i18n="pl_btnAddEntry">+ Add Entry</button>
-  <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
-  <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
-  <span id="save-status"></span>
+
+  <div class="tb-group actions-group">
+    <span class="tb-group-label" data-i18n="pl_toolbarActions">Actions</span>
+    <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" data-i18n="pl_btnAddEntry">+ Add Entry</button>
+    <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
+    <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
+    <span id="save-status"></span>
+  </div>
+
+  <div class="tb-group filter-group">
+    <span class="tb-group-label" data-i18n="pl_toolbarFilters">Filters</span>
+    <div id="sem-chips" class="cls-chip-bar" style="display:none"></div>
+    <div class="toolbar-sep"></div>
+    <div id="class-filter-chips" class="cls-chip-bar">
+      <span class="cls-chip all-chip active" data-i18n="pl_allClasses" onclick="clearClassFilter()">All</span>
+      <span class="cls-chip" data-i18n="pl_unassigned" onclick="toggleUnassignedFilter()">Unassigned</span>
+    </div>
+  </div>
 </div>
 
 <!-- ── Planner body ── -->
@@ -1289,6 +1333,7 @@ var plannerDeletedClassFiles = window.__plannerDeletedClassFiles || {};
 window.__plannerKnownClassFiles = plannerKnownClassFiles;
 window.__plannerDeletedClassFiles = plannerDeletedClassFiles;
 var filterClasses = new Set();
+var filterUnassigned = false;
 var showPast = false;
 var showOutsideTerm = false;
 var tableView = false;
@@ -1308,6 +1353,7 @@ function loadViewOpts() {
       viewOpts = Object.assign(viewOpts, stored);
       if (stored.showPast !== undefined) showPast = !!stored.showPast;
       if (stored.showOutsideTerm !== undefined) showOutsideTerm = !!stored.showOutsideTerm;
+      if (stored.filterUnassigned !== undefined) filterUnassigned = !!stored.filterUnassigned;
     }
   } catch (e) {}
   document.getElementById('vo-badges').checked  = viewOpts.badges;
@@ -1325,6 +1371,7 @@ function saveViewFlags() {
     var stored = raw ? JSON.parse(raw) : {};
     stored.showPast = showPast;
     stored.showOutsideTerm = showOutsideTerm;
+    stored.filterUnassigned = filterUnassigned;
     localStorage.setItem('cmt-planner-viewopts', JSON.stringify(stored));
   } catch (e) {}
 }
@@ -1793,12 +1840,18 @@ function rebuildFilterChips(ids) {
   var bar = document.getElementById('class-filter-chips');
   if (!bar) return;
   bar.innerHTML = '';
+  var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
   var allChip = document.createElement('span');
-  allChip.className = 'cls-chip all-chip' + (filterClasses.size === 0 ? ' active' : '');
+  allChip.className = 'cls-chip all-chip' + (!hasAnyClassFilter ? ' active' : '');
   allChip.setAttribute('data-i18n', 'pl_allClasses');
   allChip.textContent = t('pl_allClasses');
   allChip.onclick = clearClassFilter;
   bar.appendChild(allChip);
+  var uncChip = document.createElement('span');
+  uncChip.className = 'cls-chip' + (filterUnassigned ? ' active' : '');
+  uncChip.textContent = t('pl_unassigned');
+  uncChip.onclick = toggleUnassignedFilter;
+  bar.appendChild(uncChip);
   ids.forEach(function (id) {
     var color = (cfg.classes[id] || {}).color || '#aaa';
     var chip = document.createElement('span');
@@ -2098,7 +2151,8 @@ function buildSlots(activeSem) {
     if (holDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
 
     var classIds = Object.keys(cfg.classes);
-    if (filterClasses.size) classIds = classIds.filter(function (id) { return filterClasses.has(id); });
+    var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
+    if (hasAnyClassFilter) classIds = classIds.filter(function (id) { return filterClasses.has(id); });
     // Hide archived classes from agenda
     classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
     // Hide classes not active in the current term
@@ -2136,8 +2190,9 @@ function buildSlots(activeSem) {
   entries.forEach(function (e) {
     var cids = entryClassIds(e);
     var dates = expandEntryDates(e);
+    var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
     if (!cids.length) {
-      if (filterClasses.size) return;
+      if (hasAnyClassFilter && !filterUnassigned) return;
       dates.forEach(function(ds) {
         var k = ds + '|__' + e.id;
         if (consumed[k]) return;
@@ -2153,7 +2208,7 @@ function buildSlots(activeSem) {
         cids.forEach(function(cid) {
           var k = ds + '|' + cid;
           if (consumed[k]) return;
-          if (filterClasses.size && !filterClasses.has(cid)) return;
+          if (hasAnyClassFilter && !filterClasses.has(cid)) return;
           if ((classGroupsMeta[cid] || {}).archived) return;
           if (activeSemKey) {
             var sems = (cfg.classes[cid] || {}).semesters;
@@ -3424,10 +3479,12 @@ function getExportSlotRows(clsFilter, typeFilter) {
   var prevShowPast = showPast;
   var prevShowOutsideTerm = showOutsideTerm;
   var prevFilterClasses = filterClasses;
+  var prevFilterUnassigned = filterUnassigned;
 
   try {
     showPast = true;
     showOutsideTerm = true;
+    filterUnassigned = false;
     filterClasses = new Set();
     if (clsFilter && !isUnassignedExportClassFilter(clsFilter)) {
       filterClasses.add(clsFilter);
@@ -3453,6 +3510,7 @@ function getExportSlotRows(clsFilter, typeFilter) {
   } finally {
     showPast = prevShowPast;
     showOutsideTerm = prevShowOutsideTerm;
+    filterUnassigned = prevFilterUnassigned;
     filterClasses = prevFilterClasses;
   }
 }
@@ -4131,8 +4189,16 @@ function toggleClassFilter(id) {
   rebuildFilterChips(getPlannerClassIds());
   renderAgenda();
 }
+function toggleUnassignedFilter() {
+  filterUnassigned = !filterUnassigned;
+  saveViewFlags();
+  rebuildFilterChips(getPlannerClassIds());
+  renderAgenda();
+}
 function clearClassFilter() {
   filterClasses.clear();
+  filterUnassigned = false;
+  saveViewFlags();
   rebuildFilterChips(getPlannerClassIds());
   renderAgenda();
 }
@@ -4180,7 +4246,8 @@ function renderTable() {
   // Columns: active class IDs that actually appear in the slots (unassigned '' handled separately)
   var slotCids = new Set();
   slots.forEach(function (s) { if (!s.isGlobalHoliday && s.classId) slotCids.add(s.classId); });
-  var classIds = (filterClasses.size ? getPlannerClassIds().filter(function(id){ return filterClasses.has(id); }) : getPlannerClassIds())
+  var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
+  var classIds = (hasAnyClassFilter ? getPlannerClassIds().filter(function(id){ return filterClasses.has(id); }) : getPlannerClassIds())
     .filter(function (id) { return id && slotCids.has(id); });
 
   var hasUnassignedSlots = slots.some(function(s) { return !s.isGlobalHoliday && !s.classId; });

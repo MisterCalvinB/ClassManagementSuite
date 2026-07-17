@@ -1146,8 +1146,92 @@ var rfArchivedSessions  = [];
 var rfArchivedDocs      = [];
 var rfArchivedEditorDocs = [];
 var rfContentCache     = new Map();
+var rfSessionTypeCache = new Map();
 var rfSearchTimer      = null;
 var rfSearchGeneration = 0;
+
+function rfExtractSessionType(raw) {
+  var text = String(raw || '');
+  var typeMatch = text.match(/"_type"\s*:\s*"([^"]+)"/);
+  if (typeMatch && typeMatch[1]) return typeMatch[1];
+  var legacyMatch = text.match(/"_typ"\s*:\s*"([^"]+)"/);
+  if (legacyMatch && legacyMatch[1]) return legacyMatch[1];
+  return '';
+}
+
+function rfIsTemplateType(typeValue) {
+  var tval = String(typeValue || '');
+  return tval === 'constellation-template' || /template/i.test(tval);
+}
+
+function rfSessionCacheKey(fileObj) {
+  var target = (fileObj && fileObj.target) ? fileObj.target : 'mindmaps';
+  var rel = (fileObj && (fileObj.relativePath || fileObj.filename)) || '';
+  return target + ':' + normPath(rel);
+}
+
+async function rfFilterOutTemplateSessions(files) {
+  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
+    return Array.isArray(files) ? files : [];
+  }
+  var list = Array.isArray(files) ? files : [];
+  if (!list.length) return list;
+
+  var BATCH = 8;
+  for (var i = 0; i < list.length; i += BATCH) {
+    var batch = list.slice(i, i + BATCH);
+    await Promise.all(batch.map(async function(f) {
+      var key = rfSessionCacheKey(f);
+      if (rfSessionTypeCache.has(key)) return;
+      try {
+        var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+        var raw = result && result.content ? result.content : '';
+        rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+      } catch(e) {
+        rfSessionTypeCache.set(key, '');
+      }
+    }));
+  }
+
+  return list.filter(function(f) {
+    return !rfIsTemplateType(rfSessionTypeCache.get(rfSessionCacheKey(f)));
+  });
+}
+
+function fmIsTemplateMindmapFile(fileObj) {
+  if (!fileObj) return false;
+  var target = fileObj.target || 'mindmaps';
+  if (target !== 'mindmaps') return false;
+  return rfIsTemplateType(rfSessionTypeCache.get(rfSessionCacheKey(fileObj)));
+}
+
+async function fmPrimeBrowseSessionTypes(files) {
+  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+  var list = (Array.isArray(files) ? files : []).filter(function(f) {
+    if (!f || f.isDirectory) return false;
+    var target = f.target || browseTarget || 'mindmaps';
+    if (target !== 'mindmaps') return false;
+    return /\.(js|json)$/i.test(String(f.filename || ''));
+  });
+  if (!list.length) return;
+
+  var BATCH = 8;
+  for (var i = 0; i < list.length; i += BATCH) {
+    var batch = list.slice(i, i + BATCH);
+    await Promise.all(batch.map(async function(f) {
+      var fileWithTarget = Object.assign({}, f, { target: f.target || 'mindmaps' });
+      var key = rfSessionCacheKey(fileWithTarget);
+      if (rfSessionTypeCache.has(key)) return;
+      try {
+        var result = await Desktop.readByPath(fileWithTarget.target, fileWithTarget.relativePath || fileWithTarget.filename);
+        var raw = result && result.content ? result.content : '';
+        rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+      } catch (e) {
+        rfSessionTypeCache.set(key, '');
+      }
+    }));
+  }
+}
 
 function rfExtractSearchText(raw) {
   var parts = [];
@@ -1474,6 +1558,7 @@ async function loadRecent() {
     var r = await Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true });
     if (r && r.ok && Array.isArray(r.files)) {
       var allSessions = r.files.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+      allSessions = await rfFilterOutTemplateSessions(allSessions);
       rfSessions = allSessions.filter(function(f) {
         var rel = normPath(f.relativePath || f.filename || '');
         return rel.split('/').indexOf('archived') === -1;
@@ -2450,7 +2535,7 @@ function makeBrowseRow(file) {
   var acts = document.createElement('div');
   acts.className = 'file-actions';
 
-  var isConst = /\.(js|json)$/i.test(file.filename) && browseTarget === 'mindmaps';
+  var isConst = /\.(js|json)$/i.test(file.filename) && browseTarget === 'mindmaps' && !fmIsTemplateMindmapFile(file);
   if (isConst) {
     var boardBtn = document.createElement('button');
     boardBtn.className = 'btn-open';
@@ -2508,6 +2593,11 @@ function makeBrowseRow(file) {
               size: res.size,
               mtimeMs: res.mtimeMs
             });
+            var oldKey = rfSessionCacheKey(f);
+            var newKey = rfSessionCacheKey(newFile);
+            if (rfSessionTypeCache.has(oldKey) && !rfSessionTypeCache.has(newKey)) {
+              rfSessionTypeCache.set(newKey, rfSessionTypeCache.get(oldKey));
+            }
             browseAllFiles.push(newFile);
             var newRow = makeBrowseRow(newFile);
             row.parentNode.insertBefore(newRow, row.nextSibling);
@@ -2576,6 +2666,10 @@ async function loadBrowse(options) {
     } else {
       var res = await Desktop.listByPath(browseTarget, '', { extensions:[], recursive:true, includeDirectories:true });
       browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
+    }
+
+    if (browseTarget === 'mindmaps') {
+      await fmPrimeBrowseSessionTypes(browseAllFiles);
     }
   } catch(e) {
     list.innerHTML = '<div class="state-msg"><span class="state-icon">⚠</span>' + escHtml('Error: ' + (e && e.message ? e.message : String(e))) + '</div>';
@@ -3348,7 +3442,7 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     e.preventDefault();
     e.stopPropagation();
     var relPath = file.relativePath || file.filename;
-    var isConst = /\.(js|json)$/i.test(file.filename) && file.target === 'mindmaps';
+    var isConst = /\.(js|json)$/i.test(file.filename) && file.target === 'mindmaps' && !fmIsTemplateMindmapFile(file);
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
     var itemForContext = {

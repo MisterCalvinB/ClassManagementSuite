@@ -1414,6 +1414,7 @@
           <button id="con-page-prev-btn" class="action-btn btn-grey" onclick="window.conGoToPrevPage()" disabled title="Go to previous page">&#8592;</button>
           <span id="con-page-indicator">Page 1 / 1</span>
           <button id="con-page-next-btn" class="action-btn btn-grey" onclick="window.conGoToNextPage()" disabled title="Go to next page">&#8594;</button>
+          <button class="action-btn btn-grey" onclick="window.conAddPage()" title="Add a new page">＋</button>
         </div>
         <div id="con-page-mini-nav" aria-live="polite">
           <div id="con-page-mini-strip"></div>
@@ -28376,6 +28377,9 @@ function hideFailure() {
           delete data._typ;
         }
         const sessionType = data && data._type;
+        const isConstellationCompatible = sessionType === 'constellation'
+          || sessionType === 'constellation-template'
+          || String(sessionType || '').endsWith('-constellation');
         const shouldRepairAndResave = !!(hadLegacyTypeKey || (result.repair && result.repair.recommended));
 
         async function maybeRepairAndResave() {
@@ -28388,7 +28392,7 @@ function hideFailure() {
         }
 
         if (entry.section === 'constellation') {
-          if (!data || sessionType !== 'constellation') {
+          if (!data || !isConstellationCompatible) {
             throw new Error('This file is not a valid Constellation session.');
           }
           await maybeRepairAndResave();

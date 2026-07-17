@@ -1442,6 +1442,7 @@
   var rfAllDocs  = [];
   var rfAllArchivedFiles = [];
   var rfContentCache = new Map();
+  var rfSessionTypeCache = new Map();
   var rfGroupMeta = {};
   var rfContentSearchTimer = null;
   var RF_IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
@@ -1527,6 +1528,74 @@
 
   function rfPrettyName(fn) {
     return rfStripClassPrefix(fn).title;
+  }
+
+  function rfSessionCacheKey(fileObj) {
+    var target = (fileObj && fileObj.target) ? fileObj.target : 'mindmaps';
+    var relPath = (fileObj && (fileObj.relativePath || fileObj.filename)) || '';
+    return target + ':' + relPath;
+  }
+
+  function rfExtractSessionType(rawContent) {
+    var text = String(rawContent || '');
+    var typeMatch = text.match(/"_type"\s*:\s*"([^"]+)"/);
+    if (typeMatch && typeMatch[1]) return typeMatch[1];
+    var legacyMatch = text.match(/"_typ"\s*:\s*"([^"]+)"/);
+    if (legacyMatch && legacyMatch[1]) return legacyMatch[1];
+    return '';
+  }
+
+  function rfIsTemplateType(typeValue) {
+    var tval = String(typeValue || '');
+    return tval === 'constellation-template' || /template/i.test(tval);
+  }
+
+  function rfIsTemplateFile(fileObj) {
+    if (!fileObj) return false;
+    var key = rfSessionCacheKey(fileObj);
+    if (rfSessionTypeCache.has(key)) {
+      return rfIsTemplateType(rfSessionTypeCache.get(key));
+    }
+    return false;
+  }
+
+  function rfDisplaySessionName(fileObj) {
+    var baseName = rfPrettyName((fileObj && fileObj.filename) || '');
+    return rfIsTemplateFile(fileObj) ? (baseName + ' (template)') : baseName;
+  }
+
+  async function rfPrimeSessionTypes(files) {
+    if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+    var pending = (Array.isArray(files) ? files : []).filter(function(f) {
+      if (!f) return false;
+      var target = f.target || 'mindmaps';
+      if (target !== 'mindmaps') return false;
+      return !rfSessionTypeCache.has(rfSessionCacheKey(f));
+    });
+    if (!pending.length) return;
+
+    var BATCH = 8;
+    for (var i = 0; i < pending.length; i += BATCH) {
+      var batch = pending.slice(i, i + BATCH);
+      await Promise.all(batch.map(async function(f) {
+        var key = rfSessionCacheKey(f);
+        try {
+          var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+          var raw = result && result.content ? result.content : '';
+          rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+        } catch (e) {
+          rfSessionTypeCache.set(key, '');
+        }
+      }));
+    }
+  }
+
+  async function rfExcludeTemplateSessions() {
+    var allSessions = rfAllFiles.concat(rfAllArchivedFiles);
+    if (!allSessions.length) return;
+    await rfPrimeSessionTypes(allSessions);
+    rfAllFiles = rfAllFiles.filter(function(f) { return !rfIsTemplateFile(f); });
+    rfAllArchivedFiles = rfAllArchivedFiles.filter(function(f) { return !rfIsTemplateFile(f); });
   }
 
   function rfFileDateMs(f) { return f.savedAt || f.createdAt || f.mtimeMs || 0; }
@@ -1681,6 +1750,10 @@
     } catch(e) {}
 
     try {
+      await rfExcludeTemplateSessions();
+    } catch(e) {}
+
+    try {
       var d = await Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true });
       if (d && d.ok && Array.isArray(d.files)) {
         rfAllDocs = d.files.filter(function(f) {
@@ -1705,6 +1778,7 @@
     var overlay = document.getElementById('rfModal');
     rfAllFiles = []; rfAllDocs = []; rfAllArchivedFiles = [];
     rfContentCache.clear();
+    rfSessionTypeCache.clear();
     if (rfContentSearchTimer) { clearTimeout(rfContentSearchTimer); rfContentSearchTimer = null; }
     document.getElementById('rfFileList').innerHTML = '<div class="rf-state-msg"><span class="rf-state-icon">⏳</span>' + (typeof t === 'function' ? t('rfLoading') : 'Loading files…') + '</div>';
     document.getElementById('rfDocsList').innerHTML = '';
@@ -2106,6 +2180,15 @@
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
     }
+    var sidebarMindmaps = docs
+      .filter(function(f) { return f && f._type === 'mindmap'; })
+      .map(function(f) { return Object.assign({}, f, { target: 'mindmaps' }); });
+    await rfPrimeSessionTypes(sidebarMindmaps);
+    docs = docs.filter(function(f) {
+      if (!(f && f._type === 'mindmap')) return true;
+      return !rfIsTemplateFile(Object.assign({}, f, { target: 'mindmaps' }));
+    });
+
     docs.forEach(function(f) {
       var isMm = f._type === 'mindmap';
       var tagLabel = isMm
