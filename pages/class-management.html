@@ -1059,21 +1059,21 @@
     const CONFIG_FILE_NAME = 'config.js';
     const GROUPS_FILE_NAME = 'class-groups.js';
     const DEFAULT_BADGE_DEFINITIONS = [
-        { icon: '+', label: 'Plus', tone: 'positive', meaning: 'Participation mark', coefficient: 1, inlineInRoster: true, strikeOnAward: true, isBuiltin: true },
-        { icon: '-', label: 'Minus', tone: 'negative', meaning: 'Participation mark', coefficient: 1, inlineInRoster: true, strikeOnAward: true, isBuiltin: true },
-        { icon: '💎', label: 'Diamond', tone: 'positive', meaning: 'Outstanding contribution', strikeOnAward: true },
-        { icon: '👍', label: 'Good Job', tone: 'positive', meaning: 'Solid work and focus' },
-        { icon: '👏', label: 'Well Tried', tone: 'positive', meaning: 'Strong effort and perseverance' },
-        { icon: 'RV', label: 'RV', tone: 'negative', meaning: 'Renvoi' },
-        { icon: 'DNF', label: 'DNF', tone: 'negative', meaning: 'Devoir non fait' },
-        { icon: 'OM', label: 'OM', tone: 'negative', meaning: 'Oubli matériel' },
-        { icon: 'AT', label: 'AT', tone: 'negative', meaning: 'Arrivée tardive' },
-        { icon: '1️⃣', label: 'Level 1', tone: 'positive', meaning: 'Progress marker' },
-        { icon: '2️⃣', label: 'Level 2', tone: 'positive', meaning: 'Progress marker' },
-        { icon: '3️⃣', label: 'Level 3', tone: 'positive', meaning: 'Progress marker' },
-        { icon: '4️⃣', label: 'Level 4', tone: 'positive', meaning: 'Progress marker' },
-        { icon: '5️⃣', label: 'Level 5', tone: 'positive', meaning: 'Progress marker' },
-        { icon: '6️⃣', label: 'Level 6', tone: 'positive', meaning: 'Progress marker' }
+        { icon: '+', label: 'Plus', tone: 'positive', meaning: 'Participation mark', coefficient: 1, inlineInRoster: true, strikeOnAward: true, scope: 'individual', hidden: false, isBuiltin: true },
+        { icon: '-', label: 'Minus', tone: 'negative', meaning: 'Participation mark', coefficient: 1, inlineInRoster: true, strikeOnAward: true, scope: 'individual', hidden: false, isBuiltin: true },
+        { icon: '💎', label: 'Diamond', tone: 'positive', meaning: 'Outstanding contribution', strikeOnAward: true, scope: 'individual', hidden: false },
+        { icon: '👍', label: 'Good Job', tone: 'positive', meaning: 'Solid work and focus', scope: 'individual', hidden: false },
+        { icon: '👏', label: 'Well Tried', tone: 'positive', meaning: 'Strong effort and perseverance', scope: 'individual', hidden: false },
+        { icon: 'RV', label: 'RV', tone: 'negative', meaning: 'Renvoi', scope: 'individual', hidden: false },
+        { icon: 'DNF', label: 'DNF', tone: 'negative', meaning: 'Devoir non fait', scope: 'individual', hidden: false },
+        { icon: 'OM', label: 'OM', tone: 'negative', meaning: 'Oubli matériel', scope: 'individual', hidden: false },
+        { icon: 'AT', label: 'AT', tone: 'negative', meaning: 'Arrivée tardive', scope: 'individual', hidden: false },
+        { icon: '1️⃣', label: 'Level 1', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false },
+        { icon: '2️⃣', label: 'Level 2', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false },
+        { icon: '3️⃣', label: 'Level 3', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false },
+        { icon: '4️⃣', label: 'Level 4', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false },
+        { icon: '5️⃣', label: 'Level 5', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false },
+        { icon: '6️⃣', label: 'Level 6', tone: 'positive', meaning: 'Progress marker', scope: 'individual', hidden: false }
     ];
     const SOUND_FILE_EXTENSIONS = []; // Empty list => show any file placed in user/custom-data/sounds
     const SOUND_FILE_ALIASES = Object.freeze({
@@ -1716,6 +1716,11 @@
         await persistSettingsToUserFile();
     }
 
+    function normalizeBadgeScope(scope) {
+        const value = String(scope || 'individual').trim().toLowerCase();
+        return ['individual', 'team', 'both'].includes(value) ? value : 'individual';
+    }
+
     function normalizeBadgeDefinitions(definitions) {
         const source = Array.isArray(definitions) ? definitions : [];
         const seen = new Set();
@@ -1727,6 +1732,8 @@
                 coefficient: Number.isFinite(Number(entry?.coefficient)) ? Number(entry.coefficient) : 1,
                 inlineInRoster: entry?.inlineInRoster === true,
                 strikeOnAward: entry?.strikeOnAward === true,
+                scope: normalizeBadgeScope(entry?.scope),
+                hidden: entry?.hidden === true,
                 isBuiltin: entry?.isBuiltin === true
             }))
             .filter(entry => {
@@ -2774,6 +2781,19 @@
                             ×<input type="number" class="badge-editor-coeff" value="${badge.coefficient !== undefined ? badge.coefficient : 1}" min="0" step="0.1"
                                 style="width:56px; padding:5px 6px; border:1px solid #ccc; border-radius:5px; font-size:0.85rem;" title="Score coefficient">
                         </label>
+                        <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap;">
+                            <span>scope</span>
+                            <select class="badge-editor-scope" style="padding:5px 8px; border:1px solid #ccc; border-radius:5px; font-size:0.84rem;">
+                                <option value="individual" ${normalizeBadgeScope(badge.scope) === 'individual' ? 'selected' : ''}>Individual</option>
+                                <option value="team" ${normalizeBadgeScope(badge.scope) === 'team' ? 'selected' : ''}>Team</option>
+                                <option value="both" ${normalizeBadgeScope(badge.scope) === 'both' ? 'selected' : ''}>Both</option>
+                            </select>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap; cursor:pointer;" title="Hide this badge from the award lists">
+                            <input type="checkbox" class="badge-editor-hidden" ${badge.hidden ? 'checked' : ''}
+                                style="width:14px; height:14px; cursor:pointer;">
+                            hidden
+                        </label>
                         <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap; cursor:pointer;" title="Automatically strike through this student when the badge is awarded">
                             <input type="checkbox" class="badge-editor-strike" ${badge.strikeOnAward ? 'checked' : ''}
                                 style="width:14px; height:14px; cursor:pointer;">
@@ -2801,10 +2821,23 @@
                         ×<input type="number" class="badge-editor-coeff" value="${badge.coefficient !== undefined ? badge.coefficient : 1}" min="0" step="0.1"
                             style="width:56px; padding:5px 6px; border:1px solid #ccc; border-radius:5px; font-size:0.85rem;" title="Score coefficient">
                     </label>
+                    <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap;">
+                        <span>scope</span>
+                        <select class="badge-editor-scope" style="padding:5px 8px; border:1px solid #ccc; border-radius:5px; font-size:0.84rem;">
+                            <option value="individual" ${normalizeBadgeScope(badge.scope) === 'individual' ? 'selected' : ''}>Individual</option>
+                            <option value="team" ${normalizeBadgeScope(badge.scope) === 'team' ? 'selected' : ''}>Team</option>
+                            <option value="both" ${normalizeBadgeScope(badge.scope) === 'both' ? 'selected' : ''}>Both</option>
+                        </select>
+                    </label>
                     <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap; cursor:pointer;" title="Show this badge directly in the roster card instead of in the popup">
                         <input type="checkbox" class="badge-editor-inline" ${badge.inlineInRoster ? 'checked' : ''}
                             style="width:14px; height:14px; cursor:pointer;">
                         inline
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap; cursor:pointer;" title="Hide this badge from the award lists">
+                        <input type="checkbox" class="badge-editor-hidden" ${badge.hidden ? 'checked' : ''}
+                            style="width:14px; height:14px; cursor:pointer;">
+                        hidden
                     </label>
                     <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#555; white-space:nowrap; cursor:pointer;" title="Automatically strike through this student when the badge is awarded">
                         <input type="checkbox" class="badge-editor-strike" ${badge.strikeOnAward ? 'checked' : ''}
@@ -2820,7 +2853,7 @@
     }
 
     function addBadgeDefinitionRow() {
-        badgeDefinitions.push({ icon: '🏅', label: 'New Badge', tone: 'positive', meaning: '' });
+        badgeDefinitions.push({ icon: '🏅', label: 'New Badge', tone: 'positive', meaning: '', scope: 'individual', hidden: false });
         renderEditBadgesModal();
     }
 
@@ -2842,6 +2875,8 @@
             const isBuiltin = row.dataset.builtin === 'true';
             const tone = isBuiltin ? row.dataset.tone : (row.querySelector('.badge-editor-tone')?.value || 'positive');
             const inlineInRoster = isBuiltin ? true : (row.querySelector('.badge-editor-inline')?.checked || false);
+            const scope = normalizeBadgeScope(row.querySelector('.badge-editor-scope')?.value || 'individual');
+            const hidden = row.querySelector('.badge-editor-hidden')?.checked || false;
             const strikeOnAward = row.querySelector('.badge-editor-strike')?.checked || false;
             return {
                 icon: row.querySelector('.badge-editor-icon')?.value || '',
@@ -2850,6 +2885,8 @@
                 meaning: row.querySelector('.badge-editor-meaning')?.value || '',
                 coefficient: parseFloat(row.querySelector('.badge-editor-coeff')?.value ?? 1),
                 inlineInRoster,
+                scope,
+                hidden,
                 strikeOnAward,
                 ...(isBuiltin ? { isBuiltin: true } : {})
             };
@@ -4853,14 +4890,14 @@ function setStudentRole(studentOrId, role) {
         </div>
     </div>
     <div class="roster-controls">
-        <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent || !buildBadgePopupButtons(student.id) ? 'style="display:none"' : ''}>★</button>
-        <div class="badge-popup" id="badge-popup-${student.id}">
-            ${buildBadgePopupButtons(student.id)}
+        <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent || !buildBadgePopupButtons(student.id, 'individual') ? 'style="display:none"' : ''}>★</button>
+        <div class="badge-popup" id="${_badgePopupElementId(student.id, 'individual')}">
+            ${buildBadgePopupButtons(student.id, 'individual')}
         </div>
-        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
+        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'positive') : ''}
         <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
         <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
-        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
+        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'negative') : ''}
     </div>
 `;
         listEl.appendChild(li);
@@ -4873,6 +4910,9 @@ function setStudentRole(studentOrId, role) {
             if (renderedTeamIds.has(tid)) continue;
             const teamColor = teamColors[(tid - 1) % teamColors.length];
             const customName = (teamColor && teamColor.customName) ? teamColor.customName : `${tid}. ${teamColor.name} Team`;
+            const teamBadgePopup = buildBadgePopupButtons(tid, 'team');
+            const teamBadgeInlinePositive = buildBadgeInlineButtons(tid, 'team', 'positive');
+            const teamBadgeInlineNegative = buildBadgeInlineButtons(tid, 'team', 'negative');
             const divider = document.createElement('li');
             divider.style = `grid-column: 1 / -1; background: ${teamColor.hex}; padding: 8px; font-weight: bold; border-radius: 5px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;`;
             divider.setAttribute('draggable', 'true');
@@ -4893,8 +4933,11 @@ function setStudentRole(studentOrId, role) {
                     </span>
                 </div>
                 <div class="roster-controls">
+                    ${teamBadgePopup ? `<button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${tid}, 'team')" title="Award a team badge">★</button><div class="badge-popup" id="${_badgePopupElementId(tid, 'team')}">${teamBadgePopup}</div>` : ''}
+                    ${teamBadgeInlinePositive}
                     <button class="btn-mini btn-plus" onclick="modTeam(${tid}, 'p', 1)" title="Team plus">T+</button>
                     <button class="btn-mini btn-minus" onclick="modTeam(${tid}, 'm', 1)" title="Team minus">T-</button>
+                    ${teamBadgeInlineNegative}
                 </div>
             `;
             divider.addEventListener('dragover', dragOver);
@@ -8169,18 +8212,43 @@ document.getElementById('timer-test-beep').addEventListener('click', () => { tes
 // BADGES SYSTEM
 // ============================================================
 
-let _openBadgePopupId = null;
+let _openBadgePopupKey = null;
 
-function buildBadgePopupButtons(studentId) {
+function _badgePopupKey(targetId, targetType = 'individual') {
+    return `${targetType}:${targetId}`;
+}
+
+function _badgePopupElementId(targetId, targetType = 'individual') {
+    return `badge-popup-${targetType}-${targetId}`;
+}
+
+function _badgeAppliesToTarget(badge, targetType) {
+    const scope = normalizeBadgeScope(badge?.scope);
+    return scope === 'both' || scope === targetType;
+}
+
+function _closeBadgePopupByKey(key) {
+    if (!key) return;
+    const [targetType, targetId] = key.split(':');
+    const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
+    if (popup) popup.classList.remove('open');
+}
+
+function _getTeamLabel(teamId) {
+    const teamColor = teamColors[(teamId - 1) % teamColors.length];
+    return (teamColor && teamColor.customName) ? teamColor.customName : `${teamId}. ${teamColor ? teamColor.name : 'Team'} Team`;
+}
+
+function buildBadgePopupButtons(targetId, targetType = 'individual') {
     const defs = (badgeDefinitions && badgeDefinitions.length ? badgeDefinitions : DEFAULT_BADGE_DEFINITIONS)
-        .filter(badge => !badge.isBuiltin && !badge.inlineInRoster);
+        .filter(badge => !badge.hidden && !badge.isBuiltin && !badge.inlineInRoster && _badgeAppliesToTarget(badge, targetType));
 
     const renderButton = (badge) => {
         const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
         const toneStyles = badge.tone === 'negative'
             ? 'background:#fff7f7; border-color:#e9b9b9; color:#8a1c1c;'
             : 'background:#f7fff7; border-color:#b7e0b7; color:#0c5c2a;';
-        return `<button onclick='awardBadge(${studentId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
+        return `<button onclick='awardBadge(${targetId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, ${JSON.stringify(targetType)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
     };
 
     const positive = defs.filter(badge => badge.tone !== 'negative').map(renderButton).join('');
@@ -8190,32 +8258,32 @@ function buildBadgePopupButtons(studentId) {
     return positive || negative || '';
 }
 
-function buildBadgeInlineButtons(studentId, tone) {
+function buildBadgeInlineButtons(targetId, targetType, tone) {
     const defs = (badgeDefinitions && badgeDefinitions.length ? badgeDefinitions : DEFAULT_BADGE_DEFINITIONS)
-        .filter(badge => !badge.isBuiltin && badge.inlineInRoster && badge.tone === tone);
+        .filter(badge => !badge.hidden && !badge.isBuiltin && badge.inlineInRoster && badge.tone === tone && _badgeAppliesToTarget(badge, targetType));
 
     const renderButton = (badge) => {
         const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
         const toneStyles = badge.tone === 'negative'
             ? 'background:#fff7f7; border-color:#e9b9b9; color:#8a1c1c;'
             : 'background:#f7fff7; border-color:#b7e0b7; color:#0c5c2a;';
-        return `<button class="btn-mini btn-badge-inline" onclick='awardBadge(${studentId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
+        return `<button class="btn-mini btn-badge-inline" onclick='awardBadge(${targetId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, ${JSON.stringify(targetType)})' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
     };
 
     return defs.map(renderButton).join('');
 }
 
-function toggleBadgePopup(event, studentId) {
+function toggleBadgePopup(event, targetId, targetType = 'individual') {
     event.stopPropagation();
+    const popupKey = _badgePopupKey(targetId, targetType);
     // Close any already-open popup
-    if (_openBadgePopupId && _openBadgePopupId !== studentId) {
-        const prev = document.getElementById('badge-popup-' + _openBadgePopupId);
-        if (prev) prev.classList.remove('open');
+    if (_openBadgePopupKey && _openBadgePopupKey !== popupKey) {
+        _closeBadgePopupByKey(_openBadgePopupKey);
     }
-    const popup = document.getElementById('badge-popup-' + studentId);
+    const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
     if (!popup) return;
     const isOpen = popup.classList.toggle('open');
-    _openBadgePopupId = isOpen ? studentId : null;
+    _openBadgePopupKey = isOpen ? popupKey : null;
 
     if (isOpen) {
         // Position popup above the ★ button using fixed viewport coords
@@ -8246,10 +8314,9 @@ function toggleBadgePopup(event, studentId) {
 
 // Close badge popups when clicking elsewhere
 document.addEventListener('click', () => {
-    if (_openBadgePopupId) {
-        const popup = document.getElementById('badge-popup-' + _openBadgePopupId);
-        if (popup) popup.classList.remove('open');
-        _openBadgePopupId = null;
+    if (_openBadgePopupKey) {
+        _closeBadgePopupByKey(_openBadgePopupKey);
+        _openBadgePopupKey = null;
     }
 
     const rosterMenu = document.getElementById('roster-context-menu');
@@ -8264,37 +8331,42 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeRosterContextMenu(); closeStudentStatsPopup(); closeStudentGradesPopup(); }
 });
 
-function awardBadge(studentId, icon, label, tone = 'positive', meaning = '') {
+function awardBadge(targetId, icon, label, tone = 'positive', meaning = '', targetType = 'individual') {
     const group = studentGroups[selectedGroupName];
-    const student = group.find(s => s.id === studentId);
-    if (!student) return;
-    if (!student.badges) student.badges = [];
-    student.badges.push({ icon, label, tone, meaning });
+    const targetStudents = targetType === 'team'
+        ? (group || []).filter(student => student.teamId === targetId)
+        : [group.find(s => s.id === targetId)];
+    const validStudents = targetStudents.filter(Boolean);
+    if (!validStudents.length) return;
 
-    // Look up badge definition for settings
     const badgeDef = (badgeDefinitions || []).find(d => d.icon === icon && d.label === label);
 
-    // Strike student if configured
-    if (badgeDef?.strikeOnAward) {
-        student.isPicked = true;
-    }
+    validStudents.forEach(student => {
+        if (!student.badges) student.badges = [];
+        student.badges.push({ icon, label, tone, meaning });
 
-    // RV (Renvoi) badge = mark absent and remove from random selector
-    if (icon === 'RV') {
-        student.isAbsent = true;
-        delete student.teamId;
-        delete student.role;
-        student.isPicked = false;
-    }
+        // Strike student if configured
+        if (badgeDef?.strikeOnAward) {
+            student.isPicked = true;
+        }
+
+        // RV (Renvoi) badge = mark absent and remove from random selector
+        if (icon === 'RV') {
+            student.isAbsent = true;
+            delete student.teamId;
+            delete student.role;
+            student.isPicked = false;
+        }
+    });
 
     // Close popup
-    const popup = document.getElementById('badge-popup-' + studentId);
+    const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
     if (popup) popup.classList.remove('open');
-    _openBadgePopupId = null;
+    _openBadgePopupKey = null;
 
     // Flash animation feedback
     showBadgeFlash(icon);
-    logHistory('badge', student.name, icon + ' ' + label);
+    logHistory('badge', targetType === 'team' ? _getTeamLabel(targetId) : validStudents[0].name, icon + ' ' + label);
 
     renderRoster();
     renderRanking();
@@ -13799,12 +13871,12 @@ function renderRosterPlanView() {
                         <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
                     </div>
                     <div class="rpc-controls">
-                        <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
-                        <div class="badge-popup" id="badge-popup-${student.id}">${buildBadgePopupButtons(student.id)}</div>
-                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
+                        <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
+                        <div class="badge-popup" id="${_badgePopupElementId(student.id, 'individual')}">${buildBadgePopupButtons(student.id, 'individual')}</div>
+                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'positive') : ''}
                         <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
                         <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
-                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
+                        ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'negative') : ''}
                         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'Notes — click to edit' : 'No notes — click to add'}">●</span>
                     </div>
                 `;
@@ -13879,12 +13951,12 @@ function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
             <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
         </div>
         <div class="rpc-controls">
-            <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id})" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
-            <div class="badge-popup" id="badge-popup-${student.id}">${buildBadgePopupButtons(student.id)}</div>
-            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'positive') : ''}
+            <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
+            <div class="badge-popup" id="${_badgePopupElementId(student.id, 'individual')}">${buildBadgePopupButtons(student.id, 'individual')}</div>
+            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'positive') : ''}
             <button class="btn-mini btn-plus" onclick="mod(${student.id}, 'p', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>+</button>
             <button class="btn-mini btn-minus" onclick="mod(${student.id}, 'm', 1)" ${student.isAbsent ? 'style="display:none"' : ''}>-</button>
-            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'negative') : ''}
+            ${!student.isAbsent ? buildBadgeInlineButtons(student.id, 'individual', 'negative') : ''}
             <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'Notes — click to edit' : 'No notes — click to add'}">●</span>
         </div>`;
     listEl.appendChild(li);
@@ -14328,9 +14400,9 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
           groupNames,
           groupLabels,
           groups: {},
-          badgeDefinitions: (badgeDefinitions || []).map(function (b) {
-            return { icon: b.icon, label: b.label, tone: b.tone, isBuiltin: !!b.isBuiltin };
-          })
+            badgeDefinitions: (badgeDefinitions || []).map(function (b) {
+                return { ...b };
+            })
         };
         groupNames.forEach(function (gName) {
           statePayload.groups[gName] = (studentGroups[gName] || []).map(function (s) {

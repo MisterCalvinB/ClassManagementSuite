@@ -360,7 +360,7 @@ Week-by-week planning tool for lessons, tests, assignments, and holidays. Data i
 - Each class gets a **colour** for the week view, is assigned to **Term 1**, **Term 2**, or both, and can have a **weekly schedule** (which days and times it meets) and **learning objectives** for the term.
 - The class list is drawn from `class-groups.js` — add groups in Group Editor first.
 - Use the class filter chips in the toolbar to focus the agenda. The **Unassigned** chip toggles entries that are not assigned to any class.
-- In table view, class columns use class titles (not internal IDs).
+- In table view, the planner renders one table per week using an absolute-time grid (60-minute steps). The first column shows clock times, weekday columns show entries positioned by start time, and each entry block height reflects its real duration; overlaps are split side-by-side.
 - Right-click any entry, or open it in the entry modal, to create or open its linked board file in `user/mindmaps`.
 
 ### Entries
