@@ -672,6 +672,13 @@
                 </script>
             </div>
         </div>
+
+        <div id="team-modal-actions" style="display:none; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cfcfcf;">
+            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                <button id="team-modal-reshuffle-btn" class="team-sel-btn" style="min-width:150px;" onclick="closeTeamModal(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
+                <button id="team-modal-reset-btn" class="team-sel-btn" style="min-width:150px;" onclick="closeTeamModal(); clearTeams()" data-i18n="btn_clear_teams">Clear teams</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -3859,6 +3866,8 @@ function reshuffleTeams() {
         showToast("Please select a group first!");
         return;
     }
+    const actionWrap = document.getElementById('team-modal-actions');
+    if (actionWrap) actionWrap.style.display = currentTeamsActive ? 'block' : 'none';
     document.getElementById('team-modal').style.display = 'flex';
     // legacy inputs removed; grid buttons handle creation directly
 }

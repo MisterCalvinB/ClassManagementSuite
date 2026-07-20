@@ -617,14 +617,14 @@
     <button class="sm-action-btn primary" onclick="printSchedule()" data-i18n="smBtnPrint">Print</button>
     <button class="sm-action-btn" onclick="exportCsv()" data-i18n="smBtnCsv">Export CSV</button>
     <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
-    <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnLoad">Load</button>
+    <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
   </div>
 </div>
 
 <!-- ── Load modal ── -->
 <div id="sm-load-modal" class="sm-modal-overlay" onclick="closeLoadModal(event)">
   <div class="sm-modal-box" onclick="event.stopPropagation()">
-    <div class="sm-modal-title" data-i18n="smLoadTitle">Load Saved Schedule</div>
+    <div class="sm-modal-title" data-i18n="smSavedSchedulesTitle">Saved Schedules</div>
     <div id="sm-modal-list" class="sm-modal-list">
       <div class="sm-modal-empty" data-i18n="smNoSaved">No saved schedules found.</div>
     </div>
@@ -636,6 +636,7 @@
   const GROUPS_FILE_TARGET = 'user';
   const GROUPS_FILE_NAME = 'class-groups.js';
   const SCHEDULE_DIR    = 'schedules/';
+  const SCHEDULE_ARCHIVE_DIR = 'schedules/archived/';
   const SCHEDULE_PREFIX = 'schedule-';
   const SCHEDULE_TARGET = 'user';
 
@@ -670,6 +671,23 @@
   function timeToMinutes(str) {
     const [h, m] = (str || '08:00').split(':').map(Number);
     return (h || 0) * 60 + (m || 0);
+  }
+
+  function smBuildDefaultSaveName() {
+    const title = (document.getElementById('sm-exam-title').value || '').trim();
+    const group = (document.getElementById('sm-group').value || '').trim();
+    const date = (document.getElementById('sm-date').value || '').trim();
+    const bits = [title, group, date].filter(Boolean);
+    return bits.length ? bits.join(' - ') : 'schedule';
+  }
+
+  function smSanitizeFilenamePart(raw) {
+    return String(raw || '')
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/^\.+/, '')
+      .trim();
   }
 
   // ── Shuffle ──────────────────────────────────────────────
@@ -727,6 +745,16 @@
     populateGroupSelect();
   }
 
+  function smResolveGroupUuid(groupTitle) {
+    const smGroupKeys = Object.keys(classGroupsMeta).length ? Object.keys(classGroupsMeta) : Object.keys(classGroups);
+    for (const g of smGroupKeys) {
+      const meta = classGroupsMeta[g] || {};
+      const label = meta.name || g;
+      if (label === groupTitle) return g;
+    }
+    return null;
+  }
+
   function populateGroupSelect() {
     const sel = document.getElementById('sm-group');
     const prev = sel.value;
@@ -746,9 +774,9 @@
       })
       .forEach(g => {
         const opt = document.createElement('option');
-        opt.value = g;
         const meta = classGroupsMeta[g] || {};
         const label = meta.name || g;
+        opt.value = label;
         opt.textContent = label + (meta.year ? ' (' + meta.year + ')' : '');
         sel.appendChild(opt);
       });
@@ -759,11 +787,12 @@
     if (semSel && !semSel.value && _activeSemSM) semSel.value = _activeSemSM;
   }
 
-  function smOnGroupChange(groupName) {
+  function smOnGroupChange(groupTitle) {
     const halfField = document.getElementById('sm-half-field');
     const halfSel = document.getElementById('sm-half');
     if (!halfField || !halfSel) return;
-    const meta = classGroupsMeta[groupName];
+    const groupUuid = smResolveGroupUuid(groupTitle);
+    const meta = groupUuid ? classGroupsMeta[groupUuid] : null;
     const hasHalves = meta && meta.halfGroups &&
       ((meta.halfGroups.A && meta.halfGroups.A.length) || (meta.halfGroups.B && meta.halfGroups.B.length));
     halfField.style.display = hasHalves ? '' : 'none';
@@ -772,18 +801,19 @@
 
   // ── Apply config ─────────────────────────────────────────
   function applyConfig() {
-    const groupName = document.getElementById('sm-group').value;
-    if (!groupName) {
+    const groupTitle = document.getElementById('sm-group').value;
+    if (!groupTitle) {
       showNotice(typeof t === 'function' ? t('smNoGroup') : 'Select a group.', true);
       return;
     }
 
-    const meta = classGroupsMeta[groupName];
+    const groupUuid = smResolveGroupUuid(groupTitle);
+    const meta = groupUuid ? classGroupsMeta[groupUuid] : null;
     const halfVal = (document.getElementById('sm-half') || {}).value || '';
 
     let rawStudents = (meta && Array.isArray(meta.students) && meta.students.length > 0)
       ? meta.students
-      : (classGroups[groupName] || []);
+      : (classGroups[groupUuid] || []);
 
     // Apply half-group filter on raw UUID/name list before resolving
     if (halfVal && meta && meta.halfGroups && meta.halfGroups[halfVal] && meta.halfGroups[halfVal].length) {
@@ -1290,6 +1320,7 @@
       for (let i = 0; i < sel.options.length; i++) {
         if (sel.options[i].value === obj.group) { sel.selectedIndex = i; break; }
       }
+      smOnGroupChange(obj.group);
     }
     const semSel = document.getElementById('sm-semester');
     if (semSel) semSel.value = obj.semester ? String(obj.semester) : '';
@@ -1309,13 +1340,33 @@
       showNotice('Nothing to save.', true);
       return;
     }
+
+    const promptLabel = typeof t === 'function' ? t('smSaveFilename') : 'Save as';
+    const requestedName = typeof showPrompt === 'function'
+      ? await showPrompt(promptLabel, smBuildDefaultSaveName())
+      : window.prompt(promptLabel, smBuildDefaultSaveName());
+    if (requestedName === null) return;
+
+    const safeName = smSanitizeFilenamePart(requestedName);
+    if (!safeName) {
+      showNotice(typeof t === 'function' ? t('smSaveNameRequired') : 'Please enter a schedule name.', true);
+      return;
+    }
+
     const obj = buildScheduleObject();
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const stamp = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes());
-    const filename = SCHEDULE_PREFIX + stamp + '.js';
+    const filename = SCHEDULE_PREFIX + safeName + '.js';
     const content = '/* Schedule Maker – Class Management Tools */\nvar SCHEDULE_DATA = ' + JSON.stringify(obj, null, 2) + ';\n';
     try {
+      if (typeof Desktop.statByPath === 'function') {
+        const existing = await Desktop.statByPath(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
+        if (existing && existing.exists) {
+          const overwriteMsg = typeof t === 'function' ? t('smOverwriteConfirm') : 'Overwrite "{name}"?';
+          const confirmed = typeof showConfirm === 'function'
+            ? await showConfirm(overwriteMsg.replace('{name}', safeName))
+            : window.confirm(overwriteMsg.replace('{name}', safeName));
+          if (!confirmed) return;
+        }
+      }
       const res = await Desktop.saveText(SCHEDULE_TARGET, filename, content, 'schedules');
       if (res && res.ok) {
         showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
@@ -1357,14 +1408,46 @@
         const fname = f.filename;
         const item = document.createElement('div');
         item.className = 'sm-modal-item';
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+        row.style.justifyContent = 'space-between';
+        row.style.width = '100%';
+
+        const textWrap = document.createElement('div');
+        textWrap.style.minWidth = '0';
+
         const nameEl = document.createElement('div');
         nameEl.className = 'sm-modal-item-name';
         nameEl.textContent = fname.replace(SCHEDULE_PREFIX, '').replace('.js', '');
         const metaEl = document.createElement('div');
         metaEl.className = 'sm-modal-item-meta';
         if (f.size !== undefined) metaEl.textContent = Math.ceil(f.size / 1024) + ' KB';
-        item.appendChild(nameEl);
-        item.appendChild(metaEl);
+        textWrap.appendChild(nameEl);
+        textWrap.appendChild(metaEl);
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.alignItems = 'center';
+        actions.style.gap = '8px';
+        actions.style.flexShrink = '0';
+
+        const archiveBtn = document.createElement('button');
+        archiveBtn.type = 'button';
+        archiveBtn.className = 'sm-modal-close-btn';
+        archiveBtn.style.padding = '5px 10px';
+        archiveBtn.textContent = typeof t === 'function' ? t('smArchiveBtn') : 'Archive';
+        archiveBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await archiveScheduleFile(fname);
+        };
+
+        actions.appendChild(archiveBtn);
+
+        row.appendChild(textWrap);
+        row.appendChild(actions);
+        item.appendChild(row);
         item.onclick = () => loadScheduleFile(fname);
         list.appendChild(item);
       });
@@ -1384,6 +1467,32 @@
       applyScheduleObject(obj);
     } catch (e) {
       showNotice((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message, true);
+    }
+  }
+
+  async function archiveScheduleFile(filename) {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Archive requires the Electron app.', true);
+      return;
+    }
+
+    const confirmText = typeof t === 'function' ? t('smArchiveConfirm') : 'Archive this schedule? It will be moved out of the active list.';
+    if (!window.confirm(confirmText.replace('{name}', filename.replace(SCHEDULE_PREFIX, '').replace('.js', '')))) {
+      return;
+    }
+
+    try {
+      if (typeof Desktop.createDirectoryByPath === 'function') {
+        await Desktop.createDirectoryByPath(SCHEDULE_TARGET, SCHEDULE_ARCHIVE_DIR);
+      }
+      const result = await Desktop.moveByPath(SCHEDULE_TARGET, SCHEDULE_DIR + filename, SCHEDULE_TARGET, SCHEDULE_ARCHIVE_DIR + filename, { replace: false });
+      if (!result || result.ok === false) {
+        throw new Error((result && result.error) || 'unknown error');
+      }
+      showNotice((typeof t === 'function' ? t('smArchived') : 'Schedule archived.') + ' ' + filename.replace(SCHEDULE_PREFIX, '').replace('.js', ''));
+      await openLoadModal();
+    } catch (e) {
+      showNotice((typeof t === 'function' ? t('smArchiveFailed') : 'Archive failed:') + ' ' + e.message, true);
     }
   }
 

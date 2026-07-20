@@ -46,7 +46,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | `import-tool.html` | Bulk-import students and class groups from CSV, XLSX, or JSON with automatic column mapping and conflict resolution |
 | `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and HTML table export |
 | `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
-| `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing and SEN accommodations |
+| `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, named saves, and a saved schedules browser with archive support |
 | `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
 | `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
 | `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
@@ -368,6 +368,7 @@ Week-by-week planning tool for lessons, tests, assignments, and holidays. Data i
 Each entry has a type (Lesson, Test, Assignment Due, Holiday, or custom) and belongs to a class and date. Optional fields: Topic, Objective, Readings, Activities, Homework, Notes.
 
 - **Test entries linked to Grade Sheet** — if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically recorded there.
+- **No Class for multiple classes** — when you set an entry to **No Class** with multiple classes selected, Planner updates matching existing entries at that same date/time and also applies to matching class lesson slots from the weekly schedule. If a matching slot has no entry yet, Planner creates a no-class entry for that slot.
 - **Duplicate** — copy an entry to another date.
 
 ### Reminders
@@ -431,7 +432,7 @@ Plans created here are visible in `class-management.html`'s Class Plans manager 
 
 ## schedule-maker.html
 
-Plans oral exam sessions where one student prepares while another presents, accounting for SEN accommodation time and breaks.
+Plans oral exam sessions where one student prepares while another presents, accounting for SEN accommodation time, breaks, named saves, and a saved schedules browser with archive support.
 
 ### Configuration
 | Field | Purpose |
@@ -575,7 +576,7 @@ The main panel shows every student in the active class.
 ### Teams & Roles
 
 - **Create Teams**: split the roster into N teams, or into groups of N students. Teams are colour-coded.
-- **Reshuffle / Clear** teams at any time.
+- In **Team Maker**, use **Reshuffle Teams** to re-randomise current teams or **Clear Teams** to reset team assignments.
 - **Random Picker**: drumroll animation selects a random student or team, finishing with a gavel sound.
 - **Roles**: assign custom role titles (Speaker, Reporter, etc.) to individuals or by random rank; students can read their role description on the Presentation window.
 

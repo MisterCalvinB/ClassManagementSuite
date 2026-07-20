@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -4555,6 +4555,95 @@
 
       var scope = _editingRecurScope;
       _editingRecurScope = null;
+
+      // Multi-class "No Class": update matching entries and fill matching schedule slots.
+      if (!editingId && !scope && !recurRule && newType === 'no-class' && classIds.length > 1) {
+        var dateToVal = document.getElementById('e-date-to').value || '';
+        var targetDateTo = (dateToVal && dateToVal > date) ? dateToVal : date;
+        var targetDates = [];
+        var td = new Date(date + 'T12:00:00');
+        var tdEnd = new Date(targetDateTo + 'T12:00:00');
+        while (td <= tdEnd) {
+          targetDates.push(td.toISOString().slice(0, 10));
+          td.setDate(td.getDate() + 1);
+        }
+        var targetTime = document.getElementById('e-time').value || '';
+        var targetTimeEnd = document.getElementById('e-time-end').value || '';
+        var hasTimeFilter = !!(targetTime || targetTimeEnd);
+        var updatedAny = false;
+
+        entries = entries.map(function (e) {
+          var cids = entryClassIds(e);
+          if (!cids.length) return e;
+
+          var hasClassMatch = cids.some(function (cid) { return classIds.indexOf(cid) >= 0; });
+          if (!hasClassMatch) return e;
+
+          var dates = expandEntryDates(e);
+          var hasDateMatch = targetDates.some(function (ds) { return dates.indexOf(ds) >= 0; });
+          if (!hasDateMatch) return e;
+
+          if (hasTimeFilter) {
+            if ((e.time || '') !== targetTime) return e;
+            if ((e.timeEnd || '') !== targetTimeEnd) return e;
+          }
+
+          updatedAny = true;
+          return Object.assign({}, e, { type: 'no-class' });
+        });
+
+        // Also apply to matching scheduled class lesson slots across the target date range.
+        targetDates.forEach(function (targetDate) {
+          var targetDow = new Date(targetDate + 'T12:00:00').getDay();
+          classIds.forEach(function (cid) {
+            var sched = (cfg.classes[cid] || {}).schedule || [];
+            var matchingSlots = sched.filter(function (s) {
+              if (parseInt(s.day, 10) !== targetDow) return false;
+              if (!hasTimeFilter) return true;
+              return (s.time || '') === targetTime && (s.timeEnd || '') === targetTimeEnd;
+            });
+            if (!matchingSlots.length) return;
+
+            matchingSlots.forEach(function (slot) {
+              var slotTime = slot.time || '';
+              var slotTimeEnd = slot.timeEnd || '';
+              var hasCoveringEntry = entries.some(function (e) {
+                var cids = entryClassIds(e);
+                if (cids.indexOf(cid) < 0) return false;
+                var dates = expandEntryDates(e);
+                if (dates.indexOf(targetDate) < 0) return false;
+                return (e.time || '') === slotTime && (e.timeEnd || '') === slotTimeEnd;
+              });
+              if (hasCoveringEntry) return;
+
+              entries.push({
+                id: uid(),
+                classId: cid,
+                date: targetDate,
+                time: slotTime,
+                timeEnd: slotTimeEnd,
+                type: 'no-class',
+                topic: '',
+                objective: '',
+                notes: '',
+                customFields: undefined,
+                gsLink: null
+              });
+              updatedAny = true;
+            });
+          });
+        });
+
+        if (!updatedAny) {
+          showToast(t('pl_noEntries'));
+          return;
+        }
+
+        persistEntries();
+        closeModal('entryModal');
+        render();
+        return;
+      }
 
       if (recurRule) {
         // ── Recurring save ────────────────────────────────────────────────────────
