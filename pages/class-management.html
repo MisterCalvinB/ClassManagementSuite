@@ -4801,12 +4801,26 @@ function setStudentRole(studentOrId, role) {
             const teamMembers = students.filter(s => s.teamId === student.teamId);
             const totalTeamScore = teamMembers.reduce((acc, s) => acc + (((s.pluses || 0) + (s.teamPluses || 0)) - ((s.minuses || 0) + (s.teamMinuses || 0))), 0);
             const avgScore = (totalTeamScore / teamMembers.length).toFixed(1);
+            const teamBadgeMap = {};
+            teamMembers.forEach(function(member) {
+                (member.badges || []).forEach(function(b) {
+                    if (_badgeScopeForBadge(b) === 'individual') return;
+                    if (!teamBadgeMap[b.icon]) teamBadgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
+                    teamBadgeMap[b.icon].count++;
+                });
+            });
+            const teamBadgeSpans = Object.values(teamBadgeMap).map(function(b) {
+                const sup = b.count > 1 ? '<sup>' + b.count + '</sup>' : '';
+                const toneClass = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
+                return '<span class="earned-badge-chip' + toneClass + '" title="Team badge: ' + b.label + '">' + b.icon + sup + '</span>';
+            }).join('');
+            const teamBadgeButtons = buildTeamBadgeButtons(student.teamId);
 
             // Fetch custom name or use default
             const customName = teamColor.customName || `${student.teamId}. ${teamColor.name} Team`;
 
             const divider = document.createElement('li');
-            divider.style = `grid-column: 1 / -1; background: ${teamColor.hex}; padding: 8px; font-weight: bold; border-radius: 5px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;`;
+            divider.style = `grid-column: 1 / -1; background: ${teamColor.hex}; padding: 8px; font-weight: bold; border-radius: 5px 5px 0 0; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;`;
 			
 			divider.setAttribute('draggable', 'true'); // Make the header draggable
 				divider.setAttribute('data-team-id', student.teamId);
@@ -4835,6 +4849,8 @@ function setStudentRole(studentOrId, role) {
                 <div class="roster-controls">
                     <button class="btn-mini btn-plus" onclick="modTeam(${student.teamId}, 'p', 1)" title="Team plus">T+</button>
                     <button class="btn-mini btn-minus" onclick="modTeam(${student.teamId}, 'm', 1)" title="Team minus">T-</button>
+                    ${teamBadgeButtons}
+                    ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
                 </div>
             `;
             
@@ -4881,6 +4897,18 @@ function setStudentRole(studentOrId, role) {
             return '<span class="earned-badge-chip' + toneClass + '" onclick="removeBadge(' + student.id + ',\'' + b.icon + '\')" title="Click to remove one ' + b.label + '">' + b.icon + sup + '</span>';
         }).join('');
 
+        const teamBadgeMap = {};
+        (student.badges || []).forEach(function(b) {
+            if (_badgeScopeForBadge(b) === 'individual') return;
+            if (!teamBadgeMap[b.icon]) teamBadgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
+            teamBadgeMap[b.icon].count++;
+        });
+        const teamBadgeSpans = Object.values(teamBadgeMap).map(function(b) {
+            const sup = b.count > 1 ? '<sup>' + b.count + '</sup>' : '';
+            const toneClass = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
+            return '<span class="earned-badge-chip' + toneClass + '" onclick="removeBadge(' + student.id + ',\'' + b.icon + '\')" title="Click to remove one ' + b.label + '">' + b.icon + sup + '</span>';
+        }).join('');
+
         const hasNotes = student.comments && student.comments.length > 0;
 
         li.innerHTML = `
@@ -4894,8 +4922,9 @@ function setStudentRole(studentOrId, role) {
             <span class="student-badges-earned">${badgeSpans}</span>
             <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
             <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
-            <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
+            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId}, 'p', -1)"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
+            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId}, 'm', -1)"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
     </div>
     <div class="roster-controls">
@@ -4922,6 +4951,7 @@ function setStudentRole(studentOrId, role) {
             const teamBadgePopup = buildBadgePopupButtons(tid, 'team');
             const teamBadgeInlinePositive = buildBadgeInlineButtons(tid, 'team', 'positive');
             const teamBadgeInlineNegative = buildBadgeInlineButtons(tid, 'team', 'negative');
+            const teamBadgeButtons = buildTeamBadgeButtons(tid);
             const divider = document.createElement('li');
             divider.style = `grid-column: 1 / -1; background: ${teamColor.hex}; padding: 8px; font-weight: bold; border-radius: 5px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center;`;
             divider.setAttribute('draggable', 'true');
@@ -4942,6 +4972,7 @@ function setStudentRole(studentOrId, role) {
                     </span>
                 </div>
                 <div class="roster-controls">
+                    ${teamBadgeButtons}
                     ${teamBadgePopup ? `<button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${tid}, 'team')" title="Award a team badge">★</button><div class="badge-popup" id="${_badgePopupElementId(tid, 'team')}">${teamBadgePopup}</div>` : ''}
                     ${teamBadgeInlinePositive}
                     <button class="btn-mini btn-plus" onclick="modTeam(${tid}, 'p', 1)" title="Team plus">T+</button>
@@ -5657,7 +5688,10 @@ function modTeam(teamId, type, val) {
         showScoreFlash(type === 'p' ? 'T+1' : 'T−1', type === 'p' ? '#2563eb' : '#dc2626');
     }
 
-    const tColor = teamColors[(teamId - 1) % teamColors.length];
+    const teamIndex = Number(teamId) - 1;
+    if (!Number.isInteger(teamIndex) || teamIndex < 0) return;
+    const tColor = teamColors[teamIndex];
+    if (!tColor) return;
     const tName = tColor.customName || tColor.name + ' Team';
     logHistory(type === 'p' ? 'team-plus' : 'team-minus', tName, (type === 'p' ? 't+1' : 't-1') + ' to whole team');
 
@@ -8236,6 +8270,11 @@ function _badgeAppliesToTarget(badge, targetType) {
     return scope === 'both' || scope === targetType;
 }
 
+function _badgeScopeForBadge(badge) {
+    const def = (badgeDefinitions || []).find(entry => entry.icon === badge?.icon && entry.label === badge?.label);
+    return normalizeBadgeScope(def?.scope || badge?.scope || 'individual');
+}
+
 function _closeBadgePopupByKey(key) {
     if (!key) return;
     const [targetType, targetId] = key.split(':');
@@ -8265,6 +8304,21 @@ function buildBadgePopupButtons(targetId, targetType = 'individual') {
 
     if (positive && negative) return `${positive}<div class="badge-popup-divider"></div>${negative}`;
     return positive || negative || '';
+}
+
+function buildTeamBadgeButtons(teamId) {
+    const defs = (badgeDefinitions && badgeDefinitions.length ? badgeDefinitions : DEFAULT_BADGE_DEFINITIONS)
+        .filter(badge => !badge.hidden && !badge.isBuiltin && _badgeAppliesToTarget(badge, 'team'));
+
+    const renderButton = (badge) => {
+        const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
+        const toneStyles = badge.tone === 'negative'
+            ? 'background:#fff7f7; border-color:#e9b9b9; color:#8a1c1c;'
+            : 'background:#f7fff7; border-color:#b7e0b7; color:#0c5c2a;';
+        return `<button class="btn-mini btn-badge-inline" onclick='awardBadge(${teamId}, ${JSON.stringify(badge.icon)}, ${JSON.stringify(badge.label)}, ${JSON.stringify(badge.tone)}, ${JSON.stringify(badge.meaning)}, "team")' title="${escapeSettingsHtml(title)}" style="${toneStyles}">${escapeSettingsHtml(badge.icon)}</button>`;
+    };
+
+    return defs.map(renderButton).join('');
 }
 
 function buildBadgeInlineButtons(targetId, targetType, tone) {
@@ -13945,6 +13999,17 @@ function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
         const tc = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
         return `<span class="earned-badge-chip${tc}" onclick="removeBadge(${student.id},'${b.icon}')" title="${b.label}: click to remove">${b.icon}${sup}</span>`;
     }).join('');
+    const teamBadgeMap = {};
+    (student.badges || []).forEach(b => {
+        if (_badgeScopeForBadge(b) === 'individual') return;
+        if (!teamBadgeMap[b.icon]) teamBadgeMap[b.icon] = { icon: b.icon, label: b.label, tone: b.tone || 'positive', count: 0 };
+        teamBadgeMap[b.icon].count++;
+    });
+    const teamBadgeSpans = Object.values(teamBadgeMap).map(b => {
+        const sup = b.count > 1 ? `<sup>${b.count}</sup>` : '';
+        const tc = b.tone === 'negative' ? ' badge-chip-negative' : ' badge-chip-positive';
+        return `<span class="earned-badge-chip${tc}" onclick="removeBadge(${student.id},'${b.icon}')" title="${b.label}: click to remove">${b.icon}${sup}</span>`;
+    }).join('');
     const hasNotes = student.comments && student.comments.length > 0;
     const abbrev = getDisplayName(student);
     li.innerHTML = `
@@ -13956,8 +14021,9 @@ function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
             <span class="student-badges-earned">${badgeSpans}</span>
             <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
             <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
-            <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
+            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId}, 'p', -1)"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
+            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId}, 'm', -1)"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
         <div class="rpc-controls">
             <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
