@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -4922,8 +4922,8 @@ function setStudentRole(studentOrId, role) {
             <span class="student-badges-earned">${badgeSpans}</span>
             <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
             <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId}, 'p', -1)"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
-            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId}, 'm', -1)"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
+            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
             ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
     </div>
@@ -5673,8 +5673,22 @@ function mod(id, type, val) {
 }
 
 // New Function for Team-Wide Scoring
-function modTeam(teamId, type, val) {
+function modTeam(teamId, type, val, studentId) {
     const group = studentGroups[selectedGroupName];
+    
+    if (teamId === null || teamId === undefined || teamId === 'null') {
+        const student = group.find(s => s.id === studentId);
+        if (student) {
+            if (type === 'p') student.teamPluses = Math.max(0, (student.teamPluses || 0) + val);
+            else student.teamMinuses = Math.max(0, (student.teamMinuses || 0) + val);
+            logHistory('remove', student.name, type === 'p' ? 'corrected team +1' : 'corrected team -1');
+        }
+        renderRoster();
+        renderRanking();
+        if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
+        return;
+    }
+    
     const targets = group.filter(s => s.teamId === teamId);
     
     targets.forEach(s => {
@@ -13930,8 +13944,8 @@ function renderRosterPlanView() {
                         <span class="student-badges-earned">${badgeSpans}</span>
                         <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
                         <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-                        <span class="p-team-plus" title="Team pluses">${teamPlusDisplay}</span>
-                        <span class="p-team-minus" title="Team minuses">${teamMinusDisplay}</span>
+                        <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
+                        <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
                     </div>
                     <div class="rpc-controls">
                         <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent ? 'style="display:none"' : ''}>…</button>
@@ -14021,8 +14035,8 @@ function _appendRpcSeatIdCell(listEl, seatId, student, plan) {
             <span class="student-badges-earned">${badgeSpans}</span>
             <span class="p-plus" onclick="mod(${student.id}, 'p', -1)">${plusDisplay}</span>
             <span class="p-minus" onclick="mod(${student.id}, 'm', -1)">${minusDisplay}</span>
-            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId}, 'p', -1)"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
-            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId}, 'm', -1)"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
+            <span class="p-team-plus" ${teamPlusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'p', -1, ${student.id})"` : ''} title="${teamPlusDisplay ? 'Click to remove one team plus' : 'Team pluses'}" style="${teamPlusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamPlusDisplay}</span>
+            <span class="p-team-minus" ${teamMinusDisplay ? `onclick="modTeam(${student.teamId || 'null'}, 'm', -1, ${student.id})"` : ''} title="${teamMinusDisplay ? 'Click to remove one team minus' : 'Team minuses'}" style="${teamMinusDisplay ? 'cursor:pointer;' : 'cursor:default;'}">${teamMinusDisplay}</span>
             ${teamBadgeSpans ? `<span class="team-badges-earned">${teamBadgeSpans}</span>` : ''}
         </div>
         <div class="rpc-controls">

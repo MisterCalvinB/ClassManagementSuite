@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -904,8 +904,37 @@
         .col-toggle-item input[type="checkbox"] { cursor: pointer; width: 13px; height: 13px; flex-shrink: 0; }
         .col-toggle-item.disabled-item { opacity: 0.5; cursor: default; }
         .col-toggle-item.disabled-item:hover { background: none; }
+
+        /* Rules modal custom styles */
+        .rules-table th, .rules-table td {
+            padding: 6px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .rules-table select, .rules-table input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 100%;
+        }
+        .rules-table input[type="number"] {
+            width: 70px;
+        }
+        .btn-rules-delete {
+            background: none;
+            border: none;
+            color: #d62728;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .btn-rules-delete:hover {
+            color: #b71c1c;
+        }
     </style>
 </head>
+
 <body>
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
@@ -954,6 +983,7 @@
                 <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport">📂 Import & Merge</button>
                 <button class="btn-primary btn-icon" id="exportBtn" data-i18n="ptBtnExport">📥 Export CSV</button>
                 <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint">🖨️ Print</button>
+                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives">🎯 Objectives & Grading</button>
                 <button class="btn-danger btn-icon" id="resetAllBtn" data-i18n="ptBtnResetAll">🗑 Reset All Data</button>
             </div>
         </div>
@@ -1116,6 +1146,7 @@
                             <th data-col="badges" data-i18n="ptColBadges">Badges</th>
                             <th data-col="teamRoleEvents" data-i18n="ptColTeamRole">Team/Role Events</th>
                             <th data-col="notes" data-i18n="ptColNotes">Notes</th>
+                            <th data-col="provisionalGrade" data-i18n="ptColProvisionalGrade">Prov. Grade</th>
                             <th data-col="net" data-i18n="ptColNet">Net</th>
                             <th data-col="posRatio" data-i18n="ptColPosRatio">+/s</th>
                             <th data-col="negRatio" data-i18n="ptColNegRatio">-/s</th>
@@ -1132,6 +1163,18 @@
             <h2 id="studentDetailTitle" class="hidden" style="margin-top: 30px;" data-i18n="ptStudentDetailTitle">Individual Student Analysis</h2>
             <div id="studentDetailsArea" class="hidden">
                 <div class="student-details" id="studentDetailStats">
+                </div>
+
+                <!-- Individual Student Chart -->
+                <div class="chart-container" style="margin-top: 20px; margin-bottom: 20px; background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                        <h3 style="margin:0; font-size:14px; font-weight:600; color:#444;" data-i18n="ptStudentTrendTitle">Student Performance Trend</h3>
+                        <div style="display:flex; gap:6px;">
+                            <button class="date-preset-btn active" id="btnStudentTrendPoints" onclick="setStudentChartType('points')" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendPoints">Points & Picks</button>
+                            <button class="date-preset-btn" id="btnStudentTrendCumulative" onclick="setStudentChartType('cumulative')" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendCumulative">Cumulative Net Score</button>
+                        </div>
+                    </div>
+                    <canvas id="studentTrendChart" style="width: 100%; height: 220px; display: block;"></canvas>
                 </div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:15px;">
@@ -1163,8 +1206,69 @@
         </div>
     </div>
 
+    <!-- Rules and Grading Modal -->
+    <div id="rulesModal" class="modal">
+        <div class="modal-content" style="max-width: 650px; width: 95%;">
+            <div class="modal-header">
+                <h3 data-i18n="ptRulesModalTitle">Objectives & Automatic Grading Rules</h3>
+                <button class="modal-close" onclick="closeRulesModal()">&times;</button>
+            </div>
+            
+            <div style="margin-bottom: 15px; font-size: 13px; color: #555; line-height: 1.5;">
+                Configure participation objectives. Students who meet the criteria will receive the points defined.
+            </div>
+
+            <!-- Rules list -->
+            <div style="margin-bottom: 20px;">
+                <table class="rules-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                    <thead>
+                        <tr style="background:#f0f0f0;">
+                            <th style="padding:6px; text-align:left;" data-i18n="ptRuleMetric">Metric</th>
+                            <th style="padding:6px; text-align:left;" data-i18n="ptRuleOperator">Condition</th>
+                            <th style="padding:6px; text-align:left;" data-i18n="ptRuleValue">Threshold</th>
+                            <th style="padding:6px; text-align:left;" data-i18n="ptRulePoints">Points</th>
+                            <th style="padding:6px; width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="rulesTableBody">
+                        <!-- Rule rows added dynamically -->
+                    </tbody>
+                </table>
+                <button class="btn-secondary" onclick="addRuleRow()" style="padding:6px 12px; font-size:12px;" data-i18n="ptBtnAddRule">+ Add Rule</button>
+            </div>
+
+            <!-- Grade Scale Config -->
+            <div style="background:#f9f9f9; padding:15px; border-radius:6px; border:1px solid #eee; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; font-size:13px; box-sizing:border-box;">
+                <div>
+                    <label style="display:block; font-weight:600; margin-bottom:6px;" data-i18n="ptMaxGrade">Max Grade</label>
+                    <input type="number" id="rulesMaxGrade" value="20" oninput="updateProvisionalGradesPreview()" style="padding:6px; border:1px solid #ddd; border-radius:4px; width:80px;">
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:20px;">
+                    <input type="checkbox" id="rulesScaleToMax" onchange="updateProvisionalGradesPreview()" style="width:16px; height:16px; cursor:pointer;">
+                    <label for="rulesScaleToMax" style="font-weight:600; cursor:pointer;" data-i18n="ptScaleToMax">Scale score to fit Max Grade</label>
+                </div>
+            </div>
+
+            <!-- Copy list area / results preview -->
+            <div id="provisionalGradesPreviewSection" class="hidden" style="margin-bottom:20px;">
+                <h4 style="font-size:13px; font-weight:600; margin-bottom:8px; color:#333;" data-i18n="ptBtnCalcGrades">Provisional Grades List</h4>
+                <textarea id="provisionalGradesTextarea" readonly style="width:100%; height:100px; font-family:monospace; font-size:12px; padding:8px; border:1px solid #ddd; border-radius:4px; background:#fafafa; resize:vertical; box-sizing:border-box;"></textarea>
+                <div style="display:flex; gap:10px; margin-top:8px;">
+                    <button class="btn-success" onclick="copyProvisionalGrades()" style="padding:6px 12px; font-size:12px;" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
+                    <button class="btn-secondary" onclick="openGradeSheetTool()" style="padding:6px 12px; font-size:12px;" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
+                </div>
+            </div>
+
+            <div class="button-group" style="border-top:1px solid #eee; padding-top:15px; margin-top:15px;">
+                <button class="btn-secondary" onclick="closeRulesModal()" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-success" onclick="saveRulesConfig()" data-i18n="ptBtnSaveRules">Save Rules</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Detail Modal for Notes Editing -->
     <div id="detailModal" class="modal">
+
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="detailModalTitle"></h3>
@@ -1743,7 +1847,20 @@
                         }
                     }
                 } catch (e) {}
+                try {
+                    window.CMS_PARTICIPATION_RULES = {};
+                    const rp = await Desktop.readText('groupParticipation', 'pt-rules.js');
+                    if (rp?.ok && rp.content) {
+                        const m = rp.content.match(/window\.CMS_PARTICIPATION_RULES\s*=\s*(\{[\s\S]*\});?\s*$/);
+                        if (m) {
+                            window.CMS_PARTICIPATION_RULES = JSON.parse(m[1]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load pt-rules.js:', e);
+                }
             }
+
 
             setupImportHandlers();
 
@@ -2851,6 +2968,11 @@
             const safeAttendanceDivisor = totals.attendedSessions || 1;
             const ratioValue = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? Infinity : 0);
 
+            // Compute class average provisional grade
+            const totalWithGrades = classOverviewData.filter(d => calculateStudentProvisionalGrade(d) !== null).length;
+            const sumGrades = classOverviewData.reduce((acc, d) => acc + (calculateStudentProvisionalGrade(d) || 0), 0);
+            const avgProvisionalGrade = totalWithGrades > 0 ? sumGrades / totalWithGrades : 0;
+
             return {
                 totals,
                 averages: {
@@ -2870,7 +2992,8 @@
                     posRatio: totalGood / safeAttendanceDivisor,
                     negRatio: totalBad / safeAttendanceDivisor,
                     netRatio: totals.net / safeAttendanceDivisor,
-                    ratio: ratioValue
+                    ratio: ratioValue,
+                    provisionalGrade: avgProvisionalGrade
                 },
                 ratios: {
                     posRatio: totalGood / safeAttendanceDivisor,
@@ -2898,6 +3021,8 @@
             const totalNetRatioColor = summary.ratios.netRatio >= 0 ? '#2ca02c' : '#d62728';
             const avgNetRatioColor = summary.averages.netRatio >= 0 ? '#2ca02c' : '#d62728';
 
+            const totalWithGrades = classOverviewData.filter(d => calculateStudentProvisionalGrade(d) !== null).length;
+
             tfoot.innerHTML = `
                 <tr>
                     <td><strong>${t('ptClassTotal')}</strong></td>
@@ -2913,6 +3038,7 @@
                     <td>${formatSummaryNumber(summary.totals.badges)}</td>
                     <td>${formatSummaryNumber(summary.totals.teamRoleEvents)}</td>
                     <td>${formatSummaryNumber(summary.totals.notesCount)}</td>
+                    <td>—</td>
                     <td style="color: ${totalNetColor};">${summary.totals.net >= 0 ? '+' : ''}${formatSummaryNumber(summary.totals.net)}</td>
                     <td style="color: #2ca02c;">+${summary.ratios.posRatio.toFixed(2)}</td>
                     <td style="color: #d62728;">-${summary.ratios.negRatio.toFixed(2)}</td>
@@ -2934,6 +3060,7 @@
                     <td>${summary.averages.badges.toFixed(2)}</td>
                     <td>${summary.averages.teamRoleEvents.toFixed(2)}</td>
                     <td>${summary.averages.notesCount.toFixed(2)}</td>
+                    <td>${totalWithGrades > 0 ? summary.averages.provisionalGrade.toFixed(2) : '—'}</td>
                     <td style="color: ${avgNetColor};">${summary.averages.net >= 0 ? '+' : ''}${summary.averages.net.toFixed(2)}</td>
                     <td style="color: #2ca02c;">+${summary.averages.posRatio.toFixed(2)}</td>
                     <td style="color: #d62728;">-${summary.averages.negRatio.toFixed(2)}</td>
@@ -2953,6 +3080,7 @@
                 const av = col === 'net' ? getClassOverviewNet(a)
                     : col === 'badges' ? a.badges.length
                     : col === 'notes' ? a.notesCount
+                    : col === 'provisionalGrade' ? (calculateStudentProvisionalGrade(a) ?? -1)
                     : col === 'posRatio' ? (a.attendedSessions ? (a.pluses + a.teamPluses + a.badgePositive) / a.attendedSessions : 0)
                     : col === 'negRatio' ? (a.attendedSessions ? (a.minuses + a.teamMinuses + a.badgeNegative) / a.attendedSessions : 0)
                     : col === 'netRatio' ? (a.attendedSessions ? getClassOverviewNet(a) / a.attendedSessions : 0)
@@ -2962,6 +3090,7 @@
                 const bv = col === 'net' ? getClassOverviewNet(b)
                     : col === 'badges' ? b.badges.length
                     : col === 'notes' ? b.notesCount
+                    : col === 'provisionalGrade' ? (calculateStudentProvisionalGrade(b) ?? -1)
                     : col === 'posRatio' ? (b.attendedSessions ? (b.pluses + b.teamPluses + b.badgePositive) / b.attendedSessions : 0)
                     : col === 'negRatio' ? (b.attendedSessions ? (b.minuses + b.teamMinuses + b.badgeNegative) / b.attendedSessions : 0)
                     : col === 'netRatio' ? (b.attendedSessions ? getClassOverviewNet(b) / b.attendedSessions : 0)
@@ -2981,6 +3110,10 @@
                 const teamRolePreview = teamRoleText.length > 80 ? `${teamRoleText.substring(0, 80)}...` : teamRoleText;
                 const notesText = data.notes || '(none)';
                 const notesPreview = notesText.length > 80 ? `${notesText.substring(0, 80)}...` : notesText;
+                
+                const pGrade = calculateStudentProvisionalGrade(data);
+                const displayGrade = pGrade !== null ? formatSummaryNumber(pGrade) : '—';
+
                 const row = document.createElement('tr');
                 row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
                 row.innerHTML = `
@@ -2997,6 +3130,7 @@
                     <td>${formatBadges(data.badges)}</td>
                     <td><span title="${teamRoleText.replace(/"/g, '&quot;')}" class="notes-preview ${data.teamRoleEvents ? '' : 'empty'}">${data.teamRoleEvents ? `${data.teamRoleEvents} · ${teamRolePreview}` : t('ptNone')}</span></td>
                     <td><span title="${notesText.replace(/"/g, '&quot;')}" class="notes-preview ${data.notes ? '' : 'empty'}">${notesPreview}</span></td>
+                    <td>${displayGrade}</td>
                     <td style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}; font-weight: 600;">${net >= 0 ? '+' : ''}${net}</td>
                     <td style="color: #2ca02c; font-weight: 600;">+${posRatio.toFixed(2)}</td>
                     <td style="color: #d62728; font-weight: 600;">-${negRatio.toFixed(2)}</td>
@@ -3396,6 +3530,63 @@
                 }
             });
 
+            // Calculate provisional grade
+            const mockOverviewData = {
+                picks,
+                attendedSessions: total - absent,
+                pluses,
+                minuses,
+                teamPluses,
+                teamMinuses,
+                badgePositive,
+                badgeNegative
+            };
+            const provGrade = calculateStudentProvisionalGrade(mockOverviewData);
+            
+            let provGradeHtml = '';
+            if (provGrade !== null && window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) {
+                const config = window.CMS_PARTICIPATION_RULES[currentGroupId];
+                const maxText = config.scaleToMax ? ` / ${config.maxGrade}` : '';
+                
+                // Detailed achieved rules list
+                const net = (pluses + teamPluses + badgePositive) - (minuses + teamMinuses + badgeNegative);
+                const attendanceRate = total > 0 ? ((total - absent) / total) * 100 : 0;
+                
+                const achievedRuleLabels = [];
+                config.rules.forEach((rule, idx) => {
+                    let studentValue = 0;
+                    let label = '';
+                    if (rule.metric === 'netPoints') { studentValue = net; label = `${t('ptStatsNetPoints')} (${net} ${rule.operator} ${rule.value})`; }
+                    else if (rule.metric === 'picks') { studentValue = picks; label = `${t('ptStatsTimesPicked')} (${picks} ${rule.operator} ${rule.value})`; }
+                    else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${t('ptStatsSessionsRecorded')} (${attendanceRate.toFixed(0)}% ${rule.operator} ${rule.value}%)`; }
+                    else if (rule.metric === 'positivePoints') { studentValue = pluses + teamPluses; label = `${t('ptStatPluses')} (${pluses + teamPluses} ${rule.operator} ${rule.value})`; }
+                    else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')} (${badgePositive} ${rule.operator} ${rule.value})`; }
+
+                    let met = false;
+                    if (rule.operator === '>=') met = studentValue >= rule.value;
+                    else if (rule.operator === '<=') met = studentValue <= rule.value;
+
+                    if (met) {
+                        achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label}</span>`);
+                    } else {
+                        achievedRuleLabels.push(`<span style="color:#888;">✗ ${label}</span>`);
+                    }
+                });
+
+                provGradeHtml = `
+                    <div class="detail-stat" style="grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-left-color: #2ca02c; background: #f4faf4;">
+                        <div>
+                            <div class="detail-stat-label" style="color: #2ca02c; font-weight:700;">${t('ptProvisionalGradeTitle')}</div>
+                            <div class="detail-stat-value" style="color: #2ca02c;">${formatSummaryNumber(provGrade)}${maxText}</div>
+                        </div>
+                        <div style="font-size:11px; text-align:left; border-left: 1px solid #c8e6c9; padding-left: 15px; margin-left: 15px; flex: 1;">
+                            <strong style="color:#555;">${t('ptAchievedRulesTitle')}</strong><br>
+                            ${achievedRuleLabels.join('<br>')}
+                        </div>
+                    </div>
+                `;
+            }
+
             // Update detail stats
             const detailStats = document.getElementById('studentDetailStats');
             detailStats.innerHTML = `
@@ -3431,6 +3622,7 @@
                     <div class="detail-stat-label">${t('ptStatsNegBadges')}</div>
                     <div class="detail-stat-value" style="color: #d62728">${badgeNegative}</div>
                 </div>
+                ${provGradeHtml}
             `;
 
             // Update student table
@@ -3478,6 +3670,7 @@
 
             document.getElementById('studentDetailsArea').classList.remove('hidden');
             applyHiddenCols('studentTable');
+            renderStudentChart(sessions, currentStudentName);
         }
 
         function showDetailModal(metric, session) {
@@ -3699,6 +3892,508 @@
 
             showMessage(t('ptMsgCsvExported'), 'success');
         }
+
+        // ─── Objectives & Grading Rules and Student Performance Chart Logic ───
+        let rulesModalActiveGroup = null;
+
+        function openRulesModal() {
+            if (!currentGroupId) {
+                showMessage(t('ptMsgSelectGroup'), 'error');
+                return;
+            }
+            rulesModalActiveGroup = currentGroupId;
+            
+            // Set modal title
+            const groupName = groupDisplayName(currentGroupId);
+            document.getElementById('rulesModal').querySelector('h3').textContent = 
+                `${t('ptRulesModalTitle')} - ${groupName}`;
+
+            // Load group rules
+            const config = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || {
+                rules: [],
+                maxGrade: 20,
+                scaleToMax: false
+            };
+
+            document.getElementById('rulesMaxGrade').value = config.maxGrade || 20;
+            document.getElementById('rulesScaleToMax').checked = !!config.scaleToMax;
+
+            // Clear and render rules rows
+            const tbody = document.getElementById('rulesTableBody');
+            tbody.innerHTML = '';
+            
+            if (config.rules && config.rules.length > 0) {
+                config.rules.forEach(rule => {
+                    addRuleRow(rule.metric, rule.operator, rule.value, rule.points);
+                });
+            } else {
+                // Add an empty default row
+                addRuleRow('netPoints', '>=', 10, 5);
+            }
+
+            // Show modal
+            document.getElementById('rulesModal').classList.add('active');
+            updateProvisionalGradesPreview();
+        }
+
+        function closeRulesModal() {
+            document.getElementById('rulesModal').classList.remove('active');
+            rulesModalActiveGroup = null;
+        }
+
+        function addRuleRow(metric = 'netPoints', operator = '>=', value = 10, points = 5) {
+            const tbody = document.getElementById('rulesTableBody');
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>
+                    <select class="rule-metric" onchange="updateProvisionalGradesPreview()">
+                        <option value="netPoints" ${metric === 'netPoints' ? 'selected' : ''}>${t('ptStatsNetPoints')}</option>
+                        <option value="picks" ${metric === 'picks' ? 'selected' : ''}>${t('ptStatsTimesPicked')}</option>
+                        <option value="attendanceRate" ${metric === 'attendanceRate' ? 'selected' : ''}>${t('ptStatsSessionsRecorded')} (%)</option>
+                        <option value="positivePoints" ${metric === 'positivePoints' ? 'selected' : ''}>${t('ptStatPluses')}</option>
+                        <option value="badgePositive" ${metric === 'badgePositive' ? 'selected' : ''}>${t('ptStatsPosBadges')}</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="rule-operator" onchange="updateProvisionalGradesPreview()">
+                        <option value=">=" ${operator === '>=' ? 'selected' : ''}>&ge;</option>
+                        <option value="<=" ${operator === '<=' ? 'selected' : ''}>&le;</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="rule-value" value="${value}" oninput="updateProvisionalGradesPreview()" style="width: 80px;">
+                </td>
+                <td>
+                    <input type="number" class="rule-points" value="${points}" oninput="updateProvisionalGradesPreview()" style="width: 80px;">
+                </td>
+                <td style="text-align: center;">
+                    <button class="btn-rules-delete" onclick="this.closest('tr').remove(); updateProvisionalGradesPreview();">&times;</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+            updateProvisionalGradesPreview();
+        }
+
+        function getRulesFromModal() {
+            const rules = [];
+            const rows = document.querySelectorAll('#rulesTableBody tr');
+            rows.forEach(row => {
+                const metric = row.querySelector('.rule-metric').value;
+                const operator = row.querySelector('.rule-operator').value;
+                const value = parseFloat(row.querySelector('.rule-value').value) || 0;
+                const points = parseFloat(row.querySelector('.rule-points').value) || 0;
+                rules.push({ metric, operator, value, points });
+            });
+            return rules;
+        }
+
+        async function saveRulesConfig() {
+            if (!rulesModalActiveGroup) return;
+
+            const rules = getRulesFromModal();
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
+            const scaleToMax = document.getElementById('rulesScaleToMax').checked;
+
+            window.CMS_PARTICIPATION_RULES = window.CMS_PARTICIPATION_RULES || {};
+            window.CMS_PARTICIPATION_RULES[rulesModalActiveGroup] = {
+                rules,
+                maxGrade,
+                scaleToMax
+            };
+
+            if (ELECTRON_AVAILABLE && window.Desktop) {
+                try {
+                    await Desktop.saveText('groupParticipation', 'pt-rules.js', 
+                        `window.CMS_PARTICIPATION_RULES = ${JSON.stringify(window.CMS_PARTICIPATION_RULES, null, 2)};\n`);
+                    showMessage(t('ptRulesSaved'), 'success');
+                } catch (error) {
+                    showMessage('Error saving rules: ' + error.message, 'error');
+                }
+            } else {
+                showMessage(t('ptRulesSaved') + ' (in-memory)', 'success');
+            }
+
+            closeRulesModal();
+            updateDashboard(); // Redraw UI and table with new grades
+        }
+
+        function calculateStudentProvisionalGrade(studentData) {
+            const groupRulesConfig = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
+            if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
+                return null;
+            }
+
+            const dateRange = getDateRange();
+            const totalSessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to).length;
+            
+            const picks = studentData.picks;
+            const net = getClassOverviewNet(studentData);
+            const attendanceRate = totalSessions > 0 ? (studentData.attendedSessions / totalSessions) * 100 : 0;
+            const badgePositive = studentData.badgePositive;
+            const positivePoints = studentData.pluses + studentData.teamPluses;
+
+            let achievedPoints = 0;
+            let totalPossiblePoints = 0;
+
+            groupRulesConfig.rules.forEach(rule => {
+                let studentValue = 0;
+                if (rule.metric === 'netPoints') studentValue = net;
+                else if (rule.metric === 'picks') studentValue = picks;
+                else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
+                else if (rule.metric === 'positivePoints') studentValue = positivePoints;
+                else if (rule.metric === 'badgePositive') studentValue = badgePositive;
+
+                let met = false;
+                if (rule.operator === '>=') {
+                    met = studentValue >= rule.value;
+                } else if (rule.operator === '<=') {
+                    met = studentValue <= rule.value;
+                }
+
+                if (met) {
+                    achievedPoints += Number(rule.points) || 0;
+                }
+                totalPossiblePoints += Number(rule.points) || 0;
+            });
+
+            if (groupRulesConfig.scaleToMax) {
+                const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
+                if (totalPossiblePoints === 0) return 0;
+                return parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+            }
+
+            return achievedPoints;
+        }
+
+        function updateProvisionalGradesPreview() {
+            const rules = getRulesFromModal();
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
+            const scaleToMax = document.getElementById('rulesScaleToMax').checked;
+
+            const previewSection = document.getElementById('provisionalGradesPreviewSection');
+            const textarea = document.getElementById('provisionalGradesTextarea');
+
+            if (rules.length === 0) {
+                previewSection.classList.add('hidden');
+                return;
+            }
+
+            // Calculate grades for all students in active group
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            
+            // Re-aggregate student map for calculation
+            const studentMap = {};
+            sessions.forEach(session => {
+                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                    if (!studentMap[student.name]) {
+                        studentMap[student.name] = {
+                            name: student.name,
+                            sessions: 0,
+                            attendedSessions: 0,
+                            picks: 0,
+                            absent: 0,
+                            pluses: 0,
+                            minuses: 0,
+                            teamPluses: 0,
+                            teamMinuses: 0,
+                            badges: [],
+                            badgePositive: 0,
+                            badgeNegative: 0
+                        };
+                    }
+                    const s = studentMap[student.name];
+                    s.sessions++;
+                    if (!student.isAbsent) s.attendedSessions++;
+                    if (student.isPicked) s.picks++;
+                    if (student.isAbsent) s.absent++;
+                    s.pluses += student.pluses || 0;
+                    s.minuses += student.minuses || 0;
+                    s.teamPluses += student.teamPluses || 0;
+                    s.teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    s.badges = s.badges.concat(studentBadges);
+                    s.badgePositive += badgeSentiment.positive;
+                    s.badgeNegative += badgeSentiment.negative;
+                });
+            });
+
+            const totalSessions = sessions.length;
+            const students = Object.values(studentMap).sort((a, b) => a.name.localeCompare(b.name));
+            
+            if (students.length === 0) {
+                previewSection.classList.add('hidden');
+                return;
+            }
+
+            const calcGrade = (sData) => {
+                const picks = sData.picks;
+                const net = (sData.pluses + sData.teamPluses + sData.badgePositive) - (sData.minuses + sData.teamMinuses + sData.badgeNegative);
+                const attendanceRate = totalSessions > 0 ? (sData.attendedSessions / totalSessions) * 100 : 0;
+                const badgePositive = sData.badgePositive;
+                const positivePoints = sData.pluses + sData.teamPluses;
+
+                let achievedPoints = 0;
+                let totalPossiblePoints = 0;
+
+                rules.forEach(rule => {
+                    let studentValue = 0;
+                    if (rule.metric === 'netPoints') studentValue = net;
+                    else if (rule.metric === 'picks') studentValue = picks;
+                    else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
+                    else if (rule.metric === 'positivePoints') studentValue = positivePoints;
+                    else if (rule.metric === 'badgePositive') studentValue = badgePositive;
+
+                    let met = false;
+                    if (rule.operator === '>=') {
+                        met = studentValue >= rule.value;
+                    } else if (rule.operator === '<=') {
+                        met = studentValue <= rule.value;
+                    }
+
+                    if (met) achievedPoints += Number(rule.points) || 0;
+                    totalPossiblePoints += Number(rule.points) || 0;
+                });
+
+                if (scaleToMax) {
+                    if (totalPossiblePoints === 0) return 0;
+                    return parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+                }
+                return achievedPoints;
+            };
+
+            const lines = students.map(s => {
+                const grade = calcGrade(s);
+                return `${s.name}\t${formatSummaryNumber(grade)}`;
+            });
+
+            textarea.value = lines.join('\n');
+            previewSection.classList.remove('hidden');
+        }
+
+        function copyProvisionalGrades() {
+            const textarea = document.getElementById('provisionalGradesTextarea');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(textarea.value);
+            showMessage(t('ptGradesCopied'), 'success');
+        }
+
+        function openGradeSheetTool() {
+            if (window.Desktop && typeof Desktop.openTool === 'function') {
+                Desktop.openTool('grade-sheet.html');
+            } else {
+                showMessage('Desktop API not available. Please open Grade Sheet from the launcher.', 'error');
+            }
+        }
+
+        let studentChartType = 'points';
+
+        function setStudentChartType(type) {
+            studentChartType = type;
+            document.getElementById('btnStudentTrendPoints').classList.toggle('active', type === 'points');
+            document.getElementById('btnStudentTrendCumulative').classList.toggle('active', type === 'cumulative');
+            
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            renderStudentChart(sessions, currentStudentName);
+        }
+
+        function renderStudentChart(sessions, studentName) {
+            const canvas = document.getElementById('studentTrendChart');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size dynamically
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            // Collect student metrics
+            const studentMetrics = [];
+            let cumulativeNet = 0;
+
+            sessions.forEach(session => {
+                const students = session.groups[currentGroupId] || [];
+                const student = students.find(s => s.name === studentName);
+                if (student) {
+                    const badgeSentiment = countBadgeSentiment(student.badges || []);
+                    const isAbsent = !!student.isAbsent;
+                    const pluses = isAbsent ? 0 : (student.pluses || 0);
+                    const minuses = isAbsent ? 0 : (student.minuses || 0);
+                    const teamPluses = isAbsent ? 0 : (student.teamPluses || 0);
+                    const teamMinuses = isAbsent ? 0 : (student.teamMinuses || 0);
+                    const badgePos = isAbsent ? 0 : badgeSentiment.positive;
+                    const badgeNeg = isAbsent ? 0 : badgeSentiment.negative;
+
+                    const picks = student.isPicked ? 1 : 0;
+                    const net = (pluses + teamPluses + badgePos) - (minuses + teamMinuses + badgeNeg);
+                    cumulativeNet += net;
+
+                    studentMetrics.push({
+                        date: session.id,
+                        picks: picks,
+                        posPoints: pluses + teamPluses + badgePos,
+                        negPoints: minuses + teamMinuses + badgeNeg,
+                        net: net,
+                        cumulativeNet: cumulativeNet,
+                        isAbsent: isAbsent
+                    });
+                }
+            });
+
+            studentMetrics.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (studentMetrics.length === 0) {
+                ctx.fillStyle = '#ccc';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data for selected period', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            // Chart dimensions
+            const padding = 40;
+            const chartWidth = canvas.width - 2 * padding;
+            const chartHeight = canvas.height - 2 * padding;
+
+            let maxValue, minValue, valRange;
+
+            if (studentChartType === 'points') {
+                maxValue = Math.max(...studentMetrics.map(m => Math.max(m.picks, m.posPoints, m.negPoints)), 1);
+                minValue = 0;
+                valRange = maxValue;
+            } else {
+                maxValue = Math.max(...studentMetrics.map(m => m.cumulativeNet), 0);
+                minValue = Math.min(...studentMetrics.map(m => m.cumulativeNet), 0);
+                valRange = Math.max(1, maxValue - minValue);
+            }
+
+            // Draw grid lines
+            ctx.strokeStyle = '#e8e8e8';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (chartHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+
+            // Draw zero line if negative values exist
+            if (minValue < 0 && maxValue > 0) {
+                const zeroY = canvas.height - padding - ((0 - minValue) / valRange) * chartHeight;
+                ctx.strokeStyle = '#888';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(padding, zeroY);
+                ctx.lineTo(canvas.width - padding, zeroY);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.stroke();
+
+            // Draw data series
+            if (studentChartType === 'points') {
+                const colors = { picks: '#1f77b4', posPoints: '#2ca02c', negPoints: '#d62728' };
+                const keys = ['picks', 'posPoints', 'negPoints'];
+
+                keys.forEach(key => {
+                    ctx.strokeStyle = colors[key];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+
+                    studentMetrics.forEach((m, i) => {
+                        const x = padding + (chartWidth / (studentMetrics.length - 1 || 1)) * i;
+                        const y = canvas.height - padding - ((m[key] - minValue) / valRange) * chartHeight;
+
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+
+                    // Draw dots
+                    ctx.fillStyle = colors[key];
+                    studentMetrics.forEach((m, i) => {
+                        const x = padding + (chartWidth / (studentMetrics.length - 1 || 1)) * i;
+                        const y = canvas.height - padding - ((m[key] - minValue) / valRange) * chartHeight;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+                        ctx.fill();
+                    });
+                });
+            } else {
+                // Cumulative Net Score
+                ctx.strokeStyle = '#6366f1'; // Indigo
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+
+                studentMetrics.forEach((m, i) => {
+                    const x = padding + (chartWidth / (studentMetrics.length - 1 || 1)) * i;
+                    const y = canvas.height - padding - ((m.cumulativeNet - minValue) / valRange) * chartHeight;
+
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                // Draw dots
+                ctx.fillStyle = '#6366f1';
+                studentMetrics.forEach((m, i) => {
+                    const x = padding + (chartWidth / (studentMetrics.length - 1 || 1)) * i;
+                    const y = canvas.height - padding - ((m.cumulativeNet - minValue) / valRange) * chartHeight;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+
+            // Draw Y-axis labels
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const val = minValue + (valRange / 4) * i;
+                const y = canvas.height - padding - (chartHeight / 4) * i;
+                ctx.fillText(formatSummaryNumber(val), padding - 8, y + 3);
+            }
+
+            // Draw X-axis labels
+            ctx.textAlign = 'center';
+            const labelStep = Math.max(1, Math.floor(studentMetrics.length / 8));
+            studentMetrics.forEach((m, i) => {
+                if (i % labelStep === 0) {
+                    const x = padding + (chartWidth / (studentMetrics.length - 1 || 1)) * i;
+                    const date = new Date(m.date);
+                    ctx.fillText(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), x, canvas.height - padding + 15);
+                }
+            });
+        }
+
+        // Close rules modal when clicking outside
+        document.addEventListener('DOMContentLoaded', () => {
+            const rulesModal = document.getElementById('rulesModal');
+            if (rulesModal) {
+                rulesModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeRulesModal();
+                    }
+                });
+            }
+        });
 
         // ─── Reset helpers ────────────────────────────────────────────
         function openResetModal(type, payload) {

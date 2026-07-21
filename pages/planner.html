@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -3603,17 +3603,75 @@
 
         classIds.forEach(function (cid) {
           var sched = (cfg.classes[cid] || {}).schedule || [];
-          sched.forEach(function (s) {
-            if (parseInt(s.day) !== dow) return;
+          var todaySlots = sched.filter(function (s) {
+            return parseInt(s.day) === dow;
+          });
+          if (todaySlots.length > 0) {
             var k = ds + '|' + cid;
             consumed[k] = true;
-            var entArr = emap[k] || [null];
-            entArr.forEach(function (e) {
-              var st = e && e.time ? e.time : s.time;
-              var en = e && e.timeEnd ? e.timeEnd : (s.timeEnd || '');
-              slots.push({ date: ds, classId: cid, time: st, timeEnd: en, entry: e, isGlobalHoliday: false });
+            var dayEntries = emap[k] || [];
+            var matchedEntries = new Set();
+
+            todaySlots.forEach(function (s) {
+              // 1. Match by exact time first
+              var matches = dayEntries.filter(function (e) {
+                return !matchedEntries.has(e.id) && e.time === s.time;
+              });
+              if (matches.length > 0) {
+                matches.forEach(function (e) {
+                  matchedEntries.add(e.id);
+                  slots.push({
+                    date: ds,
+                    classId: cid,
+                    time: e.time || s.time,
+                    timeEnd: e.timeEnd || s.timeEnd || '',
+                    entry: e,
+                    isGlobalHoliday: false
+                  });
+                });
+              } else {
+                // 2. Try matching a leftover entry that has no time
+                var noTimeMatch = dayEntries.find(function (e) {
+                  return !matchedEntries.has(e.id) && !e.time;
+                });
+                if (noTimeMatch) {
+                  matchedEntries.add(noTimeMatch.id);
+                  slots.push({
+                    date: ds,
+                    classId: cid,
+                    time: s.time,
+                    timeEnd: s.timeEnd || '',
+                    entry: noTimeMatch,
+                    isGlobalHoliday: false
+                  });
+                } else {
+                  // No entry matched this slot
+                  slots.push({
+                    date: ds,
+                    classId: cid,
+                    time: s.time,
+                    timeEnd: s.timeEnd || '',
+                    entry: null,
+                    isGlobalHoliday: false
+                  });
+                }
+              }
             });
-          });
+
+            // 3. Push any leftover entries (unscheduled times) for this class
+            dayEntries.forEach(function (e) {
+              if (!matchedEntries.has(e.id)) {
+                slots.push({
+                  date: ds,
+                  classId: cid,
+                  time: e.time || '',
+                  timeEnd: e.timeEnd || '',
+                  entry: e,
+                  isGlobalHoliday: false
+                });
+              }
+            });
+          }
         });
 
         d.setDate(d.getDate() + 1);
