@@ -3770,6 +3770,23 @@ function openPdfExportModal(sameFolderInfo) {
   });
 }
 
+async function getEmbeddedLexendFontsCss() {
+  const weights = [300, 400, 500, 600, 700];
+  let css = '';
+  for (const weight of weights) {
+    try {
+      const relPath = 'modules/lexend/lexend-latin-' + weight + '-normal.woff2';
+      const r = await Desktop.readByPath('app', relPath, { encoding: 'base64' });
+      if (r && r.ok && r.content) {
+        css += '@font-face {\n  font-family: \'Lexend\';\n  font-weight: ' + weight + ';\n  font-style: normal;\n  src: url(\'data:font/woff2;base64,' + r.content + '\') format(\'woff2\');\n}\n';
+      }
+    } catch (e) {
+      console.warn('Failed to embed Lexend font weight ' + weight, e);
+    }
+  }
+  return css;
+}
+
 async function exportPdf() {
   if (!window.Desktop || !Desktop.isElectron()) {
     showToast(t('deExportPdfNoElectron') || 'PDF export requires the Electron desktop app.', true);
@@ -3787,6 +3804,8 @@ async function exportPdf() {
   if (!destination) return;
 
   showToast(t('deExportPdfPreparing') || 'Preparing PDF…');
+
+  const lexendFontsCss = await getEmbeddedLexendFontsCss();
 
   let katexCssLink = '';
   try {
@@ -3834,6 +3853,7 @@ async function exportPdf() {
   const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
     katexCssLink + '\n' +
     '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+    lexendFontsCss + '\n' +
     defaultPreviewCss + '\n' + customCss + '\n</style>\n' +
     '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
 

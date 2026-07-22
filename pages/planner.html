@@ -1498,7 +1498,7 @@
     .field-input,
     .field-select,
     .field-textarea {
-      padding: 7px 9px;
+      padding: 3px 3px;
       border: 2px solid #bbb;
       border-radius: 5px;
       font-size: .84rem;
@@ -1522,12 +1522,13 @@
 
     .field-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
     }
 
     .field-row .field-group {
       flex: 1;
-      min-width: 0;
+      min-width: 120px;
     }
 
     .modal-section-label {
@@ -2051,17 +2052,19 @@
     #gs-toast.show {
       opacity: 1;
     }
-    
+
     /* ── Multi-select styles ── */
     .entry-row.selected {
       border-color: #3b82f6 !important;
       background-color: #eff6ff !important;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
     }
+
     .at-cell.selected {
       border-color: #3b82f6 !important;
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5) !important;
     }
+
     .entry-select-cb {
       margin-right: 8px;
       width: 16px;
@@ -2071,6 +2074,7 @@
       align-self: center;
       flex-shrink: 0;
     }
+
     .tb-btn.active {
       background-color: #111 !important;
       color: #fff !important;
@@ -2134,8 +2138,10 @@
         Entry</button>
       <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
       <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
-      <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()" data-i18n="pl_btnMultiSelect">Select</button>
-      <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;" data-i18n="pl_btnBatchActions" disabled>Batch Actions</button>
+      <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()"
+        data-i18n="pl_btnMultiSelect">Select</button>
+      <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;"
+        data-i18n="pl_btnBatchActions" disabled>Batch Actions</button>
       <span id="save-status"></span>
     </div>
 
@@ -2259,7 +2265,7 @@
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: #555; margin-bottom: 12px;" id="batch-selected-count-msg"></p>
-        
+
         <div class="field-group">
           <label data-i18n="pl_batchSelectAction">Choose action to perform</label>
           <select id="batch-action-select" class="field-select" onchange="onBatchActionSelectChange()">
@@ -2273,13 +2279,15 @@
         </div>
 
         <!-- Dynamic options -->
-        
+
         <!-- Shift Dates Options -->
         <div id="batch-opt-shift" style="display: none; margin-top: 10px;">
           <div class="field-group">
             <label data-i18n="pl_batchShiftDays">Number of days to shift</label>
-            <input type="number" id="batch-shift-days" class="field-input" value="1" placeholder="e.g. 7 for a week, -1 to move back">
-            <span style="font-size: 0.75rem; color: #666; display: block; margin-top: 4px;" data-i18n="pl_batchShiftHint">Positive number moves forward; negative moves backward.</span>
+            <input type="number" id="batch-shift-days" class="field-input" value="1"
+              placeholder="e.g. 7 for a week, -1 to move back">
+            <span style="font-size: 0.75rem; color: #666; display: block; margin-top: 4px;"
+              data-i18n="pl_batchShiftHint">Positive number moves forward; negative moves backward.</span>
           </div>
         </div>
 
@@ -2304,7 +2312,7 @@
             </select>
           </div>
         </div>
-        
+
       </div>
       <div class="modal-footer">
         <button class="tb-btn" onclick="closeModal('batchActionModal')" data-i18n="btnCancel">Cancel</button>
@@ -2439,22 +2447,26 @@
             <label data-i18n="pl_entryClass">Class</label>
             <div id="e-class-pills" class="entry-cls-pills"></div>
           </div>
-          <div class="field-group" style="flex:2">
-            <label data-i18n="pl_entryDate">Date</label>
-            <div style="display:flex;align-items:center;gap:4px">
-              <input type="date" id="e-date" class="field-input" style="flex:1;min-width:0">
-              <span style="font-size:.8rem;color:#aaa;font-weight:800;flex-shrink:0">→</span>
-              <input type="date" id="e-date-to" class="field-input" style="flex:1;min-width:0"
-                data-i18n-title="pl_entryDateTo">
+          <div style="display:flex;flex:4;flex-wrap:wrap;gap:10px;min-width:250px">
+            <div class="field-group" style="flex:2;min-width:250px">
+              <label data-i18n="pl_entryDate">Date</label>
+              <div style="display:flex;align-items:center;gap:4px">
+                <input type="date" id="e-date" class="field-input" style="flex:1;min-width:120px">
+                <span style="font-size:.8rem;color:#aaa;font-weight:800;flex-shrink:0">→</span>
+                <input type="date" id="e-date-to" class="field-input" style="flex:1;min-width:120px"
+                  data-i18n-title="pl_entryDateTo">
+              </div>
             </div>
-          </div>
-          <div class="field-group" style="flex:1">
-            <label data-i18n="pl_entryTime">Time</label>
-            <input type="time" id="e-time" class="field-input">
-          </div>
-          <div class="field-group" style="flex:1">
-            <label data-i18n="pl_schedEndTime">Until</label>
-            <input type="time" id="e-time-end" class="field-input">
+            <div style="display:flex;flex:1.5;gap:10px;min-width:180px">
+              <div class="field-group" style="flex:1;min-width:80px">
+                <label data-i18n="pl_entryTime">Time</label>
+                <input type="time" id="e-time" class="field-input">
+              </div>
+              <div class="field-group" style="flex:1;min-width:80px">
+                <label data-i18n="pl_schedEndTime">Until</label>
+                <input type="time" id="e-time-end" class="field-input">
+              </div>
+            </div>
           </div>
         </div>
         <div class="field-row" id="e-recur-row" style="align-items:flex-start">
@@ -2475,7 +2487,7 @@
               <span id="e-recur-freq-lbl" style="font-size:.8rem;color:#666;white-space:nowrap"></span>
             </div>
           </div>
-          <div class="field-group" id="e-recur-end-grp" style="flex:2;display:none">
+          <div class="field-group" id="e-recur-end-grp" style="flex:2;min-width:180px;display:none">
             <label data-i18n="pl_recurEnd">Ends</label>
             <div style="display:flex;flex-direction:column;gap:5px">
               <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;cursor:pointer">
@@ -2490,7 +2502,7 @@
                 <input type="radio" name="e-recur-end" id="e-recur-end-until" value="until"
                   onchange="onEntryRecurEndChange()">
                 <span data-i18n="pl_recurUntil">Until</span>
-                <input type="date" id="e-recur-until" class="field-input" style="flex:1;min-width:0">
+                <input type="date" id="e-recur-until" class="field-input" style="flex:1;min-width:120px">
               </label>
             </div>
           </div>
@@ -2989,7 +3001,7 @@
         var count = selectedEntryIds.size;
         showConfirm(tFmt('pl_confirmBatchDelete', { n: count }), async function () {
           for (var id of selectedEntryIds) {
-            var entry = entries.find(function(e) { return e.id === id; });
+            var entry = entries.find(function (e) { return e.id === id; });
             if (entry && entry.gsLink) {
               try {
                 await removeTestFromGradeSheet(entry);
@@ -6251,7 +6263,7 @@
     var _confirmCb = null;
     function showConfirm(msg, onOk) {
       if (typeof window._dlgShowConfirm === 'function') {
-        window._dlgShowConfirm(msg).then(function(ok) {
+        window._dlgShowConfirm(msg).then(function (ok) {
           if (ok && onOk) onOk();
         });
       } else {

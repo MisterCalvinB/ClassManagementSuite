@@ -3742,112 +3742,96 @@
     .ta-hl-pink    { background: #ffd6e7 !important; }
     .ta-hl-none    { background: transparent !important; }
 
-    /* --- TA HTML/EPUB Import Modal (split panel) --- */
+    /* --- TA HTML/EPUB Import Modal (adapted from de-book-modal) --- */
     #ta-import-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.52); z-index: 3000;
-      align-items: center; justify-content: center; padding: 16px;
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
     }
     #ta-import-overlay.active { display: flex; }
     #ta-import-modal {
-      background: #fff; border-radius: 12px;
-      width: min(800px, 96vw); max-height: 88vh;
-      box-shadow: 0 16px 56px rgba(0,0,0,0.28);
-      display: flex; flex-direction: column; overflow: hidden;
+      background: #fff;
+      border-radius: 8px;
+      width: 700px;
+      max-width: 95vw;
+      height: 72vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,.35);
+      overflow: hidden;
     }
     #ta-imp-header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 20px; border-bottom: 1.5px solid #eee;
-      font-size: 1rem; font-weight: 800; flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+      background: #fafafa;
     }
-    #ta-imp-header button {
-      margin-left: auto; background: none; border: none;
-      font-size: 1.1rem; cursor: pointer; color: #aaa;
-      width: 28px; height: 28px; border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.1s, color 0.1s;
+    #ta-imp-title { font-weight: 700; flex: 1; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #111; }
+    
+    #ta-imp-choose-btn, #ta-imp-confirm-btn {
+      background: #111; color: #fff; border: none;
+      border-radius: 4px; padding: 5px 14px; cursor: pointer;
+      font-size: .82rem; font-weight: 700; font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.1s;
     }
-    #ta-imp-header button:hover { background: #f0f0f0; color: #111; }
-    #ta-imp-body {
-      display: grid; grid-template-columns: 262px 1fr;
-      flex: 1; overflow: hidden; min-height: 0;
-    }
-    #ta-imp-controls {
-      padding: 18px; display: flex; flex-direction: column; gap: 16px;
-      border-right: 1.5px solid #eee; overflow-y: auto; background: #fafafa;
-    }
-    #ta-imp-file-zone {
-      border: 2px dashed #d8d8d8; border-radius: 10px;
-      padding: 18px 14px 14px; text-align: center;
-      background: #fff; transition: border-color 0.15s, background 0.15s;
-    }
-    #ta-imp-file-zone.has-file { border-color: #43a047; border-style: solid; background: #f0fff0; }
-    #ta-imp-file-icon { font-size: 1.7rem; margin-bottom: 5px; line-height: 1; }
-    #ta-imp-file-name {
-      font-size: 0.79rem; color: #999; font-style: italic;
-      margin-bottom: 10px; word-break: break-all; min-height: 1.1em; line-height: 1.4;
-    }
-    #ta-imp-file-zone.has-file #ta-imp-file-name { color: #2e7d32; font-style: normal; font-weight: 700; }
-    #ta-imp-file-or {
-      font-size: 0.7rem; color: #ccc; text-transform: uppercase; letter-spacing: 1px;
-      margin: 6px 0 4px; text-align: center;
-    }
+    #ta-imp-choose-btn:hover, #ta-imp-confirm-btn:hover { background: #333; }
+    #ta-imp-choose-btn:disabled, #ta-imp-confirm-btn:disabled { opacity: .35; cursor: default; }
+
     #ta-imp-book-shortcut {
-      width: 100%; font-size: 0.8rem; padding: 6px 8px;
-      border: 1.5px solid #ccc; border-radius: 5px; background: #fff;
-      cursor: pointer; font-family: inherit; box-sizing: border-box;
+      background: #fff; color: #111; border: 1px solid #ccc;
+      border-radius: 4px; padding: 4px 6px; cursor: pointer;
+      font-size: .8rem; font-weight: 600; font-family: inherit;
+      max-width: 160px;
     }
-    #ta-imp-char-count { font-size: 0.73rem; color: #aaa; margin-top: 2px; }
-    .ta-imp-section-label {
-      font-size: 0.69rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: 0.7px; color: #aaa;
+
+    #ta-imp-close-btn {
+      background: none; border: 1px solid #ccc; border-radius: 4px;
+      padding: 4px 9px; font-size: .82rem; cursor: pointer; color: #555;
+      font-family: inherit;
     }
-    .ta-imp-optional { font-weight: 400; color: #c8c8c8; text-transform: none; letter-spacing: 0; font-size: 0.9em; }
-    .ta-imp-range-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-    .ta-imp-range-col { flex: 1; }
-    .ta-imp-range-label {
-      display: block; font-size: 0.66rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.4px; color: #bbb; margin-bottom: 4px;
+    #ta-imp-close-btn:hover { border-color: #999; color: #111; }
+    #ta-imp-text {
+      flex: 1; border: none; padding: 16px 18px; resize: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: .88rem; line-height: 1.7; outline: none;
+      overflow-y: auto; white-space: pre-wrap; color: #111;
+      background: #fff;
     }
-    .ta-imp-range-arrow { font-size: 0.85rem; color: #ccc; flex-shrink: 0; padding-top: 16px; }
-    .ta-imp-field {
-      width: 100%; padding: 7px 9px; border: 1.5px solid #e0e0e0; border-radius: 6px;
-      font-family: 'Courier New', monospace; font-size: 0.81rem; color: #111;
-      background: #fff; box-sizing: border-box; transition: border-color 0.12s;
+    #ta-imp-search-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #f5f5f5;
+      flex-shrink: 0;
     }
-    .ta-imp-field:focus { outline: none; border-color: #555; }
-    #ta-imp-preview-col { display: flex; flex-direction: column; padding: 18px; overflow: hidden; }
-    #ta-imp-preview {
-      flex: 1; padding: 14px; border: 1.5px solid #e8e8e8; border-radius: 8px;
-      background: #fff; font-size: 0.8rem; color: #999;
-      overflow-y: auto; white-space: pre-wrap; font-family: 'Courier New', monospace;
-      line-height: 1.65; min-height: 220px;
+    #ta-imp-search-input {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: .83rem;
+      font-family: inherit;
+      outline: none;
     }
-    #ta-imp-preview.has-match { border-color: #43a047; color: #222; background: #f0fff0; }
-    #ta-imp-preview.no-match  { border-color: #e53935; color: #c00; background: #fff0f0; }
-    .ta-hl-start { background: #fffde7; border-radius: 2px; outline: 2px solid #f9a825; outline-offset: 1px; }
-    .ta-hl-end   { background: #e3f2fd; border-radius: 2px; outline: 2px solid #1e88e5; outline-offset: 1px; }
-    .ta-imp-sep-line { display: block; color: #aaa; font-style: normal; user-select: none; margin: 3px 0; }
-    .ta-imp-ell  { color: #bbb; user-select: none; }
-    #ta-imp-sel-btn {
-      margin-top: 8px; padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0;
-      background: #e8f5e9; border: 1.5px solid #43a047; color: #2e7d32;
-      border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 700; width: 100%;
-      transition: background 0.12s;
+    #ta-imp-search-input:focus { border-color: #555; }
+    .ta-imp-search-nav {
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 3px 9px; cursor: pointer; font-size: .82rem;
+      font-family: inherit; line-height: 1.4;
     }
-    #ta-imp-sel-btn:hover { background: #c8e6c9; }
-    #ta-imp-confirm-banner {
-      display: none; padding: 12px 14px; border-radius: 8px;
-      background: #fff8e1; border: 1.5px solid #f9a825;
-      font-size: 0.83rem; color: #5d4037;
-    }
-    #ta-imp-confirm-banner.active { display: block; }
-    #ta-imp-confirm-banner-msg { display: block; font-weight: 700; margin-bottom: 10px; }
-    .ta-imp-confirm-banner-btns { display: flex; gap: 8px; justify-content: flex-end; }
-    .ta-imp-footer {
-      display: flex; gap: 10px; justify-content: flex-end;
-      padding: 12px 20px; border-top: 1.5px solid #eee; flex-shrink: 0; background: #fafafa;
-    }
+    .ta-imp-search-nav:hover { border-color: #555; }
+    .ta-imp-search-nav:disabled { opacity: .35; cursor: default; }
+    #ta-imp-search-count { font-size: .78rem; color: #777; white-space: nowrap; min-width: 60px; }
 
     /* Drag-select highlight */
     #ta-display { user-select: none; }

@@ -1362,7 +1362,6 @@
             <tr>
               <th class="history-row-check"><input type="checkbox" id="history-select-all" title="Select all" onchange="historySelectAll(this.checked)"></th>
               <th><button type="button" class="history-sort-btn" onclick="historySetSort('name')">Name <span id="history-sort-name" class="history-sort-indicator">↓</span></button></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('type')">Type <span id="history-sort-type" class="history-sort-indicator"></span></button></th>
               <th><button type="button" class="history-sort-btn" onclick="historySetSort('classGroup')">Class/Group <span id="history-sort-classGroup" class="history-sort-indicator"></span></button></th>
               <th><button type="button" class="history-sort-btn" onclick="historySetSort('date')">Created <span id="history-sort-date" class="history-sort-indicator"></span></button></th>
               <th><button type="button" class="history-sort-btn" onclick="historySetSort('modified')">Saved <span id="history-sort-modified" class="history-sort-indicator"></span></button></th>
@@ -1625,58 +1624,23 @@
   <div id="ta-import-overlay" onclick="if(event.target===this)taCloseImport()">
     <div id="ta-import-modal">
       <div id="ta-imp-header">
-        <span id="ta-imp-header-title">📂 Import Book</span>
-        <button onclick="taCloseImport()" title="Close">✕</button>
+        <span id="ta-imp-title">📂 Import Book</span>
+        <input type="file" id="ta-imp-file-input" accept=".html,.htm,.epub,.txt,.xhtml"
+               style="display:none" onchange="taImportFileLoaded(event)">
+        <button id="ta-imp-choose-btn" onclick="document.getElementById('ta-imp-file-input').click()">Choose File…</button>
+        <select id="ta-imp-book-shortcut" onchange="taImportLoadShortcutBook()" style="display:none">
+          <option value="">Books folder…</option>
+        </select>
+        <button id="ta-imp-confirm-btn" onclick="taImportConfirm()" disabled>Import</button>
+        <button id="ta-imp-close-btn" onclick="taCloseImport()">✕ Close</button>
       </div>
-      <div id="ta-imp-body">
-        <div id="ta-imp-controls">
-          <div id="ta-imp-file-zone">
-            <input type="file" id="ta-imp-file-input" accept=".html,.htm,.epub,.txt,.xhtml"
-                   style="display:none" onchange="taImportFileLoaded(event)">
-            <div id="ta-imp-file-icon">📄</div>
-            <div id="ta-imp-file-name">No file chosen</div>
-            <button class="action-btn btn-grey" style="font-size:0.82rem;padding:6px 12px;width:100%;"
-                    onclick="document.getElementById('ta-imp-file-input').click()">Choose file…</button>
-            <div id="ta-imp-file-or" style="display:none">or</div>
-            <select id="ta-imp-book-shortcut" style="display:none" onchange="taImportLoadShortcutBook()">
-              <option value="">Books folder…</option>
-            </select>
-            <div id="ta-imp-char-count"></div>
-          </div>
-          <div id="ta-imp-range-section">
-            <div class="ta-imp-section-label">Text range <span class="ta-imp-optional">(optional)</span></div>
-            <div class="ta-imp-range-row">
-              <div class="ta-imp-range-col">
-                <label class="ta-imp-range-label">From</label>
-                <input id="ta-imp-start" class="ta-imp-field" type="text"
-                       placeholder="e.g. Chapter 1" oninput="taImportPreview()">
-              </div>
-              <div class="ta-imp-range-arrow">→</div>
-              <div class="ta-imp-range-col">
-                <label class="ta-imp-range-label">To</label>
-                <input id="ta-imp-end" class="ta-imp-field" type="text"
-                       placeholder="e.g. The End" oninput="taImportPreview()">
-              </div>
-            </div>
-          </div>
-          <div id="ta-imp-confirm-banner">
-            <span id="ta-imp-confirm-banner-msg"></span>
-            <div class="ta-imp-confirm-banner-btns">
-              <button class="action-btn btn-grey" onclick="taImportBannerCancel()">Cancel</button>
-              <button class="action-btn" onclick="taImportBannerOk()">Import anyway</button>
-            </div>
-          </div>
-        </div>
-        <div id="ta-imp-preview-col">
-          <div class="ta-imp-section-label" style="margin-bottom:8px;flex-shrink:0;">Preview</div>
-          <div id="ta-imp-preview" onmouseup="taImportCheckSelection()">Load a file to begin…</div>
-          <button id="ta-imp-sel-btn" onclick="taImportImportSelection()" style="display:none;">⬆ Import selection</button>
-        </div>
+      <div id="ta-imp-search-row">
+        <input id="ta-imp-search-input" type="text" placeholder="Search in book…" oninput="taImportSearchRun()" onkeydown="taImportSearchKey(event)">
+        <button class="ta-imp-search-nav" id="ta-imp-search-prev" onclick="taImportSearchStep(-1)" disabled>▲</button>
+        <button class="ta-imp-search-nav" id="ta-imp-search-next" onclick="taImportSearchStep(1)" disabled>▼</button>
+        <span id="ta-imp-search-count"></span>
       </div>
-      <div class="ta-imp-footer">
-        <button class="action-btn btn-grey" onclick="taCloseImport()">Cancel</button>
-        <button class="action-btn" id="ta-imp-confirm-btn" onclick="taImportConfirm()" disabled>📖 Import</button>
-      </div>
+      <textarea id="ta-imp-text" readonly spellcheck="false"></textarea>
     </div>
   </div>
 
@@ -3910,7 +3874,7 @@ function hideFailure() {
             group.appendChild(btn);
           });
 
-          const shouldOpen = (activeCid && cid === activeCid) || (!activeCid && idx === 0);
+          const shouldOpen = false;
           const setOpen = (open) => {
             group.style.display = open ? '' : 'none';
             chevron.textContent = open ? '▾' : '▸';
@@ -6877,6 +6841,8 @@ function hideFailure() {
       board.style.backgroundPosition = 'top left';
     };
     let conManageMediaChooserPos = null;
+    let conManageMediaChooserOutsideClick = null;
+    let conManageMediaChooserKey = null;
 
     function conAttachmentKind(name, mime) {
       const lowerName = String(name || '').toLowerCase();
@@ -7228,6 +7194,15 @@ function hideFailure() {
       const el = document.getElementById('con-insert-attachment-chooser');
       if (el) el.remove();
       conRemoveManageMediaDeletePopup();
+
+      if (conManageMediaChooserOutsideClick) {
+        document.removeEventListener('mousedown', conManageMediaChooserOutsideClick, true);
+        conManageMediaChooserOutsideClick = null;
+      }
+      if (conManageMediaChooserKey) {
+        document.removeEventListener('keydown', conManageMediaChooserKey, true);
+        conManageMediaChooserKey = null;
+      }
     }
 
     function conRemoveManageMediaDeletePopup() {
@@ -7531,24 +7506,35 @@ function hideFailure() {
         top: chooser.offsetTop
       };
 
+      if (conManageMediaChooserOutsideClick) {
+        document.removeEventListener('mousedown', conManageMediaChooserOutsideClick, true);
+      }
+      if (conManageMediaChooserKey) {
+        document.removeEventListener('keydown', conManageMediaChooserKey, true);
+      }
+
       function onOutsideClick(ev) {
         const deletePop = document.getElementById('con-media-delete-popover');
         if (!chooser.contains(ev.target) && !(deletePop && deletePop.contains(ev.target))) {
           conRemoveInsertAttachmentChooser();
-          document.removeEventListener('mousedown', onOutsideClick, true);
-          document.removeEventListener('keydown', onKey, true);
         }
       }
       function onKey(ev) {
         if (ev.key === 'Escape') {
           conRemoveInsertAttachmentChooser();
-          document.removeEventListener('mousedown', onOutsideClick, true);
-          document.removeEventListener('keydown', onKey, true);
         }
       }
+
+      conManageMediaChooserOutsideClick = onOutsideClick;
+      conManageMediaChooserKey = onKey;
+
       setTimeout(() => {
-        document.addEventListener('mousedown', onOutsideClick, true);
-        document.addEventListener('keydown', onKey, true);
+        if (conManageMediaChooserOutsideClick === onOutsideClick) {
+          document.addEventListener('mousedown', onOutsideClick, true);
+        }
+        if (conManageMediaChooserKey === onKey) {
+          document.addEventListener('keydown', onKey, true);
+        }
       }, 0);
     };
 
@@ -11473,6 +11459,7 @@ function hideFailure() {
           fbtn.style.cssText = 'font-size:0.8rem;padding:1px 6px;';
           fbtn.onclick = () => {
             _conDrawHandMode = false;
+            _conDrawEraserMode = false;
             _conDrawShapeTool = null;
             _conShapeSyncPanelState();
             _conDrawSyncOverlayCursor();
@@ -11534,6 +11521,9 @@ function hideFailure() {
           const _ahEl = document.getElementById(eid);
           if (_ahEl) _ahEl.style.display = _showAh ? '' : 'none';
         });
+        if (typeof _conSyncEraserToolbarBtn === 'function') {
+          _conSyncEraserToolbarBtn();
+        }
       }
 
       function _conDrawSyncOverlayCursor() {
@@ -11560,6 +11550,7 @@ function hideFailure() {
       window.conDrawSetShapeTool = function(type) {
         if (window._conPolygonReset) window._conPolygonReset();
         _conDrawHandMode = false;
+        _conDrawEraserMode = false;
         _conDrawShapeTool = (_conDrawShapeTool === type) ? null : type;
         _conShapeSyncPanelState();
         _conDrawSyncOverlayCursor();
@@ -11568,6 +11559,7 @@ function hideFailure() {
       // Direct setter used by pen presets (bypasses toggle behaviour)
       window.conDrawSetShapeDirect = function(typeOrNull) {
         _conDrawHandMode = false;
+        _conDrawEraserMode = false;
         _conDrawShapeTool = typeOrNull || null;
         _conShapeSyncPanelState();
         _conDrawSyncOverlayCursor();
@@ -11586,6 +11578,7 @@ function hideFailure() {
       // Draw panel helpers exposed globally
       window.conDrawSetColor = function(color) {
         _conDrawHandMode = false;
+        _conDrawEraserMode = false;
         _conDrawColor = color;
         const panel = document.getElementById('con-draw-panel');
         if (panel) panel.querySelectorAll('.con-draw-swatch').forEach(sw => {
@@ -22278,13 +22271,20 @@ function hideFailure() {
       const r = document.createRange();
       try { r.setStart(block, 0); } catch(e) { return false; }
       r.setEnd(range.startContainer, range.startOffset);
-      const shortcut = String(r.toString() || '').trim();
+      
+      const fullText = r.toString();
+      const lines = fullText.split('\n');
+      const shortcut = String(lines[lines.length - 1] || '').trim();
+      
       const isUnordered = shortcut === '*' || shortcut === '-';
       const isOrdered = /^1[\.)]$/.test(shortcut) || /^[a-zA-Z][\.)]$/.test(shortcut);
       const isChecklist = shortcut === '[]' || shortcut === '[ ]';
       if (isUnordered || isOrdered || isChecklist) {
+        if (range.startContainer.nodeType !== Node.TEXT_NODE) return false;
         const delRange = document.createRange();
-        delRange.setStart(block, 0); delRange.setEnd(range.startContainer, range.startOffset);
+        const startOffset = Math.max(0, range.startOffset - (shortcut.length + 1));
+        delRange.setStart(range.startContainer, startOffset);
+        delRange.setEnd(range.startContainer, range.startOffset);
         sel.removeAllRanges(); sel.addRange(delRange);
         document.execCommand('delete', false, null);
         if (isChecklist) {
@@ -22912,23 +22912,33 @@ function hideFailure() {
           el.style.top      = (sd.y * zoom) + 'px';
           el.style.fontSize = ((sd.size || 32) * zoom) + 'px';
         });
+        if (typeof updateKatexBtnVisibility === 'function') {
+          updateKatexBtnVisibility();
+        }
       }
       noteData._applyStyle = applyNoteStyle;
 
       ta.addEventListener('input', e => {
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
         conNoteAutosize(ta, noteData);
+        if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
       });
       ta.addEventListener('blur', () => {
         const rendered = wnRenderMathHtml(ta.innerHTML);
         if (rendered !== ta.innerHTML) ta.innerHTML = rendered;
         wnSyncNoteDataFromEditor(noteData, ta);
         conNoteAutosize(ta, noteData);
+        if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
       ta.addEventListener('keyup', () => wnRememberSelection(ta));
       ta.addEventListener('focus', () => wnRememberSelection(ta));
       ta.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          setTimeout(() => {
+            if (typeof wnRenderMathImmediate === 'function') wnRenderMathImmediate();
+          }, 0);
+        }
         if (e.ctrlKey && (e.code === 'Space' || e.key === ' ')) {
           e.preventDefault();
           e.stopPropagation();
@@ -23081,6 +23091,76 @@ function hideFailure() {
         }
       });
       miniActions.appendChild(lockQuickBtn);
+
+      // KaTeX help button
+      const katexHelpBtn = document.createElement('button');
+      katexHelpBtn.className = 'wn-note-mini-btn';
+      katexHelpBtn.title = t('katexHelpTitle');
+      katexHelpBtn.textContent = '∑';
+      katexHelpBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+      katexHelpBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        wnShowKatexHelp();
+      });
+      miniActions.appendChild(katexHelpBtn);
+
+      function updateKatexBtnVisibility() {
+        const text = noteData.text || '';
+        const hasFormula = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/.test(text);
+        const hasRendered = ta.querySelector('.wn-katex-display, .wn-katex-inline, .katex') !== null;
+        katexHelpBtn.style.display = (hasFormula || hasRendered) ? '' : 'none';
+      }
+
+      function wnRenderMathImmediate() {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        
+        // Save caret position using a marker span
+        const marker = document.createElement('span');
+        marker.id = 'wn-caret-marker';
+        marker.style.display = 'none';
+        
+        const range = sel.getRangeAt(0);
+        try {
+          range.insertNode(marker);
+        } catch (err) {
+          const oldHTML = ta.innerHTML;
+          const rendered = wnRenderMathHtml(oldHTML);
+          if (rendered !== oldHTML) {
+            ta.innerHTML = rendered;
+            wnSyncNoteDataFromEditor(noteData, ta);
+            conNoteAutosize(ta, noteData);
+            updateKatexBtnVisibility();
+          }
+          return;
+        }
+        
+        const oldHTML = ta.innerHTML;
+        const rendered = wnRenderMathHtml(oldHTML);
+        if (rendered !== oldHTML) {
+          ta.innerHTML = rendered;
+          
+          const newMarker = ta.querySelector('#wn-caret-marker');
+          if (newMarker) {
+            const newRange = document.createRange();
+            newRange.setStartBefore(newMarker);
+            newRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            newMarker.remove();
+          }
+          
+          wnSyncNoteDataFromEditor(noteData, ta);
+          conNoteAutosize(ta, noteData);
+          updateKatexBtnVisibility();
+        } else {
+          marker.remove();
+        }
+      }
+
+      // Initial visibility check
+      updateKatexBtnVisibility();
 
       note.appendChild(miniActions);
 
@@ -24238,6 +24318,27 @@ function hideFailure() {
 
       walk(root);
       return root.innerHTML;
+    }
+
+    function wnShowKatexHelp() {
+      if (typeof ShortcutsModal === 'undefined') return;
+      const rows = [
+        { section: t('katexHelpSecUsage') },
+        { keys: ['$','...','$'], desc: t('katexHelpInlineDesc') },
+        { keys: ['$$','...','$$'], desc: t('katexHelpBlockDesc') },
+        { section: t('katexHelpSecExamples') },
+        { keys: ['a^b'], desc: t('katexHelpExponent') },
+        { keys: ['a_b'], desc: t('katexHelpSubscript') },
+        { keys: ['\\frac{a}{b}'], desc: t('katexHelpFraction') },
+        { keys: ['\\sqrt{x}'], desc: t('katexHelpSqrt') },
+        { keys: ['\\sum'], desc: t('katexHelpSum') },
+        { keys: ['\\alpha', '\\beta', '\\pi'], desc: t('katexHelpGreek') },
+        { keys: ['\\times', '\\pm', '\\neq'], desc: t('katexHelpSymbols') }
+      ];
+      ShortcutsModal.open({
+        title: t('katexHelpTitle'),
+        rows: rows
+      });
     }
 
     function boardMakeSessionId(section) {
@@ -25634,8 +25735,26 @@ function hideFailure() {
       document.getElementById('con-pdf-picker-overlay').classList.remove('active');
     }
 
-    function _doConExportPDF() {
+    async function conGetEmbeddedLexendFontsCss() {
+      const weights = [300, 400, 500, 600, 700];
+      let css = '';
+      for (const weight of weights) {
+        try {
+          const relPath = 'modules/lexend/lexend-latin-' + weight + '-normal.woff2';
+          const r = await Desktop.readByPath('app', relPath, { encoding: 'base64' });
+          if (r && r.ok && r.content) {
+            css += '@font-face {\n  font-family: \'Lexend\';\n  font-weight: ' + weight + ';\n  font-style: normal;\n  src: url(\'data:font/woff2;base64,' + r.content + '\') format(\'woff2\');\n}\n';
+          }
+        } catch (e) {
+          console.warn('Failed to embed Lexend font weight ' + weight, e);
+        }
+      }
+      return css;
+    }
+
+    async function _doConExportPDF() {
       conPdfPickerClose();
+      const lexendFontsCss = await conGetEmbeddedLexendFontsCss();
       const chk = id => document.getElementById(id).checked;
       const fields = {
         page:        chk('cpf-page'),
@@ -25690,7 +25809,7 @@ function hideFailure() {
       tableHtml += '</tbody></table>';
 
       const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + displayTitle + '</title>'
-        + '<style>body{font-family:Segoe UI,Arial,sans-serif;margin:18px;}h1{font-size:18px;margin-bottom:8px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}th{background:#f7f7f7}@media print{button{display:none}}</style>'
+        + '<style>' + lexendFontsCss + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;margin:18px;}h1{font-size:18px;margin-bottom:8px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}th{background:#f7f7f7}@media print{button{display:none}}</style>'
         + '</head><body><h1>' + displayTitle + '</h1>' + tableHtml + '</body></html>';
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
@@ -25760,7 +25879,7 @@ function hideFailure() {
           try {
             base64 = await conReadAttachmentFileBase64(item.file);
           } catch (error) {
-            console.warn('Could not read selected attachment:', item.name, error);
+            console.info('Could not read selected attachment:', item.name, error);
           }
         } else if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
           const candidates = conAttachmentCandidateRelativePaths(item);
@@ -25774,7 +25893,7 @@ function hideFailure() {
             } catch {}
           }
           if (!base64) {
-            console.warn('Could not copy existing attachment from known paths:', candidates);
+            console.info('Could not copy existing attachment from known paths:', candidates);
           }
         }
 
@@ -27832,8 +27951,6 @@ function hideFailure() {
         let cmp = 0;
         if (historySortKey === 'name') {
           cmp = historyCompareText(a.baseName || a.filename, b.baseName || b.filename);
-        } else if (historySortKey === 'type') {
-          cmp = historyCompareText(historySectionLabel(a.section), historySectionLabel(b.section));
         } else if (historySortKey === 'classGroup') {
           cmp = historyCompareText(a.classLabel, b.classLabel);
         } else if (historySortKey === 'date') {
@@ -27853,7 +27970,7 @@ function hideFailure() {
     }
 
     function historyRenderSortIndicators() {
-      ['name', 'type', 'classGroup', 'date', 'modified', 'size'].forEach(key => {
+      ['name', 'classGroup', 'date', 'modified', 'size'].forEach(key => {
         const el = document.getElementById('history-sort-' + key);
         if (!el) return;
         el.textContent = key === historySortKey ? (historySortDir === 'asc' ? '↑' : '↓') : '';
@@ -27865,7 +27982,7 @@ function hideFailure() {
         historySortDir = historySortDir === 'asc' ? 'desc' : 'asc';
       } else {
         historySortKey = key;
-        historySortDir = key === 'name' || key === 'type' || key === 'classGroup' ? 'asc' : 'desc';
+        historySortDir = key === 'name' || key === 'classGroup' ? 'asc' : 'desc';
       }
       historyRenderList();
     }
@@ -27895,7 +28012,7 @@ function hideFailure() {
 
       if (historyLoading) {
         historySetStatus('Loading saved files...');
-        list.innerHTML = '<tr><td class="history-empty" colspan="8">Loading...</td></tr>';
+        list.innerHTML = '<tr><td class="history-empty" colspan="7">Loading...</td></tr>';
         historyRenderSortIndicators();
         return;
       }
@@ -27928,7 +28045,7 @@ function hideFailure() {
             : historyViewTab === 'archived'
               ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
               : 'No manual saves found.';
-        list.innerHTML = '<tr><td class="history-empty" colspan="8">' + emptyText + '</td></tr>';
+        list.innerHTML = '<tr><td class="history-empty" colspan="7">' + emptyText + '</td></tr>';
         historyUpdateSelectionUI();
         return;
       }
@@ -27963,10 +28080,6 @@ function hideFailure() {
             }
           }
         }
-
-        const typeTd = document.createElement('td');
-        typeTd.className = 'history-row-type';
-        typeTd.textContent = historySectionLabel(entry.section) + (entry.source === 'archived' ? ' · Archived' : '');
 
         const classTd = document.createElement('td');
         classTd.className = 'history-row-class';
@@ -28056,7 +28169,6 @@ function hideFailure() {
         actionTd.appendChild(actionsWrap);
         row.appendChild(checkTd);
         row.appendChild(nameTd);
-        row.appendChild(typeTd);
         row.appendChild(classTd);
         row.appendChild(dateTd);
         row.appendChild(modifiedTd);
@@ -28113,7 +28225,7 @@ function hideFailure() {
         historySetStatus('Could not load history files.');
         const list = document.getElementById('history-list');
         if (list) {
-          list.innerHTML = '<tr><td class="history-empty" colspan="8">Failed to read saved files: '
+          list.innerHTML = '<tr><td class="history-empty" colspan="7">Failed to read saved files: '
             + boardEscapeHtml(error && error.message ? error.message : String(error))
             + '</td></tr>';
         }
@@ -29303,16 +29415,59 @@ function hideFailure() {
     // ---- HTML / EPUB Import core ----
     let _taImportRawText = '';
     let _taImportBooks = [];
-    let _taImportBannerCallback = null;
     window._conImportTextCallback = null;
+    let _taImportSearchMatches = [];
+    let _taImportSearchIdx = -1;
 
     function taImportApplyText(text, fileLabel) {
       _taImportRawText = text;
-      document.getElementById('ta-imp-file-name').textContent = fileLabel || 'Imported text';
-      document.getElementById('ta-imp-file-zone').classList.add('has-file');
-      document.getElementById('ta-imp-char-count').textContent =
-        _taImportRawText.length.toLocaleString() + ' chars of plain text';
-      taImportPreview();
+      
+      const titleEl = document.getElementById('ta-imp-title');
+      if (titleEl) titleEl.textContent = '📂 ' + (fileLabel || 'Imported book');
+      
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) {
+        ta.value = text;
+        ta.onselect = ta.onmouseup = ta.onkeyup = taImportUpdateInsertBtn;
+        ta.onkeydown = function(e) {
+          if (e.key === 'Enter') { e.preventDefault(); taImportSearchStep(e.shiftKey ? -1 : 1); }
+        };
+      }
+      
+      const searchInput = document.getElementById('ta-imp-search-input');
+      if (searchInput) searchInput.value = '';
+      
+      const searchCount = document.getElementById('ta-imp-search-count');
+      if (searchCount) searchCount.textContent = '';
+      
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      if (prevBtn) prevBtn.disabled = true;
+      
+      const nextBtn = document.getElementById('ta-imp-search-next');
+      if (nextBtn) nextBtn.disabled = true;
+      
+      _taImportSearchMatches = [];
+      _taImportSearchIdx = -1;
+      
+      taImportUpdateInsertBtn();
+    }
+
+    function taImportUpdateInsertBtn() {
+      const ta = document.getElementById('ta-imp-text');
+      const btn = document.getElementById('ta-imp-confirm-btn');
+      if (!ta || !btn) return;
+      if (!_taImportRawText) {
+        btn.disabled = true;
+        btn.textContent = window._conImportTextCallback ? 'Import' : 'Import Book';
+        return;
+      }
+      btn.disabled = false;
+      const isConstellation = !!window._conImportTextCallback;
+      if (ta.selectionStart === ta.selectionEnd) {
+        btn.textContent = isConstellation ? '📝 Import all' : '📖 Import all';
+      } else {
+        btn.textContent = isConstellation ? '📝 Import selection' : '📖 Import selection';
+      }
     }
 
     async function taImportPopulateBookShortcuts() {
@@ -29339,8 +29494,6 @@ function hideFailure() {
           select.appendChild(option);
         });
         select.style.display = 'block';
-        const orEl = document.getElementById('ta-imp-file-or');
-        if (orEl) orEl.style.display = '';
       } catch (error) {
         console.warn('Could not list customBooks for import shortcuts:', error);
       }
@@ -29354,9 +29507,15 @@ function hideFailure() {
       const label = selectedBook ? selectedBook.label : select.options[select.selectedIndex].textContent;
       try {
         select.disabled = true;
-        document.getElementById('ta-imp-file-input').value = '';
-        document.getElementById('ta-imp-preview').textContent = 'Loading ' + label + '…';
-        document.getElementById('ta-imp-preview').className = '';
+        const fileInput = document.getElementById('ta-imp-file-input');
+        if (fileInput) fileInput.value = '';
+        
+        const ta = document.getElementById('ta-imp-text');
+        if (ta) ta.value = 'Loading ' + label + '…';
+        
+        const titleEl = document.getElementById('ta-imp-title');
+        if (titleEl) titleEl.textContent = '📂 Loading…';
+
         const lowerPath = selectedPath.toLowerCase();
         const result = await Desktop.readByPath('customBooks', selectedPath, { encoding: 'base64' });
         if (!result || !result.ok || !result.content) throw new Error(result && result.error ? result.error : 'Could not read book file.');
@@ -29372,8 +29531,8 @@ function hideFailure() {
         if (!text) throw new Error('The selected book did not produce readable text.');
         taImportApplyText(text, selectedBook ? selectedBook.fileName : label);
       } catch (error) {
-        document.getElementById('ta-imp-preview').textContent = '⚠ Could not load book: ' + (error && error.message ? error.message : String(error));
-        document.getElementById('ta-imp-preview').className = 'no-match';
+        const ta = document.getElementById('ta-imp-text');
+        if (ta) ta.value = '⚠ Could not load book: ' + (error && error.message ? error.message : String(error));
       } finally {
         select.disabled = false;
       }
@@ -29381,41 +29540,42 @@ function hideFailure() {
 
     function taOpenImport() {
       searchOpenImport();
-      document.getElementById('ta-imp-confirm-btn').onclick = taImportConfirm;
     }
 
     function taCloseImport() {
-      document.getElementById('ta-import-overlay').classList.remove('active');
-      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
-      _taImportBannerCallback = null;
+      const overlay = document.getElementById('ta-import-overlay');
+      if (overlay) overlay.classList.remove('active');
       window._conImportTextCallback = null;
-      _taManualSelection = null;
-      const selBtn = document.getElementById('ta-imp-sel-btn');
-      if (selBtn) selBtn.style.display = 'none';
     }
 
     function taImportFileLoaded(evt) {
       const file = evt.target.files[0];
       if (!file) return;
-      document.getElementById('ta-imp-book-shortcut').value = '';
-      document.getElementById('ta-imp-preview').textContent = 'Reading file…';
-      document.getElementById('ta-imp-preview').className = '';
+      
+      const shortcutSelect = document.getElementById('ta-imp-book-shortcut');
+      if (shortcutSelect) shortcutSelect.value = '';
+      
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) ta.value = 'Reading file…';
+      
+      const titleEl = document.getElementById('ta-imp-title');
+      if (titleEl) titleEl.textContent = '📂 Reading…';
+
       const isEpub = file.name.toLowerCase().endsWith('.epub');
       const reader = new FileReader();
       reader.onload = e => {
         try {
           if (isEpub) {
-            _taImportRawText = taEpubExtractText(e.target.result);
-            if (!_taImportRawText) {
-              document.getElementById('ta-imp-file-name').textContent = file.name;
-              document.getElementById('ta-imp-file-zone').classList.add('has-file');
-            }
+            taEpubExtractTextAsync(e.target.result).then(text => {
+              taImportApplyText(text, file.name);
+            }).catch(err => {
+              if (ta) ta.value = '⚠ EPUB error: ' + err.message;
+            });
           } else {
             taImportApplyText(taImportHtmlToText(e.target.result), file.name);
           }
         } catch(err) {
-          document.getElementById('ta-imp-preview').textContent = '⚠ Could not read file: ' + err.message;
-          document.getElementById('ta-imp-preview').className = 'no-match';
+          if (ta) ta.value = '⚠ Could not read file: ' + err.message;
         }
       };
       if (isEpub) reader.readAsArrayBuffer(file);
@@ -29526,10 +29686,12 @@ function hideFailure() {
 
     function taEpubExtractText(arrayBuffer) {
       taEpubExtractTextAsync(arrayBuffer).then(text => {
-        taImportApplyText(text, document.getElementById('ta-imp-file-name').textContent);
+        const titleEl = document.getElementById('ta-imp-title');
+        const fileLabel = titleEl ? titleEl.textContent.replace('📂 ', '') : 'Book';
+        taImportApplyText(text, fileLabel);
       }).catch(err => {
-        document.getElementById('ta-imp-preview').textContent = '⚠ EPUB error: ' + err.message;
-        document.getElementById('ta-imp-preview').className = 'no-match';
+        const ta = document.getElementById('ta-imp-text');
+        if (ta) ta.value = '⚠ EPUB error: ' + err.message;
       });
       return '';
     }
@@ -29548,241 +29710,153 @@ function hideFailure() {
         .trim();
     }
 
-    function taImportNormalizeForMatch(str) {
-      return (str || '').toLowerCase().replace(/[\p{P}\p{S}\s]+/gu, '');
+    function searchOpenImport() {
+      const fileInput = document.getElementById('ta-imp-file-input');
+      if (fileInput) fileInput.value = '';
+      
+      const bsEl = document.getElementById('ta-imp-book-shortcut');
+      if (bsEl) { bsEl.value = ''; bsEl.style.display = 'none'; }
+      
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) ta.value = '';
+      
+      const searchInput = document.getElementById('ta-imp-search-input');
+      if (searchInput) searchInput.value = '';
+      
+      const searchCount = document.getElementById('ta-imp-search-count');
+      if (searchCount) searchCount.textContent = '';
+      
+      const titleEl = document.getElementById('ta-imp-title');
+      if (titleEl) titleEl.textContent = '📂 Import Book';
+      
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      if (prevBtn) prevBtn.disabled = true;
+      
+      const nextBtn = document.getElementById('ta-imp-search-next');
+      if (nextBtn) nextBtn.disabled = true;
+      
+      _taImportRawText = '';
+      _taImportSearchMatches = [];
+      _taImportSearchIdx = -1;
+      
+      taImportUpdateInsertBtn();
+      
+      const overlay = document.getElementById('ta-import-overlay');
+      if (overlay) overlay.classList.add('active');
+      
+      taImportPopulateBookShortcuts();
+      
+      if (searchInput) searchInput.focus();
     }
 
-    function taImportNormalizedIndexMap(str) {
-      const map = [];
-      let normalized = '';
-      let offset = 0;
-      for (const ch of (str || '')) {
-        if (!/[\p{P}\p{S}\s]/u.test(ch)) { normalized += ch.toLowerCase(); map.push(offset); }
-        offset += ch.length;
-      }
-      return { normalized, map };
-    }
-
-    function taImportFindMatchRange(haystack, needle, fromOriginalIndex = 0) {
-      const normalizedNeedle = taImportNormalizeForMatch(needle);
-      if (!normalizedNeedle) return null;
-      const scoped = (haystack || '').slice(fromOriginalIndex);
-      const { normalized, map } = taImportNormalizedIndexMap(scoped);
-      const normIndex = normalized.indexOf(normalizedNeedle);
-      if (normIndex === -1) return null;
-      return {
-        start: fromOriginalIndex + map[normIndex],
-        end:   fromOriginalIndex + map[normIndex + normalizedNeedle.length - 1] + 1
-      };
-    }
-
-    function taImportGetRange() {
-      if (!_taImportRawText) return null;
-      const startStr = document.getElementById('ta-imp-start').value;
-      const endStr   = document.getElementById('ta-imp-end').value;
-      let startIndex = 0, endIndex = _taImportRawText.length;
-      let hasExplicitStart = false;
-      if (taImportNormalizeForMatch(startStr)) {
-        const m = taImportFindMatchRange(_taImportRawText, startStr, 0);
-        if (!m) return null;
-        startIndex = m.start;
-        hasExplicitStart = true;
-      }
-      if (taImportNormalizeForMatch(endStr)) {
-        const m = taImportFindMatchRange(_taImportRawText, endStr, startIndex);
-        if (!m) return null;
-        endIndex = m.end;
-      }
-      const text = _taImportRawText.slice(startIndex, endIndex).trim();
-      return text ? { text, startIndex, endIndex, hasExplicitStart } : null;
-    }
-
-    function taImportExtract() {
-      const r = taImportGetRange();
-      return r ? r.text : null;
-    }
-
-    let _taManualSelection = null;
-
-    function _taEsc(str) {
-      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function taImportPreview() {
-      const prev = document.getElementById('ta-imp-preview');
-      const btn  = document.getElementById('ta-imp-confirm-btn');
-      _taManualSelection = null;
-      const selBtn = document.getElementById('ta-imp-sel-btn');
-      if (selBtn) selBtn.style.display = 'none';
-
-      if (!_taImportRawText) {
-        prev.textContent = 'Load a file to begin…';
-        prev.className = '';
-        btn.disabled = true;
+    function taImportSearchRun() {
+      const query = document.getElementById('ta-imp-search-input').value;
+      const ta = document.getElementById('ta-imp-text');
+      const countEl = document.getElementById('ta-imp-search-count');
+      _taImportSearchMatches = [];
+      _taImportSearchIdx = -1;
+      if (!query || !ta) {
+        if (countEl) countEl.textContent = '';
+        const prevBtn = document.getElementById('ta-imp-search-prev');
+        if (prevBtn) prevBtn.disabled = true;
+        const nextBtn = document.getElementById('ta-imp-search-next');
+        if (nextBtn) nextBtn.disabled = true;
         return;
       }
-
-      const s = document.getElementById('ta-imp-start').value;
-      const e = document.getElementById('ta-imp-end').value;
-      const range = taImportGetRange();
-
-      if (!range) {
-        const hasStart = !taImportNormalizeForMatch(s) || !!taImportFindMatchRange(_taImportRawText, s, 0);
-        if (!s && !e) {
-          prev.textContent = _taImportRawText.slice(0, 2000) + (_taImportRawText.length > 2000 ? '…' : '');
-          prev.className = '';
-          btn.disabled = false;
-        } else {
-          prev.textContent = !hasStart ? '⚠ Start string not found in text.' : '⚠ End string not found after start.';
-          prev.className = 'no-match';
-          btn.disabled = true;
-        }
-        return;
+      const text = ta.value;
+      const lower = text.toLowerCase();
+      const q = query.toLowerCase();
+      let pos = 0;
+      while (true) {
+        const idx = lower.indexOf(q, pos);
+        if (idx === -1) break;
+        _taImportSearchMatches.push(idx);
+        pos = idx + 1;
       }
-
-      // Find exact raw-text positions of delimiter strings
-      const startMatchPos = taImportNormalizeForMatch(s) ? taImportFindMatchRange(_taImportRawText, s, 0) : null;
-      const endMatchPos   = taImportNormalizeForMatch(e) ? taImportFindMatchRange(_taImportRawText, e, range.startIndex) : null;
-
-      // Window: show from (startIndex - 300) to (endIndex or startIndex + 2000)
-      const windowStart = startMatchPos ? Math.max(0, startMatchPos.start - 300) : range.startIndex;
-      const windowEnd   = endMatchPos   ? endMatchPos.end : Math.min(range.endIndex, windowStart + 2500);
-
-      // Build highlighted HTML by walking through the window, inserting marks at delimiter positions
-      const segments = []; // [{from, to, type}] sorted by position
-      if (startMatchPos) segments.push({ from: startMatchPos.start, to: startMatchPos.end, type: 'start' });
-      if (endMatchPos && endMatchPos.start < windowEnd) segments.push({ from: endMatchPos.start, to: endMatchPos.end, type: 'end' });
-      segments.sort((a, b) => a.from - b.from);
-
-      let html = windowStart > 0 ? '<span class="ta-imp-ell">…</span>' : '';
-      let cur = windowStart;
-
-      for (const seg of segments) {
-        if (seg.from < cur) continue; // overlapping, skip
-        // Plain text before this segment
-        if (seg.from > cur) html += _taEsc(_taImportRawText.slice(cur, seg.from));
-        // If this is the start delimiter, insert a separator after it
-        const cls = seg.type === 'start' ? 'ta-hl-start' : 'ta-hl-end';
-        html += '<mark class="' + cls + '">' + _taEsc(_taImportRawText.slice(seg.from, seg.to)) + '</mark>';
-        if (seg.type === 'start') html += '<span class="ta-imp-sep-line">\n── start of import ──\n</span>';
-        cur = seg.to;
-      }
-      // Remaining plain text
-      if (cur < windowEnd) html += _taEsc(_taImportRawText.slice(cur, windowEnd));
-      if (windowEnd < range.endIndex) html += '<span class="ta-imp-ell">…</span>';
-
-      prev.innerHTML = html;
-      prev.className = 'has-match';
-      btn.disabled = false;
-    }
-
-    function taImportCheckSelection() {
-      const sel = window.getSelection();
-      const prev = document.getElementById('ta-imp-preview');
-      const selBtn = document.getElementById('ta-imp-sel-btn');
-      if (!sel || !prev || !selBtn) return;
-      const text = sel.toString().trim();
-      if (text && !sel.isCollapsed && prev.contains(sel.anchorNode) && prev.contains(sel.focusNode)) {
-        _taManualSelection = text;
-        selBtn.style.display = 'block';
+      const hasMatches = _taImportSearchMatches.length > 0;
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      if (prevBtn) prevBtn.disabled = !hasMatches;
+      const nextBtn = document.getElementById('ta-imp-search-next');
+      if (nextBtn) nextBtn.disabled = !hasMatches;
+      
+      if (hasMatches) {
+        _taImportSearchIdx = 0;
+        taImportSearchHighlight(query.length);
+        if (countEl) countEl.textContent = _taImportSearchMatches.length + ' match' + (_taImportSearchMatches.length !== 1 ? 'es' : '') + ' — press Enter ↵';
       } else {
-        _taManualSelection = null;
-        selBtn.style.display = 'none';
+        if (countEl) countEl.textContent = 'No matches';
       }
     }
 
-    function taImportImportSelection() {
-      const text = _taManualSelection;
-      if (!text) return;
-      if (window._conImportTextCallback) {
-        window._conImportTextCallback(text);
-        taCloseImport();
-        mdbToast('📝 Selection imported into Constellation.');
-      } else {
-        const fileName = document.getElementById('ta-imp-file-name').textContent;
-        searchApplyBookText(text, fileName + ' (selection)', '');
-        taCloseImport();
-        mdbToast('📖 Selection imported. You can now search for words.');
-      }
+    function taImportSearchStep(dir) {
+      if (!_taImportSearchMatches.length) return;
+      _taImportSearchIdx = (_taImportSearchIdx + dir + _taImportSearchMatches.length) % _taImportSearchMatches.length;
+      const query = document.getElementById('ta-imp-search-input').value;
+      taImportSearchHighlight(query.length);
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) ta.focus();
     }
 
-    function taImportShowBanner(msg, onOk) {
-      _taImportBannerCallback = onOk;
-      document.getElementById('ta-imp-confirm-banner-msg').textContent = msg;
-      document.getElementById('ta-imp-confirm-banner').classList.add('active');
+    function taImportScrollToPos(pos) {
+      const ta = document.getElementById('ta-imp-text');
+      if (!ta) return;
+      const style = window.getComputedStyle(ta);
+      const mirror = document.createElement('div');
+      mirror.style.cssText =
+        'position:absolute;visibility:hidden;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;' +
+        'width:' + ta.clientWidth + 'px;' +
+        'padding:' + style.padding + ';' +
+        'font:' + style.font + ';' +
+        'line-height:' + style.lineHeight + ';';
+      mirror.textContent = ta.value.substring(0, pos);
+      document.body.appendChild(mirror);
+      const top = mirror.scrollHeight;
+      document.body.removeChild(mirror);
+      ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
     }
-    function taImportBannerOk() {
-      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
-      if (_taImportBannerCallback) { _taImportBannerCallback(); _taImportBannerCallback = null; }
+
+    function taImportSearchHighlight(len) {
+      const ta = document.getElementById('ta-imp-text');
+      if (!ta) return;
+      const start = _taImportSearchMatches[_taImportSearchIdx];
+      ta.setSelectionRange(start, start + len);
+      taImportScrollToPos(start);
+      taImportUpdateInsertBtn();
+      const countEl = document.getElementById('ta-imp-search-count');
+      if (countEl) countEl.textContent = (_taImportSearchIdx + 1) + ' / ' + _taImportSearchMatches.length;
     }
-    function taImportBannerCancel() {
-      document.getElementById('ta-imp-confirm-banner').classList.remove('active');
-      _taImportBannerCallback = null;
+
+    function taImportSearchKey(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        taImportSearchStep(e.shiftKey ? -1 : 1);
+      }
     }
 
     function taImportConfirm() {
-      const s = document.getElementById('ta-imp-start').value;
-      const e = document.getElementById('ta-imp-end').value;
-      if (!s && !e) {
-        const chars = _taImportRawText ? _taImportRawText.length : 0;
-        const label = chars >= 1000000 ? (chars / 1000000).toFixed(1) + ' M chars'
-                    : chars >= 1000    ? Math.round(chars / 1000) + ' k chars'
-                    : chars + ' chars';
-        taImportShowBanner('No range defined — the entire file (' + label + ') will be loaded.', () => {
-          const text = _taImportRawText;
-          if (window._conImportTextCallback) {
-            window._conImportTextCallback(text);
-            taCloseImport();
-            mdbToast('📝 Text imported into Constellation.');
-          }
-        });
-        return;
+      const ta = document.getElementById('ta-imp-text');
+      if (!ta || !_taImportRawText) return;
+      
+      let text = ta.value.substring(ta.selectionStart, ta.selectionEnd).trim();
+      // If nothing selected, import all text
+      if (!text) {
+        text = _taImportRawText.trim();
       }
-      const text = taImportExtract();
+      
       if (!text) return;
+      
       if (window._conImportTextCallback) {
         window._conImportTextCallback(text);
         taCloseImport();
         mdbToast('📝 Text imported into Constellation.');
-      }
-    }
-
-    function searchOpenImport() {
-      document.getElementById('ta-imp-file-input').value = '';
-      const bsEl = document.getElementById('ta-imp-book-shortcut');
-      if (bsEl) { bsEl.value = ''; bsEl.style.display = 'none'; }
-      const orEl = document.getElementById('ta-imp-file-or');
-      if (orEl) orEl.style.display = 'none';
-      document.getElementById('ta-imp-file-name').textContent = 'No file chosen';
-      document.getElementById('ta-imp-file-zone').classList.remove('has-file');
-      document.getElementById('ta-imp-start').value = '';
-      document.getElementById('ta-imp-end').value = '';
-      document.getElementById('ta-imp-preview').textContent = 'Load a file to begin…';
-      document.getElementById('ta-imp-preview').className = '';
-      document.getElementById('ta-imp-char-count').textContent = '';
-      document.getElementById('ta-imp-confirm-btn').disabled = true;
-      _taImportRawText = '';
-      document.getElementById('ta-imp-confirm-btn').textContent = '📖 Import Book';
-      document.getElementById('ta-imp-confirm-btn').onclick = searchImportConfirm;
-      document.getElementById('ta-import-overlay').classList.add('active');
-      taImportPopulateBookShortcuts();
-    }
-
-    function searchImportConfirm() {
-      let text;
-      const s = document.getElementById('ta-imp-start').value;
-      const e = document.getElementById('ta-imp-end').value;
-      if (!s && !e) {
-        text = _taImportRawText;
       } else {
-        text = taImportExtract();
+        const titleEl = document.getElementById('ta-imp-title');
+        const fileLabel = titleEl ? titleEl.textContent.replace('📂 ', '') : 'Book';
+        const shortcut = SEARCH_BOOK_SHORTCUTS.find(book => book.fileName === fileLabel);
+        searchApplyBookText(text, shortcut ? shortcut.label : fileLabel, shortcut ? shortcut.path : '');
+        taCloseImport();
+        mdbToast('📖 Book imported. You can now search for words.');
       }
-      if (!text) return;
-      const fileName = document.getElementById('ta-imp-file-name').textContent;
-      const shortcut = SEARCH_BOOK_SHORTCUTS.find(book => book.fileName === fileName);
-      searchApplyBookText(text, shortcut ? shortcut.label : fileName, shortcut ? shortcut.path : '');
-      taCloseImport();
-      mdbToast('📖 Book imported. You can now search for words.');
     }
 
     function searchPerform() {

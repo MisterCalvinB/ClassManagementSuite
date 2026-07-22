@@ -1,3 +1,4 @@
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
 const fsSync = require('fs');
 const fs = require('fs/promises');
@@ -3445,14 +3446,18 @@ ipcMain.handle('app:resolve-path', async (event, request = {}) => {
 });
 
 ipcMain.handle('app:read-by-path', async (event, request = {}) => {
-  const pageFile = getRequestingPage(event);
-  const file = await readAllowedPathFile(
-    pageFile,
-    request.target,
-    request.relativePath,
-    request.encoding
-  );
-  return { ok: true, file, content: file.content, encoding: file.encoding };
+  try {
+    const pageFile = getRequestingPage(event);
+    const file = await readAllowedPathFile(
+      pageFile,
+      request.target,
+      request.relativePath,
+      request.encoding
+    );
+    return { ok: true, file, content: file.content, encoding: file.encoding };
+  } catch (error) {
+    return { ok: false, error: String(error) };
+  }
 });
 
 ipcMain.handle('app:open-timer-window', async (event, request = {}) => {
