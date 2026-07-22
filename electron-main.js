@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
@@ -5661,15 +5661,27 @@ ipcMain.handle('app:open-external', async (_event, request = {}) => {
 });
 
 ipcMain.handle('app:open-native', async (event, request = {}) => {
-  const pageFile = getRequestingPage(event);
-  const { fullPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+  let fullPath;
+  if (request.absolutePath) {
+    fullPath = path.resolve(String(request.absolutePath));
+  } else {
+    const pageFile = getRequestingPage(event);
+    const resolved = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+    fullPath = resolved.fullPath;
+  }
   const errMsg = await shell.openPath(fullPath);
   return errMsg ? { ok: false, error: errMsg } : { ok: true };
 });
 
 ipcMain.handle('app:show-in-folder', async (event, request = {}) => {
-  const pageFile = getRequestingPage(event);
-  const { fullPath } = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+  let fullPath;
+  if (request.absolutePath) {
+    fullPath = path.resolve(String(request.absolutePath));
+  } else {
+    const pageFile = getRequestingPage(event);
+    const resolved = resolveAllowedTargetPath(pageFile, request.target, request.relativePath);
+    fullPath = resolved.fullPath;
+  }
   shell.showItemInFolder(fullPath);
   return { ok: true };
 });
@@ -6126,7 +6138,7 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
       });
       if (canceled || !filePath) return { ok: false, canceled: true };
       await fs.writeFile(filePath, buffer);
-      return { ok: true };
+      return { ok: true, path: filePath, name: path.basename(filePath) };
     } catch (err) {
       console.error('export-docx failed', err);
       return { ok: false, error: String(err && err.message ? err.message : err) };

@@ -675,12 +675,17 @@ async function readRecords(target, filename, typeKey) {
   const varName = content
     ? (detectVarName(content) || VAR_NAME_DEFAULTS[typeKey] || 'customData')
     : (VAR_NAME_DEFAULTS[typeKey] || 'customData');
+  
+  let records = null;
   if (jsonResult?.ok && Array.isArray(jsonResult.data)) {
-    return { records: jsonResult.data, varName };
+    records = jsonResult.data;
+  } else if (content) {
+    records = _parseRecords(content);
   }
-  if (content) {
-    const records = _parseRecords(content);
-    if (records) return { records, varName };
+
+  if (records) {
+    normalizeRecords(records, typeKey);
+    return { records, varName };
   }
   return null;
 }
@@ -873,6 +878,124 @@ function buildSchema(records) {
 
     return { key, type, isLong, longArray, uniqueVals, useSelect };
   });
+}
+
+function getDefaultSchema(typeKey) {
+  const schema = [];
+  const addStr = (key, extra = {}) => schema.push({ key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
+  const addArr = (key, extra = {}) => schema.push({ key, type: 'array', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
+  const addObj = (key, extra = {}) => schema.push({ key, type: 'object', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
+
+  if (typeKey === 'wordbanks') {
+    addStr('word');
+    addStr('ipa');
+    addStr('partOfSpeech');
+    addStr('level');
+    addStr('theme');
+    addStr('english');
+    addStr('french');
+    addStr('german');
+    addStr('italian');
+    addArr('definition', { longArray: true });
+    addArr('exampleSentence', { longArray: true });
+    addArr('synonyms');
+    addArr('antonyms');
+    addArr('otherForms');
+    addArr('hypernym');
+    addArr('hyponym');
+    addArr('keywords');
+  } else if (typeKey === 'quotebanks') {
+    addStr('quote', { isLong: true });
+    addStr('author');
+    addStr('theme');
+    addStr('explanation', { isLong: true });
+    addArr('keywords');
+  } else if (typeKey === 'dictations') {
+    addStr('id');
+    addStr('title');
+    addStr('level');
+    addStr('theme');
+    addStr('text', { isLong: true });
+  } else if (typeKey === 'grammarbanks') {
+    addStr('id');
+    addStr('level');
+    addStr('topic');
+    addStr('category');
+    addStr('common_mistake', { isLong: true });
+    addObj('syntax');
+  } else if (typeKey === 'gapfillbanks') {
+    addStr('sentence', { isLong: true });
+    addStr('removedWord');
+    addStr('infinitive');
+    addStr('grammarType');
+    addStr('level');
+  } else if (typeKey === 'errorbanks') {
+    addStr('correct', { isLong: true });
+    addStr('erroneous', { isLong: true });
+    addStr('explanation', { isLong: true });
+    addStr('category');
+  } else if (typeKey === 'sentencebanks') {
+    addStr('title');
+    addStr('part1');
+    addStr('part2');
+    addStr('part3');
+    addStr('part4');
+    addStr('part5');
+    addStr('part6');
+    addStr('part7');
+    addStr('part8');
+  } else if (typeKey === 'storybanks') {
+    addStr('id');
+    addStr('title');
+    addStr('theme');
+    addStr('level');
+    addStr('coverEmoji');
+    addStr('synopsis', { isLong: true });
+    addObj('stages');
+  } else if (typeKey === 'quizzes') {
+    addStr('question', { isLong: true });
+    addStr('answer 1');
+    addStr('answer 2');
+    addStr('answer 3');
+    addStr('answer 4');
+    addStr('correctAnswer');
+    addStr('theme');
+    addStr('keyword');
+  }
+  return schema;
+}
+
+function normalizeRecords(records, typeKey) {
+  if (!records || !Array.isArray(records)) return records;
+  if (typeKey === 'wordbanks') {
+    for (const rec of records) {
+      if (rec && typeof rec === 'object') {
+        let kws = [];
+        if (Array.isArray(rec.keywords)) {
+          kws = [...rec.keywords];
+        } else if (typeof rec.keywords === 'string') {
+          kws = rec.keywords.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        if (typeof rec.keyword === 'string' && rec.keyword.trim()) {
+          const extraKws = rec.keyword.split(',').map(s => s.trim()).filter(Boolean);
+          for (const ek of extraKws) {
+            if (!kws.includes(ek)) kws.push(ek);
+          }
+        } else if (Array.isArray(rec.keyword)) {
+          for (const ek of rec.keyword) {
+            if (ek && typeof ek === 'string' && !kws.includes(ek)) kws.push(ek);
+          }
+        }
+
+        if (rec.keyword !== undefined) {
+          delete rec.keyword;
+        }
+        rec.keywords = kws;
+      }
+    }
+  }
+  return records;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1407,14 +1530,22 @@ function buildFieldInputHtml(field, rec) {
   } else {
     input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}">`;
   }
+
+  const helpKey = `mdbHelp_${S.typeKey}_${field.key.replace(/\s+/g, '_')}`;
+  const helpText = t(helpKey);
+  const helpIcon = helpText !== helpKey
+    ? `<span class="field-help-icon" title="${esc(helpText)}" style="cursor:help;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#eee;color:#666;font-size:0.65rem;font-weight:bold;text-transform:none;letter-spacing:normal;vertical-align:middle;user-select:none;">?</span>`
+    : '';
+
   return `<div class="form-field">
-    <label class="form-lbl" for="${id}">${esc(cap(field.key))}</label>
+    <label class="form-lbl" for="${id}">${esc(cap(field.key))}${helpIcon}</label>
     ${input}
   </div>`;
 }
 
 function buildForm(rec, schema, fi, isAdd) {
   let html = '';
+  const activeSchema = schema.length ? schema : getDefaultSchema(S.typeKey);
 
   if (isAdd) {
     // Tab bar
@@ -1433,14 +1564,14 @@ function buildForm(rec, schema, fi, isAdd) {
 
     // Single tab
     html += `<div id="tab-single-content">`;
-    if (!schema.length) {
+    if (!activeSchema.length) {
       html += `<div class="form-field">
         <label class="form-lbl">${t('mdbRecordJson')}</label>
         <textarea id="ff-_raw" rows="8">${escHtml('{}')}</textarea>
         <div class="form-hint">${t('mdbHintValidJson')}</div>
       </div>`;
     } else {
-      for (const field of schema) html += buildFieldInputHtml(field, {});
+      for (const field of activeSchema) html += buildFieldInputHtml(field, {});
     }
     html += `</div>`;
 
@@ -1461,7 +1592,7 @@ function buildForm(rec, schema, fi, isAdd) {
   if (fi !== null) {
     html += `<div class="form-source">${t('mdbFilePrefix')}<strong>${esc(S.files[fi].name)}</strong></div>`;
   }
-  if (!schema.length) {
+  if (!activeSchema.length) {
     html += `<div class="form-field">
       <label class="form-lbl">${t('mdbRecordJson')}</label>
       <textarea id="ff-_raw" rows="8">${escHtml(JSON.stringify(rec, null, 2) || '{}')}</textarea>
@@ -1469,7 +1600,7 @@ function buildForm(rec, schema, fi, isAdd) {
     </div>`;
     return html;
   }
-  for (const field of schema) html += buildFieldInputHtml(field, rec);
+  for (const field of activeSchema) html += buildFieldInputHtml(field, rec);
   return html;
 }
 
@@ -1484,6 +1615,7 @@ function switchAddTab(tab) {
 }
 
 async function submitEdit() {
+  const schema = S.schema.length ? S.schema : getDefaultSchema(S.typeKey);
   if (S.editMode === 'add') {
     const bulkEl = $('ff-_bulk');
     const isBulk = bulkEl && !$('tab-bulk-content').classList.contains('hidden');
@@ -1526,7 +1658,7 @@ async function submitEdit() {
       try { values = JSON.parse(rawEl.value); }
       catch { showToast(t('mdbAlertInvalidJson'), true); return; }
     } else {
-      values = readFormValues(S.schema);
+      values = readFormValues(schema);
     }
     S.files[fi].records.push(values);
     if (!await saveFile(fi)) return;
@@ -1537,7 +1669,7 @@ async function submitEdit() {
       try { values = JSON.parse(rawEl.value); }
       catch { showToast(t('mdbAlertInvalidJson'), true); return; }
     } else {
-      values = readFormValues(S.schema);
+      values = readFormValues(schema);
     }
     const { editFI: fi, editRI: ri } = S;
     S.files[fi].records[ri] = { ...S.files[fi].records[ri], ...values };
@@ -2441,6 +2573,7 @@ async function mdbGlobalSearch(q) {
           const varName = detectVarName(raw.content) || VAR_NAME_DEFAULTS[def.key] || 'customData';
           const records = _parseRecords(raw.content);
           if (!records) continue;
+          normalizeRecords(records, def.key);
           typeFiles[fi.filename] = { records, varName };
           if (searchRecords(records, def.key, t(def.labelKey), fi.filename)) break;
         }

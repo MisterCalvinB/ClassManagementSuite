@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   function getDesktopApi() { return window.electronApi; }
 
   function isElectron() {
@@ -228,11 +228,17 @@
 
   async function openNative(target, relativePath) {
     if (!isElectron()) return null;
+    if (typeof target === 'object' && target !== null) {
+      return getDesktopApi().openNative(target);
+    }
     return getDesktopApi().openNative({ target, relativePath });
   }
 
   async function showInFolder(target, relativePath) {
     if (!isElectron()) return null;
+    if (typeof target === 'object' && target !== null) {
+      return getDesktopApi().showInFolder(target);
+    }
     return getDesktopApi().showInFolder({ target, relativePath });
   }
 

@@ -752,13 +752,8 @@
   <!-- ══ BROWSE TAB ══════════════════════════════════════════════ -->
   <div id="tab-browse" class="tab-panel">
     <div class="browse-toolbar">
-      <select id="browseTarget" class="browse-target-select">
-        <option value="mindmaps" data-i18n="fmTargetMindmaps">Constellation Maps</option>
+      <select id="browseTarget" class="browse-target-select" style="display: none;">
         <option value="user" data-i18n="fmTargetUser">User Data</option>
-        <option value="data" data-i18n="fmTargetData">Custom Data</option>
-        <option value="grades" data-i18n="fmTargetGrades">Grades</option>
-        <option value="groupParticipation" data-i18n="fmTargetParticipation">Participation</option>
-        <option value="docEditor">Doc Editor</option>
       </select>
       <select id="browseSortOrder">
         <option value="name-asc" data-i18n="rfSortNameAZ">Name A→Z</option>
@@ -1201,7 +1196,9 @@ async function rfFilterOutTemplateSessions(files) {
 function fmIsTemplateMindmapFile(fileObj) {
   if (!fileObj) return false;
   var target = fileObj.target || 'mindmaps';
-  if (target !== 'mindmaps') return false;
+  var rel = fileObj.relativePath || fileObj.filename || '';
+  var isMindmap = target === 'mindmaps' || (target === 'user' && rel.startsWith('mindmaps/'));
+  if (!isMindmap) return false;
   return rfIsTemplateType(rfSessionTypeCache.get(rfSessionCacheKey(fileObj)));
 }
 
@@ -1210,7 +1207,9 @@ async function fmPrimeBrowseSessionTypes(files) {
   var list = (Array.isArray(files) ? files : []).filter(function(f) {
     if (!f || f.isDirectory) return false;
     var target = f.target || browseTarget || 'mindmaps';
-    if (target !== 'mindmaps') return false;
+    var rel = f.relativePath || f.filename || '';
+    var isMindmap = target === 'mindmaps' || (target === 'user' && rel.startsWith('mindmaps/'));
+    if (!isMindmap) return false;
     return /\.(js|json)$/i.test(String(f.filename || ''));
   });
   if (!list.length) return;
@@ -1219,11 +1218,11 @@ async function fmPrimeBrowseSessionTypes(files) {
   for (var i = 0; i < list.length; i += BATCH) {
     var batch = list.slice(i, i + BATCH);
     await Promise.all(batch.map(async function(f) {
-      var fileWithTarget = Object.assign({}, f, { target: f.target || 'mindmaps' });
-      var key = rfSessionCacheKey(fileWithTarget);
+      var target = f.target || browseTarget || 'mindmaps';
+      var key = rfSessionCacheKey(f);
       if (rfSessionTypeCache.has(key)) return;
       try {
-        var result = await Desktop.readByPath(fileWithTarget.target, fileWithTarget.relativePath || fileWithTarget.filename);
+        var result = await Desktop.readByPath(target, f.relativePath || f.filename);
         var raw = result && result.content ? result.content : '';
         rfSessionTypeCache.set(key, rfExtractSessionType(raw));
       } catch (e) {
@@ -1608,8 +1607,48 @@ async function loadRecent() {
    ════════════════════════════════════════════ */
 
 var browseAllFiles   = [];
-var browseTarget     = 'mindmaps';
+var browseTarget     = 'user';
 var browsePath       = '';
+
+var SYSTEM_FOLDERS = new Set([
+  'mindmaps',
+  'custom-data',
+  'data',
+  'grades',
+  'group-participation',
+  'groupParticipation',
+  'document-editor',
+  'docEditor',
+  'class-plans',
+  'classPlans',
+  'game-results',
+  'gameResults',
+  'log',
+  'gradeSheet'
+]);
+
+var SYSTEM_FILES = new Set([
+  'config.js',
+  'class-groups.js',
+  'roles.js',
+  'board-config.js',
+  'board-sessions-backup.json',
+  'ui-prefs.json'
+]);
+
+function fmGetFolderDisplayName(folderName, isRootUserDir) {
+  if (isRootUserDir) {
+    if (folderName === 'mindmaps') return tt('fmTargetMindmaps', 'Constellation Maps');
+    if (folderName === 'custom-data' || folderName === 'data') return tt('fmTargetData', 'Custom Data');
+    if (folderName === 'grades') return tt('fmTargetGrades', 'Grades');
+    if (folderName === 'group-participation' || folderName === 'groupParticipation') return tt('fmTargetParticipation', 'Participation');
+    if (folderName === 'document-editor' || folderName === 'docEditor') return tt('fmTargetDocEditor', 'Doc Editor');
+    if (folderName === 'class-plans') return tt('fmTargetClassPlans', 'Class Plans');
+    if (folderName === 'game-results') return tt('fmTargetGameResults', 'Game Results');
+    if (folderName === 'log') return tt('fmTargetLogs', 'Logs');
+  }
+  return folderName;
+}
 var gradeClassNames  = {};
 var groupClassNames  = {};
 var fmSelection = new Map();
@@ -1830,7 +1869,8 @@ function fmOpenDestinationPicker(opts) {
   var chooseBtn = document.getElementById('fmPickerChooseBtn');
   var cancelBtn = document.getElementById('fmPickerCancelBtn');
 
-  var currentTarget = opts.target || browseTarget || 'mindmaps';
+  targetSel.style.display = 'none';
+  var currentTarget = 'user';
   var currentPath = normPath(opts.path || '');
 
   title.textContent = opts.title || tt('fmMoveTo', 'Move to...');
@@ -2027,16 +2067,8 @@ async function fmRunTransfer(items, destinationTarget, destinationFolderPath, mo
 
 async function fmMoveCopyViaPicker(items, mode) {
   if (!items || !items.length) return;
-  var defaultPickerTarget = items[0].target;
+  var defaultPickerTarget = 'user';
   var defaultPickerPath = browsePath;
-  if (browseTarget === 'docEditor') {
-    var resolvedCurrent = fmResolveDocEditorVirtualPath(browsePath);
-    if (resolvedCurrent && resolvedCurrent.target === defaultPickerTarget) {
-      defaultPickerPath = resolvedCurrent.path;
-    } else {
-      defaultPickerPath = fmDirName(items[0].relativePath || '');
-    }
-  }
   var picker = await fmOpenDestinationPicker({
     title: mode === 'move' ? tt('fmMoveTo', 'Move to...') : tt('fmCopyTo', 'Copy to...'),
     target: defaultPickerTarget,
@@ -2189,11 +2221,15 @@ function renderBreadcrumb() {
 
     var seg = document.createElement('button');
     seg.className = 'breadcrumb-seg';
-    var segLabel = (browseTarget === 'grades' && idx === 0 && gradeClassNames[part])
+    var isGradesDir = (browseTarget === 'grades' && idx === 0) || (browseTarget === 'user' && idx === 1 && parts[0] === 'grades');
+    var isGroupDir = (browseTarget === 'groupParticipation' && idx === 0) || (browseTarget === 'user' && idx === 1 && (parts[0] === 'group-participation' || parts[0] === 'groupParticipation'));
+    var segLabel = (isGradesDir && gradeClassNames[part])
       ? gradeClassNames[part]
-      : (browseTarget === 'groupParticipation' && idx === 0 && groupClassNames[part])
+      : (isGroupDir && groupClassNames[part])
         ? groupClassNames[part]
-        : part;
+        : (browseTarget === 'user' && idx === 0)
+          ? fmGetFolderDisplayName(part, true)
+          : part;
     seg.textContent = segLabel;
     seg.title = part;
     var segPath = parts.slice(0, idx + 1).join('/');
@@ -2337,11 +2373,16 @@ function renderBrowse() {
 
       var nameEl = document.createElement('span');
       nameEl.className = 'folder-name';
-      var folderDisplayName = (browseTarget === 'grades' && gradeClassNames[folder])
+      var isGradesDir = (browseTarget === 'grades' && !prefix) || (browseTarget === 'user' && prefix === 'grades/');
+      var isGroupDir = (browseTarget === 'groupParticipation' && !prefix) || (browseTarget === 'user' && (prefix === 'group-participation/' || prefix === 'groupParticipation/'));
+      var isRootUserDir = (browseTarget === 'user' && !prefix);
+      var folderDisplayName = (isGradesDir && gradeClassNames[folder])
         ? gradeClassNames[folder]
-        : (browseTarget === 'groupParticipation' && groupClassNames[folder])
+        : (isGroupDir && groupClassNames[folder])
           ? groupClassNames[folder]
-          : folder;
+          : isRootUserDir
+            ? fmGetFolderDisplayName(folder, true)
+            : folder;
       nameEl.textContent = folderDisplayName;
       nameEl.title = folder;
       nameEl.style.cursor = 'pointer';
@@ -2415,28 +2456,31 @@ function renderBrowse() {
         var acts = document.createElement('div');
         acts.className = 'file-actions';
         if (!isMergedDocEditor) {
-          var rnBtn = document.createElement('button');
-          rnBtn.className = 'btn-rename';
-          rnBtn.textContent = tt('fmRename', 'Rename');
-          (function(folderName, ne) {
-            rnBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              startFolderRename(row, folderName, ne, prefix);
-            });
-          })(folder, nameEl);
-          acts.appendChild(rnBtn);
+          var isSystemFolder = (browseTarget === 'user' && !prefix && SYSTEM_FOLDERS.has(folder));
+          if (!isSystemFolder) {
+            var rnBtn = document.createElement('button');
+            rnBtn.className = 'btn-rename';
+            rnBtn.textContent = tt('fmRename', 'Rename');
+            (function(folderName, ne) {
+              rnBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                startFolderRename(row, folderName, ne, prefix);
+              });
+            })(folder, nameEl);
+            acts.appendChild(rnBtn);
 
-          var delBtn = document.createElement('button');
-          delBtn.className = 'btn-action';
-          delBtn.style.cssText = 'color:#c00;border-color:#c00;';
-          delBtn.textContent = tt('fmDelete', 'Delete');
-          (function(folderName) {
-            delBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              deleteFolderConfirm(folderName, folderCounts[folderName], prefix, row);
-            });
-          })(folder);
-          acts.appendChild(delBtn);
+            var delBtn = document.createElement('button');
+            delBtn.className = 'btn-action';
+            delBtn.style.cssText = 'color:#c00;border-color:#c00;';
+            delBtn.textContent = tt('fmDelete', 'Delete');
+            (function(folderName) {
+              delBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                deleteFolderConfirm(folderName, folderCounts[folderName], prefix, row);
+              });
+            })(folder);
+            acts.appendChild(delBtn);
+          }
         }
 
         row.appendChild(acts);
@@ -2535,7 +2579,8 @@ function makeBrowseRow(file) {
   var acts = document.createElement('div');
   acts.className = 'file-actions';
 
-  var isConst = /\.(js|json)$/i.test(file.filename) && browseTarget === 'mindmaps' && !fmIsTemplateMindmapFile(file);
+  var isMindmapsFolderFile = browseTarget === 'mindmaps' || (browseTarget === 'user' && (file.relativePath || '').startsWith('mindmaps/'));
+  var isConst = /\.(js|json)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
   if (isConst) {
     var boardBtn = document.createElement('button');
     boardBtn.className = 'btn-open';
@@ -2543,7 +2588,13 @@ function makeBrowseRow(file) {
     (function(f) {
       boardBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
-        Desktop.openTool('board.html', { query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename } });
+        var target = f.target;
+        var relPath = f.relativePath || f.filename;
+        if (target === 'user' && relPath.startsWith('mindmaps/')) {
+          target = 'mindmaps';
+          relPath = relPath.slice('mindmaps/'.length);
+        }
+        Desktop.openTool('board.html', { query: { openSession:'1', openTarget:target, openFilename:f.filename, openRelPath:relPath } });
       });
     })(file);
     acts.appendChild(boardBtn);
@@ -2569,58 +2620,76 @@ function makeBrowseRow(file) {
       editBtn.textContent = tt('fmEditInDocEditor', 'Edit in Doc Editor');
       (function(f) {
         editBtn.addEventListener('click', function() {
+          var target = f.target;
+          var relPath = f.relativePath || f.filename;
+          if (target === 'user') {
+            if (relPath.startsWith('document-editor/docs/')) {
+              target = 'docEditorDocs';
+              relPath = relPath.slice('document-editor/docs/'.length);
+            } else if (relPath.startsWith('document-editor/stylesheets/')) {
+              target = 'docEditorStylesheets';
+              relPath = relPath.slice('document-editor/stylesheets/'.length);
+            } else if (relPath.startsWith('document-editor/templates/')) {
+              target = 'docEditorTemplates';
+              relPath = relPath.slice('document-editor/templates/'.length);
+            }
+          }
           Desktop.openTool('document-editor.html', {
-            query: { editTarget: f.target, editRelPath: f.relativePath || f.filename }
+            query: { editTarget: target, editRelPath: relPath }
           });
         });
       })(file);
       acts.appendChild(editBtn);
     }
 
-    // Duplicate
-    var dupBtn = document.createElement('button');
-    dupBtn.className = 'btn-action';
-    dupBtn.textContent = tt('fmDuplicate','Duplicate');
-    (function(f, dBtn) {
-      dBtn.addEventListener('click', async function() {
-        dBtn.disabled = true;
-        try {
-          var res = await Desktop.duplicateByPath(f.target, f.relativePath || f.filename);
-          if (res && res.ok) {
-            var newFile = Object.assign({}, f, {
-              filename: res.filename,
-              relativePath: res.relativePath,
-              size: res.size,
-              mtimeMs: res.mtimeMs
-            });
-            var oldKey = rfSessionCacheKey(f);
-            var newKey = rfSessionCacheKey(newFile);
-            if (rfSessionTypeCache.has(oldKey) && !rfSessionTypeCache.has(newKey)) {
-              rfSessionTypeCache.set(newKey, rfSessionTypeCache.get(oldKey));
-            }
-            browseAllFiles.push(newFile);
-            var newRow = makeBrowseRow(newFile);
-            row.parentNode.insertBefore(newRow, row.nextSibling);
-          } else {
-            showToast(tt('fmDuplicateFailed','Duplicate failed.'), true);
-          }
-        } catch(e) {
-          showToast(tt('fmDuplicateFailed','Duplicate failed:') + ' ' + (e && e.message ? e.message : String(e)), true);
-        } finally { dBtn.disabled = false; }
-      });
-    })(file, dupBtn);
-    acts.appendChild(dupBtn);
+    var isSystemFile = (file.target === 'user' && !browsePath && SYSTEM_FILES.has(file.filename));
 
-    // Rename
-    var rnBtn = document.createElement('button');
-    rnBtn.className = 'btn-rename';
-    rnBtn.textContent = tt('fmRename','Rename');
-    (function(f, rb) {
-      rb.addEventListener('click', function() {
-        startInlineRename(row, f, f.target, null, browseAllFiles);
-      });
-    })(file, rnBtn);
-    acts.appendChild(rnBtn);
+    if (!isSystemFile) {
+      // Duplicate
+      var dupBtn = document.createElement('button');
+      dupBtn.className = 'btn-action';
+      dupBtn.textContent = tt('fmDuplicate','Duplicate');
+      (function(f, dBtn) {
+        dBtn.addEventListener('click', async function() {
+          dBtn.disabled = true;
+          try {
+            var res = await Desktop.duplicateByPath(f.target, f.relativePath || f.filename);
+            if (res && res.ok) {
+              var newFile = Object.assign({}, f, {
+                filename: res.filename,
+                relativePath: res.relativePath,
+                size: res.size,
+                mtimeMs: res.mtimeMs
+              });
+              var oldKey = rfSessionCacheKey(f);
+              var newKey = rfSessionCacheKey(newFile);
+              if (rfSessionTypeCache.has(oldKey) && !rfSessionTypeCache.has(newKey)) {
+                rfSessionTypeCache.set(newKey, rfSessionTypeCache.get(oldKey));
+              }
+              browseAllFiles.push(newFile);
+              var newRow = makeBrowseRow(newFile);
+              row.parentNode.insertBefore(newRow, row.nextSibling);
+            } else {
+              showToast(tt('fmDuplicateFailed','Duplicate failed.'), true);
+            }
+          } catch(e) {
+            showToast(tt('fmDuplicateFailed','Duplicate failed:') + ' ' + (e && e.message ? e.message : String(e)), true);
+          } finally { dBtn.disabled = false; }
+        });
+      })(file, dupBtn);
+      acts.appendChild(dupBtn);
+
+      // Rename
+      var rnBtn = document.createElement('button');
+      rnBtn.className = 'btn-rename';
+      rnBtn.textContent = tt('fmRename','Rename');
+      (function(f, rb) {
+        rb.addEventListener('click', function() {
+          startInlineRename(row, f, f.target, null, browseAllFiles);
+        });
+      })(file, rnBtn);
+      acts.appendChild(rnBtn);
+    }
   }
 
   row.appendChild(acts);
@@ -2668,7 +2737,7 @@ async function loadBrowse(options) {
       browseAllFiles = (res && res.ok && Array.isArray(res.files)) ? res.files : [];
     }
 
-    if (browseTarget === 'mindmaps') {
+    if (browseTarget === 'mindmaps' || browseTarget === 'user') {
       await fmPrimeBrowseSessionTypes(browseAllFiles);
     }
   } catch(e) {
@@ -2678,16 +2747,22 @@ async function loadBrowse(options) {
 
   gradeClassNames = {};
   groupClassNames = {};
-  if (browseTarget === 'grades' && typeof Desktop.readByPath === 'function') {
+  if ((browseTarget === 'grades' || browseTarget === 'user') && typeof Desktop.readByPath === 'function') {
     var classFiles = browseAllFiles.filter(function(f) {
-      var parts = normPath(f.relativePath || f.filename || '').split('/');
-      return parts.length === 2 && parts[1] === '_class.js';
+      var rel = normPath(f.relativePath || f.filename || '');
+      var parts = rel.split('/');
+      if (browseTarget === 'user') {
+        return parts.length === 3 && parts[0] === 'grades' && parts[2] === '_class.js';
+      } else {
+        return parts.length === 2 && parts[1] === '_class.js';
+      }
     });
     await Promise.all(classFiles.map(async function(f) {
       try {
         var rel = normPath(f.relativePath || f.filename);
-        var folderId = rel.split('/')[0];
-        var r = await Desktop.readByPath('grades', rel);
+        var parts = rel.split('/');
+        var folderId = browseTarget === 'user' ? parts[1] : parts[0];
+        var r = await Desktop.readByPath(browseTarget, rel);
         if (r && r.content) {
           var m = r.content.match(/"name"\s*:\s*"([^"]+)"/);
           if (m) gradeClassNames[folderId] = m[1];
@@ -2695,7 +2770,7 @@ async function loadBrowse(options) {
       } catch(e) {}
     }));
   }
-  if (browseTarget === 'groupParticipation' && typeof Desktop.readByPath === 'function') {
+  if ((browseTarget === 'groupParticipation' || browseTarget === 'user') && typeof Desktop.readByPath === 'function') {
     try {
       var cgr = await Desktop.readByPath('user', 'class-groups.js');
       if (cgr && cgr.content) {
@@ -3442,7 +3517,8 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     e.preventDefault();
     e.stopPropagation();
     var relPath = file.relativePath || file.filename;
-    var isConst = /\.(js|json)$/i.test(file.filename) && file.target === 'mindmaps' && !fmIsTemplateMindmapFile(file);
+    var isMindmapsFolderFile = file.target === 'mindmaps' || (file.target === 'user' && (file.relativePath || '').startsWith('mindmaps/'));
+    var isConst = /\.(js|json)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
     var itemForContext = {
@@ -3459,7 +3535,13 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     if (isConst) {
       items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
-        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
+        var target = file.target;
+        var relPath = file.relativePath || file.filename;
+        if (target === 'user' && relPath.startsWith('mindmaps/')) {
+          target = 'mindmaps';
+          relPath = relPath.slice('mindmaps/'.length);
+        }
+        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath } });
       }});
     }
 
@@ -3472,33 +3554,37 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
       fmMoveCopyViaPicker(selectedForContext, 'copy');
     }});
-    items.push('-');
-    items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
-      try {
-        var res = await Desktop.duplicateByPath(file.target, relPath);
-        if (res && res.ok) {
-          var newFile = Object.assign({}, file, { filename: res.filename, relativePath: res.relativePath, size: res.size, mtimeMs: res.mtimeMs });
-          browseAllFiles.push(newFile);
-          renderBrowse();
-        } else { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
-      } catch(ex) { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
-    }});
-    (function(row) {
-      items.push({ label: tt('fmRename','Rename'), action: function() {
-        if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+
+    var isSystemFile = (file.target === 'user' && !browsePath && SYSTEM_FILES.has(file.filename));
+    if (!isSystemFile) {
+      items.push('-');
+      items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
+        try {
+          var res = await Desktop.duplicateByPath(file.target, relPath);
+          if (res && res.ok) {
+            var newFile = Object.assign({}, file, { filename: res.filename, relativePath: res.relativePath, size: res.size, mtimeMs: res.mtimeMs });
+            browseAllFiles.push(newFile);
+            renderBrowse();
+          } else { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
+        } catch(ex) { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
       }});
-    })(rowEl);
-    items.push('-');
-    items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
-      if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
-      try {
-        var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
-        if (r && r.ok) {
-          browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
-          renderBrowse();
-        } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
-      } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
-    }});
+      (function(row) {
+        items.push({ label: tt('fmRename','Rename'), action: function() {
+          if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+        }});
+      })(rowEl);
+      items.push('-');
+      items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+        if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
+        try {
+          var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
+          if (r && r.ok) {
+            browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
+            renderBrowse();
+          } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+        } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+      }});
+    }
 
     showCtx(e.clientX, e.clientY, items);
   };
@@ -3520,10 +3606,6 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     };
     var selectedForContext = fmEnsureSelectionForContext(itemForContext);
     var nameEl = rowEl ? rowEl.querySelector('.folder-name') : null;
-    var cnt = folderName ? (browseAllFiles.filter(function(f) {
-      var r = normPath(f.relativePath || f.filename || '');
-      return r.startsWith((prefix || '') + folderName + '/');
-    }).length) : 0;
     var items = [];
 
     items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
@@ -3534,30 +3616,34 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
       fmMoveCopyViaPicker(selectedForContext, 'copy');
     }});
-    items.push('-');
-    (function(row, ne) {
-      if (browseTarget !== 'docEditor') {
-        items.push({ label: tt('fmRename','Rename'), action: function() {
-          if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
-        }});
-      }
 
-      items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
-        var folderLabel = (browseTarget === 'docEditor') ? (itemForContext.relativePath || folderName) : folderName;
-        var msg = tt('fmDeleteFolderConfirm', 'Delete folder "{name}"?\n\nThis will permanently delete all files inside. This cannot be undone.').replace('{name}', folderLabel);
-        if (!await showConfirm(msg)) return;
-        try {
-          var r = await Desktop.deleteByPath(itemForContext.target, itemForContext.relativePath, { recursive: true, force: true });
-          if (r && r.ok) {
-            await loadBrowse({ preservePath: true });
-          } else {
-            showToast(tt('fmDeleteFailed','Delete failed.'), true);
-          }
-        } catch (ex) {
-          showToast(tt('fmDeleteFailed','Delete failed.') + ' ' + (ex && ex.message ? ex.message : String(ex)), true);
+    var isSystemFolder = (itemForContext.target === 'user' && !prefix && SYSTEM_FOLDERS.has(folderName));
+    if (!isSystemFolder) {
+      items.push('-');
+      (function(row, ne) {
+        if (browseTarget !== 'docEditor') {
+          items.push({ label: tt('fmRename','Rename'), action: function() {
+            if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
+          }});
         }
-      }});
-    })(rowEl, nameEl);
+
+        items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+          var folderLabel = (browseTarget === 'docEditor') ? (itemForContext.relativePath || folderName) : folderName;
+          var msg = tt('fmDeleteFolderConfirm', 'Delete folder "{name}"?\n\nThis will permanently delete all files inside. This cannot be undone.').replace('{name}', folderLabel);
+          if (!await showConfirm(msg)) return;
+          try {
+            var r = await Desktop.deleteByPath(itemForContext.target, itemForContext.relativePath, { recursive: true, force: true });
+            if (r && r.ok) {
+              await loadBrowse({ preservePath: true });
+            } else {
+              showToast(tt('fmDeleteFailed','Delete failed.'), true);
+            }
+          } catch (ex) {
+            showToast(tt('fmDeleteFailed','Delete failed.') + ' ' + (ex && ex.message ? ex.message : String(ex)), true);
+          }
+        }});
+      })(rowEl, nameEl);
+    }
 
     showCtx(e.clientX, e.clientY, items);
   };

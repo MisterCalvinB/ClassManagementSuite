@@ -391,4 +391,195 @@
       e.stopPropagation();
     }, true);
   }
+
+  // ── Export success modal ───────────────────────────────────────────────────
+  var exportOverlay = null;
+
+  function ensureExportOverlay() {
+    if (exportOverlay) return;
+    exportOverlay = document.createElement('div');
+    exportOverlay.className = 'cmt-overlay';
+    exportOverlay.innerHTML =
+      '<div class="cmt-dialog-box" style="text-align: center; max-width: 420px; padding: 28px 24px 20px;">' +
+        '<div style="font-size: 2.2rem; margin-bottom: 12px; line-height: 1;">🎉</div>' +
+        '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.15rem; font-weight: 800; font-family: inherit; color: #111;">Export Complete</h3>' +
+        '<p class="cmt-export-msg" style="margin: 0 0 22px; font-size: .88rem; line-height: 1.5; color: #555; word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
+        '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
+          '<button class="cmt-btn-open-file" style="padding: 10px 18px; border-radius: 6px; border: 1.5px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #000; color: #fff; box-shadow: 2px 2px 0 rgba(0,0,0,0.15); transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open File</button>' +
+          '<button class="cmt-btn-show-in-folder" style="padding: 10px 18px; border-radius: 6px; border: 1.5px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fff; color: #000; box-shadow: 2px 2px 0 rgba(0,0,0,0.15); transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Show in Folder</button>' +
+          '<button class="cmt-btn-close-export" style="padding: 6px 18px; border-radius: 6px; border: none; font-size: .82rem; font-weight: 600; cursor: pointer; background: transparent; color: #777; transition: color .12s; margin-top: 4px; outline: none; font-family: inherit;">Close</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(exportOverlay);
+
+    // Hover & Active effects using inline styling & event listeners
+    var openBtn = exportOverlay.querySelector('.cmt-btn-open-file');
+    var showBtn = exportOverlay.querySelector('.cmt-btn-show-in-folder');
+    var closeBtn = exportOverlay.querySelector('.cmt-btn-close-export');
+
+    openBtn.addEventListener('mouseenter', function () { openBtn.style.background = '#222'; });
+    openBtn.addEventListener('mouseleave', function () { openBtn.style.background = '#000'; });
+    openBtn.addEventListener('mousedown', function () { openBtn.style.transform = 'translate(1px, 1px)'; openBtn.style.boxShadow = '1px 1px 0 rgba(0,0,0,0.15)'; });
+    openBtn.addEventListener('mouseup', function () { openBtn.style.transform = 'none'; openBtn.style.boxShadow = '2px 2px 0 rgba(0,0,0,0.15)'; });
+
+    showBtn.addEventListener('mouseenter', function () { showBtn.style.background = '#f2f2f2'; });
+    showBtn.addEventListener('mouseleave', function () { showBtn.style.background = '#fff'; });
+    showBtn.addEventListener('mousedown', function () { showBtn.style.transform = 'translate(1px, 1px)'; showBtn.style.boxShadow = '1px 1px 0 rgba(0,0,0,0.15)'; });
+    showBtn.addEventListener('mouseup', function () { showBtn.style.transform = 'none'; showBtn.style.boxShadow = '2px 2px 0 rgba(0,0,0,0.15)'; });
+
+    closeBtn.addEventListener('mouseenter', function () { closeBtn.style.color = '#111'; });
+    closeBtn.addEventListener('mouseleave', function () { closeBtn.style.color = '#777'; });
+
+    // Key event listener for dialog
+    exportOverlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); closeExportOverlay(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var primaryBtn = exportOverlay.querySelector('.cmt-btn-open-file');
+        if (primaryBtn) primaryBtn.click();
+      }
+    });
+  }
+
+  function closeExportOverlay() {
+    if (!exportOverlay) return;
+    exportOverlay.classList.remove('open');
+  }
+
+  function _showExportSuccessPopup(filePath, fileName, isFolder) {
+    if (!window.Desktop || !Desktop.isElectron()) {
+      // Browsers do standard downloads, so bypass
+      return;
+    }
+    ensureExportOverlay();
+
+    var name = fileName || filePath.split(/[\\/]/).pop();
+    var titleText = _getExportText('exportSuccessTitle', 'Export Complete');
+    var defaultMsg = '"{name}" has been successfully exported.';
+    if (isFolder) {
+      defaultMsg = 'Folder "{name}" has been successfully exported.';
+    }
+    var msgText = _getExportText(isFolder ? 'exportSuccessMessageFolder' : 'exportSuccessMessage', defaultMsg).replace('{name}', name);
+
+    exportOverlay.querySelector('.cmt-export-title').textContent = titleText;
+    exportOverlay.querySelector('.cmt-export-msg').textContent = msgText;
+
+    var openBtn = exportOverlay.querySelector('.cmt-btn-open-file');
+    var showBtn = exportOverlay.querySelector('.cmt-btn-show-in-folder');
+    var closeBtn = exportOverlay.querySelector('.cmt-btn-close-export');
+
+    openBtn.textContent = isFolder 
+      ? _getExportText('exportOpenFolderBtn', 'Open Folder')
+      : _getExportText('exportOpenBtn', 'Open File');
+    showBtn.textContent = _getExportText('exportShowInFolderBtn', 'Show in Folder');
+    closeBtn.textContent = _getExportText('exportCloseBtn', 'Close');
+
+    // Clone nodes to easily clean up previous listeners
+    var newOpenBtn = openBtn.cloneNode(true);
+    var newShowBtn = showBtn.cloneNode(true);
+    var newCloseBtn = closeBtn.cloneNode(true);
+    openBtn.replaceWith(newOpenBtn);
+    showBtn.replaceWith(newShowBtn);
+    closeBtn.replaceWith(newCloseBtn);
+
+    // Rebind styles/hovers on cloned nodes
+    newOpenBtn.addEventListener('mouseenter', function () { newOpenBtn.style.background = '#222'; });
+    newOpenBtn.addEventListener('mouseleave', function () { newOpenBtn.style.background = '#000'; });
+    newOpenBtn.addEventListener('mousedown', function () { newOpenBtn.style.transform = 'translate(1px, 1px)'; newOpenBtn.style.boxShadow = '1px 1px 0 rgba(0,0,0,0.15)'; });
+    newOpenBtn.addEventListener('mouseup', function () { newOpenBtn.style.transform = 'none'; newOpenBtn.style.boxShadow = '2px 2px 0 rgba(0,0,0,0.15)'; });
+
+    newShowBtn.addEventListener('mouseenter', function () { newShowBtn.style.background = '#f2f2f2'; });
+    newShowBtn.addEventListener('mouseleave', function () { newShowBtn.style.background = '#fff'; });
+    newShowBtn.addEventListener('mousedown', function () { newShowBtn.style.transform = 'translate(1px, 1px)'; newShowBtn.style.boxShadow = '1px 1px 0 rgba(0,0,0,0.15)'; });
+    newShowBtn.addEventListener('mouseup', function () { newShowBtn.style.transform = 'none'; newShowBtn.style.boxShadow = '2px 2px 0 rgba(0,0,0,0.15)'; });
+
+    newCloseBtn.addEventListener('mouseenter', function () { newCloseBtn.style.color = '#111'; });
+    newCloseBtn.addEventListener('mouseleave', function () { newCloseBtn.style.color = '#777'; });
+
+    newCloseBtn.addEventListener('click', closeExportOverlay);
+
+    newOpenBtn.addEventListener('click', function () {
+      closeExportOverlay();
+      Desktop.openNative({ absolutePath: filePath }).catch(function (err) {
+        var errMsg = err && err.message ? err.message : String(err);
+        if (typeof window.showToast === 'function') {
+          showToast('Could not open: ' + errMsg, true);
+        } else if (typeof window.mdbToast === 'function') {
+          mdbToast('⚠️ Could not open: ' + errMsg);
+        } else {
+          alert('Could not open: ' + errMsg);
+        }
+      });
+    });
+
+    newShowBtn.addEventListener('click', function () {
+      closeExportOverlay();
+      Desktop.showInFolder({ absolutePath: filePath });
+    });
+
+    exportOverlay.classList.add('open');
+    setTimeout(function () {
+      newOpenBtn.focus();
+    }, 50);
+  }
+
+  function _getExportText(key, defaultVal) {
+    var lang = 'en';
+    try {
+      var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+      if (cfg.language) lang = cfg.language;
+      var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
+      var override = localStorage.getItem('cmt-lang-' + page);
+      if (override) lang = override;
+    } catch (e) {}
+
+    var map = {
+      en: {
+        exportSuccessTitle: 'Export Complete',
+        exportSuccessMessage: '"{name}" has been successfully exported.',
+        exportSuccessMessageFolder: 'Folder "{name}" has been successfully exported.',
+        exportOpenBtn: 'Open File',
+        exportOpenFolderBtn: 'Open Folder',
+        exportShowInFolderBtn: 'Show in Folder',
+        exportCloseBtn: 'Close'
+      },
+      fr: {
+        exportSuccessTitle: 'Exportation Terminée',
+        exportSuccessMessage: '"{name}" a été exporté avec succès.',
+        exportSuccessMessageFolder: 'Le dossier "{name}" a été exporté avec succès.',
+        exportOpenBtn: 'Ouvrir le fichier',
+        exportOpenFolderBtn: 'Ouvrir le dossier',
+        exportShowInFolderBtn: 'Afficher dans le dossier',
+        exportCloseBtn: 'Fermer'
+      },
+      de: {
+        exportSuccessTitle: 'Export abgeschlossen',
+        exportSuccessMessage: '"{name}" wurde erfolgreich exportiert.',
+        exportSuccessMessageFolder: 'Der Ordner "{name}" wurde erfolgreich exportiert.',
+        exportOpenBtn: 'Datei öffnen',
+        exportOpenFolderBtn: 'Ordner öffnen',
+        exportShowInFolderBtn: 'Im Ordner anzeigen',
+        exportCloseBtn: 'Schließen'
+      },
+      it: {
+        exportSuccessTitle: 'Esportazione Completata',
+        exportSuccessMessage: '"{name}" è stato esportato con successo.',
+        exportSuccessMessageFolder: 'La cartella "{name}" è stata esportata con successo.',
+        exportOpenBtn: 'Apri file',
+        exportOpenFolderBtn: 'Apri cartella',
+        exportShowInFolderBtn: 'Mostra nella cartella',
+        exportCloseBtn: 'Chiudi'
+      }
+    };
+    var lm = map[lang] || map.en;
+    if (typeof window.t === 'function') {
+      try {
+        var res = window.t(key);
+        if (res && res !== key) return res;
+      } catch (e) {}
+    }
+    return lm[key] || defaultVal;
+  }
+
+  window.showExportSuccessPopup = _showExportSuccessPopup;
 })();

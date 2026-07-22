@@ -905,29 +905,87 @@
         .col-toggle-item.disabled-item { opacity: 0.5; cursor: default; }
         .col-toggle-item.disabled-item:hover { background: none; }
 
-        /* Rules modal custom styles */
-        .rules-table th, .rules-table td {
-            padding: 6px;
-            text-align: left;
-            border-bottom: 1px solid #eee;
+        /* Rules modal custom styles (matching class-management & board) */
+        #rulesModal {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
         }
-        .rules-table select, .rules-table input {
-            padding: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
+        #rulesModal .modal-content {
+            background: #fff;
+            padding: 1.8rem;
+            border-radius: 6px;
+            border: 2px solid #111;
+            max-width: 650px;
+            width: 95%;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+            line-height: 1.6;
+            box-shadow: 4px 4px 0 #ccc;
+        }
+        #rulesModal h3 {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: #111;
+        }
+        #rulesModal select,
+        #rulesModal input[type="number"],
+        #rulesModal textarea {
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 13px;
+            font-family: inherit;
+            transition: border-color 0.12s;
+            box-sizing: border-box;
+            background: #fff;
+            color: #111;
             width: 100%;
         }
-        .rules-table input[type="number"] {
-            width: 70px;
+        #rulesModal select:focus,
+        #rulesModal input[type="number"]:focus,
+        #rulesModal textarea:focus {
+            outline: none;
+            border-color: #111;
         }
+        #rulesModal .rules-table th {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+            border-bottom: 2px solid #111;
+            padding: 8px 6px;
+        }
+        #rulesModal .rules-table td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #eee;
+        }
+        .close-modal {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            border: none;
+            background: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #111;
+            font-weight: 900;
+            line-height: 1;
+            transition: color 0.12s;
+        }
+        .close-modal:hover { color: #555; }
         .btn-rules-delete {
             background: none;
             border: none;
             color: #d62728;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
             padding: 4px;
+            transition: color 0.12s;
         }
         .btn-rules-delete:hover {
             color: #b71c1c;
@@ -1208,13 +1266,11 @@
 
     <!-- Rules and Grading Modal -->
     <div id="rulesModal" class="modal">
-        <div class="modal-content" style="max-width: 650px; width: 95%;">
-            <div class="modal-header">
-                <h3 data-i18n="ptRulesModalTitle">Objectives & Automatic Grading Rules</h3>
-                <button class="modal-close" onclick="closeRulesModal()">&times;</button>
-            </div>
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeRulesModal()">&times;</button>
+            <h3 data-i18n="ptRulesModalTitle">Objectives & Automatic Grading Rules</h3>
             
-            <div style="margin-bottom: 15px; font-size: 13px; color: #555; line-height: 1.5;">
+            <div style="margin-bottom: 15px; font-size: 13px; color: #666; line-height: 1.5; margin-top: 10px;">
                 Configure participation objectives. Students who meet the criteria will receive the points defined.
             </div>
 
@@ -1222,7 +1278,7 @@
             <div style="margin-bottom: 20px;">
                 <table class="rules-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
                     <thead>
-                        <tr style="background:#f0f0f0;">
+                        <tr>
                             <th style="padding:6px; text-align:left;" data-i18n="ptRuleMetric">Metric</th>
                             <th style="padding:6px; text-align:left;" data-i18n="ptRuleOperator">Condition</th>
                             <th style="padding:6px; text-align:left;" data-i18n="ptRuleValue">Threshold</th>
@@ -1234,14 +1290,14 @@
                         <!-- Rule rows added dynamically -->
                     </tbody>
                 </table>
-                <button class="btn-secondary" onclick="addRuleRow()" style="padding:6px 12px; font-size:12px;" data-i18n="ptBtnAddRule">+ Add Rule</button>
+                <button onclick="addRuleRow()" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-top:10px;" onmouseover="this.style.borderColor='#111';this.style.color='#111';" onmouseout="this.style.borderColor='#ddd';this.style.color='#555';" data-i18n="ptBtnAddRule">+ Add Rule</button>
             </div>
 
             <!-- Grade Scale Config -->
-            <div style="background:#f9f9f9; padding:15px; border-radius:6px; border:1px solid #eee; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; font-size:13px; box-sizing:border-box;">
+            <div style="background:#f9f9f9; padding:15px; border:2px solid #ddd; border-radius:6px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; font-size:13px; box-sizing:border-box; box-shadow: 2px 2px 0 #eee;">
                 <div>
                     <label style="display:block; font-weight:600; margin-bottom:6px;" data-i18n="ptMaxGrade">Max Grade</label>
-                    <input type="number" id="rulesMaxGrade" value="20" oninput="updateProvisionalGradesPreview()" style="padding:6px; border:1px solid #ddd; border-radius:4px; width:80px;">
+                    <input type="number" id="rulesMaxGrade" value="20" oninput="updateProvisionalGradesPreview()" style="width:80px;">
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; margin-top:20px;">
                     <input type="checkbox" id="rulesScaleToMax" onchange="updateProvisionalGradesPreview()" style="width:16px; height:16px; cursor:pointer;">
@@ -1251,20 +1307,21 @@
 
             <!-- Copy list area / results preview -->
             <div id="provisionalGradesPreviewSection" class="hidden" style="margin-bottom:20px;">
-                <h4 style="font-size:13px; font-weight:600; margin-bottom:8px; color:#333;" data-i18n="ptBtnCalcGrades">Provisional Grades List</h4>
-                <textarea id="provisionalGradesTextarea" readonly style="width:100%; height:100px; font-family:monospace; font-size:12px; padding:8px; border:1px solid #ddd; border-radius:4px; background:#fafafa; resize:vertical; box-sizing:border-box;"></textarea>
-                <div style="display:flex; gap:10px; margin-top:8px;">
-                    <button class="btn-success" onclick="copyProvisionalGrades()" style="padding:6px 12px; font-size:12px;" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
-                    <button class="btn-secondary" onclick="openGradeSheetTool()" style="padding:6px 12px; font-size:12px;" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
+                <h4 style="font-size:13px; font-weight:600; margin-bottom:8px; color:#333; text-transform:uppercase; letter-spacing:1px;" data-i18n="ptBtnCalcGrades">Provisional Grades List</h4>
+                <textarea id="provisionalGradesTextarea" readonly style="width:100%; height:100px; font-family:monospace; font-size:12px; padding:8px; border:2px solid #ddd; border-radius:5px; background:#fafafa; resize:vertical; box-sizing:border-box;"></textarea>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button onclick="copyProvisionalGrades()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
+                    <button onclick="openGradeSheetTool()" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.borderColor='#111';this.style.color='#111';" onmouseout="this.style.borderColor='#ddd';this.style.color='#555';" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
                 </div>
             </div>
 
-            <div class="button-group" style="border-top:1px solid #eee; padding-top:15px; margin-top:15px;">
-                <button class="btn-secondary" onclick="closeRulesModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-success" onclick="saveRulesConfig()" data-i18n="ptBtnSaveRules">Save Rules</button>
+            <div class="button-group" style="border-top:2px solid #111; padding-top:15px; margin-top:15px;">
+                <button onclick="closeRulesModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff';this.style.borderColor='#111'" onmouseout="this.style.background='#fff';this.style.color='#888';this.style.borderColor='#ccc'" data-i18n="ptBtnCancel">Cancel</button>
+                <button onclick="saveRulesConfig()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptBtnSaveRules">Save Rules</button>
             </div>
         </div>
     </div>
+
 
     <!-- Detail Modal for Notes Editing -->
     <div id="detailModal" class="modal">

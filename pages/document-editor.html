@@ -3089,6 +3089,9 @@ async function saveDocToFolder() {
     return;
   }
   showToast((t('deSaveToFolderSuccess') || 'Saved to folder: ') + (r.name || suggestedName));
+  if (window.showExportSuccessPopup && r.path) {
+    showExportSuccessPopup(r.path, r.name || suggestedName);
+  }
 }
 
 async function loadDoc(relativePath) {
@@ -3898,6 +3901,9 @@ async function exportPdf() {
         ? ((t('deExportPdfSameFolderSuccess') || 'PDF saved in the same folder: ') + (sameFolderInfo.filename || defaultName))
         : (t('deExportPdfSuccess') || 'PDF exported')
     );
+    if (window.showExportSuccessPopup && result.path) {
+      showExportSuccessPopup(result.path, result.name || defaultName);
+    }
   }
 }
 
@@ -3980,6 +3986,9 @@ async function exportDocx() {
   });
   if (result && result.ok) {
     showToast('DOCX exported');
+    if (window.showExportSuccessPopup && result.path) {
+      showExportSuccessPopup(result.path, result.name || ((currentDocName || 'document') + '.docx'));
+    }
   } else if (result && !result.ok && !result.canceled) {
     showToast('DOCX export failed: ' + (result.error || 'unknown'), true);
   }

@@ -423,6 +423,19 @@
       align-self: flex-end;
     }
     .sm-modal-close-btn:hover { background: #000; color: #fff; }
+    .sm-modal-delete-btn {
+      padding: 8px 18px;
+      border: 2px solid #c33;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #fff;
+      color: #c33;
+      align-self: flex-end;
+    }
+    .sm-modal-delete-btn:hover { background: #c33; color: #fff; }
 
     /* ── Print header ────────────────────────────────── */
     .sm-print-header { display: none; margin-bottom: 18px; }
@@ -652,14 +665,20 @@
     if (window.electronApi) window.electronApi.goToLauncher();
     else window.location.href = 'launcher.html';
   }
-  // ── Notice ───────────────────────────────────────────────
+  // ── Notice / Toast ───────────────────────────────────────
   function showNotice(msg, isError) {
-    const el = document.getElementById('sm-notice');
-    el.textContent = msg;
-    el.className = 'sm-notice' + (isError ? ' error' : '');
-    el.style.display = '';
-    clearTimeout(showNotice._t);
-    if (!isError) showNotice._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+    if (typeof showToast === 'function') {
+      showToast(msg, isError);
+    } else {
+      const el = document.getElementById('sm-notice');
+      if (el) {
+        el.textContent = msg;
+        el.className = 'sm-notice' + (isError ? ' error' : '');
+        el.style.display = '';
+        clearTimeout(showNotice._t);
+        if (!isError) showNotice._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+      }
+    }
   }
 
   // ── Time helpers ─────────────────────────────────────────
@@ -1342,9 +1361,7 @@
     }
 
     const promptLabel = typeof t === 'function' ? t('smSaveFilename') : 'Save as';
-    const requestedName = typeof showPrompt === 'function'
-      ? await showPrompt(promptLabel, smBuildDefaultSaveName())
-      : window.prompt(promptLabel, smBuildDefaultSaveName());
+    const requestedName = await showPrompt(promptLabel, smBuildDefaultSaveName());
     if (requestedName === null) return;
 
     const safeName = smSanitizeFilenamePart(requestedName);
@@ -1361,9 +1378,7 @@
         const existing = await Desktop.statByPath(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
         if (existing && existing.exists) {
           const overwriteMsg = typeof t === 'function' ? t('smOverwriteConfirm') : 'Overwrite "{name}"?';
-          const confirmed = typeof showConfirm === 'function'
-            ? await showConfirm(overwriteMsg.replace('{name}', safeName))
-            : window.confirm(overwriteMsg.replace('{name}', safeName));
+          const confirmed = await showConfirm(overwriteMsg.replace('{name}', safeName));
           if (!confirmed) return;
         }
       }
@@ -1443,7 +1458,18 @@
           await archiveScheduleFile(fname);
         };
 
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'sm-modal-delete-btn';
+        deleteBtn.style.padding = '5px 10px';
+        deleteBtn.textContent = typeof t === 'function' ? t('smDeleteBtn') : 'Delete';
+        deleteBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await deleteScheduleFile(fname);
+        };
+
         actions.appendChild(archiveBtn);
+        actions.appendChild(deleteBtn);
 
         row.appendChild(textWrap);
         row.appendChild(actions);
@@ -1466,18 +1492,19 @@
       if (!obj) throw new Error('Invalid schedule file');
       applyScheduleObject(obj);
     } catch (e) {
-      showNotice((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message, true);
+      showToast((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message);
     }
   }
 
   async function archiveScheduleFile(filename) {
     if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
-      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Archive requires the Electron app.', true);
+      showToast(typeof t === 'function' ? t('smElectronOnly') : 'Archive requires the Electron app.');
       return;
     }
 
     const confirmText = typeof t === 'function' ? t('smArchiveConfirm') : 'Archive this schedule? It will be moved out of the active list.';
-    if (!window.confirm(confirmText.replace('{name}', filename.replace(SCHEDULE_PREFIX, '').replace('.js', '')))) {
+    const confirmed = await showConfirm(confirmText.replace('{name}', filename.replace(SCHEDULE_PREFIX, '').replace('.js', '')));
+    if (!confirmed) {
       return;
     }
 
@@ -1493,6 +1520,30 @@
       await openLoadModal();
     } catch (e) {
       showNotice((typeof t === 'function' ? t('smArchiveFailed') : 'Archive failed:') + ' ' + e.message, true);
+    }
+  }
+
+  async function deleteScheduleFile(filename) {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Delete requires the Electron app.', true);
+      return;
+    }
+
+    const confirmText = typeof t === 'function' ? t('smDeleteConfirm') : 'Are you sure you want to permanently delete "{name}"?\n\nThis action cannot be undone.';
+    const confirmed = await showConfirm(confirmText.replace('{name}', filename.replace(SCHEDULE_PREFIX, '').replace('.js', '')));
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await Desktop.deleteByPath(SCHEDULE_TARGET, SCHEDULE_DIR + filename);
+      if (!result || result.ok === false) {
+        throw new Error((result && result.error) || 'unknown error');
+      }
+      showNotice((typeof t === 'function' ? t('smDeleted') : 'Schedule deleted.') + ' ' + filename.replace(SCHEDULE_PREFIX, '').replace('.js', ''));
+      await openLoadModal();
+    } catch (e) {
+      showNotice((typeof t === 'function' ? t('smDeleteFailed') : 'Delete failed:') + ' ' + e.message, true);
     }
   }
 

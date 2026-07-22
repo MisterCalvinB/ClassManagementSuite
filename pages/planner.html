@@ -2051,6 +2051,31 @@
     #gs-toast.show {
       opacity: 1;
     }
+    
+    /* ── Multi-select styles ── */
+    .entry-row.selected {
+      border-color: #3b82f6 !important;
+      background-color: #eff6ff !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    }
+    .at-cell.selected {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5) !important;
+    }
+    .entry-select-cb {
+      margin-right: 8px;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #111;
+      align-self: center;
+      flex-shrink: 0;
+    }
+    .tb-btn.active {
+      background-color: #111 !important;
+      color: #fff !important;
+      border-color: #111 !important;
+    }
   </style>
 </head>
 
@@ -2109,6 +2134,8 @@
         Entry</button>
       <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
       <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
+      <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()" data-i18n="pl_btnMultiSelect">Select</button>
+      <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;" data-i18n="pl_btnBatchActions" disabled>Batch Actions</button>
       <span id="save-status"></span>
     </div>
 
@@ -2222,6 +2249,69 @@
 
   <!-- ── GS Toast ── -->
   <div id="gs-toast"></div>
+
+  <!-- ════ BATCH ACTION MODAL ════ -->
+  <div class="modal-overlay" id="batchActionModal" onclick="if(event.target===this)closeModal('batchActionModal')">
+    <div class="modal-box" style="max-width: 420px;" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 data-i18n="pl_batchModalTitle">Batch Actions</h2>
+        <button class="modal-close" onclick="closeModal('batchActionModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: #555; margin-bottom: 12px;" id="batch-selected-count-msg"></p>
+        
+        <div class="field-group">
+          <label data-i18n="pl_batchSelectAction">Choose action to perform</label>
+          <select id="batch-action-select" class="field-select" onchange="onBatchActionSelectChange()">
+            <option value="" data-i18n="pl_batchActionSelectPrompt">-- Select an action --</option>
+            <option value="delete" data-i18n="pl_batchActionDelete">🗑️ Delete selected entries</option>
+            <option value="shift_dates" data-i18n="pl_batchActionShift">📅 Shift dates (move forward/backward)</option>
+            <option value="change_class" data-i18n="pl_batchActionChangeClass">🏫 Change class group</option>
+            <option value="change_type" data-i18n="pl_batchActionChangeType">🎨 Change entry type</option>
+            <option value="duplicate" data-i18n="pl_batchActionDuplicate">👥 Duplicate entries</option>
+          </select>
+        </div>
+
+        <!-- Dynamic options -->
+        
+        <!-- Shift Dates Options -->
+        <div id="batch-opt-shift" style="display: none; margin-top: 10px;">
+          <div class="field-group">
+            <label data-i18n="pl_batchShiftDays">Number of days to shift</label>
+            <input type="number" id="batch-shift-days" class="field-input" value="1" placeholder="e.g. 7 for a week, -1 to move back">
+            <span style="font-size: 0.75rem; color: #666; display: block; margin-top: 4px;" data-i18n="pl_batchShiftHint">Positive number moves forward; negative moves backward.</span>
+          </div>
+        </div>
+
+        <!-- Change Class Options -->
+        <div id="batch-opt-class" style="display: none; margin-top: 10px;">
+          <div class="field-group">
+            <label data-i18n="pl_batchNewClass">Select new class</label>
+            <select id="batch-new-class" class="field-select"></select>
+          </div>
+        </div>
+
+        <!-- Change Type Options -->
+        <div id="batch-opt-type" style="display: none; margin-top: 10px;">
+          <div class="field-group">
+            <label data-i18n="pl_batchNewType">Select new type</label>
+            <select id="batch-new-type" class="field-select">
+              <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
+              <option value="test" data-i18n="pl_typeTest">Test</option>
+              <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
+              <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
+              <option value="no-class" data-i18n="pl_typeNoclass">No Class</option>
+            </select>
+          </div>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button class="tb-btn" onclick="closeModal('batchActionModal')" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" onclick="commitBatchAction()" data-i18n="btnOk">OK</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ════ SEMESTER MODAL ════ -->
   <div class="modal-overlay" id="semModal" onclick="if(event.target===this)closeModal('semModal')">
@@ -2779,6 +2869,220 @@
     var _recurScopeEntryId = null;
     var activeClsSetup = '';
     var viewOpts = { badges: true, topic: true, details: false, custom: false };
+
+    // ── Multi-Select Logic ──────────────────────────────────────────────────────
+    var multiSelectMode = false;
+    var selectedEntryIds = new Set();
+
+    function isEntryEmpty(e) {
+      if (!e) return true;
+      if (e.type && e.type !== 'lesson') return false;
+      if (e.topic && e.topic.trim()) return false;
+      if (e.notes && e.notes.trim()) return false;
+      if (e.objectives && e.objectives.length) return false;
+      if (e.readings && e.readings.trim()) return false;
+      if (e.activities && e.activities.trim()) return false;
+      if (e.homework && e.homework.trim()) return false;
+      if (e.customFields && Object.keys(e.customFields).some(function (k) { return e.customFields[k]; })) return false;
+      return true;
+    }
+
+    function toggleMultiSelectMode() {
+      if (multiSelectMode) {
+        exitMultiSelectMode();
+      } else {
+        multiSelectMode = true;
+        selectedEntryIds.clear();
+        var msBtn = document.getElementById('multiSelectBtn');
+        if (msBtn) {
+          msBtn.classList.add('active');
+          msBtn.textContent = t('btnCancel');
+        }
+        var baBtn = document.getElementById('batchActionBtn');
+        if (baBtn) {
+          baBtn.style.display = 'inline-block';
+          baBtn.disabled = true;
+        }
+        render();
+      }
+    }
+
+    function exitMultiSelectMode() {
+      entries = entries.filter(function (e) {
+        if (selectedEntryIds.has(e.id) && isEntryEmpty(e)) {
+          return false;
+        }
+        return true;
+      });
+      multiSelectMode = false;
+      selectedEntryIds.clear();
+      var msBtn = document.getElementById('multiSelectBtn');
+      if (msBtn) {
+        msBtn.classList.remove('active');
+        msBtn.textContent = t('pl_btnMultiSelect');
+      }
+      var baBtn = document.getElementById('batchActionBtn');
+      if (baBtn) {
+        baBtn.style.display = 'none';
+        baBtn.disabled = true;
+      }
+      render();
+    }
+
+    function toggleEntrySelection(entryId) {
+      if (!entryId) return;
+      if (selectedEntryIds.has(entryId)) {
+        selectedEntryIds.delete(entryId);
+        var entryIdx = entries.findIndex(function (e) { return e.id === entryId; });
+        if (entryIdx !== -1 && isEntryEmpty(entries[entryIdx])) {
+          entries.splice(entryIdx, 1);
+        }
+      } else {
+        selectedEntryIds.add(entryId);
+      }
+      var baBtn = document.getElementById('batchActionBtn');
+      if (baBtn) {
+        baBtn.disabled = (selectedEntryIds.size === 0);
+      }
+      render();
+    }
+
+    function openBatchActionModal() {
+      if (selectedEntryIds.size === 0) return;
+      var msgEl = document.getElementById('batch-selected-count-msg');
+      if (msgEl) {
+        msgEl.textContent = selectedEntryIds.size + ' ' + (selectedEntryIds.size === 1 ? 'entry selected.' : 'entries selected.');
+      }
+      var actSel = document.getElementById('batch-action-select');
+      if (actSel) actSel.value = '';
+      onBatchActionSelectChange();
+      var clsSel = document.getElementById('batch-new-class');
+      if (clsSel) {
+        clsSel.innerHTML = '';
+        var optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.textContent = t('pl_unassigned');
+        clsSel.appendChild(optNone);
+        Object.keys(cfg.classes).forEach(function (cid) {
+          var opt = document.createElement('option');
+          opt.value = cid;
+          opt.textContent = plannerClassDisplayName(cid);
+          clsSel.appendChild(opt);
+        });
+      }
+      openModal('batchActionModal');
+    }
+
+    function onBatchActionSelectChange() {
+      var actSel = document.getElementById('batch-action-select');
+      var val = actSel ? actSel.value : '';
+      document.getElementById('batch-opt-shift').style.display = (val === 'shift_dates' ? 'block' : 'none');
+      document.getElementById('batch-opt-class').style.display = (val === 'change_class' ? 'block' : 'none');
+      document.getElementById('batch-opt-type').style.display = (val === 'change_type' ? 'block' : 'none');
+    }
+
+    async function commitBatchAction() {
+      var actSel = document.getElementById('batch-action-select');
+      var val = actSel ? actSel.value : '';
+      if (!val) return;
+      if (val === 'delete') {
+        var count = selectedEntryIds.size;
+        showConfirm(tFmt('pl_confirmBatchDelete', { n: count }), async function () {
+          for (var id of selectedEntryIds) {
+            var entry = entries.find(function(e) { return e.id === id; });
+            if (entry && entry.gsLink) {
+              try {
+                await removeTestFromGradeSheet(entry);
+              } catch (e) {
+                console.error("Failed to remove test from grade sheet for entry " + id, e);
+              }
+            }
+          }
+          entries = entries.filter(function (e) {
+            return !selectedEntryIds.has(e.id);
+          });
+          await persistEntries();
+          exitMultiSelectMode();
+          closeModal('batchActionModal');
+          render();
+        });
+      }
+      else if (val === 'shift_dates') {
+        var daysInput = document.getElementById('batch-shift-days');
+        var days = daysInput ? parseInt(daysInput.value, 10) : 0;
+        if (isNaN(days) || days === 0) {
+          closeModal('batchActionModal');
+          return;
+        }
+        entries.forEach(function (e) {
+          if (selectedEntryIds.has(e.id)) {
+            if (e.date) {
+              var d = new Date(e.date + 'T12:00:00');
+              d.setDate(d.getDate() + days);
+              e.date = d.toISOString().slice(0, 10);
+            }
+            if (e.dateTo) {
+              var dTo = new Date(e.dateTo + 'T12:00:00');
+              dTo.setDate(dTo.getDate() + days);
+              e.dateTo = dTo.toISOString().slice(0, 10);
+            }
+          }
+        });
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        render();
+      }
+      else if (val === 'change_class') {
+        var classInput = document.getElementById('batch-new-class');
+        var newClassId = classInput ? classInput.value : '';
+        entries.forEach(function (e) {
+          if (selectedEntryIds.has(e.id)) {
+            e.classId = newClassId;
+            if (e.classIds && e.classIds.length) {
+              e.classIds = [newClassId];
+            }
+          }
+        });
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        render();
+      }
+      else if (val === 'change_type') {
+        var typeInput = document.getElementById('batch-new-type');
+        var newType = typeInput ? typeInput.value : 'lesson';
+        entries.forEach(function (e) {
+          if (selectedEntryIds.has(e.id)) {
+            e.type = newType;
+          }
+        });
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        render();
+      }
+      else if (val === 'duplicate') {
+        var newEntries = [];
+        entries.forEach(function (e) {
+          if (selectedEntryIds.has(e.id)) {
+            var copy = Object.assign({}, e, {
+              id: uid(),
+              gsLink: null,
+              recurrenceId: undefined,
+              recurrenceIndex: undefined,
+              recurrenceRule: undefined
+            });
+            newEntries.push(copy);
+          }
+        });
+        entries = entries.concat(newEntries);
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        render();
+      }
+    }
 
     function loadViewOpts() {
       try {
@@ -3463,10 +3767,14 @@
 
       var timeLabel = s.time || '';
       if (s.timeEnd) timeLabel += '–' + s.timeEnd;
-      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+      var isSelected = entry && selectedEntryIds.has(entry.id);
+      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
         esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' +
         esc(s.timeEnd || '') + '\',\'' + (entry ? entry.id : '') + '\')">';
       r += '<div class="entry-color-bar"></div>';
+      if (multiSelectMode && entry) {
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+      }
       r += '<div class="entry-content">';
       r += '<div class="entry-inner">';
       r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
@@ -3520,8 +3828,60 @@
     }
 
     function rowClick(event, classId, date, time, timeEnd, entryId) {
+      if (multiSelectMode) {
+        if (entryId) {
+          toggleEntrySelection(entryId);
+        } else {
+          var newId = uid();
+          var newEntry = {
+            id: newId,
+            classId: classId || '',
+            date: date,
+            time: time || '',
+            timeEnd: timeEnd || '',
+            type: 'lesson',
+            topic: ''
+          };
+          entries.push(newEntry);
+          selectedEntryIds.add(newId);
+          var baBtn = document.getElementById('batchActionBtn');
+          if (baBtn) baBtn.disabled = false;
+          render();
+        }
+        return;
+      }
       if (entryId) openEditEntry(entryId);
       else openAddEntry(classId, date, time, timeEnd);
+    }
+
+    function atCellClick(event, entryId) {
+      if (multiSelectMode) {
+        if (entryId) toggleEntrySelection(entryId);
+        return;
+      }
+      openEditEntry(entryId);
+    }
+
+    function atCellEmptyClick(event, classId, date, time, timeEnd) {
+      if (multiSelectMode) {
+        var newId = uid();
+        var newEntry = {
+          id: newId,
+          classId: classId || '',
+          date: date,
+          time: time || '',
+          timeEnd: timeEnd || '',
+          type: 'lesson',
+          topic: ''
+        };
+        entries.push(newEntry);
+        selectedEntryIds.add(newId);
+        var baBtn = document.getElementById('batchActionBtn');
+        if (baBtn) baBtn.disabled = false;
+        render();
+        return;
+      }
+      openAddEntry(classId, date, time, timeEnd);
     }
 
     // ── Slot generation ─────────────────────────────────────────────────────────
@@ -5238,12 +5598,28 @@
       }
 
       lines.push('END:VCALENDAR');
-      var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url; a.download = fileBase + '.ics';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.saveToDisk({
+          title: 'Save Calendar File',
+          defaultPath: fileBase + '.ics',
+          filters: [{ name: 'Calendar Files', extensions: ['ics'] }],
+          content: lines.join('\r\n'),
+          encoding: 'utf8'
+        }).then(function (result) {
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, fileBase + '.ics');
+          } else if (result && !result.ok && !result.canceled) {
+            showToast('Save failed: ' + (result.error || 'unknown'), true);
+          }
+        });
+      } else {
+        var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = fileBase + '.ics';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
       closeModal('exportModal');
     }
 
@@ -5460,10 +5836,17 @@
       var filters = getExportFilters();
       var html = buildExportHtml(clsFilter, filters);
       closeModal('exportModal');
-      await Desktop.printPdf({
+      const result = await Desktop.printPdf({
         html: html,
         defaultName: fileBase + '.pdf'
       });
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || (fileBase + '.pdf'));
+        }
+      } else if (result && !result.ok && !result.canceled) {
+        showToast('PDF export failed: ' + (result.error || 'unknown'), true);
+      }
     }
 
     function mdEscCell(s) {
@@ -5587,9 +5970,14 @@
         size: 'A4',
         orientation: 'portrait'
       });
-      if (result && result.ok) return;
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || (fileBase + '.docx'));
+        }
+        return;
+      }
       if (result && !result.canceled) {
-        showToast(t('pl_exportDocxLabel') + ' failed', true);
+        showToast(t('pl_exportDocxLabel') + ' failed: ' + (result.error || 'unknown'), true);
       }
     }
 
@@ -5717,13 +6105,31 @@
 
     // ── Download helper ────────────────────────────────────────────────────────
     function downloadText(content, filename, mime) {
-      var blob = new Blob([content], { type: mime });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (window.Desktop && Desktop.isElectron()) {
+        var ext = filename.split('.').pop();
+        var filterName = ext.toUpperCase() + ' Files';
+        Desktop.saveToDisk({
+          title: 'Save File',
+          defaultPath: filename,
+          filters: [{ name: filterName, extensions: [ext] }],
+          content: content,
+          encoding: 'utf8'
+        }).then(function (result) {
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
+          } else if (result && !result.ok && !result.canceled) {
+            showToast('Save failed: ' + (result.error || 'unknown'), true);
+          }
+        });
+      } else {
+        var blob = new Blob([content], { type: mime });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     }
 
     function datePlus1(dateStr) {
@@ -5826,19 +6232,33 @@
 
     // ── Toast ──────────────────────────────────────────────────────────────────
     var _toastTimer = null;
-    function showToast(msg, dur) {
-      var el = document.getElementById('gs-toast');
-      el.textContent = msg; el.classList.add('show');
-      clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(function () { el.classList.remove('show'); }, dur || 2500);
+    function showToast(msg, isErrorOrDur) {
+      var isError = isErrorOrDur === true;
+      if (typeof window.showToast === 'function') {
+        window.showToast(msg, isError);
+      } else {
+        var el = document.getElementById('gs-toast');
+        if (el) {
+          el.textContent = msg; el.classList.add('show');
+          clearTimeout(_toastTimer);
+          var dur = typeof isErrorOrDur === 'number' ? isErrorOrDur : 2500;
+          _toastTimer = setTimeout(function () { el.classList.remove('show'); }, dur);
+        }
+      }
     }
 
     // ── Confirm popup ──────────────────────────────────────────────────────────
     var _confirmCb = null;
     function showConfirm(msg, onOk) {
-      _confirmCb = onOk;
-      document.getElementById('confirm-msg').textContent = msg;
-      openModal('confirmModal');
+      if (typeof window._dlgShowConfirm === 'function') {
+        window._dlgShowConfirm(msg).then(function(ok) {
+          if (ok && onOk) onOk();
+        });
+      } else {
+        _confirmCb = onOk;
+        document.getElementById('confirm-msg').textContent = msg;
+        openModal('confirmModal');
+      }
     }
     function resolveConfirm(ok) {
       closeModal('confirmModal');
@@ -6078,7 +6498,7 @@
       if (!entry) {
         var emptyInfo = '';
         if (viewOpts.details || viewOpts.custom) emptyInfo = '<span class="at-cell-detail">' + esc(dateLabel) + ' · ' + esc(t('pl_emptySlot')) + '</span>';
-        return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="openAddEntry(\'' + esc(s.classId || '') + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
+        return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
           '<span class="at-class-title">' + esc(classLabel) + '</span>' +
           emptyInfo +
           '<span class="at-add">+</span>' +
@@ -6101,7 +6521,11 @@
         });
       }
 
-      var r = '<div class="at-cell" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
+      var isSelected = selectedEntryIds.has(entry.id);
+      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      if (multiSelectMode) {
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+      }
       r += '<span class="at-class-title">' + esc(classLabel) + '</span>';
       if (viewOpts.badges && badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
@@ -6121,7 +6545,7 @@
       var _atBSess = _boardLink.sessions;
 
       if (!entry) {
-        var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" onclick="openAddEntry(\'' + esc(s.classId) + '\',\'' +
+        var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId) + '\',\'' +
           esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
           (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
           '<span class="at-add">+</span>';
@@ -6134,7 +6558,11 @@
       var badgeCls = type ? 'entry-type-badge ' + typeBadgeCls(type) : '';
       var badgeText = type ? typeLabel(type) : '';
 
-      var r = '<div class="at-cell" data-entry-id="' + esc(entry.id) + '" style="--col:' + color + '" onclick="openEditEntry(\'' + esc(entry.id) + '\')">';
+      var isSelected = selectedEntryIds.has(entry.id);
+      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" style="--col:' + color + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      if (multiSelectMode) {
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+      }
       if (timeLabel) r += '<span class="at-time">' + esc(timeLabel) + '</span>';
       if (badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';

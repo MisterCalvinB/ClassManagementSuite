@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -519,6 +519,27 @@
  .hm-lang-btn{flex:1;background:none;border:1px solid #444;color:#aaa;padding:3px 2px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}
  .hm-lang-btn:hover{border-color:#999;color:#eee}
  .hm-lang-btn.active{background:#3a3a3a;color:#fff;border-color:#888}
+ #tour-choice-overlay {
+    display: none; position: fixed; inset: 0; z-index: 5000;
+    background: rgba(0,0,0,0.45);
+    align-items: center; justify-content: center;
+  }
+  #tour-choice-overlay.active { display: flex; }
+  #tour-choice-popup {
+    background: #fff; border: 2px solid #111; border-radius: 7px;
+    box-shadow: 4px 4px 0 #ccc; padding: 22px 26px 20px;
+    width: 340px; max-width: 92vw; font-family: inherit;
+  }
+  #tour-choice-popup h4 {
+    margin: 0 0 10px; font-size: 0.78rem; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 1px; color: #555;
+  }
+  #tour-choice-popup p {
+    margin: 0 0 18px; font-size: 0.9rem; color: #222;
+  }
+  #tour-choice-popup .sfn-btns {
+    display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+  }
 </style>
 </head>
 <body>
@@ -1289,9 +1310,69 @@
   <div id="main-menu" class="game">
     <h3 class="section-label">🌐 Visual Tools</h3>
     <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('constellation-section')" data-i18n="btnConstellation">🌐 Board</button>
-      <button class="menu-btn btn-grey" onclick="navTo('search-section')">🔍 Search</button>
-      <button class="menu-btn btn-grey" onclick="navTo('history-section')">🕘 History</button>
+      <button class="menu-btn btn-grey" onclick="navTo('constellation-section')" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
+        <span data-i18n="btnConstellation" style="font-size: 1.15rem; font-weight: 800; display: block;">🌐 Board</span>
+        <span style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Interactive visual board workspace to layout, group, link, and structure words.</span>
+      </button>
+      <button class="menu-btn btn-grey" onclick="navTo('search-section')" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
+        <span style="font-size: 1.15rem; font-weight: 800; display: block;">🔍 Search</span>
+        <span style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Search for words and view their context within loaded books and texts.</span>
+      </button>
+    </div>
+
+    <!-- HISTORY SECTION MERGED -->
+    <div id="history-section" style="margin-top: 32px; border-top: 2px solid #eee; padding-top: 24px;">
+      <h2>🕘 Save History</h2>
+
+      <div id="history-toolbar">
+        <div id="history-status">Loading saved files...</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()">⬇ Export Selected</button>
+          <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyArchiveSelected()">🗄 Archive Selected</button>
+          <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyUnarchiveSelected()">↩ Unarchive Selected</button>
+          <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteSelected()">🗑 Delete Selected</button>
+          <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()">🧹 Delete All</button>
+          <button class="action-btn btn-grey" onclick="historyRefreshList()">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div id="history-view-tabs" style="display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap;">
+        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')">Manual saves</button>
+        <button id="history-tab-autosave" class="action-btn btn-grey" type="button" onclick="historySetViewTab('autosave')">Autosaves</button>
+        <button id="history-tab-archived" class="action-btn btn-grey" type="button" onclick="historySetViewTab('archived')">🗄 Archived</button>
+      </div>
+
+      <div id="history-filter-bar">
+        <label class="history-filter-label">From <input type="date" id="history-filter-date-from" onchange="historySetFilterDate('from', this.value)"></label>
+        <label class="history-filter-label">to <input type="date" id="history-filter-date-to" onchange="historySetFilterDate('to', this.value)"></label>
+        <label class="history-filter-label">Class
+          <select id="history-filter-class" onchange="historySetFilterClass(this.value)">
+            <option value="">All classes</option>
+          </select>
+        </label>
+        <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()">✕ Clear</button>
+      </div>
+      <div id="history-search-bar" style="margin-bottom:8px;">
+        <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…" oninput="historySetFilterText(this.value)" style="width:100%;border:2px solid #000;border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.87rem;color:#000;background:#fff;">
+      </div>
+
+      <div id="history-table-wrap">
+        <table id="history-table">
+          <thead>
+            <tr>
+              <th class="history-row-check"><input type="checkbox" id="history-select-all" title="Select all" onchange="historySelectAll(this.checked)"></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('name')">Name <span id="history-sort-name" class="history-sort-indicator">↓</span></button></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('type')">Type <span id="history-sort-type" class="history-sort-indicator"></span></button></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('classGroup')">Class/Group <span id="history-sort-classGroup" class="history-sort-indicator"></span></button></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('date')">Created <span id="history-sort-date" class="history-sort-indicator"></span></button></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('modified')">Saved <span id="history-sort-modified" class="history-sort-indicator"></span></button></th>
+              <th><button type="button" class="history-sort-btn" onclick="historySetSort('size')">Size <span id="history-sort-size" class="history-sort-indicator"></span></button></th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="history-list"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1300,7 +1381,7 @@
     <div class="board-section-tabs">
       <button class="bst-tab bst-active" title="Board">🌐 Board</button>
       <button class="bst-tab" onclick="navTo('search-section')" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('history-section')" title="Save History">🕘 History</button>
+      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History">🕘 History</button>
     </div>
     <h2 data-i18n="titleConstellation">🌐 Board</h2>
 
@@ -1717,7 +1798,7 @@
     <div class="board-section-tabs">
       <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">🌐 Board</button>
       <button class="bst-tab bst-active" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('history-section')" title="Save History">🕘 History</button>
+      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History">🕘 History</button>
     </div>
     <h2>🔍 Search</h2>
 
@@ -1741,68 +1822,7 @@
     <div id="search-results"></div>
   </div>
 
-  <!-- ============================================================ -->
-  <!-- HISTORY SECTION                                             -->
-  <!-- ============================================================ -->
-  <div id="history-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <div class="board-section-tabs">
-      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">🌐 Board</button>
-      <button class="bst-tab" onclick="navTo('search-section')" title="Search">🔍 Search</button>
-      <button class="bst-tab bst-active" title="Save History">🕘 History</button>
-    </div>
-    <h2>🕘 Save History</h2>
-
-    <div id="history-toolbar">
-      <div id="history-status">Loading saved files...</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()">⬇ Export Selected</button>
-        <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyArchiveSelected()">🗄 Archive Selected</button>
-        <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button" onclick="historyUnarchiveSelected()">↩ Unarchive Selected</button>
-        <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteSelected()">🗑 Delete Selected</button>
-        <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()">🧹 Delete All</button>
-        <button class="action-btn btn-grey" onclick="historyRefreshList()">↻ Refresh</button>
-      </div>
-    </div>
-
-    <div id="history-view-tabs" style="display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap;">
-      <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')">Manual saves</button>
-      <button id="history-tab-autosave" class="action-btn btn-grey" type="button" onclick="historySetViewTab('autosave')">Autosaves</button>
-      <button id="history-tab-archived" class="action-btn btn-grey" type="button" onclick="historySetViewTab('archived')">🗄 Archived</button>
-    </div>
-
-    <div id="history-filter-bar">
-      <label class="history-filter-label">From <input type="date" id="history-filter-date-from" onchange="historySetFilterDate('from', this.value)"></label>
-      <label class="history-filter-label">to <input type="date" id="history-filter-date-to" onchange="historySetFilterDate('to', this.value)"></label>
-      <label class="history-filter-label">Class
-        <select id="history-filter-class" onchange="historySetFilterClass(this.value)">
-          <option value="">All classes</option>
-        </select>
-      </label>
-      <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()">✕ Clear</button>
-    </div>
-    <div id="history-search-bar" style="margin-bottom:8px;">
-      <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…" oninput="historySetFilterText(this.value)" style="width:100%;border:2px solid #000;border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.87rem;color:#000;background:#fff;">
-    </div>
-
-    <div id="history-table-wrap">
-      <table id="history-table">
-        <thead>
-          <tr>
-            <th class="history-row-check"><input type="checkbox" id="history-select-all" title="Select all" onchange="historySelectAll(this.checked)"></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('name')">Name <span id="history-sort-name" class="history-sort-indicator">↓</span></button></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('type')">Type <span id="history-sort-type" class="history-sort-indicator"></span></button></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('classGroup')">Class/Group <span id="history-sort-classGroup" class="history-sort-indicator"></span></button></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('date')">Created <span id="history-sort-date" class="history-sort-indicator"></span></button></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('modified')">Saved <span id="history-sort-modified" class="history-sort-indicator"></span></button></th>
-            <th><button type="button" class="history-sort-btn" onclick="historySetSort('size')">Size <span id="history-sort-size" class="history-sort-indicator"></span></button></th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="history-list"></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- Merged History Section removed from here -->
 
   <!-- Search Results Context Menu -->
   <div id="search-ctx-menu">
@@ -1852,6 +1872,18 @@
         <button class="action-btn btn-grey" onclick="newSessionConfirmCancel()">Cancel</button>
         <button class="action-btn btn-orange" onclick="newSessionConfirmDiscard()">🗑 Discard &amp; New</button>
         <button class="action-btn" onclick="newSessionConfirmSave()">💾 Save &amp; New</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tour-choice-overlay" onclick="if(event.target===this)closeTourChoice()">
+    <div id="tour-choice-popup">
+      <h4>▶ Start Tour</h4>
+      <p>Which tour would you like to take?</p>
+      <div class="sfn-btns">
+        <button class="action-btn btn-grey" onclick="closeTourChoice()">Cancel</button>
+        <button class="action-btn btn-orange" onclick="startTourChoice('history')">🕘 History Tour</button>
+        <button class="action-btn" onclick="startTourChoice('board')">🌐 Board Tour</button>
       </div>
     </div>
   </div>
@@ -3199,6 +3231,7 @@ function hideFailure() {
         if (sectionId === 'history-section') historyRefreshList();
       } else {
         populateAllThemeMenus();
+        if (typeof historyRefreshList === 'function') historyRefreshList();
       }
     }
     window.navTo = navTo;
@@ -3955,13 +3988,32 @@ function hideFailure() {
     }
 
     function downloadFile(filename, content, mimeType) {
-      const bom = mimeType.includes("csv") ? new Uint8Array([0xEF, 0xBB, 0xBF]) : new Uint8Array();
-      const blob = new Blob([bom, content], { type: mimeType + ";charset=utf-8" });
-      const a    = document.createElement('a');
-      a.href     = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      if (window.Desktop && Desktop.isElectron()) {
+        const ext = filename.split('.').pop();
+        const filterName = ext.toUpperCase() + ' Files';
+        Desktop.saveToDisk({
+          title: 'Save File',
+          defaultPath: filename,
+          filters: [{ name: filterName, extensions: [ext] }],
+          content: content,
+          encoding: 'utf8'
+        }).then(result => {
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
+          } else if (result && !result.ok && !result.canceled) {
+            if (typeof mdbToast === 'function') mdbToast('⚠️ Save failed: ' + (result.error || 'unknown'));
+            else showToast('Save failed: ' + (result.error || 'unknown'), true);
+          }
+        });
+      } else {
+        const bom = mimeType.includes("csv") ? new Uint8Array([0xEF, 0xBB, 0xBF]) : new Uint8Array();
+        const blob = new Blob([bom, content], { type: mimeType + ";charset=utf-8" });
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
     }
 
     // ================================================================
@@ -20186,7 +20238,9 @@ function hideFailure() {
       bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
-      if (activeSection === 'main-menu') navTo('history-section');
+      if (activeSection === 'main-menu') {
+        if (typeof historyRefreshList === 'function') historyRefreshList();
+      }
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
       if (_initTitleInput && !_initTitleInput.value.trim()) {
@@ -25316,16 +25370,33 @@ function hideFailure() {
         });
       });
       const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
       const filename = titleVal.replace(/[\/\\?*:|"<>]/g, '-') + '-words.csv';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.saveToDisk({
+          title: 'Save CSV File',
+          defaultPath: filename,
+          filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+          content: '\uFEFF' + csv,
+          encoding: 'utf8'
+        }).then(result => {
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
+          } else if (result && !result.ok && !result.canceled) {
+            if (typeof mdbToast === 'function') mdbToast('⚠️ Save failed: ' + (result.error || 'unknown'));
+          }
+        });
+      } else {
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+      }
     }
 
     async function conExportPNG() {
@@ -25343,11 +25414,32 @@ function hideFailure() {
           if (!blob) { showToast('PNG export failed.', true); return; }
           const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
           const filename = titleVal.replace(/[\/\\?*:|"<>]/g, '-') + '.png';
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = filename;
-          document.body.appendChild(a); a.click();
-          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+          if (window.Desktop && Desktop.isElectron()) {
+            const reader = new FileReader();
+            reader.onloadend = function() {
+              const base64data = reader.result.split(',')[1];
+              Desktop.saveToDisk({
+                title: 'Save PNG Image',
+                defaultPath: filename,
+                filters: [{ name: 'PNG Images', extensions: ['png'] }],
+                content: base64data,
+                encoding: 'base64'
+              }).then(res => {
+                if (res && res.ok) {
+                  if (window.showExportSuccessPopup) showExportSuccessPopup(res.path, filename);
+                } else if (res && !res.ok && !res.canceled) {
+                  showToast('Save failed: ' + (res.error || 'unknown'), true);
+                }
+              });
+            };
+            reader.readAsDataURL(blob);
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+          }
         }, 'image/png');
       } catch(err) {
         console.error('[conExportPNG]', err);
@@ -25496,6 +25588,9 @@ function hideFailure() {
             mdbToast('⚠️ Exported Constellation folder with ' + errCount + ' error(s).' + firstError);
           } else {
             mdbToast('✔ Exported Constellation folder: ' + bundle.folderName);
+            if (window.showExportSuccessPopup && result.folderPath) {
+              showExportSuccessPopup(result.folderPath, bundle.folderName, true);
+            }
           }
           return;
         } catch (error) {
@@ -25602,7 +25697,11 @@ function hideFailure() {
         const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'vocabulary';
         const defaultName = safeTitle + '.pdf';
         Desktop.printPdf({ html, defaultName }).then(result => {
-          if (!result.ok && !result.canceled) {
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup && result.path) {
+              showExportSuccessPopup(result.path, result.name || defaultName);
+            }
+          } else if (!result.ok && !result.canceled) {
             mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
           }
         }).catch(err => {
@@ -26172,10 +26271,32 @@ function hideFailure() {
     async function conExportPNG() {
       const result = await _conBuildBoardCanvas(); if (!result) return;
       const { canvas, now } = result;
+      const defaultFilename = 'constellation_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.png';
       canvas.toBlob(blob => {
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = 'constellation_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'_'+String(now.getHours()).padStart(2,'0')+String(now.getMinutes()).padStart(2,'0')+'.png';
-        a.click(); URL.revokeObjectURL(a.href);
+        if (window.Desktop && Desktop.isElectron()) {
+          const reader = new FileReader();
+          reader.onloadend = function() {
+            const base64data = reader.result.split(',')[1];
+            Desktop.saveToDisk({
+              title: 'Save PNG Image',
+              defaultPath: defaultFilename,
+              filters: [{ name: 'PNG Images', extensions: ['png'] }],
+              content: base64data,
+              encoding: 'base64'
+            }).then(res => {
+              if (res && res.ok) {
+                if (window.showExportSuccessPopup) showExportSuccessPopup(res.path, defaultFilename);
+              } else if (res && !res.ok && !res.canceled) {
+                mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+              }
+            });
+          };
+          reader.readAsDataURL(blob);
+        } else {
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = defaultFilename;
+          a.click(); URL.revokeObjectURL(a.href);
+        }
       }, 'image/png');
     }
 
@@ -26210,7 +26331,11 @@ function hideFailure() {
       const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
         Desktop.printPdf({ html, defaultName: safeTitle + '_pages.pdf' }).then(result => {
-          if (!result.ok && !result.canceled) mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+          if (result && result.ok) {
+            if (window.showExportSuccessPopup && result.path) {
+              showExportSuccessPopup(result.path, result.name || (safeTitle + '_pages.pdf'));
+            }
+          } else if (!result.ok && !result.canceled) mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
         }).catch(err => { mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err))); });
       } else {
         let iframe = document.getElementById('con-pages-pdf-iframe');
@@ -34445,6 +34570,46 @@ function openBoardShortcuts() {
   });
 }
 
+function showTourChoice() {
+  document.getElementById('tour-choice-overlay').classList.add('active');
+}
+function closeTourChoice() {
+  document.getElementById('tour-choice-overlay').classList.remove('active');
+}
+function startTourChoice(tourType) {
+  closeTourChoice();
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  if (tourType === 'history') {
+    Tutorial.start([
+      { selector: '#history-section h2',                  title: t('tutHi1Title'), text: t('tutHi1Text') },
+      { selector: '#history-toolbar',                     title: t('tutHi2Title'), text: t('tutHi2Text') },
+      { selector: '#history-view-tabs',                   title: t('tutHi3Title'), text: t('tutHi3Text') },
+      { selector: '#history-filter-bar',                  title: t('tutHi4Title'), text: t('tutHi4Text') },
+      { selector: '#history-search-bar',                  title: t('tutHi5Title'), text: t('tutHi5Text') },
+      { selector: '#history-table-wrap',                  title: t('tutHi6Title'), text: t('tutHi6Text') }
+    ], labels);
+  } else if (tourType === 'board') {
+    navTo('constellation-section');
+    setTimeout(function() {
+      Tutorial.start([
+        { selector: '#constellation-section .board-section-tabs', title: t('tutBd1Title'),  text: t('tutBd1Text')  },
+        { selector: '#con-tb-file',                               title: t('tutBd2Title'),  text: t('tutBd2Text')  },
+        { selector: '#con-tb-board',                              title: t('tutBd3Title'),  text: t('tutBd3Text')  },
+        { selector: '#con-tb-draw',                               title: t('tutBd4Title'),  text: t('tutBd4Text')  },
+        { selector: '#con-tb-vocab',                              title: t('tutBd5Title'),  text: t('tutBd5Text')  },
+        { selector: '#con-tb-view',                               title: t('tutBd6Title'),  text: t('tutBd6Text')  },
+        { selector: '#con-tb-pages',                              title: t('tutBd7Title'),  text: t('tutBd7Text')  },
+        { selector: '#con-title-group',                           title: t('tutBd8Title'),  text: t('tutBd8Text')  },
+        { selector: '#con-page-nav',                              title: t('tutBd9Title'),  text: t('tutBd9Text')  },
+        { selector: '#constellation-board', title: t('tutBd10Title'), text: t('tutBd10Text') },
+        { selector: '#constellation-board', title: t('tutBd11Title'), text: t('tutBd11Text') },
+        { selector: '#con-draw-btn',         title: t('tutBd12Title'), text: t('tutBd12Text') },
+        { selector: '#con-add-table-btn',    title: t('tutBd13Title'), text: t('tutBd13Text') }
+      ], labels);
+    }, 350);
+  }
+}
+
 function showBoardTour() {
   var active = '';
   document.querySelectorAll('.game').forEach(function(el) {
@@ -34453,9 +34618,14 @@ function showBoardTour() {
 
   var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
 
+  if (active === 'main-menu') {
+    showTourChoice();
+    return;
+  }
+
   if (active === 'history-section') {
     Tutorial.start([
-      { selector: '#history-section .board-section-tabs', title: t('tutHi1Title'), text: t('tutHi1Text') },
+      { selector: '#history-section h2',                  title: t('tutHi1Title'), text: t('tutHi1Text') },
       { selector: '#history-toolbar',                     title: t('tutHi2Title'), text: t('tutHi2Text') },
       { selector: '#history-view-tabs',                   title: t('tutHi3Title'), text: t('tutHi3Text') },
       { selector: '#history-filter-bar',                  title: t('tutHi4Title'), text: t('tutHi4Text') },
