@@ -427,15 +427,142 @@
     <input type="file" id="startup-db-folder-input" accept=".json,.js,.txt" multiple webkitdirectory directory style="display:none;" onchange="startupImportDbFromInput(event)">
 </div>
 <div class="main-wrapper">
-<!-- Title -->
-	<h1 id="main-title">Class Management</h1>
+    <!-- Top Right Controls (Class Selection & Settings) -->
+    <div class="top-right-controls">
+        <div id="class-selection-anchor">
+            <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)" title="Select class">Select Class</button>
+            <div id="class-selection-popup" class="class-selection-popup">
+                <div class="class-selection-header">
+                    <div class="class-filter-bar" id="class-filter-bar">
+                        <div class="weekday-tabs" id="weekday-tabs"></div>
+                        <div class="filter-search-container">
+                            <input type="text" id="group-search-input" class="group-search-input" placeholder="Search class..." oninput="handleGroupSearch(this.value)" data-i18n-placeholder="search_placeholder">
+                            <button id="group-view-toggle" onclick="toggleGroupView()"></button>
+                        </div>
+                    </div>
+                    <div class="group-btns" id="group-container"></div>
+                </div>
+            </div>
+        </div>
 
+        <div id="roster-settings-anchor">
+            <button id="roster-settings-btn" onclick="toggleRosterSettingsPopup(event)" title="Roster settings" data-i18n-title="rsp_roster_settings_title">⚙</button>
+            <div id="roster-settings-popup" class="roster-settings-popup">
+                <div class="rsp-header">
+                    <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
+                    <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn" onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings" data-i18n-title="rsp_pin_title">📌 Pin menu</button>
+                </div>
+                
+                <div class="rsp-tabs-nav">
+                    <button class="rsp-tab-btn active" onclick="switchRosterSettingsTab(event, 'display')">🖥️ Display</button>
+                    <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'grouping')">👥 Grouping</button>
+                    <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'tools')">⚡ Tools</button>
+                </div>
 
+                <!-- Tab 1: Display (Controls & Screen combined, Controls first) -->
+                <div id="rsp-tab-display" class="rsp-tab-content active">
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_board_name_size">Board Name Size</div>
+                        <div class="rsp-size-row">
+                            <div class="rsp-size-btns">
+                                <button onclick="changeNameSize(-1)" title="Decrease name size" data-i18n-title="rsp_decrease_title">A−</button>
+                                <button onclick="resetNameSize()" title="Reset name size" data-i18n-title="rsp_reset_title">A</button>
+                                <button onclick="changeNameSize(1)" title="Increase name size" data-i18n-title="rsp_increase_title">A+</button>
+                            </div>
+                        </div>
+                    </div>
 
-	<div style="display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin: 12px 0 16px;">
-		<div class="group-btns" id="group-container" style="margin:0; flex-wrap:wrap; justify-content:center;"></div>
-		<button id="group-view-toggle" onclick="toggleGroupView()" style="display:none; font-size:0.65rem; padding:2px 7px; border:1px solid #ccc; border-radius:4px; background:#f5f5f5; color:#555; cursor:pointer; white-space:nowrap; flex-shrink:0;"></button>
-	</div>
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_interface_toggles">Interface Toggles</div>
+                        <div class="rsp-grid-toggles">
+                            <button class="rsp-inline-btn" id="rsp-score-mute-btn" onclick="toggleScoreMute()" title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">🔇 Sounds</button>
+                            <button class="rsp-inline-btn" id="rsp-toggle-roles-btn" onclick="closeRosterSettingsPopup(); toggleRolesVisibility()" title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title">👁 Roles</button>
+                            <button class="rsp-inline-btn" id="rsp-toggle-badges-btn" onclick="closeRosterSettingsPopup(); toggleBadgesVisibility()" title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title">👁 Badges</button>
+                            <button class="rsp-inline-btn" id="rsp-toggle-autoflag-btn" onclick="closeRosterSettingsPopup(); toggleAutoFlagVisibility()" title="Toggle autoflag visibility (Ctrl+F)" data-i18n-title="rsp_toggle_autoflag_title">🚩 Autoflag</button>
+                            <button class="rsp-inline-btn" id="rsp-toggle-animations-btn" onclick="toggleAnimations()" title="Toggle visual animations (badge awards, team reveal)" data-i18n-title="rsp_toggle_anim_title">✨ Anim</button>
+                            <button class="rsp-inline-btn" id="roster-plan-view-btn" onclick="closeRosterSettingsPopup(); toggleRosterPlanView()" title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title">📐 Plan</button>
+                        </div>
+                    </div>
+
+                    <div class="rsp-tab-section" style="border-top: 2px dashed #111; padding-top: 12px; margin-top: 12px;">
+                        <div class="rsp-row-label" data-i18n="rsp_presentation_mode">Presentation Mode</div>
+                        <div class="rsp-button-group">
+                            <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
+                            <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
+                        </div>
+                        
+                        <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
+                            <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
+                            <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
+                            <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
+                            <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
+                            <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
+                        </div>
+                    </div>
+
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_pres_name_size">Presentation Font Size</div>
+                        <div class="rsp-size-row">
+                            <div class="rsp-size-btns">
+                                <button onclick="changePresentationNameSize(-1)" title="Decrease name size in presentation" data-i18n-title="rsp_pres_decrease_title">A−</button>
+                                <button onclick="resetPresentationNameSize()" title="Reset name size in presentation" data-i18n-title="rsp_pres_reset_title">A</button>
+                                <button onclick="changePresentationNameSize(1)" title="Increase name size in presentation" data-i18n-title="rsp_pres_increase_title">A+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_mirror_options">Mirror in Presentation:</div>
+                        <div class="rsp-grid-toggles">
+                            <button class="rsp-inline-btn" id="rsp-pres-roles-btn" onclick="togglePresSetting('roles')" title="Show roles in presentation window" data-i18n-title="rsp_pres_roles_title">👤 Roles</button>
+                            <button class="rsp-inline-btn" id="rsp-pres-badges-btn" onclick="togglePresSetting('badges')" title="Show badges in presentation window" data-i18n-title="rsp_pres_badges_title">🏅 Badges</button>
+                            <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn" onclick="togglePresSetting('autoflag')" title="Show autoflag in presentation window" data-i18n-title="rsp_pres_autoflag_title">🚩 Autoflag</button>
+                            <button class="rsp-inline-btn" id="rsp-pres-anim-btn" onclick="togglePresSetting('anim')" title="Play animations in presentation window" data-i18n-title="rsp_pres_anim_title">✨ Anim</button>
+                            <button class="rsp-inline-btn" id="rsp-pres-plan-btn" onclick="togglePresSetting('plan')" title="Show plan view in presentation window" data-i18n-title="rsp_pres_plan_title">📐 Plan</button>
+                            <button class="rsp-inline-btn" id="rsp-pres-modes-btn" onclick="togglePresSetting('modes')" title="Mirror modes overlay in presentation window" data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Grouping -->
+                <div id="rsp-tab-grouping" class="rsp-tab-content">
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_teams_title">Team Management</div>
+                        <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); createTeams()" data-i18n="btn_create_teams">Create teams</button>
+                        <button class="rsp-item rsp-item-orange" id="rsp-reshuffle-teams-btn" onclick="closeRosterSettingsPopup(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
+                        <button class="rsp-item rsp-item-danger" id="rsp-clear-teams-btn" onclick="closeRosterSettingsPopup(); clearTeams()" data-i18n="btn_clear_teams">Clear teams</button>
+                    </div>
+
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_roles_title">Role Management</div>
+                        <button class="rsp-item" id="rsp-role-info-btn" onclick="closeRosterSettingsPopup(); openAssignedRolesInfo()" data-i18n="btn_role_info">Role info</button>
+                        <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); openRolesModal()" data-i18n="rsp_assign_roles">Assign roles</button>
+                        <button class="rsp-item rsp-item-orange" id="rsp-reassign-roles-btn" onclick="closeRosterSettingsPopup(); reassignRolesFromUtility()" data-i18n="rsp_reassign_roles">Reassign roles</button>
+                        <button class="rsp-item rsp-item-danger" id="rsp-clear-roles-btn" onclick="closeRosterSettingsPopup(); clearAssignedRolesFromUtility()" data-i18n="rsp_clear_roles">Clear roles</button>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Tools -->
+                <div id="rsp-tab-tools" class="rsp-tab-content">
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_roster_utils">Roster Utilities</div>
+                        <button class="rsp-item" onclick="closeRosterSettingsPopup(); addStudentToGroup()" data-i18n="btn_add_student">Add student</button>
+                        <button class="rsp-item" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores" data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
+                    </div>
+
+                    <div class="rsp-tab-section">
+                        <div class="rsp-row-label" data-i18n="rsp_resets_title">Rankings & Resets</div>
+                        <button class="rsp-item rsp-item-results" onclick="closeRosterSettingsPopup(); openResultsRankingModal()" data-i18n="rsp_results_ranking">Results & Ranking</button>
+                        <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); manualResetFull()" data-i18n="btn_reset_points">Reset points</button>
+                        <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); resetStrikesOnly()" data-i18n="btn_reset_strikes">Reset strikes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Title -->
+    <h1 id="main-title">Class Management</h1>
 	<div id="cms-active-context" style="display:none; text-align:center; margin:-8px 0 10px; font-size:0.75rem; font-weight:700; color:#555; letter-spacing:0.3px;"></div>
 	<!-- Container -->
     <div class="container">
@@ -460,86 +587,6 @@
             <div class="roster-panel-header">
                 <h2 data-i18n-prefix="students_label">Students <span id="students-present-count" style="font-weight:normal; font-size:0.85em; color:#666;"></span>: <span id="display-name">--</span></h2>
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <div id="roster-settings-anchor" style="position:relative;display:inline-block;">
-                        <button id="roster-settings-btn" class="btn-toggle-badges" onclick="toggleRosterSettingsPopup(event)" title="Roster settings" data-i18n-title="rsp_roster_settings_title" style="padding:2px 6px;font-size:0.8rem;">⚙</button>
-                        <div id="roster-settings-popup" class="roster-settings-popup">
-                            <div class="rsp-section">
-                                <div class="rsp-pin-row">
-                                    <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn" onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings at the bottom of the roster panel" data-i18n-title="rsp_pin_title">📌 Pin menu</button>
-                                </div>
-                                <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
-                                <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
-                                <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
-                                    <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
-                                </div>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <div class="rsp-size-row">
-                                    <div class="rsp-size-btns">
-                                        <button onclick="changeNameSize(-1)" title="Decrease name size" data-i18n-title="rsp_decrease_title">A−</button>
-                                        <button onclick="resetNameSize()" title="Reset name size" data-i18n-title="rsp_reset_title">A</button>
-                                        <button onclick="changeNameSize(1)" title="Increase name size" data-i18n-title="rsp_increase_title">A+</button>
-                                    </div>
-                                </div>
-                                <div class="rsp-inline-row">
-                                    <button class="rsp-inline-btn" id="rsp-score-mute-btn" onclick="toggleScoreMute()" title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">🔇</button>
-                                    <button class="rsp-inline-btn" id="rsp-toggle-roles-btn" onclick="closeRosterSettingsPopup(); toggleRolesVisibility()" title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title">👁 Roles</button>
-                                    <button class="rsp-inline-btn" id="rsp-toggle-badges-btn" onclick="closeRosterSettingsPopup(); toggleBadgesVisibility()" title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title">👁 Badges</button>
-                                    <button class="rsp-inline-btn" id="rsp-toggle-autoflag-btn" onclick="closeRosterSettingsPopup(); toggleAutoFlagVisibility()" title="Toggle autoflag visibility (Ctrl+F)" data-i18n-title="rsp_toggle_autoflag_title">👁 Autoflag</button>
-                                    <button class="rsp-inline-btn" id="rsp-toggle-animations-btn" onclick="toggleAnimations()" title="Toggle visual animations (badge awards, team reveal)" data-i18n-title="rsp_toggle_anim_title">✨ Anim</button>
-                                    <button class="rsp-inline-btn" id="roster-plan-view-btn" onclick="closeRosterSettingsPopup(); toggleRosterPlanView()" title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title">📐 Plan</button>
-                                </div>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <div style="font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:#555;padding:1px 4px 2px;flex:0 0 100%;" data-i18n="rsp_in_presentation">In presentation:</div>
-                                <div class="rsp-size-row">
-                                    <div class="rsp-size-btns">
-                                        <button onclick="changePresentationNameSize(-1)" title="Decrease name size in presentation" data-i18n-title="rsp_pres_decrease_title">A−</button>
-                                        <button onclick="resetPresentationNameSize()" title="Reset name size in presentation" data-i18n-title="rsp_pres_reset_title">A</button>
-                                        <button onclick="changePresentationNameSize(1)" title="Increase name size in presentation" data-i18n-title="rsp_pres_increase_title">A+</button>
-                                    </div>
-                                </div>
-                                <div class="rsp-inline-row">
-                                    <button class="rsp-inline-btn" id="rsp-pres-roles-btn" onclick="togglePresSetting('roles')" title="Show roles in presentation window" data-i18n-title="rsp_pres_roles_title">👤 Roles</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-badges-btn" onclick="togglePresSetting('badges')" title="Show badges in presentation window" data-i18n-title="rsp_pres_badges_title">🏅 Badges</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn" onclick="togglePresSetting('autoflag')" title="Show autoflag in presentation window" data-i18n-title="rsp_pres_autoflag_title">🚩 Autoflag</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-anim-btn" onclick="togglePresSetting('anim')" title="Play animations in presentation window" data-i18n-title="rsp_pres_anim_title">✨ Anim</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-plan-btn" onclick="togglePresSetting('plan')" title="Show plan view in presentation window" data-i18n-title="rsp_pres_plan_title">📐 Plan</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-modes-btn" onclick="togglePresSetting('modes')" title="Mirror modes overlay in presentation window" data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
-                                </div>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); createTeams()" data-i18n="btn_create_teams">Create teams</button>
-                                <button class="rsp-item rsp-item-orange" id="rsp-reshuffle-teams-btn" onclick="closeRosterSettingsPopup(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
-                                <button class="rsp-item rsp-item-orange" id="rsp-clear-teams-btn" onclick="closeRosterSettingsPopup(); clearTeams()" data-i18n="btn_clear_teams">Clear teams</button>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <button class="rsp-item" id="rsp-role-info-btn" onclick="closeRosterSettingsPopup(); openAssignedRolesInfo()" data-i18n="btn_role_info">Role info</button>
-                                <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); openRolesModal()" data-i18n="rsp_assign_roles">Assign roles</button>
-                                <button class="rsp-item rsp-item-orange" id="rsp-reassign-roles-btn" onclick="closeRosterSettingsPopup(); reassignRolesFromUtility()" data-i18n="rsp_reassign_roles">Reassign roles</button>
-                                <button class="rsp-item rsp-item-orange" id="rsp-clear-roles-btn" onclick="closeRosterSettingsPopup(); clearAssignedRolesFromUtility()" data-i18n="rsp_clear_roles">Clear roles</button>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <button class="rsp-item rsp-item-results" onclick="closeRosterSettingsPopup(); openResultsRankingModal()" data-i18n="rsp_results_ranking">Results &amp; Ranking</button>
-                                <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); manualResetFull()" data-i18n="btn_reset_points">Reset points</button>
-                                <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); resetStrikesOnly()" data-i18n="btn_reset_strikes">Reset strikes</button>
-                            </div>
-                            <hr class="rsp-divider">
-                            <div class="rsp-section">
-                                <button class="rsp-item" onclick="closeRosterSettingsPopup(); addStudentToGroup()" data-i18n="btn_add_student">Add student</button>
-                                <button class="rsp-item" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores" data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div id="cms-plan-chip" style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px;">
@@ -1030,6 +1077,10 @@
     let studentRoster = {}; // uuid → {uuid, firstName, lastName, dob, adminClass, sen}
     let plannerClasses = {}; // cfg.classes from planner-config.js keyed by class id
     let slotViewActive = true; // show planner slot buttons vs. plain group buttons
+    let activeWeekdayTab = 'all'; // 'all', 'noslot', or '0'..'6'
+    let groupSearchQuery = '';
+    let weekdayTabInitialized = false;
+    let collapseHeaderTimeout = null;
 
     const teamColors = [
         { name: "Red", hex: "#ffcccc", border: "#ff0000" },
@@ -3674,12 +3725,90 @@ function closeBestStudents() { closeResultsRankingModal(); }
         const container = document.getElementById("group-container");
         container.innerHTML = '';
 
+        if (!weekdayTabInitialized) {
+            weekdayTabInitialized = true;
+            const today = new Date().getDay(); // 0-6
+            let hasTodaySlots = false;
+            Object.keys(studentGroups).forEach(groupName => {
+                if (rawMeta[groupName] && rawMeta[groupName].archived) return;
+                const slots = (plannerClasses[groupName] && plannerClasses[groupName].schedule) || [];
+                if (slots.some(slot => String(slot.day) === String(today))) {
+                    hasTodaySlots = true;
+                }
+            });
+            activeWeekdayTab = hasTodaySlots ? String(today) : 'all';
+        }
+
         const anySlots = Object.keys(plannerClasses).filter(k => !k.startsWith('_'))
             .some(id => (plannerClasses[id].schedule || []).length > 0);
         const toggleBtn = document.getElementById('group-view-toggle');
         if (toggleBtn) {
             toggleBtn.style.display = anySlots ? '' : 'none';
             toggleBtn.textContent = slotViewActive ? t('cms_view_groups') : t('cms_view_slots');
+        }
+
+        // Render weekday tabs
+        const tabsContainer = document.getElementById('weekday-tabs');
+        if (tabsContainer) {
+            tabsContainer.innerHTML = '';
+            if (slotViewActive && anySlots) {
+                tabsContainer.style.display = 'flex';
+                
+                // Determine active days that have slots
+                const activeDays = new Set();
+                let hasNoSlotGroups = false;
+                Object.keys(studentGroups).forEach(groupName => {
+                    if (rawMeta[groupName] && rawMeta[groupName].archived) return;
+                    const slots = (plannerClasses[groupName] && plannerClasses[groupName].schedule) || [];
+                    if (slots.length > 0) {
+                        slots.forEach(slot => {
+                            if (slot.day !== undefined && slot.day !== null) {
+                                activeDays.add(String(slot.day));
+                            }
+                        });
+                    } else {
+                        hasNoSlotGroups = true;
+                    }
+                });
+
+                if (activeWeekdayTab !== 'all' && activeWeekdayTab !== 'noslot' && !activeDays.has(activeWeekdayTab)) {
+                    activeWeekdayTab = 'all';
+                }
+
+                const allDays = [
+                    { id: '1', label: t('cms_dayMon') },
+                    { id: '2', label: t('cms_dayTue') },
+                    { id: '3', label: t('cms_dayWed') },
+                    { id: '4', label: t('cms_dayThu') },
+                    { id: '5', label: t('cms_dayFri') },
+                    { id: '6', label: t('cms_daySat') },
+                    { id: '0', label: t('cms_daySun') }
+                ];
+
+                const tabs = [{ id: 'all', label: t('cms_tab_all') }];
+                allDays.forEach(d => {
+                    if (activeDays.has(d.id)) {
+                        tabs.push(d);
+                    }
+                });
+                if (hasNoSlotGroups) {
+                    tabs.push({ id: 'noslot', label: t('cms_tab_no_slot') });
+                }
+
+                tabs.forEach(tab => {
+                    const tabBtn = document.createElement('button');
+                    tabBtn.type = 'button';
+                    tabBtn.className = 'weekday-tab' + (activeWeekdayTab === tab.id ? ' active' : '');
+                    tabBtn.textContent = tab.label;
+                    tabBtn.onclick = () => {
+                        activeWeekdayTab = tab.id;
+                        renderGroupButtons();
+                    };
+                    tabsContainer.appendChild(tabBtn);
+                });
+            } else {
+                tabsContainer.style.display = 'none';
+            }
         }
 
         Object.keys(studentGroups).sort((a, b) => {
@@ -3696,23 +3825,61 @@ function closeBestStudents() { closeResultsRankingModal(); }
 
             if (slotViewActive && slots.length > 0) {
                 slots.forEach(slot => {
+                    // Filter by weekday tab
+                    if (activeWeekdayTab !== 'all') {
+                        if (activeWeekdayTab === 'noslot') return;
+                        if (String(slot.day) !== activeWeekdayTab) return;
+                    }
+
+                    // Filter by search query
+                    const dayLabel = t(_SLOT_DAY_KEYS[parseInt(slot.day)] || '') || '';
+                    const timeLabel = slot.time ? slot.time.slice(0, 5) : '';
+                    const halfLabel = slot.halfGroup ? ' ½' + slot.halfGroup : '';
+                    const buttonText = displayName + (dayLabel ? ' ' + dayLabel : '') + (timeLabel ? ' ' + timeLabel : '') + halfLabel;
+
+                    if (groupSearchQuery && !buttonText.toLowerCase().includes(groupSearchQuery)) return;
+
                     const btn = document.createElement("button");
                     btn.className = "btn-group";
                     btn.dataset.group = groupName;
                     btn.dataset.half = slot.halfGroup || '';
-                    const dayLabel = t(_SLOT_DAY_KEYS[parseInt(slot.day)] || '') || '';
-                    const timeLabel = slot.time ? slot.time.slice(0, 5) : '';
-                    const halfLabel = slot.halfGroup ? ' ½' + slot.halfGroup : '';
-                    btn.textContent = displayName + (dayLabel ? ' ' + dayLabel : '') + (timeLabel ? ' ' + timeLabel : '') + halfLabel;
-                    btn.onclick = () => { selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' }; selectGroup(groupName, slot.halfGroup || null, btn); };
+                    btn.innerHTML = `<span class="btn-group-name">${displayName}</span>` + 
+                                    `<span class="btn-group-time-badge">${dayLabel ? dayLabel + ' ' : ''}${timeLabel}${halfLabel}</span>`;
+
+                    // Check active state
+                    if (selectedGroupName === groupName && 
+                        selectedHalfGroup === (slot.halfGroup || null) &&
+                        selectedPlannerSlot &&
+                        String(selectedPlannerSlot.day) === String(slot.day) &&
+                        (selectedPlannerSlot.time || '').slice(0, 5) === timeLabel) {
+                        btn.classList.add("active");
+                    }
+
+                    btn.onclick = () => { 
+                        selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' }; 
+                        selectGroup(groupName, slot.halfGroup || null, btn); 
+                    };
                     container.appendChild(btn);
                 });
             } else {
+                if (slotViewActive) {
+                    if (activeWeekdayTab !== 'all' && activeWeekdayTab !== 'noslot') return;
+                }
+
+                // Filter by search query
+                if (groupSearchQuery && !displayName.toLowerCase().includes(groupSearchQuery)) return;
+
                 const btn = document.createElement("button");
                 btn.className = "btn-group";
                 btn.dataset.group = groupName;
                 btn.dataset.half = '';
-                btn.textContent = displayName;
+                btn.innerHTML = `<span class="btn-group-name">${displayName}</span>`;
+
+                // Check active state
+                if (selectedGroupName === groupName && !selectedHalfGroup && !selectedPlannerSlot) {
+                    btn.classList.add("active");
+                }
+
                 if (hasHalves) {
                     btn.onclick = (e) => { selectedPlannerSlot = null; e.stopPropagation(); showHalfGroupPicker(groupName, btn); };
                 } else {
@@ -3725,6 +3892,11 @@ function closeBestStudents() { closeResultsRankingModal(); }
 
     function toggleGroupView() {
         slotViewActive = !slotViewActive;
+        renderGroupButtons();
+    }
+
+    function handleGroupSearch(value) {
+        groupSearchQuery = (value || '').toLowerCase().trim();
         renderGroupButtons();
     }
 
@@ -3758,6 +3930,15 @@ function closeBestStudents() { closeResultsRankingModal(); }
         renderRanking();
         updateDbAutosaveStatusLabel();
         applyAutoFlags(groupName);
+
+        const classBtn = document.getElementById('class-selection-btn');
+        if (classBtn && selectedGroupName) {
+            const displayName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+            const halfSuffix = selectedHalfGroup ? ' ½' + selectedHalfGroup : '';
+            classBtn.innerHTML = `${displayName}${halfSuffix}`;
+            classBtn.classList.add('active');
+        }
+        closeClassSelectionPopup();
     }
 
     function _cmsUpdatePlanChip() {
@@ -10232,6 +10413,34 @@ function closeRosterSettingsPopup(force = false) {
     if (btn) btn.classList.remove('active');
 }
 
+function switchRosterSettingsTab(event, tabId) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const container = document.getElementById('roster-settings-popup');
+    if (!container) return;
+    
+    // Deactivate all tab buttons
+    const tabBtns = container.querySelectorAll('.rsp-tab-btn');
+    tabBtns.forEach(btn => btn.classList.remove('active'));
+    
+    // Activate clicked button
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
+    
+    // Hide all tab contents
+    const contents = container.querySelectorAll('.rsp-tab-content');
+    contents.forEach(content => content.classList.remove('active'));
+    
+    // Show selected tab content
+    const targetContent = container.querySelector(`#rsp-tab-${tabId}`);
+    if (targetContent) {
+        targetContent.classList.add('active');
+    }
+}
+
 // Close hub popups when clicking outside
 document.addEventListener('click', function(e) {
     const dbPopup = document.getElementById('db-hub-popup');
@@ -10257,7 +10466,35 @@ document.addEventListener('click', function(e) {
     if (!rosterSettingsPinned && rosterSettingsPopup && rosterSettingsPopup.classList.contains('open') && !rosterSettingsPopup.contains(e.target) && e.target !== rosterSettingsBtn && !rosterSettingsBtn.contains(e.target)) {
         closeRosterSettingsPopup();
     }
+
+    const classSelectionPopup = document.getElementById('class-selection-popup');
+    const classSelectionBtn = document.getElementById('class-selection-btn');
+    if (classSelectionPopup && classSelectionPopup.classList.contains('open') && !classSelectionPopup.contains(e.target) && e.target !== classSelectionBtn && !classSelectionBtn.contains(e.target)) {
+        closeClassSelectionPopup();
+    }
 });
+
+function toggleClassSelectionPopup(event) {
+    if (event) { event.stopPropagation(); event.preventDefault(); }
+    const popup = document.getElementById('class-selection-popup');
+    const btn = document.getElementById('class-selection-btn');
+    if (!popup) return;
+    const isOpen = popup.classList.contains('open');
+    if (isOpen) {
+        closeClassSelectionPopup();
+    } else {
+        closeRosterSettingsPopup(true);
+        popup.classList.add('open');
+        if (btn) btn.classList.add('active');
+    }
+}
+
+function closeClassSelectionPopup() {
+    const popup = document.getElementById('class-selection-popup');
+    const btn = document.getElementById('class-selection-btn');
+    if (popup) popup.classList.remove('open');
+    if (btn && !selectedGroupName) btn.classList.remove('active');
+}
 
 // ============================================================
 // EXPORT / IMPORT DB
@@ -10982,6 +11219,9 @@ const I18N = {
     credits_btn_title: 'Credits',
     cms_view_groups: '👥 Groups',
     cms_view_slots: '🗓 Slots',
+    cms_tab_all: 'All',
+    cms_tab_no_slot: 'No Slot',
+    search_placeholder: 'Search class...',
     cms_daySun: 'Sun', cms_dayMon: 'Mon', cms_dayTue: 'Tue', cms_dayWed: 'Wed',
     cms_dayThu: 'Thu', cms_dayFri: 'Fri', cms_daySat: 'Sat',
     menu_minimize_title: 'Minimise menu',
@@ -11401,6 +11641,9 @@ const I18N = {
     credits_btn_title: 'Crédits',
     cms_view_groups: '👥 Groupes',
     cms_view_slots: '🗓 Créneaux',
+    cms_tab_all: 'Tous',
+    cms_tab_no_slot: 'Sans créneau',
+    search_placeholder: 'Ouvrir ou chercher...',
     cms_daySun: 'Dim', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
     cms_dayThu: 'Jeu', cms_dayFri: 'Ven', cms_daySat: 'Sam',
     menu_minimize_title: 'Réduire le menu',
@@ -11820,6 +12063,9 @@ const I18N = {
     credits_btn_title: 'Credits',
     cms_view_groups: '👥 Gruppen',
     cms_view_slots: '🗓 Zeitfenster',
+    cms_tab_all: 'Alle',
+    cms_tab_no_slot: 'Ohne Zeitfenster',
+    search_placeholder: 'Klasse suchen...',
     cms_daySun: 'So', cms_dayMon: 'Mo', cms_dayTue: 'Di', cms_dayWed: 'Mi',
     cms_dayThu: 'Do', cms_dayFri: 'Fr', cms_daySat: 'Sa',
     menu_minimize_title: 'Menü minimieren',
@@ -12234,6 +12480,9 @@ const I18N = {
     credits_btn_title: 'Crediti',
     cms_view_groups: '👥 Gruppi',
     cms_view_slots: '🗓 Slot',
+    cms_tab_all: 'Tutti',
+    cms_tab_no_slot: 'Senza slot',
+    search_placeholder: 'Cerca classe...',
     cms_daySun: 'Dom', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
     cms_dayThu: 'Gio', cms_dayFri: 'Ven', cms_daySat: 'Sab',
     menu_minimize_title: 'Riduci il menu',

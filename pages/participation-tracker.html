@@ -1279,6 +1279,23 @@
                 Configure participation objectives. Students who meet the criteria will receive the points defined.
             </div>
 
+            <!-- Date range selector inside modal -->
+            <div style="background:#f9f9f9; border:2px solid #ddd; padding:12px; border-radius:5px; margin-bottom:15px; display:flex; flex-wrap:wrap; gap:15px; align-items:center; font-size:13px; justify-content:space-between; box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <strong style="color:#333;" data-i18n="ptDateRange">Date Range:</strong>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-preset-modal-all active" onclick="setModalDatePreset('all')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDateAll">All Data</button>
+                        <button class="btn-preset-modal-30" onclick="setModalDatePreset('30days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate30Days">Last 30 Days</button>
+                        <button class="btn-preset-modal-7" onclick="setModalDatePreset('7days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate7Days">Last 7 Days</button>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="date" id="modalDateFrom" onchange="onModalDateChange()" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
+                    <span data-i18n="ptDateTo">to</span>
+                    <input type="date" id="modalDateTo" onchange="onModalDateChange()" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
+                </div>
+            </div>
+
             <!-- Formula explanation cheatsheet -->
             <div style="margin-bottom: 15px; font-size: 11px; color: #555; line-height: 1.4; background: #fdfdfd; border: 2px dashed #ddd; padding: 10px; border-radius: 5px;">
                 <strong>Formula Tips:</strong> Use logical connectors <code>and</code>, <code>or</code>, <code>not</code>, and functions like <code>if(cond, trueVal, falseVal)</code>.<br>
@@ -4115,6 +4132,13 @@
                 addRuleRow('netPoints', 0, 1, 5, 3, 10, 5, '');
             }
 
+            // Sync dates to modal pickers
+            document.getElementById('modalDateFrom').value = document.getElementById('dateFrom').value || '';
+            document.getElementById('modalDateTo').value = document.getElementById('dateTo').value || '';
+            const mainActivePresetBtn = document.querySelector('.date-controls .date-preset-btn.active');
+            const presetVal = mainActivePresetBtn ? mainActivePresetBtn.dataset.preset : 'all';
+            updateModalPresetButtonClasses(presetVal);
+
             // Show modal
             document.getElementById('rulesModal').classList.add('active');
             updateProvisionalGradesPreview();
@@ -4123,6 +4147,62 @@
         function closeRulesModal() {
             document.getElementById('rulesModal').classList.remove('active');
             rulesModalActiveGroup = null;
+        }
+
+        function onModalDateChange() {
+            const fromVal = document.getElementById('modalDateFrom').value;
+            const toVal = document.getElementById('modalDateTo').value;
+            
+            document.getElementById('dateFrom').value = fromVal;
+            document.getElementById('dateTo').value = toVal;
+            
+            // Remove active classes on main presets
+            document.querySelectorAll('.date-controls .date-preset-btn').forEach(btn => btn.classList.remove('active'));
+            // Remove active classes on modal presets
+            updateModalPresetButtonClasses(null);
+            
+            // Re-render main dashboard content so it matches
+            if (typeof updateDashboard === 'function') {
+                updateDashboard();
+            }
+            
+            updateProvisionalGradesPreview();
+        }
+
+        function setModalDatePreset(preset) {
+            // Find and click the main screen preset button
+            const mainBtn = document.querySelector(`.date-preset-btn[data-preset="${preset}"]`);
+            if (mainBtn) {
+                mainBtn.click();
+                
+                // Copy the updated date values to the modal's date pickers
+                document.getElementById('modalDateFrom').value = document.getElementById('dateFrom').value || '';
+                document.getElementById('modalDateTo').value = document.getElementById('dateTo').value || '';
+                
+                // Update active classes on modal presets
+                updateModalPresetButtonClasses(preset);
+                
+                // Refresh modal preview
+                updateProvisionalGradesPreview();
+            }
+        }
+
+        function updateModalPresetButtonClasses(preset) {
+            document.querySelectorAll('.btn-preset-modal-all, .btn-preset-modal-30, .btn-preset-modal-7').forEach(btn => {
+                btn.style.background = '#fff';
+                btn.style.color = '#333';
+                btn.style.borderColor = '#ccc';
+            });
+            if (preset === 'all') {
+                const btn = document.querySelector('.btn-preset-modal-all');
+                if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
+            } else if (preset === '30days') {
+                const btn = document.querySelector('.btn-preset-modal-30');
+                if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
+            } else if (preset === '7days') {
+                const btn = document.querySelector('.btn-preset-modal-7');
+                if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
+            }
         }
 
         function onRuleMetricChange(selectEl) {
