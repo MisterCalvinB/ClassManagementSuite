@@ -2093,8 +2093,11 @@
             <option value="sem2" data-i18n="gsSem2">Term 2</option>
           </select>
         </div>
-        <div class="form-group" style="flex:1;min-width:140px;">
-          <label style="font-size:0.82rem;color:var(--muted);font-weight:500;" data-i18n="gsDupLabelTest">Test</label>
+        <div class="form-group" style="flex:1.5;min-width:180px;">
+          <label style="font-size:0.82rem;color:var(--muted);font-weight:500;display:flex;justify-content:space-between;align-items:center;">
+            <span data-i18n="gsDupLabelTest">Test</span>
+            <button id="ig-new-test-btn" type="button" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.75rem;padding:0;font-weight:700;">+ Create New</button>
+          </label>
           <select id="ig-test-select" class="input" style="width:100%;"></select>
         </div>
       </div>
@@ -8554,6 +8557,43 @@
       const previewBody = document.getElementById("ig-preview-body");
       const previewStats = document.getElementById("ig-preview-stats");
       const applyBtn = document.getElementById("ig-apply-btn");
+      const newTestBtn = document.getElementById("ig-new-test-btn");
+
+      if (newTestBtn) {
+        newTestBtn.onclick = async () => {
+          const classObj = appState.classes.find(c => c.id === classSelect.value);
+          if (!classObj) return;
+          const sem = semSelect.value;
+          if (classObj.testCounts[sem] >= TEST_COUNT_PER_SEM) {
+            await showAlert(tFmt('gsAlertMaxTests', { n: TEST_COUNT_PER_SEM }));
+            return;
+          }
+          let defaultTestName = "Participation";
+          if (parsed && parsed.dateFrom && parsed.dateTo) {
+            defaultTestName = `Participation (${parsed.dateFrom} to ${parsed.dateTo})`;
+          } else if (parsed && parsed.dateFrom) {
+            defaultTestName = `Participation (from ${parsed.dateFrom})`;
+          } else if (parsed && parsed.dateTo) {
+            defaultTestName = `Participation (to ${parsed.dateTo})`;
+          }
+          const testName = await showPrompt("Enter a name for the new test column:", defaultTestName);
+          if (testName === null) return; // User cancelled
+
+          ensureClassStructures(classObj);
+          const newIndex = classObj.testCounts[sem];
+          classObj.testCounts[sem]++;
+          const cfg = classObj.testConfigs[sem][newIndex] || createDefaultTestConfig();
+          cfg.testName = testName.trim() || `Test ${newIndex + 1}`;
+          classObj.testConfigs[sem][newIndex] = cfg;
+
+          saveState();
+          renderSummary();
+
+          refreshTestOptions();
+          testSelect.value = String(newIndex);
+          refreshPreview();
+        };
+      }
 
       classSelect.innerHTML = appState.classes
         .slice().sort((a, b) => a.name.localeCompare(b.name))
@@ -8803,6 +8843,25 @@
       win.print();
     }
 
+    function checkForPendingImport() {
+      const raw = localStorage.getItem('CMS_PENDING_GRADE_IMPORT');
+      if (!raw) return;
+      
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.grades && Object.keys(parsed.grades).length > 0) {
+          localStorage.removeItem('CMS_PENDING_GRADE_IMPORT');
+          openImportGradesModal({
+            class: parsed.class,
+            grades: parsed.grades
+          });
+        }
+      } catch (e) {
+        console.error('Failed to parse pending grade import:', e);
+        localStorage.removeItem('CMS_PENDING_GRADE_IMPORT');
+      }
+    }
+
     // ── Boot ─────────────────────────────────────────────────────
     async function boot() {
       initHamburger();
@@ -8820,6 +8879,9 @@
       wireEvents();
       renderClasses();
       showScreen("classes");
+
+      checkForPendingImport();
+      window.addEventListener('focus', checkForPendingImport);
     }
 
     boot();

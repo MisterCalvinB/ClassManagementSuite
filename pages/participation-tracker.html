@@ -915,13 +915,18 @@
             padding: 1.8rem;
             border-radius: 6px;
             border: 2px solid #111;
-            max-width: 650px;
+            max-width: 800px;
             width: 95%;
             max-height: 85vh;
             overflow-y: auto;
             position: relative;
             line-height: 1.6;
             box-shadow: 4px 4px 0 #ccc;
+        }
+        #rulesModal .rules-table input[type="number"] {
+            width: 60px !important;
+            padding: 6px 8px !important;
+            text-align: center;
         }
         #rulesModal h3 {
             text-transform: uppercase;
@@ -1274,15 +1279,21 @@
                 Configure participation objectives. Students who meet the criteria will receive the points defined.
             </div>
 
+            <!-- Formula explanation cheatsheet -->
+            <div style="margin-bottom: 15px; font-size: 11px; color: #555; line-height: 1.4; background: #fdfdfd; border: 2px dashed #ddd; padding: 10px; border-radius: 5px;">
+                <strong>Formula Tips:</strong> Use logical connectors <code>and</code>, <code>or</code>, <code>not</code>, and functions like <code>if(cond, trueVal, falseVal)</code>.<br>
+                Variables: <code>netPoints</code>, <code>picks</code>, <code>attendanceRate</code>, <code>posRatio</code>, <code>negRatio</code>, <code>netRatio</code>, <code>trend</code>, badge icons (e.g. <code>💎</code>, <code>👍</code>) or labels (e.g. <code>diamond</code>, <code>[Good Job]</code>).
+            </div>
+
             <!-- Rules list -->
             <div style="margin-bottom: 20px;">
                 <table class="rules-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
                     <thead>
                         <tr>
                             <th style="padding:6px; text-align:left;" data-i18n="ptRuleMetric">Metric</th>
-                            <th style="padding:6px; text-align:left;" data-i18n="ptRuleOperator">Condition</th>
-                            <th style="padding:6px; text-align:left;" data-i18n="ptRuleValue">Threshold</th>
-                            <th style="padding:6px; text-align:left;" data-i18n="ptRulePoints">Points</th>
+                            <th style="padding:6px; text-align:left;">Min (Val &rarr; Pts)</th>
+                            <th style="padding:6px; text-align:left;">Pass (Val &rarr; Pts)</th>
+                            <th style="padding:6px; text-align:left;">Max (Val &rarr; Pts)</th>
                             <th style="padding:6px; width:40px;"></th>
                         </tr>
                     </thead>
@@ -1311,6 +1322,7 @@
                 <textarea id="provisionalGradesTextarea" readonly style="width:100%; height:100px; font-family:monospace; font-size:12px; padding:8px; border:2px solid #ddd; border-radius:5px; background:#fafafa; resize:vertical; box-sizing:border-box;"></textarea>
                 <div style="display:flex; gap:10px; margin-top:10px;">
                     <button onclick="copyProvisionalGrades()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
+                    <button onclick="exportGradesToGradeSheet()" style="background:#2ca02c; color:#fff; border:2px solid #2ca02c; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#2ca02c'" onmouseout="this.style.background='#2ca02c';this.style.color='#fff'">Export to Grade Sheet</button>
                     <button onclick="openGradeSheetTool()" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.borderColor='#111';this.style.color='#111';" onmouseout="this.style.borderColor='#ddd';this.style.color='#555';" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
                 </div>
             </div>
@@ -3566,7 +3578,9 @@
             const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
 
             // Calculate stats
-            let picks = 0, absent = 0, pluses = 0, minuses = 0, teamPluses = 0, teamMinuses = 0, badges = 0, badgePositive = 0, badgeNegative = 0, total = 0;
+            let picks = 0, absent = 0, pluses = 0, minuses = 0, teamPluses = 0, teamMinuses = 0, badges = 0, badgePositive = 0, badgeNegative = 0, total = 0, teamRoleEvents = 0;
+            let studentBadgesAccumulated = [];
+            const sessionNets = [];
 
             sessions.forEach(session => {
                 const students = session.groups[currentGroupId] || [];
@@ -3580,10 +3594,16 @@
                     teamPluses += student.teamPluses || 0;
                     teamMinuses += student.teamMinuses || 0;
                     const studentBadges = student.badges || [];
+                    studentBadgesAccumulated = studentBadgesAccumulated.concat(studentBadges);
                     const badgeSentiment = countBadgeSentiment(studentBadges);
                     badges += studentBadges.length;
                     badgePositive += badgeSentiment.positive;
                     badgeNegative += badgeSentiment.negative;
+                    
+                    const studentEvents = getSessionTeamRoleEvents ? getSessionTeamRoleEvents(session, currentGroupId, currentStudentName) : [];
+                    teamRoleEvents += studentEvents.length;
+                    
+                    sessionNets.push(getStudentSessionNet(student));
                 }
             });
 
@@ -3596,7 +3616,12 @@
                 teamPluses,
                 teamMinuses,
                 badgePositive,
-                badgeNegative
+                badgeNegative,
+                badges: studentBadgesAccumulated,
+                sessions: total,
+                absent: absent,
+                teamRoleEvents,
+                sessionNets
             };
             const provGrade = calculateStudentProvisionalGrade(mockOverviewData);
             
@@ -3609,24 +3634,110 @@
                 const net = (pluses + teamPluses + badgePositive) - (minuses + teamMinuses + badgeNegative);
                 const attendanceRate = total > 0 ? ((total - absent) / total) * 100 : 0;
                 
+                const attendedSessions = total - absent;
+                const posRatio = attendedSessions ? (pluses + teamPluses + badgePositive) / attendedSessions : 0;
+                const negRatio = attendedSessions ? (minuses + teamMinuses + badgeNegative) / attendedSessions : 0;
+                const netRatio = attendedSessions ? net / attendedSessions : 0;
+                const totalGood = pluses + teamPluses + badgePositive;
+                const totalBad = minuses + teamMinuses + badgeNegative;
+                const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
+                const trend = (mockOverviewData.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(mockOverviewData.sessionNets) === 'up' ? 1 : computeTrend(mockOverviewData.sessionNets) === 'down' ? -1 : 0) : 0;
+
                 const achievedRuleLabels = [];
                 config.rules.forEach((rule, idx) => {
                     let studentValue = 0;
                     let label = '';
-                    if (rule.metric === 'netPoints') { studentValue = net; label = `${t('ptStatsNetPoints')} (${net} ${rule.operator} ${rule.value})`; }
-                    else if (rule.metric === 'picks') { studentValue = picks; label = `${t('ptStatsTimesPicked')} (${picks} ${rule.operator} ${rule.value})`; }
-                    else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${t('ptStatsSessionsRecorded')} (${attendanceRate.toFixed(0)}% ${rule.operator} ${rule.value}%)`; }
-                    else if (rule.metric === 'positivePoints') { studentValue = pluses + teamPluses; label = `${t('ptStatPluses')} (${pluses + teamPluses} ${rule.operator} ${rule.value})`; }
-                    else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')} (${badgePositive} ${rule.operator} ${rule.value})`; }
-
-                    let met = false;
-                    if (rule.operator === '>=') met = studentValue >= rule.value;
-                    else if (rule.operator === '<=') met = studentValue <= rule.value;
-
-                    if (met) {
-                        achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label}</span>`);
+                    let rulePoints = 0;
+                    let possiblePoints = 0;
+                    
+                    if (rule.metric === 'formula') {
+                        let met = false;
+                        let maxPts = Number(rule.maxPts) ?? 0;
+                        possiblePoints = maxPts;
+                        const context = {
+                            netPoints: net,
+                            net: net,
+                            picks: picks,
+                            attendanceRate: attendanceRate,
+                            attendance: attendanceRate,
+                            positivePoints: pluses + teamPluses,
+                            positive: pluses + teamPluses,
+                            pluses: pluses,
+                            minuses: minuses,
+                            teamPluses: teamPluses,
+                            teamMinuses: teamMinuses,
+                            badgePositive: badgePositive,
+                            badgeNegative: badgeNegative,
+                            sessions: total,
+                            absent: absent,
+                            posRatio: posRatio,
+                            negRatio: negRatio,
+                            netRatio: netRatio,
+                            ratio: ratio,
+                            trend: trend,
+                            teamRoleEvents: teamRoleEvents,
+                            ...getStudentBadgeCounts(studentBadgesAccumulated)
+                        };
+                        try {
+                            const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
+                            if (typeof formulaResult === 'boolean') {
+                                met = formulaResult;
+                                rulePoints = met ? maxPts : 0;
+                            } else if (typeof formulaResult === 'number') {
+                                met = formulaResult > 0;
+                                rulePoints = formulaResult;
+                            } else {
+                                met = !!formulaResult;
+                                rulePoints = met ? maxPts : 0;
+                            }
+                        } catch (e) {
+                            met = false;
+                        }
+                        label = `Formula: ${rule.value || rule.formulaVal}`;
+                        if (met) {
+                            achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                        } else {
+                            achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (0 / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                        }
                     } else {
-                        achievedRuleLabels.push(`<span style="color:#888;">✗ ${label}</span>`);
+                        if (rule.metric === 'netPoints') { studentValue = net; label = `${t('ptStatsNetPoints')}: ${net}`; }
+                        else if (rule.metric === 'picks') { studentValue = picks; label = `${t('ptStatsTimesPicked')}: ${picks}`; }
+                        else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${t('ptStatsSessionsRecorded')}: ${attendanceRate.toFixed(0)}%`; }
+                        else if (rule.metric === 'positivePoints') { studentValue = pluses + teamPluses; label = `${t('ptStatPluses')}: ${pluses + teamPluses}`; }
+                        else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')}: ${badgePositive}`; }
+                        else if (rule.metric === 'badgeNegative') { studentValue = badgeNegative; label = `${t('ptColBadgeMinus')}: ${badgeNegative}`; }
+                        else if (rule.metric === 'pluses') { studentValue = pluses; label = `${t('ptColPluses')}: ${pluses}`; }
+                        else if (rule.metric === 'minuses') { studentValue = minuses; label = `${t('ptColMinuses')}: ${minuses}`; }
+                        else if (rule.metric === 'teamPluses') { studentValue = teamPluses; label = `${t('ptColT')}: ${teamPluses}`; }
+                        else if (rule.metric === 'teamMinuses') { studentValue = teamMinuses; label = `${t('ptColTm')}: ${teamMinuses}`; }
+                        else if (rule.metric === 'absent') { studentValue = absent; label = `${t('ptColAbsent')}: ${absent}`; }
+                        else if (rule.metric === 'sessions') { studentValue = total; label = `${t('ptColSess')}: ${total}`; }
+                        else if (rule.metric === 'posRatio') { studentValue = posRatio; label = `${t('ptColPosRatio')}: ${posRatio.toFixed(2)}`; }
+                        else if (rule.metric === 'negRatio') { studentValue = negRatio; label = `${t('ptColNegRatio')}: ${negRatio.toFixed(2)}`; }
+                        else if (rule.metric === 'netRatio') { studentValue = netRatio; label = `${t('ptColNetRatio')}: ${netRatio.toFixed(2)}`; }
+                        else if (rule.metric === 'ratio') { studentValue = ratio; label = `${t('ptColGoodBad')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
+                        else if (rule.metric === 'trend') { studentValue = trend; label = `${t('ptColTrend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
+                        else if (rule.metric === 'teamRoleEvents') { studentValue = teamRoleEvents; label = `${t('ptColTeamRole')}: ${teamRoleEvents}`; }
+                        else if (rule.metric.startsWith('badge_icon:')) {
+                            const icon = rule.metric.replace('badge_icon:', '');
+                            studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[icon] || 0;
+                            label = `${icon} count: ${studentValue}`;
+                        } else if (rule.metric.startsWith('badge_label:')) {
+                            const bLabel = rule.metric.replace('badge_label:', '');
+                            const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[key] || 0;
+                            label = `${bLabel} count: ${studentValue}`;
+                        }
+                        
+                        rulePoints = calculateCriterionPoints(studentValue, rule);
+                        possiblePoints = Number(rule.maxPts) ?? 0;
+                        
+                        const isMet = rulePoints > (Number(rule.minPts) || 0);
+                        if (isMet) {
+                            achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                        } else {
+                            achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                        }
                     }
                 });
 
@@ -3981,11 +4092,27 @@
             
             if (config.rules && config.rules.length > 0) {
                 config.rules.forEach(rule => {
-                    addRuleRow(rule.metric, rule.operator, rule.value, rule.points);
+                    let minV = rule.minVal, minP = rule.minPts, passV = rule.passVal, passP = rule.passPts, maxV = rule.maxVal, maxP = rule.maxPts, formV = rule.formulaVal || '';
+                    if (minV === undefined) {
+                        // Legacy rule conversion
+                        if (rule.metric === 'formula') {
+                            formV = rule.value;
+                            minV = 0; minP = 0; passV = 0; passP = 0; maxV = 0; maxP = rule.points;
+                        } else if (rule.operator === '<=') {
+                            minV = rule.value; minP = rule.points;
+                            passV = 0; passP = rule.points;
+                            maxV = 0; maxP = rule.points;
+                        } else {
+                            minV = rule.value; minP = rule.points;
+                            passV = rule.value; passP = rule.points;
+                            maxV = rule.value; maxP = rule.points;
+                        }
+                    }
+                    addRuleRow(rule.metric, minV, minP, passV, passP, maxV, maxP, formV);
                 });
             } else {
                 // Add an empty default row
-                addRuleRow('netPoints', '>=', 10, 5);
+                addRuleRow('netPoints', 0, 1, 5, 3, 10, 5, '');
             }
 
             // Show modal
@@ -3998,37 +4125,117 @@
             rulesModalActiveGroup = null;
         }
 
-        function addRuleRow(metric = 'netPoints', operator = '>=', value = 10, points = 5) {
+        function onRuleMetricChange(selectEl) {
+            const row = selectEl.closest('tr');
+            const metric = selectEl.value;
+            const minCell = row.querySelector('.min-cell');
+            const passCell = row.querySelector('.pass-cell');
+            const maxCell = row.querySelector('.max-cell');
+            const maxInputWrap = row.querySelector('.max-input-wrap');
+            const formulaInputWrap = row.querySelector('.formula-input-wrap');
+            const formulaInput = row.querySelector('.rule-formula-val');
+            
+            if (metric === 'formula') {
+                minCell.style.display = 'none';
+                passCell.style.display = 'none';
+                maxCell.setAttribute('colspan', '3');
+                maxInputWrap.classList.add('hidden');
+                formulaInputWrap.classList.remove('hidden');
+                formulaInput.focus();
+            } else {
+                minCell.style.display = '';
+                passCell.style.display = '';
+                maxCell.removeAttribute('colspan');
+                maxInputWrap.classList.remove('hidden');
+                formulaInputWrap.classList.add('hidden');
+            }
+            updateProvisionalGradesPreview();
+        }
+
+        function addRuleRow(metric = 'netPoints', minVal = 0, minPts = 1, passVal = 5, passPts = 3, maxVal = 10, maxPts = 5, formulaVal = '') {
             const tbody = document.getElementById('rulesTableBody');
             const row = document.createElement('tr');
             
+            // Get all badge definitions to populate in dropdown
+            const badgeDefs = getConfiguredBadgeDefinitions();
+            const badgeOptions = badgeDefs.map(b => {
+                const optVal = `badge_icon:${b.icon}`;
+                const selected = (metric === optVal) ? 'selected' : '';
+                const sign = b.tone === 'positive' ? '+' : b.tone === 'negative' ? '-' : '';
+                const valText = `${b.tone}, ${sign}${b.coefficient}`;
+                return `<option value="${optVal}" ${selected}>${b.icon} ${b.label} (${valText})</option>`;
+            }).join('');
+
             row.innerHTML = `
                 <td>
-                    <select class="rule-metric" onchange="updateProvisionalGradesPreview()">
+                    <select class="rule-metric" onchange="onRuleMetricChange(this)">
                         <option value="netPoints" ${metric === 'netPoints' ? 'selected' : ''}>${t('ptStatsNetPoints')}</option>
                         <option value="picks" ${metric === 'picks' ? 'selected' : ''}>${t('ptStatsTimesPicked')}</option>
                         <option value="attendanceRate" ${metric === 'attendanceRate' ? 'selected' : ''}>${t('ptStatsSessionsRecorded')} (%)</option>
                         <option value="positivePoints" ${metric === 'positivePoints' ? 'selected' : ''}>${t('ptStatPluses')}</option>
                         <option value="badgePositive" ${metric === 'badgePositive' ? 'selected' : ''}>${t('ptStatsPosBadges')}</option>
+                        <optgroup label="Other Columns">
+                            <option value="sessions" ${metric === 'sessions' ? 'selected' : ''}>${t('ptColSess') || 'Sessions'}</option>
+                            <option value="absent" ${metric === 'absent' ? 'selected' : ''}>${t('ptColAbs') || 'Absent'}</option>
+                            <option value="pluses" ${metric === 'pluses' ? 'selected' : ''}>${t('ptColPluses') || 'Pluses'}</option>
+                            <option value="minuses" ${metric === 'minuses' ? 'selected' : ''}>${t('ptColMinuses') || 'Minuses'}</option>
+                            <option value="teamPluses" ${metric === 'teamPluses' ? 'selected' : ''}>${t('ptColT') || 'T+'}</option>
+                            <option value="teamMinuses" ${metric === 'teamMinuses' ? 'selected' : ''}>${t('ptColTm') || 'T-'}</option>
+                            <option value="badgeNegative" ${metric === 'badgeNegative' ? 'selected' : ''}>${t('ptColBadgeMinus') || 'Badge -'}</option>
+                            <option value="teamRoleEvents" ${metric === 'teamRoleEvents' ? 'selected' : ''}>${t('ptColTeamRole') || 'Team/Role Events'}</option>
+                            <option value="posRatio" ${metric === 'posRatio' ? 'selected' : ''}>${t('ptColPosRatio') || '+/s'}</option>
+                            <option value="negRatio" ${metric === 'negRatio' ? 'selected' : ''}>${t('ptColNegRatio') || '-/s'}</option>
+                            <option value="netRatio" ${metric === 'netRatio' ? 'selected' : ''}>${t('ptColNetRatio') || 'Net/s'}</option>
+                            <option value="ratio" ${metric === 'ratio' ? 'selected' : ''}>${t('ptColGoodBad') || 'Good/Bad'}</option>
+                            <option value="trend" ${metric === 'trend' ? 'selected' : ''}>${t('ptColTrend') || 'Trend'}</option>
+                        </optgroup>
+                        <optgroup label="Badges">
+                            ${badgeOptions}
+                        </optgroup>
+                        <option value="formula" ${metric === 'formula' ? 'selected' : ''}>Formula / Condition</option>
                     </select>
                 </td>
-                <td>
-                    <select class="rule-operator" onchange="updateProvisionalGradesPreview()">
-                        <option value=">=" ${operator === '>=' ? 'selected' : ''}>&ge;</option>
-                        <option value="<=" ${operator === '<=' ? 'selected' : ''}>&le;</option>
-                    </select>
+                <td class="min-cell">
+                    <div style="display:flex; gap:4px; align-items:center;">
+                        <input type="number" class="rule-min-val" value="${minVal}" oninput="updateProvisionalGradesPreview()" style="width: 45px;" placeholder="Val">
+                        <span>&rarr;</span>
+                        <input type="number" class="rule-min-pts" value="${minPts}" oninput="updateProvisionalGradesPreview()" style="width: 40px;" placeholder="Pts">
+                    </div>
                 </td>
-                <td>
-                    <input type="number" class="rule-value" value="${value}" oninput="updateProvisionalGradesPreview()" style="width: 80px;">
+                <td class="pass-cell">
+                    <div style="display:flex; gap:4px; align-items:center;">
+                        <input type="number" class="rule-pass-val" value="${passVal}" oninput="updateProvisionalGradesPreview()" style="width: 45px;" placeholder="Val">
+                        <span>&rarr;</span>
+                        <input type="number" class="rule-pass-pts" value="${passPts}" oninput="updateProvisionalGradesPreview()" style="width: 40px;" placeholder="Pts">
+                    </div>
                 </td>
-                <td>
-                    <input type="number" class="rule-points" value="${points}" oninput="updateProvisionalGradesPreview()" style="width: 80px;">
+                <td class="max-cell" colspan="1">
+                    <div style="display:flex; gap:4px; align-items:center;" class="max-input-wrap">
+                        <input type="number" class="rule-max-val" value="${maxVal}" oninput="updateProvisionalGradesPreview()" style="width: 45px;" placeholder="Val">
+                        <span>&rarr;</span>
+                        <input type="number" class="rule-max-pts" value="${maxPts}" oninput="updateProvisionalGradesPreview()" style="width: 40px;" placeholder="Pts">
+                    </div>
+                    <div class="formula-input-wrap hidden" style="display:flex; gap:4px; align-items:center; width:100%;">
+                        <input type="text" class="rule-formula-val" value="${formulaVal}" oninput="updateProvisionalGradesPreview()" style="flex:1;" placeholder="e.g. 💎 >= 2 and 👍 >= 5">
+                        <span>&rarr;</span>
+                        <input type="number" class="rule-formula-pts" value="${maxPts}" oninput="updateProvisionalGradesPreview()" style="width: 40px;" placeholder="Pts">
+                    </div>
                 </td>
                 <td style="text-align: center;">
                     <button class="btn-rules-delete" onclick="this.closest('tr').remove(); updateProvisionalGradesPreview();">&times;</button>
                 </td>
             `;
             tbody.appendChild(row);
+            
+            // Adjust visual state if formula
+            if (metric === 'formula') {
+                row.querySelector('.min-cell').style.display = 'none';
+                row.querySelector('.pass-cell').style.display = 'none';
+                row.querySelector('.max-cell').setAttribute('colspan', '3');
+                row.querySelector('.max-input-wrap').classList.add('hidden');
+                row.querySelector('.formula-input-wrap').classList.remove('hidden');
+            }
+            
             updateProvisionalGradesPreview();
         }
 
@@ -4037,10 +4244,34 @@
             const rows = document.querySelectorAll('#rulesTableBody tr');
             rows.forEach(row => {
                 const metric = row.querySelector('.rule-metric').value;
-                const operator = row.querySelector('.rule-operator').value;
-                const value = parseFloat(row.querySelector('.rule-value').value) || 0;
-                const points = parseFloat(row.querySelector('.rule-points').value) || 0;
-                rules.push({ metric, operator, value, points });
+                if (metric === 'formula') {
+                    const formulaVal = row.querySelector('.rule-formula-val').value;
+                    const maxPts = parseFloat(row.querySelector('.rule-formula-pts').value) || 0;
+                    rules.push({
+                        metric,
+                        formulaVal,
+                        minVal: 0, minPts: 0,
+                        passVal: 0, passPts: 0,
+                        maxVal: 0, maxPts,
+                        value: formulaVal,
+                        points: maxPts
+                    });
+                } else {
+                    const minVal = parseFloat(row.querySelector('.rule-min-val').value) || 0;
+                    const minPts = parseFloat(row.querySelector('.rule-min-pts').value) || 0;
+                    const passVal = parseFloat(row.querySelector('.rule-pass-val').value) || 0;
+                    const passPts = parseFloat(row.querySelector('.rule-pass-pts').value) || 0;
+                    const maxVal = parseFloat(row.querySelector('.rule-max-val').value) || 0;
+                    const maxPts = parseFloat(row.querySelector('.rule-max-pts').value) || 0;
+                    rules.push({
+                        metric,
+                        minVal, minPts,
+                        passVal, passPts,
+                        maxVal, maxPts,
+                        value: maxVal,
+                        points: maxPts
+                    });
+                }
             });
             return rules;
         }
@@ -4075,8 +4306,336 @@
             updateDashboard(); // Redraw UI and table with new grades
         }
 
-        function calculateStudentProvisionalGrade(studentData) {
-            const groupRulesConfig = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
+        function getStudentBadgeCounts(badges) {
+            const counts = {};
+            (badges || []).forEach(badge => {
+                const resolved = resolveBadgeData(badge);
+                if (resolved.icon) {
+                    counts[resolved.icon] = (counts[resolved.icon] || 0) + 1;
+                }
+                if (resolved.label) {
+                    const normalized = resolved.label.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    counts[normalized] = (counts[normalized] || 0) + 1;
+                }
+            });
+            return counts;
+        }
+
+        function tokenize(str) {
+            const tokens = [];
+            let i = 0;
+            while (i < str.length) {
+                const char = str[i];
+                if (/\s/.test(char)) {
+                    i++;
+                    continue;
+                }
+                
+                // Brackets [...] for variables/badges
+                if (char === '[') {
+                    let start = i + 1;
+                    let end = str.indexOf(']', start);
+                    if (end === -1) throw new Error('Unterminated bracket in formula');
+                    tokens.push({ type: 'IDENTIFIER', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
+                }
+                
+                // Quoted strings
+                if (char === '"' || char === "'") {
+                    let quote = char;
+                    let start = i + 1;
+                    let end = str.indexOf(quote, start);
+                    if (end === -1) throw new Error('Unterminated string literal');
+                    tokens.push({ type: 'STRING', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
+                }
+                
+                // Numbers
+                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i+1]))) {
+                    let numStr = '';
+                    while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
+                        numStr += str[i];
+                        i++;
+                    }
+                    tokens.push({ type: 'NUMBER', value: parseFloat(numStr) });
+                    continue;
+                }
+                
+                // Two-character operators
+                if (i + 1 < str.length) {
+                    const two = str.substr(i, 2);
+                    if (two === '>=' || two === '<=' || two === '==' || two === '!=' || two === '&&' || two === '||') {
+                        tokens.push({ type: 'OPERATOR', value: two });
+                        i += 2;
+                        continue;
+                    }
+                }
+                
+                // One-character operators & punctuation
+                if ('+-*/(),><=!'.includes(char)) {
+                    tokens.push({ type: 'OPERATOR', value: char });
+                    i++;
+                    continue;
+                }
+                
+                // Identifiers (including emojis like 💎, 👍 etc.)
+                let identStr = '';
+                while (i < str.length && (!/\s/.test(str[i]) && !'+-*/(),><=![]"\''.includes(str[i]))) {
+                    identStr += str[i];
+                    i++;
+                }
+                
+                if (identStr) {
+                    const upper = identStr.toUpperCase();
+                    if (upper === 'AND') {
+                        tokens.push({ type: 'OPERATOR', value: '&&' });
+                    } else if (upper === 'OR') {
+                        tokens.push({ type: 'OPERATOR', value: '||' });
+                    } else if (upper === 'NOT') {
+                        tokens.push({ type: 'OPERATOR', value: '!' });
+                    } else if (upper === 'IF') {
+                        tokens.push({ type: 'KEYWORD', value: 'IF' });
+                    } else {
+                        tokens.push({ type: 'IDENTIFIER', value: identStr });
+                    }
+                    continue;
+                }
+                
+                throw new Error(`Unexpected character: ${char}`);
+            }
+            return tokens;
+        }
+
+        function evaluateExpression(exprStr, context) {
+            let tokens;
+            try {
+                tokens = tokenize(exprStr);
+            } catch (e) {
+                throw new Error(`Syntax Error: ${e.message}`);
+            }
+            
+            let position = 0;
+            
+            function peek() {
+                return tokens[position];
+            }
+            
+            function consume(expectedValue) {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                if (expectedValue !== undefined && token.value !== expectedValue) {
+                    throw new Error(`Expected '${expectedValue}' but found '${token.value}'`);
+                }
+                position++;
+                return token;
+            }
+            
+            function parsePrimary() {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                
+                if (token.type === 'NUMBER') {
+                    consume();
+                    return token.value;
+                }
+                
+                if (token.type === 'STRING') {
+                    consume();
+                    return token.value;
+                }
+                
+                if (token.type === 'KEYWORD' && token.value === 'IF') {
+                    consume(); // IF
+                    consume('(');
+                    const cond = parseExpression();
+                    consume(',');
+                    const trueVal = parseExpression();
+                    consume(',');
+                    const falseVal = parseExpression();
+                    consume(')');
+                    return cond ? trueVal : falseVal;
+                }
+                
+                if (token.type === 'IDENTIFIER') {
+                    consume();
+                    const name = token.value.trim();
+                    const lowerName = name.toLowerCase();
+                    const normalizedName = lowerName.replace(/[^a-z0-9]/g, '');
+                    
+                    if (name in context) return context[name];
+                    if (lowerName in context) return context[lowerName];
+                    if (normalizedName in context) return context[normalizedName];
+                    
+                    for (const [k, v] of Object.entries(context)) {
+                        if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedName) {
+                            return v;
+                        }
+                    }
+                    return 0; // Default to 0 if not found (e.g. badge that student doesn't have)
+                }
+                
+                if (token.type === 'OPERATOR' && token.value === '(') {
+                    consume('(');
+                    const val = parseExpression();
+                    consume(')');
+                    return val;
+                }
+                
+                throw new Error(`Unexpected token: ${token.value}`);
+            }
+            
+            function parseUnary() {
+                const token = peek();
+                if (token && token.type === 'OPERATOR' && (token.value === '!' || token.value === '-')) {
+                    consume();
+                    const val = parseUnary();
+                    return token.value === '!' ? !val : -val;
+                }
+                return parsePrimary();
+            }
+            
+            function parseMultiplicative() {
+                let val = parseUnary();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '*' || token.value === '/')) {
+                        consume();
+                        const right = parseUnary();
+                        val = token.value === '*' ? val * right : val / right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseAdditive() {
+                let val = parseMultiplicative();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '+' || token.value === '-')) {
+                        consume();
+                        const right = parseMultiplicative();
+                        val = token.value === '+' ? val + right : val - right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseComparison() {
+                let val = parseAdditive();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '>' || token.value === '<' || token.value === '>=' || token.value === '<=')) {
+                        consume();
+                        const right = parseAdditive();
+                        if (token.value === '>') val = val > right;
+                        else if (token.value === '<') val = val < right;
+                        else if (token.value === '>=') val = val >= right;
+                        else if (token.value === '<=') val = val <= right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseEquality() {
+                let val = parseComparison();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '==' || token.value === '!=' || token.value === '=')) {
+                        consume();
+                        const right = parseComparison();
+                        if (token.value === '!=' || token.value === '!==') val = val != right;
+                        else val = val == right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseLogicalAnd() {
+                let val = parseEquality();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && token.value === '&&') {
+                        consume();
+                        const right = parseEquality();
+                        val = val && right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseLogicalOr() {
+                let val = parseLogicalAnd();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && token.value === '||') {
+                        consume();
+                        const right = parseLogicalAnd();
+                        val = val || right;
+                    } else {
+                        break;
+                    }
+                }
+                return val;
+            }
+            
+            function parseExpression() {
+                return parseLogicalOr();
+            }
+            
+            const result = parseExpression();
+            if (position < tokens.length) {
+                throw new Error(`Extra characters at end of formula: ${tokens[position].value}`);
+            }
+            return result;
+        }
+
+        function calculateCriterionPoints(studentValue, rule) {
+            const minVal = Number(rule.minVal) ?? 0;
+            const minPts = Number(rule.minPts) ?? 0;
+            const passVal = Number(rule.passVal) ?? 0;
+            const passPts = Number(rule.passPts) ?? 0;
+            const maxVal = Number(rule.maxVal) ?? 0;
+            const maxPts = Number(rule.maxPts) ?? 0;
+
+            const isInverse = minVal > maxVal;
+
+            if (isInverse) {
+                if (studentValue > minVal) return 0;
+                if (studentValue <= maxVal) return maxPts;
+                if (studentValue >= passVal) {
+                    const ratio = (minVal - studentValue) / (minVal - passVal);
+                    return minPts + ratio * (passPts - minPts);
+                } else {
+                    const ratio = (passVal - studentValue) / (passVal - maxVal);
+                    return passPts + ratio * (maxPts - passPts);
+                }
+            } else {
+                if (studentValue < minVal) return 0;
+                if (studentValue >= maxVal) return maxPts;
+                if (studentValue <= passVal) {
+                    const ratio = (studentValue - minVal) / (passVal - minVal);
+                    return minPts + ratio * (passPts - minPts);
+                } else {
+                    const ratio = (studentValue - passVal) / (maxVal - passVal);
+                    return passPts + ratio * (maxPts - passPts);
+                }
+            }
+        }
+
+        function calculateStudentProvisionalGrade(studentData, customRulesConfig = null) {
+            const groupRulesConfig = customRulesConfig || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
             if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
                 return null;
             }
@@ -4089,29 +4648,102 @@
             const attendanceRate = totalSessions > 0 ? (studentData.attendedSessions / totalSessions) * 100 : 0;
             const badgePositive = studentData.badgePositive;
             const positivePoints = studentData.pluses + studentData.teamPluses;
+            const badgeCounts = getStudentBadgeCounts(studentData.badges);
+
+            // Compute additional metric columns
+            const attendedSessions = studentData.attendedSessions || 0;
+            const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
+            const negRatio = attendedSessions ? (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative) / attendedSessions : 0;
+            const netRatio = attendedSessions ? net / attendedSessions : 0;
+            const totalGood = studentData.pluses + studentData.teamPluses + studentData.badgePositive;
+            const totalBad = studentData.minuses + studentData.teamMinuses + studentData.badgeNegative;
+            const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
+            const trend = (studentData.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(studentData.sessionNets) === 'up' ? 1 : computeTrend(studentData.sessionNets) === 'down' ? -1 : 0) : 0;
 
             let achievedPoints = 0;
             let totalPossiblePoints = 0;
 
             groupRulesConfig.rules.forEach(rule => {
                 let studentValue = 0;
-                if (rule.metric === 'netPoints') studentValue = net;
-                else if (rule.metric === 'picks') studentValue = picks;
-                else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
-                else if (rule.metric === 'positivePoints') studentValue = positivePoints;
-                else if (rule.metric === 'badgePositive') studentValue = badgePositive;
-
+                let isFormula = false;
                 let met = false;
-                if (rule.operator === '>=') {
-                    met = studentValue >= rule.value;
-                } else if (rule.operator === '<=') {
-                    met = studentValue <= rule.value;
-                }
+                let rulePoints = 0;
+                let maxPts = Number(rule.maxPts) ?? 0;
 
-                if (met) {
-                    achievedPoints += Number(rule.points) || 0;
+                if (rule.metric === 'formula') {
+                    isFormula = true;
+                    const context = {
+                        netPoints: net,
+                        net: net,
+                        picks: picks,
+                        attendanceRate: attendanceRate,
+                        attendance: attendanceRate,
+                        positivePoints: positivePoints,
+                        positive: positivePoints,
+                        pluses: studentData.pluses,
+                        minuses: studentData.minuses,
+                        teamPluses: studentData.teamPluses,
+                        teamMinuses: studentData.teamMinuses,
+                        badgePositive: badgePositive,
+                        badgeNegative: studentData.badgeNegative,
+                        sessions: studentData.sessions,
+                        absent: studentData.absent,
+                        posRatio: posRatio,
+                        negRatio: negRatio,
+                        netRatio: netRatio,
+                        ratio: ratio,
+                        trend: trend,
+                        teamRoleEvents: studentData.teamRoleEvents,
+                        ...badgeCounts
+                    };
+                    try {
+                        const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
+                        if (typeof formulaResult === 'boolean') {
+                            met = formulaResult;
+                            rulePoints = met ? maxPts : 0;
+                        } else if (typeof formulaResult === 'number') {
+                            met = formulaResult > 0;
+                            rulePoints = formulaResult;
+                        } else {
+                            met = !!formulaResult;
+                            rulePoints = met ? maxPts : 0;
+                        }
+                    } catch (e) {
+                        met = false;
+                    }
+                    achievedPoints += rulePoints;
+                    totalPossiblePoints += maxPts;
+                } else {
+                    if (rule.metric === 'netPoints') studentValue = net;
+                    else if (rule.metric === 'picks') studentValue = picks;
+                    else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
+                    else if (rule.metric === 'positivePoints') studentValue = positivePoints;
+                    else if (rule.metric === 'badgePositive') studentValue = badgePositive;
+                    else if (rule.metric === 'badgeNegative') studentValue = studentData.badgeNegative;
+                    else if (rule.metric === 'pluses') studentValue = studentData.pluses;
+                    else if (rule.metric === 'minuses') studentValue = studentData.minuses;
+                    else if (rule.metric === 'teamPluses') studentValue = studentData.teamPluses;
+                    else if (rule.metric === 'teamMinuses') studentValue = studentData.teamMinuses;
+                    else if (rule.metric === 'absent') studentValue = studentData.absent;
+                    else if (rule.metric === 'sessions') studentValue = studentData.sessions;
+                    else if (rule.metric === 'posRatio') studentValue = posRatio;
+                    else if (rule.metric === 'negRatio') studentValue = negRatio;
+                    else if (rule.metric === 'netRatio') studentValue = netRatio;
+                    else if (rule.metric === 'ratio') studentValue = ratio;
+                    else if (rule.metric === 'trend') studentValue = trend;
+                    else if (rule.metric === 'teamRoleEvents') studentValue = studentData.teamRoleEvents;
+                    else if (rule.metric.startsWith('badge_icon:')) {
+                        const icon = rule.metric.replace('badge_icon:', '');
+                        studentValue = badgeCounts[icon] || 0;
+                    } else if (rule.metric.startsWith('badge_label:')) {
+                        const label = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = badgeCounts[label] || 0;
+                    }
+                    
+                    const pointsAwarded = calculateCriterionPoints(studentValue, rule);
+                    achievedPoints += pointsAwarded;
+                    totalPossiblePoints += maxPts;
                 }
-                totalPossiblePoints += Number(rule.points) || 0;
             });
 
             if (groupRulesConfig.scaleToMax) {
@@ -4177,7 +4809,6 @@
                 });
             });
 
-            const totalSessions = sessions.length;
             const students = Object.values(studentMap).sort((a, b) => a.name.localeCompare(b.name));
             
             if (students.length === 0) {
@@ -4185,44 +4816,14 @@
                 return;
             }
 
-            const calcGrade = (sData) => {
-                const picks = sData.picks;
-                const net = (sData.pluses + sData.teamPluses + sData.badgePositive) - (sData.minuses + sData.teamMinuses + sData.badgeNegative);
-                const attendanceRate = totalSessions > 0 ? (sData.attendedSessions / totalSessions) * 100 : 0;
-                const badgePositive = sData.badgePositive;
-                const positivePoints = sData.pluses + sData.teamPluses;
-
-                let achievedPoints = 0;
-                let totalPossiblePoints = 0;
-
-                rules.forEach(rule => {
-                    let studentValue = 0;
-                    if (rule.metric === 'netPoints') studentValue = net;
-                    else if (rule.metric === 'picks') studentValue = picks;
-                    else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
-                    else if (rule.metric === 'positivePoints') studentValue = positivePoints;
-                    else if (rule.metric === 'badgePositive') studentValue = badgePositive;
-
-                    let met = false;
-                    if (rule.operator === '>=') {
-                        met = studentValue >= rule.value;
-                    } else if (rule.operator === '<=') {
-                        met = studentValue <= rule.value;
-                    }
-
-                    if (met) achievedPoints += Number(rule.points) || 0;
-                    totalPossiblePoints += Number(rule.points) || 0;
-                });
-
-                if (scaleToMax) {
-                    if (totalPossiblePoints === 0) return 0;
-                    return parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
-                }
-                return achievedPoints;
+            const groupRulesConfig = {
+                rules,
+                maxGrade,
+                scaleToMax
             };
 
             const lines = students.map(s => {
-                const grade = calcGrade(s);
+                const grade = calculateStudentProvisionalGrade(s, groupRulesConfig);
                 return `${s.name}\t${formatSummaryNumber(grade)}`;
             });
 
@@ -4236,6 +4837,91 @@
             textarea.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(textarea.value);
             showMessage(t('ptGradesCopied'), 'success');
+        }
+
+        async function exportGradesToGradeSheet() {
+            const rules = getRulesFromModal();
+            if (rules.length === 0) {
+                showMessage('No rules configured to calculate grades.', 'error');
+                return;
+            }
+
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
+            const scaleToMax = document.getElementById('rulesScaleToMax').checked;
+            const groupRulesConfig = { rules, maxGrade, scaleToMax };
+
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+
+            // Re-aggregate student map for calculation
+            const studentMap = {};
+            sessions.forEach(session => {
+                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                    if (!studentMap[student.name]) {
+                        studentMap[student.name] = {
+                            name: student.name,
+                            sessions: 0,
+                            attendedSessions: 0,
+                            picks: 0,
+                            absent: 0,
+                            pluses: 0,
+                            minuses: 0,
+                            teamPluses: 0,
+                            teamMinuses: 0,
+                            badges: [],
+                            badgePositive: 0,
+                            badgeNegative: 0
+                        };
+                    }
+                    const s = studentMap[student.name];
+                    s.sessions++;
+                    if (!student.isAbsent) s.attendedSessions++;
+                    if (student.isPicked) s.picks++;
+                    if (student.isAbsent) s.absent++;
+                    s.pluses += student.pluses || 0;
+                    s.minuses += student.minuses || 0;
+                    s.teamPluses += student.teamPluses || 0;
+                    s.teamMinuses += student.teamMinuses || 0;
+                    const studentBadges = student.badges || [];
+                    const badgeSentiment = countBadgeSentiment(studentBadges);
+                    s.badges = s.badges.concat(studentBadges);
+                    s.badgePositive += badgeSentiment.positive;
+                    s.badgeNegative += badgeSentiment.negative;
+                });
+            });
+
+            const students = Object.values(studentMap);
+            if (students.length === 0) {
+                showMessage('No student records found to export.', 'error');
+                return;
+            }
+
+            // Generate grades dictionary
+            const grades = {};
+            students.forEach(s => {
+                const grade = calculateStudentProvisionalGrade(s, groupRulesConfig);
+                if (grade !== null) {
+                    grades[s.name] = grade;
+                }
+            });
+
+            const groupMeta = window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[currentGroupId];
+            const groupName = groupMeta ? groupMeta.name : currentGroupId;
+
+            const importData = {
+                class: groupName,
+                classGroupId: currentGroupId,
+                grades: grades,
+                dateFrom: dateRange.from,
+                dateTo: dateRange.to
+            };
+
+            localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(importData));
+
+            showMessage('Grades prepared! Opening Grade Sheet tool...', 'success');
+            setTimeout(() => {
+                openGradeSheetTool();
+            }, 1000);
         }
 
         function openGradeSheetTool() {
