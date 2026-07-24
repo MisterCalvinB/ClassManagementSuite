@@ -427,142 +427,145 @@
     <input type="file" id="startup-db-folder-input" accept=".json,.js,.txt" multiple webkitdirectory directory style="display:none;" onchange="startupImportDbFromInput(event)">
 </div>
 <div class="main-wrapper">
-    <!-- Top Right Controls (Class Selection & Settings) -->
-    <div class="top-right-controls">
-        <div id="class-selection-anchor">
-            <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)" title="Select class">Select Class</button>
-            <div id="class-selection-popup" class="class-selection-popup">
-                <div class="class-selection-header">
-                    <div class="class-filter-bar" id="class-filter-bar">
-                        <div class="weekday-tabs" id="weekday-tabs"></div>
-                        <div class="filter-search-container">
-                            <input type="text" id="group-search-input" class="group-search-input" placeholder="Search class..." oninput="handleGroupSearch(this.value)" data-i18n-placeholder="search_placeholder">
-                            <button id="group-view-toggle" onclick="toggleGroupView()"></button>
+    <!-- Header Container (Title & Controls) -->
+    <div class="header-container">
+        <!-- Title -->
+        <h1 id="main-title">Class Management</h1>
+
+        <!-- Top Right Controls (Class Selection & Settings) -->
+        <div class="top-right-controls">
+            <div id="class-selection-anchor">
+                <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)" title="Select class">Select Class</button>
+                <div id="class-selection-popup" class="class-selection-popup">
+                    <div class="class-selection-header">
+                        <div class="class-filter-bar" id="class-filter-bar">
+                            <div class="weekday-tabs" id="weekday-tabs"></div>
+                            <div class="filter-search-container">
+                                <input type="text" id="group-search-input" class="group-search-input" placeholder="Search class..." oninput="handleGroupSearch(this.value)" data-i18n-placeholder="search_placeholder">
+                                <button id="group-view-toggle" onclick="toggleGroupView()"></button>
+                            </div>
                         </div>
+                        <div class="group-btns" id="group-container"></div>
                     </div>
-                    <div class="group-btns" id="group-container"></div>
                 </div>
             </div>
-        </div>
 
-        <div id="roster-settings-anchor">
-            <button id="roster-settings-btn" onclick="toggleRosterSettingsPopup(event)" title="Roster settings" data-i18n-title="rsp_roster_settings_title">⚙</button>
-            <div id="roster-settings-popup" class="roster-settings-popup">
-                <div class="rsp-header">
-                    <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
-                    <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn" onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings" data-i18n-title="rsp_pin_title">📌 Pin menu</button>
-                </div>
-                
-                <div class="rsp-tabs-nav">
-                    <button class="rsp-tab-btn active" onclick="switchRosterSettingsTab(event, 'display')">🖥️ Display</button>
-                    <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'grouping')">👥 Grouping</button>
-                    <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'tools')">⚡ Tools</button>
-                </div>
+            <div id="roster-settings-anchor">
+                <button id="roster-settings-btn" onclick="toggleRosterSettingsPopup(event)" title="Roster settings" data-i18n-title="rsp_roster_settings_title">⚙</button>
+                <div id="roster-settings-popup" class="roster-settings-popup">
+                    <div class="rsp-header">
+                        <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
+                        <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn" onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings" data-i18n-title="rsp_pin_title">📌 Pin menu</button>
+                    </div>
+                    
+                    <div class="rsp-tabs-nav">
+                        <button class="rsp-tab-btn active" onclick="switchRosterSettingsTab(event, 'display')">🖥️ Display</button>
+                        <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'grouping')">👥 Grouping</button>
+                        <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'tools')">⚡ Tools</button>
+                    </div>
 
-                <!-- Tab 1: Display (Controls & Screen combined, Controls first) -->
-                <div id="rsp-tab-display" class="rsp-tab-content active">
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_board_name_size">Board Name Size</div>
-                        <div class="rsp-size-row">
-                            <div class="rsp-size-btns">
-                                <button onclick="changeNameSize(-1)" title="Decrease name size" data-i18n-title="rsp_decrease_title">A−</button>
-                                <button onclick="resetNameSize()" title="Reset name size" data-i18n-title="rsp_reset_title">A</button>
-                                <button onclick="changeNameSize(1)" title="Increase name size" data-i18n-title="rsp_increase_title">A+</button>
+                    <!-- Tab 1: Display (Controls & Screen combined, Controls first) -->
+                    <div id="rsp-tab-display" class="rsp-tab-content active">
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_board_name_size">Board Name Size</div>
+                            <div class="rsp-size-row">
+                                <div class="rsp-size-btns">
+                                    <button onclick="changeNameSize(-1)" title="Decrease name size" data-i18n-title="rsp_decrease_title">A−</button>
+                                    <button onclick="resetNameSize()" title="Reset name size" data-i18n-title="rsp_reset_title">A</button>
+                                    <button onclick="changeNameSize(1)" title="Increase name size" data-i18n-title="rsp_increase_title">A+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_interface_toggles">Interface Toggles</div>
+                            <div class="rsp-grid-toggles">
+                                <button class="rsp-inline-btn" id="rsp-score-mute-btn" onclick="toggleScoreMute()" title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">🔇 Sounds</button>
+                                <button class="rsp-inline-btn" id="rsp-toggle-roles-btn" onclick="closeRosterSettingsPopup(); toggleRolesVisibility()" title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title">👁 Roles</button>
+                                <button class="rsp-inline-btn" id="rsp-toggle-badges-btn" onclick="closeRosterSettingsPopup(); toggleBadgesVisibility()" title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title">👁 Badges</button>
+                                <button class="rsp-inline-btn" id="rsp-toggle-autoflag-btn" onclick="closeRosterSettingsPopup(); toggleAutoFlagVisibility()" title="Toggle autoflag visibility (Ctrl+F)" data-i18n-title="rsp_toggle_autoflag_title">🚩 Autoflag</button>
+                                <button class="rsp-inline-btn" id="rsp-toggle-animations-btn" onclick="toggleAnimations()" title="Toggle visual animations (badge awards, team reveal)" data-i18n-title="rsp_toggle_anim_title">✨ Anim</button>
+                                <button class="rsp-inline-btn" id="roster-plan-view-btn" onclick="closeRosterSettingsPopup(); toggleRosterPlanView()" title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title">📐 Plan</button>
+                            </div>
+                        </div>
+
+                        <div class="rsp-tab-section" style="border-top: 2px dashed #111; padding-top: 12px; margin-top: 12px;">
+                            <div class="rsp-row-label" data-i18n="rsp_presentation_mode">Presentation Mode</div>
+                            <div class="rsp-button-group">
+                                <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
+                                <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
+                            </div>
+                            
+                            <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
+                                <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
+                                <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
+                                <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
+                                <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
+                                <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
+                            </div>
+                        </div>
+
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_pres_name_size">Presentation Font Size</div>
+                            <div class="rsp-size-row">
+                                <div class="rsp-size-btns">
+                                    <button onclick="changePresentationNameSize(-1)" title="Decrease name size in presentation" data-i18n-title="rsp_pres_decrease_title">A−</button>
+                                    <button onclick="resetPresentationNameSize()" title="Reset name size in presentation" data-i18n-title="rsp_pres_reset_title">A</button>
+                                    <button onclick="changePresentationNameSize(1)" title="Increase name size in presentation" data-i18n-title="rsp_pres_increase_title">A+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_mirror_options">Mirror in Presentation:</div>
+                            <div class="rsp-grid-toggles">
+                                <button class="rsp-inline-btn" id="rsp-pres-roles-btn" onclick="togglePresSetting('roles')" title="Show roles in presentation window" data-i18n-title="rsp_pres_roles_title">👤 Roles</button>
+                                <button class="rsp-inline-btn" id="rsp-pres-badges-btn" onclick="togglePresSetting('badges')" title="Show badges in presentation window" data-i18n-title="rsp_pres_badges_title">🏅 Badges</button>
+                                <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn" onclick="togglePresSetting('autoflag')" title="Show autoflag in presentation window" data-i18n-title="rsp_pres_autoflag_title">🚩 Autoflag</button>
+                                <button class="rsp-inline-btn" id="rsp-pres-anim-btn" onclick="togglePresSetting('anim')" title="Play animations in presentation window" data-i18n-title="rsp_pres_anim_title">✨ Anim</button>
+                                <button class="rsp-inline-btn" id="rsp-pres-plan-btn" onclick="togglePresSetting('plan')" title="Show plan view in presentation window" data-i18n-title="rsp_pres_plan_title">📐 Plan</button>
+                                <button class="rsp-inline-btn" id="rsp-pres-modes-btn" onclick="togglePresSetting('modes')" title="Mirror modes overlay in presentation window" data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_interface_toggles">Interface Toggles</div>
-                        <div class="rsp-grid-toggles">
-                            <button class="rsp-inline-btn" id="rsp-score-mute-btn" onclick="toggleScoreMute()" title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">🔇 Sounds</button>
-                            <button class="rsp-inline-btn" id="rsp-toggle-roles-btn" onclick="closeRosterSettingsPopup(); toggleRolesVisibility()" title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title">👁 Roles</button>
-                            <button class="rsp-inline-btn" id="rsp-toggle-badges-btn" onclick="closeRosterSettingsPopup(); toggleBadgesVisibility()" title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title">👁 Badges</button>
-                            <button class="rsp-inline-btn" id="rsp-toggle-autoflag-btn" onclick="closeRosterSettingsPopup(); toggleAutoFlagVisibility()" title="Toggle autoflag visibility (Ctrl+F)" data-i18n-title="rsp_toggle_autoflag_title">🚩 Autoflag</button>
-                            <button class="rsp-inline-btn" id="rsp-toggle-animations-btn" onclick="toggleAnimations()" title="Toggle visual animations (badge awards, team reveal)" data-i18n-title="rsp_toggle_anim_title">✨ Anim</button>
-                            <button class="rsp-inline-btn" id="roster-plan-view-btn" onclick="closeRosterSettingsPopup(); toggleRosterPlanView()" title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title">📐 Plan</button>
+                    <!-- Tab 3: Grouping -->
+                    <div id="rsp-tab-grouping" class="rsp-tab-content">
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_teams_title">Team Management</div>
+                            <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); createTeams()" data-i18n="btn_create_teams">Create teams</button>
+                            <button class="rsp-item rsp-item-orange" id="rsp-reshuffle-teams-btn" onclick="closeRosterSettingsPopup(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
+                            <button class="rsp-item rsp-item-danger" id="rsp-clear-teams-btn" onclick="closeRosterSettingsPopup(); clearTeams()" data-i18n="btn_clear_teams">Clear teams</button>
+                        </div>
+
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_roles_title">Role Management</div>
+                            <button class="rsp-item" id="rsp-role-info-btn" onclick="closeRosterSettingsPopup(); openAssignedRolesInfo()" data-i18n="btn_role_info">Role info</button>
+                            <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); openRolesModal()" data-i18n="rsp_assign_roles">Assign roles</button>
+                            <button class="rsp-item rsp-item-orange" id="rsp-reassign-roles-btn" onclick="closeRosterSettingsPopup(); reassignRolesFromUtility()" data-i18n="rsp_reassign_roles">Reassign roles</button>
+                            <button class="rsp-item rsp-item-danger" id="rsp-clear-roles-btn" onclick="closeRosterSettingsPopup(); clearAssignedRolesFromUtility()" data-i18n="rsp_clear_roles">Clear roles</button>
                         </div>
                     </div>
 
-                    <div class="rsp-tab-section" style="border-top: 2px dashed #111; padding-top: 12px; margin-top: 12px;">
-                        <div class="rsp-row-label" data-i18n="rsp_presentation_mode">Presentation Mode</div>
-                        <div class="rsp-button-group">
-                            <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()" title="Open a presentation window for the second screen (clean view, no menus)" data-i18n-title="rsp_present_title">📺 Present</button>
-                            <button class="rsp-item" id="rsp-pres-freeze-btn" onclick="toggleFreezePresentation()" title="Freeze the presentation window so it stops updating" data-i18n-title="rsp_freeze_title">❄ Freeze</button>
+                    <!-- Tab 4: Tools -->
+                    <div id="rsp-tab-tools" class="rsp-tab-content">
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_roster_utils">Roster Utilities</div>
+                            <button class="rsp-item" onclick="closeRosterSettingsPopup(); addStudentToGroup()" data-i18n="btn_add_student">Add student</button>
+                            <button class="rsp-item" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores" data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
                         </div>
-                        
-                        <div id="rsp-pres-controls" class="rsp-inline-row" style="display:none; margin-top:4px;">
-                            <button class="rsp-inline-btn" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕ Close</button>
-                            <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()" title="Toggle fullscreen on presentation window" data-i18n-title="rsp_full_pres_title">⛶ Full</button>
-                            <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖 Max</button>
-                            <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()" title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕 Min</button>
-                            <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()" title="Move presentation window to the right (20% width)" data-i18n-title="rsp_right_pres_title">▶ Right</button>
+
+                        <div class="rsp-tab-section">
+                            <div class="rsp-row-label" data-i18n="rsp_resets_title">Rankings & Resets</div>
+                            <button class="rsp-item rsp-item-results" onclick="closeRosterSettingsPopup(); openResultsRankingModal()" data-i18n="rsp_results_ranking">Results & Ranking</button>
+                            <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); manualResetFull()" data-i18n="btn_reset_points">Reset points</button>
+                            <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); resetStrikesOnly()" data-i18n="btn_reset_strikes">Reset strikes</button>
                         </div>
-                    </div>
-
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_pres_name_size">Presentation Font Size</div>
-                        <div class="rsp-size-row">
-                            <div class="rsp-size-btns">
-                                <button onclick="changePresentationNameSize(-1)" title="Decrease name size in presentation" data-i18n-title="rsp_pres_decrease_title">A−</button>
-                                <button onclick="resetPresentationNameSize()" title="Reset name size in presentation" data-i18n-title="rsp_pres_reset_title">A</button>
-                                <button onclick="changePresentationNameSize(1)" title="Increase name size in presentation" data-i18n-title="rsp_pres_increase_title">A+</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_mirror_options">Mirror in Presentation:</div>
-                        <div class="rsp-grid-toggles">
-                            <button class="rsp-inline-btn" id="rsp-pres-roles-btn" onclick="togglePresSetting('roles')" title="Show roles in presentation window" data-i18n-title="rsp_pres_roles_title">👤 Roles</button>
-                            <button class="rsp-inline-btn" id="rsp-pres-badges-btn" onclick="togglePresSetting('badges')" title="Show badges in presentation window" data-i18n-title="rsp_pres_badges_title">🏅 Badges</button>
-                            <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn" onclick="togglePresSetting('autoflag')" title="Show autoflag in presentation window" data-i18n-title="rsp_pres_autoflag_title">🚩 Autoflag</button>
-                            <button class="rsp-inline-btn" id="rsp-pres-anim-btn" onclick="togglePresSetting('anim')" title="Play animations in presentation window" data-i18n-title="rsp_pres_anim_title">✨ Anim</button>
-                            <button class="rsp-inline-btn" id="rsp-pres-plan-btn" onclick="togglePresSetting('plan')" title="Show plan view in presentation window" data-i18n-title="rsp_pres_plan_title">📐 Plan</button>
-                            <button class="rsp-inline-btn" id="rsp-pres-modes-btn" onclick="togglePresSetting('modes')" title="Mirror modes overlay in presentation window" data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab 3: Grouping -->
-                <div id="rsp-tab-grouping" class="rsp-tab-content">
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_teams_title">Team Management</div>
-                        <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); createTeams()" data-i18n="btn_create_teams">Create teams</button>
-                        <button class="rsp-item rsp-item-orange" id="rsp-reshuffle-teams-btn" onclick="closeRosterSettingsPopup(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
-                        <button class="rsp-item rsp-item-danger" id="rsp-clear-teams-btn" onclick="closeRosterSettingsPopup(); clearTeams()" data-i18n="btn_clear_teams">Clear teams</button>
-                    </div>
-
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_roles_title">Role Management</div>
-                        <button class="rsp-item" id="rsp-role-info-btn" onclick="closeRosterSettingsPopup(); openAssignedRolesInfo()" data-i18n="btn_role_info">Role info</button>
-                        <button class="rsp-item rsp-item-blue" onclick="closeRosterSettingsPopup(); openRolesModal()" data-i18n="rsp_assign_roles">Assign roles</button>
-                        <button class="rsp-item rsp-item-orange" id="rsp-reassign-roles-btn" onclick="closeRosterSettingsPopup(); reassignRolesFromUtility()" data-i18n="rsp_reassign_roles">Reassign roles</button>
-                        <button class="rsp-item rsp-item-danger" id="rsp-clear-roles-btn" onclick="closeRosterSettingsPopup(); clearAssignedRolesFromUtility()" data-i18n="rsp_clear_roles">Clear roles</button>
-                    </div>
-                </div>
-
-                <!-- Tab 4: Tools -->
-                <div id="rsp-tab-tools" class="rsp-tab-content">
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_roster_utils">Roster Utilities</div>
-                        <button class="rsp-item" onclick="closeRosterSettingsPopup(); addStudentToGroup()" data-i18n="btn_add_student">Add student</button>
-                        <button class="rsp-item" onclick="copyRosterPlainText()" title="Copy roster names (with teams and roles) to clipboard, without badges or scores" data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
-                    </div>
-
-                    <div class="rsp-tab-section">
-                        <div class="rsp-row-label" data-i18n="rsp_resets_title">Rankings & Resets</div>
-                        <button class="rsp-item rsp-item-results" onclick="closeRosterSettingsPopup(); openResultsRankingModal()" data-i18n="rsp_results_ranking">Results & Ranking</button>
-                        <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); manualResetFull()" data-i18n="btn_reset_points">Reset points</button>
-                        <button class="rsp-item rsp-item-danger" onclick="closeRosterSettingsPopup(); resetStrikesOnly()" data-i18n="btn_reset_strikes">Reset strikes</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Title -->
-    <h1 id="main-title">Class Management</h1>
 	<div id="cms-active-context" style="display:none; text-align:center; margin:-8px 0 10px; font-size:0.75rem; font-weight:700; color:#555; letter-spacing:0.3px;"></div>
 	<!-- Container -->
     <div class="container">
