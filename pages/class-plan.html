@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../js/i18n.js"></script>
   <script src="../electron-bridge.js"></script>
+  <script src="../js/pins.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
@@ -82,6 +83,7 @@
         <span id="editor-plan-meta"></span>
         <div id="editor-actions">
           <button class="btn-ghost" onclick="randomAssign()" data-i18n="cpRandom">🎲 Random</button>
+          <button class="btn-ghost" id="cp-pin-btn" onclick="cpTogglePin()" style="display:none">📌 Pin</button>
           <button class="btn-ghost" onclick="editPlanSettings()" data-i18n="cpSettings">⚙ Settings</button>
           <button class="btn-ghost" onclick="printCurrentPlan()" data-i18n="cpPrint">🖨 Print</button>
           <button class="btn-solid" id="save-btn" onclick="manualSave()" data-i18n="cpSave">Save</button>
@@ -247,6 +249,43 @@ function startCpTutorial() {
   ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
 }
 
+// ── Pin / Unpin ──────────────────────────────────────────────
+async function cpUpdatePinButtonState() {
+  const pinBtn = document.getElementById('cp-pin-btn');
+  if (!pinBtn) return;
+  if (selectedPlan && selectedGroup) {
+    pinBtn.style.display = '';
+    const isPinned = await Pins.isPinned({
+      type: 'classplan',
+      classId: selectedGroup,
+      planId: selectedPlan.id
+    });
+    pinBtn.textContent = isPinned ? '📌 Unpin Plan' : '📌 Pin Plan';
+  } else {
+    pinBtn.style.display = 'none';
+  }
+}
+
+async function cpTogglePin() {
+  if (!selectedPlan || !selectedGroup) return;
+  const itemInfo = {
+    type: 'classplan',
+    classId: selectedGroup,
+    planId: selectedPlan.id
+  };
+  const isPinned = await Pins.isPinned(itemInfo);
+  if (isPinned) {
+    await Pins.unpinItem(itemInfo);
+    toast('📌 Unpinned from sidebar');
+  } else {
+    const groupName = cpGroupDisplayName(selectedGroup);
+    const displayTitle = groupName + ' - ' + selectedPlan.name;
+    await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
+    toast('📌 Pinned to sidebar');
+  }
+  cpUpdatePinButtonState();
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function () {
   initHamburger();
@@ -259,6 +298,26 @@ document.addEventListener('DOMContentLoaded', async function () {
   renderPlansList();
   window._cmtApplyNavBrand();
   _updateCpActiveContext();
+
+  // Open class plan if specified in query parameters
+  const params = new URLSearchParams(window.location.search);
+  const classId = params.get('classId');
+  const planId = params.get('planId');
+  if (classId) {
+    const sel = document.getElementById('group-sel');
+    if (sel) {
+      sel.value = classId;
+      onGroupChange(classId);
+      if (planId) {
+        const plans = classPlans[classId] || [];
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+          openEditor(plan);
+        }
+      }
+    }
+  }
+  cpUpdatePinButtonState();
 });
 
 function _updateCpActiveContext() {
@@ -569,6 +628,7 @@ function showEmptyState() {
   document.getElementById('empty-state').style.display = 'flex';
   document.getElementById('editor-main').style.display = 'none';
   selectedPlan = null;
+  if (typeof cpUpdatePinButtonState === 'function') cpUpdatePinButtonState();
 }
 
 function openEditor(plan) {
@@ -583,6 +643,7 @@ function openEditor(plan) {
   document.getElementById('editor-main').style.display = 'flex';
   buildEditor(plan);
   renderPlansList(); // re-render to show selected card
+  if (typeof cpUpdatePinButtonState === 'function') cpUpdatePinButtonState();
 }
 
 function buildEditor(plan) {

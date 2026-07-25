@@ -6,6 +6,7 @@
   <title>Schedule Maker</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
@@ -631,6 +632,7 @@
     <button class="sm-action-btn" onclick="exportCsv()" data-i18n="smBtnCsv">Export CSV</button>
     <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
     <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
+    <button id="sm-pin-btn" class="sm-action-btn" onclick="smTogglePin()" style="display:none">📌 Pin</button>
   </div>
 </div>
 
@@ -659,6 +661,7 @@
   let smActiveSemester = null;
   let orderItems = []; // [{type:'student', name, sen}, {type:'break'}]
   let _dragSrcIdx = null;
+  let smCurrentFilename = null;
 
   // ── Navigation ───────────────────────────────────────────
   function goBack() {
@@ -820,6 +823,8 @@
 
   // ── Apply config ─────────────────────────────────────────
   function applyConfig() {
+    smCurrentFilename = null;
+    if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
     const groupTitle = document.getElementById('sm-group').value;
     if (!groupTitle) {
       showNotice(typeof t === 'function' ? t('smNoGroup') : 'Select a group.', true);
@@ -1385,6 +1390,8 @@
       const res = await Desktop.saveText(SCHEDULE_TARGET, filename, content, 'schedules');
       if (res && res.ok) {
         showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
+        smCurrentFilename = filename;
+        if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
       } else {
         showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + (res && res.error || '?'), true);
       }
@@ -1491,6 +1498,8 @@
       const obj = fn();
       if (!obj) throw new Error('Invalid schedule file');
       applyScheduleObject(obj);
+      smCurrentFilename = filename;
+      if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
     } catch (e) {
       showToast((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message);
     }
@@ -1563,6 +1572,43 @@
     ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
   }
 
+  // ── Pin / Unpin ──────────────────────────────────────────
+  async function smUpdatePinButtonState() {
+    const pinBtn = document.getElementById('sm-pin-btn');
+    if (!pinBtn) return;
+    if (smCurrentFilename) {
+      pinBtn.style.display = '';
+      const isPinned = await Pins.isPinned({
+        type: 'schedule',
+        relativePath: SCHEDULE_DIR + smCurrentFilename,
+        target: SCHEDULE_TARGET
+      });
+      pinBtn.textContent = isPinned ? '📌 Unpin Schedule' : '📌 Pin Schedule';
+    } else {
+      pinBtn.style.display = 'none';
+    }
+  }
+
+  async function smTogglePin() {
+    if (!smCurrentFilename) return;
+    const relPath = SCHEDULE_DIR + smCurrentFilename;
+    const itemInfo = {
+      type: 'schedule',
+      relativePath: relPath,
+      target: SCHEDULE_TARGET
+    };
+    const isPinned = await Pins.isPinned(itemInfo);
+    if (isPinned) {
+      await Pins.unpinItem(itemInfo);
+      showNotice('📌 Unpinned from sidebar');
+    } else {
+      const displayTitle = smCurrentFilename.replace(SCHEDULE_PREFIX, '').replace('.js', '');
+      await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
+      showNotice('📌 Pinned to sidebar');
+    }
+    smUpdatePinButtonState();
+  }
+
   // ── Init ────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async function () {
     initHamburger();
@@ -1582,6 +1628,14 @@
         if (orderItems.length > 0) renderScheduleTable();
       });
     });
+
+    // Parse query parameters
+    const params = new URLSearchParams(window.location.search);
+    const openScheduleName = params.get('openSchedule');
+    if (openScheduleName) {
+      await loadScheduleFile(openScheduleName);
+    }
+    smUpdatePinButtonState();
   });
 </script>
 </body>

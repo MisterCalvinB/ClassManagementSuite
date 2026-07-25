@@ -10,6 +10,7 @@
   <script src="js/shortcuts-modal.js"></script>
   <script src="js/dialogs.js"></script>
   <script src="js/tutorial.js"></script>
+  <script src="js/pins.js"></script>
   <script>
     // Startup: open configured apps in the background after the launcher renders.
     // Runs once per window session — navigating back to the launcher skips this.
@@ -102,8 +103,18 @@
 </div>
 <aside class="launcher-sidebar" id="launcherSidebar">
   <div class="sb-panel">
-    <div class="sb-section">
+    <div class="sb-section" id="sbPinnedSection">
       <div class="sb-section-hd">
+        <span class="sb-chevron">▼</span>
+        <span class="sb-section-title" data-i18n="sbPinnedTitle">Pinned Items</span>
+      </div>
+      <div class="sb-list" id="sbPinnedList">
+        <div class="sb-empty" data-i18n="sbNoPinnedItems">No pinned items</div>
+      </div>
+    </div>
+    <div class="sb-section" id="sbUpcomingSection">
+      <div class="sb-section-hd">
+        <span class="sb-chevron">▼</span>
         <span class="sb-section-title" data-i18n="sbUpcomingTitle">Upcoming Events</span>
         <button class="sb-count-btn" id="sbEventsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -111,8 +122,9 @@
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
       </div>
     </div>
-    <div class="sb-section">
+    <div class="sb-section" id="sbTodoSection">
       <div class="sb-section-hd">
+        <span class="sb-chevron">▼</span>
         <span class="sb-section-title" data-i18n="sbTodoTitle">To-do</span>
         <button class="sb-count-btn" id="sbTodoAddBtn" onclick="sbOpenPlanner()" data-i18n-title="sbTodoAdd">+</button>
       </div>
@@ -120,8 +132,9 @@
         <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
       </div>
     </div>
-    <div class="sb-section">
+    <div class="sb-section" id="sbRecentSection">
       <div class="sb-section-hd">
+        <span class="sb-chevron">▼</span>
         <span class="sb-section-title" data-i18n="sbRecentTitle">Recent Docs</span>
         <button class="sb-count-btn" id="sbDocsCountBtn" data-i18n-title="sbCountTooltip">5</button>
       </div>
@@ -1180,6 +1193,26 @@
   document.getElementById('rfTypeFilter').addEventListener('change', rfApplyFilters);
   document.getElementById('rfSortOrder').addEventListener('change', rfApplyFilters);
 
+  function initSidebarCollapse() {
+    var sections = document.querySelectorAll('.sb-section');
+    sections.forEach(function(section) {
+      var header = section.querySelector('.sb-section-hd');
+      var id = section.id;
+      if (!header || !id) return;
+
+      var isCollapsed = localStorage.getItem('sb-collapsed-' + id) === 'true';
+      if (isCollapsed) {
+        section.classList.add('collapsed');
+      }
+
+      header.addEventListener('click', function(e) {
+        if (e.target.closest('button, input, a')) return;
+        var collapsedNow = section.classList.toggle('collapsed');
+        localStorage.setItem('sb-collapsed-' + id, collapsedNow ? 'true' : 'false');
+      });
+    });
+  }
+
   async function init() {
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
       try {
@@ -1198,6 +1231,7 @@
 
     applyTitle();
     renderSections();
+    initSidebarCollapse();
 
     // Sidebar
     var _sbPrefs = sbGetPrefs();
@@ -1286,6 +1320,108 @@
   }
   function sbTypeClass(type) {
     return { lesson: 'sb-tag-lesson', test: 'sb-tag-test', assignment: 'sb-tag-assignment' }[type] || 'sb-tag-other';
+  }
+
+  async function sbLoadPinned() {
+    var list = document.getElementById('sbPinnedList');
+    if (!list) return;
+    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+
+    var pins = [];
+    try {
+      if (window.Pins) pins = await Pins.getPins();
+    } catch (e) {
+      console.error(e);
+    }
+
+    list.innerHTML = '';
+    if (!pins.length) {
+      list.innerHTML = '<div class="sb-empty" data-i18n="sbNoPinnedItems">' + escHtml(typeof t === 'function' ? t('sbNoPinnedItems') : 'No pinned items') + '</div>';
+      return;
+    }
+
+    pins.forEach(function(item) {
+      var el = document.createElement('div');
+      el.className = 'sb-item';
+
+      var tagLabel = 'Pinned';
+      var tagClass = 'sb-tag-other';
+      if (item.type === 'mindmap') {
+        tagLabel = typeof t === 'function' ? t('sbTagConstellation') : 'Constellation';
+        tagClass = 'sb-tag-mindmap';
+      } else if (item.type === 'doc') {
+        tagLabel = typeof t === 'function' ? t('sbTagDocument') : 'Document';
+        tagClass = 'sb-tag-doc';
+      } else if (item.type === 'schedule') {
+        tagLabel = typeof t === 'function' ? t('sbTagSchedule') : 'Schedule';
+        tagClass = 'sb-tag-schedule';
+      } else if (item.type === 'classplan') {
+        tagLabel = typeof t === 'function' ? t('sbTagClassPlan') : 'Class Plan';
+        tagClass = 'sb-tag-classplan';
+      } else if (item.type === 'planner-entry') {
+        tagLabel = typeof t === 'function' ? t('sbTagPlannerEntry') : 'Planner Entry';
+        tagClass = 'sb-tag-plannerentry';
+      } else if (item.type === 'todo') {
+        tagLabel = typeof t === 'function' ? t('sbTagTodo') : 'To-do';
+        tagClass = 'sb-tag-todo';
+      }
+
+      el.innerHTML =
+        '<div class="sb-item-top">' +
+          '<span class="sb-tag ' + tagClass + '">' + escHtml(tagLabel) + '</span>' +
+          '<button class="sb-unpin-btn" title="' + escHtml(typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') + '">×</button>' +
+        '</div>' +
+        '<div class="sb-name" title="' + escHtml(item.title || '') + '">' + escHtml(item.title || '') + '</div>';
+
+      var unpinBtn = el.querySelector('.sb-unpin-btn');
+      if (unpinBtn) {
+        unpinBtn.addEventListener('click', async function(e) {
+          e.stopPropagation();
+          if (window.Pins) {
+            await Pins.unpinItem(item);
+            sbLoadPinned();
+          }
+        });
+      }
+
+      el.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        if (item.type === 'mindmap') {
+          Desktop.openTool('board.html', { query: { openSession: '1', openTarget: item.target || 'mindmaps', openFilename: item.relativePath.split('/').pop(), openRelPath: item.relativePath } });
+        } else if (item.type === 'doc') {
+          Desktop.openTool('document-editor.html', { query: { editTarget: item.target || 'docEditorDocs', editRelPath: item.relativePath } });
+        } else if (item.type === 'schedule') {
+          Desktop.openTool('schedule-maker.html', { query: { openSchedule: item.relativePath.split('/').pop() } });
+        } else if (item.type === 'classplan') {
+          Desktop.openTool('class-plan.html', { query: { classId: item.classId, planId: item.planId } });
+        } else if (item.type === 'planner-entry') {
+          Desktop.openTool('planner.html', { query: { navDate: item.date, navClassId: item.classId, navTime: item.time } });
+        } else if (item.type === 'todo') {
+          Desktop.openTool('planner.html', { query: { openTodo: item.id } });
+        }
+      });
+
+      // Context menu to unpin
+      el.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showCtx === 'function') {
+          showCtx(e.clientX, e.clientY, [
+            {
+              label: typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar',
+              action: async function() {
+                if (window.Pins) {
+                  await Pins.unpinItem(item);
+                  sbLoadPinned();
+                }
+              }
+            }
+          ]);
+        }
+      });
+
+      list.appendChild(el);
+    });
   }
 
   async function sbLoadEvents() {
@@ -1413,7 +1549,8 @@
                     date: ds, classId: cid,
                     time: s.time || '', timeEnd: s.timeEnd || '',
                     type: (e && e.type) || 'lesson',
-                    topic: (e && e.topic) || ''
+                    topic: (e && e.topic) || '',
+                    entryId: (e && e.id) || ''
                   });
                 });
               });
@@ -1430,7 +1567,7 @@
           if (consumed[k]) return;
           if (holDates.has(e.date)) return;
           slots.push({ date: e.date, classId: e.classId || '', time: e.time || '',
-                       type: e.type || 'lesson', topic: e.topic || '' });
+                       type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
         });
       }
     } else {
@@ -1439,7 +1576,7 @@
         if (e && e.date && e.date >= todayStr && e.type !== 'holiday' &&
             !(e.classId && (classMeta[e.classId] || {}).archived)) {
           slots.push({ date: e.date, classId: e.classId || '', time: e.time || '',
-                       type: e.type || 'lesson', topic: e.topic || '' });
+                       type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
         }
       });
     }
@@ -1630,6 +1767,7 @@
           Desktop.openTool('planner.html');
         }
       }; })(td.id));
+      if (typeof sbTodoAttachCtx === 'function') sbTodoAttachCtx(item, td);
       list.appendChild(item);
     });
   }
@@ -1646,7 +1784,7 @@
         }
       } catch(e) {}
     }
-    await Promise.all([sbLoadEvents(), sbLoadTodos(), sbLoadDocs()]);
+    await Promise.all([sbLoadPinned(), sbLoadEvents(), sbLoadTodos(), sbLoadDocs()]);
   }
 
   // ── Count popup ─────────────────────────────────────────
@@ -1760,6 +1898,12 @@
       showDataChangedBanner(data);
       return;
     }
+    if (data.filename === 'pinned-items.json') {
+      if (typeof sbLoadPinned === 'function' && sbIsOpen()) {
+        sbLoadPinned().catch(function () {});
+      }
+      return;
+    }
     if (isPlannerRelated && typeof sbLoadAll === 'function' && sbIsOpen()) {
       sbLoadAll().catch(function () {});
     }
@@ -1831,17 +1975,50 @@
 
       var target  = fileObj.target || 'mindmaps';
       var relPath = fileObj.relativePath || fileObj.filename;
-      var items = [];
 
-      // Open in Board (session files only)
-      var isSess = target === 'mindmaps' || target === 'data';
-      if (isSess) {
-        items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
-          Desktop.openTool('board.html', {
-            query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath }
+      var isMm    = target === 'mindmaps' || target === 'data';
+      var isDoc   = target === 'docEditorDocs' || (target === 'user' && relPath.startsWith('document-editor/docs/'));
+      var pinType = null;
+      if (isMm) pinType = 'mindmap';
+      else if (isDoc) pinType = 'doc';
+      else if (target === 'user' && relPath.startsWith('schedules/')) pinType = 'schedule';
+
+      if (!window.Pins) return;
+      Pins.isPinned({
+        type: pinType,
+        relativePath: relPath,
+        target: target
+      }).then(function(pinned) {
+        var items = [];
+
+        if (pinType) {
+          items.push({
+            label: pinned ? tl('ctxUnpinItem', 'Unpin from sidebar') : tl('ctxPinItem', 'Pin to sidebar'),
+            action: async function() {
+              var itemInfo = { type: pinType, relativePath: relPath, target: target };
+              if (pinned) {
+                await Pins.unpinItem(itemInfo);
+              } else {
+                var name = isMm ? rfDisplaySessionName(fileObj) : fileObj.filename;
+                if (pinType === 'doc') name = name.replace(/\.(md|html)$/i, '');
+                else if (pinType === 'schedule') name = name.replace(/^schedule-/, '').replace(/\.js$/, '');
+                await Pins.pinItem(Object.assign({ title: name }, itemInfo));
+              }
+              sbLoadPinned();
+            }
           });
-        }});
-      }
+          items.push('-');
+        }
+
+        // Open in Board (session files only)
+        var isSess = target === 'mindmaps' || target === 'data';
+        if (isSess) {
+          items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
+            Desktop.openTool('board.html', {
+              query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath }
+            });
+          }});
+        }
 
       items.push({ label: tl('fmOpenNative', 'Open with default app'), action: async function() {
         var res = await Desktop.openNative(target, relPath);
@@ -1939,6 +2116,7 @@
       }});
 
       showCtx(e.clientX, e.clientY, items);
+      });
     });
   };
 
@@ -1951,17 +2129,44 @@
       var isMm    = fileData._type === 'mindmap';
       var target  = isMm ? 'mindmaps' : 'docEditorDocs';
       var relPath = fileData.relativePath || fileData.filename;
-      var items   = [];
 
-      if (isMm) {
-        items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
-          Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } });
-        }});
-      } else {
-        items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {
-          Desktop.openTool('document-editor.html', { query: { editTarget: 'docEditorDocs', editRelPath: relPath } });
-        }});
-      }
+      if (!window.Pins) return;
+      Pins.isPinned({
+        type: isMm ? 'mindmap' : 'doc',
+        relativePath: relPath,
+        target: target
+      }).then(function(pinned) {
+        var items   = [];
+
+        items.push({
+          label: pinned ? tl('ctxUnpinItem', 'Unpin from sidebar') : tl('ctxPinItem', 'Pin to sidebar'),
+          action: async function() {
+            var itemInfo = {
+              type: isMm ? 'mindmap' : 'doc',
+              relativePath: relPath,
+              target: target
+            };
+            if (pinned) {
+              await Pins.unpinItem(itemInfo);
+            } else {
+              var name = isMm ? rfPrettyName(fileData.filename) : fileData.filename.replace(/\.(md|html)$/i, '');
+              await Pins.pinItem(Object.assign({ title: name }, itemInfo));
+            }
+            sbLoadPinned();
+          }
+        });
+
+        items.push('-');
+
+        if (isMm) {
+          items.push({ label: tl('rfOpenInBoard', 'Open in Board ↗'), action: function() {
+            Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } });
+          }});
+        } else {
+          items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {
+            Desktop.openTool('document-editor.html', { query: { editTarget: 'docEditorDocs', editRelPath: relPath } });
+          }});
+        }
 
       items.push({ label: tl('fmOpenNative', 'Open with default app'), action: async function() {
         var res = await Desktop.openNative(target, relPath);
@@ -2034,6 +2239,7 @@
       }});
 
       showCtx(e.clientX, e.clientY, items);
+      });
     });
   };
 
@@ -2042,12 +2248,74 @@
     item.addEventListener('contextmenu', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      showCtx(e.clientX, e.clientY, [
-        { label: tl('sbOpenInPlanner', 'Open in Planner'), action: function() {
-          try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
-          openApp('planner.html');
-        }}
-      ]);
+      if (!window.Pins) return;
+
+      var pinInfo = {
+        type: 'planner-entry',
+        classId: slot.classId || '',
+        date: slot.date,
+        time: slot.time || '',
+        timeEnd: slot.timeEnd || '',
+        entryId: slot.entryId || ''
+      };
+
+      Pins.isPinned(pinInfo).then(function(pinned) {
+        var menuItems = [
+          { label: tl('sbOpenInPlanner', 'Open in Planner'), action: function() {
+            try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
+            openApp('planner.html');
+          }},
+          '-',
+          {
+            label: pinned ? (typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') : (typeof t === 'function' ? t('ctxPinItem') : 'Pin to sidebar'),
+            action: async function() {
+              if (pinned) {
+                await Pins.unpinItem(pinInfo);
+              } else {
+                var displayTitle = (slot.topic || (typeof t === 'function' ? t('pl_emptySlot') : 'Lesson')).trim();
+                var className = (rfGroupMeta[slot.classId] && rfGroupMeta[slot.classId].name) || slot.classId || '';
+                if (className) displayTitle = className + ': ' + displayTitle;
+                await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
+              }
+              sbLoadPinned();
+            }
+          }
+        ];
+        showCtx(e.clientX, e.clientY, menuItems);
+      });
+    });
+  };
+
+  /* ── Sidebar: To-do context menu ── */
+  window.sbTodoAttachCtx = function(item, td) {
+    item.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!window.Pins) return;
+
+      var pinInfo = {
+        type: 'todo',
+        id: td.id
+      };
+
+      Pins.isPinned(pinInfo).then(function(pinned) {
+        showCtx(e.clientX, e.clientY, [
+          {
+            label: pinned ? (typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') : (typeof t === 'function' ? t('ctxPinItem') : 'Pin to sidebar'),
+            action: async function() {
+              if (pinned) {
+                await Pins.unpinItem(pinInfo);
+              } else {
+                var displayTitle = (td.text || 'To-do').trim();
+                var className = td.classId ? ((rfGroupMeta[td.classId] && rfGroupMeta[td.classId].name) || td.classId) : '';
+                if (className) displayTitle = '[' + className + '] ' + displayTitle;
+                await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
+              }
+              sbLoadPinned();
+            }
+          }
+        ]);
+      });
     });
   };
 })();

@@ -252,6 +252,7 @@ function normalizeStudentText(value) {
 function noteHandleHostOpen(ws, payload) {
   const noteId     = sanitizeNoteId(payload && payload.noteId);
   const classGroup = normalizeClassGroup(payload && payload.classGroup);
+  const classLabel = normalizeClassGroup(payload && payload.classLabel);
   const title      = String((payload && payload.title) || '').trim().slice(0, 120);
   const roster     = Array.isArray(payload && payload.roster)
     ? payload.roster.map(n => String(n || '').trim()).filter(Boolean).slice(0, 200)
@@ -270,7 +271,7 @@ function noteHandleHostOpen(ws, payload) {
       return;
     }
   }
-  noteHosts.set(noteId, { ws, noteId, classGroup, title, roster, hostSecret });
+  noteHosts.set(noteId, { ws, noteId, classGroup, classLabel, title, roster, hostSecret });
   sendJson(ws, { type: 'note_host_opened', payload: { noteId, classGroup, title } });
 }
 
@@ -443,7 +444,14 @@ function quizNoteOnMessage(ws, raw) {
       }
       const studentName = (safeName || 'Student').slice(0, 24);
       const classGroup  = normalizeClassGroup(msg && msg.classGroup);
-      if (room.classGroup && classGroup && room.classGroup !== classGroup) {
+      
+      const roomClassGroup = room.classGroup;
+      const roomClassLabel = room.classLabel;
+      const classMatch = !roomClassGroup || !classGroup ||
+                         (roomClassGroup.toLowerCase() === classGroup.toLowerCase()) ||
+                         (roomClassLabel && roomClassLabel.toLowerCase() === classGroup.toLowerCase());
+      if (!classMatch) {
+        console.warn(`[note-ws] Class mismatch: student sent "${classGroup}", but room expects ID "${roomClassGroup}" or Label "${roomClassLabel}"`);
         sendJson(ws, { type: 'error', message: 'Wrong class selected for this note room.' }); return;
       }
       quizSockets.set(ws, { role: 'note-student', noteId,

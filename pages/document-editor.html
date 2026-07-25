@@ -29,6 +29,8 @@
       <button class="nav-pop-item" id="btn-save-all-doc">Save All <span class="nav-pop-hint">Ctrl+⇧S</span></button>
       <hr class="nav-pop-sep">
       <button class="nav-pop-item" id="btn-doc-history">History</button>
+      <hr class="nav-pop-sep" id="doc-pin-sep" style="display:none">
+      <button class="nav-pop-item" id="btn-pin-doc" style="display:none">📌 Pin Document</button>
     </div>
   </div>
 
@@ -439,6 +441,7 @@
 </script>
 <script src="../modules/monaco-editor/min/vs/loader.js"></script>
 <script src="../electron-bridge.js"></script>
+<script src="../js/pins.js"></script>
 <script>
 'use strict';
 
@@ -3538,6 +3541,26 @@ function updateDocIndicator() {
   el.textContent = name;
   document.title = name + ' — Document Editor';
   el.classList.toggle('modified', docModified);
+  updatePinButtonState();
+}
+
+async function updatePinButtonState() {
+  const pinBtn = document.getElementById('btn-pin-doc');
+  const pinSep = document.getElementById('doc-pin-sep');
+  if (!pinBtn) return;
+  if (currentEditTarget && currentEditRelPath) {
+    if (pinSep) pinSep.style.display = '';
+    pinBtn.style.display = '';
+    const pinned = await Pins.isPinned({
+      type: 'doc',
+      relativePath: currentEditRelPath,
+      target: currentEditTarget
+    });
+    pinBtn.textContent = pinned ? '📌 Unpin Document' : '📌 Pin Document';
+  } else {
+    if (pinSep) pinSep.style.display = 'none';
+    pinBtn.style.display = 'none';
+  }
 }
 
 function goToLauncher() {
@@ -4764,6 +4787,29 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btn-save-to-folder').addEventListener('click', saveDocToFolder);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);
   document.getElementById('btn-doc-history').addEventListener('click', openHistoryModal);
+  document.getElementById('btn-pin-doc').addEventListener('click', async function() {
+    if (!currentEditTarget || !currentEditRelPath) return;
+    const isPinned = await Pins.isPinned({
+      type: 'doc',
+      relativePath: currentEditRelPath,
+      target: currentEditTarget
+    });
+    if (isPinned) {
+      await Pins.unpinItem({
+        type: 'doc',
+        relativePath: currentEditRelPath,
+        target: currentEditTarget
+      });
+    } else {
+      await Pins.pinItem({
+        type: 'doc',
+        title: currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Document',
+        relativePath: currentEditRelPath,
+        target: currentEditTarget
+      });
+    }
+    updatePinButtonState();
+  });
   document.getElementById('history-modal-close').addEventListener('click', () => hideModal('history-modal'));
   document.getElementById('history-modal').addEventListener('click', function(e) {
     if (e.target === this) hideModal('history-modal');

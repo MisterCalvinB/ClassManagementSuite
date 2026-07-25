@@ -245,6 +245,9 @@
 
     document.addEventListener('DOMContentLoaded', function(){
       initHamburger();
+      if (typeof initBoardCustomiseCollapsible === 'function') {
+        initBoardCustomiseCollapsible();
+      }
       Promise.resolve(window.__boardUserBootstrapPromise)
         .catch(function(){})
         .then(function () {
@@ -255,6 +258,7 @@
   </script>
   <script src="../modules/katex/dist/katex.min.js"></script>
   <script src="../electron-bridge.js"></script>
+  <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
@@ -553,6 +557,8 @@
         <button class="ssm-item" onclick="uploadData(); closeSaveSyncMenu()">⬆️ Load from Zip</button>
         <div class="ssm-divider"></div>
         <button class="ssm-item" id="ssm-sync-btn" onclick="syncData(); closeSaveSyncMenu()">🔄 Sync</button>
+        <div class="ssm-divider" id="ssm-pin-divider" style="display:none"></div>
+        <button class="ssm-item" id="ssm-pin-btn" onclick="boardTogglePin(); closeSaveSyncMenu()" style="display:none">📌 Pin Map</button>
       </div>
     </div>
     <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()" title="Customise board defaults">Customise</button>
@@ -1916,217 +1922,252 @@
         <button class="action-btn btn-grey" onclick="boardCustomiseClose()" style="padding:3px 9px;font-size:0.8rem;margin-left:auto;">✕</button>
       </div>
       <div class="bc-body">
-
-        <!-- 1. Node swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">🌐 Node Colour Swatches</div>
-          <div class="bc-section-hint">Palette used when applying colours to nodes. Each entry: background / text colour / border colour.</div>
-          <div class="bc-palette-labels">
-            <span style="text-align:left">Name</span>
-            <span>Preview</span>
-            <span title="Background">Bg</span>
-            <span title="Text colour">Txt</span>
-            <span title="Border colour">Bdr</span>
-            <span></span>
+        <div class="bc-sidebar">
+          <div class="bc-sidebar-item active" data-tab="nodes" onclick="boardCustomiseSetTab('nodes')">🌐 Nodes</div>
+          <div class="bc-sidebar-item" data-tab="notes" onclick="boardCustomiseSetTab('notes')">📝 Notes</div>
+          <div class="bc-sidebar-item" data-tab="canvas" onclick="boardCustomiseSetTab('canvas')">🖼 Canvas &amp; Layout</div>
+          <div class="bc-sidebar-item" data-tab="tools" onclick="boardCustomiseSetTab('tools')">✏️ Drawing &amp; Tools</div>
+        </div>
+        <div class="bc-content">
+          <div class="bc-collapse-controls" style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+            <button type="button" class="action-btn btn-grey" onclick="boardCustomiseExpandAll()" style="padding:2px 8px; font-size:0.7rem; font-weight:700;">Expand All</button>
+            <button type="button" class="action-btn btn-grey" onclick="boardCustomiseCollapseAll()" style="padding:2px 8px; font-size:0.7rem; font-weight:700;">Collapse All</button>
           </div>
-          <div id="bc-node-palette-grid"></div>
-        </div>
 
-        <!-- 1b. Node Border Colour Swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">🔲 Node Border Colour Swatches</div>
-          <div class="bc-section-hint">Quick-pick border colours shown in the node context menu (Br row).</div>
-          <div id="bc-node-border-list"></div>
-        </div>
-
-        <!-- 2. Note background swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">📝 Note Background Swatches</div>
-          <div class="bc-section-hint">Background colours available in the note style panel. Accepts any CSS colour value (hex, rgba, named).</div>
-          <div id="bc-note-bg-list"></div>
-        </div>
-
-        <!-- 3. Note text-colour swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">🖊 Note Text Colour Swatches</div>
-          <div class="bc-section-hint">Colour dots shown in the note context menu for changing selected-text colour.</div>
-          <div id="bc-note-text-list"></div>
-        </div>
-
-        <!-- 4. Note highlight swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">🖍 Note Highlight Swatches</div>
-          <div class="bc-section-hint">Highlight colours for selected text inside notes. Use <code>transparent</code> to remove highlight.</div>
-          <div id="bc-note-hl-list"></div>
-        </div>
-
-        <!-- 4b. Note Border Colour Swatches -->
-        <div class="bc-section">
-          <div class="bc-section-title">🔲 Note Border Colour Swatches</div>
-          <div class="bc-section-hint">Quick-pick border colours shown in the note style panel (Border row).</div>
-          <div id="bc-note-border-list"></div>
-        </div>
-
-        <!-- 5. Default sizes -->
-        <div class="bc-section">
-          <div class="bc-section-title">📐 Default Sizes</div>
-          <div class="bc-fields-grid">
-            <label>Node font size</label>
-            <div class="bc-field-row"><input type="number" id="bc-node-font-size" min="8" max="48" value="16" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Note font (free floating)</label>
-            <div class="bc-field-row"><input type="number" id="bc-note-font-free" min="8" max="72" value="26" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Note font (node-linked)</label>
-            <div class="bc-field-row"><input type="number" id="bc-note-font-linked" min="8" max="72" value="14" class="bc-num-input"><span class="bc-unit">px</span></div>
-          </div>
-        </div>
-
-        <!-- 5b. Default fonts -->
-        <div class="bc-section">
-          <div class="bc-section-title">🔤 Default Fonts</div>
-          <div class="bc-section-hint">Font family applied to new nodes and notes. Choose "Default (inherit)" to use the page font.</div>
-          <div class="bc-fields-grid">
-            <label>Node font</label>
-            <div class="bc-field-row" id="bc-node-font-family-wrap" style="flex-direction:column;align-items:stretch;gap:4px;">
-              <!-- font select injected by JS -->
+          <!-- Nodes Tab -->
+          <div class="bc-tab-pane active" data-pane="nodes">
+            <!-- 1. Node swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">🌐 Node Colour Swatches</div>
+              <div class="bc-section-hint">Palette used when applying colours to nodes. Each entry: background / text colour / border colour.</div>
+              <div class="bc-palette-labels">
+                <span style="text-align:left">Name</span>
+                <span>Preview</span>
+                <span title="Background">Bg</span>
+                <span title="Text colour">Txt</span>
+                <span title="Border colour">Bdr</span>
+                <span></span>
+              </div>
+              <div id="bc-node-palette-grid"></div>
             </div>
-            <label>Preview</label>
-            <div id="bc-node-font-preview" style="padding:4px 8px;border:1.5px solid #e5e7eb;border-radius:4px;font-size:1.1rem;background:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">The quick brown fox</div>
-            <label>Note font</label>
-            <div class="bc-field-row" id="bc-note-font-family-wrap" style="flex-direction:column;align-items:stretch;gap:4px;">
-              <!-- font select injected by JS -->
+
+            <!-- 1b. Node Border Colour Swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">🔲 Node Border Colour Swatches</div>
+              <div class="bc-section-hint">Quick-pick border colours shown in the node context menu (Br row).</div>
+              <div id="bc-node-border-list"></div>
             </div>
-            <label>Preview</label>
-            <div id="bc-note-font-preview" style="padding:4px 8px;border:1.5px solid #e5e7eb;border-radius:4px;font-size:1.1rem;background:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">The quick brown fox</div>
-          </div>
-        </div>
 
-        <!-- 6. Default node border -->
-        <div class="bc-section">
-          <div class="bc-section-title">⬜ Default Node Border</div>
-          <div class="bc-fields-grid">
-            <label>Width</label>
-            <div class="bc-field-row"><input type="number" id="bc-node-border-width" min="0" max="10" value="2" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Style</label>
-            <div class="bc-field-row">
-              <select id="bc-node-border-style" class="bc-select">
-                <option value="solid">Solid ──</option>
-                <option value="dashed">Dashed ╌╌</option>
-                <option value="dotted">Dotted ···</option>
-                <option value="double">Double ══</option>
-              </select>
+            <!-- Typography (Nodes) -->
+            <div class="bc-section">
+              <div class="bc-section-title">🔤 Default Typography (Nodes)</div>
+              <div class="bc-fields-grid">
+                <label>Default font size</label>
+                <div class="bc-field-row"><input type="number" id="bc-node-font-size" min="8" max="48" value="16" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Default font family</label>
+                <div class="bc-field-row" id="bc-node-font-family-wrap" style="flex-direction:column;align-items:stretch;gap:4px;">
+                  <!-- font select injected by JS -->
+                </div>
+                <label>Preview</label>
+                <div id="bc-node-font-preview" style="padding:4px 8px;border:1.5px solid #e5e7eb;border-radius:4px;font-size:1.1rem;background:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">The quick brown fox</div>
+              </div>
             </div>
-            <label>Colour</label>
-            <div class="bc-field-row"><input type="color" id="bc-node-border-color" value="#111111" class="bc-color-picker"></div>
-          </div>
-        </div>
 
-        <!-- 6b. Default link stroke -->
-        <div class="bc-section">
-          <div class="bc-section-title">🔗 Default Link Stroke</div>
-          <div class="bc-fields-grid">
-            <label>Stroke thickness</label>
-            <div class="bc-field-row"><input type="number" id="bc-link-stroke-thickness" min="1" max="20" step="0.5" value="2" class="bc-num-input"><span class="bc-unit">px</span></div>
-          </div>
-        </div>
+            <!-- 6. Default node border -->
+            <div class="bc-section">
+              <div class="bc-section-title">⬜ Default Node Border</div>
+              <div class="bc-fields-grid">
+                <label>Width</label>
+                <div class="bc-field-row"><input type="number" id="bc-node-border-width" min="0" max="10" value="2" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Style</label>
+                <div class="bc-field-row">
+                  <select id="bc-node-border-style" class="bc-select">
+                    <option value="solid">Solid ──</option>
+                    <option value="dashed">Dashed ╌╌</option>
+                    <option value="dotted">Dotted ···</option>
+                    <option value="double">Double ══</option>
+                  </select>
+                </div>
+                <label>Colour</label>
+                <div class="bc-field-row"><input type="color" id="bc-node-border-color" value="#111111" class="bc-color-picker"></div>
+              </div>
+            </div>
 
-        <!-- 7. Drawing pen -->
-        <div class="bc-section">
-          <div class="bc-section-title">✏️ Drawing Pen Defaults</div>
-          <div class="bc-fields-grid">
-            <label>Default colour</label>
-            <div class="bc-field-row"><input type="color" id="bc-pen-color" value="#e53935" class="bc-color-picker"></div>
-            <label>Default thickness</label>
-            <div class="bc-field-row">
-              <input type="range" id="bc-pen-thickness" min="1" max="40" value="4" style="flex:1;cursor:pointer;accent-color:#111;" oninput="document.getElementById('bc-pen-thickness-val').textContent=this.value+'px'">
-              <span id="bc-pen-thickness-val" style="min-width:2.5em;font-size:0.75rem;color:#555;">4px</span>
+            <!-- 10. Node preset styles -->
+            <div class="bc-section">
+              <div class="bc-section-title">🎨 Node Preset Styles</div>
+              <div class="bc-section-hint">Define up to 15 quick-apply style presets for constellation nodes (saved in board-config.js).</div>
+              <div id="con-preset-editor-list" style="margin-top:8px;"></div>
+              <div class="bc-preset-editor-footer" style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+                <button type="button" class="action-btn btn-grey" id="con-preset-add-btn" onclick="conPresetEditorAddRow()">＋ Add preset</button>
+                <div style="flex:1;"></div>
+                <button type="button" class="action-btn" onclick="conPresetEditorSave()">💾 Save Node Presets</button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 8. Laser pointer colour -->
-        <div class="bc-section">
-          <div class="bc-section-title">⬤ Laser Pointer Colour</div>
-          <div class="bc-fields-grid">
-            <label>Laser colour</label>
-            <div class="bc-field-row"><input type="color" id="bc-laser-color" value="#ff2200" class="bc-color-picker"></div>
-          </div>
-        </div>
-
-        <!-- 9. Media insert sizes -->
-        <div class="bc-section">
-          <div class="bc-section-title">🧩 Media Insert Sizes</div>
-          <div class="bc-section-hint">Initial width when inserting attachments onto the board. Set PDF to 0 for automatic (80% of board width).</div>
-          <div class="bc-fields-grid">
-            <label>PDF initial width</label>
-            <div class="bc-field-row"><input type="number" id="bc-media-pdf-width" min="0" max="2000" value="0" class="bc-num-input"><span class="bc-unit">px (0 = auto)</span></div>
-            <label>Image initial width</label>
-            <div class="bc-field-row"><input type="number" id="bc-media-image-width" min="100" max="2000" value="260" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Video initial width</label>
-            <div class="bc-field-row"><input type="number" id="bc-media-video-width" min="100" max="2000" value="260" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Sound initial width</label>
-            <div class="bc-field-row"><input type="number" id="bc-media-sound-width" min="100" max="2000" value="320" class="bc-num-input"><span class="bc-unit">px</span></div>
-          </div>
-        </div>
-
-        <div class="bc-section">
-          <div class="bc-section-title">🖼 Board Background</div>
-          <div class="bc-section-hint">Default background colour for new/empty board pages. You can still change it quickly from board right-click.</div>
-          <div class="bc-fields-grid">
-            <label>Default background colour</label>
-            <div class="bc-field-row"><input type="color" id="bc-board-bg-color" value="#ffffff" class="bc-color-picker"></div>
-          </div>
-          <div class="bc-section-hint" style="margin-top:10px;">Quick presets shown in constellation board right-click menu.</div>
-          <div id="bc-board-bg-preset-list"></div>
-        </div>
-
-        <div class="bc-section">
-          <div class="bc-section-title">📄 Board Layout</div>
-          <div class="bc-section-hint">Default constellation board frame. Choose A4 landscape/portrait or define a custom size and orientation.</div>
-          <div class="bc-fields-grid">
-            <label>Layout preset</label>
-            <div class="bc-field-row">
-              <select id="bc-board-layout-preset" class="bc-select">
-                <option value="flex">Flexible (current behavior)</option>
-                <option value="a4-landscape">A4 landscape</option>
-                <option value="a4-portrait">A4 portrait</option>
-                <option value="custom">Custom</option>
-              </select>
+          <!-- Notes Tab -->
+          <div class="bc-tab-pane" data-pane="notes">
+            <!-- 2. Note background swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">📝 Note Background Swatches</div>
+              <div class="bc-section-hint">Background colours available in the note style panel. Accepts any CSS colour value (hex, rgba, named).</div>
+              <div id="bc-note-bg-list"></div>
             </div>
-            <label>Orientation (custom)</label>
-            <div class="bc-field-row">
-              <select id="bc-board-custom-orientation" class="bc-select">
-                <option value="landscape">Landscape</option>
-                <option value="portrait">Portrait</option>
-              </select>
+
+            <!-- 3. Note text-colour swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">🖊 Note Text Colour Swatches</div>
+              <div class="bc-section-hint">Colour dots shown in the note context menu for changing selected-text colour.</div>
+              <div id="bc-note-text-list"></div>
             </div>
-            <label>Width (custom)</label>
-            <div class="bc-field-row"><input type="number" id="bc-board-custom-width" min="320" max="12000" value="1600" class="bc-num-input"><span class="bc-unit">px</span></div>
-            <label>Height (custom)</label>
-            <div class="bc-field-row"><input type="number" id="bc-board-custom-height" min="320" max="12000" value="1000" class="bc-num-input"><span class="bc-unit">px</span></div>
+
+            <!-- 4. Note highlight swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">🖍 Note Highlight Swatches</div>
+              <div class="bc-section-hint">Highlight colours for selected text inside notes. Use <code>transparent</code> to remove highlight.</div>
+              <div id="bc-note-hl-list"></div>
+            </div>
+
+            <!-- 4b. Note Border Colour Swatches -->
+            <div class="bc-section">
+              <div class="bc-section-title">🔲 Note Border Colour Swatches</div>
+              <div class="bc-section-hint">Quick-pick border colours shown in the note style panel (Border row).</div>
+              <div id="bc-note-border-list"></div>
+            </div>
+
+            <!-- Typography (Notes) -->
+            <div class="bc-section">
+              <div class="bc-section-title">🔤 Default Typography (Notes)</div>
+              <div class="bc-fields-grid">
+                <label>Font size (free floating)</label>
+                <div class="bc-field-row"><input type="number" id="bc-note-font-free" min="8" max="72" value="26" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Font size (node-linked)</label>
+                <div class="bc-field-row"><input type="number" id="bc-note-font-linked" min="8" max="72" value="14" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Default font family</label>
+                <div class="bc-field-row" id="bc-note-font-family-wrap" style="flex-direction:column;align-items:stretch;gap:4px;">
+                  <!-- font select injected by JS -->
+                </div>
+                <label>Preview</label>
+                <div id="bc-note-font-preview" style="padding:4px 8px;border:1.5px solid #e5e7eb;border-radius:4px;font-size:1.1rem;background:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">The quick brown fox</div>
+              </div>
+            </div>
+
+            <!-- 11. Note preset styles -->
+            <div class="bc-section">
+              <div class="bc-section-title">🗒 Note Preset Styles</div>
+              <div class="bc-section-hint">Define up to 15 quick-apply style presets for constellation notes (saved in board-config.js).</div>
+              <div id="note-preset-editor-list" style="margin-top:8px;"></div>
+              <div class="bc-preset-editor-footer" style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+                <button type="button" class="action-btn btn-grey" id="note-preset-add-btn" onclick="notePresetEditorAddRow()">＋ Add preset</button>
+                <div style="flex:1;"></div>
+                <button type="button" class="action-btn" onclick="notePresetEditorSave()">💾 Save Note Presets</button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- 10. Node preset styles -->
-        <div class="bc-section">
-          <div class="bc-section-title">🎨 Node Preset Styles</div>
-          <div class="bc-section-hint">Define up to 15 quick-apply style presets for constellation nodes (saved in board-config.js).</div>
-          <button class="action-btn btn-grey" onclick="boardCustomiseClose(); setTimeout(conOpenPresetEditor, 60)" style="margin-top:4px;">⚙ Open Node Preset Editor</button>
-        </div>
+          <!-- Canvas & Layout Tab -->
+          <div class="bc-tab-pane" data-pane="canvas">
+            <!-- Board Background -->
+            <div class="bc-section">
+              <div class="bc-section-title">🖼 Board Background</div>
+              <div class="bc-section-hint">Default background colour for new/empty board pages. You can still change it quickly from board right-click.</div>
+              <div class="bc-fields-grid">
+                <label>Default background colour</label>
+                <div class="bc-field-row"><input type="color" id="bc-board-bg-color" value="#ffffff" class="bc-color-picker"></div>
+              </div>
+              <div class="bc-section-hint" style="margin-top:10px;">Quick presets shown in constellation board right-click menu.</div>
+              <div id="bc-board-bg-preset-list"></div>
+            </div>
 
-        <!-- 11. Note preset styles -->
-        <div class="bc-section">
-          <div class="bc-section-title">🗒 Note Preset Styles</div>
-          <div class="bc-section-hint">Define up to 15 quick-apply style presets for constellation notes (saved in board-config.js).</div>
-          <button class="action-btn btn-grey" onclick="boardCustomiseClose(); setTimeout(noteOpenPresetEditor, 60)" style="margin-top:4px;">⚙ Open Note Preset Editor</button>
-        </div>
+            <!-- Board Layout -->
+            <div class="bc-section">
+              <div class="bc-section-title">📄 Board Layout</div>
+              <div class="bc-section-hint">Default constellation board frame. Choose A4 landscape/portrait or define a custom size and orientation.</div>
+              <div class="bc-fields-grid">
+                <label>Layout preset</label>
+                <div class="bc-field-row">
+                  <select id="bc-board-layout-preset" class="bc-select">
+                    <option value="flex">Flexible (current behavior)</option>
+                    <option value="a4-landscape">A4 landscape</option>
+                    <option value="a4-portrait">A4 portrait</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <label>Orientation (custom)</label>
+                <div class="bc-field-row">
+                  <select id="bc-board-custom-orientation" class="bc-select">
+                    <option value="landscape">Landscape</option>
+                    <option value="portrait">Portrait</option>
+                  </select>
+                </div>
+                <label>Width (custom)</label>
+                <div class="bc-field-row"><input type="number" id="bc-board-custom-width" min="320" max="12000" value="1600" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Height (custom)</label>
+                <div class="bc-field-row"><input type="number" id="bc-board-custom-height" min="320" max="12000" value="1000" class="bc-num-input"><span class="bc-unit">px</span></div>
+              </div>
+            </div>
 
-        <!-- 12. Drawing pen presets -->
-        <div class="bc-section">
-          <div class="bc-section-title">✏️ Drawing Pen Presets</div>
-          <div class="bc-section-hint">Quick-apply pen presets shown in the draw toolbar. Each preset configures colour, opacity, thickness, and shape tool.</div>
-          <div id="bc-pen-preset-list"></div>
-        </div>
+            <!-- 6b. Default link stroke -->
+            <div class="bc-section">
+              <div class="bc-section-title">🔗 Default Link Stroke</div>
+              <div class="bc-fields-grid">
+                <label>Stroke thickness</label>
+                <div class="bc-field-row"><input type="number" id="bc-link-stroke-thickness" min="1" max="20" step="0.5" value="2" class="bc-num-input"><span class="bc-unit">px</span></div>
+              </div>
+            </div>
 
+            <!-- 9. Media insert sizes -->
+            <div class="bc-section">
+              <div class="bc-section-title">🧩 Media Insert Sizes</div>
+              <div class="bc-section-hint">Initial width when inserting attachments onto the board. Set PDF to 0 for automatic (80% of board width).</div>
+              <div class="bc-fields-grid">
+                <label>PDF initial width</label>
+                <div class="bc-field-row"><input type="number" id="bc-media-pdf-width" min="0" max="2000" value="0" class="bc-num-input"><span class="bc-unit">px (0 = auto)</span></div>
+                <label>Image initial width</label>
+                <div class="bc-field-row"><input type="number" id="bc-media-image-width" min="100" max="2000" value="260" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Video initial width</label>
+                <div class="bc-field-row"><input type="number" id="bc-media-video-width" min="100" max="2000" value="260" class="bc-num-input"><span class="bc-unit">px</span></div>
+                <label>Sound initial width</label>
+                <div class="bc-field-row"><input type="number" id="bc-media-sound-width" min="100" max="2000" value="320" class="bc-num-input"><span class="bc-unit">px</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drawing & Tools Tab -->
+          <div class="bc-tab-pane" data-pane="tools">
+            <!-- 7. Drawing pen -->
+            <div class="bc-section">
+              <div class="bc-section-title">✏️ Drawing Pen Defaults</div>
+              <div class="bc-fields-grid">
+                <label>Default colour</label>
+                <div class="bc-field-row"><input type="color" id="bc-pen-color" value="#e53935" class="bc-color-picker"></div>
+                <label>Default thickness</label>
+                <div class="bc-field-row">
+                  <input type="range" id="bc-pen-thickness" min="1" max="40" value="4" style="flex:1;cursor:pointer;accent-color:#111;" oninput="document.getElementById('bc-pen-thickness-val').textContent=this.value+'px'">
+                  <span id="bc-pen-thickness-val" style="min-width:2.5em;font-size:0.75rem;color:#555;">4px</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 8. Laser pointer colour -->
+            <div class="bc-section">
+              <div class="bc-section-title">⬤ Laser Pointer Colour</div>
+              <div class="bc-fields-grid">
+                <label>Laser colour</label>
+                <div class="bc-field-row"><input type="color" id="bc-laser-color" value="#ff2200" class="bc-color-picker"></div>
+              </div>
+            </div>
+
+            <!-- 12. Drawing pen presets -->
+            <div class="bc-section">
+              <div class="bc-section-title">✏️ Drawing Pen Presets</div>
+              <div class="bc-section-hint">Quick-apply pen presets shown in the draw toolbar. Each preset configures colour, opacity, thickness, and shape tool.</div>
+              <div id="bc-pen-preset-list"></div>
+            </div>
+          </div>
+
+        </div>
       </div>
       <div class="bc-footer">
         <button class="action-btn btn-grey" onclick="boardCustomiseClose()">Cancel</button>
@@ -2135,39 +2176,7 @@
     </div>
   </div>
 
-  <div id="con-preset-editor-overlay" onclick="if(event.target===this)conClosePresetEditor()">
-    <div id="con-preset-editor-popup">
-      <div id="con-preset-editor-header">
-        <span>🎨 Node Preset Styles</span>
-        <button class="action-btn btn-grey" onclick="conClosePresetEditor()" style="padding:3px 9px;font-size:0.8rem;margin-left:auto;">✕</button>
-      </div>
-      <div id="con-preset-editor-subheader">Define up to 15 quick-apply styles for constellation nodes. Changes are saved to board-config.js.</div>
-      <div id="con-preset-editor-list"></div>
-      <div id="con-preset-editor-footer">
-        <button class="action-btn btn-grey" id="con-preset-add-btn" onclick="conPresetEditorAddRow()">＋ Add preset</button>
-        <div style="flex:1;"></div>
-        <button class="action-btn btn-grey" onclick="conClosePresetEditor()">Cancel</button>
-        <button class="action-btn" onclick="conPresetEditorSave()">💾 Save</button>
-      </div>
-    </div>
-  </div>
 
-  <div id="note-preset-editor-overlay" onclick="if(event.target===this)noteClosePresetEditor()">
-    <div id="note-preset-editor-popup">
-      <div id="note-preset-editor-header">
-        <span>🗒 Note Preset Styles</span>
-        <button class="action-btn btn-grey" onclick="noteClosePresetEditor()" style="padding:3px 9px;font-size:0.8rem;margin-left:auto;">✕</button>
-      </div>
-      <div id="note-preset-editor-subheader">Define quick-apply styles for constellation notes. Saved to board-config.js under notePresets.</div>
-      <div id="note-preset-editor-list"></div>
-      <div id="note-preset-editor-footer">
-        <button class="action-btn btn-grey" id="note-preset-add-btn" onclick="notePresetEditorAddRow()">＋ Add preset</button>
-        <div style="flex:1;"></div>
-        <button class="action-btn btn-grey" onclick="noteClosePresetEditor()">Cancel</button>
-        <button class="action-btn" onclick="notePresetEditorSave()">💾 Save</button>
-      </div>
-    </div>
-  </div>
   <div id="con-pages-overlay" onclick="if(event.target===this)conClosePagePreview()">
     <div id="con-pages-popup">
       <div id="con-pages-popup-header">
@@ -7676,10 +7685,20 @@ function hideFailure() {
       try { page = await item._pdfDoc.getPage(pageNum); } catch (e) { return; }
       const rotation = (((Number(item.pdfRotation) || 0) % 360) + 360) % 360;
       const contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
+      const contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
       const baseVp = page.getViewport({ scale: 1, rotation });
       const fitScale = baseVp.width > 0 ? contentW / baseVp.width : 1;
-      const zoom = item.pdfZoom != null ? Number(item.pdfZoom) : 1;
-      const scale = Math.max(0.05, fitScale * zoom);
+      
+      let scale;
+      if (item.pdfLockSize) {
+        const fitScaleH = baseVp.height > 0 ? contentH / baseVp.height : 1;
+        scale = Math.min(fitScale, fitScaleH);
+        item.pdfZoom = scale / fitScale;
+      } else {
+        const zoom = item.pdfZoom != null ? Number(item.pdfZoom) : 1;
+        scale = Math.max(0.05, fitScale * zoom);
+      }
+      
       const viewport = page.getViewport({ scale, rotation });
       const dpr = window.devicePixelRatio || 1;
       canvas.width  = Math.round(viewport.width  * dpr);
@@ -7696,8 +7715,27 @@ function hideFailure() {
         }).promise;
       } catch (e) { /* ignore render abort */ }
       if (scrollDiv) {
-        scrollDiv.scrollLeft = Math.round(Number(item.pdfScrollX) || 0);
-        scrollDiv.scrollTop  = Math.round(Number(item.pdfScrollY) || 0);
+        if (item.pdfLockSize) {
+          scrollDiv.style.overflow = 'hidden';
+          canvas.style.position = 'absolute';
+          canvas.style.top = '0';
+          canvas.style.bottom = '0';
+          canvas.style.left = '0';
+          canvas.style.right = '0';
+          canvas.style.margin = 'auto';
+          scrollDiv.scrollLeft = 0;
+          scrollDiv.scrollTop  = 0;
+        } else {
+          scrollDiv.style.overflow = '';
+          canvas.style.position = '';
+          canvas.style.top = '';
+          canvas.style.bottom = '';
+          canvas.style.left = '';
+          canvas.style.right = '';
+          canvas.style.margin = '';
+          scrollDiv.scrollLeft = Math.round(Number(item.pdfScrollX) || 0);
+          scrollDiv.scrollTop  = Math.round(Number(item.pdfScrollY) || 0);
+        }
       }
     }
 
@@ -8032,19 +8070,51 @@ function hideFailure() {
             });
           };
           miniActions.appendChild(pdfSep);
+          const _updateLockBtnState = () => {
+            if (lockSizeMiniBtn) {
+              lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
+            }
+          };
           miniActions.appendChild(_pdfMiniMkBtn('−', 'Zoom out', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
             item.pdfZoom = Math.max(0.1, (item.pdfZoom||1) / 1.25); _pdfMiniRr().then(_pdfMiniSnc);
           }));
           miniActions.appendChild(_pdfMiniMkBtn('+', 'Zoom in', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
             item.pdfZoom = Math.min(8, (item.pdfZoom||1) * 1.25); _pdfMiniRr().then(_pdfMiniSnc);
           }));
           miniActions.appendChild(_pdfMiniMkBtn('↔', 'Fit width', () => {
+            item.pdfLockSize = false; _updateLockBtnState();
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.remove('active');
+            }
             item.pdfZoom = 1; item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
           }));
           miniActions.appendChild(_pdfMiniMkBtn('↺', 'Rotate', () => {
             item.pdfRotation = ((item.pdfRotation||0) - 90 + 360) % 360;
             item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
           }));
+          const lockSizeMiniBtn = _pdfMiniMkBtn('⧇', 'Lock size to container (no scroll)', () => {
+            item.pdfLockSize = !item.pdfLockSize;
+            lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
+            if (window._conCtxItem && window._conCtxItem.id === item.id) {
+              const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+              if (menuBtn) menuBtn.classList.toggle('active', !!item.pdfLockSize);
+            }
+            _pdfMiniRr().then(_pdfMiniSnc);
+          });
+          lockSizeMiniBtn.dataset.action = 'lockfit';
+          if (item.pdfLockSize) lockSizeMiniBtn.classList.add('active');
+          miniActions.appendChild(lockSizeMiniBtn);
         }
 
         wrap.appendChild(miniActions);
@@ -8189,6 +8259,7 @@ function hideFailure() {
           pdfRotation: (kind === 'pdf' ? (((Number(raw.pdfRotation) || 0) % 360) + 360) % 360 : undefined),
           pdfScrollX: (kind === 'pdf' ? (Number(raw.pdfScrollX) || 0) : undefined),
           pdfScrollY: (kind === 'pdf' ? (Number(raw.pdfScrollY) || 0) : undefined),
+          pdfLockSize: (kind === 'pdf' ? !!raw.pdfLockSize : undefined),
           x: Number(raw.x) || 40,
           y: Number(raw.y) || 40,
           w: Number(raw.w) || (kind === 'sounds' ? 320 : (kind === 'pdf' ? defaultPdfRect.w : 260)),
@@ -8243,14 +8314,19 @@ function hideFailure() {
               const pdfScrDiv = wrap.querySelector('.con-media-pdf-scroll');
               const cntEl = wrap.querySelector('.con-media-content');
               const nextRenderSignature = [
-                prev.pageNumber, prev.w, prev.h, prev.pdfZoom || 1, prev.pdfRotation || 0
+                prev.pageNumber, prev.w, prev.h, prev.pdfZoom || 1, prev.pdfRotation || 0, !!prev.pdfLockSize
               ].join('|');
               if (pdfCvs && prevRenderSignature !== nextRenderSignature) {
                 prev._lastRenderSignature = nextRenderSignature;
                 conRenderPdfForItem(prev, pdfCvs, pdfScrDiv, cntEl).then(function() {
                   if (pdfScrDiv) {
-                    pdfScrDiv.scrollLeft = prev.pdfScrollX || 0;
-                    pdfScrDiv.scrollTop  = prev.pdfScrollY || 0;
+                    if (prev.pdfLockSize) {
+                      pdfScrDiv.scrollLeft = 0;
+                      pdfScrDiv.scrollTop  = 0;
+                    } else {
+                      pdfScrDiv.scrollLeft = prev.pdfScrollX || 0;
+                      pdfScrDiv.scrollTop  = prev.pdfScrollY || 0;
+                    }
                   }
                 });
               }
@@ -12335,17 +12411,34 @@ function hideFailure() {
 
       // ── Preset Editor ─────────────────────────────────────────────────
       let _conPresetEditorDraft = [];
+      window.conGetPresetEditorDraft = () => _conPresetEditorDraft;
+      window.conSetPresetEditorDraft = (val) => { _conPresetEditorDraft = val; };
 
       function conOpenPresetEditor() {
         conCtxClose();
-        _conPresetEditorDraft = conGetNodePresets().map(p => ({ ...p }));
-        _conPresetEditorRender();
-        document.getElementById('con-preset-editor-overlay').classList.add('active');
+        if (typeof boardCustomiseOpen === 'function') {
+          boardCustomiseOpen();
+        }
+        if (typeof boardCustomiseSetTab === 'function') {
+          boardCustomiseSetTab('nodes');
+        }
+        // Expand the Node Preset Styles section
+        setTimeout(() => {
+          const titleEl = Array.from(document.querySelectorAll('#board-customise-modal .bc-section-title'))
+            .find(el => el.textContent.includes('Node Preset Styles'));
+          if (titleEl) {
+            const sec = titleEl.parentElement;
+            sec.classList.remove('collapsed');
+            sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 150);
       }
       window.conOpenPresetEditor = conOpenPresetEditor;
 
       function conClosePresetEditor() {
-        document.getElementById('con-preset-editor-overlay').classList.remove('active');
+        if (typeof boardCustomiseClose === 'function') {
+          boardCustomiseClose();
+        }
       }
       window.conClosePresetEditor = conClosePresetEditor;
 
@@ -12421,6 +12514,7 @@ function hideFailure() {
         if (addBtn) addBtn.disabled = _conPresetEditorDraft.length >= 15;
         _conPresetEditorEnableDrag(list);
       }
+      window._conPresetEditorRender = _conPresetEditorRender;
 
       function _esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
       function _safeHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s || '') ? s : '#ffffff'; }
@@ -21490,22 +21584,39 @@ function hideFailure() {
     }
 
     let _notePresetEditorDraft = [];
-    function _wnEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-    function _wnSafeHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s || '') ? s : '#ffffff'; }
+    window.noteGetPresetEditorDraft = () => _notePresetEditorDraft;
+    window.noteSetPresetEditorDraft = (val) => { _notePresetEditorDraft = val; };
 
     function noteOpenPresetEditor() {
-      _notePresetEditorDraft = conGetNotePresets().map(p => ({ ...p }));
-      _notePresetEditorRender();
-      document.getElementById('note-preset-editor-overlay').classList.add('active');
+      if (typeof boardCustomiseOpen === 'function') {
+        boardCustomiseOpen();
+      }
+      if (typeof boardCustomiseSetTab === 'function') {
+        boardCustomiseSetTab('notes');
+      }
+      // Expand the Note Preset Styles section
+      setTimeout(() => {
+        const titleEl = Array.from(document.querySelectorAll('#board-customise-modal .bc-section-title'))
+          .find(el => el.textContent.includes('Note Preset Styles'));
+        if (titleEl) {
+          const sec = titleEl.parentElement;
+          sec.classList.remove('collapsed');
+          sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 150);
     }
     window.noteOpenPresetEditor = noteOpenPresetEditor;
 
     function noteClosePresetEditor() {
-      document.getElementById('note-preset-editor-overlay').classList.remove('active');
+      if (typeof boardCustomiseClose === 'function') {
+        boardCustomiseClose();
+      }
     }
     window.noteClosePresetEditor = noteClosePresetEditor;
 
     function _notePresetEditorRender() {
+      function _wnEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+      function _wnSafeHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s || '') ? s : '#ffffff'; }
       const list = document.getElementById('note-preset-editor-list');
       if (!list) return;
       list.innerHTML = '';
@@ -21555,6 +21666,7 @@ function hideFailure() {
       if (addBtn) addBtn.disabled = _notePresetEditorDraft.length >= 15;
       _notePresetEditorEnableDrag(list);
     }
+    window._notePresetEditorRender = _notePresetEditorRender;
 
     function _notePresetEditorFlushDOM() {
       const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
@@ -24106,7 +24218,7 @@ function hideFailure() {
           }
           return Array.isArray(_l[_g]) ? _l[_g].map(String).filter(Boolean) : [];
         })();
-        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: classGroup, title: _noteStudentHub.title, roster: _nhRoster, hostSecret: _noteStudentHub.hostSecret } }));
+        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: classGroup, classLabel: noteStudentClassGroupLabel(classGroup), title: _noteStudentHub.title, roster: _nhRoster, hostSecret: _noteStudentHub.hostSecret } }));
       };
       ws.onmessage = function(event) { let msg = null; try { msg = JSON.parse(event.data); } catch (_) { return; } noteStudentHandleMessage(msg); };
       ws.onerror = function() { noteStudentSetStatus('Websocket error.', true); };
@@ -24872,6 +24984,7 @@ function hideFailure() {
           pdfRotation: (m.kind === 'pdf' ? (((Number(m.pdfRotation) || 0) % 360) + 360) % 360 : undefined),
           pdfScrollX: (m.kind === 'pdf' ? (Math.round(Number(m.pdfScrollX) || 0)) : undefined),
           pdfScrollY: (m.kind === 'pdf' ? (Math.round(Number(m.pdfScrollY) || 0)) : undefined),
+          pdfLockSize: (m.kind === 'pdf' ? !!m.pdfLockSize : undefined),
           x: m.x,
           y: m.y,
           w: m.w,
@@ -31199,13 +31312,67 @@ function hideFailure() {
         if (preview) preview.style.fontFamily = savedVal || '';
       });
 
+      // Initialize Node presets inline
+      if (typeof window.conSetPresetEditorDraft === 'function' && typeof window._conPresetEditorRender === 'function' && typeof window.conGetNodePresets === 'function') {
+        window.conSetPresetEditorDraft(window.conGetNodePresets().map(p => ({ ...p })));
+        window._conPresetEditorRender();
+      }
+
+      // Initialize Note presets inline
+      if (typeof window.noteSetPresetEditorDraft === 'function' && typeof window._notePresetEditorRender === 'function' && typeof window.conGetNotePresets === 'function') {
+        window.noteSetPresetEditorDraft(window.conGetNotePresets().map(p => ({ ...p })));
+        window._notePresetEditorRender();
+      }
+
+      if (typeof window.boardCustomiseSetTab === 'function') {
+        window.boardCustomiseSetTab(window._bcActiveTab || 'nodes');
+      }
+
+      document.body.style.overflow = 'hidden';
       document.getElementById('board-customise-overlay').classList.add('active');
     }
 
     function boardCustomiseClose() {
       const ov = document.getElementById('board-customise-overlay');
       if (ov) ov.classList.remove('active');
+      document.body.style.overflow = '';
     }
+
+    window._bcActiveTab = 'nodes';
+    window.boardCustomiseSetTab = function(tabName) {
+      window._bcActiveTab = tabName;
+      document.querySelectorAll('#board-customise-modal .bc-sidebar-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.tab === tabName);
+      });
+      document.querySelectorAll('#board-customise-modal .bc-tab-pane').forEach(pane => {
+        pane.classList.toggle('active', pane.dataset.pane === tabName);
+      });
+    };
+
+    window.boardCustomiseExpandAll = function() {
+      document.querySelectorAll('#board-customise-modal .bc-section').forEach(sec => {
+        sec.classList.remove('collapsed');
+      });
+    };
+
+    window.boardCustomiseCollapseAll = function() {
+      document.querySelectorAll('#board-customise-modal .bc-section').forEach(sec => {
+        sec.classList.add('collapsed');
+      });
+    };
+
+    window.initBoardCustomiseCollapsible = function() {
+      // Collapse sections by default
+      document.querySelectorAll('#board-customise-modal .bc-section').forEach(sec => {
+        sec.classList.add('collapsed');
+      });
+      // Attach click handlers to section titles
+      document.querySelectorAll('#board-customise-modal .bc-section-title').forEach(title => {
+        title.addEventListener('click', () => {
+          title.parentElement.classList.toggle('collapsed');
+        });
+      });
+    };
 
     function _bcEnableDragReorder(container, rowSelector) {
       let dragSrc = null;
@@ -32068,6 +32235,44 @@ function hideFailure() {
                 : 'No sync location configured — set one in ⚙️ Data';
             }).catch(() => { syncBtn.disabled = true; });
           }
+
+          // Update Pin button
+          const pinBtn = document.getElementById('ssm-pin-btn');
+          const pinDiv = document.getElementById('ssm-pin-divider');
+          if (pinBtn && _conCurrentFileName) {
+            if (pinDiv) pinDiv.style.display = '';
+            pinBtn.style.display = '';
+            const relPath = _conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName;
+            Pins.isPinned({
+              type: 'mindmap',
+              relativePath: relPath,
+              target: 'mindmaps'
+            }).then(pinned => {
+              pinBtn.textContent = pinned ? '📌 Unpin Map' : '📌 Pin Map';
+            });
+          } else if (pinBtn) {
+            if (pinDiv) pinDiv.style.display = 'none';
+            pinBtn.style.display = 'none';
+          }
+        }
+      }
+
+      async function boardTogglePin() {
+        if (!_conCurrentFileName) return;
+        const relPath = _conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName;
+        const itemInfo = {
+          type: 'mindmap',
+          relativePath: relPath,
+          target: 'mindmaps'
+        };
+        const isPinned = await Pins.isPinned(itemInfo);
+        if (isPinned) {
+          await Pins.unpinItem(itemInfo);
+          mdbToast('📌 Unpinned from sidebar');
+        } else {
+          const prettyName = boardStripJsonExt(_conCurrentFileName);
+          await Pins.pinItem(Object.assign({ title: prettyName }, itemInfo));
+          mdbToast('📌 Pinned to sidebar');
         }
       }
 
@@ -33246,19 +33451,27 @@ function unknownWordsCopy() {
       var _pdfChanged = false;
       if (typeof d.pdfZoom === 'number' && d.pdfZoom !== _pdfItem.pdfZoom) { _pdfItem.pdfZoom = d.pdfZoom; _pdfChanged = true; }
       if (typeof d.pdfRotation === 'number' && d.pdfRotation !== _pdfItem.pdfRotation) { _pdfItem.pdfRotation = d.pdfRotation; _pdfChanged = true; }
+      if (typeof d.pdfLockSize === 'boolean' && d.pdfLockSize !== _pdfItem.pdfLockSize) { _pdfItem.pdfLockSize = d.pdfLockSize; _pdfChanged = true; }
       var _pdfWrap = document.querySelector('#constellation-board .con-media-item[data-id="' + _pdfItemId + '"]');
       if (!_pdfWrap) return;
       var _pdfCvs    = _pdfWrap.querySelector('canvas.con-media-pdf-canvas');
       var _pdfScrDiv = _pdfWrap.querySelector('.con-media-pdf-scroll');
       var _pdfCntEl  = _pdfWrap.querySelector('.con-media-content');
       if (_pdfChanged && _pdfCvs && typeof conRenderPdfForItem === 'function') {
+        var _pdfMiniBtn = _pdfWrap.querySelector('.con-media-mini-btn[data-action="lockfit"]');
+        if (_pdfMiniBtn) _pdfMiniBtn.classList.toggle('active', !!_pdfItem.pdfLockSize);
         conRenderPdfForItem(_pdfItem, _pdfCvs, _pdfScrDiv, _pdfCntEl).then(function() {
           if (_pdfScrDiv && typeof d.pdfScrollX === 'number') {
-            _pdfScrDiv.scrollLeft = d.pdfScrollX;
-            _pdfScrDiv.scrollTop  = d.pdfScrollY || 0;
+            if (_pdfItem.pdfLockSize) {
+              _pdfScrDiv.scrollLeft = 0;
+              _pdfScrDiv.scrollTop  = 0;
+            } else {
+              _pdfScrDiv.scrollLeft = d.pdfScrollX;
+              _pdfScrDiv.scrollTop  = d.pdfScrollY || 0;
+            }
           }
         });
-      } else if (_pdfScrDiv && typeof d.pdfScrollX === 'number') {
+      } else if (_pdfScrDiv && typeof d.pdfScrollX === 'number' && !_pdfItem.pdfLockSize) {
         _pdfScrDiv.scrollLeft = d.pdfScrollX;
         _pdfScrDiv.scrollTop  = d.pdfScrollY || 0;
       }
@@ -33793,6 +34006,8 @@ window.conPdfStyleOpen = function(e, item) {
   if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
   var lockBtn  = document.getElementById('con-pdf-sp-lock-btn');
   if (lockBtn)  lockBtn.textContent = item.locked ? '🔒 Unlock' : '🔓 Lock';
+  var lockFitBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+  if (lockFitBtn) lockFitBtn.classList.toggle('active', !!item.pdfLockSize);
   var fullBtn  = document.getElementById('con-pdf-sp-fullscreen-btn');
   if (fullBtn)  fullBtn.classList.toggle('active', !!item._fullscreen);
   var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
@@ -33885,12 +34100,19 @@ window.conPdfSpToggleFullscreen = function() {
       if (!item._fullscreen) return;
       ev.preventDefault(); ev.stopPropagation();
       var delta = ev.deltaY > 0 ? (1/1.1) : 1.1;
+      item.pdfLockSize = false;
+      var miniBtn = wrap.querySelector('.con-media-mini-btn[data-action="lockfit"]');
+      if (miniBtn) miniBtn.classList.remove('active');
+      if (window._conCtxItem && window._conCtxItem.id === item.id) {
+        const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
+        if (menuBtn) menuBtn.classList.remove('active');
+      }
       item.pdfZoom = Math.max(0.1, Math.min(8, (item.pdfZoom||1) * delta));
       var c = wrap.querySelector('canvas.con-media-pdf-canvas');
       var s = wrap.querySelector('.con-media-pdf-scroll');
       var x = wrap.querySelector('.con-media-content');
       if (c && typeof conRenderPdfForItem === 'function') conRenderPdfForItem(item, c, s, x);
-      if (window._conMirrorSend) window._conMirrorSend({ type:'pdf-view-state', itemId:String(item.id), pdfZoom:item.pdfZoom, pdfRotation:item.pdfRotation||0, pdfScrollX:item.pdfScrollX||0, pdfScrollY:item.pdfScrollY||0 });
+      if (window._conMirrorSend) window._conMirrorSend({ type:'pdf-view-state', itemId:String(item.id), pdfZoom:item.pdfZoom, pdfRotation:item.pdfRotation||0, pdfScrollX:item.pdfScrollX||0, pdfScrollY:item.pdfScrollY||0, pdfLockSize: false });
     };
     wrap.addEventListener('wheel', item._fsWheelHandler, { passive: false });
 
@@ -33914,6 +34136,32 @@ window.conPdfSpToggleLock = function() {
   _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
   var btn = document.getElementById('con-pdf-sp-lock-btn');
   if (btn) btn.textContent = _conCtxItem.locked ? '🔒 Unlock' : '🔓 Lock';
+};
+window.conPdfSpToggleLockFit = function() {
+  if (!_conCtxItem) return;
+  _conCtxItem.pdfLockSize = !_conCtxItem.pdfLockSize;
+  var btn = document.getElementById('con-pdf-sp-lockfit-btn');
+  if (btn) btn.classList.toggle('active', !!_conCtxItem.pdfLockSize);
+  var wrap = _conMediaGetWrap(_conCtxItem);
+  if (wrap) {
+    var canvas = wrap.querySelector('canvas.con-media-pdf-canvas');
+    var scrollDiv = wrap.querySelector('.con-media-pdf-scroll');
+    var contentEl = wrap.querySelector('.con-media-content');
+    var miniBtn = wrap.querySelector('.con-media-mini-btn[data-action="lockfit"]');
+    if (miniBtn) miniBtn.classList.toggle('active', !!_conCtxItem.pdfLockSize);
+    
+    if (canvas && typeof conRenderPdfForItem === 'function') {
+      conRenderPdfForItem(_conCtxItem, canvas, scrollDiv, contentEl).then(function() {
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
+        if (window._conMirrorSend) window._conMirrorSend({
+          type: 'pdf-view-state', itemId: String(_conCtxItem.id),
+          pdfZoom: _conCtxItem.pdfZoom||1, pdfRotation: _conCtxItem.pdfRotation||0,
+          pdfScrollX: _conCtxItem.pdfScrollX||0, pdfScrollY: _conCtxItem.pdfScrollY||0,
+          pdfLockSize: !!_conCtxItem.pdfLockSize
+        });
+      });
+    }
+  }
 };
 window.conPdfSpAddEmoji = function() {
   if (!_conCtxItem) return;
@@ -34278,6 +34526,7 @@ async function conConvertPdfMediaItemToPng(item) {
     delete item.pageNumber;
     delete item.pdfFit;
     delete item.pdfZoom;
+    delete item.pdfLockSize;
     var oldWrap = document.querySelector('#constellation-board .con-media-item[data-id="' + item.id + '"]');
     if (oldWrap) { oldWrap.remove(); conBuildMediaWidget(item); }
     if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
@@ -34425,6 +34674,7 @@ async function conConvertPdfMediaItemToPng(item) {
           <button class="wn-sp-action-btn" id="con-pdf-sp-blink-btn" onclick="conPdfSpToggleBlink()">🔴 Blink</button>
           <button class="wn-sp-action-btn" id="con-pdf-sp-fullscreen-btn" onclick="conPdfSpToggleFullscreen()">⛶ Full</button>
           <button class="wn-sp-action-btn" id="con-pdf-sp-lock-btn" onclick="conPdfSpToggleLock()">🔓 Lock</button>
+          <button class="wn-sp-action-btn" id="con-pdf-sp-lockfit-btn" onclick="conPdfSpToggleLockFit()">⧇ Fit</button>
           <button class="wn-sp-action-btn" onclick="conPdfSpAddEmoji()">😀 Emoji</button>
           <button class="wn-sp-action-btn" onclick="conPdfSpDuplicate()">⧉ Dup</button>
           <button class="wn-sp-action-btn" id="con-pdf-sp-openfile-btn" onclick="conPdfSpOpenFile()" style="display:none;">📄 Open</button>

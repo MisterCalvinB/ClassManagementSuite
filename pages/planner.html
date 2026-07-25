@@ -7,6 +7,7 @@
   <title>Planner</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -841,6 +842,7 @@
     var BUILT_IN_TYPES = ['lesson', 'test', 'assignment', 'holiday', 'no-class'];
     var activeSemId = '';
     var entries = [];
+    var plannerPins = [];
     var _legacyMigration = false;
     var classGroups = {};
     var classGroupsMeta = {};
@@ -1158,6 +1160,21 @@
       loadViewOpts();
       await loadData();
       render();
+
+      var params = new URLSearchParams(window.location.search);
+      var qTodo = params.get('openTodo');
+      if (qTodo) {
+        localStorage.setItem('cmt-planner-todo', qTodo);
+      }
+      var qDate = params.get('navDate');
+      if (qDate) {
+        localStorage.setItem('cmt-planner-nav', JSON.stringify({
+          date: qDate,
+          classId: params.get('navClassId') || '',
+          time: params.get('navTime') || ''
+        }));
+      }
+
       navigateToPending();
       navigateToPendingTodo();
       _plannerBooted = true;
@@ -1225,6 +1242,14 @@
     async function loadData() {
       if (window.__plannerBoot) await window.__plannerBoot;
 
+      try {
+        if (window.Pins) {
+          plannerPins = await Pins.getPins();
+        }
+      } catch (e) {
+        plannerPins = [];
+      }
+
       // CLASS_GROUPS_DATA uses const — accessible as bare global, not window.*
       if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
         classGroups = CLASS_GROUPS_DATA.classGroups || {};
@@ -1289,6 +1314,42 @@
       if (aeEl) aeEl.checked = !!(cfg.reminderSettings ? cfg.reminderSettings.autoLessonEnd5Min !== false : true);
 
       loadTodos();
+
+      // Prune orphaned planner entry and to-do pins
+      (async function() {
+        if (!window.Pins) return;
+        var pins = plannerPins;
+        var changed = false;
+        
+        // Planner entries
+        if (entries.length) {
+          var entryPins = pins.filter(function(p) { return p.type === 'planner-entry'; });
+          for (var i = 0; i < entryPins.length; i++) {
+            var p = entryPins[i];
+            if (!entries.some(function(e) { return e.id === p.entryId; })) {
+              await Pins.unpinItem({ type: 'planner-entry', entryId: p.entryId });
+              changed = true;
+            }
+          }
+        }
+        
+        // To-dos
+        if (todos.length) {
+          var todoPins = pins.filter(function(p) { return p.type === 'todo'; });
+          for (var i = 0; i < todoPins.length; i++) {
+            var p = todoPins[i];
+            if (!todos.some(function(t) { return t.id === p.id; })) {
+              await Pins.unpinItem({ type: 'todo', id: p.id });
+              changed = true;
+            }
+          }
+        }
+        
+        if (changed) {
+          plannerPins = await Pins.getPins();
+          render();
+        }
+      })();
     }
 
     function plannerClassIdFromPlannerPath(relPath) {
@@ -1796,9 +1857,15 @@
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
       }
       r += '<div class="entry-actions" onclick="event.stopPropagation()">';
-      if (entry)
+      if (entry) {
+        var isPinned = plannerPins.some(function(p) {
+          return p.type === 'planner-entry' && p.entryId === entry.id;
+        });
+        var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
+        var pinIcon = isPinned ? '📌' : '📍';
+        r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
         r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
-      else
+      } else
         r += '<button class="entry-btn add-btn" onclick="openAddEntry(\'' + esc(s.classId) +
           '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">+</button>';
       r += '</div></div>';
@@ -2568,6 +2635,72 @@
       document.getElementById('e-obj-sel').value = '';
       plannerUpdateBoardEntryControls(null);
       openModal('entryModal');
+    }
+
+    async function toggleEntryPin(event, entryId, classId, date, time, timeEnd) {
+      if (event) event.stopPropagation();
+      var entry = entries.find(function (e) { return e.id === entryId; });
+      if (!entry) return;
+      var itemInfo = {
+        type: 'planner-entry',
+        entryId: entryId
+      };
+      
+      var isPinned = plannerPins.some(function(p) {
+        return p.type === 'planner-entry' && p.entryId === entryId;
+      });
+
+      if (isPinned) {
+        await Pins.unpinItem(itemInfo);
+        showToast('📌 Unpinned from sidebar');
+      } else {
+        var displayTitle = (entry.topic || t('pl_emptySlot')).trim();
+        var className = plannerClassDisplayName(classId);
+        if (className) displayTitle = className + ': ' + displayTitle;
+        await Pins.pinItem({
+          type: 'planner-entry',
+          title: displayTitle,
+          classId: classId,
+          date: date,
+          time: time || '',
+          timeEnd: timeEnd || '',
+          entryId: entryId
+        });
+        showToast('📌 Pinned to sidebar');
+      }
+      plannerPins = await Pins.getPins();
+      render();
+    }
+
+    async function toggleTodoPin(event, id) {
+      if (event) event.stopPropagation();
+      var td = todos.find(function (t) { return t.id === id; });
+      if (!td) return;
+      var itemInfo = {
+        type: 'todo',
+        id: id
+      };
+      
+      var isPinned = plannerPins.some(function(p) {
+        return p.type === 'todo' && p.id === id;
+      });
+
+      if (isPinned) {
+        await Pins.unpinItem(itemInfo);
+        showToast('📌 Unpinned from sidebar');
+      } else {
+        var displayTitle = (td.text || 'To-do').trim();
+        var className = plannerClassDisplayName(td.classId);
+        if (className) displayTitle = '[' + className + '] ' + displayTitle;
+        await Pins.pinItem({
+          type: 'todo',
+          title: displayTitle,
+          id: id
+        });
+        showToast('📌 Pinned to sidebar');
+      }
+      plannerPins = await Pins.getPins();
+      render();
     }
 
     function openEditEntry(id) {
@@ -5170,6 +5303,12 @@
           if (typeof loadBoardSessions === 'function') loadBoardSessions();
           return;
         }
+        if (data && data.filename === 'pinned-items.json') {
+          loadData().then(function() {
+            render();
+          });
+          return;
+        }
         if (data && (data.filename === 'planner-config.js' || data.filename === 'class-groups.js' || data.subdir === 'planner')) {
           showDataChangedBanner(data);
         }
@@ -5291,6 +5430,13 @@
             '</div>';
         }
 
+        var isTdPinned = plannerPins.some(function(p) {
+          return p.type === 'todo' && p.id === td.id;
+        });
+        var tdPinTitle = isTdPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
+        var tdPinIcon = isTdPinned ? '📌' : '📍';
+        var tdPinHtml = '<button class="td-act-btn ' + (isTdPinned ? 'pinned' : '') + '" onclick="toggleTodoPin(event, \'' + esc(td.id) + '\')" title="' + esc(tdPinTitle) + '">' + tdPinIcon + '</button>';
+
         item.setAttribute('data-tdid', td.id);
         item.innerHTML =
           '<div class="td-check ' + checkCls + '" onclick="toggleTodoDone(\'' + esc(td.id) + '\')"></div>' +
@@ -5301,6 +5447,7 @@
           '<button class="std-add-btn" onclick="startAddSubtodo(\'' + esc(td.id) + '\')">' + esc(t('td_addSubtodo')) + '</button>' +
           '</div>' +
           '<div class="td-actions">' +
+          tdPinHtml +
           '<button class="td-act-btn" onclick="openEditTodo(\'' + esc(td.id) + '\')" title="' + esc(t('td_editTodo')) + '">✎</button>' +
           (td.links && td.links.entryId ? '<button class="td-act-btn" onclick="tdOpenEntry(\'' + esc(td.links.entryId) + '\')" title="→">→</button>' : '') +
           '<button class="td-act-btn td-del-btn" onclick="deleteTodo(\'' + esc(td.id) + '\')">✕</button>' +

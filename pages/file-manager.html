@@ -6,6 +6,7 @@
   <title>File Manager</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -2771,6 +2772,23 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     await Desktop.showInFolder(target, relPath);
   }
 
+  function fmGetPinType(file) {
+    var target = file.target;
+    var filename = file.filename || '';
+    var relPath = file.relativePath || filename;
+    
+    if (target === 'mindmaps' || (target === 'user' && relPath.startsWith('mindmaps/'))) {
+      if (/\.(js|json)$/i.test(filename)) return 'mindmap';
+    }
+    if (target === 'docEditorDocs' || (target === 'user' && relPath.startsWith('document-editor/docs/'))) {
+      if (/\.(md|html)$/i.test(filename)) return 'doc';
+    }
+    if (target === 'user' && relPath.startsWith('schedules/')) {
+      if (filename.startsWith('schedule-') && filename.endsWith('.js')) return 'schedule';
+    }
+    return null;
+  }
+
   /* ── Recent-tab file context menu ── */
   window.fmCtxRecent = function(e, file) {
     e.preventDefault();
@@ -2779,65 +2797,104 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     var relPath = file.relativePath || file.filename;
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
-    var items = [];
 
-    if (isSession) {
-      items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
-        if (!window.Desktop || !Desktop.isElectron()) return;
-        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
-      }});
+    var pinType = fmGetPinType(file);
+    var pinTarget = file.target;
+    var pinRelPath = relPath;
+    if (pinType === 'mindmap' && pinTarget === 'user' && pinRelPath.startsWith('mindmaps/')) {
+      pinTarget = 'mindmaps';
+      pinRelPath = pinRelPath.slice('mindmaps/'.length);
+    } else if (pinType === 'doc' && pinTarget === 'user' && pinRelPath.startsWith('document-editor/docs/')) {
+      pinTarget = 'docEditorDocs';
+      pinRelPath = pinRelPath.slice('document-editor/docs/'.length);
     }
 
-    items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
-    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
-    items.push('-');
+    var checkPin = pinType ? Pins.isPinned({ type: pinType, relativePath: pinRelPath, target: pinTarget }) : Promise.resolve(false);
 
-    if (isSession) {
-      (function(row) {
-        items.push({ label: tt('fmRename','Rename'), action: function() {
-          if (row) startInlineRename(row, file, file.target, prettyName, rfSessions.concat(rfArchivedSessions));
+    checkPin.then(function(pinned) {
+      var items = [];
+
+      if (pinType) {
+        items.push({
+          label: pinned ? tt('ctxUnpinItem', 'Unpin from sidebar') : tt('ctxPinItem', 'Pin to sidebar'),
+          action: async function() {
+            var itemInfo = { type: pinType, relativePath: pinRelPath, target: pinTarget };
+            if (pinned) {
+              await Pins.unpinItem(itemInfo);
+            } else {
+              var displayTitle = file.filename;
+              if (pinType === 'mindmap') {
+                displayTitle = prettyName(file.filename);
+              } else if (pinType === 'doc') {
+                displayTitle = file.filename.replace(/\.(md|html)$/i, '');
+              } else if (pinType === 'schedule') {
+                displayTitle = file.filename.replace(/^schedule-/, '').replace(/\.js$/, '');
+              }
+              await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
+            }
+          }
+        });
+        items.push('-');
+      }
+
+      if (isSession) {
+        items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
         }});
-      })(rowEl);
-    }
+      }
 
-    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
-      fmMoveCopyViaPicker([{
-        key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
-        scope: 'recent',
-        kind: 'file',
-        target: file.target,
-        relativePath: normPath(relPath),
-        isDirectory: false
-      }], 'move');
-    }});
-    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
-      fmMoveCopyViaPicker([{
-        key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
-        scope: 'recent',
-        kind: 'file',
-        target: file.target,
-        relativePath: normPath(relPath),
-        isDirectory: false
-      }], 'copy');
-    }});
+      items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
+      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+      items.push('-');
 
-    items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
-      if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
-      try {
-        var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
-        if (r && r.ok) {
-          rfSessions = rfSessions.filter(function(x) { return x !== file; });
-          rfArchivedSessions = rfArchivedSessions.filter(function(x) { return x !== file; });
-          rfDocs = rfDocs.filter(function(x) { return x !== file; });
-          rfArchivedDocs = rfArchivedDocs.filter(function(x) { return x !== file; });
-          rfRender();
-        } else {
-          showToast(tt('fmDeleteFailed','Delete failed.'), true);
-        }
-      } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
-    }});
+      if (isSession) {
+        (function(row) {
+          items.push({ label: tt('fmRename','Rename'), action: function() {
+            if (row) startInlineRename(row, file, file.target, prettyName, rfSessions.concat(rfArchivedSessions));
+          }});
+        })(rowEl);
+      }
 
-    showCtx(e.clientX, e.clientY, items);
+      items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+        fmMoveCopyViaPicker([{
+          key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
+          scope: 'recent',
+          kind: 'file',
+          target: file.target,
+          relativePath: normPath(relPath),
+          isDirectory: false
+        }], 'move');
+      }});
+      items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+        fmMoveCopyViaPicker([{
+          key: fmKeyFor({ kind: 'file', target: file.target, relativePath: relPath }),
+          scope: 'recent',
+          kind: 'file',
+          target: file.target,
+          relativePath: normPath(relPath),
+          isDirectory: false
+        }], 'copy');
+      }});
+
+      items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+        if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
+        try {
+          var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
+          if (r && r.ok) {
+            rfSessions = rfSessions.filter(function(x) { return x !== file; });
+            rfArchivedSessions = rfArchivedSessions.filter(function(x) { return x !== file; });
+            rfDocs = rfDocs.filter(function(x) { return x !== file; });
+            rfArchivedDocs = rfArchivedDocs.filter(function(x) { return x !== file; });
+            rfRender();
+          } else {
+            showToast(tt('fmDeleteFailed','Delete failed.'), true);
+          }
+        } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+      }});
+
+      showCtx(e.clientX, e.clientY, items);
+    });
   };
 
   /* ── Browse-tab file context menu ── */
@@ -2858,63 +2915,102 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
       isDirectory: false
     };
     var selectedForContext = fmEnsureSelectionForContext(itemForContext);
-    var items = [];
 
-    if (isConst) {
-      items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
-        if (!window.Desktop || !Desktop.isElectron()) return;
-        var target = file.target;
-        var relPath = file.relativePath || file.filename;
-        if (target === 'user' && relPath.startsWith('mindmaps/')) {
-          target = 'mindmaps';
-          relPath = relPath.slice('mindmaps/'.length);
-        }
-        Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath } });
-      }});
+    var pinType = fmGetPinType(file);
+    var pinTarget = file.target;
+    var pinRelPath = relPath;
+    if (pinType === 'mindmap' && pinTarget === 'user' && pinRelPath.startsWith('mindmaps/')) {
+      pinTarget = 'mindmaps';
+      pinRelPath = pinRelPath.slice('mindmaps/'.length);
+    } else if (pinType === 'doc' && pinTarget === 'user' && pinRelPath.startsWith('document-editor/docs/')) {
+      pinTarget = 'docEditorDocs';
+      pinRelPath = pinRelPath.slice('document-editor/docs/'.length);
     }
 
-    items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
-    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
-    items.push('-');
-    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
-      fmMoveCopyViaPicker(selectedForContext, 'move');
-    }});
-    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
-      fmMoveCopyViaPicker(selectedForContext, 'copy');
-    }});
+    var checkPin = pinType ? Pins.isPinned({ type: pinType, relativePath: pinRelPath, target: pinTarget }) : Promise.resolve(false);
 
-    var isSystemFile = (file.target === 'user' && !browsePath && SYSTEM_FILES.has(file.filename));
-    if (!isSystemFile) {
-      items.push('-');
-      items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
-        try {
-          var res = await Desktop.duplicateByPath(file.target, relPath);
-          if (res && res.ok) {
-            var newFile = Object.assign({}, file, { filename: res.filename, relativePath: res.relativePath, size: res.size, mtimeMs: res.mtimeMs });
-            browseAllFiles.push(newFile);
-            renderBrowse();
-          } else { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
-        } catch(ex) { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
-      }});
-      (function(row) {
-        items.push({ label: tt('fmRename','Rename'), action: function() {
-          if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+    checkPin.then(function(pinned) {
+      var items = [];
+
+      if (pinType) {
+        items.push({
+          label: pinned ? tt('ctxUnpinItem', 'Unpin from sidebar') : tt('ctxPinItem', 'Pin to sidebar'),
+          action: async function() {
+            var itemInfo = { type: pinType, relativePath: pinRelPath, target: pinTarget };
+            if (pinned) {
+              await Pins.unpinItem(itemInfo);
+            } else {
+              var displayTitle = file.filename;
+              if (pinType === 'mindmap') {
+                displayTitle = prettyName(file.filename);
+              } else if (pinType === 'doc') {
+                displayTitle = file.filename.replace(/\.(md|html)$/i, '');
+              } else if (pinType === 'schedule') {
+                displayTitle = file.filename.replace(/^schedule-/, '').replace(/\.js$/, '');
+              }
+              await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
+            }
+          }
+        });
+        items.push('-');
+      }
+
+      if (isConst) {
+        items.push({ label: tt('rfOpenInBoard','Open in Board'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          var target = file.target;
+          var relPath = file.relativePath || file.filename;
+          if (target === 'user' && relPath.startsWith('mindmaps/')) {
+            target = 'mindmaps';
+            relPath = relPath.slice('mindmaps/'.length);
+          }
+          Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath } });
         }});
-      })(rowEl);
-      items.push('-');
-      items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
-        if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
-        try {
-          var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
-          if (r && r.ok) {
-            browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
-            renderBrowse();
-          } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
-        } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
-      }});
-    }
+      }
 
-    showCtx(e.clientX, e.clientY, items);
+      items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
+      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+      items.push('-');
+      items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+        fmMoveCopyViaPicker(selectedForContext, 'move');
+      }});
+      items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+        fmMoveCopyViaPicker(selectedForContext, 'copy');
+      }});
+
+      var isSystemFile = (file.target === 'user' && !browsePath && SYSTEM_FILES.has(file.filename));
+      if (!isSystemFile) {
+        items.push('-');
+        items.push({ label: tt('fmDuplicate','Duplicate'), action: async function() {
+          try {
+            var res = await Desktop.duplicateByPath(file.target, relPath);
+            if (res && res.ok) {
+              var newFile = Object.assign({}, file, { filename: res.filename, relativePath: res.relativePath, size: res.size, mtimeMs: res.mtimeMs });
+              browseAllFiles.push(newFile);
+              renderBrowse();
+            } else { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
+          } catch(ex) { showToast(tt('fmDuplicateFailed','Duplicate failed.'), true); }
+        }});
+        (function(row) {
+          items.push({ label: tt('fmRename','Rename'), action: function() {
+            if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+          }});
+        })(rowEl);
+        items.push('-');
+        items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+          if (!await showConfirm(tt('fmDeleteConfirm','Delete this file? This cannot be undone.'))) return;
+          try {
+            var r = await Desktop.deleteByPath(file.target, relPath, { trash: true });
+            if (r && r.ok) {
+              browseAllFiles = browseAllFiles.filter(function(x) { return x !== file; });
+              renderBrowse();
+            } else { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+          } catch(ex) { showToast(tt('fmDeleteFailed','Delete failed.'), true); }
+        }});
+      }
+
+      showCtx(e.clientX, e.clientY, items);
+    });
   };
 
   /* ── Browse-tab folder context menu ── */

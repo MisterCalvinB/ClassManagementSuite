@@ -501,7 +501,7 @@ button.action-btn:hover {
   border-radius: 7px;
   box-shadow: 4px 4px 0 #111;
   padding: 20px 24px 18px;
-  width: 640px;
+  width: 950px;
   max-width: 96vw;
   display: flex;
   flex-direction: column;
@@ -532,6 +532,81 @@ button.action-btn:hover {
   flex: 1;
 }
 
+/* Sidebar customization tabs */
+#board-customise-modal .bc-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  margin: 10px -24px 0;
+  border-top: 2px solid #111;
+  border-bottom: 2px solid #111;
+  height: 65vh;
+  max-height: calc(100vh - 200px);
+}
+
+#board-customise-modal .bc-sidebar {
+  width: 220px;
+  background-color: #f9fafb;
+  border-right: 2px solid #111;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 100%;
+}
+
+#board-customise-modal .bc-sidebar-item {
+  padding: 10px 14px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+
+#board-customise-modal .bc-sidebar-item:hover {
+  background-color: #f3f4f6;
+  color: #111;
+  border-color: #111;
+}
+
+#board-customise-modal .bc-sidebar-item.active {
+  background-color: #ffd54f;
+  color: #111;
+  border-color: #111;
+  box-shadow: 2px 2px 0 #111;
+}
+
+#board-customise-modal .bc-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  max-height: 100%;
+}
+
+#board-customise-modal .bc-tab-pane {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+#board-customise-modal .bc-tab-pane.active {
+  display: flex;
+}
+
 .bc-section {
   display: flex;
   flex-direction: column;
@@ -539,6 +614,12 @@ button.action-btn:hover {
   border: 1px solid #e5e5e5;
   border-radius: 5px;
   padding: 10px 12px;
+  transition: padding 0.15s ease, margin 0.15s ease;
+}
+
+.bc-section.collapsed {
+  gap: 0;
+  padding: 8px 12px;
 }
 
 .bc-section-title {
@@ -547,6 +628,36 @@ button.action-btn:hover {
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #333;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.bc-section-title:hover {
+  background-color: #f3f4f6;
+  color: #111;
+}
+
+.bc-section-title::before {
+  content: '▼';
+  font-size: 0.6rem;
+  color: #888;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.bc-section.collapsed .bc-section-title::before {
+  transform: rotate(-90deg);
+}
+
+.bc-section.collapsed > *:not(.bc-section-title) {
+  display: none !important;
 }
 
 .bc-section-hint {
