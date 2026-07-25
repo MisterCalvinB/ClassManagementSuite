@@ -104,8 +104,8 @@
       classPicker.disabled = connected;
       const halfPicker = document.getElementById('half-picker');
       if (halfPicker) halfPicker.disabled = connected || (halfFromUrl === '1' || halfFromUrl === '2');
-      namePicker.disabled = connected;
-      nameInput.disabled = connected;
+      namePicker.disabled = false;
+      nameInput.disabled = false;
       serverInput.disabled = connected;
     }
 
@@ -234,20 +234,25 @@
       setStatus('Disconnected.', 'bad');
     }
 
-    function connect() {
+    function connect(isAuto) {
+      isAuto = (isAuto === true);
       if (!noteId) {
-        setStatus('Missing room id in URL. Ask your teacher for a new QR/link.', 'bad');
+        if (!isAuto) setStatus('Missing room id in URL. Ask your teacher for a new QR/link.', 'bad');
         return;
       }
       const { classId, classLabel } = getSelectedClassInfo();
-      const studentName = _getStudentName();
-      if (!classId) {
+      let studentName = _getStudentName();
+      if (!classId && !isAuto) {
         setStatus('Select your class first.', 'bad');
         return;
       }
       if (!studentName) {
-        setStatus('Enter your name first.', 'bad');
-        return;
+        if (isAuto) {
+          studentName = 'Student';
+        } else {
+          setStatus('Enter your name first.', 'bad');
+          return;
+        }
       }
 
       disconnect();
@@ -255,7 +260,7 @@
       try {
         url = wsUrlFromServerInput();
       } catch (_) {
-        setStatus('Invalid server URL.', 'bad');
+        if (!isAuto) setStatus('Invalid server URL.', 'bad');
         return;
       }
 
@@ -274,7 +279,7 @@
           type: 'hello',
           role: 'note-student',
           noteId: noteId,
-          classGroup: classLabel || classId,
+          classGroup: classLabel || classId || '',
           name: studentName
         }));
       };
@@ -285,11 +290,53 @@
         if (!msg || !msg.type) return;
 
         if (msg.type === 'welcome') {
+          // If the server sends classGroup, update the classPicker
+          if (msg.classGroup) {
+            let found = false;
+            for (let i = 0; i < classPicker.options.length; i++) {
+              if (classPicker.options[i].value === msg.classGroup) {
+                classPicker.value = msg.classGroup;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              const opt = document.createElement('option');
+              opt.value = msg.classGroup;
+              opt.textContent = msg.classGroup;
+              if (classPicker.options.length === 1 && classPicker.options[0].value === '') {
+                classPicker.innerHTML = '';
+              }
+              classPicker.appendChild(opt);
+              classPicker.value = msg.classGroup;
+            }
+          }
+
           // If the server sends a roster, switch to the dropdown now
           if (Array.isArray(msg.roster) && msg.roster.length) {
+            const currentSelected = _getStudentName();
             _switchNameMode('select', msg.roster);
+            // If the user already had a name selected or typed (and it wasn't the placeholder 'Student'), try to preserve it!
+            if (currentSelected && currentSelected !== 'Student') {
+              const matched = msg.roster.find(n => n.toUpperCase() === currentSelected.toUpperCase()) ||
+                              msg.roster.find(n => n.toUpperCase().includes(currentSelected.toUpperCase()));
+              if (matched) {
+                namePicker.value = matched;
+                // If it matched but the text representation was slightly different, update the server
+                if (matched !== currentSelected && ws && connected) {
+                  ws.send(JSON.stringify({
+                    type: 'hello',
+                    role: 'note-student',
+                    noteId: noteId,
+                    classGroup: getSelectedClassInfo().classLabel || getSelectedClassInfo().classId || '',
+                    name: matched
+                  }));
+                }
+              }
+            }
           }
           setStatus('Connected. You can now send your note.', 'ok');
+          buildMeta();
         } else if (msg.type === 'note_ack') {
           messageInput.value = '';
           setStatus('Sent to teacher.', 'ok');
@@ -339,7 +386,22 @@
         buildMeta();
       });
     }
-    namePicker.addEventListener('change', buildMeta);
+
+    function sendNameUpdate() {
+      buildMeta();
+      if (connected && ws) {
+        ws.send(JSON.stringify({
+          type: 'hello',
+          role: 'note-student',
+          noteId: noteId,
+          classGroup: getSelectedClassInfo().classLabel || getSelectedClassInfo().classId || '',
+          name: _getStudentName()
+        }));
+      }
+    }
+    namePicker.addEventListener('change', sendNameUpdate);
+    nameInput.addEventListener('change', sendNameUpdate);
+
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
     sendBtn.addEventListener('click', sendNote);
@@ -350,7 +412,8 @@
       }
     });
 
-    serverInput.value = location.origin;
+    const isLocalFile = !location.origin || /^file:/i.test(location.origin) || location.origin === 'null';
+    serverInput.value = isLocalFile ? 'http://localhost:8787' : location.origin;
     if (_halfPickerEl && (halfFromUrl === '1' || halfFromUrl === '2')) {
       _halfPickerEl.value = halfFromUrl;
     }
@@ -361,7 +424,8 @@
     if (!noteId) {
       setStatus('Missing room id. Open this page from your teacher QR/link.', 'bad');
     } else {
-      setStatus('Select class and name, then connect.', '');
+      setStatus('Connecting automatically...', '');
+      connect(true);
     }
   </script>
 </body>

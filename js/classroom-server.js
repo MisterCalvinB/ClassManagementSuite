@@ -335,6 +335,21 @@ function quizNoteOnMessage(ws, raw) {
     }
 
     if (role === 'player') {
+      if (meta && meta.role === 'player' && meta.playerId) {
+        const p = quizPlayers.get(meta.playerId);
+        if (p) {
+          p.name = safeName;
+          meta.name = safeName;
+          sendJson(ws, { type: 'welcome', role: 'player', playerId: meta.playerId, name: safeName });
+          if (quizClassGroupsState) {
+            sendJson(ws, { type: 'class_groups', payload: quizClassGroupsState });
+          }
+          sendJson(ws, quizPresence());
+          quizBroadcast(quizPresence());
+          quizBroadcast(quizAnswersPayload(), m => m.role === 'host');
+          return;
+        }
+      }
       const playerId = 'p-' + Math.random().toString(36).slice(2, 10);
       quizPlayers.set(playerId, { id: playerId, name: safeName, score: 0, ws });
       quizSockets.set(ws, { role: 'player', playerId, name: safeName });

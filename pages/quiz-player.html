@@ -72,6 +72,7 @@
     const _qpQuery = new URLSearchParams(location.search);
     const classFromUrl = String(_qpQuery.get('class') || '').trim();
     const halfFromUrl = String(_qpQuery.get('half') || '').trim();
+    const nameFromUrl = String(_qpQuery.get('name') || _qpQuery.get('student') || '').trim();
 
     function _qpGetGroupLabel(groupId) {
       try {
@@ -163,6 +164,13 @@
       return false;
     }
 
+    function sendNameUpdate() {
+      const name = String(nameEl.value || '').trim();
+      if (connected && ws && name) {
+        ws.send(JSON.stringify({ type: 'hello', role: 'player', name }));
+      }
+    }
+
     function fillStudentPicker() {
       const { groups } = normalizeClassGroups();
       const className = String(classPickerEl.value || '');
@@ -190,16 +198,12 @@
         if (idx === 0) opt.selected = true;
       });
 
+      const oldVal = nameEl.value;
       if (!String(nameEl.value || '').trim()) {
         nameEl.value = String(studentPickerEl.value || '');
       }
-    }
-
-    function getStoredClassGroup() {
-      try {
-        return String(localStorage.getItem('active_class_group') || '').trim();
-      } catch (_) {
-        return '';
+      if (nameEl.value !== oldVal) {
+        sendNameUpdate();
       }
     }
 
@@ -212,21 +216,17 @@
         return (labels[a] || a).localeCompare(labels[b] || b);
       });
 
-      // Try to find a matching key for the URL parameter or stored value
       let matchingKey = null;
       if (classFromUrlValue) {
-        // Try exact match first
         if (classNames.includes(classFromUrlValue)) {
           matchingKey = classFromUrlValue;
         } else {
-          // Try matching by display name
           matchingKey = classNames.find(function (key) {
             return _qpGetGroupLabel(key) === classFromUrlValue;
           });
         }
       }
 
-      // Fall back to stored selection if URL param didn't match
       if (!matchingKey && storedClassGroup && classNames.includes(storedClassGroup)) {
         matchingKey = storedClassGroup;
       }
@@ -260,7 +260,8 @@
 
     function wsUrl() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return proto + '//' + location.host + '/quiz-ws';
+      const host = (!location.host || location.origin === 'null') ? 'localhost:8787' : location.host;
+      return proto + '//' + host + '/quiz-ws';
     }
 
     function setStatus(text, isError) {
@@ -271,10 +272,10 @@
     function setButtons() {
       connectBtn.disabled = connected;
       disconnectBtn.disabled = !connected;
-      nameEl.disabled = connected;
-      classPickerEl.disabled = connected;
-      halfPickerEl.disabled = connected || (halfFromUrl === '1' || halfFromUrl === '2');
-      studentPickerEl.disabled = connected;
+      nameEl.disabled = false;
+      classPickerEl.disabled = false;
+      halfPickerEl.disabled = (halfFromUrl === '1' || halfFromUrl === '2');
+      studentPickerEl.disabled = false;
     }
 
     function formatMs(ms) {
@@ -357,10 +358,19 @@
       setStatus('Disconnected.', true);
     }
 
-    function connect() {
+    function connect(isAuto) {
+      isAuto = (isAuto === true);
       const pickedStudent = String(studentPickerEl.value || '').trim();
       const typedName = String(nameEl.value || '').trim();
-      const name = typedName || pickedStudent || 'Player';
+      let name = typedName || pickedStudent;
+      if (!name) {
+        if (isAuto) {
+          name = 'Player';
+        } else {
+          setStatus('Enter your name first.', true);
+          return;
+        }
+      }
       nameEl.value = name;
       disconnect();
       setStatus('Connecting...', false);
@@ -385,7 +395,8 @@
           if (msg.role === 'player' && msg.playerId) {
             playerId = String(msg.playerId);
           }
-          setStatus('Connected as ' + name + '.', false);
+          const displayName = msg.name || name;
+          setStatus('Connected as ' + displayName + '.', false);
         } else if (msg.type === 'question') {
           questionState = msg.payload || null;
           selectedAnswer = null;
@@ -442,7 +453,20 @@
           setStatus('Game ended by host. See final leaderboard.', false);
         } else if (msg.type === 'class_groups') {
           remoteClassGroupsState = msg.payload || null;
+          const currentSelected = String(nameEl.value || '').trim();
           fillClassPicker();
+          if (currentSelected && currentSelected !== 'Player') {
+            const { groups } = normalizeClassGroups();
+            const className = String(classPickerEl.value || '');
+            const names = Array.isArray(groups[className]) ? groups[className] : [];
+            const matched = names.find(n => n.toUpperCase() === currentSelected.toUpperCase()) ||
+                            names.find(n => n.toUpperCase().includes(currentSelected.toUpperCase()));
+            if (matched) {
+              studentPickerEl.value = matched;
+              nameEl.value = matched;
+              sendNameUpdate();
+            }
+          }
           setStatus('Class list updated from host.', false);
         } else if (msg.type === 'presence') {
           renderLeaderboard(msg.leaderboard || []);
@@ -465,7 +489,7 @@
       };
     }
 
-    connectBtn.addEventListener('click', connect);
+    connectBtn.addEventListener('click', () => connect(false));
     disconnectBtn.addEventListener('click', disconnect);
     classPickerEl.addEventListener('change', function() {
       fillStudentPicker();
@@ -473,13 +497,22 @@
     halfPickerEl.addEventListener('change', function() {
       fillStudentPicker();
     });
+    
     studentPickerEl.addEventListener('change', function() {
       const selected = String(studentPickerEl.value || '').trim();
-      if (selected) nameEl.value = selected;
+      if (selected) {
+        nameEl.value = selected;
+        sendNameUpdate();
+      }
     });
+    nameEl.addEventListener('change', sendNameUpdate);
     nameEl.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') connect();
     });
+    
+    if (nameFromUrl) {
+      nameEl.value = nameFromUrl;
+    }
     if (halfFromUrl === '1' || halfFromUrl === '2') {
       halfPickerEl.value = halfFromUrl;
     }
@@ -487,6 +520,9 @@
     loadClassGroupsData().then(function () {
       fillClassPicker();
       setButtons();
+      
+      setStatus('Connecting automatically...', false);
+      connect(true);
     });
   </script>
 </body>

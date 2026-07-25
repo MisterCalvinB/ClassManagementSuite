@@ -450,6 +450,18 @@ function onSocketMessage(ws, raw) {
     }
 
     if (role === 'player') {
+      if (meta && meta.role === 'player' && meta.playerId) {
+        const p = players.get(meta.playerId);
+        if (p) {
+          p.name = safeName;
+          meta.name = safeName;
+          sendJson(ws, { type: 'welcome', role: 'player', playerId: meta.playerId, name: safeName });
+          sendJson(ws, presencePayload());
+          broadcast(presencePayload());
+          broadcast(answersPayload(), m => m.role === 'host');
+          return;
+        }
+      }
       const playerId = 'p-' + Math.random().toString(36).slice(2, 10);
       const player = { id: playerId, name: safeName, score: 0, ws };
       players.set(playerId, player);
