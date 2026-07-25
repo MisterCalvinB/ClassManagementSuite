@@ -1372,6 +1372,21 @@
         }
         if (data.groupName !== undefined) selectedGroupName = data.groupName;
         if (data.halfGroup !== undefined) selectedHalfGroup = data.halfGroup;
+        const classBtn = document.getElementById('class-selection-btn');
+        if (classBtn) {
+            if (selectedGroupName) {
+                const displayName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+                const halfSuffix = selectedHalfGroup ? ' ½' + selectedHalfGroup : '';
+                classBtn.innerHTML = `${displayName}${halfSuffix}`;
+                classBtn.classList.add('active');
+            } else {
+                classBtn.innerHTML = 'Select Class';
+                classBtn.classList.remove('active');
+            }
+        }
+        if (typeof renderGroupButtons === 'function') {
+            try { renderGroupButtons(); } catch (_) {}
+        }
         if (data.presSettings !== undefined) rosterPlanView = !!data.presSettings?.plan;
         if (data.classPlans) {
             try { classPlans = JSON.parse(JSON.stringify(data.classPlans)); } catch (_) {}
@@ -1517,9 +1532,9 @@
         if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
         const popup = document.createElement('div');
         popup.id = 'cms-pres-popup';
-        popup.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:none;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+        popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;cursor:move;user-select:none;';
         popup.innerHTML = ''
-            + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + t('pres_menu_title') + '</div>'
+            + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:2px;cursor:move;">' + t('pres_menu_title') + '</div>'
             + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
             + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_freeze') + '</button>'
             + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_resize') + '</button>'
@@ -1539,6 +1554,71 @@
             else if (action === 'right') cmsPresentationDockRight();
             else if (action === 'left') cmsPresentationDockLeft();
         });
+
+        // Make the popup draggable
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        popup.addEventListener('mousedown', dragMouseDown);
+        popup.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+        function dragMouseDown(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            e = e || window.event;
+            if (e.type !== 'touchstart') {
+                e.preventDefault();
+            }
+            if (e.type === 'touchstart') {
+                pos3 = e.touches[0].clientX;
+                pos4 = e.touches[0].clientY;
+            } else {
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+            }
+            document.addEventListener('mouseup', closeDragElement);
+            document.addEventListener('mousemove', elementDrag);
+            document.addEventListener('touchend', closeDragElement);
+            document.addEventListener('touchmove', elementDrag, { passive: false });
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            let clientX, clientY;
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            pos1 = pos3 - clientX;
+            pos2 = pos4 - clientY;
+            pos3 = clientX;
+            pos4 = clientY;
+
+            let newTop = popup.offsetTop - pos2;
+            let newLeft = popup.offsetLeft - pos1;
+
+            const rect = popup.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (newTop < 0) newTop = 0;
+            if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
+            if (newLeft < 0) newLeft = 0;
+            if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+
+            popup.style.top = newTop + 'px';
+            popup.style.left = newLeft + 'px';
+            popup.style.right = 'auto';
+            popup.style.bottom = 'auto';
+        }
+
+        function closeDragElement() {
+            document.removeEventListener('mouseup', closeDragElement);
+            document.removeEventListener('mousemove', elementDrag);
+            document.removeEventListener('touchend', closeDragElement);
+            document.removeEventListener('touchmove', elementDrag);
+        }
+
         document.body.appendChild(popup);
         syncPresentationFreezeButtons();
     }
