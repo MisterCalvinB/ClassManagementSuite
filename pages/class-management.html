@@ -14857,8 +14857,14 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
       var action    = act.action;
       var studentId = act.studentId;
       var groupName = act.groupName;
-      // Only apply to the currently displayed group
-      if (groupName !== selectedGroupName) return;
+      // Switch active class group if different to process remote action in correct context
+      if (groupName !== selectedGroupName) {
+        if (typeof selectGroup === 'function') {
+          selectGroup(groupName);
+        } else {
+          return;
+        }
+      }
       if (action === 'score') {
         mod(studentId, act.delta > 0 ? 'p' : 'm', 1);
       } else if (action === 'badge_add') {

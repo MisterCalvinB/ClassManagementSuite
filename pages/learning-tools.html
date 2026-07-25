@@ -6755,6 +6755,7 @@
       players: [],
       leaderboard: []
     };
+    let _quizMpHostSecret = null;
     let quizDevFeaturesEnabled = false;
 
     function readDevFeaturesSetting() {
@@ -6870,7 +6871,13 @@
 
     function quizMpBuildWsUrl() {
       const inputEl = document.getElementById('quiz-mp-server');
-      let base = String((inputEl && inputEl.value) || '').trim();
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      let base = '';
+      if (_quizMpCurrentMode === 'local') {
+        base = isElectron ? String((inputEl && inputEl.value) || '').trim() : location.origin;
+      } else {
+        base = String((inputEl && inputEl.value) || '').trim();
+      }
       if (!base) base = location.origin;
       if (!/^https?:\/\//i.test(base) && !/^wss?:\/\//i.test(base)) {
         base = 'http://' + base;
@@ -6932,7 +6939,13 @@
 
     function quizMpJoinUrlForDisplay() {
       const inputEl = document.getElementById('quiz-mp-server');
-      let base = String((inputEl && inputEl.value) || '').trim();
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      let base = '';
+      if (_quizMpCurrentMode === 'local') {
+        base = isElectron ? String((inputEl && inputEl.value) || '').trim() : location.origin;
+      } else {
+        base = String((inputEl && inputEl.value) || '').trim();
+      }
       if (!base) base = location.origin;
       if (!/^https?:\/\//i.test(base)) {
         if (/^wss?:\/\//i.test(base)) {
@@ -7128,6 +7141,9 @@
       quizMpRenderPresence();
       quizMpRenderLeaderboard();
       quizRenderChoices();
+      if (window.Desktop && typeof Desktop.quizServerStop === 'function') {
+        Desktop.quizServerStop().catch(function () { });
+      }
     }
 
     async function quizMpConnect() {
@@ -7162,6 +7178,23 @@
         quizMpSetStatus('Invalid server URL.', true);
         return;
       }
+      if (_quizMpCurrentMode === 'external' && window.Desktop && typeof Desktop.remoteConfigRead === 'function' && typeof Desktop.remoteConfigSave === 'function') {
+        try {
+          const r = await Desktop.remoteConfigRead();
+          const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
+          const typedUrl = String(serverInput.value || '').trim();
+          const savedUrl = String(cfg.quizServerUrl || cfg.serverUrl || '').trim();
+          if (typedUrl && typedUrl !== savedUrl) {
+            const msg = 'Do you want to save this new server URL for future connections?';
+            const shouldSave = (typeof showConfirm === 'function') ? await showConfirm(msg) : confirm(msg);
+            if (shouldSave) {
+              cfg.quizMode = 'external';
+              cfg.quizServerUrl = typedUrl;
+              await Desktop.remoteConfigSave(cfg);
+            }
+          }
+        } catch (_) {}
+      }
       quizMpDisconnect();
       let ws;
       try {
@@ -7176,7 +7209,10 @@
       ws.onopen = function () {
         quizMp.connected = true;
         quizMpSetStatus('Connected. Waiting for players.', false);
-        quizMpSend({ type: 'hello', role: 'host', name: 'Teacher', payload: quizMpBuildHostClassPayload() });
+        if (!_quizMpHostSecret) {
+          _quizMpHostSecret = 'qhs-' + Math.random().toString(36).slice(2, 10);
+        }
+        quizMpSend({ type: 'hello', role: 'host', name: 'Teacher', hostSecret: _quizMpHostSecret, payload: quizMpBuildHostClassPayload() });
         quizMpSendClassPayload();
         if (quizCurrent) quizMpPushCurrentQuestion();
         quizRenderChoices();
@@ -7570,17 +7606,23 @@
       if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function' && typeof Desktop.remoteConfigSave === 'function') {
         Desktop.remoteConfigRead().then(function (r) {
           const existing = (r && r.ok && r.config && typeof r.config === 'object') ? r.config : {};
-          const nextCfg = Object.assign({}, existing, { mode: _quizMpCurrentMode });
-          const typedUrl = serverInput ? String(serverInput.value || '').trim() : '';
-          const persistedUrl = typedUrl || String(existing.serverUrl || '').trim();
-          if (persistedUrl) {
-            nextCfg.serverUrl = persistedUrl;
+          const nextCfg = Object.assign({}, existing, { quizMode: _quizMpCurrentMode });
+          if (!isLocal && serverInput) {
+            const val = String(serverInput.value || '').trim();
+            const isLocalAddress = !val || /127\.0\.0\.1|localhost/i.test(val);
+            if (isLocalAddress && (existing.quizServerUrl || existing.serverUrl)) {
+              serverInput.value = existing.quizServerUrl || existing.serverUrl;
+              if (typeof quizMpUpdateQrCode === 'function') quizMpUpdateQrCode();
+            }
+            nextCfg.quizServerUrl = String(serverInput.value || '').trim();
           } else {
-            delete nextCfg.serverUrl;
+            if (existing.quizServerUrl) {
+              nextCfg.quizServerUrl = existing.quizServerUrl;
+            }
           }
           Desktop.remoteConfigSave(nextCfg).catch(function () { });
         }).catch(function () {
-          Desktop.remoteConfigSave({ mode: _quizMpCurrentMode }).catch(function () { });
+          Desktop.remoteConfigSave({ quizMode: _quizMpCurrentMode }).catch(function () { });
         });
       }
     }
@@ -7608,7 +7650,9 @@
       if (window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
         Desktop.remoteConfigRead().then(function (r) {
           const cfg = (r && r.ok && r.config) ? r.config : {};
-          _quizMpSetMode(cfg.mode === 'external' ? 'external' : 'local', cfg.serverUrl || '');
+          const quizMode = cfg.quizMode === 'external' ? 'external' : 'local';
+          const quizServerUrl = cfg.quizServerUrl || cfg.serverUrl || '';
+          _quizMpSetMode(quizMode, quizServerUrl);
         }).catch(function () { });
       }
     }

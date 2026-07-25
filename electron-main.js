@@ -5241,9 +5241,18 @@ function _localServerRunning() {
 }
 
 async function ensureLocalServerRunning(port) {
-  if (_localServerRunning()) return { ok: true, port: _localServerPort };
-
   const requestedPort = Number(port) || 8787;
+
+  if (_localServerRunning()) {
+    if (_localServerPort === requestedPort) {
+      return { ok: true, port: _localServerPort };
+    }
+    if (_localServerProc) {
+      try { _localServerProc.kill(); } catch (_) {}
+      _localServerProc = null;
+    }
+  }
+
   const scriptPath    = path.join(ROOT_DIR, 'js', 'classroom-server.js');
 
   if (!fsSync.existsSync(scriptPath)) {

@@ -23667,10 +23667,18 @@ function hideFailure() {
       if (prefillUrl === undefined && window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
         Desktop.remoteConfigRead().then(function (r) {
           const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
-          cfg.mode = _noteStudentHub.mode;
-          if (!isLocal && serverInput) cfg.serverUrl = String(serverInput.value || '').trim();
+          cfg.noteMode = _noteStudentHub.mode;
+          if (!isLocal && serverInput) {
+            const val = String(serverInput.value || '').trim();
+            const isLocalAddress = !val || /127\.0\.0\.1|localhost/i.test(val);
+            if (isLocalAddress && (cfg.noteServerUrl || cfg.serverUrl)) {
+              serverInput.value = cfg.noteServerUrl || cfg.serverUrl;
+              noteStudentUpdateJoinDisplay();
+            }
+            cfg.noteServerUrl = String(serverInput.value || '').trim();
+          }
           Desktop.remoteConfigSave(cfg).catch(function () {});
-        }).catch(function () { Desktop.remoteConfigSave({ mode: _noteStudentHub.mode }).catch(function () {}); });
+        }).catch(function () { Desktop.remoteConfigSave({ noteMode: _noteStudentHub.mode }).catch(function () {}); });
       }
     }
 
@@ -23735,7 +23743,12 @@ function hideFailure() {
       const publicEl = document.getElementById('note-student-public-url');
       const qrEl = document.getElementById('note-student-qr');
       let hostBase = '-';
-      try { hostBase = noteStudentBuildHttpBase(serverInput ? serverInput.value : ''); } catch (_) { hostBase = '-'; }
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      let inputVal = serverInput ? serverInput.value : '';
+      if (_noteStudentHub.mode === 'local' && !isElectron) {
+        inputVal = location.origin;
+      }
+      try { hostBase = noteStudentBuildHttpBase(inputVal); } catch (_) { hostBase = '-'; }
       if (hostEl) hostEl.textContent = hostBase;
       if (publicEl) publicEl.textContent = _noteStudentHub.joinUrl || '-';
       if (joinEl) joinEl.textContent = _noteStudentHub.joinUrl || '-';
@@ -23784,10 +23797,12 @@ function hideFailure() {
       if (window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
         Desktop.remoteConfigRead().then(function (result) {
           const cfg = (result && result.ok && result.config) ? result.config : {};
-          _noteStudentSetMode(cfg.mode === 'external' ? 'external' : 'local', cfg.serverUrl || '');
+          const noteMode = cfg.noteMode === 'external' ? 'external' : 'local';
+          const noteServerUrl = cfg.noteServerUrl || cfg.serverUrl || '';
+          _noteStudentSetMode(noteMode, noteServerUrl);
           // Always apply the saved URL — don't let a stale or default value stick
-          if (cfg.serverUrl && serverInput) serverInput.value = cfg.serverUrl;
-          if (cfg.mode === 'external' && cfg.serverUrl) {
+          if (noteServerUrl && serverInput) serverInput.value = noteServerUrl;
+          if (noteMode === 'external' && noteServerUrl) {
             noteStudentSetStatus('External server configured. Click Connect & Open Room.', false);
           } else {
             if (!serverInput || !String(serverInput.value || '').trim()) {
@@ -24015,6 +24030,9 @@ function hideFailure() {
       _noteStudentHub.ws = null; _noteStudentHub.connected = false;
       noteStudentApplyUiState();
       if (!quiet) noteStudentSetStatus('Disconnected.', true);
+      if (window.Desktop && typeof Desktop.quizServerStop === 'function') {
+        Desktop.quizServerStop().catch(() => {});
+      }
     }
 
     async function noteStudentConnect() {
@@ -24033,11 +24051,35 @@ function hideFailure() {
         const base = String(electronServer.baseUrl || noteStudentLocalBaseFromServerInfo(electronServer) || '').trim();
         if (base) serverInput.value = base;
       } else if (isElectron && _noteStudentHub.mode !== 'external') { noteStudentSetStatus('Could not start local note server. Please retry.', true); return; }
+      let base = String(serverInput.value || '').trim();
+      if (_noteStudentHub.mode === 'local' && !isElectron) {
+        base = location.origin;
+      }
       let wsUrl = '';
-      try { wsUrl = noteStudentBuildWsUrl(serverInput.value); } catch (_) { noteStudentSetStatus('Invalid server URL.', true); return; }
+      try { wsUrl = noteStudentBuildWsUrl(base); } catch (_) { noteStudentSetStatus('Invalid server URL.', true); return; }
+      if (_noteStudentHub.mode === 'external' && window.Desktop && typeof Desktop.remoteConfigRead === 'function') {
+        try {
+          const r = await Desktop.remoteConfigRead();
+          const cfg = (r && r.ok && r.config) ? Object.assign({}, r.config) : {};
+          const typedUrl = String(serverInput.value || '').trim();
+          const savedUrl = String(cfg.noteServerUrl || cfg.serverUrl || '').trim();
+          if (typedUrl && typedUrl !== savedUrl) {
+            const msg = 'Do you want to save this new server URL for future connections?';
+            const shouldSave = (typeof showConfirm === 'function') ? await showConfirm(msg) : confirm(msg);
+            if (shouldSave) {
+              cfg.noteMode = 'external';
+              cfg.noteServerUrl = typedUrl;
+              await Desktop.remoteConfigSave(cfg);
+            }
+          }
+        } catch (_) {}
+      }
       if (!_noteStudentHub.noteId) _noteStudentHub.noteId = noteStudentMakeId();
+      if (!_noteStudentHub.hostSecret) {
+        _noteStudentHub.hostSecret = 'nhs-' + Math.random().toString(36).slice(2, 10);
+      }
       _noteStudentHub.classGroup = classGroup; _noteStudentHub.title = title;
-      const joinBase = (electronServer && electronServer.publicBaseUrl) ? electronServer.publicBaseUrl : serverInput.value;
+      const joinBase = (electronServer && electronServer.publicBaseUrl) ? electronServer.publicBaseUrl : (_noteStudentHub.mode === 'local' ? location.origin : serverInput.value);
       _noteStudentHub.joinUrl = noteStudentBuildJoinUrl(joinBase, _noteStudentHub.noteId, classGroup);
       roomInput.value = _noteStudentHub.noteId;
       noteStudentUpdateJoinDisplay();
@@ -24064,7 +24106,7 @@ function hideFailure() {
           }
           return Array.isArray(_l[_g]) ? _l[_g].map(String).filter(Boolean) : [];
         })();
-        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: classGroup, title: _noteStudentHub.title, roster: _nhRoster } }));
+        ws.send(JSON.stringify({ type: 'note_host_open', payload: { noteId: _noteStudentHub.noteId, classGroup: classGroup, title: _noteStudentHub.title, roster: _nhRoster, hostSecret: _noteStudentHub.hostSecret } }));
       };
       ws.onmessage = function(event) { let msg = null; try { msg = JSON.parse(event.data); } catch (_) { return; } noteStudentHandleMessage(msg); };
       ws.onerror = function() { noteStudentSetStatus('Websocket error.', true); };

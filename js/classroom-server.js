@@ -65,6 +65,7 @@ function sha256(str) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 let quizHostWs    = null;
+let quizHostSecret = null;
 let quizSeq       = 0;
 let quizCurrent   = null;
 let quizEnded     = false;
@@ -255,15 +256,21 @@ function noteHandleHostOpen(ws, payload) {
   const roster     = Array.isArray(payload && payload.roster)
     ? payload.roster.map(n => String(n || '').trim()).filter(Boolean).slice(0, 200)
     : [];
+  const hostSecret = payload && payload.hostSecret ? String(payload.hostSecret) : null;
 
   if (!noteId) { sendJson(ws, { type: 'error', message: 'Invalid note room id.' }); return; }
 
   const room = noteHosts.get(noteId);
   if (room && room.ws !== ws && room.ws.readyState === 1) {
-    sendJson(ws, { type: 'error', message: 'A different host is already using this note room id.' });
-    return;
+    if (hostSecret && room.hostSecret === hostSecret) {
+      try { room.ws.close(); } catch (_) {}
+      room.ws = ws;
+    } else {
+      sendJson(ws, { type: 'error', message: 'A different host is already using this note room id.' });
+      return;
+    }
   }
-  noteHosts.set(noteId, { ws, noteId, classGroup, title, roster });
+  noteHosts.set(noteId, { ws, noteId, classGroup, title, roster, hostSecret });
   sendJson(ws, { type: 'note_host_opened', payload: { noteId, classGroup, title } });
 }
 
@@ -300,11 +307,27 @@ function quizNoteOnMessage(ws, raw) {
     const rawName = String(msg && msg.name || '').trim();
     const safeName = (rawName || 'Player').slice(0, 24);
 
+    const isQuizRole = (role === 'host' || role === 'player');
+    const isNoteRole = (role === 'note-host' || role === 'note-student');
+
+    if ((ws._endpoint === 'quiz' && !isQuizRole) || (ws._endpoint === 'note' && !isNoteRole)) {
+      sendJson(ws, { type: 'error', message: 'Unauthorized role for this endpoint.' });
+      ws.close();
+      return;
+    }
+
     if (role === 'host') {
+      const hostSecret = msg.hostSecret ? String(msg.hostSecret) : null;
       if (quizHostWs && quizHostWs !== ws && quizHostWs.readyState === 1) {
-        sendJson(ws, { type: 'error', message: 'A host is already connected.' }); ws.close(); return;
+        if (hostSecret && quizHostSecret && quizHostSecret === hostSecret) {
+          try { quizHostWs.close(); } catch (_) {}
+          quizHostWs = ws;
+        } else {
+          sendJson(ws, { type: 'error', message: 'A host is already connected.' }); ws.close(); return;
+        }
       }
       quizHostWs = ws;
+      quizHostSecret = hostSecret;
       quizSockets.set(ws, { role: 'host', name: safeName });
       const hostClassPayload = normalizeQuizClassPayload(msg && msg.payload);
       if (hostClassPayload && hostClassPayload.classGroupsData) {
@@ -335,6 +358,31 @@ function quizNoteOnMessage(ws, raw) {
     }
 
     if (role === 'player') {
+      const reqPlayerId = msg.playerId ? String(msg.playerId).trim() : null;
+      if (reqPlayerId) {
+        const p = quizPlayers.get(reqPlayerId);
+        if (p && p.name === safeName) {
+          if (p.disconnectTimeout) clearTimeout(p.disconnectTimeout);
+          p.ws = ws;
+          quizSockets.set(ws, { role: 'player', playerId: reqPlayerId, name: safeName });
+          sendJson(ws, { type: 'welcome', role: 'player', playerId: reqPlayerId, name: safeName });
+          if (quizClassGroupsState) {
+            sendJson(ws, { type: 'class_groups', payload: quizClassGroupsState });
+          }
+          sendJson(ws, quizPresence());
+          if (quizCurrent) sendJson(ws, { type: 'question', payload: quizPublicQuestion(quizCurrent) });
+          if (quizCurrent && quizCurrent.revealed) {
+            sendJson(ws, { type: 'reveal', payload: {
+              questionId: quizCurrent.id, correctIndex: quizCurrent.correctIndex,
+              correctAnswer: quizCurrent.answers[quizCurrent.correctIndex] || '',
+              leaderboard: quizLeaderboard()
+            }});
+          }
+          quizBroadcast(quizPresence());
+          quizBroadcast(quizAnswersPayload(), m => m.role === 'host');
+          return;
+        }
+      }
       if (meta && meta.role === 'player' && meta.playerId) {
         const p = quizPlayers.get(meta.playerId);
         if (p) {
@@ -432,10 +480,17 @@ function quizNoteOnClose(ws) {
     return;
   }
   if (meta.role === 'player' && meta.playerId) {
-    quizPlayers.delete(meta.playerId);
-    if (quizCurrent && quizCurrent.responses) quizCurrent.responses.delete(meta.playerId);
-    quizBroadcast(quizPresence());
-    quizBroadcast(quizAnswersPayload(), m => m.role === 'host');
+    const p = quizPlayers.get(meta.playerId);
+    if (p) {
+      p.ws = null;
+      if (p.disconnectTimeout) clearTimeout(p.disconnectTimeout);
+      p.disconnectTimeout = setTimeout(() => {
+        quizPlayers.delete(meta.playerId);
+        if (quizCurrent && quizCurrent.responses) quizCurrent.responses.delete(meta.playerId);
+        quizBroadcast(quizPresence());
+        quizBroadcast(quizAnswersPayload(), m => m.role === 'host');
+      }, 15000);
+    }
     return;
   }
   if (meta.role === 'note-host') {
@@ -673,17 +728,18 @@ const quizWss = new WebSocketServer({ noServer: true });
 const noteWss = new WebSocketServer({ noServer: true });
 const cmsWss  = new WebSocketServer({ noServer: true });
 
-function attachServer(wss, onMsg, onClose) {
+function attachServer(wss, endpointName, onMsg, onClose) {
   wss.on('connection', (ws) => {
+    ws._endpoint = endpointName;
     ws.on('message', (raw) => onMsg(ws, raw));
     ws.on('close',   ()    => onClose(ws));
     ws.on('error',   ()    => onClose(ws));
   });
 }
 
-attachServer(quizWss, quizNoteOnMessage, quizNoteOnClose);
-attachServer(noteWss, quizNoteOnMessage, quizNoteOnClose);
-attachServer(cmsWss,  cmsOnMessage,      cmsOnClose);
+attachServer(quizWss, 'quiz', quizNoteOnMessage, quizNoteOnClose);
+attachServer(noteWss, 'note', quizNoteOnMessage, quizNoteOnClose);
+attachServer(cmsWss,  'cms',  cmsOnMessage,      cmsOnClose);
 
 // Protocol-level heartbeat — keeps connections alive through proxies with idle timeouts
 setInterval(() => {
