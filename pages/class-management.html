@@ -723,6 +723,16 @@
             </div>
         </div>
 
+        <div style="margin-bottom: 10px; background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ccc;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem;" data-i18n="team_option_c">Option C: Saved Setups</label>
+            <div id="saved-teams-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; padding-right: 4px;">
+                <!-- Saved setups will be loaded here dynamically -->
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center;">
+                <button id="save-current-teams-btn" class="btn-pick" style="flex: 1; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="saveCurrentTeamSetup()" data-i18n="btn_save_setup">💾 Save Current Setup</button>
+            </div>
+        </div>
+
         <div id="team-modal-actions" style="display:none; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cfcfcf;">
             <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
                 <button id="team-modal-reshuffle-btn" class="team-sel-btn" style="min-width:150px;" onclick="closeTeamModal(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle teams</button>
@@ -756,7 +766,19 @@
                     <button id="roles-random-rank-btn" class="btn-blue" onclick="assignRandomRanks()" style="margin: 0;" data-i18n="roles_random_rank">Assign Random Ranks</button>
                 </div>
             </div>
-            <button id="roles-reset-all-btn" class="btn-reset" onclick="clearAllRoles()">
+
+            <!-- Option C · Saved Setups -->
+            <div style="margin-top: 12px; border: 2px solid #ddd; border-radius: 10px; background: #fafafa; padding: 12px; box-shadow: 2px 2px 0 #111; display: flex; flex-direction: column; gap: 8px;">
+                <div class="roles-choice-label" data-i18n="roles_option_c">Option C · Saved Setups</div>
+                <div id="saved-roles-container" style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; margin-bottom: 4px; padding-right: 4px;">
+                    <!-- Saved setups will be loaded here dynamically -->
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="save-current-roles-btn" class="btn-pick" style="flex: 1; padding: 6px 12px; font-size: 0.8rem; margin: 0;" onclick="saveCurrentRolesSetup()" data-i18n="btn_save_roles_setup">💾 Save Current Roles</button>
+                </div>
+            </div>
+
+            <button id="roles-reset-all-btn" class="btn-reset" onclick="clearAllRoles()" style="margin-top: 12px;">
                 <span data-i18n="roles_reset_all">Reset All Roles</span>
             </button>
         </div>
@@ -4133,12 +4155,171 @@ function reshuffleTeams() {
     const actionWrap = document.getElementById('team-modal-actions');
     if (actionWrap) actionWrap.style.display = currentTeamsActive ? 'block' : 'none';
     document.getElementById('team-modal').style.display = 'flex';
-    // legacy inputs removed; grid buttons handle creation directly
+    loadSavedTeamSetups();
 }
 
 
 function closeTeamModal() {
     document.getElementById('team-modal').style.display = 'none';
+}
+
+function loadSavedTeamSetups() {
+    const container = document.getElementById('saved-teams-container');
+    if (!container) return;
+    
+    if (!selectedGroupName) {
+        container.innerHTML = `<div style="color: #666; font-size: 0.8rem; font-style: italic; text-align: center; padding: 10px 0;">Please select a class first.</div>`;
+        return;
+    }
+    
+    const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+    const groupSetups = allSaved[selectedGroupName] || {};
+    const titles = Object.keys(groupSetups);
+    
+    if (titles.length === 0) {
+        container.innerHTML = `<div style="color: #666; font-size: 0.8rem; font-style: italic; text-align: center; padding: 10px 0;">No saved team setups for this class.</div>`;
+        return;
+    }
+    
+    container.innerHTML = '';
+    titles.forEach(title => {
+        const setup = groupSetups[title];
+        const studentCount = Object.keys(setup.assignments || {}).length;
+        
+        // Escape title for attributes and JS call
+        const escapedTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
+        const item = document.createElement('div');
+        item.style = 'display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; gap: 8px; margin-bottom: 4px;';
+        
+        item.innerHTML = `
+            <span style="font-weight: 600; font-size: 0.85rem; color: #333; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${escapedTitle} (${studentCount} students)">
+                ${title} <span style="font-weight: 400; font-size: 0.75rem; color: #666;">(${studentCount})</span>
+            </span>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                <button style="padding: 4px 10px; font-size: 0.75rem; font-weight: 700; background: #16a34a; border: 2px solid #16a34a; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#16a34a';" onmouseout="this.style.background='#16a34a';this.style.color='#fff';" onclick="loadTeamSetup('${escapedTitle}')">Load</button>
+                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteTeamSetup('${escapedTitle}')">✕</button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function saveCurrentTeamSetup() {
+    if (!selectedGroupName) {
+        showToast("Please select a group first!");
+        return;
+    }
+    
+    const students = studentGroups[selectedGroupName] || [];
+    const activeAssignments = {};
+    students.forEach(s => {
+        if (s.teamId != null) {
+            activeAssignments[s.name] = s.teamId;
+        }
+    });
+    
+    if (Object.keys(activeAssignments).length === 0) {
+        showToast("No active team assignments to save. Please create teams first!", true);
+        return;
+    }
+    
+    showPrompt("Enter a title for this team setup:", "", function(title) {
+        if (title === null) return;
+        title = title.trim();
+        if (!title) {
+            showToast("Please enter a valid title.", true);
+            return;
+        }
+        
+        // Save team custom names
+        const customNames = {};
+        teamColors.forEach((tc, idx) => {
+            if (tc.customName) {
+                customNames[idx + 1] = tc.customName;
+            }
+        });
+        
+        const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+        if (!allSaved[selectedGroupName]) {
+            allSaved[selectedGroupName] = {};
+        }
+        
+        allSaved[selectedGroupName][title] = {
+            assignments: activeAssignments,
+            customNames: customNames
+        };
+        
+        try {
+            localStorage.setItem('cms-saved-teams', JSON.stringify(allSaved));
+            showToast(`Team setup "${title}" saved successfully!`);
+            loadSavedTeamSetups();
+        } catch (e) {
+            showToast("Failed to save team setup: " + e.message, true);
+        }
+    });
+}
+
+function loadTeamSetup(title) {
+    if (!selectedGroupName) return;
+    const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+    const groupSetups = allSaved[selectedGroupName] || {};
+    const setup = groupSetups[title];
+    if (!setup) {
+        showToast("Setup not found!", true);
+        return;
+    }
+
+    // Apply assignments to current students
+    const students = studentGroups[selectedGroupName] || [];
+    let assignedCount = 0;
+    students.forEach(student => {
+        const savedTeamId = setup.assignments[student.name];
+        if (savedTeamId !== undefined) {
+            student.teamId = savedTeamId;
+            assignedCount++;
+        } else {
+            delete student.teamId;
+        }
+    });
+
+    // Apply custom team names if present
+    if (setup.customNames) {
+        teamColors.forEach((tc, idx) => {
+            const teamId = idx + 1;
+            if (setup.customNames[teamId] !== undefined) {
+                tc.customName = setup.customNames[teamId];
+            } else {
+                delete tc.customName;
+            }
+        });
+        persistTeamSettings();
+    }
+
+    currentTeamsActive = assignedCount > 0;
+    // Log history
+    logHistory('teams', selectedGroupName, `Loaded team setup: "${title}" (${assignedCount} student assignments restored)`);
+
+    // Refresh UI
+    renderRoster();
+    updateUtilityButtons();
+    
+    // Close modal
+    closeTeamModal();
+    showToast(`Loaded team setup: "${title}"`);
+}
+
+function deleteTeamSetup(title) {
+    if (!selectedGroupName) return;
+    showConfirm(`Are you sure you want to delete the team setup "${title}"?`, function() {
+        const allSaved = JSON.parse(localStorage.getItem('cms-saved-teams') || '{}');
+        if (allSaved[selectedGroupName] && allSaved[selectedGroupName][title]) {
+            delete allSaved[selectedGroupName][title];
+            localStorage.setItem('cms-saved-teams', JSON.stringify(allSaved));
+            showToast(`Deleted team setup: "${title}"`);
+            loadSavedTeamSetups();
+        }
+    });
 }
 
 function processTeamCreation(value, mode) {
@@ -4444,10 +4625,157 @@ async function openRolesModal(mode = 'assignment') {
     document.getElementById('roles-modal').style.display = 'flex';
     await loadRolesLibrary();
     renderRolesLibrary();
+    loadSavedRolesSetups();
 }
 
 function closeRolesModal() {
     document.getElementById('roles-modal').style.display = 'none';
+}
+
+function loadSavedRolesSetups() {
+    const container = document.getElementById('saved-roles-container');
+    if (!container) return;
+    
+    if (!selectedGroupName) {
+        container.innerHTML = `<div style="color: #666; font-size: 0.8rem; font-style: italic; text-align: center; padding: 10px 0;">Please select a class first.</div>`;
+        return;
+    }
+    
+    const allSaved = JSON.parse(localStorage.getItem('cms-saved-roles') || '{}');
+    const groupSetups = allSaved[selectedGroupName] || {};
+    const titles = Object.keys(groupSetups);
+    
+    if (titles.length === 0) {
+        container.innerHTML = `<div style="color: #666; font-size: 0.8rem; font-style: italic; text-align: center; padding: 10px 0;">No saved role setups for this class.</div>`;
+        return;
+    }
+    
+    container.innerHTML = '';
+    titles.forEach(title => {
+        const setup = groupSetups[title];
+        const studentCount = Object.keys(setup.assignments || {}).length;
+        
+        // Escape title for attributes and JS call
+        const escapedTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
+        const item = document.createElement('div');
+        item.style = 'display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; gap: 8px; margin-bottom: 4px;';
+        
+        item.innerHTML = `
+            <span style="font-weight: 600; font-size: 0.85rem; color: #333; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;" title="${escapedTitle} (${studentCount} students)">
+                ${title} <span style="font-weight: 400; font-size: 0.75rem; color: #666;">(${studentCount})</span>
+            </span>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                <button style="padding: 4px 10px; font-size: 0.75rem; font-weight: 700; background: #16a34a; border: 2px solid #16a34a; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#16a34a';" onmouseout="this.style.background='#16a34a';this.style.color='#fff';" onclick="loadRolesSetup('${escapedTitle}')">Load</button>
+                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteRolesSetup('${escapedTitle}')">✕</button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function saveCurrentRolesSetup() {
+    if (!selectedGroupName) {
+        showToast("Please select a group first!");
+        return;
+    }
+    
+    const students = studentGroups[selectedGroupName] || [];
+    const activeAssignments = {};
+    students.forEach(s => {
+        if (s.role) {
+            activeAssignments[s.name] = s.role;
+        }
+    });
+    
+    if (Object.keys(activeAssignments).length === 0) {
+        showToast("No active role assignments to save. Please assign roles first!", true);
+        return;
+    }
+    
+    showPrompt("Enter a title for this roles setup:", "", function(title) {
+        if (title === null) return;
+        title = title.trim();
+        if (!title) {
+            showToast("Please enter a valid title.", true);
+            return;
+        }
+        
+        const allSaved = JSON.parse(localStorage.getItem('cms-saved-roles') || '{}');
+        if (!allSaved[selectedGroupName]) {
+            allSaved[selectedGroupName] = {};
+        }
+        
+        allSaved[selectedGroupName][title] = {
+            assignments: activeAssignments
+        };
+        
+        try {
+            localStorage.setItem('cms-saved-roles', JSON.stringify(allSaved));
+            showToast(`Roles setup "${title}" saved successfully!`);
+            loadSavedRolesSetups();
+        } catch (e) {
+            showToast("Failed to save roles setup: " + e.message, true);
+        }
+    });
+}
+
+function loadRolesSetup(title) {
+    if (!selectedGroupName) return;
+    const allSaved = JSON.parse(localStorage.getItem('cms-saved-roles') || '{}');
+    const groupSetups = allSaved[selectedGroupName] || {};
+    const setup = groupSetups[title];
+    if (!setup) {
+        showToast("Setup not found!", true);
+        return;
+    }
+
+    // Apply assignments to current students
+    const students = studentGroups[selectedGroupName] || [];
+    let assignedCount = 0;
+    students.forEach(student => {
+        const savedRole = setup.assignments[student.name];
+        const previousRole = student.role || '';
+        if (savedRole !== undefined) {
+            student.role = savedRole;
+            assignedCount++;
+        } else {
+            delete student.role;
+        }
+        const nextRole = student.role || '';
+        if (previousRole !== nextRole) {
+            const fromPart = previousRole ? ` (from ${previousRole})` : '';
+            if (nextRole) {
+                logHistory('role', student.name, `Assigned role ${nextRole}${fromPart}`);
+            } else if (previousRole) {
+                logHistory('role', student.name, `Cleared role ${previousRole}`);
+            }
+        }
+    });
+
+    logHistory('role', selectedGroupName, `Loaded role setup: "${title}" (${assignedCount} student role assignments restored)`);
+
+    // Refresh UI
+    renderRoster();
+    updateUtilityButtons();
+    if (typeof autosaveToDb === 'function') autosaveToDb('roles');
+    
+    // Close modal
+    closeRolesModal();
+    showToast(`Loaded role setup: "${title}"`);
+}
+
+function deleteRolesSetup(title) {
+    if (!selectedGroupName) return;
+    showConfirm(`Are you sure you want to delete the roles setup "${title}"?`, function() {
+        const allSaved = JSON.parse(localStorage.getItem('cms-saved-roles') || '{}');
+        if (allSaved[selectedGroupName] && allSaved[selectedGroupName][title]) {
+            delete allSaved[selectedGroupName][title];
+            localStorage.setItem('cms-saved-roles', JSON.stringify(allSaved));
+            showToast(`Deleted roles setup: "${title}"`);
+            loadSavedRolesSetups();
+        }
+    });
 }
 
 function getAssignedRolesForSelectedGroup() {
@@ -11194,12 +11522,16 @@ const I18N = {
     team_maker_title:    'Team Maker',
     team_option_a:       'Option A: Total Number of Teams',
     team_option_b:       'Option B: Students Per Team',
+    team_option_c:       'Option C: Saved Setups',
+    btn_save_setup:      '💾 Save Current Setup',
 
     // Roles
     roles_title:         'Choose Roles or Ranks',
     roles_random_rank:   'Assign Random Ranks',
     roles_distribute:    'Distribute Selected Roles',
     roles_reset_all:     'Reset All Roles',
+    roles_option_c:      'Option C · Saved Setups',
+    btn_save_roles_setup: '💾 Save Current Roles',
     roles_info_title:    'Assigned Role Descriptions',
     roles_info_empty:    'No roles are currently assigned in this group.',
     roles_info_missing:  'No description has been added for this role yet.',
@@ -11620,11 +11952,15 @@ const I18N = {
     team_maker_title:    'Créateur d\'équipes',
     team_option_a:       'Option A : Nombre total d\'équipes',
     team_option_b:       'Option B : Élèves par équipe',
+    team_option_c:       'Option C : Configurations sauvegardées',
+    btn_save_setup:      '💾 Sauvegarder la config actuelle',
 
     roles_title:         'Choisir rôles ou rangs',
     roles_random_rank:   'Attribuer des rangs aléatoires',
     roles_distribute:    'Distribuer les rôles sélectionnés',
     roles_reset_all:     'Réinitialiser tous les rôles',
+    roles_option_c:      'Option C · Configurations sauvegardées',
+    btn_save_roles_setup: '💾 Sauvegarder les rôles actuels',
     roles_info_title:    'Descriptions des rôles attribués',
     roles_info_empty:    'Aucun rôle n’est actuellement attribué dans ce groupe.',
     roles_info_missing:  'Aucune description n’a encore été ajoutée pour ce rôle.',
@@ -12042,11 +12378,15 @@ const I18N = {
     team_maker_title:    'Team-Ersteller',
     team_option_a:       'Option A: Gesamtzahl der Teams',
     team_option_b:       'Option B: Schüler pro Team',
+    team_option_c:       'Option C: Gespeicherte Setups',
+    btn_save_setup:      '💾 Aktuelles Setup speichern',
 
     roles_title:         'Rollen zuweisen',
     roles_random_rank:   'Zufälligen Rang vergeben',
     roles_distribute:    'An Schüler verteilen',
     roles_reset_all:     'Alle Rollen zurücksetzen',
+    roles_option_c:      'Option C · Gespeicherte Setups',
+    btn_save_roles_setup: '💾 Aktuelle Rollen speichern',
     roles_info_title:    'Beschreibungen der zugewiesenen Rollen',
     roles_info_empty:    'Dieser Gruppe sind derzeit keine Rollen zugewiesen.',
     roles_info_missing:  'Für diese Rolle wurde noch keine Beschreibung hinzugefügt.',
@@ -12464,11 +12804,15 @@ const I18N = {
     team_maker_title:    'Creatore di squadre',
     team_option_a:       'Opzione A: Numero totale di squadre',
     team_option_b:       'Opzione B: Studenti per squadra',
+    team_option_c:       'Opzione C: Configurazioni salvate',
+    btn_save_setup:      '💾 Salva configurazione attuale',
 
     roles_title:         'Scegli ruoli o ranghi',
     roles_random_rank:   'Assegna ranghi casuali',
     roles_distribute:    'Distribuisci i ruoli selezionati',
     roles_reset_all:     'Reimposta tutti i ruoli',
+    roles_option_c:      'Opzione C · Configurazioni salvate',
+    btn_save_roles_setup: '💾 Salva ruoli attuali',
     roles_toggle_label:  'Opzione A · Seleziona i ruoli da usare (blu = attivo):',
     roles_new_label:     'Aggiungi un nuovo ruolo:',
     roles_add_btn:       'Aggiungi',
