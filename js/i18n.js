@@ -895,6 +895,9 @@
       cpToastInvalidYear: 'Year must be in 20XX-20XX format (e.g. 2026-2027).',
       cpAddYear: 'Add',
       cpNoYears: 'No years defined — add one below.',
+      cpLabelLoadLayout: '— Load Room Layout —',
+      cpDeleteLayoutConfirm: 'Delete the saved layout for "{room}"?',
+      cpToastLayoutDeleted: 'Classroom layout deleted',
 
       // Participation Tracker
       ptTitle: 'Participation Tracker',
@@ -3317,6 +3320,9 @@
       cpToastInvalidYear: 'L\'année doit être au format 20XX-20XX (ex. 2026-2027).',
       cpAddYear: 'Ajouter',
       cpNoYears: 'Aucune année définie — ajoutez-en une ci-dessous.',
+      cpLabelLoadLayout: '— Charger disposition de salle —',
+      cpDeleteLayoutConfirm: 'Supprimer la disposition enregistrée pour « {room} » ?',
+      cpToastLayoutDeleted: 'Disposition de salle supprimée',
 
       // Participation Tracker
       ptTitle: 'Suivi des participations',

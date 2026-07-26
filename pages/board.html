@@ -544,6 +544,9 @@
   #tour-choice-popup .sfn-btns {
     display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
   }
+  .con-media-fullscreen .con-pdf-only-btn {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
@@ -8164,11 +8167,12 @@ function hideFailure() {
         // PDF-specific controls: zoom + rotate, appended right into the hover bar
         if (item.kind === 'pdf') {
           const pdfSep = document.createElement('span');
+          pdfSep.className = 'con-pdf-only-btn';
           pdfSep.style.cssText = 'color:#bbb;padding:0 2px;font-size:11px;line-height:24px;pointer-events:none;';
           pdfSep.textContent = '|';
           const _pdfMiniMkBtn = (text, title, fn) => {
             const b = document.createElement('button');
-            b.type = 'button'; b.className = 'con-media-mini-btn';
+            b.type = 'button'; b.className = 'con-media-mini-btn con-pdf-only-btn';
             b.textContent = text; b.title = title;
             b.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
             b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); fn(); });
@@ -33826,9 +33830,8 @@ function _conFsApplyTransform(item, wrap) {
 }
 
 function _conFsMkBar(miniActions, wrap, item) {
-  // For PDFs, zoom+rotate controls are already permanently in the mini bar (added at widget build time)
-  if (!miniActions || item.kind === 'pdf') return;
-  // For images, add zoom controls only if not already added
+  if (!miniActions) return;
+  // For images/PDFs, add zoom controls only if not already added
   if (miniActions.querySelector('.con-fs-zoom-sep')) return;
   var sep = document.createElement('span');
   sep.className = 'con-fs-zoom-sep';
@@ -34207,6 +34210,8 @@ window.conPdfSpToggleFullscreen = function() {
   var miniActions = wrap.querySelector('.con-media-mini-actions');
 
   if (item._fullscreen) {
+    item._fsZoom = 1; item._fsPanX = 0; item._fsPanY = 0;
+    _conFsApplyTransform(item, wrap);
     if (miniActions) miniActions.classList.add('con-media-mini-visible', 'con-fs-mini-pinned');
     _conFsMkBar(miniActions, wrap, item);
 
@@ -34218,35 +34223,63 @@ window.conPdfSpToggleFullscreen = function() {
       wrap.appendChild(exitBtn);
     }
 
+    var c = wrap.querySelector('canvas.con-media-pdf-canvas');
+    var s = wrap.querySelector('.con-media-pdf-scroll');
+    var x = wrap.querySelector('.con-media-content');
+    if (c && typeof conRenderPdfForItem === 'function') {
+      conRenderPdfForItem(item, c, s, x);
+    }
+
     item._fsWheelHandler = function(ev) {
       if (!item._fullscreen) return;
       ev.preventDefault(); ev.stopPropagation();
-      var delta = ev.deltaY > 0 ? (1/1.1) : 1.1;
-      item.pdfLockSize = false;
-      var miniBtn = wrap.querySelector('.con-media-mini-btn[data-action="lockfit"]');
-      if (miniBtn) miniBtn.classList.remove('active');
-      if (window._conCtxItem && window._conCtxItem.id === item.id) {
-        const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
-        if (menuBtn) menuBtn.classList.remove('active');
-      }
-      item.pdfZoom = Math.max(0.1, Math.min(8, (item.pdfZoom||1) * delta));
-      var c = wrap.querySelector('canvas.con-media-pdf-canvas');
-      var s = wrap.querySelector('.con-media-pdf-scroll');
-      var x = wrap.querySelector('.con-media-content');
-      if (c && typeof conRenderPdfForItem === 'function') conRenderPdfForItem(item, c, s, x);
-      if (window._conMirrorSend) window._conMirrorSend({ type:'pdf-view-state', itemId:String(item.id), pdfZoom:item.pdfZoom, pdfRotation:item.pdfRotation||0, pdfScrollX:item.pdfScrollX||0, pdfScrollY:item.pdfScrollY||0, pdfLockSize: false });
+      var delta = ev.deltaY > 0 ? 0.9 : 1.1;
+      item._fsZoom = Math.max(0.1, Math.min(12, (item._fsZoom||1) * delta));
+      _conFsApplyTransform(item, wrap);
     };
     wrap.addEventListener('wheel', item._fsWheelHandler, { passive: false });
 
+    item._fsDragState = null;
+    item._fsMousedownHandler = function(ev) {
+      if (ev.button !== 0) return;
+      if (ev.target.closest('.con-media-fullscreen-exit-btn,.con-media-remove-btn,.con-media-mini-btn,.con-media-mini-actions,.con-media-resizer')) return;
+      item._fsDragState = { x: ev.clientX, y: ev.clientY, px: item._fsPanX||0, py: item._fsPanY||0 };
+      ev.preventDefault(); ev.stopImmediatePropagation();
+    };
+    item._fsMousemoveHandler = function(ev) {
+      if (!item._fsDragState) return;
+      item._fsPanX = item._fsDragState.px + (ev.clientX - item._fsDragState.x);
+      item._fsPanY = item._fsDragState.py + (ev.clientY - item._fsDragState.y);
+      _conFsApplyTransform(item, wrap);
+    };
+    item._fsMouseupHandler = function() { item._fsDragState = null; };
+    wrap.addEventListener('mousedown', item._fsMousedownHandler, true);
+    document.addEventListener('mousemove', item._fsMousemoveHandler);
+    document.addEventListener('mouseup', item._fsMouseupHandler);
+
   } else {
     if (item._fsWheelHandler) { wrap.removeEventListener('wheel', item._fsWheelHandler); delete item._fsWheelHandler; }
+    if (item._fsMousedownHandler) { wrap.removeEventListener('mousedown', item._fsMousedownHandler, true); delete item._fsMousedownHandler; }
+    if (item._fsMousemoveHandler) { document.removeEventListener('mousemove', item._fsMousemoveHandler); delete item._fsMousemoveHandler; }
+    if (item._fsMouseupHandler) { document.removeEventListener('mouseup', item._fsMouseupHandler); delete item._fsMouseupHandler; }
+    item._fsDragState = null;
 
     if (miniActions) {
       miniActions.querySelectorAll('.con-fs-zoom-btn,.con-fs-zoom-sep').forEach(function(el){ el.remove(); });
       miniActions.classList.remove('con-media-mini-visible', 'con-fs-mini-pinned');
     }
+    var contentEl = wrap.querySelector('.con-media-content');
+    if (contentEl) contentEl.style.transform = '';
+    item._fsZoom = 1; item._fsPanX = 0; item._fsPanY = 0;
+
     var exitBtn = wrap.querySelector('.con-media-fullscreen-exit-btn');
     if (exitBtn) exitBtn.remove();
+
+    var c = wrap.querySelector('canvas.con-media-pdf-canvas');
+    var s = wrap.querySelector('.con-media-pdf-scroll');
+    if (c && typeof conRenderPdfForItem === 'function') {
+      conRenderPdfForItem(item, c, s, contentEl);
+    }
   }
 
   var fsBtn = document.getElementById('con-pdf-sp-fullscreen-btn');

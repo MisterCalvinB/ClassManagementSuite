@@ -231,7 +231,13 @@
     </div>
 
     <label class="form-label" data-i18n="cpLabelRoom">Room number</label>
-    <input type="text" id="cfg-room" class="form-input" data-i18n-placeholder="cpPlaceholderRoom" placeholder="e.g. B204" maxlength="30">
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom: 10px;">
+      <input type="text" id="cfg-room" class="form-input" style="flex:1; margin-bottom:0;" data-i18n-placeholder="cpPlaceholderRoom" placeholder="e.g. B204" maxlength="30" oninput="onRoomInputChanged()">
+      <select id="cfg-saved-layouts" class="form-input" style="width:180px; margin-bottom:0;" onchange="onSavedLayoutSelect(this.value)">
+        <option value="" data-i18n="cpLabelLoadLayout">— Load Room Layout —</option>
+      </select>
+      <button type="button" id="cfg-delete-layout-btn" class="btn-ghost" style="padding: 0 10px; margin-bottom:0; display:none; height: 36px; border: 1px solid #ccc; border-radius: 4px;" onclick="deleteSavedLayout()" title="Delete this classroom layout">🗑</button>
+    </div>
 
     <label class="form-label" data-i18n="cpLabelNameDisplay">Name display on desks</label>
     <select id="cfg-name-display" class="form-input">
@@ -277,6 +283,7 @@
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let classPlans = {};
+let classroomLayouts = {};
 let studentGroups = {};
 let selectedGroup = '';
 let selectedHalf = '';
@@ -490,6 +497,15 @@ function loadPlansFromGlobals() {
       }
     }
   } catch (e) {}
+  try {
+    if (typeof SAVED_CLASSROOM_LAYOUTS !== 'undefined' && SAVED_CLASSROOM_LAYOUTS) {
+      classroomLayouts = Object.assign({}, SAVED_CLASSROOM_LAYOUTS);
+    } else {
+      classroomLayouts = {};
+    }
+  } catch (e) {
+    classroomLayouts = {};
+  }
 }
 
 function normalizePlan(p) {
@@ -621,7 +637,9 @@ function deleteOrphanedGroup() {
     renderPlansList();
     showEmptyState();
     try {
-      const plansContent = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';';
+      const plansContent = 
+        'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';\n' +
+        'var SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(classroomLayouts, null, 2) + ';';
       await Desktop.saveText('classPlans', 'plans.js', plansContent);
       await syncToConfigJs();
       toast(t('cpToastGroupDeleted'));
@@ -1065,7 +1083,9 @@ async function doSave(showFeedback) {
 
   try {
     // 1. Save to user/class-plans/plans.js
-    const plansContent = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';';
+    const plansContent = 
+      'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';\n' +
+      'var SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(classroomLayouts, null, 2) + ';';
     await Desktop.saveText('classPlans', 'plans.js', plansContent);
 
     // 2. Sync to user/config.js so class-management.html sees the changes
@@ -1151,6 +1171,9 @@ function openNewPlanConfig() {
   document.getElementById('cfg-temp').checked = false;
   renderScheduleSlots([]);
   selectLayoutType('grid');
+  populateSavedLayoutsDropdown();
+  document.getElementById('cfg-saved-layouts').value = '';
+  document.getElementById('cfg-delete-layout-btn').style.display = 'none';
 
   const groupSel = document.getElementById('cfg-group');
   const groups = mergeGroupKeys();
@@ -1181,6 +1204,15 @@ function editPlanById(planId) {
   document.getElementById('cfg-temp').checked = !!plan.isTemporary;
   cpPopulatePlannerSlotSel(selectedGroup, plan.plannerSlot || null);
   renderScheduleSlots(plan.schedule || []);
+  populateSavedLayoutsDropdown();
+  const roomVal = plan.roomNumber || '';
+  if (roomVal && classroomLayouts[roomVal]) {
+    document.getElementById('cfg-saved-layouts').value = roomVal;
+    document.getElementById('cfg-delete-layout-btn').style.display = '';
+  } else {
+    document.getElementById('cfg-saved-layouts').value = '';
+    document.getElementById('cfg-delete-layout-btn').style.display = 'none';
+  }
 
   const lt = plan.layoutType || 'grid';
   selectLayoutType(lt);
@@ -1234,6 +1266,23 @@ function confirmPlanConfig() {
 
   const lt = _cfgLayout;
   let plan = editId ? getPlanById(editId) : null;
+
+  if (room) {
+    const layout = { layoutType: lt };
+    if (lt === 'grid') {
+      layout.rows = clamp(parseInt(document.getElementById('cfg-rows').value) || 4, 1, 12);
+      layout.cols = clamp(parseInt(document.getElementById('cfg-cols').value) || 5, 1, 14);
+    } else if (lt === 'ushape') {
+      layout.uWidth = clamp(parseInt(document.getElementById('cfg-uwidth').value) || 6, 3, 20);
+      layout.uDepth = clamp(parseInt(document.getElementById('cfg-udepth').value) || 3, 1, 10);
+    } else if (lt === 'pods') {
+      layout.podRows = clamp(parseInt(document.getElementById('cfg-pod-rows').value) || 2, 1, 6);
+      layout.podCols = clamp(parseInt(document.getElementById('cfg-pod-cols').value) || 3, 1, 6);
+      layout.roomRows = clamp(parseInt(document.getElementById('cfg-room-rows').value) || 2, 1, 8);
+      layout.roomCols = clamp(parseInt(document.getElementById('cfg-room-cols').value) || 3, 1, 8);
+    }
+    classroomLayouts[room] = layout;
+  }
 
   if (plan) {
     // Update existing
@@ -1762,6 +1811,101 @@ function _cfmCancel() {
   document.getElementById('cp-confirm').classList.remove('open');
   if (_cfmCancelCb) _cfmCancelCb();
 }
+
+// ── Classroom Layout Presets ──────────────────────────────────────────────────
+function populateSavedLayoutsDropdown() {
+  const sel = document.getElementById('cfg-saved-layouts');
+  const btn = document.getElementById('cfg-delete-layout-btn');
+  if (!sel) return;
+  
+  sel.innerHTML = `<option value="">${t('cpLabelLoadLayout')}</option>`;
+  
+  const roomNames = Object.keys(classroomLayouts).sort();
+  roomNames.forEach(function (room) {
+    const opt = document.createElement('option');
+    opt.value = room;
+    const l = classroomLayouts[room];
+    let label = room;
+    if (l) {
+      if (l.layoutType === 'grid') label += ` (Grid ${l.rows}×${l.cols})`;
+      else if (l.layoutType === 'ushape') label += ` (U-Shape ${l.uWidth}×${l.uDepth})`;
+      else if (l.layoutType === 'pods') label += ` (Pods ${l.roomRows}×${l.roomCols})`;
+    }
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+  
+  if (btn) btn.style.display = 'none';
+}
+
+function onSavedLayoutSelect(roomName) {
+  const btn = document.getElementById('cfg-delete-layout-btn');
+  if (!roomName) {
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  
+  loadSavedLayout(roomName);
+  if (btn) btn.style.display = '';
+}
+
+function loadSavedLayout(roomName) {
+  if (!roomName) return;
+  const layout = classroomLayouts[roomName];
+  if (!layout) return;
+  
+  document.getElementById('cfg-room').value = roomName;
+  selectLayoutType(layout.layoutType);
+  if (layout.layoutType === 'grid') {
+    document.getElementById('cfg-rows').value = layout.rows || 4;
+    document.getElementById('cfg-cols').value = layout.cols || 5;
+  } else if (layout.layoutType === 'ushape') {
+    document.getElementById('cfg-uwidth').value = layout.uWidth || 6;
+    document.getElementById('cfg-udepth').value = layout.uDepth || 3;
+  } else if (layout.layoutType === 'pods') {
+    document.getElementById('cfg-pod-rows').value = layout.podRows || 2;
+    document.getElementById('cfg-pod-cols').value = layout.podCols || 3;
+    document.getElementById('cfg-room-rows').value = layout.roomRows || 2;
+    document.getElementById('cfg-room-cols').value = layout.roomCols || 3;
+  }
+}
+
+function onRoomInputChanged() {
+  const roomName = document.getElementById('cfg-room').value.trim();
+  const sel = document.getElementById('cfg-saved-layouts');
+  const btn = document.getElementById('cfg-delete-layout-btn');
+  if (classroomLayouts[roomName]) {
+    sel.value = roomName;
+    if (btn) btn.style.display = '';
+  } else {
+    sel.value = '';
+    if (btn) btn.style.display = 'none';
+  }
+}
+
+function deleteSavedLayout() {
+  const roomName = document.getElementById('cfg-room').value.trim();
+  if (!roomName || !classroomLayouts[roomName]) return;
+  
+  showConfirm(tFmt('cpDeleteLayoutConfirm', { room: roomName }), async function () {
+    delete classroomLayouts[roomName];
+    populateSavedLayoutsDropdown();
+    document.getElementById('cfg-room').value = '';
+    document.getElementById('cfg-delete-layout-btn').style.display = 'none';
+    
+    if (window.Desktop && Desktop.isElectron()) {
+      try {
+        const plansContent = 
+          'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';\n' +
+          'var SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(classroomLayouts, null, 2) + ';';
+        await Desktop.saveText('classPlans', 'plans.js', plansContent);
+        toast(t('cpToastLayoutDeleted'));
+      } catch (e) {
+        toast(t('cpToastErrorSaving') + e.message);
+      }
+    }
+  });
+}
 </script>
 <script>
 (function () {
@@ -1783,9 +1927,12 @@ function _cfmCancel() {
     var r = await Desktop.readText('classPlans', 'plans.js');
     if (!r || !r.ok) return;
     // eslint-disable-next-line no-new-func
-    var fn = new Function(r.content + 'return (typeof SAVED_CLASS_PLANS !== "undefined") ? SAVED_CLASS_PLANS : null;');
+    var fn = new Function(r.content + 'return { plans: (typeof SAVED_CLASS_PLANS !== "undefined" ? SAVED_CLASS_PLANS : null), layouts: (typeof SAVED_CLASSROOM_LAYOUTS !== "undefined" ? SAVED_CLASSROOM_LAYOUTS : null) };');
     var result = fn();
-    if (result) window.SAVED_CLASS_PLANS = result;
+    if (result) {
+      if (result.plans) window.SAVED_CLASS_PLANS = result.plans;
+      if (result.layouts) window.SAVED_CLASSROOM_LAYOUTS = result.layouts;
+    }
   }
 
   window._cmtHotReload = async function (data) {
