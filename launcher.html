@@ -1364,6 +1364,9 @@
       } else if (item.type === 'todo') {
         tagLabel = typeof t === 'function' ? t('sbTagTodo') : 'To-do';
         tagClass = 'sb-tag-todo';
+      } else if (item.type === 'folder') {
+        tagLabel = typeof t === 'function' ? t('sbTagFolder') : 'Folder';
+        tagClass = 'sb-tag-folder';
       }
 
       el.innerHTML =
@@ -1398,6 +1401,8 @@
           Desktop.openTool('planner.html', { query: { navDate: item.date, navClassId: item.classId, navTime: item.time } });
         } else if (item.type === 'todo') {
           Desktop.openTool('planner.html', { query: { openTodo: item.id } });
+        } else if (item.type === 'folder') {
+          Desktop.openTool('file-manager.html', { query: { openTarget: item.target || 'user', openRelPath: item.relativePath } });
         }
       });
 

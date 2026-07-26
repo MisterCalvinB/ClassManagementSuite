@@ -2510,6 +2510,39 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof applyTranslations === 'function') applyTranslations();
   window._cmtApplyNavBrand();
   loadRecent();
+
+  // Check if we have openTarget and openRelPath in URL query parameters
+  var urlParams = new URLSearchParams(window.location.search);
+  var openTarget = urlParams.get('openTarget');
+  var openRelPath = urlParams.get('openRelPath');
+  
+  if (openTarget) {
+    // Dynamically add target to browseTarget dropdown if not exists
+    var select = document.getElementById('browseTarget');
+    if (select) {
+      if (!Array.from(select.options).some(function(o) { return o.value === openTarget; })) {
+        var opt = document.createElement('option');
+        opt.value = openTarget;
+        opt.textContent = TARGET_LABELS[openTarget] || openTarget;
+        select.appendChild(opt);
+      }
+      select.value = openTarget;
+    }
+    browseTarget = openTarget;
+    browsePath = openRelPath || '';
+    browseFirstLoad = true;
+    
+    // Switch to browse tab
+    var browseBtn = document.querySelector('.tab-btn[data-tab="browse"]');
+    if (browseBtn) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      browseBtn.classList.add('active');
+      document.getElementById('tab-browse').classList.add('active');
+    }
+    
+    loadBrowse({ preservePath: true });
+  }
 });
 
 /* ════════════════════════════════════════════
@@ -3074,46 +3107,64 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
     };
     var selectedForContext = fmEnsureSelectionForContext(itemForContext);
     var nameEl = rowEl ? rowEl.querySelector('.folder-name') : null;
-    var items = [];
+    var displayTitle = nameEl ? nameEl.textContent : folderName;
 
-    items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
-    items.push('-');
-    items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
-      fmMoveCopyViaPicker(selectedForContext, 'move');
-    }});
-    items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
-      fmMoveCopyViaPicker(selectedForContext, 'copy');
-    }});
+    var checkPin = Pins.isPinned({ type: 'folder', relativePath: itemForContext.relativePath, target: itemForContext.target });
+    checkPin.then(function(pinned) {
+      var items = [];
 
-    var isSystemFolder = (itemForContext.target === 'user' && !prefix && SYSTEM_FOLDERS.has(folderName));
-    if (!isSystemFolder) {
-      items.push('-');
-      (function(row, ne) {
-        if (browseTarget !== 'docEditor') {
-          items.push({ label: tt('fmRename','Rename'), action: function() {
-            if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
-          }});
-        }
-
-        items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
-          var folderLabel = (browseTarget === 'docEditor') ? (itemForContext.relativePath || folderName) : folderName;
-          var msg = tt('fmDeleteFolderConfirm', 'Delete folder "{name}"?\n\nThis will permanently delete all files inside. This cannot be undone.').replace('{name}', folderLabel);
-          if (!await showConfirm(msg)) return;
-          try {
-            var r = await Desktop.deleteByPath(itemForContext.target, itemForContext.relativePath, { recursive: true, force: true });
-            if (r && r.ok) {
-              await loadBrowse({ preservePath: true });
-            } else {
-              showToast(tt('fmDeleteFailed','Delete failed.'), true);
-            }
-          } catch (ex) {
-            showToast(tt('fmDeleteFailed','Delete failed.') + ' ' + (ex && ex.message ? ex.message : String(ex)), true);
+      items.push({
+        label: pinned ? tt('ctxUnpinItem', 'Unpin from sidebar') : tt('ctxPinItem', 'Pin to sidebar'),
+        action: async function() {
+          var itemInfo = { type: 'folder', relativePath: itemForContext.relativePath, target: itemForContext.target };
+          if (pinned) {
+            await Pins.unpinItem(itemInfo);
+          } else {
+            await Pins.pinItem(Object.assign({ title: displayTitle }, itemInfo));
           }
-        }});
-      })(rowEl, nameEl);
-    }
+        }
+      });
+      items.push('-');
 
-    showCtx(e.clientX, e.clientY, items);
+      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
+      items.push('-');
+      items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
+        fmMoveCopyViaPicker(selectedForContext, 'move');
+      }});
+      items.push({ label: tt('fmCopyTo', 'Copy to...'), action: function() {
+        fmMoveCopyViaPicker(selectedForContext, 'copy');
+      }});
+
+      var isSystemFolder = (itemForContext.target === 'user' && !prefix && SYSTEM_FOLDERS.has(folderName));
+      if (!isSystemFolder) {
+        items.push('-');
+        (function(row, ne) {
+          if (browseTarget !== 'docEditor') {
+            items.push({ label: tt('fmRename','Rename'), action: function() {
+              if (row && ne) startFolderRename(row, folderName, ne, prefix || '');
+            }});
+          }
+
+          items.push({ label: tt('fmDelete','Delete'), danger: true, action: async function() {
+            var folderLabel = (browseTarget === 'docEditor') ? (itemForContext.relativePath || folderName) : folderName;
+            var msg = tt('fmDeleteFolderConfirm', 'Delete folder "{name}"?\n\nThis will permanently delete all files inside. This cannot be undone.').replace('{name}', folderLabel);
+            if (!await showConfirm(msg)) return;
+            try {
+              var r = await Desktop.deleteByPath(itemForContext.target, itemForContext.relativePath, { recursive: true, force: true });
+              if (r && r.ok) {
+                await loadBrowse({ preservePath: true });
+              } else {
+                showToast(tt('fmDeleteFailed','Delete failed.'), true);
+              }
+            } catch (ex) {
+              showToast(tt('fmDeleteFailed','Delete failed.') + ' ' + (ex && ex.message ? ex.message : String(ex)), true);
+            }
+          }});
+        })(rowEl, nameEl);
+      }
+
+      showCtx(e.clientX, e.clientY, items);
+    });
   };
 })();
 </script>
