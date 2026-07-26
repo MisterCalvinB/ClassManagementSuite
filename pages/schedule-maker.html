@@ -11,6 +11,7 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -469,6 +470,41 @@
       .sm-table th { color: #000; }
       .sm-print-header { display: block !important; }
     }
+
+    /* ── Dropdown Export Menu ────────────────────────────── */
+    .dropdown { position: relative; display: inline-block; }
+    .dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      z-index: 10000;
+      min-width: 200px;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .dropdown-menu.hidden { display: none !important; }
+    .dropdown-item {
+      background: none;
+      border: none;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      transition: background 0.1s, color 0.1s;
+      color: #000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dropdown-item:hover { background: #000; color: #fff; }
   </style>
 </head>
 <body>
@@ -628,8 +664,18 @@
 
   <!-- ── Action bar ── -->
   <div class="sm-action-bar">
-    <button class="sm-action-btn primary" onclick="printSchedule()" data-i18n="smBtnPrint">Print</button>
-    <button class="sm-action-btn" onclick="exportCsv()" data-i18n="smBtnCsv">Export CSV</button>
+    <div class="dropdown" id="sm-export-dropdown" style="flex: 1;">
+      <button class="sm-action-btn primary" id="sm-export-btn" onclick="toggleExportMenu(event)" style="width: 100%;">
+        <span data-i18n="mdbBtnExport">Export</span> ▾
+      </button>
+      <div class="dropdown-menu hidden" id="sm-export-menu">
+        <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf">🖨 Print PDF</button>
+        <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv">⬇ CSV</button>
+        <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx">📊 Export XLSX</button>
+        <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx">📝 Export DOCX</button>
+        <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml">📄 Export HTML (Editable)</button>
+      </div>
+    </div>
     <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
     <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
     <button id="sm-pin-btn" class="sm-action-btn" onclick="smTogglePin()" style="display:none">📌 Pin</button>
@@ -1244,12 +1290,163 @@
     }
   }
 
-  // ── Print ────────────────────────────────────────────────
-  function printSchedule() {
-    window.print();
+  // ── Export / Print dropdown ──────────────────────────────
+  function toggleExportMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('sm-export-menu');
+    if (menu) menu.classList.toggle('hidden');
   }
 
-  // ── Export CSV ───────────────────────────────────────────
+  function handleExportClick(type) {
+    toggleExportMenu();
+    if (type === 'pdf') exportPdf();
+    else if (type === 'csv') exportCsv();
+    else if (type === 'xlsx') exportXlsx();
+    else if (type === 'docx') exportDocx();
+    else if (type === 'html') exportHtml();
+  }
+
+  function downloadExportFile(filename, content, mimeType) {
+    const bom = mimeType.includes('csv') ? new Uint8Array([0xEF, 0xBB, 0xBF]) : new Uint8Array();
+    const blob = new Blob([bom, content], { type: mimeType + ';charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function generatePrintableHtml(isContentEditable) {
+    const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
+    const subject = document.getElementById('sm-subject').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim();
+    const room    = document.getElementById('sm-room').value.trim();
+    const date    = document.getElementById('sm-date').value;
+    const group   = document.getElementById('sm-group').value;
+    const metaText = document.getElementById('sm-schedule-meta').textContent;
+
+    const editableAttr = isContentEditable ? ' contenteditable="true"' : '';
+
+    let rowsHtml = '';
+    const rows = computeSchedule();
+    const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+    const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
+    const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
+
+    rows.forEach(row => {
+      if (row.type === 'gap') {
+        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">⚠ ${gapLabel} (${row.duration} min)</td></tr>`;
+        return;
+      }
+      if (row.type === 'break') {
+        rowsHtml += `<tr class="sm-break-tr"><td colspan="6">— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+        return;
+      }
+      rowsHtml += `
+        <tr>
+          <td class="sm-col-num">${row.num}</td>
+          <td>${row.name}</td>
+          <td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${senLabel}</span>` : ''}</td>
+          <td class="sm-col-time">${minutesToTime(row.prepStart)}</td>
+          <td class="sm-col-time">${minutesToTime(row.examStart)}</td>
+          <td class="sm-col-time">${minutesToTime(row.examEnd)}</td>
+        </tr>
+      `;
+    });
+
+    if (rows.length === 0) {
+      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">No schedule generated.</td></tr>`;
+    }
+
+    const metaItems = [];
+    if (subject) metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</strong> ${subject}</span>`);
+    if (teacher) metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</strong> ${teacher}</span>`);
+    if (room)    metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</strong> ${room}</span>`);
+    if (date)    metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</strong> ${date}</span>`);
+    if (group)   metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</strong> ${group}</span>`);
+
+    const metaHtml = metaItems.length ? `<div class="meta-row">${metaItems.join('')}</div>` : '';
+    const footerHtml = metaText ? `<p style="font-size:0.82rem;color:#555;margin-top:12px;text-align:right;">${metaText}</p>` : '';
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; color: #000; line-height: 1.4; }
+    h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; margin-top: 0; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.85rem; color: #333; border-bottom: 1.5px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
+    .meta-row span { display: flex; gap: 5px; }
+    .meta-row strong { font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 12px; }
+    th { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #000; border-bottom: 2px solid #000; padding: 6px 10px; text-align: left; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    .sm-col-num { width: 36px; color: #aaa; font-size: 0.78rem; }
+    .sm-col-sen { width: 48px; text-align: center; }
+    .sm-col-time { width: 90px; white-space: nowrap; }
+    .sm-sen-badge { display: inline-block; background: #fff3e0; color: #c05000; border: 1px solid #e8c080; border-radius: 3px; padding: 1px 5px; font-size: 0.7rem; font-weight: 800; }
+    tr.sm-break-tr td { background: #f5f5f5; color: #777; font-style: italic; font-weight: 600; }
+    tr.sm-gap-tr td { background: #fff8f0; color: #c06000; font-size: 0.75rem; font-style: italic; padding: 3px 10px; }
+  </style>
+</head>
+<body${editableAttr}>
+  <h2>${title}</h2>
+  ${metaHtml}
+  <table>
+    <thead>
+      <tr>
+        <th class="sm-col-num">#</th>
+        <th>Student</th>
+        <th class="sm-col-sen">${senLabel}</th>
+        <th class="sm-col-time">Prep starts</th>
+        <th class="sm-col-time">Exam starts</th>
+        <th class="sm-col-time">Exam ends</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+  ${footerHtml}
+</body>
+</html>`;
+  }
+
+  async function exportPdf() {
+    if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
+      showNotice('Nothing to export.', true);
+      return;
+    }
+    const title = document.getElementById('sm-exam-title').value.trim() || 'Schedule';
+    const date = document.getElementById('sm-date').value;
+    const stamp = date || new Date().toISOString().slice(0, 10);
+    const safeTitle = title.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+    const defaultName = `schedule_${safeTitle}_${stamp}.pdf`;
+
+    const html = generatePrintableHtml(false);
+
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+      try {
+        const result = await Desktop.printPdf({ html, defaultName });
+        if (result && result.ok) {
+          if (window.showExportSuccessPopup && result.path) {
+            showExportSuccessPopup(result.path, result.name || defaultName);
+          } else {
+            showNotice('PDF exported successfully.');
+          }
+        } else if (result && !result.ok && !result.canceled) {
+          showNotice('⚠️ Could not save PDF: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        showNotice('⚠️ Could not save PDF: ' + err.message, true);
+      }
+    } else {
+      window.print();
+    }
+  }
+
   function exportCsv() {
     if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
       showNotice('Nothing to export.', true);
@@ -1296,15 +1493,162 @@
       rows.push([row.num, row.name, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)].map(esc).join(','));
     });
 
-    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const stamp = date || new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = 'schedule-' + stamp + '.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    const content = rows.join('\r\n');
+    downloadExportFile('schedule-' + stamp + '.csv', content, 'text/csv');
   }
+
+  function exportXlsx() {
+    if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
+      showNotice('Nothing to export.', true);
+      return;
+    }
+
+    const title   = document.getElementById('sm-exam-title').value.trim() || 'Schedule';
+    const subject = document.getElementById('sm-subject').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim();
+    const room    = document.getElementById('sm-room').value.trim();
+    const date    = document.getElementById('sm-date').value;
+    const group   = document.getElementById('sm-group').value;
+    const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+    const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
+    const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
+
+    const aoa = [];
+    if (title)   aoa.push(['Title', title]);
+    if (subject) aoa.push(['Subject', subject]);
+    if (teacher) aoa.push(['Teacher', teacher]);
+    if (room)    aoa.push(['Room', room]);
+    if (date)    aoa.push(['Date', date]);
+    if (group)   aoa.push(['Group', group]);
+    if (aoa.length) aoa.push([]); // Empty row separator
+
+    // Table Headers
+    aoa.push(['#', 'Student', senLabel, 'Prep start', 'Exam start', 'Exam end']);
+
+    // Table Rows
+    const schedule = computeSchedule();
+    schedule.forEach(row => {
+      if (row.type === 'gap') {
+        aoa.push(['', `⚠ ${gapLabel} (${row.duration} min)`, '', '', '', '']);
+        return;
+      }
+      if (row.type === 'break') {
+        aoa.push(['', `— ${breakLabel} (${row.duration} min) —`, '', minutesToTime(row.start), minutesToTime(row.start + row.duration), '']);
+        return;
+      }
+      aoa.push([row.num, row.name, row.sen ? senLabel : '', minutesToTime(row.prepStart), minutesToTime(row.examStart), minutesToTime(row.examEnd)]);
+    });
+
+    if (typeof XLSX === 'undefined') {
+      showNotice('XLSX library not loaded', true);
+      return;
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
+
+    try {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const stamp = date || new Date().toISOString().slice(0, 10);
+      const filename = 'schedule-' + stamp + '.xlsx';
+      downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } catch (err) {
+      showNotice('⚠️ Could not save XLSX: ' + (err && err.message ? err.message : String(err)), true);
+    }
+  }
+
+  function exportDocx() {
+    if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
+      showNotice('Nothing to export.', true);
+      return;
+    }
+
+    const title   = document.getElementById('sm-exam-title').value.trim() || 'Schedule';
+    const subject = document.getElementById('sm-subject').value.trim();
+    const teacher = document.getElementById('sm-teacher').value.trim();
+    const room    = document.getElementById('sm-room').value.trim();
+    const date    = document.getElementById('sm-date').value;
+    const group   = document.getElementById('sm-group').value;
+    const metaText = document.getElementById('sm-schedule-meta').textContent;
+
+    const stamp = date || new Date().toISOString().slice(0, 10);
+    const safeTitle = title.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportDocx === 'function') {
+      let md = `# ${title}\n\n`;
+      if (subject) md += `**Subject:** ${subject}  \n`;
+      if (teacher) md += `**Teacher:** ${teacher}  \n`;
+      if (room)    md += `**Room:** ${room}  \n`;
+      if (date)    md += `**Date:** ${date}  \n`;
+      if (group)   md += `**Group:** ${group}  \n`;
+      md += `\n`;
+
+      const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+      const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
+      const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
+
+      md += `| # | Student | ${senLabel} | Prep starts | Exam starts | Exam ends |\n`;
+      md += `|---|---------|-------------|-------------|-------------|-----------|\n`;
+
+      const schedule = computeSchedule();
+      schedule.forEach(row => {
+        if (row.type === 'gap') {
+          md += `| | *⚠ ${gapLabel} (${row.duration} min)* | | | | |\n`;
+          return;
+        }
+        if (row.type === 'break') {
+          md += `| | *— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —* | | | | |\n`;
+          return;
+        }
+        md += `| ${row.num} | ${row.name} | ${row.sen ? senLabel : ''} | ${minutesToTime(row.prepStart)} | ${minutesToTime(row.examStart)} | ${minutesToTime(row.examEnd)} |\n`;
+      });
+
+      if (metaText) md += `\n*${metaText}*\n`;
+
+      Desktop.exportDocx({
+        markdown: md,
+        defaultName: `schedule_${safeTitle}_${stamp}`,
+        fontFamily: 'Segoe UI',
+        fontSize: '10pt',
+        lineHeight: '1.25',
+        margins: { top: 18, right: 16, bottom: 18, left: 16 },
+        size: 'A4',
+        orientation: 'portrait'
+      }).then(result => {
+        if (result && result.ok) {
+          showNotice('DOCX exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          showNotice('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'), true);
+        }
+      }).catch(err => {
+        showNotice('⚠️ Could not save DOCX: ' + err.message, true);
+      });
+    } else {
+      const htmlContent = generatePrintableHtml(false);
+      downloadExportFile(`schedule_${safeTitle}_${stamp}.doc`, htmlContent, 'application/msword');
+    }
+  }
+
+  function exportHtml() {
+    if (orderItems.filter(i => i.type === 'student' && !i.excluded).length === 0) {
+      showNotice('Nothing to export.', true);
+      return;
+    }
+    const date = document.getElementById('sm-date').value;
+    const stamp = date || new Date().toISOString().slice(0, 10);
+    const htmlContent = generatePrintableHtml(true);
+    downloadExportFile('schedule-' + stamp + '.html', htmlContent, 'text/html');
+  }
+
+  // Close dropdown on outside clicks
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('sm-export-menu');
+    if (menu && !menu.classList.contains('hidden') && !e.target.closest('#sm-export-dropdown')) {
+      menu.classList.add('hidden');
+    }
+  });
 
   // ── Build schedule object for save/load ──────────────────
   function buildScheduleObject() {

@@ -4052,7 +4052,7 @@ ipcMain.handle('app:doc-presentation-command', (event, command) => {
 });
 
 ipcMain.handle('app:print-html', async (event, request = {}) => {
-  const html = String(request.html || '');
+  const html = typeof request === 'string' ? request : String((request && request.html) || '');
   const win = new BrowserWindow({
     show: true,
     autoHideMenuBar: true,

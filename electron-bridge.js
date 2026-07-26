@@ -138,6 +138,9 @@
 
   async function printHtml(request) {
     if (!isElectron()) return null;
+    if (typeof request === 'string') {
+      request = { html: request };
+    }
     return getDesktopApi().printHtml(request);
   }
 

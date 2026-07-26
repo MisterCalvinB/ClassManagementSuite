@@ -13936,7 +13936,13 @@ function cpPrintPlan() {
 function _cpDoPrint(plan, groupName) {
     const html = _cpBuildPrintHtml(plan, groupName);
     if (window.Desktop && typeof window.Desktop.printHtml === 'function') {
-        window.Desktop.printHtml(html).catch(() => { _cpBrowserPrint(html); });
+        window.Desktop.printHtml(html)
+            .then(res => {
+                if (!res || !res.ok) {
+                    _cpBrowserPrint(html);
+                }
+            })
+            .catch(() => { _cpBrowserPrint(html); });
     } else {
         _cpBrowserPrint(html);
     }
@@ -14047,7 +14053,7 @@ function _cpBuildPrintHtml(plan, groupName) {
 <h1>${plan.name}</h1>
 <div class="meta">${[plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ')}</div>
 ${body}
-<footer>${groupName || ''}  —  Printed ${todayStr}</footer>
+<footer>${(rawMeta[groupName] && rawMeta[groupName].name) || groupName || ''}  —  Printed ${todayStr}</footer>
 </body></html>`;
 }
 

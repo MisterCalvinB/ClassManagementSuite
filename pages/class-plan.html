@@ -11,6 +11,7 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <script>
   (function () {
     function injectScript(source, name) {
@@ -36,6 +37,42 @@
   })();
   </script>
   <link rel="stylesheet" href="../css/class-plan.css">
+  <style>
+    /* ── Dropdown Export Menu ────────────────────────────── */
+    .dropdown { position: relative; display: inline-block; }
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 6px;
+      z-index: 10000;
+      min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .dropdown-menu.hidden { display: none !important; }
+    .dropdown-item {
+      background: none;
+      border: none;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      font-family: inherit;
+      width: 100%;
+      transition: background 0.1s, color 0.1s;
+      color: #000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dropdown-item:hover { background: #000; color: #fff; }
+  </style>
 </head>
 <body>
 
@@ -85,7 +122,18 @@
           <button class="btn-ghost" onclick="randomAssign()" data-i18n="cpRandom">🎲 Random</button>
           <button class="btn-ghost" id="cp-pin-btn" onclick="cpTogglePin()" style="display:none">📌 Pin</button>
           <button class="btn-ghost" onclick="editPlanSettings()" data-i18n="cpSettings">⚙ Settings</button>
-          <button class="btn-ghost" onclick="printCurrentPlan()" data-i18n="cpPrint">🖨 Print</button>
+          <div class="dropdown" id="cp-export-dropdown" style="display: inline-block;">
+            <button class="btn-ghost" id="cp-export-btn" onclick="toggleExportMenu(event)">
+              <span data-i18n="mdbBtnExport">Export</span> ▾
+            </button>
+            <div class="dropdown-menu hidden" id="cp-export-menu">
+              <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf">🖨 Print PDF</button>
+              <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv">⬇ CSV</button>
+              <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx">📊 Export XLSX</button>
+              <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx">📝 Export DOCX</button>
+              <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml">📄 Export HTML (Editable)</button>
+            </div>
+          </div>
           <button class="btn-solid" id="save-btn" onclick="manualSave()" data-i18n="cpSave">Save</button>
         </div>
       </div>
@@ -1295,17 +1343,224 @@ function onNameBlur(el) {
 }
 
 // ── Print ─────────────────────────────────────────────────────────────────────
-function printCurrentPlan() {
-  if (!selectedPlan) return;
-  printPlanById(selectedPlan.id);
+// ── Export / Print dropdown ──────────────────────────────
+function toggleExportMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('cp-export-menu');
+  if (menu) menu.classList.toggle('hidden');
 }
+
+function handleExportClick(type) {
+  toggleExportMenu();
+  if (type === 'pdf') exportPdf();
+  else if (type === 'csv') exportCsv();
+  else if (type === 'xlsx') exportXlsx();
+  else if (type === 'docx') exportDocx();
+  else if (type === 'html') exportHtml();
+}
+
+function downloadExportFile(filename, content, mimeType) {
+  const bom = mimeType.includes('csv') ? new Uint8Array([0xEF, 0xBB, 0xBF]) : new Uint8Array();
+  const blob = new Blob([bom, content], { type: mimeType + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportPdf() {
+  if (!selectedPlan) return;
+  const html = buildPrintHtml(selectedPlan, false);
+  const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+  const defaultName = `class_plan_${safeTitle}.pdf`;
+
+  if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+    try {
+      const result = await Desktop.printPdf({ html, defaultName });
+      if (result && result.ok) {
+        if (window.showExportSuccessPopup && result.path) {
+          showExportSuccessPopup(result.path, result.name || defaultName);
+        } else {
+          alert('PDF exported successfully.');
+        }
+      } else if (result && !result.ok && !result.canceled) {
+        alert('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+      }
+    } catch (err) {
+      alert('⚠️ Could not save PDF: ' + err.message);
+    }
+  } else {
+    browserPrint(html);
+  }
+}
+
+function getPlanAoa(plan) {
+  const aoa = [];
+  aoa.push(['Class Plan', plan.name]);
+  if (plan.roomNumber) aoa.push(['Room', plan.roomNumber]);
+  const schedStr = schedSummary(plan);
+  if (schedStr) aoa.push(['Schedule', schedStr]);
+  const groupName = cpGroupDisplayName(selectedGroup);
+  if (groupName) aoa.push(['Group', groupName]);
+  aoa.push([]); // space
+
+  aoa.push(['Seat / Desk Coordinate', 'Assigned Student']);
+
+  const fmt = function (n) { return formatName(n || '', plan.nameDisplay); };
+
+  if (!plan.layoutType || plan.layoutType === 'grid') {
+    for (let r = 0; r < plan.rows; r++) {
+      for (let c = 0; c < plan.cols; c++) {
+        const seatId = r + ':' + c;
+        const student = fmt(findStudent(plan, seatId)) || '';
+        aoa.push([`Row ${r + 1}, Col ${c + 1}`, student]);
+      }
+    }
+  } else if (plan.layoutType === 'ushape') {
+    const w = plan.uWidth; const d = plan.uDepth;
+    for (let c = 0; c < w; c++) {
+      const seatId = 'top:' + c;
+      const student = fmt(findStudent(plan, seatId)) || '';
+      aoa.push([`Top Desk ${c + 1}`, student]);
+    }
+    for (let r = 1; r <= d; r++) {
+      const leftSeatId = 'left:' + r;
+      const leftStudent = fmt(findStudent(plan, leftSeatId)) || '';
+      aoa.push([`Left Desk ${r}`, leftStudent]);
+
+      const rightSeatId = 'right:' + r;
+      const rightStudent = fmt(findStudent(plan, rightSeatId)) || '';
+      aoa.push([`Right Desk ${r}`, rightStudent]);
+    }
+  } else if (plan.layoutType === 'pods') {
+    for (let pr = 0; pr < plan.roomRows; pr++) {
+      for (let pc = 0; pc < plan.roomCols; pc++) {
+        for (let r = 0; r < plan.podRows; r++) {
+          for (let c = 0; c < plan.podCols; c++) {
+            const seatId = pr + ':' + pc + ':' + r + ':' + c;
+            const student = fmt(findStudent(plan, seatId)) || '';
+            aoa.push([`Pod Row ${pr + 1} Col ${pc + 1} - Desk Row ${r + 1} Col ${c + 1}`, student]);
+          }
+        }
+      }
+    }
+  }
+  return aoa;
+}
+
+function exportCsv() {
+  if (!selectedPlan) return;
+  const aoa = getPlanAoa(selectedPlan);
+  const esc = v => {
+    const s = String(v === null || v === undefined ? '' : v);
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+  const content = aoa.map(r => r.map(esc).join(',')).join('\n');
+  const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+  downloadExportFile(`class_plan_${safeTitle}.csv`, content, 'text/csv');
+}
+
+function exportXlsx() {
+  if (!selectedPlan) return;
+  if (typeof XLSX === 'undefined') {
+    alert('XLSX library not loaded');
+    return;
+  }
+  const aoa = getPlanAoa(selectedPlan);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Class Plan');
+
+  try {
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+    downloadExportFile(`class_plan_${safeTitle}.xlsx`, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  } catch (err) {
+    alert('⚠️ Could not save XLSX: ' + err.message);
+  }
+}
+
+function exportDocx() {
+  if (!selectedPlan) return;
+  const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+
+  if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportDocx === 'function') {
+    let md = `# ${selectedPlan.name}\n\n`;
+    if (selectedPlan.roomNumber) md += `**Room:** ${selectedPlan.roomNumber}  \n`;
+    const schedStr = schedSummary(selectedPlan);
+    if (schedStr) md += `**Schedule:** ${schedStr}  \n`;
+    const groupName = cpGroupDisplayName(selectedGroup);
+    if (groupName) md += `**Group:** ${groupName}  \n`;
+    md += `\n`;
+
+    md += `| Seat / Desk Coordinate | Assigned Student |\n`;
+    md += `|---|---|\n`;
+
+    const aoa = getPlanAoa(selectedPlan);
+    let tableStarted = false;
+    aoa.forEach(row => {
+      if (tableStarted) {
+        md += `| ${row[0]} | ${row[1]} |\n`;
+      } else if (row.length === 2 && row[0] === 'Seat / Desk Coordinate') {
+        tableStarted = true;
+      }
+    });
+
+    Desktop.exportDocx({
+      markdown: md,
+      defaultName: `class_plan_${safeTitle}`,
+      fontFamily: 'Segoe UI',
+      fontSize: '10pt',
+      lineHeight: '1.25',
+      margins: { top: 18, right: 16, bottom: 18, left: 16 },
+      size: 'A4',
+      orientation: 'portrait'
+    }).then(result => {
+      if (result && result.ok) {
+        alert('DOCX exported successfully.');
+      } else if (result && !result.ok && !result.canceled) {
+        alert('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'));
+      }
+    }).catch(err => {
+      alert('⚠️ Could not save DOCX: ' + err.message);
+    });
+  } else {
+    const htmlContent = buildPrintHtml(selectedPlan, false);
+    downloadExportFile(`class_plan_${safeTitle}.doc`, htmlContent, 'application/msword');
+  }
+}
+
+function exportHtml() {
+  if (!selectedPlan) return;
+  const htmlContent = buildPrintHtml(selectedPlan, true);
+  const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+  downloadExportFile(`class_plan_${safeTitle}.html`, htmlContent, 'text/html');
+}
+
+// Close dropdown on outside clicks
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('cp-export-menu');
+  if (menu && !menu.classList.contains('hidden') && !e.target.closest('#cp-export-dropdown')) {
+    menu.classList.add('hidden');
+  }
+});
 
 function printPlanById(planId) {
   const plan = getPlanById(planId);
   if (!plan) return;
   const html = buildPrintHtml(plan);
   if (window.Desktop && typeof Desktop.printHtml === 'function') {
-    Desktop.printHtml(html).catch(function () { browserPrint(html); });
+    Desktop.printHtml(html)
+      .then(function (res) {
+        if (!res || !res.ok) {
+          browserPrint(html);
+        }
+      })
+      .catch(function () { browserPrint(html); });
   } else {
     browserPrint(html);
   }
@@ -1324,7 +1579,7 @@ function browserPrint(html) {
   }, 300);
 }
 
-function buildPrintHtml(plan) {
+function buildPrintHtml(plan, isContentEditable) {
   const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   const schedStr = schedSummary(plan);
   const metaLine = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ');
@@ -1400,17 +1655,19 @@ function buildPrintHtml(plan) {
     '<span style="display:inline-block;background:#2a2a2a;color:#fff;padding:6px 22px;border-radius:5px;' +
     'font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;min-width:110px;">' + esc(t('cpTeacherDesk')) + '</span></div>';
 
+  const editableAttr = isContentEditable ? ' contenteditable="true"' : '';
+
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(plan.name) + '</title>' +
     '<style>body{font-family:Arial,sans-serif;margin:1cm;color:#111;}' +
     'h1{font-size:13pt;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;}' +
     '.meta{font-size:8.5pt;color:#555;margin-bottom:14px;}' +
     'td{padding:2px;}footer{margin-top:14px;font-size:7.5pt;color:#aaa;border-top:1px solid #eee;padding-top:4px;}' +
-    '@page{size:A4;margin:1cm;}</style></head><body>' +
+    '@page{size:A4;margin:1cm;}</style></head><body' + editableAttr + '>' +
     '<h1>' + esc(plan.name) + '</h1>' +
     (metaLine ? '<div class="meta">' + esc(metaLine) + '</div>' : '') +
     body +
     teacherDeskHtml +
-    '<footer>' + esc(selectedGroup || '') + '  —  Printed ' + today + '</footer>' +
+    '<footer>' + esc(cpGroupDisplayName(selectedGroup) || '') + '  —  Printed ' + today + '</footer>' +
     '</body></html>';
 }
 

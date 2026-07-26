@@ -2222,126 +2222,126 @@ Rules:
 
 </html>`;
 
-downloadExportFile(`${safeLabel}_${ts}.html`, html, 'text/html');
-}
-
-function doExportXLSX(rows, selectedKeys) {
-if (typeof XLSX === 'undefined') {
-showToast('XLSX library not loaded', true);
-return;
-}
-const typeDef = getTypeDef(S.typeKey);
-const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
-const ts = exportTimestamp();
-const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
-const inclSrc = multiFile && selectedKeys.includes('_src');
-const cols = S.schema.filter(f => selectedKeys.includes(f.key));
-
-const header = cols.map(f => cap(f.key));
-if (inclSrc) header.push('Source');
-
-const dataRows = rows.map(row => {
-const cells = cols.map(f => exportCellValue(row[f.key], f));
-if (inclSrc) cells.push(row._src);
-return cells;
-});
-
-const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
-
-try {
-const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-  const filename = `${safeLabel}_${ts}.xlsx`;
-  downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  } catch (err) {
-  showToast('⚠️ Could not save XLSX: ' + (err && err.message ? err.message : String(err)), true);
-  }
-  }
-
-  function doExportDocx(rows, selectedKeys) {
-  const typeDef = getTypeDef(S.typeKey);
-  const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
-  const ts = exportTimestamp();
-  const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
-  const inclSrc = multiFile && selectedKeys.includes('_src');
-  const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
-
-  let md = `# ${label}\n\n`;
-  md += `${rows.length} record${rows.length !== 1 ? 's' : ''} · ${ts}\n\n`;
-
-  const headers = cols.map(f => cap(f.key));
-  if (inclSrc) headers.push('Source');
-
-  md += '| ' + headers.join(' | ') + ' |\n';
-  md += '| ' + headers.map(() => '---').join(' | ') + ' |\n';
-
-  for (const row of rows) {
-  const cells = cols.map(f => {
-  const val = exportCellValue(row[f.key], f);
-  return String(val).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-  });
-  if (inclSrc) {
-  cells.push(String(row._src).replace(/\|/g, '\\|').replace(/\r?\n/g, ' '));
-  }
-  md += '| ' + cells.join(' | ') + ' |\n';
-  }
-
-  const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-
-    Desktop.exportDocx({
-    markdown: md,
-    defaultName: `${safeLabel}_${ts}`,
-    fontFamily: 'Segoe UI',
-    fontSize: '10pt',
-    lineHeight: '1.25',
-    margins: { top: 18, right: 16, bottom: 18, left: 16 },
-    size: 'A4',
-    orientation: 'portrait'
-    }).then(result => {
-    if (result && result.ok) {
-    showToast('DOCX exported successfully.');
-    } else if (result && !result.ok && !result.canceled) {
-    showToast('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'), true);
+      downloadExportFile(`${safeLabel}_${ts}.html`, html, 'text/html');
     }
-    }).catch(err => {
-    showToast('⚠️ Could not save DOCX: ' + (err && err.message ? err.message : String(err)), true);
-    });
+
+    function doExportXLSX(rows, selectedKeys) {
+      if (typeof XLSX === 'undefined') {
+        showToast('XLSX library not loaded', true);
+        return;
+      }
+      const typeDef = getTypeDef(S.typeKey);
+      const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
+      const ts = exportTimestamp();
+      const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
+      const inclSrc = multiFile && selectedKeys.includes('_src');
+      const cols = S.schema.filter(f => selectedKeys.includes(f.key));
+
+      const header = cols.map(f => cap(f.key));
+      if (inclSrc) header.push('Source');
+
+      const dataRows = rows.map(row => {
+        const cells = cols.map(f => exportCellValue(row[f.key], f));
+        if (inclSrc) cells.push(row._src);
+        return cells;
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
+
+      try {
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+        const filename = `${safeLabel}_${ts}.xlsx`;
+        downloadExportFile(filename, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      } catch (err) {
+        showToast('⚠️ Could not save XLSX: ' + (err && err.message ? err.message : String(err)), true);
+      }
+    }
+
+    function doExportDocx(rows, selectedKeys) {
+      const typeDef = getTypeDef(S.typeKey);
+      const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
+      const ts = exportTimestamp();
+      const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
+      const inclSrc = multiFile && selectedKeys.includes('_src');
+      const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
+
+      let md = `# ${label}\n\n`;
+      md += `${rows.length} record${rows.length !== 1 ? 's' : ''} · ${ts}\n\n`;
+
+      const headers = cols.map(f => cap(f.key));
+      if (inclSrc) headers.push('Source');
+
+      md += '| ' + headers.join(' | ') + ' |\n';
+      md += '| ' + headers.map(() => '---').join(' | ') + ' |\n';
+
+      for (const row of rows) {
+        const cells = cols.map(f => {
+          const val = exportCellValue(row[f.key], f);
+          return String(val).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+        });
+        if (inclSrc) {
+          cells.push(String(row._src).replace(/\|/g, '\\|').replace(/\r?\n/g, ' '));
+        }
+        md += '| ' + cells.join(' | ') + ' |\n';
+      }
+
+      const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+
+      Desktop.exportDocx({
+        markdown: md,
+        defaultName: `${safeLabel}_${ts}`,
+        fontFamily: 'Segoe UI',
+        fontSize: '10pt',
+        lineHeight: '1.25',
+        margins: { top: 18, right: 16, bottom: 18, left: 16 },
+        size: 'A4',
+        orientation: 'portrait'
+      }).then(result => {
+        if (result && result.ok) {
+          showToast('DOCX exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          showToast('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'), true);
+        }
+      }).catch(err => {
+        showToast('⚠️ Could not save DOCX: ' + (err && err.message ? err.message : String(err)), true);
+      });
     }
 
     function doExportCSV(rows, selectedKeys) {
-    const cols = S.schema.filter(f => selectedKeys.includes(f.key));
-    const header = cols.map(f => cap(f.key));
-    const csvRows = [header, ...rows.map(row => cols.map(f => exportCellValue(row[f.key], f)))];
-    const csv = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const label = (getTypeDef(S.typeKey) ? t(getTypeDef(S.typeKey).labelKey) : S.typeKey).toLowerCase().replace(/\s+/g,
-    '_');
-    downloadExportFile(`${label}_${exportTimestamp()}.csv`, csv, 'text/csv');
+      const cols = S.schema.filter(f => selectedKeys.includes(f.key));
+      const header = cols.map(f => cap(f.key));
+      const csvRows = [header, ...rows.map(row => cols.map(f => exportCellValue(row[f.key], f)))];
+      const csv = csvRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const label = (getTypeDef(S.typeKey) ? t(getTypeDef(S.typeKey).labelKey) : S.typeKey).toLowerCase().replace(/\s+/g,
+        '_');
+      downloadExportFile(`${label}_${exportTimestamp()}.csv`, csv, 'text/csv');
     }
 
     function doExportPDF(rows, selectedKeys) {
-    const typeDef = getTypeDef(S.typeKey);
-    const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
-    const ts = exportTimestamp();
-    const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
-    const inclSrc = multiFile && selectedKeys.includes('_src');
-    const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
+      const typeDef = getTypeDef(S.typeKey);
+      const label = typeDef ? t(typeDef.labelKey) : S.typeKey;
+      const ts = exportTimestamp();
+      const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
+      const inclSrc = multiFile && selectedKeys.includes('_src');
+      const cols = S.schema.filter(f => f.type !== 'object' && selectedKeys.includes(f.key));
 
-    const hdr = cols.map(f => `<th>${escHtml(cap(f.key))}</th>`).join('') + (inclSrc ? '<th>Source</th>' : '');
-    const body = rows.map(row =>
-    `<tr>${cols.map(f => `<td>${escHtml(exportCellValue(row[f.key], f))}</td>`).join('')}${inclSrc ? `<td
+      const hdr = cols.map(f => `<th>${escHtml(cap(f.key))}</th>`).join('') + (inclSrc ? '<th>Source</th>' : '');
+      const body = rows.map(row =>
+        `<tr>${cols.map(f => `<td>${escHtml(exportCellValue(row[f.key], f))}</td>`).join('')}${inclSrc ? `<td
         style="color:#888;font-size:8pt">${escHtml(row._src)}</td>` : ''}</tr>`
-    ).join('');
+      ).join('');
 
-    const filterDesc = Object.entries(S.filters)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong>
+      const filterDesc = Object.entries(S.filters)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `<strong>${escHtml(k === '_all' ? 'Search' : k === '_src' ? 'File' : cap(k))}:</strong>
     ${escHtml(v)}`)
-    .join(' &nbsp;·&nbsp; ');
-    const filterLine = filterDesc ? `<p class="filters">Filters: ${filterDesc}</p>` : '';
+        .join(' &nbsp;·&nbsp; ');
+      const filterLine = filterDesc ? `<p class="filters">Filters: ${filterDesc}</p>` : '';
 
-    const html = `
+      const html = `
     <!doctype html>
     <html>
 
@@ -2428,126 +2428,127 @@ const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]
 
     </html>`;
 
-    if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
-    const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-      Desktop.printPdf({ html, defaultName: `${safeLabel}_${ts}.pdf` }).then(result => {
-      if (!result.ok && !result.canceled) {
-      mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
-      }
-      }).catch(err => {
-      mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
-      });
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+        const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+        Desktop.printPdf({ html, defaultName: `${safeLabel}_${ts}.pdf` }).then(result => {
+          if (!result.ok && !result.canceled) {
+            mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+          }
+        }).catch(err => {
+          mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+        });
       } else {
-      let iframe = document.getElementById('mdb-pdf-iframe');
-      if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'mdb-pdf-iframe';
-      iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px';
-      document.body.appendChild(iframe);
+        let iframe = document.getElementById('mdb-pdf-iframe');
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.id = 'mdb-pdf-iframe';
+          iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px';
+          document.body.appendChild(iframe);
+        }
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open(); doc.write(html); doc.close();
+        setTimeout(() => {
+          try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { /* ignore */ }
+        }, 350);
       }
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open(); doc.write(html); doc.close();
-      setTimeout(() => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { /* ignore */ }
-      }, 350);
-      }
-      }
+    }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // BATCH SELECTION (wordbanks)
-      // ─────────────────────────────────────────────────────────────────────
-      function batchKey(fi, ri) { return `${fi}:${ri}`; }
+    // ─────────────────────────────────────────────────────────────────────
+    // BATCH SELECTION (wordbanks)
+    // ─────────────────────────────────────────────────────────────────────
+    function batchKey(fi, ri) { return `${fi}:${ri}`; }
 
-      function parseCsvList(raw) {
+    function parseCsvList(raw) {
       return String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
-      }
+    }
 
-      function getRecordThemes(rec) {
+    function getRecordThemes(rec) {
       const t = rec.theme;
       if (!t) return [];
       if (Array.isArray(t)) return t.map(s => String(s).trim()).filter(Boolean);
       return String(t).split(',').map(s => s.trim()).filter(Boolean);
-      }
+    }
 
-      function mergeTagList(existing, additions) {
+    function mergeTagList(existing, additions) {
       const out = [];
       const seen = new Set();
       const src = Array.isArray(existing) ? existing
-      : (existing ? String(existing).split(',').map(s => s.trim()).filter(Boolean) : []);
+        : (existing ? String(existing).split(',').map(s => s.trim()).filter(Boolean) : []);
       for (const v of [...src, ...additions]) {
-      const lo = String(v).toLowerCase();
-      if (!seen.has(lo)) { seen.add(lo); out.push(String(v).trim()); }
+        const lo = String(v).toLowerCase();
+        if (!seen.has(lo)) { seen.add(lo); out.push(String(v).trim()); }
       }
       return out;
-      }
+    }
 
-      function toggleBatchSelect(fi, ri) {
+    function toggleBatchSelect(fi, ri) {
       const key = batchKey(fi, ri);
       if (S.batchSel.has(key)) S.batchSel.delete(key);
       else S.batchSel.add(key);
       updateBatchUI();
       // Sync visual state without full re-render
       document.querySelectorAll(`[data-batch-key="${CSS.escape(key)}"]`).forEach(cb => {
-      cb.checked = S.batchSel.has(key);
-      cb.closest('.chip')?.classList.toggle('chip-selected', S.batchSel.has(key));
+        cb.checked = S.batchSel.has(key);
+        cb.closest('.chip')?.classList.toggle('chip-selected', S.batchSel.has(key));
       });
       document.querySelectorAll(`[data-batch-row="${CSS.escape(key)}"]`).forEach(row => {
-      const cb = row.querySelector('.batch-cb');
-      if (cb) cb.checked = S.batchSel.has(key);
-      row.classList.toggle('row-selected', S.batchSel.has(key));
+        const cb = row.querySelector('.batch-cb');
+        if (cb) cb.checked = S.batchSel.has(key);
+        row.classList.toggle('row-selected', S.batchSel.has(key));
       });
-      }
+    }
 
-      function handleBatchCheckAll(cb) {
+    function handleBatchCheckAll(cb) {
       if (cb.checked) batchSelectAll();
       else batchClearSelection();
-      }
+    }
 
-      function batchSelectAll() {
+    function batchSelectAll() {
       const allRows = getDisplayRecords();
       const effectiveSize = isFinite(S.pageSize) ? S.pageSize : allRows.length;
       const start = S.page * effectiveSize;
       allRows.slice(start, start + effectiveSize).forEach(r => S.batchSel.add(batchKey(r._fi, r._ri)));
       updateBatchUI();
       renderTable();
-      }
+    }
 
-      function batchClearSelection() {
+    function batchClearSelection() {
       S.batchSel.clear();
       closeBatchPanel();
       updateBatchUI();
       renderTable();
-      }
+    }
 
-      function updateBatchUI() {
+    function updateBatchUI() {
       const count = S.batchSel.size;
       const show = S.typeKey === 'wordbanks';
       ['batch-select-all-btn', 'batch-clear-btn', 'batch-count'].forEach(id => {
-      const el = $(id);
-      if (el) el.style.display = show ? '' : 'none';
+        const el = $(id);
+        if (el) el.style.display = show ? '' : 'none';
       });
       const editBtn = $('batch-edit-btn');
       const delBtn = $('batch-del-btn');
       if (editBtn) { editBtn.style.display = show ? '' : 'none'; editBtn.disabled = count === 0; }
       if (delBtn) { delBtn.style.display = show ? '' : 'none'; delBtn.disabled = count === 0; }
       const countEl = $('batch-count');
-      if (countEl) countEl.textContent = count > 0 ? tFmt('mdbNSelected', {n: count}) : '';
+      if (countEl) countEl.textContent = count > 0 ? tFmt('mdbNSelected', { n: count }) : '';
       if (!show) closeBatchPanel();
-      }
+    }
 
-      function toggleBatchPanel() {
+    function toggleBatchPanel() {
       const panel = $('batch-panel');
       if (!panel) return;
       const wasHidden = panel.classList.contains('hidden');
       panel.classList.toggle('hidden', !wasHidden);
       if (!wasHidden) $('batch-feedback').textContent = '';
-      }
+    }
 
-      function closeBatchPanel() {
+    function closeBatchPanel() {
       const panel = $('batch-panel');
       if (panel) panel.classList.add('hidden');
-      }
+    }
 
-      async function applyBatchEdit() {
+    async function applyBatchEdit() {
       const fb = $('batch-feedback');
       const selected = [...S.batchSel];
       if (!selected.length) { if (fb) fb.textContent = t('mdbBatchWarnSelect'); return; }
@@ -2558,78 +2559,78 @@ const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]
       const newLevel = ($('be-level')?.value || '').trim().toUpperCase();
 
       if (!newThemes.length && !newKeywords.length && !newPos && !newLevel) {
-      if (fb) fb.textContent = t('mdbBatchWarnField');
-      return;
+        if (fb) fb.textContent = t('mdbBatchWarnField');
+        return;
       }
 
       const affectedFiles = new Set();
       let updated = 0;
 
       for (const key of selected) {
-      const [fi, ri] = key.split(':').map(Number);
-      const rec = S.files[fi]?.records[ri];
-      if (!rec) continue;
-      if (newThemes.length) {
-      const merged = mergeTagList(getRecordThemes(rec), newThemes);
-      rec.theme = merged.length === 1 ? merged[0] : merged;
-      }
-      if (newKeywords.length) {
-      rec.keywords = mergeTagList(Array.isArray(rec.keywords) ? rec.keywords : (rec.keywords ? [rec.keywords] : []),
-      newKeywords);
-      }
-      if (newPos) rec.partOfSpeech = newPos;
-      if (newLevel) rec.level = newLevel;
-      affectedFiles.add(fi);
-      updated++;
+        const [fi, ri] = key.split(':').map(Number);
+        const rec = S.files[fi]?.records[ri];
+        if (!rec) continue;
+        if (newThemes.length) {
+          const merged = mergeTagList(getRecordThemes(rec), newThemes);
+          rec.theme = merged.length === 1 ? merged[0] : merged;
+        }
+        if (newKeywords.length) {
+          rec.keywords = mergeTagList(Array.isArray(rec.keywords) ? rec.keywords : (rec.keywords ? [rec.keywords] : []),
+            newKeywords);
+        }
+        if (newPos) rec.partOfSpeech = newPos;
+        if (newLevel) rec.level = newLevel;
+        affectedFiles.add(fi);
+        updated++;
       }
 
       for (const fi of affectedFiles) {
-      if (!await saveFile(fi)) return;
+        if (!await saveFile(fi)) return;
       }
 
       S.schema = buildSchema(getAllRecords());
       renderAll();
-      if (fb) fb.textContent = tFmt('mdbBatchUpdated', {n: updated});
-      }
+      if (fb) fb.textContent = tFmt('mdbBatchUpdated', { n: updated });
+    }
 
-      async function deleteSelectedBatch() {
+    async function deleteSelectedBatch() {
       const selected = [...S.batchSel];
       if (!selected.length) return;
       const count = selected.length;
-      if (!await showConfirm(tFmt('mdbConfirmDeleteBatch', {n: count}))) return;
+      if (!await showConfirm(tFmt('mdbConfirmDeleteBatch', { n: count }))) return;
 
       const byFile = {};
       for (const key of selected) {
-      const [fi, ri] = key.split(':').map(Number);
-      if (!byFile[fi]) byFile[fi] = [];
-      byFile[fi].push(ri);
+        const [fi, ri] = key.split(':').map(Number);
+        if (!byFile[fi]) byFile[fi] = [];
+        byFile[fi].push(ri);
       }
 
       for (const [fiStr, indices] of Object.entries(byFile)) {
-      const fi = Number(fiStr);
-      for (const ri of [...indices].sort((a, b) => b - a)) {
-      S.files[fi].records.splice(ri, 1);
-      }
-      if (!await saveFile(fi)) return;
+        const fi = Number(fiStr);
+        for (const ri of [...indices].sort((a, b) => b - a)) {
+          S.files[fi].records.splice(ri, 1);
+        }
+        if (!await saveFile(fi)) return;
       }
 
       S.batchSel.clear();
       S.schema = buildSchema(getAllRecords());
       closeBatchPanel();
       renderAll();
-      }
+    }
 
-      // ─────────────────────────────────────────────────────────────────────
-      // GLOBAL SEARCH (no type selected)
-      // ─────────────────────────────────────────────────────────────────────
-      let _mdbGlobalTimer = null;
+    // ─────────────────────────────────────────────────────────────────────
+    // GLOBAL SEARCH (no type selected)
+    // ─────────────────────────────────────────────────────────────────────
+    let _mdbGlobalTimer = null;
 
-      function mdbGlobalSearchDebounced(q) {
+    function mdbGlobalSearchDebounced(q) {
       clearTimeout(_mdbGlobalTimer);
       _mdbGlobalTimer = setTimeout(() => mdbGlobalSearch(q), 280);
-      }
+    }
 
-      async function mdbGlobalSearch(q) {
+    async function mdbGlobalSearch(q) {
       const resultsEl = $('mdb-global-results');
       if (!resultsEl) return;
       const trimmed = q.trim();
@@ -2640,67 +2641,68 @@ const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]
           class="ld"></span>${t('mdbSearching')}</div>`;
 
       if (!window.Desktop || !Desktop.isElectron()) {
-      resultsEl.innerHTML = `<div style="padding:12px 14px;color:#999;font-size:0.82rem;">${t('mdbNotAvailableOutside')}
+        resultsEl.innerHTML = `<div style="padding:12px 14px;color:#999;font-size:0.82rem;">${t('mdbNotAvailableOutside')}
       </div>`;
-      return;
+        return;
       }
 
       const lq = trimmed.toLowerCase();
       const hits = [];
 
       function searchRecords(records, typeKey, typeLabel, filename) {
-      for (let ri = 0; ri < records.length; ri++) { const r=records[ri]; if (!r) continue; const
-        matched=Object.entries(r).some(([k, v])=> {
-        if (k.startsWith('_')) return false;
-        if (typeof v === 'string') return v.toLowerCase().includes(lq);
-        if (Array.isArray(v)) return v.some(el => String(el).toLowerCase().includes(lq));
-        return false;
-        });
-        if (matched) hits.push({ ...r, _typeKey: typeKey, _typeLabel: typeLabel, _file: filename, _recordIndex: ri });
-        if (hits.length >= 60) return true;
+        for (let ri = 0; ri < records.length; ri++) {
+          const r = records[ri]; if (!r) continue; const
+            matched = Object.entries(r).some(([k, v]) => {
+              if (k.startsWith('_')) return false;
+              if (typeof v === 'string') return v.toLowerCase().includes(lq);
+              if (Array.isArray(v)) return v.some(el => String(el).toLowerCase().includes(lq));
+              return false;
+            });
+          if (matched) hits.push({ ...r, _typeKey: typeKey, _typeLabel: typeLabel, _file: filename, _recordIndex: ri });
+          if (hits.length >= 60) return true;
         }
         return false;
-        }
+      }
 
-        for (const def of TYPE_DEFS) {
+      for (const def of TYPE_DEFS) {
         try {
-        if (_gsc[def.key] !== undefined) {
-        // Cache warm — no I/O needed
-        for (const [filename, fileData] of Object.entries(_gsc[def.key])) {
-        if (searchRecords(fileData.records, def.key, t(def.labelKey), filename)) break;
-        }
-        } else {
-        // Cache cold — load on demand and populate for future searches
-        const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
-        if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
-        const typeFiles = {};
-        for (const fi of list.files) {
-        const raw = await Desktop.readText(def.target, fi.filename);
-        if (!raw?.ok || !raw.content) continue;
-        const varName = detectVarName(raw.content) || VAR_NAME_DEFAULTS[def.key] || 'customData';
-        const records = _parseRecords(raw.content);
-        if (!records) continue;
-        normalizeRecords(records, def.key);
-        typeFiles[fi.filename] = { records, varName };
-        if (searchRecords(records, def.key, t(def.labelKey), fi.filename)) break;
-        }
-        _gsc[def.key] = typeFiles;
-        }
-        } catch (e) {}
+          if (_gsc[def.key] !== undefined) {
+            // Cache warm — no I/O needed
+            for (const [filename, fileData] of Object.entries(_gsc[def.key])) {
+              if (searchRecords(fileData.records, def.key, t(def.labelKey), filename)) break;
+            }
+          } else {
+            // Cache cold — load on demand and populate for future searches
+            const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
+            if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
+            const typeFiles = {};
+            for (const fi of list.files) {
+              const raw = await Desktop.readText(def.target, fi.filename);
+              if (!raw?.ok || !raw.content) continue;
+              const varName = detectVarName(raw.content) || VAR_NAME_DEFAULTS[def.key] || 'customData';
+              const records = _parseRecords(raw.content);
+              if (!records) continue;
+              normalizeRecords(records, def.key);
+              typeFiles[fi.filename] = { records, varName };
+              if (searchRecords(records, def.key, t(def.labelKey), fi.filename)) break;
+            }
+            _gsc[def.key] = typeFiles;
+          }
+        } catch (e) { }
         if (hits.length >= 60) break;
-        }
+      }
 
-        if (!hits.length) {
+      if (!hits.length) {
         resultsEl.innerHTML = `<div style="padding:12px 14px;color:#999;font-size:0.82rem;">${t('mdbNoResultsFound')}
         </div>`;
         return;
-        }
+      }
 
-        const rows = hits.map(r => {
+      const rows = hits.map(r => {
         const primary = r.word || r.sentence || r.quote || r.correct || Object.values(r).find(v => typeof v === 'string'
-        && !String(v).startsWith('_')) || '';
+          && !String(v).startsWith('_')) || '';
         const secondary = (Array.isArray(r.definition) ? r.definition[0] : r.definition) || r.french || r.theme ||
-        r.author || r.erroneous || '';
+          r.author || r.erroneous || '';
         return `<div data-type-key="${esc(r._typeKey)}" data-filename="${esc(r._file)}"
           data-record-index="${r._recordIndex}"
           style="display:flex;gap:10px;align-items:baseline;padding:7px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;"
@@ -2711,61 +2713,61 @@ const safeLabel = label.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]
             title="${esc(String(primary))}">${esc(String(primary))}</span>
           <span
             style="color:#666;font-size:0.78rem;flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-            title="${esc(String(secondary||'').slice(0,200))}">${esc(String(secondary||'').slice(0,80))}</span>
+            title="${esc(String(secondary || '').slice(0, 200))}">${esc(String(secondary || '').slice(0, 80))}</span>
           <span style="color:#bbb;font-size:0.71rem;white-space:nowrap;flex-shrink:0;">${esc(r._typeLabel)} ·
             ${esc(r._file)}</span>
         </div>`;
-        }).join('');
+      }).join('');
 
-        const capSuffix = hits.length >= 60 ? ' ' + t('mdbResultsFirst60') : '';
-        const countLabel = hits.length === 1 ? t('mdbNResult') : tFmt('mdbNResults', {n: hits.length});
-        resultsEl.innerHTML = `<div
+      const capSuffix = hits.length >= 60 ? ' ' + t('mdbResultsFirst60') : '';
+      const countLabel = hits.length === 1 ? t('mdbNResult') : tFmt('mdbNResults', { n: hits.length });
+      resultsEl.innerHTML = `<div
           style="padding:5px 14px;font-size:0.71rem;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.7px;border-bottom:1px solid #eee;">
           ${countLabel}${capSuffix}</div>${rows}`;
-        }
+    }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // GLOBAL SEARCH → OPEN FOR EDIT
-        // ─────────────────────────────────────────────────────────────────────
-        async function openGlobalResult(typeKey, filename, recordIndex) {
-        $('mdb-global-results').style.display = 'none';
-        $('mdb-global-search').value = '';
+    // ─────────────────────────────────────────────────────────────────────
+    // GLOBAL SEARCH → OPEN FOR EDIT
+    // ─────────────────────────────────────────────────────────────────────
+    async function openGlobalResult(typeKey, filename, recordIndex) {
+      $('mdb-global-results').style.display = 'none';
+      $('mdb-global-search').value = '';
 
-        if (S.typeKey !== typeKey) await selectType(typeKey);
+      if (S.typeKey !== typeKey) await selectType(typeKey);
 
-        let fi = S.files.findIndex(f => f.name === filename);
-        if (fi === -1) return;
+      let fi = S.files.findIndex(f => f.name === filename);
+      if (fi === -1) return;
 
-        if (S.files[fi].status === 'pending') {
+      if (S.files[fi].status === 'pending') {
         const def = getTypeDef(typeKey);
         await loadFileContent(fi, def);
         S.schema = buildSchema(getAllRecords());
         renderFilePills();
         renderFilterBar();
         renderTable();
-        }
+      }
 
-        if (S.files[fi].status !== 'loaded') return;
+      if (S.files[fi].status !== 'loaded') return;
 
-        // Make the file visible in the pills
-        if (typeKey === 'wordbanks') {
+      // Make the file visible in the pills
+      if (typeKey === 'wordbanks') {
         if (!S.filters['_srcMulti']) S.filters['_srcMulti'] = new Set();
         S.filters['_srcMulti'].add(filename);
-        } else {
+      } else {
         S.filters['_src'] = filename;
-        }
-        renderFilePills();
-        renderTable();
+      }
+      renderFilePills();
+      renderTable();
 
-        openEdit(fi, recordIndex);
-        }
+      openEdit(fi, recordIndex);
+    }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // START
-        // ─────────────────────────────────────────────────────────────────────
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeColPicker(); });
-        document.addEventListener('DOMContentLoaded', init);
-        </script>
-        </body>
+    // ─────────────────────────────────────────────────────────────────────
+    // START
+    // ─────────────────────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeColPicker(); });
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
 
-        </html>
+</html>
