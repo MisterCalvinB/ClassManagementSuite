@@ -140,6 +140,17 @@
 
   <!-- ── Planner body ── -->
   <div id="planner-body">
+    <!-- ── Week navigation drawer ── -->
+    <div id="week-nav-panel">
+      <div class="wn-tab">
+        <span class="wn-tab-text" data-i18n="pl_weeksTitle">Weeks</span>
+      </div>
+      <div class="wn-content">
+        <div class="wn-header" data-i18n="pl_weeksTitle">Weeks</div>
+        <div id="wn-list" class="wn-list"></div>
+      </div>
+    </div>
+
     <div id="main">
       <div id="agenda"></div>
     </div>
@@ -1708,6 +1719,64 @@
     // ── Render ─────────────────────────────────────────────────────────────────
     function render() { renderAgenda(); }
 
+    function updateWeekNav() {
+      var listEl = document.getElementById('wn-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      var headers = document.querySelectorAll('.week-header, .at-week-title');
+      if (!headers.length) {
+        var emptySpan = document.createElement('span');
+        emptySpan.className = 'wn-empty';
+        emptySpan.textContent = t('pl_noWeeks') || 'No weeks available';
+        listEl.appendChild(emptySpan);
+        return;
+      }
+
+      var activeSem = getActiveSem();
+      var semStart = activeSem && activeSem.semesterStart ? new Date(activeSem.semesterStart + 'T00:00:00') : null;
+      var nowTime = new Date();
+
+      headers.forEach(function (hdr, idx) {
+        var weekId = hdr.id;
+        if (!weekId) {
+          weekId = 'week-hdr-' + idx;
+          hdr.id = weekId;
+        }
+
+        var weekNumAttr = hdr.getAttribute('data-week');
+        var isPast = false;
+        if (semStart && weekNumAttr) {
+          var weekNum = parseInt(weekNumAttr, 10);
+          if (!isNaN(weekNum)) {
+            var weekEnd = new Date(semStart.getTime() + weekNum * 7 * 24 * 60 * 60 * 1000);
+            if (nowTime >= weekEnd) {
+              isPast = true;
+            }
+          }
+        }
+
+        if (isPast) {
+          hdr.classList.add('week-hdr-past');
+        } else {
+          hdr.classList.remove('week-hdr-past');
+        }
+
+        var item = document.createElement('a');
+        item.className = 'wn-item';
+        if (isPast) {
+          item.classList.add('wn-past');
+        }
+        item.textContent = hdr.textContent;
+        item.title = hdr.textContent;
+        item.onclick = function (e) {
+          e.preventDefault();
+          hdr.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        listEl.appendChild(item);
+      });
+    }
+
     function renderAgenda() {
       var el = document.getElementById('agenda');
 
@@ -1773,7 +1842,7 @@
           prevWeek = weekNum;
           html += '<div class="week-group">';
           if (weekNum !== null && totalWeeks > 0)
-            html += '<div class="week-header">' + esc(tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks })) + '</div>';
+            html += '<div class="week-header" id="week-hdr-' + weekNum + '" data-week="' + weekNum + '">' + esc(tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks })) + '</div>';
         }
         var d = new Date(date + 'T12:00:00');
         var label = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
@@ -1787,6 +1856,7 @@
       if (prevWeek !== null) html += '</div>'; // close last week-group
       el.innerHTML = html;
       _applyNavHighlight(false);
+      updateWeekNav();
     }
 
     function renderSlot(s) {
@@ -4566,7 +4636,7 @@
           : ('Week ' + wk);
 
         html += '<div class="at-week-block">';
-        html += '<div class="at-week-title">' + esc(weekLabel) + '</div>';
+        html += '<div class="at-week-title" id="week-hdr-' + wk + '" data-week="' + wk + '">' + esc(weekLabel) + '</div>';
         html += '<div class="table-wrap"><table class="agenda-table"><thead><tr>';
         var _timeHdr = t('pl_time');
         if (!_timeHdr || _timeHdr === 'pl_time') _timeHdr = 'Time';
@@ -4605,6 +4675,7 @@
 
       el.innerHTML = html;
       _applyNavHighlight(false);
+      updateWeekNav();
     }
 
     function renderTableMatrixEntry(s, layout) {

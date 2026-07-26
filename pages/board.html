@@ -1474,7 +1474,9 @@
       <div class="con-tb-group" id="con-title-group">
         <!--<span class="con-tb-group-label" style="visibility:hidden;">_</span>-->
         <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
-             onchange="conSetTitle(this.value)" onkeyup="conSetTitle(this.value)">
+             onchange="conSetTitle(this.value); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();"
+             onkeyup="conSetTitle(this.value); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();">
+        <button id="con-rename-file-btn" class="action-btn btn-grey" onclick="conRenameCurrentFileFromInput()" style="display:none; margin-left: 2px;" title="Rename the board file on disk to match this title">Rename file</button>
         <div id="con-bp-wrap" class="con-bp-wrap">
           <button id="con-bp-btn" class="action-btn btn-grey con-bp-btn" onclick="bpOpen()"></button>
           <div id="con-bp-popover" class="con-bp-popover" style="display:none;">
@@ -3684,6 +3686,118 @@ function hideFailure() {
       } catch (error) {
         mdbToast('⚠️ Linked, but could not rename file to slot name.');
         return false;
+      }
+    }
+
+    function conUpdateRenameButtonVisibility() {
+      const btn = document.getElementById('con-rename-file-btn');
+      if (!btn) return;
+      if (!(window.Desktop && Desktop.isElectron() && _conCurrentFileName)) {
+        btn.style.display = 'none';
+        return;
+      }
+      const input = document.getElementById('con-title-input');
+      if (!input) return;
+      const currentTitle = (input.value || '').trim();
+      const currentFileBase = boardStripJsonExt(_conCurrentFileName);
+      
+      const cleanTitle = currentTitle.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
+      const cleanFileBase = currentFileBase.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim();
+      
+      if (cleanTitle && cleanTitle !== cleanFileBase) {
+        btn.style.display = '';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    async function conRenameCurrentFileFromInput() {
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
+        mdbToast('⚠️ Rename file is only supported in the Electron desktop app.');
+        return;
+      }
+      if (!_conCurrentFileName) {
+        mdbToast('⚠️ No saved file to rename.');
+        return;
+      }
+      const input = document.getElementById('con-title-input');
+      if (!input) return;
+      const rawName = String(input.value || '').trim();
+      if (!rawName) {
+        mdbToast('⚠️ Title cannot be empty.');
+        input.focus();
+        return;
+      }
+
+      const cleanBase = rawName
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!cleanBase) {
+        mdbToast('⚠️ Invalid characters in title.');
+        return;
+      }
+
+      const nextFilename = cleanBase + '.js';
+      const oldFilename = _conCurrentFileName;
+      if (nextFilename === oldFilename) {
+        conUpdateRenameButtonVisibility();
+        return;
+      }
+
+      const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
+      const newFolder = boardStripJsonExt(nextFilename);
+
+      try {
+        if (oldFolder && oldFolder !== newFolder) {
+          await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
+        }
+        if (oldFilename !== nextFilename) {
+          await Desktop.renameByPath('mindmaps', newFolder + '/' + oldFilename, newFolder + '/' + nextFilename);
+        }
+
+        if (typeof Desktop.listByPath === 'function') {
+          const oldBase = boardStripJsonExt(oldFilename);
+          const newBase = boardStripJsonExt(nextFilename);
+          if (oldBase !== newBase) {
+            const histPath = newFolder + '/history';
+            try {
+              const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json'], recursive: false });
+              const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+              for (const vf of vFiles) {
+                const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
+                if (vfname.startsWith(oldBase + '.v')) {
+                  const suffix = vfname.slice(oldBase.length);
+                  await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => {});
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        const oldFileValue = _conCurrentFileName;
+        _conCurrentFileName = nextFilename;
+        _conCurrentFolderName = newFolder;
+        
+        try {
+          const store = boardReadStore();
+          const list = store['constellation'] || [];
+          list.forEach(e => {
+            if (e.name === oldFileValue) {
+              e.name = nextFilename;
+            }
+          });
+          boardWriteStoreWithFallback(store);
+        } catch (e) {}
+
+        if (window.conSetTitle) window.conSetTitle(newFolder);
+        if (input) input.value = newFolder;
+        if (typeof historyRefreshList === 'function') await historyRefreshList();
+        conUpdateRenameButtonVisibility();
+        mdbToast('✅ File renamed to: ' + cleanBase);
+      } catch (error) {
+        console.error('Rename failed:', error);
+        mdbToast('⚠️ Could not rename file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -12704,6 +12818,7 @@ function hideFailure() {
         conApplyBoardBgColor();
         conResetAttachments();
         _conCurrentFileName = null;
+        if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
         if (resetTitle) {
           const titleInput = document.getElementById('con-title-input');
           const _tsTitle = conMakeTimestampTitle();
@@ -13384,6 +13499,9 @@ function hideFailure() {
         conTitle = title;
         const el = document.getElementById('con-board-title');
         if (el) { el.textContent = title; el.style.display = title ? 'block' : 'none'; }
+        if (typeof conUpdateRenameButtonVisibility === 'function') {
+          conUpdateRenameButtonVisibility();
+        }
       };
 
       window.conGetTitle = function() {
@@ -25500,6 +25618,7 @@ function hideFailure() {
     }
 
     function boardAutosaveSection(section, options = {}) {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
       let data = null;
       let hasContent = false;
       const classGroup = typeof options.classGroup === 'string' ? options.classGroup : (activeClassGroup || '');
@@ -25558,6 +25677,7 @@ function hideFailure() {
     }
 
     function initBoardSessionAutosave() {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
       if (boardAutosaveTimer) return;
       boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
 
@@ -26676,6 +26796,7 @@ function hideFailure() {
 
       _conCurrentFileName = bundle.filename;
       _conCurrentFolderName = bundle.folderName;
+      if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
       conSetAttachmentsFromSession(bundle.attachments);
       if (window.conUpdatePageBar) window.conUpdatePageBar();
       return {
@@ -26687,6 +26808,7 @@ function hideFailure() {
 
     let _conSilentInitialSavePromise = null;
     function conTrySilentInitialSave() {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return null;
       if (!(window.Desktop && Desktop.isElectron())) return null;
       if (_conCurrentFileName || _conCurrentFolderName) return null;
       if (_conSilentInitialSavePromise) return _conSilentInitialSavePromise;

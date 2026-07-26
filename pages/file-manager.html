@@ -1942,8 +1942,8 @@ function makeBrowseRow(file) {
     })(file);
     acts.appendChild(nativeBtn);
 
-    // Edit in Document Editor (markdown files only)
-    if (/\.md$/i.test(file.filename)) {
+    // Edit in Document Editor (markdown and HTML files only)
+    if (/\.(md|html)$/i.test(file.filename)) {
       var editBtn = document.createElement('button');
       editBtn.className = 'btn-action';
       editBtn.textContent = tt('fmEditInDocEditor', 'Edit in Doc Editor');
@@ -2844,6 +2844,28 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
         }});
       }
 
+      var isDoc = /\.(md|html)$/i.test(file.filename);
+      if (isDoc) {
+        items.push({ label: tt('fmEditInDocEditor', 'Edit in Doc Editor'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          var target = file.target;
+          var relPath = file.relativePath || file.filename;
+          if (target === 'user') {
+            if (relPath.startsWith('document-editor/docs/')) {
+              target = 'docEditorDocs';
+              relPath = relPath.slice('document-editor/docs/'.length);
+            } else if (relPath.startsWith('document-editor/stylesheets/')) {
+              target = 'docEditorStylesheets';
+              relPath = relPath.slice('document-editor/stylesheets/'.length);
+            } else if (relPath.startsWith('document-editor/templates/')) {
+              target = 'docEditorTemplates';
+              relPath = relPath.slice('document-editor/templates/'.length);
+            }
+          }
+          Desktop.openTool('document-editor.html', { query: { editTarget: target, editRelPath: relPath } });
+        }});
+      }
+
       items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
       items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
       items.push('-');
@@ -2965,6 +2987,28 @@ document.getElementById('resetExecuteBtn').addEventListener('click', async funct
             relPath = relPath.slice('mindmaps/'.length);
           }
           Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath } });
+        }});
+      }
+
+      var isDoc = /\.(md|html)$/i.test(file.filename);
+      if (isDoc) {
+        items.push({ label: tt('fmEditInDocEditor', 'Edit in Doc Editor'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          var target = file.target;
+          var relPath = file.relativePath || file.filename;
+          if (target === 'user') {
+            if (relPath.startsWith('document-editor/docs/')) {
+              target = 'docEditorDocs';
+              relPath = relPath.slice('document-editor/docs/'.length);
+            } else if (relPath.startsWith('document-editor/stylesheets/')) {
+              target = 'docEditorStylesheets';
+              relPath = relPath.slice('document-editor/stylesheets/'.length);
+            } else if (relPath.startsWith('document-editor/templates/')) {
+              target = 'docEditorTemplates';
+              relPath = relPath.slice('document-editor/templates/'.length);
+            }
+          }
+          Desktop.openTool('document-editor.html', { query: { editTarget: target, editRelPath: relPath } });
         }});
       }
 
