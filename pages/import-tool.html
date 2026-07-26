@@ -518,13 +518,22 @@
       if (!parsedFile) return;
       var fields = selectedModule.fields;
       var headers = parsedFile.headers;
-      columnMapping = ImportUtils.autoDetectMapping(headers, fields);
+      
+      // Preserve any manual mappings already defined in columnMapping
+      var newMapping = ImportUtils.autoDetectMapping(headers, fields);
+      fields.forEach(function (field) {
+        if (columnMapping[field.key] && typeof columnMapping[field.key] === 'object' && columnMapping[field.key].type === 'manual') {
+          newMapping[field.key] = columnMapping[field.key];
+        }
+      });
+      columnMapping = newMapping;
 
       var tbody = document.getElementById('mapping-tbody');
       tbody.innerHTML = '';
       fields.forEach(function (field) {
-        var autoCol = columnMapping[field.key];
-        var isAuto = autoCol !== null && autoCol !== undefined;
+        var valSpec = columnMapping[field.key];
+        var isManual = valSpec && typeof valSpec === 'object' && valSpec.type === 'manual';
+        var isAuto = !isManual && valSpec !== null && valSpec !== undefined;
         var label = tt(field.i18nKey, field.key);
         var tr = document.createElement('tr');
 
@@ -533,25 +542,96 @@
         if (isAuto) tdField.innerHTML += '<span class="auto-tag">' + tt('importStep3AutoDetect', '✓') + '</span>';
 
         var tdSel = document.createElement('td');
+        var container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '6px';
+
         var sel = document.createElement('select');
-        sel.className = 'mapping-select' + (isAuto ? ' auto-matched' : '');
+        sel.className = 'mapping-select' + 
+          (isAuto ? ' auto-matched' : '') +
+          (isManual ? ' manually-mapped' : '');
         sel.dataset.fieldKey = field.key;
+        
         var skipOpt = document.createElement('option');
         skipOpt.value = '-1';
         skipOpt.textContent = tt('importStep3Skip', '(skip)');
         sel.appendChild(skipOpt);
+        
         headers.forEach(function (h, i) {
           var opt = document.createElement('option');
           opt.value = String(i);
           opt.textContent = h || ('Col ' + (i + 1));
           sel.appendChild(opt);
         });
-        sel.value = isAuto ? String(autoCol) : '-1';
-        sel.addEventListener('change', function () {
-          columnMapping[field.key] = sel.value === '-1' ? null : parseInt(sel.value, 10);
+
+        var manualOpt = document.createElement('option');
+        manualOpt.value = '__manual__';
+        manualOpt.textContent = tt('importStep3Manual', '— Manually input value —');
+        sel.appendChild(manualOpt);
+
+        sel.value = isManual ? '__manual__' : (isAuto ? String(valSpec) : '-1');
+
+        var manualWrap = document.createElement('div');
+        manualWrap.className = 'manual-input-wrap';
+        manualWrap.style.display = isManual ? 'block' : 'none';
+
+        var input;
+        if (field.type === 'boolean') {
+          var lbl = document.createElement('label');
+          lbl.className = 'manual-input-checkbox-label';
+          
+          input = document.createElement('input');
+          input.type = 'checkbox';
+          if (isManual) {
+            input.checked = !!valSpec.value;
+          }
+          
+          var textSpan = document.createElement('span');
+          textSpan.textContent = tt('importStep3ManualBooleanTrue', 'Set to True');
+          
+          lbl.appendChild(input);
+          lbl.appendChild(textSpan);
+          manualWrap.appendChild(lbl);
+        } else {
+          input = document.createElement('input');
+          input.type = field.type === 'date' ? 'date' : 'text';
+          if (field.type !== 'date') {
+            input.placeholder = tt('importStep3ManualPlaceholder', 'Enter custom value...');
+          }
+          if (isManual) {
+            input.value = valSpec.value || '';
+          }
+          manualWrap.appendChild(input);
+        }
+
+        var updateManualValue = function () {
+          var val = field.type === 'boolean' ? input.checked : input.value;
+          columnMapping[field.key] = { type: 'manual', value: val };
           updateMappingPreview();
+        };
+
+        input.addEventListener('input', updateManualValue);
+        input.addEventListener('change', updateManualValue);
+
+        sel.addEventListener('change', function () {
+          if (sel.value === '__manual__') {
+            manualWrap.style.display = 'block';
+            sel.classList.remove('auto-matched');
+            sel.classList.add('manually-mapped');
+            updateManualValue();
+          } else {
+            manualWrap.style.display = 'none';
+            sel.classList.remove('manually-mapped');
+            sel.classList.remove('auto-matched');
+            columnMapping[field.key] = sel.value === '-1' ? null : parseInt(sel.value, 10);
+            updateMappingPreview();
+          }
         });
-        tdSel.appendChild(sel);
+
+        container.appendChild(sel);
+        container.appendChild(manualWrap);
+        tdSel.appendChild(container);
         tr.appendChild(tdField);
         tr.appendChild(tdSel);
         tbody.appendChild(tr);
@@ -574,12 +654,40 @@
         var obj = {};
         fields.forEach(function (field) {
           var colIdx = columnMapping[field.key];
-          var raw = colIdx !== null && colIdx !== undefined ? rawRow[colIdx] : '';
-          raw = (raw === null || raw === undefined) ? '' : String(raw).trim();
-          obj[field.key] = field.type === 'boolean' ? /^(1|true|yes|oui|ja|si|y|o)$/i.test(raw) : raw;
+          var raw;
+          if (colIdx && typeof colIdx === 'object' && colIdx.type === 'manual') {
+            raw = colIdx.value;
+          } else {
+            raw = colIdx !== null && colIdx !== undefined ? rawRow[colIdx] : '';
+          }
+          if (field.type === 'boolean') {
+            if (typeof raw === 'boolean') {
+              obj[field.key] = raw;
+            } else {
+              raw = (raw === null || raw === undefined) ? '' : String(raw).trim();
+              obj[field.key] = /^(1|true|yes|oui|ja|si|y|o)$/i.test(raw);
+            }
+          } else {
+            obj[field.key] = (raw === null || raw === undefined) ? '' : String(raw).trim();
+          }
         });
-        var isEmpty = fields.every(function (f) { return obj[f.key] === '' || obj[f.key] === false; });
-        if (isEmpty) return null;
+
+        // Filter out empty rows: if a row is completely empty in all spreadsheet-mapped columns, skip it
+        var hasAnySpreadsheetValue = false;
+        var hasAnyMappedSpreadsheetField = false;
+        fields.forEach(function (field) {
+          var colIdx = columnMapping[field.key];
+          if (colIdx && typeof colIdx === 'object' && colIdx.type === 'manual') {
+            // Manual field
+          } else if (colIdx !== null && colIdx !== undefined) {
+            hasAnyMappedSpreadsheetField = true;
+            var raw = rawRow[colIdx];
+            if (raw !== '' && raw !== null && raw !== undefined) {
+              hasAnySpreadsheetValue = true;
+            }
+          }
+        });
+        if (hasAnyMappedSpreadsheetField && !hasAnySpreadsheetValue) return null;
 
         visibleCount++;
         var isExcluded = excludedRows.has(rawIdx);
@@ -1073,6 +1181,13 @@
           var label = tt(f.i18nKey, f.key);
           showError('err-step3', '"' + label + '" ' + tt('importErrRequiredField', 'column must be mapped'));
           return false;
+        }
+        if (col && typeof col === 'object' && col.type === 'manual') {
+          if (f.type !== 'boolean' && !String(col.value).trim()) {
+            var label = tt(f.i18nKey, f.key);
+            showError('err-step3', '"' + label + '" ' + tt('importErrRequiredFieldManual', 'manual value cannot be empty'));
+            return false;
+          }
         }
       }
       clearError('err-step3');

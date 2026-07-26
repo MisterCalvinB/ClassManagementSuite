@@ -91,18 +91,45 @@
       var obj = {};
       fields.forEach(function (field) {
         var colIdx = mapping[field.key];
-        var raw = colIdx !== null && colIdx !== undefined ? row[colIdx] : '';
-        raw = raw === null || raw === undefined ? '' : String(raw).trim();
+        var raw;
+        if (colIdx && typeof colIdx === 'object' && colIdx.type === 'manual') {
+          raw = colIdx.value;
+        } else {
+          raw = colIdx !== null && colIdx !== undefined ? row[colIdx] : '';
+        }
         if (field.type === 'boolean') {
-          obj[field.key] = /^(1|true|yes|oui|ja|si|y|o)$/i.test(raw);
+          if (typeof raw === 'boolean') {
+            obj[field.key] = raw;
+          } else {
+            raw = raw === null || raw === undefined ? '' : String(raw).trim();
+            obj[field.key] = /^(1|true|yes|oui|ja|si|y|o)$/i.test(raw);
+          }
         } else if (field.type === 'date') {
+          raw = raw === null || raw === undefined ? '' : String(raw).trim();
           obj[field.key] = _normalizeDate(raw);
         } else {
-          obj[field.key] = raw;
+          obj[field.key] = raw === null || raw === undefined ? '' : String(raw).trim();
         }
       });
       return obj;
-    }).filter(function (obj) {
+    }).filter(function (obj, idx) {
+      var rawRow = rows[idx];
+      var hasAnySpreadsheetValue = false;
+      var hasAnyMappedSpreadsheetField = false;
+      fields.forEach(function (field) {
+        var colIdx = mapping[field.key];
+        if (colIdx && typeof colIdx === 'object' && colIdx.type === 'manual') {
+          // Manual field
+        } else if (colIdx !== null && colIdx !== undefined) {
+          hasAnyMappedSpreadsheetField = true;
+          var raw = rawRow[colIdx];
+          if (raw !== '' && raw !== null && raw !== undefined) {
+            hasAnySpreadsheetValue = true;
+          }
+        }
+      });
+      if (hasAnyMappedSpreadsheetField && !hasAnySpreadsheetValue) return false;
+
       // Drop completely empty rows
       return fields.some(function (f) { return obj[f.key] !== '' && obj[f.key] !== false; });
     });
