@@ -18,13 +18,18 @@
       font-family: 'Lexend', system-ui, -apple-system, sans-serif;
       background: #fff;
       color: #000;
-      min-height: 100vh;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
     }
 
     .page {
-      max-width: 780px;
+      max-width: 1000px;
       margin: 0 auto;
-      padding: 40px 24px 60px;
+      padding: 20px 24px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
     /* ── Back / header ──────────────────────────────────── */
@@ -54,11 +59,43 @@
       border-radius: 10px;
       padding: 24px 28px;
       margin-bottom: 20px;
+      transition: padding 0.15s ease, margin 0.15s ease;
+    }
+    .config-section.collapsed {
+      gap: 0;
+      padding: 16px 28px;
+      margin-bottom: 12px;
     }
     .config-section h2 {
       font-size: 1.02rem;
       font-weight: 800;
-      margin-bottom: 4px;
+      margin-bottom: 0;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      margin: -4px -6px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .config-section h2:hover {
+      background-color: #f3f4f6;
+      color: #000;
+    }
+    .config-section h2::before {
+      content: '▼';
+      font-size: 0.75rem;
+      color: #666;
+      transition: transform 0.2s ease;
+      display: inline-block;
+    }
+    .config-section.collapsed h2::before {
+      transform: rotate(-90deg);
+    }
+    .config-section.collapsed > *:not(h2) {
+      display: none !important;
     }
     .section-desc {
       font-size: 0.86rem;
@@ -432,6 +469,83 @@
     .date-cell, .size-cell { white-space: nowrap; color: #000; font-size: 0.8rem; font-weight: 600; }
     .status-cell { white-space: nowrap; font-size: 0.8rem; font-weight: 700; }
     .absent-cell { color: #000; font-style: italic; }
-    .action-cell { white-space: nowrap; }
     .action-select { padding: 4px 6px; border: 2px solid #000; border-radius: 5px; font-size: 0.82rem; background: #fff; color: #000; width: 100%; min-width: 140px; }
     .newer-cell { background: #000; color: #fff; font-weight: 900; }
+
+    /* ── Tabbed / Collapsible Layout Styles ───────────────── */
+    .gc-container {
+      display: flex;
+      flex-direction: row;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      margin: 15px 0 0;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .gc-sidebar {
+      width: 230px;
+      background-color: #f9fafb;
+      border-right: 2px solid #000;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    .gc-sidebar-item {
+      padding: 10px 14px;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
+
+    .gc-sidebar-item:hover {
+      background-color: #f3f4f6;
+      color: #000;
+      border-color: #000;
+    }
+
+    .gc-sidebar-item.active {
+      background-color: #ffd54f;
+      color: #000;
+      border-color: #000;
+      box-shadow: 2px 2px 0 #000;
+    }
+
+    .gc-content {
+      flex: 1;
+      padding: 20px 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+    }
+
+    .gc-tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .gc-tab-pane.active {
+      display: flex;
+    }
+
+    .gc-collapse-controls {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+

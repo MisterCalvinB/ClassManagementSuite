@@ -548,6 +548,13 @@
       // General Config
       gcBack: '← Back to Launcher',
       gcTitle: 'General Config',
+      gcTabGeneral: 'General',
+      gcTabStartup: 'Startup',
+      gcTabStorage: 'Storage & Sync',
+      gcTabRemote: 'Remote Server',
+      gcTabNotes: 'App Notes',
+      gcExpandAll: 'Expand All',
+      gcCollapseAll: 'Collapse All',
       gcSubtitle: 'Global settings for the Class Management Tools app.',
       gcSecIdentity: 'App Identity',
       gcSecIdentityDesc: 'Customize the name shown in the launcher and window titles.',
@@ -2953,6 +2960,13 @@
       // General Config
       gcBack: '← Retour au Lanceur',
       gcTitle: 'Configuration générale',
+      gcTabGeneral: 'Général',
+      gcTabStartup: 'Démarrage',
+      gcTabStorage: 'Stockage & Synchro',
+      gcTabRemote: 'Serveur Distant',
+      gcTabNotes: 'Notes des outils',
+      gcExpandAll: 'Tout Développer',
+      gcCollapseAll: 'Tout Réduire',
       gcSubtitle: 'Paramètres globaux de l’application Class Management Tools.',
       gcSecIdentity: 'Identité de l’application',
       gcSecIdentityDesc: 'Personnalisez le nom affiché dans le lanceur et les titres des fenêtres.',
@@ -5697,6 +5711,14 @@
       gcSyncCatDocEditor: 'Dokumenteneditor',
       gcSyncCatCustomData: 'Benutzerdaten',
 
+      gcTabGeneral: 'Allgemein',
+      gcTabStartup: 'Start',
+      gcTabStorage: 'Speicher & Synchro',
+      gcTabRemote: 'Remote-Server',
+      gcTabNotes: 'Notizen',
+      gcExpandAll: 'Alle ausklappen',
+      gcCollapseAll: 'Alle einklappen',
+
       // FTP Sync
       gcFtpSync: 'FTP-Synchronisation',
       gcFtpSyncDesc: 'Laden Sie Ihre Daten auf einen FTP- oder FTPS-Server hoch oder herunter.',
@@ -6834,6 +6856,14 @@
       gcSyncCatPlanner: 'Pianificatore',
       gcSyncCatDocEditor: 'Editor documenti',
       gcSyncCatCustomData: 'Dati personalizzati',
+
+      gcTabGeneral: 'Generale',
+      gcTabStartup: 'Avvio',
+      gcTabStorage: 'Memoria & Sincro',
+      gcTabRemote: 'Server Remoto',
+      gcTabNotes: 'Note',
+      gcExpandAll: 'Espandi tutto',
+      gcCollapseAll: 'Comprimi tutto',
 
       // FTP Sync
       gcFtpSync: 'Sincronizzazione FTP',
