@@ -4416,13 +4416,19 @@ ipcMain.handle('app:migrate-class-uuids', async () => {
     if (fsSync.existsSync(classPlansFile)) {
       try {
         const plansContent = await fs.readFile(classPlansFile, 'utf8');
-        const fn = new Function(plansContent + '\nreturn typeof SAVED_CLASS_PLANS !== "undefined" ? SAVED_CLASS_PLANS : null;');
-        const plans = fn();
+        const fn = new Function(plansContent + '\nreturn { plans: (typeof SAVED_CLASS_PLANS !== "undefined" ? SAVED_CLASS_PLANS : null), layouts: (typeof SAVED_CLASSROOM_LAYOUTS !== "undefined" ? SAVED_CLASSROOM_LAYOUTS : null) };');
+        const result = fn();
+        const plans = result.plans;
+        const layouts = result.layouts;
         if (plans && typeof plans === 'object') {
           const newPlans = {};
           for (const [name, arr] of Object.entries(plans))
             newPlans[nameToUuid[name] || name] = arr;
-          await fs.writeFile(classPlansFile, 'var SAVED_CLASS_PLANS = ' + JSON.stringify(newPlans, null, 2) + ';', 'utf8');
+          let out = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(newPlans, null, 2) + ';';
+          if (layouts) {
+            out += '\nvar SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(layouts, null, 2) + ';';
+          }
+          await fs.writeFile(classPlansFile, out, 'utf8');
         }
       } catch (e) { console.warn('migrate class-plan plans.js:', e.message); }
     }
