@@ -185,6 +185,7 @@
         <div class="sidebar-children">
           <button class="sidebar-child" data-accordion="acc-pt-analysis" onclick="navToAccordion('participation-tracker','acc-pt-analysis')"><span class="sidebar-child-dot"></span>Viewing Analysis</button>
           <button class="sidebar-child" data-accordion="acc-pt-history" onclick="navToAccordion('participation-tracker','acc-pt-history')"><span class="sidebar-child-dot"></span>Session History</button>
+          <button class="sidebar-child" data-accordion="acc-pt-grading" onclick="navToAccordion('participation-tracker','acc-pt-grading')"><span class="sidebar-child-dot"></span>Provisional Grading</button>
           <button class="sidebar-child" data-accordion="acc-pt-shortcuts" onclick="navToAccordion('participation-tracker','acc-pt-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
         </div>
       </div>
@@ -768,6 +769,8 @@
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Linking to a Planner lesson:</strong> click the <strong>Planner</strong> button in the Board toolbar to tag the open constellation to a specific lesson, test, or assignment from the Planner. Recent and upcoming entries are shown by default; click <em>Show all</em> for the full list. The link is stored in the saved file and restored when the board is reopened. From the Planner itself, right-click an entry or use the modal button to create or open the linked board file.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Duplicating a board file:</strong> use <strong>⧉ Duplicate</strong> in the File toolbar. If the current file is linked to a Planner timeslot, a popup explains that the duplicate will break that link and offers to open the class timeslot picker so you can relink the duplicate to another slot.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Quick page navigation in File menu:</strong> when a saved board file is open and has at least two pages, the File menu shows a compact strip with page numbers and tiny thumbnails. Click any thumbnail to jump directly to that page.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Renaming Board Files:</strong> if a board has already been saved, a grey <strong>Rename file</strong> button appears next to the title input at the top. Click it to rename the active constellation file and its companion folder on disk to match the new board title (Electron app only). This also updates the filename in any version history automatically.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Mirror Mode:</strong> opening the board with <code>?mirror=1</code> in the URL disables autosaves and silent initial saves to prevent overwriting an active presenter's session.</p>
           </div>
         </div>
       </div>
@@ -1233,7 +1236,7 @@
             <li>Open <button class="xlink" onclick="openTool('import-tool.html')">Import</button> from the Launcher, or use the <strong>📥 Import</strong> shortcut in the Class Management settings popup.</li>
             <li><strong>Step 1 — Destination:</strong> select <strong>Students</strong>.</li>
             <li><strong>Step 2 — File:</strong> drag-and-drop your file onto the drop zone, or click <strong>Browse</strong>. A raw preview of the first five rows appears immediately. Supported formats: <code>.csv</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.json</code>.</li>
-            <li><strong>Step 3 — Column mapping:</strong> each student field (First Name, Last Name, Date of Birth, Admin Class, SEN) shows a dropdown. The wizard auto-detects common column names in English, French, German, and Italian — green-highlighted dropdowns indicate a successful match. Adjust any mismatches manually. Optional fields can be set to <em>(skip)</em>.</li>
+            <li><strong>Step 3 — Column mapping:</strong> each student field (First Name, Last Name, Date of Birth, Admin Class, SEN) shows a dropdown. The wizard auto-detects common column names in English, French, German, and Italian — green-highlighted dropdowns indicate a successful match. Adjust any mismatches manually. Optional fields can be set to <em>(skip)</em>. You can also select <strong>— Manually input value —</strong> from the mapping dropdown to set a static, custom value for any destination field (such as checking a boolean flag or setting a static date for all imported rows) without needing that column in the source file.</li>
             <li><strong>Step 4 — Preview &amp; conflicts:</strong> all rows are shown. Rows whose first name + last name match an existing student are flagged as conflicts. For each conflict, choose <strong>Skip</strong> (keep existing), <strong>Overwrite</strong> (update existing record), or <strong>Import as new</strong> (add a duplicate). Use the bulk buttons to apply one decision to all conflicts at once.</li>
             <li>Click <strong>Import</strong>. The results screen shows how many students were added, updated, or skipped.</li>
           </ol>
@@ -1350,6 +1353,7 @@
             <li>Add <strong>Learning Objectives</strong> for the term — these can be attached to individual lesson entries.</li>
             <li>Use the class filter chips in the toolbar to focus the agenda. The <strong>Unassigned</strong> chip shows or hides entries with no class assigned.</li>
             <li>In table view, the planner creates one table per week with an absolute-time grid (60-minute steps): the first column shows clock times, weekday columns place entries at their start time, and each entry block height reflects its duration (overlaps split side-by-side).</li>
+            <li><strong>Weeks Navigation Panel:</strong> a collapsible sidebar drawer is available on the left side of the screen. It displays a list of all weeks in the active term. Click any week to instantly smooth-scroll to it. Past weeks are automatically dimmed and marked as past.</li>
           </ol>
         </div></div>
       </div>
@@ -1460,6 +1464,24 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-pt-grading">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pt-grading')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Provisional Grading Rules</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Convert participation scores into grades using custom formulas and point rules.</p>
+          <ul class="steps">
+            <li><strong>Grading Rules Modal</strong> — click <strong>Grading Rules</strong> to open the setup modal. Define minimum/passing/maximum points and thresholds for specific metrics (e.g., gems, thumbs up).</li>
+            <li><strong>Formula Syntax</strong> — use logical syntax (e.g., <code>💎 &gt;= 2 and 👍 &gt;= 5</code>) to define complex conditions for specific grade values.</li>
+            <li><strong>Provisional Grade Calculation</strong> — automatically scales scores to your chosen maximum grade (e.g., 20).</li>
+            <li><strong>Date range filters</strong> — adjust the date range directly inside the rules modal (Presets: <em>All Data</em>, <em>Last 30 Days</em>, <em>Last 7 Days</em>, or custom dates) to filter the sessions used for grading. Changes sync with the main dashboard.</li>
+            <li><strong>Copy Grades</strong> — copy the computed provisional grades list as TSV text to paste into external spreadsheets.</li>
+            <li><strong>Export to Grade Sheet</strong> — click <strong>Export to Grade Sheet</strong> to prepare the calculated grades. This automatically launches the Grade Sheet tool, prompting you to import the scores into a test column under the label <em>Participation</em> (with dates appended).</li>
+          </ul>
+        </div></div>
+      </div>
+
       <div class="accordion" id="acc-pt-shortcuts">
         <button class="accordion-header" onclick="toggleAccordion('acc-pt-shortcuts')">
           <span class="accordion-arrow">▶</span>
@@ -1544,6 +1566,7 @@
             <li><strong>Export Test HTML</strong> — from an open test, export the same per-student report format as Print Results (grade, criteria table, observations, scale) in HTML with draggable/resizable columns.</li>
             <li><strong>Print Term / Print Results</strong> — generate a printable PDF.</li>
             <li><strong>Duplicate / Import</strong> — copy a test structure into a new test or another class.</li>
+            <li><strong>Import Participation Grades</strong> — when you export provisional grades from Participation Tracker, opening Grade Sheet will prompt you to automatically import them as a new test column named <em>Participation</em> (including the date range).</li>
           </ol>
         </div></div>
       </div>
@@ -1897,16 +1920,23 @@
       <div class="accordion" id="acc-db-export">
         <button class="accordion-header" onclick="toggleAccordion('acc-db-export')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Exporting Records — CSV &amp; Print PDF</span>
+          <span class="accordion-title">Exporting Records</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Both export buttons (<strong>⬇ CSV</strong> and <strong>🖨 Print PDF</strong>) appear in the toolbar whenever records are loaded. Both open a column picker before doing anything.</p>
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The <strong>Export ▾</strong> dropdown in the toolbar appears whenever records are loaded. It allows exporting the database to various formats, opening a column picker so you can choose which fields to export.</p>
           <ol class="steps">
-            <li>Click <strong>⬇ CSV</strong> or <strong>🖨 Print PDF</strong>. A column picker dialog opens listing every available field.</li>
-            <li>All columns are pre-selected. Uncheck any you want to omit. Use <strong>All</strong> / <strong>None</strong> to toggle everything at once.</li>
-            <li>Click <strong>Export CSV</strong> or <strong>Print PDF</strong> to proceed with only the chosen columns.</li>
-            <li>In the desktop app, Print PDF opens the system Save As dialog and writes a <code>.pdf</code> file directly. In the browser it opens the browser print dialog instead.</li>
-            <li>If multiple source files are loaded, an optional <strong>Source</strong> column (file name) can be included or excluded in the PDF picker.</li>
+            <li>Click <strong>Export ▾</strong> and select a format:
+              <ul style="margin:4px 0 0 16px;padding:0;line-height:1.6">
+                <li><strong>⬇ Export CSV</strong> — exports database records to a spreadsheet-ready CSV file.</li>
+                <li><strong>🖨 Print PDF</strong> — saves a printable PDF document (desktop app) or opens the browser print dialog (browser).</li>
+                <li><strong>📄 Export HTML (Editable)</strong> — exports an editable HTML table where cell values can be modified directly in the browser.</li>
+                <li><strong>📊 Export XLSX</strong> — exports native Excel spreadsheet files.</li>
+                <li><strong>📝 Export DOCX</strong> — exports editable Microsoft Word documents (desktop app).</li>
+              </ul>
+            </li>
+            <li>A column picker dialog opens listing every available field. Uncheck any columns you want to omit. Use <strong>All</strong> / <strong>None</strong> to toggle everything at once.</li>
+            <li>Click the confirm button to proceed with only the chosen columns.</li>
+            <li>If multiple source files are loaded, an optional <strong>Source</strong> column (file name) can be included or excluded in the PDF/HTML picker.</li>
           </ol>
           <div class="tip"><strong>Tip:</strong> Active filters are respected — only the currently visible records are exported, not the whole file. Filter by theme, level, or keyword first to produce focused handouts.</div>
         </div></div>
@@ -1963,6 +1993,8 @@
             <li><strong>Drag and drop move</strong> — drag any selected row and drop on a folder row or breadcrumb segment to move all selected items there.</li>
             <li><strong>Move to... / Copy to...</strong> — right-click a file or folder and choose these actions to open a destination-folder picker modal.</li>
             <li><strong>Open</strong> — opens the file in the default desktop application (e.g., a PDF in your PDF viewer, an image in Photos).</li>
+            <li><strong>Edit in Doc Editor</strong> — HTML and Markdown (<code>.html</code>, <code>.md</code>) files can be edited directly inside the Document Editor tool via context menus or action buttons.</li>
+            <li><strong>Pin / Unpin sidebar</strong> — right-click a folder to Pin/Unpin it from the launcher sidebar. Pinned folders appear as quick-access shortcuts in the launcher's collapsible panel.</li>
             <li><strong>Duplicate</strong> — copies the file in the same folder with a <em>– Copy</em> suffix. If that name already exists, it appends <em>– Copy (2)</em>, <em>– Copy (3)</em>, and so on. The new row appears immediately below the original.</li>
             <li><strong>Rename</strong> — edits the name inline with the same validation as the Recent tab (forbidden characters, length, conflict checks).</li>
             <li><strong>Conflict choices</strong> — when destination names collide during move/copy/paste, choose <em>Rename</em> (auto unique name), <em>Replace</em>, or <em>Skip</em> per item.</li>
@@ -2070,6 +2102,7 @@
             <li>On every save, plans are also written into <code>user/config.js</code> so <strong>Class Management</strong> picks them up on next load.</li>
             <li>Plans created in Class Management are imported into Class Plan on startup.</li>
             <li>Use <strong>🖨 Print</strong> to produce an A4 seating chart for any layout type.</li>
+            <li><strong>Export Options:</strong> click <strong>Export ▾</strong> to download your plan in various formats: CSV (seats mapping), XLSX (native spreadsheet), DOCX (editable Word document in desktop app), HTML (editable preview table), or standard browser Print PDF.</li>
             <li>Mark a plan as <strong>Active</strong> to make it the default shown in Class Management's plan view.</li>
           </ul>
         </div>

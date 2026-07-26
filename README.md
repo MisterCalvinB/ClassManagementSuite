@@ -315,7 +315,7 @@ Wizard for bulk-importing structured data (students, vocabulary, quizzes…) fro
 
 1. **Destination** — choose a destination. Step 1 also shows group or file-picker sub-options where relevant.
 2. **File** — drag-and-drop or browse. Supported: `.csv`, `.xlsx`, `.xls`, `.json`. A raw preview of the first five rows is shown immediately.
-3. **Column mapping** — each destination field gets a dropdown. Common header names in EN, FR, DE, and IT are auto-detected (green border = matched). Optional fields can be skipped.
+3. **Column mapping** — each destination field gets a dropdown. Common header names in EN, FR, DE, and IT are auto-detected (green border = matched). Optional fields can be skipped. You can also select **— Manually input value —** from the mapping dropdown to set a static, custom value for any destination field (such as checking a boolean flag or setting a static date for all imported rows) without needing that column in the source file.
 4. **Preview & conflicts** — all rows are listed. Conflicting rows are highlighted with per-row resolution choices: **Skip**, **Overwrite**, or **Import as new**. Bulk actions apply the same decision to all conflicts.
 5. **Done** — summary of records added / updated / skipped.
 
@@ -362,6 +362,7 @@ Week-by-week planning tool for lessons, tests, assignments, and holidays. Data i
 - Use the class filter chips in the toolbar to focus the agenda. The **Unassigned** chip toggles entries that are not assigned to any class.
 - In table view, the planner renders one table per week using an absolute-time grid (60-minute steps). The first column shows clock times, weekday columns show entries positioned by start time, and each entry block height reflects its real duration; overlaps are split side-by-side.
 - Right-click any entry, or open it in the entry modal, to create or open its linked board file in `user/mindmaps`.
+- **Weeks Navigation Panel** — a collapsible sidebar drawer is available on the left side of the screen. It displays a list of all weeks in the active term. Click any week to instantly smooth-scroll to it, with past weeks automatically dimmed.
 
 ### Entries
 
@@ -423,6 +424,7 @@ Standalone seating-plan designer. Plans are saved as `user/class-plans/plans.js`
 5. Use **🎲 Random** to shuffle all students automatically.
 6. Changes auto-save; use **Save** for an immediate write.
 7. Use **🖨 Print** to produce a printable A4 seating chart.
+8. Use **Export ▾** to download plans in various formats: CSV (seats mapping), XLSX (native spreadsheet), DOCX (editable Word document in desktop app), HTML (editable preview table), or standard browser Print PDF.
 
 ### Sharing with Class Management
 
@@ -527,6 +529,8 @@ Browse, rename, and sync data files. Opens as a standalone tool window from the 
 - **Multi-select** — click to select; use **Ctrl/Cmd+click** to toggle items and **Shift+click** for range selection.
 - **Drag & drop move** — drag any selected item and drop on a folder row or breadcrumb segment to move all selected items.
 - **Context menu move/copy** — right-click and use **Move to...** or **Copy to...** to open a destination-folder picker.
+- **Edit in Doc Editor** — HTML and Markdown (`.html`, `.md`) files can be edited directly inside the Document Editor tool via context menus or action buttons.
+- **Pin to sidebar** — right-click a folder to pin/unpin it from the launcher sidebar collapsible panel for quick access.
 - **Paste workflow** — copy/cut selected items and paste into the current folder.
 - **Conflict dialog** — on name collisions choose per item: **Rename** (auto unique), **Replace**, or **Skip**.
 
@@ -776,6 +780,8 @@ Paste a table from any source (a web page, Word, Excel, Google Sheets) directly 
 - **⬇ Export** — export the board as a **PNG image**, **CSV word list**, or **PDF**.
 - **📋 Templates** — save the current board as a reusable template, or load a template to pre-populate a new board.
 - **🧩 Media** — attach images, audio, video, or PDFs directly to the board; manage and delete attachments. Includes a **🎙 Record Audio** button to record voice directly from the microphone.
+- **Rename file on disk** — if the board file has already been saved, a grey **Rename file** button appears next to the title input at the top. In the desktop app, clicking this button renames both the file and its companion folders/history files on disk to match the new board title.
+- **Mirror Mode** — if the board is opened with the URL query parameter `?mirror=1`, autosave is disabled to prevent overwriting active board layouts.
 
 #### Voice Recordings
 
@@ -1042,9 +1048,16 @@ Each word entry can carry translations for all supported languages alongside the
 
 The `getTranslation(word)` helper (shared across all tools) reads the active UI language and returns the correct translation automatically. This means flash cards, vocabulary overlays, and game hints all adapt to the selected language without any per-tool configuration.
 
-### Print to PDF
+### Exporting Database Content
 
-Choose which columns to include before printing: Word (required), French, IPA, Part of Speech, Level, Theme, Keywords, Definition, Example, Synonyms, Antonyms, Other Forms.
+Click **Export ▾** to select an export format:
+- **Export CSV** — exports database records to a spreadsheet-ready CSV file.
+- **Print PDF** — saves a printable PDF document (desktop app) or opens the browser print dialog (browser).
+- **Export HTML (Editable)** — exports an editable HTML table where cell values can be modified directly.
+- **Export XLSX** — exports a native Excel spreadsheet file.
+- **Export DOCX** — exports an editable Microsoft Word document (desktop app).
+
+Each export format opens a **column picker** allowing you to select which fields to include (e.g. Word, Translations, IPA, POS, Level, Definition, Synonyms, etc.) before downloading. Active filters are respected — only the currently visible records are exported.
 
 ### Database Management Overlay
 
@@ -1176,6 +1189,16 @@ A **Columns ▾** toggle controls visibility. Click a student's row to open the 
 ### Individual Student Analysis
 
 Below the Class Overview table, shows a stats summary and a per-session history table for the selected student (Date · Time · Picked · Absent · + · − · T+ · T− · Badges · Team/Role Events · Notes). Click a session row to open the **Notes modal** where you can add or edit a text note for that student's session.
+
+### Provisional Grading & Grade Sheet Export
+
+Participation Tracker includes a grading engine that converts participation metrics (e.g. picks, positive/negative points, badges) into grades:
+
+- **Grading Rules** — Click **Grading Rules** to open the rule configurator. Define rules based on minimum points, passing points, maximum points, and custom formulas (e.g., `💎 >= 2 and 👍 >= 5`).
+- **Date Range Filters** — Use the built-in preset buttons (*All Data*, *Last 30 Days*, *Last 7 Days*) and date pickers directly inside the rules modal to filter the session data used for grading. This automatically syncs with the main dashboard filters.
+- **Provisional Grade** — Displays a preview of calculated grades for all students in the active group.
+- **Copy Grades** — Copy grades as a tab-separated values (TSV) list to the clipboard.
+- **Export to Grade Sheet** — Generates a grade list, saves it locally as a pending import, and opens the **Grade Sheet** tool. At startup, Grade Sheet detects the pending import and prompts you to import the grades as a new *Participation* test column.
 
 ### Keyboard Shortcuts
 
