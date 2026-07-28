@@ -524,6 +524,21 @@
                 return '<code>' + escHtml(token.math) + '</code>';
               }
             }
+          },
+          {
+            name: 'page-break',
+            level: 'block',
+            start(src) {
+              const match = src.match(/<!--\s*page[-_ ]*break/i);
+              return match ? match.index : -1;
+            },
+            tokenizer(src) {
+              const m = src.match(/^<!--\s*page[-_ ]*break\s*-->\s*\n?/i);
+              if (m) return { type: 'page-break', raw: m[0] };
+            },
+            renderer(token) {
+              return '<div class="de-page-break"></div>\n';
+            }
           }
         ]
       });
@@ -544,7 +559,13 @@
         const html = currentDocType === 'html' ? raw : marked.parse(raw);
         const container = document.getElementById('preview-content');
         container.innerHTML = html;
+        _deExpandPageBreakComments(container);
         fixPreviewImages(container);
+        
+        // Update page break rulers in live preview pane
+        requestAnimationFrame(() => {
+          deUpdatePageBreakRulers(container);
+        });
       } catch (e) {
         document.getElementById('preview-content').innerHTML =
           '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
@@ -2865,6 +2886,7 @@
         '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
         '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
         '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
+        '.de-page-break, .page-break { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
         '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
         (pageLayout.imageWidth && pageLayout.imageWidth !== 'auto'
           ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
@@ -3212,35 +3234,180 @@
       document.getElementById('de-pres-sep').style.display = 'none';
     }
 
+    /**
+     * Walk a container's child nodes and replace HTML comment nodes whose
+     * text matches "pagebreak" / "page-break" with a real element so the
+     * pagination logic can detect them.  Works for both MD and HTML modes.
+     */
+    function _deExpandPageBreakComments(container) {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_COMMENT);
+      const commentsToReplace = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        const text = (node.textContent || '').trim().toLowerCase();
+        if (/^page[-_ ]*break$/i.test(text)) {
+          commentsToReplace.push(node);
+        }
+      }
+
+      commentsToReplace.forEach(commentNode => {
+        if (!commentNode.parentNode) return;
+        const el = document.createElement('div');
+        el.className = 'de-page-break';
+
+        const parent = commentNode.parentNode;
+        // If the comment is wrapped in a paragraph and it is the only text content of that paragraph,
+        // replace the whole paragraph to prevent empty paragraph layout issues.
+        if (parent.tagName === 'P' && parent.textContent.trim() === '') {
+          if (parent.parentNode) {
+            parent.parentNode.replaceChild(el, parent);
+          }
+        } else {
+          parent.replaceChild(el, commentNode);
+        }
+      });
+    }
+
     function showFullPreview() {
       const overlay = document.getElementById('full-preview-overlay');
       const content = document.getElementById('full-preview-content');
 
-      // Copy rendered HTML from the live preview pane
-      content.innerHTML = document.getElementById('preview-content').innerHTML;
-      fixPreviewImages(content);
-
-      // Apply active custom CSS
+      // Apply active custom CSS (scoped to #full-preview-content)
       document.getElementById('full-preview-custom-css').textContent =
         deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : document.getElementById('custom-css-style').textContent, '#full-preview-content');
 
-      // Apply page layout (paper width + margins) as inline style
+      // Page dimensions in px
       const MM2PX = 3.7795;
+      const PT2PX = 1.3333;
       const dims = getPageDims();
       const m = pageLayout.margins;
-      content.style.width = (dims.w * MM2PX) + 'px';
-      content.style.maxWidth = '100%';
-      content.style.minHeight = (dims.h * MM2PX) + 'px';
-      content.style.padding = (m.top * MM2PX) + 'px ' + (m.right * MM2PX) + 'px ' + (m.bottom * MM2PX) + 'px ' + (m.left * MM2PX) + 'px';
-      content.style.margin = '0 auto';
-      content.style.fontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
-      content.style.fontSize = ((pageLayout.fontSize || 11) * 1.3333) + 'px';
+      const pageWidthPx = dims.w * MM2PX;
+      const pageHeightPx = dims.h * MM2PX;
+      const padTop = m.top * MM2PX;
+      const padRight = m.right * MM2PX;
+      const padBottom = m.bottom * MM2PX;
+      const padLeft = m.left * MM2PX;
+      const fontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+      const fontSize = ((pageLayout.fontSize || 11) * PT2PX) + 'px';
 
-      // Update title bar
+      // Render content into the preview — identical layout to the PDF
+      const sourceHtml = document.getElementById('preview-content').innerHTML;
+      content.innerHTML = sourceHtml;
+      _deExpandPageBreakComments(content);
+      content.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
+
+      // Style the container with the exact same layout the PDF uses
+      content.style.cssText =
+        'position:relative;box-sizing:border-box;' +
+        'width:' + pageWidthPx + 'px;max-width:100%;' +
+        'padding:' + padTop + 'px ' + padRight + 'px ' + padBottom + 'px ' + padLeft + 'px;' +
+        'font-family:' + fontFamily + ';font-size:' + fontSize + ';' +
+        'margin:0 auto;height:auto;min-height:' + pageHeightPx + 'px;overflow:visible;';
+
+      fixPreviewImages(content);
+
+      // Update title bar (initial)
       const docTitle = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
       document.getElementById('full-preview-bar-title').textContent = 'Preview — ' + docTitle;
 
+      // Show overlay BEFORE measuring — hidden means display:none, so scrollHeight would be 0
       overlay.removeAttribute('hidden');
+
+      // After the browser computes layout, overlay page-break rulers
+      requestAnimationFrame(() => {
+        const pageCount = deUpdatePageBreakRulers(content);
+        // Update title bar with page count
+        document.getElementById('full-preview-bar-title').textContent =
+          'Preview — ' + docTitle + ' (' + pageCount + ' page' + (pageCount !== 1 ? 's' : '') + ')';
+      });
+    }
+
+    /** Compute and overlay page break rulers */
+    function deUpdatePageBreakRulers(content) {
+      // Remove any previous rulers
+      content.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+
+      const MM2PX = 3.7795;
+      const dims = getPageDims();
+      const m = pageLayout.margins;
+      const pageHeightPx = dims.h * MM2PX;
+      const padTop = m.top * MM2PX;
+      const padBottom = m.bottom * MM2PX;
+      const usablePageH = pageHeightPx - padTop - padBottom;
+
+      // Collect manual page break positions (relative to the content box top)
+      const manualBreakYs = [];
+      const walker = document.createTreeWalker(content, NodeFilter.SHOW_ELEMENT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (_deIsManualPageBreak(node)) {
+          // offsetTop is relative to offsetParent; content must have position:relative
+          manualBreakYs.push(node.offsetTop);
+        }
+      }
+      manualBreakYs.sort((a, b) => a - b);
+
+      // Calculate break positions
+      const breakPositions = [];
+      const totalH = content.scrollHeight;
+      let pageTopY = padTop;          // Y where current page's content area begins
+      let manualIdx = 0;
+
+      for (let safety = 0; safety < 500; safety++) {
+        const autoBreakY = pageTopY + usablePageH;
+
+        // Check if any manual break occurs before the auto break
+        while (manualIdx < manualBreakYs.length && manualBreakYs[manualIdx] <= pageTopY) {
+          manualIdx++;
+        }
+
+        const nextManualY = (manualIdx < manualBreakYs.length && manualBreakYs[manualIdx] < autoBreakY)
+          ? manualBreakYs[manualIdx++]
+          : null;
+
+        const breakY = nextManualY !== null ? nextManualY : autoBreakY;
+        const isManual = nextManualY !== null;
+
+        // Stop if we've passed the end of the content
+        if (breakY >= totalH - padBottom) break;
+
+        breakPositions.push({ y: breakY, manual: isManual });
+
+        // Next page starts at the break
+        pageTopY = breakY;
+      }
+
+      // Insert ruler elements at each break position
+      breakPositions.forEach((bp, idx) => {
+        const ruler = document.createElement('div');
+        ruler.className = 'de-fp-ruler';
+        ruler.style.top = bp.y + 'px';
+
+        const label = document.createElement('span');
+        label.className = 'de-fp-ruler-label';
+        const pn = idx + 1;
+        label.textContent = (bp.manual ? '✂ ' : '') + 'Page ' + pn + ' → ' + (pn + 1);
+        ruler.appendChild(label);
+        content.appendChild(ruler);
+      });
+
+      return breakPositions.length + 1;
+    }
+
+    /** Check if an element represents a manual page break */
+    function _deIsManualPageBreak(el) {
+      if (!el || el.nodeType !== 1) return false;
+      if (el.classList.contains('de-page-break') || el.classList.contains('page-break')) return true;
+      const s = el.style;
+      if (s.pageBreakAfter === 'always' || s.pageBreakBefore === 'always' ||
+        s.breakAfter === 'page' || s.breakBefore === 'page') return true;
+      if (el.dataset && el.dataset.pageBreak === 'after') return true;
+      try {
+        const cs = window.getComputedStyle(el);
+        if (cs.pageBreakAfter === 'always' || cs.pageBreakBefore === 'always' ||
+          cs.breakAfter === 'page' || cs.breakBefore === 'page') return true;
+      } catch (e) { }
+      return false;
     }
 
     function hideFullPreview() {
@@ -4975,28 +5142,4 @@
       window.addEventListener('resize', function () {
         // Keep doc centred; layout is driven by the broadcast, nothing extra needed.
       });
-    })();
-  </script>
-
-  <script>
-    function openDeShortcuts() {
-      ShortcutsModal.open({
-        title: t('skmTitle'),
-        noShortcutsText: t('skmNone'),
-        rows: [
-          { section: t('skmSecFile') },
-          { keys: ['Ctrl', 'S'], alt: ['Cmd', 'S'], desc: t('skmDeSave') },
-          { keys: ['Ctrl', 'Shift', 'S'], alt: ['Cmd', 'Shift', 'S'], desc: t('skmDeSaveAll') },
-          { keys: ['Ctrl', 'N'], alt: ['Cmd', 'N'], desc: t('skmDeNew') },
-          { keys: ['Ctrl', 'O'], alt: ['Cmd', 'O'], desc: t('skmDeOpen') },
-          { section: t('skmSecGeneral') },
-          { keys: ['Enter'], desc: t('skmDeSearchNext') },
-          { keys: ['Shift', 'Enter'], desc: t('skmDeSearchPrev') },
-          { keys: ['Escape'], desc: t('skmDeClose') }
-        ]
-      });
-    }
-  </script>
-</body>
-
-</html>
+    })
