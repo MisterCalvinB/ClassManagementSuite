@@ -213,11 +213,11 @@
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-export-pdf" data-i18n="deExportPdf">Export PDF</button>
         <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
-        <hr class="nav-pop-sep">
-        <button class="nav-pop-item" id="btn-preview">Preview</button>
-        <button class="nav-pop-item" id="btn-pres-mode">Presentation Mode</button>
       </div>
     </div>
+
+    <button class="nav-btn" id="btn-preview" data-i18n="dePreview">Preview</button>
+    <button class="nav-btn" id="btn-pres-mode" data-i18n="dePresMode">Presentation Mode</button>
 
     <div class="nav-sep"></div>
     <button class="nav-btn" id="btn-editor-settings" title="Editor settings">⚙ Settings</button>
@@ -256,8 +256,11 @@
   <!-- ── Presentation view (receiver window) ───────────────── -->
   <div id="de-pres-view">
     <div id="de-pres-scroll">
-      <style id="de-pres-custom-css"></style>
-      <div id="de-pres-doc" class="doc-preview"></div>
+      <div id="de-pres-doc-wrapper">
+        <style id="de-pres-page-layout-css"></style>
+        <style id="de-pres-custom-css"></style>
+        <div id="de-pres-doc" class="doc-preview"></div>
+      </div>
     </div>
   </div>
 
@@ -1464,9 +1467,10 @@
     }
 
     // ── Monaco init ──────────────────────────────────────────
-    require.config({ paths: { vs: '../modules/monaco-editor/min/vs' } });
+    if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
+      require.config({ paths: { vs: '../modules/monaco-editor/min/vs' } });
 
-    require(['vs/editor/editor.main'], function () {
+      require(['vs/editor/editor.main'], function () {
       monaco.editor.defineTheme('cmt-markdown', {
         base: 'vs',
         inherit: true,
@@ -1539,6 +1543,7 @@
       loadPersistedState();
       openFromQueryParams();
     });
+    }
 
     // ── Document management ──────────────────────────────────
     function deNormalizeRelPath(relativePath) {
@@ -3177,13 +3182,17 @@
     // ── Presentation mode ─────────────────────────────────────
     let _dePresCh = null;
     let _dePresOpen = false;
+    let _lastBroadcastW = 0;
+    let _lastBroadcastH = 0;
 
     function _deGetPresLayout() {
       const MM2PX = 3.7795;
       const dims = getPageDims();
       const m = pageLayout.margins;
+      const previewEl = document.getElementById('preview-content');
+      const w = previewEl ? previewEl.getBoundingClientRect().width : (dims.w * MM2PX);
       return {
-        width: (dims.w * MM2PX) + 'px',
+        width: w + 'px',
         minHeight: (dims.h * MM2PX) + 'px',
         padding: (m.top * MM2PX) + 'px ' + (m.right * MM2PX) + 'px ' + (m.bottom * MM2PX) + 'px ' + (m.left * MM2PX) + 'px',
         fontFamily: pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif",
@@ -3194,25 +3203,228 @@
     }
 
     function deBroadcastState() {
-      if (!_dePresCh || !_dePresOpen) return;
+      if (!_dePresCh || !_dePresOpen || _dePresFrozen) return;
       const previewEl = document.getElementById('preview-content');
       if (!previewEl) return;
+      
+      // Filter out editor-only helpers (like page-break rulers) from the HTML string before broadcasting
+      let html = previewEl.innerHTML;
+      html = html.replace(/<div class="de-fp-ruler"[\s\S]*?<\/div>/g, '');
+
       const cssEl = document.getElementById('custom-css-style');
       const css = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : ''));
+      
+      const pageLayoutCssEl = document.getElementById('page-layout-style');
+      const pageLayoutCss = pageLayoutCssEl ? pageLayoutCssEl.textContent : '';
+
       const docName = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
+      
+      const scrollEl = document.getElementById('preview-scroll');
+      const scrollX = scrollEl ? scrollEl.scrollLeft : 0;
+      const scrollY = scrollEl ? scrollEl.scrollTop : 0;
+      const viewW = scrollEl ? scrollEl.clientWidth : 0;
+      const viewH = scrollEl ? scrollEl.clientHeight : 0;
+
       try {
+        _lastBroadcastW = viewW;
+        _lastBroadcastH = viewH;
         _dePresCh.postMessage({
           type: 'de-state',
-          html: previewEl.innerHTML,
+          html: html,
           css,
+          pageLayoutCss,
           layoutStyle: _deGetPresLayout(),
-          docName
+          docName,
+          scrollX,
+          scrollY,
+          viewW,
+          viewH
         });
       } catch (e) { }
     }
 
+    function deBroadcastScroll() {
+      if (!_dePresCh || !_dePresOpen || _dePresFrozen) return;
+      const scrollEl = document.getElementById('preview-scroll');
+      if (!scrollEl) return;
+      const viewW = scrollEl.clientWidth;
+      const viewH = scrollEl.clientHeight;
+      if (viewW !== _lastBroadcastW || viewH !== _lastBroadcastH) {
+        deBroadcastState();
+        return;
+      }
+      try {
+        _dePresCh.postMessage({
+          type: 'de-scroll',
+          scrollX: scrollEl.scrollLeft,
+          scrollY: scrollEl.scrollTop,
+          viewW: viewW,
+          viewH: viewH
+        });
+      } catch (e) { }
+    }
+
+    let _dePresFrozen = false;
+
+    function toggleFreezePresentation() {
+      _dePresFrozen = !_dePresFrozen;
+      syncPresentationFreezeButtons();
+      if (_dePresCh) {
+        try {
+          _dePresCh.postMessage({ type: 'de-pres-frozen-state', on: _dePresFrozen });
+        } catch (_) {}
+      }
+      if (!_dePresFrozen) {
+        deBroadcastState();
+      }
+    }
+
+    function syncPresentationFreezeButtons() {
+      const popupBtn = document.querySelector('#de-pres-popup [data-pres-action="freeze"]');
+      if (popupBtn) {
+        popupBtn.textContent = _dePresFrozen ? translate('pres_unfreeze') : translate('pres_freeze');
+        popupBtn.title = _dePresFrozen ? translate('pres_unfreeze_title') : translate('pres_freeze_title');
+        popupBtn.style.background = _dePresFrozen ? '#4a90d9' : '';
+        popupBtn.style.color = _dePresFrozen ? '#fff' : '';
+      }
+    }
+
+    function translate(key) {
+      const lang = (window.getLang && typeof window.getLang === 'function') ? window.getLang() : 'fr';
+      const localStrings = {
+        en: {
+          pres_menu_title: 'Presentation Menu',
+          pres_stop: 'Stop',
+          pres_freeze: '❄ Freeze',
+          pres_unfreeze: '❄ Frozen',
+          pres_freeze_title: 'Freeze the presentation screen',
+          pres_unfreeze_title: 'Unfreeze the presentation screen',
+          pres_resize: 'Fit Screen',
+          pres_left: '← Left',
+          pres_right: 'Right →'
+        },
+        fr: {
+          pres_menu_title: 'Menu de présentation',
+          pres_stop: 'Arrêter',
+          pres_freeze: '❄ Figer',
+          pres_unfreeze: '❄ Figé',
+          pres_freeze_title: 'Figer l\'écran de présentation',
+          pres_unfreeze_title: 'Libérer l\'écran de présentation',
+          pres_resize: 'Ajuster',
+          pres_left: '← Gauche',
+          pres_right: 'Droite →'
+        }
+      };
+      const map = localStrings[lang] || localStrings.en;
+      return map[key] || key;
+    }
+
+    function ensurePresentationPopupMenu() {
+      let popup = document.getElementById('de-pres-popup');
+      if (popup) return;
+      popup = document.createElement('div');
+      popup.id = 'de-pres-popup';
+      popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;cursor:move;user-select:none;';
+      popup.innerHTML = ''
+        + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:2px;cursor:move;">' + translate('pres_menu_title') + '</div>'
+        + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_stop') + '</button>'
+        + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_freeze') + '</button>'
+        + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + translate('pres_resize') + '</button>'
+        + '<div style="display:flex;gap:4px;">'
+        + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + translate('pres_left') + '</button>'
+        + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + translate('pres_right') + '</button>'
+        + '</div>';
+      popup.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-pres-action]');
+        if (!btn) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const action = btn.getAttribute('data-pres-action');
+        if (action === 'close') deClosePresentation();
+        else if (action === 'freeze') toggleFreezePresentation();
+        else if (action === 'resize') {
+          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('resize-window');
+        }
+        else if (action === 'right') {
+          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('dock-right');
+        }
+        else if (action === 'left') {
+          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('dock-left');
+        }
+      });
+
+      // Make the popup draggable
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      popup.addEventListener('mousedown', dragMouseDown);
+      popup.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+      function dragMouseDown(e) {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+        e = e || window.event;
+        if (e.type !== 'touchstart') {
+          e.preventDefault();
+        }
+        if (e.type === 'touchstart') {
+          pos3 = e.touches[0].clientX;
+          pos4 = e.touches[0].clientY;
+        } else {
+          pos3 = e.clientX;
+          pos4 = e.clientY;
+        }
+        document.addEventListener('mouseup', closeDragElement);
+        document.addEventListener('mousemove', elementDrag);
+        document.addEventListener('touchend', closeDragElement);
+        document.addEventListener('touchmove', elementDrag, { passive: false });
+      }
+
+      function elementDrag(e) {
+        e = e || window.event;
+        let clientX, clientY;
+        if (e.type === 'touchmove') {
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+        pos1 = pos3 - clientX;
+        pos2 = pos4 - clientY;
+        pos3 = clientX;
+        pos4 = clientY;
+
+        let newTop = popup.offsetTop - pos2;
+        let newLeft = popup.offsetLeft - pos1;
+
+        const rect = popup.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        if (newTop < 0) newTop = 0;
+        if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
+        if (newLeft < 0) newLeft = 0;
+        if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+
+        popup.style.top = newTop + 'px';
+        popup.style.left = newLeft + 'px';
+        popup.style.right = 'auto';
+        popup.style.bottom = 'auto';
+      }
+
+      function closeDragElement() {
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('mousemove', elementDrag);
+        document.removeEventListener('touchend', closeDragElement);
+        document.removeEventListener('touchmove', elementDrag);
+      }
+
+      document.body.appendChild(popup);
+      syncPresentationFreezeButtons();
+    }
+
     async function deOpenPresentation() {
       if (!window.Desktop || !Desktop.isElectron()) return;
+      _dePresOpen = true; // Set immediately so incoming de-ready messages are handled
+      _dePresFrozen = false;
       if (!_dePresCh) {
         _dePresCh = new BroadcastChannel('de-presentation');
         _dePresCh.onmessage = function (e) {
@@ -3221,18 +3433,29 @@
       }
       const res = await Desktop.openDocPresentation();
       if (res && (res.ok || res.alreadyOpen)) {
-        _dePresOpen = true;
         document.documentElement.classList.add('de-pres-active');
         document.getElementById('de-pres-sep').style.display = '';
         deBroadcastState();
+        ensurePresentationPopupMenu();
+        const popup = document.getElementById('de-pres-popup');
+        if (popup) popup.style.display = 'flex';
+      } else {
+        _dePresOpen = false;
       }
     }
 
     function deClosePresentation() {
       if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('close');
       _dePresOpen = false;
+      _dePresFrozen = false;
+      if (_dePresCh) {
+        try { _dePresCh.close(); } catch (_) {}
+        _dePresCh = null;
+      }
       document.documentElement.classList.remove('de-pres-active');
       document.getElementById('de-pres-sep').style.display = 'none';
+      const popup = document.getElementById('de-pres-popup');
+      if (popup) popup.style.display = 'none';
     }
 
     /**
@@ -3488,6 +3711,7 @@
         if (popup.classList.contains('open')) {
           const rect = this.getBoundingClientRect();
           popup.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
+          popup.style.top = rect.bottom + 'px';
         }
       });
       document.getElementById('pl-close-btn').addEventListener('click', function (e) {
@@ -3642,6 +3866,7 @@
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         saveSplitState();
+        deBroadcastState();
       });
     }
 
@@ -4961,10 +5186,16 @@
 
     // ── DOM init ──────────────────────────────────────────────
     window.addEventListener('DOMContentLoaded', function () {
+      if (new URLSearchParams(window.location.search).get('presentation') === '1') return;
       if (typeof applyTranslations === 'function') applyTranslations();
       setInterval(autosaveDoc, 60000);
       setupMarked();
       initSplitDivider();
+      const previewScroll = document.getElementById('preview-scroll');
+      if (previewScroll) {
+        previewScroll.addEventListener('scroll', deBroadcastScroll);
+      }
+      window.addEventListener('resize', deBroadcastState);
       initPageLayoutPopup();
 
       document.getElementById('btn-doc-type').addEventListener('click', () => setDocType(currentDocType === 'md' ? 'html' : 'md'));
@@ -5124,23 +5355,86 @@
 
       const ch = new BroadcastChannel('de-presentation');
 
+      var _viewW = 0;
+      var _viewH = 0;
+      var _scrollX = 0;
+      var _scrollY = 0;
+      var _presFrozen = false;
+
+      function _mirrorApplyViewport() {
+        var docWrapper = document.getElementById('de-pres-doc-wrapper');
+        var scrollEl = document.getElementById('de-pres-scroll');
+        if (!docWrapper || !scrollEl || !_viewW || !_viewH) return;
+
+        var mW = window.innerWidth;
+        var mH = window.innerHeight;
+        var s = Math.min(mW / _viewW, mH / _viewH);
+
+        var displayW = _viewW * s;
+        var displayH = _viewH * s;
+        var ox = (mW - displayW) / 2;
+        var oy = (mH - displayH) / 2;
+
+        scrollEl.style.left = ox + 'px';
+        scrollEl.style.top = oy + 'px';
+        scrollEl.style.width = displayW + 'px';
+        scrollEl.style.height = displayH + 'px';
+
+        docWrapper.style.width = _viewW + 'px';
+
+        docWrapper.style.transformOrigin = '0 0';
+        docWrapper.style.transform = 'scale(' + s + ') translate(' + (-_scrollX) + 'px, ' + (-_scrollY) + 'px)';
+      }
+
+      function applyScroll(scrollX, scrollY, viewW, viewH) {
+        if (typeof viewW === 'number') _viewW = viewW;
+        if (typeof viewH === 'number') _viewH = viewH;
+        if (typeof scrollX === 'number') _scrollX = scrollX;
+        if (typeof scrollY === 'number') _scrollY = scrollY;
+        _mirrorApplyViewport();
+      }
+
       function applyState(data) {
         var doc = document.getElementById('de-pres-doc');
         var css = document.getElementById('de-pres-custom-css');
+        var layoutCss = document.getElementById('de-pres-page-layout-css');
+        if (!layoutCss && doc) {
+          layoutCss = document.createElement('style');
+          layoutCss.id = 'de-pres-page-layout-css';
+          doc.parentNode.insertBefore(layoutCss, doc);
+        }
         if (!doc) return;
         if (typeof data.html === 'string') doc.innerHTML = data.html;
         if (css && typeof data.css === 'string') css.textContent = deScopeCssForContainer(data.css, '#de-pres-doc');
+        if (layoutCss && typeof data.pageLayoutCss === 'string') {
+          layoutCss.textContent = data.pageLayoutCss;
+        }
         if (data.layoutStyle) Object.assign(doc.style, data.layoutStyle);
         if (data.docName) document.title = data.docName + ' – Presentation';
+        
+        if (typeof data.viewW === 'number') _viewW = data.viewW;
+        if (typeof data.viewH === 'number') _viewH = data.viewH;
+        if (typeof data.scrollX === 'number') _scrollX = data.scrollX;
+        if (typeof data.scrollY === 'number') _scrollY = data.scrollY;
+        
+        _mirrorApplyViewport();
       }
 
       ch.onmessage = function (e) {
+        if (e.data && e.data.type === 'de-pres-frozen-state') {
+          _presFrozen = e.data.on;
+        }
+        if (_presFrozen) return;
         if (e.data && e.data.type === 'de-state') applyState(e.data);
+        if (e.data && e.data.type === 'de-scroll') applyScroll(e.data.scrollX, e.data.scrollY, e.data.viewW, e.data.viewH);
       };
 
       function requestState() {
         try { ch.postMessage({ type: 'de-ready' }); } catch (e) { }
       }
+
+      // Request state immediately
+      requestState();
 
       document.addEventListener('DOMContentLoaded', function () {
         requestState();
@@ -5148,6 +5442,9 @@
         setTimeout(requestState, 1800);
       });
       window.addEventListener('resize', function () {
-        // Keep doc centred; layout is driven by the broadcast, nothing extra needed.
+        _mirrorApplyViewport();
       });
-    })
+    })();
+  </script>
+</body>
+</html>

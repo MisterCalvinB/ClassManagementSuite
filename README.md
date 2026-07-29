@@ -151,7 +151,7 @@ Four tools support a detached second window for projection on a second monitor:
 | **Board** | Toolbar → 📽️ Presentation Mode | Live canvas; includes a compact, localized popup with stop, freeze, resize, and left/right window controls |
 | **Class Management** | Top menu → Presentation | Roster with roles, badges, and animated effects; includes the same compact popup controls and can be frozen independently |
 | **Learning Tools** | Individual game → Presentation icon | Game view on a student-facing display; includes the same compact popup controls while teacher controls stay on the main screen |
-| **Document Editor** | Export ▾ → Presentation Mode | Live document preview on a dark background; updates with every keystroke |
+| **Document Editor** | Presentation Mode | Live document preview on a dark background; updates with every keystroke |
 
 ---
 
@@ -1256,11 +1256,13 @@ The window is divided into three horizontal regions:
 1. **Nav bar** — grouped into hover menus:
   - **File ▾** — New, Open, **Open from disk…** (import any file from anywhere on disk; saves as a copy on first Save), Save, Save As, Save All, History
   - **Save / Save All behavior** — if a file was opened from a specific location (Documents bundle, another managed target, or disk), Save and Save All now write back to that same location instead of creating duplicate markdown files in a second path.
-   - **Insert ▾** — Table, Image, Books (import text from the books folder)
-   - **Format ▾** — Open template, Save as template, Page Layout
-   - **Export ▾** — Export PDF, Export DOCX, Preview, **Presentation Mode**
+  - **Insert ▾** — Table, Image, Books (import text from the books folder)
+  - **Format ▾** — Open template, Save as template, Page Layout
+  - **Export ▾** — Export PDF, Export DOCX
+  - **Preview** — Opens the full-page layout preview
+  - **Presentation Mode** — Projects the live document preview
   - **⚙ Settings** — snippets, shortcuts, triggers, **Custom CSS Rules** repository, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)
-   - **☰** — Launcher
+  - **☰** — Launcher
 2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
 3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
 
@@ -1328,7 +1330,7 @@ Generic selectors (for example `div`, `p`, `table`) are automatically scoped to 
 
 ### Presentation Mode
 
-**Export ▾ → Presentation Mode** opens a separate full-screen window that projects the live document preview — ideal for displaying the formatted document on a second monitor or projector.
+**Presentation Mode** (top-level button in the nav bar) opens a separate full-screen window that projects the live document preview — ideal for displaying the formatted document on a second monitor or projector.
 
 - The presentation window opens on a second display when one is detected, otherwise it opens beside the main editor.
 - The document updates live: every keystroke, page layout change, or CSS edit is reflected instantly.

@@ -3975,12 +3975,14 @@ ipcMain.handle('app:oral-presenter-command', (event, command) => {
 
 // ── Document Editor Presentation Window ────────────────────────────────────────
 let docPresentationWindow = null;
+let docPresentationSourceWindow = null;
 ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
   if (docPresentationWindow && !docPresentationWindow.isDestroyed()) {
     docPresentationWindow.focus();
     return { ok: true, alreadyOpen: true };
   }
   const senderWin = BrowserWindow.fromWebContents(event.sender);
+  docPresentationSourceWindow = senderWin || null;
   const sBounds   = senderWin ? senderWin.getBounds() : null;
 
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
@@ -4043,9 +4045,12 @@ ipcMain.handle('app:doc-presentation-open', () => {
 ipcMain.handle('app:doc-presentation-command', (event, command) => {
   if (!docPresentationWindow || docPresentationWindow.isDestroyed()) return { ok: false, reason: 'not-open' };
   switch (command) {
-    case 'close':      docPresentationWindow.close(); break;
-    case 'fullscreen': docPresentationWindow.setFullScreen(!docPresentationWindow.isFullScreen()); break;
-    case 'maximize':   docPresentationWindow.maximize(); break;
+    case 'close':         docPresentationWindow.close(); break;
+    case 'fullscreen':    docPresentationWindow.setFullScreen(!docPresentationWindow.isFullScreen()); break;
+    case 'maximize':      docPresentationWindow.maximize(); break;
+    case 'resize-window': syncTargetWindowToSource(docPresentationWindow, docPresentationSourceWindow); break;
+    case 'dock-left':     dockTargetWindow(docPresentationWindow, 'left'); break;
+    case 'dock-right':    dockTargetWindow(docPresentationWindow, 'right'); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
