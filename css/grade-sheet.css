@@ -438,7 +438,7 @@ th {
   background: #f0f0f0;
   z-index: 1;
   color: #111;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -456,7 +456,7 @@ th {
   white-space: normal;
   max-width: 100%;
   line-height: 1.15em;
-  max-height: calc(1.15em * 3);
+  max-height: calc(1.15em * 3 + 4px);
   /* ensure header cell height fits 3 lines */
 }
 
@@ -908,8 +908,13 @@ tr:hover td {
   cursor: pointer;
 }
 
+.ref-item-card.chips-card .ref-item-head {
+  cursor: pointer;
+}
+
 .ref-item-card.criteria-card .ref-item-head::after,
-.ref-item-card.scale-card .ref-item-head::after {
+.ref-item-card.scale-card .ref-item-head::after,
+.ref-item-card.chips-card .ref-item-head::after {
   content: "Click to expand";
   color: var(--muted);
   font-size: 0.75rem;
@@ -918,7 +923,8 @@ tr:hover td {
 }
 
 .ref-item-card.criteria-card:not(.collapsed) .ref-item-head::after,
-.ref-item-card.scale-card:not(.collapsed) .ref-item-head::after {
+.ref-item-card.scale-card:not(.collapsed) .ref-item-head::after,
+.ref-item-card.chips-card:not(.collapsed) .ref-item-head::after {
   content: "Click to collapse";
 }
 
@@ -950,6 +956,43 @@ tr:hover td {
 
 .ref-scale-grid {
   grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.ref-chips-grid {
+  grid-template-columns: 1fr;
+}
+
+/* ── Reference Data Editor Tabs ──────────────────── */
+.ref-data-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #111;
+  margin-bottom: 16px;
+  padding-bottom: 0px;
+}
+
+.ref-data-tab-btn {
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: #fff;
+  color: #111;
+  border: 2px solid #111;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+  margin-bottom: -2px;
+}
+
+.ref-data-tab-btn:hover {
+  background: #f0f0f0;
+}
+
+.ref-data-tab-btn.active {
+  background: #111;
+  color: #fff;
 }
 
 .ref-field {
@@ -984,14 +1027,19 @@ tr:hover td {
 
 
 .score-badge {
-  display: inline-block;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  padding: 2px 6px;
   border-radius: 999px;
   background: #f0f0f0;
   border: 2px solid #111;
   color: #333;
   font-size: 0.5rem;
   margin-left: 8px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 @media (max-width: 860px) {
@@ -1419,4 +1467,51 @@ tr:hover td {
 .td-criteria-display {
   text-align: center;
   font-variant-numeric: slashed-zero;
+}
+
+/* ── Dropdown Export Menu ────────────────────────────── */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #fff;
+  border: 2px solid #111;
+  border-radius: var(--radius);
+  z-index: 1000;
+  min-width: 160px;
+  box-shadow: 3px 3px 0 #111;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dropdown-menu.hidden {
+  display: none !important;
+}
+.dropdown-item {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+  transition: background 0.1s, color 0.1s;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #111;
+}
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+.dropdown-item:hover {
+  background: #111;
+  color: #fff;
 }

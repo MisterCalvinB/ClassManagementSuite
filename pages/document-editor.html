@@ -529,11 +529,11 @@
             name: 'page-break',
             level: 'block',
             start(src) {
-              const match = src.match(/<!--\s*page[-_ ]*break/i);
+              const match = src.match(/\x3c!--\s*page[-_ ]*break/i);
               return match ? match.index : -1;
             },
             tokenizer(src) {
-              const m = src.match(/^<!--\s*page[-_ ]*break\s*-->\s*\n?/i);
+              const m = src.match(/^\x3c!--\s*page[-_ ]*break\s*--\x3e\s*\n?/i);
               if (m) return { type: 'page-break', raw: m[0] };
             },
             renderer(token) {
@@ -2861,6 +2861,7 @@
       const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
       const _previewClone = document.getElementById('preview-content').cloneNode(true);
       _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
+      _previewClone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
       const previewContent = _previewClone.innerHTML;
       const m = pageLayout.margins;
       const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
@@ -3327,12 +3328,19 @@
       // Remove any previous rulers
       content.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
 
+      // Read actual rendered padding from computed style — correct for both
+      // preview-content (CSS mm-based padding) and full-preview-content
+      // (inline px padding set by showFullPreview). Both resolve to the same px.
+      const cs = window.getComputedStyle(content);
+      const padTop    = parseFloat(cs.paddingTop)    || 0;
+      const padBottom = parseFloat(cs.paddingBottom) || 0;
+
+      // Always use the physical page height in px regardless of container width.
+      // Using containerW * (dims.h/dims.w) would shrink usablePageH whenever the
+      // pane is narrower than the real page, producing spurious extra rulers.
       const MM2PX = 3.7795;
       const dims = getPageDims();
-      const m = pageLayout.margins;
       const pageHeightPx = dims.h * MM2PX;
-      const padTop = m.top * MM2PX;
-      const padBottom = m.bottom * MM2PX;
       const usablePageH = pageHeightPx - padTop - padBottom;
 
       // Collect manual page break positions (relative to the content box top)

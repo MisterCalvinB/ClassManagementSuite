@@ -209,9 +209,14 @@
           <button id="btn-test-options" class="btn primary" data-i18n="gsBtnTestOptions">Test Options</button>
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef">Criteria Reference</button>
           <button id="btn-apply-criteria-grades" class="btn" data-i18n="gsBtnApplyCriteria">Apply Criteria to Grades</button>
-          <button id="btn-print-results" class="btn" data-i18n="gsBtnPrintResults">Print Results</button>
-          <button id="btn-export-test-docx" class="btn" data-i18n="gsBtnExportTestDocx">Export Test DOCX</button>
-          <button id="btn-export-test-html" class="btn" data-i18n="gsBtnExportTestHtml">Export Test HTML</button>
+          <div class="dropdown" id="test-export-dropdown">
+            <button id="btn-test-export-trigger" class="btn" data-i18n="gsBtnExportDropdown">Export ▾</button>
+            <div class="dropdown-menu hidden" id="test-export-menu">
+              <button class="dropdown-item" id="btn-print-results" data-i18n="gsOptionExportPdf">Export to PDF</button>
+              <button class="dropdown-item" id="btn-export-test-html" data-i18n="gsOptionExportHtml">Export to HTML</button>
+              <button class="dropdown-item" id="btn-export-test-docx" data-i18n="gsOptionExportDocx">Export to DOCX</button>
+            </div>
+          </div>
           <button id="btn-duplicate-test" class="btn" data-i18n="gsBtnDuplicate">Duplicate / Import</button>
           <button id="btn-delete-test" class="btn" data-i18n="gsBtnDeleteTest">Delete Test</button>
           <button id="btn-reset-test" class="btn" data-i18n="gsBtnClearTest">Clear Test</button>
@@ -234,8 +239,16 @@
     <div class="crit-popup ref-data-editor panel" role="dialog" aria-modal="true">
       <div class="crit-popup-title" data-i18n="gsRefEditorTitle">Reference Data Editor</div>
       <div class="ref-inline-note" style="margin-bottom:14px;">Edit the shared data stored in <strong>user/correction-criteria.js</strong> and <strong>user/grade-scale-models.js</strong>. Changes update the live page immediately and are saved to disk in Electron.</div>
+      
+      <!-- Tab Header Buttons -->
+      <div class="ref-data-tabs">
+        <button id="tab-btn-criteria" class="ref-data-tab-btn active" type="button" onclick="switchRefTab('criteria')" data-i18n="gsRefTabCriteria">Correction Criteria</button>
+        <button id="tab-btn-scales" class="ref-data-tab-btn" type="button" onclick="switchRefTab('scales')" data-i18n="gsRefTabScales">Grading Scale Models</button>
+        <button id="tab-btn-chips" class="ref-data-tab-btn" type="button" onclick="switchRefTab('chips')" data-i18n="gsRefTabChips">Personalised Chips</button>
+      </div>
+
       <div class="ref-data-body" id="reference-data-body">
-        <section class="ref-data-section">
+        <section class="ref-data-section" id="ref-section-criteria">
           <div class="ref-data-section-head">
             <div>
               <div class="ref-data-section-title" data-i18n="gsRefCriteriaTitle">Correction criteria</div>
@@ -248,7 +261,7 @@
           <div id="ref-criteria-list" class="ref-data-list"></div>
         </section>
 
-        <section class="ref-data-section">
+        <section class="ref-data-section hidden" id="ref-section-scales">
           <div class="ref-data-section-head">
             <div>
               <div class="ref-data-section-title" data-i18n="gsRefScaleTitle">Grading scale models</div>
@@ -259,6 +272,19 @@
             </div>
           </div>
           <div id="ref-scale-list" class="ref-data-list"></div>
+        </section>
+
+        <section class="ref-data-section hidden" id="ref-section-chips">
+          <div class="ref-data-section-head">
+            <div>
+              <div class="ref-data-section-title" data-i18n="gsRefChipsTitle">Personalised observation chips</div>
+              <div class="ref-data-section-subtitle" data-i18n="gsRefChipsSubtitle">Configure the checklist chips shown in the teacher observations section of the grade sheet.</div>
+            </div>
+            <div class="ref-actions">
+              <button id="ref-chips-add" class="btn primary" type="button" data-i18n="gsRefAddCategory">+ Add category</button>
+            </div>
+          </div>
+          <div id="ref-chips-list" class="ref-data-list"></div>
         </section>
       </div>
       <div class="crit-popup-footer" style="margin-top:16px;">
@@ -932,6 +958,7 @@
     const DELETED_CLASS_IDS_KEY = "gradeSheetHtmlDeletedIds.v1";
     const REFERENCE_CRITERIA_STORAGE_KEY = "gradeSheetReferenceCriteria.v1";
     const REFERENCE_SCALE_MODELS_STORAGE_KEY = "gradeSheetScaleModels.v1";
+    const REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY = "gradeSheetPersonalisedChips.v1";
     const TEST_COUNT_PER_SEM = 8;
     const GRADE_STEPS = [6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1];
 
@@ -1252,6 +1279,31 @@
       } catch (err) {
         console.warn("Could not load saved scale models", err);
       }
+
+      try {
+        const chipsRaw = localStorage.getItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY);
+        if (chipsRaw) {
+          const parsed = JSON.parse(chipsRaw);
+          if (Array.isArray(parsed)) {
+            window.OBSERVATION_CHECKLIST_GROUPS = parsed;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load saved personalised chips", err);
+      }
+    }
+
+    function switchRefTab(tabName) {
+      const tabs = ["criteria", "scales", "chips"];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const sec = document.getElementById(`ref-section-${t}`);
+        if (btn) btn.classList.toggle("active", t === tabName);
+        if (sec) sec.classList.toggle("hidden", t !== tabName);
+      });
+      if (typeof appState !== "undefined" && appState) {
+        appState.activeRefTab = tabName;
+      }
     }
 
     function normalizeReferenceCriterion(entry, index) {
@@ -1297,7 +1349,12 @@
       const scaleModels = Array.isArray(XLSM_SCALE_MODELS)
         ? XLSM_SCALE_MODELS.map((entry, index) => normalizeReferenceScaleModel(entry, index, existingKeys))
         : [];
-      return { criteria, scaleModels };
+      const groups = getObservationChecklistGroups();
+      const personalisedChips = groups.map(g => ({
+        type: String(g.type || "").trim(),
+        items: Array.isArray(g.items) ? g.items.slice() : []
+      }));
+      return { criteria, scaleModels, personalisedChips };
     }
 
     function makeBlankCriterion(index) {
@@ -1317,6 +1374,10 @@
       return { key: `custom${index + 1}`, label: `Custom ${index + 1}`, thresholds };
     }
 
+    function makeBlankPersonalisedChipsGroup(index) {
+      return { type: `Category ${index + 1}`, items: [] };
+    }
+
     function duplicateCriterion(entry, index) {
       const copy = normalizeReferenceCriterion(entry, index);
       copy.name = `${copy.name} copy`;
@@ -1328,6 +1389,13 @@
       copy.key = `${copy.key}-copy`;
       copy.label = `${copy.label} copy`;
       return copy;
+    }
+
+    function duplicatePersonalisedChipsGroup(entry, index) {
+      return {
+        type: `${entry.type || 'Category'} copy`,
+        items: Array.isArray(entry.items) ? entry.items.slice() : []
+      };
     }
 
     function refreshCriteriaPresetDropdown() {
@@ -1375,6 +1443,11 @@
       if (kind === "scale") {
         headingEl.textContent = getReferenceScaleHeading(item, index);
         if (noteEl) noteEl.textContent = getReferenceScaleNote(item, index);
+        return;
+      }
+      if (kind === "chips") {
+        headingEl.textContent = (item && item.type && item.type.trim()) || `Category ${index + 1}`;
+        if (noteEl) noteEl.textContent = `A blank category name is saved as Category ${index + 1}.`;
       }
     }
 
@@ -1573,6 +1646,74 @@
           }
         });
       });
+
+      const chipsList = document.getElementById("ref-chips-list");
+      chipsList.innerHTML = draft.personalisedChips.map((group, index) => {
+        const heading = group.type || `Category ${index + 1}`;
+        const itemsVal = Array.isArray(group.items) ? group.items.join(", ") : "";
+        return `
+          <div class="ref-item-card chips-card collapsed" data-kind="chips" data-index="${index}">
+            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="false">
+              <div>
+                <div class="ref-item-index">${escapeHtml(heading)}</div>
+                <div class="ref-inline-note">A blank category name is saved as Category ${index + 1}.</div>
+              </div>
+              <div class="ref-actions">
+                <button type="button" class="btn" data-action="chips-duplicate" data-index="${index}">Duplicate</button>
+                <button type="button" class="btn" data-action="chips-delete" data-index="${index}" style="color:var(--warn);">Delete</button>
+              </div>
+            </div>
+            <div class="ref-item-body ref-item-grid ref-chips-grid">
+              <label class="ref-field" style="grid-column: 1 / -1;">
+                <span>Category Name</span>
+                <input class="input" type="text" data-kind="chips" data-index="${index}" data-field="type" value="${escapeHtml(group.type)}" />
+              </label>
+              <label class="ref-field" style="grid-column: 1 / -1;">
+                <span>Chips (comma-separated list)</span>
+                <textarea class="input" data-kind="chips" data-index="${index}" data-field="items" placeholder="e.g. Speaks clearly, Needs support, Clear explanation">${escapeHtml(itemsVal)}</textarea>
+              </label>
+            </div>
+          </div>`;
+      }).join("");
+
+      chipsList.querySelectorAll("[data-field]").forEach(field => {
+        field.addEventListener("input", evt => {
+          const index = Number(evt.target.getAttribute("data-index"));
+          const item = draft.personalisedChips[index];
+          if (!item) return;
+          const fieldName = evt.target.getAttribute("data-field");
+          if (fieldName === "type") {
+            item.type = evt.target.value;
+            updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "chips", item, index);
+            return;
+          }
+          if (fieldName === "items") {
+            item.items = evt.target.value
+              .split(/[,\n]/)
+              .map(v => v.trim())
+              .filter(Boolean);
+          }
+        });
+      });
+
+      attachReferenceCardCollapseHandlers(chipsList, ".chips-card .ref-item-head");
+
+      chipsList.querySelectorAll("[data-action]").forEach(btn => {
+        btn.addEventListener("click", async evt => {
+          evt.stopPropagation();
+          const index = Number(evt.target.getAttribute("data-index"));
+          const action = evt.target.getAttribute("data-action");
+          if (action === "chips-duplicate") {
+            draft.personalisedChips.splice(index + 1, 0, duplicatePersonalisedChipsGroup(draft.personalisedChips[index], index + 1));
+            renderReferenceDataEditor();
+          } else if (action === "chips-delete") {
+            if (await showConfirm("Are you sure you want to delete this chip category?")) {
+              draft.personalisedChips.splice(index, 1);
+              renderReferenceDataEditor();
+            }
+          }
+        });
+      });
     }
 
     async function saveReferenceDataEditor() {
@@ -1592,13 +1733,25 @@
         return normalized;
       });
 
+      const personalisedChips = _referenceDataEditorDraft.personalisedChips.map((group, index) => {
+        const type = group.type.trim() || `Category ${index + 1}`;
+        const items = Array.isArray(group.items)
+          ? group.items.map(v => String(v || "").trim()).filter(Boolean)
+          : [];
+        return { type, items };
+      });
+
       XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...criteria);
       XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...scaleModels);
+      window.OBSERVATION_CHECKLIST_GROUPS = personalisedChips;
+
       localStorage.setItem(REFERENCE_CRITERIA_STORAGE_KEY, JSON.stringify(criteria));
       localStorage.setItem(REFERENCE_SCALE_MODELS_STORAGE_KEY, JSON.stringify(scaleModels));
+      localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(personalisedChips));
 
       if (window.Desktop && Desktop.isElectron()) {
-        const criteriaText = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n`;
+        const criteriaText = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
+          `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n`;
         const scaleModelsText = `const XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
         await Promise.all([
           Desktop.saveText("user", "correction-criteria.js", criteriaText),
@@ -1618,6 +1771,7 @@
       _referenceDataEditorDraft = cloneReferenceDrafts();
       document.getElementById("reference-data-popup-overlay").classList.remove("hidden");
       renderReferenceDataEditor();
+      switchRefTab((typeof appState !== "undefined" && appState && appState.activeRefTab) || "criteria");
     }
 
     async function initializeReferenceData() {
@@ -4250,7 +4404,7 @@
 
       const pageCSS = `
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; }
         .student-page {
           width: 210mm;
           min-height: 297mm;
@@ -4261,61 +4415,64 @@
           gap: 14px;
         }
         .page-header {
-          border-bottom: 2px solid #2d6a4f;
+          border-bottom: 2.5px solid #111;
           padding-bottom: 8px;
           margin-bottom: 4px;
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
         }
-        .student-name { font-size: 18px; font-weight: 700; }
-        .test-label { font-size: 13px; color: #4a5a4a; }
-        .test-meta { font-size: 11px; color: #6a7a6a; margin-top: 2px; }
+        .student-name { font-size: 18px; font-weight: 800; color: #111; }
+        .test-label { font-size: 13px; color: #111; font-weight: 600; }
+        .test-meta { font-size: 11px; color: #555; margin-top: 2px; }
         .grade-badge {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 800;
-          color: #2d6a4f;
-          border: 2.5px solid #2d6a4f;
-          border-radius: 10px;
-          padding: 2px 14px;
+          color: #111;
+          border: 2.5px solid #111;
+          border-radius: 6px;
+          padding: 4px 14px;
           white-space: nowrap;
+          background: #f0f0f0;
+          box-shadow: 3px 3px 0 #111;
         }
         .section-title {
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.07em;
-          color: #4a5a4a;
-          border-bottom: 1px solid #d3dac8;
+          color: #111;
+          border-bottom: 2.5px solid #111;
           padding-bottom: 3px;
           margin-bottom: 6px;
         }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; border: 2px solid #111; }
         th {
-          background: #f0faf3;
-          font-weight: 700;
+          background: #f0f0f0;
+          font-weight: 800;
           text-align: left;
-          padding: 5px 8px;
-          border: 1px solid #d3dac8;
+          padding: 6px 8px;
+          border: 2px solid #111;
+          color: #111;
         }
-        td { padding: 5px 8px; border: 1px solid #d3dac8; vertical-align: top; }
-        .pts-cell { text-align: right; white-space: nowrap; font-weight: 600; }
-        .total-row td { font-weight: 700; background: #f7fbf8; }
+        td { padding: 6px 8px; border: 2px solid #111; vertical-align: top; color: #111; }
+        .pts-cell { text-align: right; white-space: nowrap; font-weight: 700; }
+        .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2.5px solid #111; }
         .obs-section { margin-bottom: 8px; }
         .obs-label {
           font-size: 12px;
-          font-weight: 700;
-          color: #2d6a4f;
+          font-weight: 800;
+          color: #111;
           margin-bottom: 2px;
         }
-        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; color: #111; }
         .no-data { color: #888; font-style: italic; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
-        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; }
-        .scale-table th, .scale-table td { padding: 2px 5px; border: 1px solid #d3dac8; text-align: center; white-space: nowrap; }
-        .scale-table thead th { background: #f0faf3; font-weight: 700; }
-        .scale-table .row-label { background: #f0faf3; font-weight: 700; text-align: left; }
-        .scale-grade-pass { font-weight: 800; color: #2d6a4f; }
+        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; border: 2px solid #111; }
+        .scale-table th, .scale-table td { padding: 3px 5px; border: 2px solid #111; text-align: center; white-space: nowrap; color: #111; }
+        .scale-table thead th { background: #f0f0f0; font-weight: 800; }
+        .scale-table .row-label { background: #f0f0f0; font-weight: 800; text-align: left; }
+        .scale-grade-pass { font-weight: 800; color: #111; }
         @media print {
           body { margin: 0; }
           .student-page { page-break-after: always; }
@@ -4421,7 +4578,7 @@
               <div class="test-label">${testLabel}</div>
               ${metaHtml}
             </div>
-            <div class="grade-badge">${esc(gradeDisplay)}</div>
+            <div class="grade-badge">Grade: ${esc(gradeDisplay)}</div>
           </div>
           ${criteriaHtml}
           ${obsHtml}
@@ -4725,7 +4882,7 @@
 
       const css = `
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; }
         .student-page {
           width: 210mm;
           min-height: 297mm;
@@ -4736,64 +4893,71 @@
           gap: 14px;
         }
         .page-header {
-          border-bottom: 2px solid #2d6a4f;
+          border-bottom: 2.5px solid #111;
           padding-bottom: 8px;
           margin-bottom: 4px;
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
         }
-        .student-name { font-size: 18px; font-weight: 700; }
-        .test-label { font-size: 13px; color: #4a5a4a; }
-        .test-meta { font-size: 11px; color: #6a7a6a; margin-top: 2px; }
+        .student-name { font-size: 18px; font-weight: 800; color: #111; }
+        .test-label { font-size: 13px; color: #111; font-weight: 600; }
+        .test-meta { font-size: 11px; color: #555; margin-top: 2px; }
         .grade-badge {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 800;
-          color: #2d6a4f;
-          border: 2.5px solid #2d6a4f;
-          border-radius: 10px;
-          padding: 2px 14px;
+          color: #111;
+          border: 2.5px solid #111;
+          border-radius: 6px;
+          padding: 4px 14px;
           white-space: nowrap;
+          background: #f0f0f0;
+          box-shadow: 3px 3px 0 #111;
         }
         .section-title {
           font-size: 12px;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.07em;
-          color: #4a5a4a;
-          border-bottom: 1px solid #d3dac8;
+          color: #111;
+          border-bottom: 2.5px solid #111;
           padding-bottom: 3px;
           margin-bottom: 6px;
         }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; border: 2px solid #111; }
         th {
-          background: #f0faf3;
-          font-weight: 700;
+          background: #f0f0f0;
+          font-weight: 800;
           text-align: left;
-          padding: 5px 8px;
-          border: 1px solid #d3dac8;
+          padding: 6px 8px;
+          border: 2px solid #111;
+          color: #111;
         }
-        td { padding: 5px 8px; border: 1px solid #d3dac8; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
-        .pts-cell { text-align: right; white-space: nowrap; font-weight: 600; }
-        .total-row td { font-weight: 700; background: #f7fbf8; }
+        td { padding: 6px 8px; border: 2px solid #111; vertical-align: top; overflow: hidden; text-overflow: ellipsis; color: #111; }
+        .pts-cell { text-align: right; white-space: nowrap; font-weight: 700; }
+        .total-row td { font-weight: 800; background: #f0f0f0; border-top: 2.5px solid #111; }
         .obs-section { margin-bottom: 8px; }
         .obs-label {
           font-size: 12px;
-          font-weight: 700;
-          color: #2d6a4f;
+          font-weight: 800;
+          color: #111;
           margin-bottom: 2px;
         }
-        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .obs-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; color: #111; }
         .no-data { color: #888; font-style: italic; font-size: 12px; }
         .scale-wrap { margin-top: 2px; }
-        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; }
-        .scale-table th, .scale-table td { padding: 2px 5px; border: 1px solid #d3dac8; text-align: center; white-space: nowrap; }
-        .scale-table thead th { background: #f0faf3; font-weight: 700; }
-        .scale-table .row-label { background: #f0faf3; font-weight: 700; text-align: left; }
-        .scale-grade-pass { font-weight: 800; color: #2d6a4f; }
+        .scale-table { font-size: 10px; border-collapse: collapse; width: 100%; table-layout: fixed; border: 2px solid #111; }
+        .scale-table th, .scale-table td { padding: 3px 5px; border: 2px solid #111; text-align: center; white-space: nowrap; color: #111; }
+        .scale-table thead th { background: #f0f0f0; font-weight: 800; }
+        .scale-table .row-label { background: #f0f0f0; font-weight: 800; text-align: left; }
+        .scale-grade-pass { font-weight: 800; color: #111; }
         .th-wrap { position: relative; display: block; padding-right: 8px; }
         .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
-        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #b6c5b7; }
+        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #111; }
+        [contenteditable="true"]:focus {
+          outline: 2px solid #111;
+          background: #fafafa;
+        }
         @media print {
           body { margin: 0; }
           .student-page { page-break-after: always; }
@@ -4886,7 +5050,7 @@
               <div class="test-label">${esc(`${report.className} — ${report.sem.toUpperCase()} — Test T${report.testNo}`)}</div>
               ${metaHtml}
             </div>
-            <div class="grade-badge">${student.grade != null ? esc(String(student.grade)) : '—'}</div>
+            <div class="grade-badge">Grade: ${student.grade != null ? esc(String(student.grade)) : '—'}</div>
           </div>
           ${criteriaHtml}
           ${obsHtml}
@@ -4898,7 +5062,7 @@
         <title>Results - ${esc(report.className)} ${esc(report.sem.toUpperCase())} T${report.testNo}</title>
         <style>${css}</style></head><body>
         ${pagesHtml}
-        ${'<script>' + buildAllTablesResizeScript() + '</' + 'script>'}
+        ${'<script>' + buildAllTablesResizeScript() + '; (function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();' + '</' + 'script>'}
       </body></html>`;
     }
 
@@ -5023,7 +5187,7 @@
         const notes = Array.isArray(noteArray[testIndex]) ? noteArray[testIndex] : [];
 
         const fullName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
-        sections.push(`## ${fullName} - Grade ${grade != null ? grade : "-"}`);
+        sections.push(`## ${fullName} - Grade: ${grade != null ? grade : "-"}`);
         if (config.testDate || config.scope || config.type) {
           const metaParts = [];
           if (config.testDate) metaParts.push(config.testDate);
@@ -6648,6 +6812,24 @@
       document.getElementById("btn-export-test-docx").addEventListener("click", exportActiveTestDocx);
       document.getElementById("btn-export-test-html").addEventListener("click", exportActiveTestHtml);
 
+      // Test export dropdown toggle
+      const exportTrigger = document.getElementById("btn-test-export-trigger");
+      const exportMenu = document.getElementById("test-export-menu");
+      exportTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        exportMenu.classList.toggle("hidden");
+      });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("#test-export-dropdown")) {
+          exportMenu.classList.add("hidden");
+        }
+      });
+      exportMenu.querySelectorAll(".dropdown-item").forEach(item => {
+        item.addEventListener("click", () => {
+          exportMenu.classList.add("hidden");
+        });
+      });
+
       // Student modal buttons
       document.getElementById("student-modal-save").addEventListener("click", commitStudentModal);
       document.getElementById("student-modal-cancel").addEventListener("click", closeStudentModal);
@@ -7010,6 +7192,12 @@
     document.getElementById("ref-scale-add").addEventListener("click", () => {
       if (!_referenceDataEditorDraft) return;
       _referenceDataEditorDraft.scaleModels.push(makeBlankScaleModel(_referenceDataEditorDraft.scaleModels.length));
+      renderReferenceDataEditor();
+    });
+
+    document.getElementById("ref-chips-add").addEventListener("click", () => {
+      if (!_referenceDataEditorDraft) return;
+      _referenceDataEditorDraft.personalisedChips.push(makeBlankPersonalisedChipsGroup(_referenceDataEditorDraft.personalisedChips.length));
       renderReferenceDataEditor();
     });
 
