@@ -8,6 +8,7 @@
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/menus.js"></script>
   <script>
@@ -173,10 +174,16 @@
           <button id="btn-add-student" class="btn" data-i18n="gsBtnAddStudent">Add Student</button>
           <button id="btn-add-test" class="btn" data-i18n="gsBtnAddTest">Add Test</button>
           <button id="btn-import-test" class="btn" data-i18n="gsBtnImportTest">Import Test</button>
-          <button id="btn-print-semester" class="btn" data-i18n="gsBtnPrintSemester">Print Term</button>
-          <button id="btn-export-semester-docx" class="btn" data-i18n="gsBtnExportDocx">Export DOCX</button>
-          <button id="btn-export-semester-html" class="btn" data-i18n="gsBtnExportHtml">Export HTML</button>
-          <button id="btn-export-semester-csv" class="btn" data-i18n="gsBtnExportCsv">Export CSV</button>
+          <div class="dropdown" id="summary-export-dropdown">
+            <button id="btn-summary-export-trigger" class="btn" data-i18n="gsBtnExportDropdown">Export ▾</button>
+            <div class="dropdown-menu hidden" id="summary-export-menu">
+              <button class="dropdown-item" id="btn-print-semester" data-i18n="gsOptionExportPdf">Export to PDF</button>
+              <button class="dropdown-item" id="btn-export-semester-html" data-i18n="gsOptionExportHtml">Export to HTML</button>
+              <button class="dropdown-item" id="btn-export-semester-docx" data-i18n="gsOptionExportDocx">Export to DOCX</button>
+              <button class="dropdown-item" id="btn-export-semester-csv" data-i18n="gsOptionExportCsv">Export to CSV</button>
+              <button class="dropdown-item" id="btn-export-semester-xlsx" data-i18n="gsOptionExportXlsx">Export to XLSX</button>
+            </div>
+          </div>
           <button id="btn-import-grades" class="btn" data-i18n="gsBtnImportGrades">Import Grades</button>
           <button id="btn-edit-class" class="btn" data-i18n="gsBtnEditClass">Edit Class</button>
           <button id="btn-delete-class" class="btn" data-i18n="gsBtnDeleteClass">Delete Class</button>
@@ -4711,19 +4718,23 @@
       }).join("");
       const css = `
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 16mm 14mm; }
-        h1 { font-size: 16px; color: #2d6a4f; margin-bottom: 2px; }
-        .subtitle { font-size: 11px; color: #5a6a5a; margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        th, td { border: 1px solid #d3dac8; padding: 5px 7px; text-align: center; white-space: nowrap; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-        th { background: #f0faf3; font-weight: 700; color: #2d6a4f; position: sticky; top: 0; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; }
+        h1 { font-size: 18px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 4px; }
+        .subtitle { font-size: 12px; color: #555; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111; }
+        th, td { border: 2px solid #111; padding: 6px 8px; text-align: center; white-space: nowrap; font-size: 11px; overflow: hidden; text-overflow: ellipsis; color: #111; }
+        th { background: #f0f0f0; font-weight: 800; color: #111; position: sticky; top: 0; }
         th.left, td.left { text-align: left; }
-        .stats-row td { background: #f3f7ec; font-weight: 700; font-size: 10px; border-top: 2px solid #2d6a4f; }
-        .stats-label { font-weight: 700; color: #2d6a4f; }
-        tr:nth-child(even) td:not(.stats-row td) { background: #fafdf8; }
+        .stats-row td { background: #f0f0f0; font-weight: 800; font-size: 10px; border-top: 2.5px solid #111; color: #111; }
+        .stats-label { font-weight: 800; color: #111; }
+        tr:nth-child(even) td:not(.stats-row td) { background: #fafafa; }
         .th-wrap { position: relative; display: block; padding-right: 8px; }
         .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
-        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #b6c5b7; }
+        .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #111; }
+        [contenteditable="true"]:focus {
+          outline: 2px solid #111;
+          background: #fafafa;
+        }
         @media print { body { padding: 0; } }
       `;
 
@@ -4770,7 +4781,7 @@
             ${statRow("Median", "median")}
           </tbody>
         </table>
-        ${'<script>' + buildColumnResizeScript("semester-report-table") + '</' + 'script>'}
+        ${'<script>' + buildColumnResizeScript("semester-report-table") + '; (function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();' + '</' + 'script>'}
       </body></html>`;
     }
 
@@ -5140,6 +5151,67 @@
       const slug = slugifyForPath(classObj.name || "class");
       const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, filename, "text/html;charset=utf-8");
+    }
+
+    function downloadBinaryFile(buffer, filename, mimeType) {
+      const blob = new Blob([buffer], { type: mimeType || "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function exportSemesterGradesXlsx(classObj, sem) {
+      if (typeof XLSX === "undefined") {
+        await showAlert("XLSX library not loaded");
+        return;
+      }
+      if (!classObj) classObj = getActiveClass();
+      if (!classObj) return;
+      if (!sem) {
+        sem = await pickSemesterForReport();
+        if (!sem) return;
+      }
+      const report = buildSemesterReportData(classObj, sem);
+      const header = ["#", "First Name", "Last Name", ...report.testNames, "Semester Avg"];
+      const aoa = [header];
+      report.rows.forEach(({ student, grades, semAvg }) => {
+        aoa.push([
+          student.index != null ? student.index : "",
+          student.firstName || "",
+          student.lastName || "",
+          ...grades.map(g => (g != null ? g : "")),
+          semAvg != null ? semAvg : ""
+        ]);
+      });
+      function statRow(label, fn) {
+        return [
+          label,
+          "",
+          "",
+          ...report.testStats.map(s => (s[fn] != null ? Math.round(s[fn] * 100) / 100 : "")),
+          report.semAvgStats[fn] != null ? Math.round(report.semAvgStats[fn] * 100) / 100 : ""
+        ];
+      }
+      aoa.push(statRow("Avg", "avg"));
+      aoa.push(statRow("Max", "max"));
+      aoa.push(statRow("Min", "min"));
+      aoa.push(statRow("Median", "median"));
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, report.semLabel || sem);
+
+      try {
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const slug = slugifyForPath(classObj.name || "class");
+        const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        downloadBinaryFile(wbout, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      } catch (err) {
+        await showAlert('⚠️ Could not save XLSX: ' + (err && err.message ? err.message : String(err)));
+      }
     }
 
     async function exportActiveTestHtml() {
@@ -6812,23 +6884,28 @@
       document.getElementById("btn-export-test-docx").addEventListener("click", exportActiveTestDocx);
       document.getElementById("btn-export-test-html").addEventListener("click", exportActiveTestHtml);
 
-      // Test export dropdown toggle
-      const exportTrigger = document.getElementById("btn-test-export-trigger");
-      const exportMenu = document.getElementById("test-export-menu");
-      exportTrigger.addEventListener("click", (e) => {
-        e.stopPropagation();
-        exportMenu.classList.toggle("hidden");
-      });
-      document.addEventListener("click", (e) => {
-        if (!e.target.closest("#test-export-dropdown")) {
-          exportMenu.classList.add("hidden");
-        }
-      });
-      exportMenu.querySelectorAll(".dropdown-item").forEach(item => {
-        item.addEventListener("click", () => {
-          exportMenu.classList.add("hidden");
+      // Test & Summary export dropdown toggles
+      const setupExportDropdown = (triggerId, menuId, dropdownId) => {
+        const trigger = document.getElementById(triggerId);
+        const menu = document.getElementById(menuId);
+        if (!trigger || !menu) return;
+        trigger.addEventListener("click", (e) => {
+          e.stopPropagation();
+          menu.classList.toggle("hidden");
         });
-      });
+        menu.querySelectorAll(".dropdown-item").forEach(item => {
+          item.addEventListener("click", () => {
+            menu.classList.add("hidden");
+          });
+        });
+        document.addEventListener("click", (e) => {
+          if (!e.target.closest(`#${dropdownId}`)) {
+            menu.classList.add("hidden");
+          }
+        });
+      };
+      setupExportDropdown("btn-test-export-trigger", "test-export-menu", "test-export-dropdown");
+      setupExportDropdown("btn-summary-export-trigger", "summary-export-menu", "summary-export-dropdown");
 
       // Student modal buttons
       document.getElementById("student-modal-save").addEventListener("click", commitStudentModal);
@@ -6995,6 +7072,14 @@
         const sem = await pickSemesterForReport();
         if (!sem) return;
         exportSemesterHtml(classObj, sem);
+      });
+
+      document.getElementById("btn-export-semester-xlsx").addEventListener("click", async () => {
+        const classObj = getActiveClass();
+        if (!classObj) return;
+        const sem = await pickSemesterForReport();
+        if (!sem) return;
+        exportSemesterGradesXlsx(classObj, sem);
       });
 
       document.getElementById("btn-export").addEventListener("click", exportJson);
@@ -7510,107 +7595,8 @@
     // ── Print semester grades ─────────────────────────────────────
     async function printSemesterGrades(classObj, sem) {
       ensureClassStructures(classObj);
-      const semLabel = sem === "sem1" ? t('gsSem1') : t('gsSem2');
-      const n = classObj.testCounts[sem];
-      const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-
-      // Gather per-student data
-      const rows = classObj.students.map(student => {
-        const grades = Array.from({ length: n }, (_, i) => getTestDisplayGrade(student, classObj, sem, i));
-        const c = computeStudent(student);
-        const semAvg = sem === "sem1" ? c.sem1Avg : c.sem2Avg;
-        return { student, grades, semAvg };
-      });
-
-      // Per-test statistics
-      function stats(values) {
-        const v = values.filter(x => x != null);
-        if (!v.length) return { avg: null, min: null, max: null, median: null };
-        v.sort((a, b) => a - b);
-        const avg = v.reduce((a, b) => a + b, 0) / v.length;
-        const mid = Math.floor(v.length / 2);
-        const median = v.length % 2 === 0 ? (v[mid - 1] + v[mid]) / 2 : v[mid];
-        return { avg, min: v[0], max: v[v.length - 1], median };
-      }
-
-      const testStats = Array.from({ length: n }, (_, i) => stats(rows.map(r => r.grades[i])));
-      const semAvgStats = stats(rows.map(r => r.semAvg));
-
-      // Test names
-      const testNames = Array.from({ length: n }, (_, i) => {
-        const cfg = classObj.testConfigs[sem][i];
-        return cfg.testName ? escapeHtml(cfg.testName) : `T${i + 1}`;
-      });
-
-      function gradeColor(g) {
-        if (g == null) return "";
-        if (g >= 6) return "background:#2ecc40;color:#fff;";
-        if (g >= 5) return "background:#a5d6a7;color:#1a3a1a;";
-        if (g >= 4) return "background:#ffb74d;color:#3a1800;";
-        if (g >= 3) return "background:#ef9a9a;color:#3a0000;";
-        return "background:#e53935;color:#fff;";
-      }
-
-      const css = `
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 16mm 14mm; }
-        h1 { font-size: 16px; color: #2d6a4f; margin-bottom: 2px; }
-        .subtitle { font-size: 11px; color: #5a6a5a; margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #d3dac8; padding: 5px 7px; text-align: center; white-space: nowrap; font-size: 11px; }
-        th { background: #f0faf3; font-weight: 700; color: #2d6a4f; position: sticky; top: 0; }
-        th.left, td.left { text-align: left; }
-        .stats-row td { background: #f3f7ec; font-weight: 700; font-size: 10px; border-top: 2px solid #2d6a4f; }
-        .stats-label { font-weight: 700; color: #2d6a4f; }
-        tr:nth-child(even) td:not(.stats-row td) { background: #fafdf8; }
-        @media print { body { padding: 0; } }
-      `;
-
-      const testHeaders = testNames.map(n => `<th>${n}</th>`).join("");
-      const studentRows = rows.map(({ student, grades, semAvg }) => {
-        const gradeCells = grades.map(g =>
-          `<td style="${gradeColor(g)}">${g != null ? fmtN(g) : "-"}</td>`
-        ).join("");
-        const avgStyle = gradeColor(semAvg);
-        return `<tr>
-          <td class="left">${esc(String(student.index))}</td>
-          <td class="left">${esc((student.firstName + " " + student.lastName).trim())}</td>
-          ${gradeCells}
-          <td style="font-weight:700;${avgStyle}">${semAvg != null ? fmt(semAvg) : "-"}</td>
-        </tr>`;
-      }).join("");
-
-      function statRow(label, fn) {
-        const cells = testStats.map(s => `<td>${s[fn] != null ? fmtN(s[fn]) : "-"}</td>`).join("");
-        const sv = semAvgStats[fn];
-        return `<tr class="stats-row">
-          <td colspan="2" class="left stats-label">${label}</td>
-          ${cells}
-          <td>${sv != null ? fmt(sv) : "-"}</td>
-        </tr>`;
-      }
-
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-        <title>${esc(classObj.name)} — ${semLabel}</title>
-        <style>${css}</style></head><body>
-        <h1>${esc(classObj.name)} — ${semLabel}</h1>
-        <div class="subtitle">Printed ${new Date().toLocaleDateString()}</div>
-        <table>
-          <thead><tr>
-            <th class="left">#</th>
-            <th class="left">Name</th>
-            ${testHeaders}
-            <th>Sem. Avg</th>
-          </tr></thead>
-          <tbody>
-            ${studentRows}
-            ${statRow("Avg", "avg")}
-            ${statRow("Max", "max")}
-            ${statRow("Min", "min")}
-            ${statRow("Median", "median")}
-          </tbody>
-        </table>
-      </body></html>`;
+      const report = buildSemesterReportData(classObj, sem);
+      const html = buildSemesterReportHtml(report);
 
       if (window.Desktop && Desktop.isElectron()) {
         try {
