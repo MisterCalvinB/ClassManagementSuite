@@ -7458,6 +7458,14 @@
           classObj.testCounts[sem]++;
           const cfg = classObj.testConfigs[sem][newIndex] || createDefaultTestConfig();
           cfg.testName = testName.trim() || `Test ${newIndex + 1}`;
+          if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
+            cfg.criteria = parsed.criteria.map(c => ({
+              id: c.id,
+              name: c.name,
+              maxPoints: c.maxPoints,
+              bonus: false
+            }));
+          }
           classObj.testConfigs[sem][newIndex] = cfg;
 
           saveState();
@@ -7569,15 +7577,46 @@
         const sem = semSelect.value;
         const ti = Number(testSelect.value);
         let applied = 0;
+
+        ensureClassStructures(classObj);
+
+        // If criteria (rule questions) are present in the import payload, set them on the test
+        if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
+          const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
+          cfg.criteria = parsed.criteria.map(c => ({
+            id: c.id,
+            name: c.name,
+            maxPoints: c.maxPoints,
+            bonus: false
+          }));
+          classObj.testConfigs[sem][ti] = cfg;
+        }
+
         entries.forEach(entry => {
           const student = findStudentByName(classObj, entry.name);
           if (!student) return;
-          const newGrade = entry.grade != null && !isNaN(entry.grade) ? Math.min(6, Math.max(1, entry.grade)) : null;
-          if (newGrade == null) return;
-          const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
-          if (newGrade !== arr[ti]) {
-            arr[ti] = newGrade;
-            applied++;
+          const rawGrade = entry.grade != null && !isNaN(entry.grade) ? entry.grade : null;
+          const newGrade = rawGrade != null ? Math.round(rawGrade * 2) / 2 : null;
+          if (newGrade != null) {
+            const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+            if (newGrade !== arr[ti]) {
+              arr[ti] = newGrade;
+              applied++;
+            }
+          }
+
+          // Apply per-criterion points if present
+          if (parsed && parsed.studentCriteriaScores && parsed.studentCriteriaScores[entry.name]) {
+            if (!student.criteriaResults) {
+              student.criteriaResults = {
+                sem1: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({})),
+                sem2: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}))
+              };
+            }
+            if (!student.criteriaResults[sem]) {
+              student.criteriaResults[sem] = Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}));
+            }
+            student.criteriaResults[sem][ti] = Object.assign({}, parsed.studentCriteriaScores[entry.name]);
           }
         });
         saveState();
@@ -7626,10 +7665,7 @@
         const parsed = JSON.parse(raw);
         if (parsed && parsed.grades && Object.keys(parsed.grades).length > 0) {
           localStorage.removeItem('CMS_PENDING_GRADE_IMPORT');
-          openImportGradesModal({
-            class: parsed.class,
-            grades: parsed.grades
-          });
+          openImportGradesModal(parsed);
         }
       } catch (e) {
         console.error('Failed to parse pending grade import:', e);

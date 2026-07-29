@@ -397,8 +397,20 @@
 
             <!-- Copy list area / results preview -->
             <div id="provisionalGradesPreviewSection" class="hidden" style="margin-bottom:20px;">
-                <h4 style="font-size:13px; font-weight:600; margin-bottom:8px; color:#333; text-transform:uppercase; letter-spacing:1px;" data-i18n="ptBtnCalcGrades">Provisional Grades List</h4>
-                <textarea id="provisionalGradesTextarea" readonly style="width:100%; height:100px; font-family:monospace; font-size:12px; padding:8px; border:2px solid #ddd; border-radius:5px; background:#fafafa; resize:vertical; box-sizing:border-box;"></textarea>
+                <h4 style="font-size:13px; font-weight:600; margin-bottom:8px; color:#333; text-transform:uppercase; letter-spacing:1px;" data-i18n="ptBtnCalcGrades">Provisional Grades Breakdown</h4>
+                <div id="provisionalGradesTableWrapper" style="max-height: 220px; overflow: auto; border: 2px solid #ddd; border-radius: 5px; background: #fff; margin-bottom: 10px;">
+                    <table id="provisionalGradesTable" style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+                        <thead style="position: sticky; top: 0; background: #f0f4ff; border-bottom: 2px solid #ccc; z-index: 1;">
+                            <tr id="provisionalGradesTableHeader">
+                                <!-- Headers dynamically generated -->
+                            </tr>
+                        </thead>
+                        <tbody id="provisionalGradesTableBody">
+                            <!-- Body rows dynamically generated -->
+                        </tbody>
+                    </table>
+                </div>
+                <textarea id="provisionalGradesTextarea" readonly style="display:none;"></textarea>
                 <div style="display:flex; gap:10px; margin-top:10px;">
                     <button onclick="copyProvisionalGrades()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
                     <button onclick="exportGradesToGradeSheet()" style="background:#2ca02c; color:#fff; border:2px solid #2ca02c; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#2ca02c'" onmouseout="this.style.background='#2ca02c';this.style.color='#fff'">Export to Grade Sheet</button>
@@ -408,7 +420,57 @@
 
             <div class="button-group" style="border-top:2px solid #111; padding-top:15px; margin-top:15px;">
                 <button onclick="closeRulesModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff';this.style.borderColor='#111'" onmouseout="this.style.background='#fff';this.style.color='#888';this.style.borderColor='#ccc'" data-i18n="ptBtnCancel">Cancel</button>
+                <button onclick="confirmNewRules()" style="background:#fff; color:#c33; border:2px solid #ecc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-left:auto;" onmouseover="this.style.background='#c33';this.style.color='#fff';this.style.borderColor='#c33'" onmouseout="this.style.background='#fff';this.style.color='#c33';this.style.borderColor='#ecc'" data-i18n="ptBtnNewRules">New Rules</button>
+                <button onclick="loadRulesConfig()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="ptBtnLoadRules">Load Rules</button>
                 <button onclick="saveRulesConfig()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptBtnSaveRules">Save Rules</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm New Rules Modal -->
+    <div id="confirmNewRulesModal" class="modal">
+        <div class="modal-content" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3 data-i18n="ptNewRulesConfirmTitle">Clear Rules & Start Afresh</h3>
+                <button class="modal-close" onclick="closeConfirmNewRulesModal()">&times;</button>
+            </div>
+            <div style="margin-bottom: 20px; line-height: 1.6; color: #444; font-size: 0.9rem;" data-i18n="ptNewRulesConfirmMsg">
+                Are you sure you want to clear all current rules in the editor and start afresh?
+            </div>
+            <div class="button-group">
+                <button onclick="closeConfirmNewRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnCancel">Cancel</button>
+                <button onclick="clearAndStartNewRules()" style="background:#c33; color:#fff; border:2px solid #c33; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnClearRules">Clear Rules</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Saved Rules Modal (Save / Load Rules Presets) -->
+    <div id="savedRulesModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 data-i18n="ptSavedRulesTitle">Saved Rules Presets</h3>
+                <button class="modal-close" onclick="closeSavedRulesModal()">&times;</button>
+            </div>
+
+            <!-- Section to Save current rules as a named preset -->
+            <div style="background:#f8f9fa; border:1px solid #e2e8f0; border-radius:6px; padding:12px 16px; margin-bottom:20px;">
+                <label style="display:block; font-weight:700; font-size:0.85rem; color:#333; margin-bottom:6px;" data-i18n="ptSaveAsPresetLabel">Save Current Rules as Preset</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="presetNameInput" placeholder="Preset name (e.g. Standard Participation)" style="flex:1; padding:8px 12px; border:2px solid #ddd; border-radius:5px; font-size:0.85rem;">
+                    <button onclick="saveCurrentRulesAsPreset()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 14px; font-weight:700; font-size:0.8rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptBtnSavePreset">Save Preset</button>
+                </div>
+            </div>
+
+            <!-- List of Saved Rules Presets -->
+            <div style="margin-bottom:15px;">
+                <h4 style="font-size:12px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;" data-i18n="ptAvailablePresetsList">Available Saved Rules</h4>
+                <div id="savedRulesList" style="max-height:300px; overflow-y:auto; border:1px solid #e0e0e0; border-radius:6px; background:#fff;">
+                    <!-- Dynamically populated list -->
+                </div>
+            </div>
+
+            <div class="button-group" style="border-top:1px solid #eee; padding-top:12px; margin-top:15px;">
+                <button onclick="closeSavedRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:6px 14px; font-weight:700; font-size:0.8rem; cursor:pointer;" data-i18n="ptBtnClose">Close</button>
             </div>
         </div>
     </div>
@@ -3448,6 +3510,249 @@
             updateDashboard(); // Redraw UI and table with new grades
         }
 
+        // ─── Save / Load Rules Presets Logic ───
+        window._ptSavedPresetsCache = {};
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getSavedRulesPresets() {
+            try {
+                const stored = localStorage.getItem('CMS_PARTICIPATION_RULES_PRESETS');
+                if (stored) return JSON.parse(stored);
+            } catch (e) {
+                console.error('Error loading saved rules presets:', e);
+            }
+            return [];
+        }
+
+        function saveRulesPresetsToStorage(presets) {
+            try {
+                localStorage.setItem('CMS_PARTICIPATION_RULES_PRESETS', JSON.stringify(presets));
+            } catch (e) {
+                console.error('Error saving rules presets to localStorage:', e);
+            }
+        }
+
+        function confirmNewRules() {
+            const modal = document.getElementById('confirmNewRulesModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeConfirmNewRulesModal() {
+            const modal = document.getElementById('confirmNewRulesModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function clearAndStartNewRules() {
+            const tbody = document.getElementById('rulesTableBody');
+            if (tbody) tbody.innerHTML = '';
+            
+            document.getElementById('rulesMaxGrade').value = 20;
+            document.getElementById('rulesScaleToMax').checked = false;
+
+            addRuleRow('netPoints', 0, 1, 5, 3, 10, 5, '');
+            updateProvisionalGradesPreview();
+            closeConfirmNewRulesModal();
+            showMessage(t('ptRulesClearedMsg') || 'Rules cleared! You can now start afresh.', 'info');
+        }
+
+        function loadRulesConfig() {
+            renderSavedRulesList();
+            const modal = document.getElementById('savedRulesModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeSavedRulesModal() {
+            const modal = document.getElementById('savedRulesModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function saveCurrentRulesAsPreset() {
+            const nameInput = document.getElementById('presetNameInput');
+            const name = (nameInput ? nameInput.value.trim() : '') || `Preset ${new Date().toLocaleDateString()}`;
+            
+            const rules = getRulesFromModal();
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
+            const scaleToMax = document.getElementById('rulesScaleToMax').checked;
+
+            if (!rules || rules.length === 0) {
+                showMessage(t('ptNoRulesToSave') || 'No rules defined to save in preset', 'error');
+                return;
+            }
+
+            const presets = getSavedRulesPresets();
+            const newPreset = {
+                id: 'preset_' + Date.now(),
+                name: name,
+                date: new Date().toISOString(),
+                maxGrade: maxGrade,
+                scaleToMax: scaleToMax,
+                rules: rules
+            };
+
+            presets.push(newPreset);
+            saveRulesPresetsToStorage(presets);
+
+            if (nameInput) nameInput.value = '';
+            showMessage((t('ptPresetSavedMsg') || 'Saved preset:') + ' ' + name, 'success');
+            renderSavedRulesList();
+        }
+
+        function applyRulesPreset(preset) {
+            if (!preset || !preset.rules) return;
+
+            document.getElementById('rulesMaxGrade').value = preset.maxGrade || 20;
+            document.getElementById('rulesScaleToMax').checked = !!preset.scaleToMax;
+
+            const tbody = document.getElementById('rulesTableBody');
+            tbody.innerHTML = '';
+
+            if (preset.rules.length > 0) {
+                preset.rules.forEach(rule => {
+                    let minV = rule.minVal, minP = rule.minPts, passV = rule.passVal, passP = rule.passPts, maxV = rule.maxVal, maxP = rule.maxPts, formV = rule.formulaVal || '';
+                    if (minV === undefined) {
+                        if (rule.metric === 'formula') {
+                            formV = rule.value;
+                            minV = 0; minP = 0; passV = 0; passP = 0; maxV = 0; maxP = rule.points;
+                        } else if (rule.operator === '<=') {
+                            minV = rule.value; minP = rule.points;
+                            passV = 0; passP = rule.points;
+                            maxV = 0; maxP = rule.points;
+                        } else {
+                            minV = rule.value; minP = rule.points;
+                            passV = rule.value; passP = rule.points;
+                            maxV = rule.value; maxP = rule.points;
+                        }
+                    }
+                    addRuleRow(rule.metric, minV, minP, passV, passP, maxV, maxP, formV);
+                });
+            } else {
+                addRuleRow('netPoints', 0, 1, 5, 3, 10, 5, '');
+            }
+
+            updateProvisionalGradesPreview();
+            closeSavedRulesModal();
+            showMessage((t('ptPresetLoadedMsg') || 'Loaded preset:') + ' ' + preset.name, 'success');
+        }
+
+        function applyRulesPresetById(id) {
+            const preset = window._ptSavedPresetsCache[id];
+            if (preset) {
+                applyRulesPreset(preset);
+            }
+        }
+
+        function deleteRulesPreset(presetId) {
+            let presets = getSavedRulesPresets();
+            presets = presets.filter(p => p.id !== presetId);
+            saveRulesPresetsToStorage(presets);
+            renderSavedRulesList();
+            showMessage(t('ptPresetDeletedMsg') || 'Preset deleted', 'info');
+        }
+
+        function renderSavedRulesList() {
+            const listEl = document.getElementById('savedRulesList');
+            if (!listEl) return;
+
+            window._ptSavedPresetsCache = {};
+            const presets = getSavedRulesPresets();
+            
+            // Also gather rules configured for other groups
+            const groupConfigs = [];
+            if (window.CMS_PARTICIPATION_RULES) {
+                Object.keys(window.CMS_PARTICIPATION_RULES).forEach(gId => {
+                    const cfg = window.CMS_PARTICIPATION_RULES[gId];
+                    if (cfg && cfg.rules && cfg.rules.length > 0) {
+                        const gName = (typeof groupDisplayName === 'function') ? groupDisplayName(gId) : gId;
+                        groupConfigs.push({
+                            id: 'group_' + gId,
+                            isGroup: true,
+                            groupId: gId,
+                            name: `Group: ${gName}`,
+                            maxGrade: cfg.maxGrade,
+                            scaleToMax: cfg.scaleToMax,
+                            rules: cfg.rules
+                        });
+                    }
+                });
+            }
+
+            if (presets.length === 0 && groupConfigs.length === 0) {
+                listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #888; font-size: 0.85rem;" data-i18n="ptNoPresets">No saved presets or group rules found. Type a name above to save the current rules as a preset.</div>`;
+                return;
+            }
+
+            let html = '';
+
+            // User-created presets
+            if (presets.length > 0) {
+                html += `<div style="padding: 6px 12px; background: #f0f4ff; border-bottom: 1px solid #d0e0fc; font-weight: 700; font-size: 0.75rem; color: #1b4f9c; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="ptCustomPresetsHeader">Custom Presets</div>`;
+                presets.forEach(p => {
+                    window._ptSavedPresetsCache[p.id] = p;
+                    const ruleCount = (p.rules || []).length;
+                    const dateStr = p.date ? new Date(p.date).toLocaleDateString() : '';
+                    const ruleSummary = (p.rules || []).map(r => r.metric).join(', ');
+
+                    html += `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #eee; transition:background 0.1s;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
+                            <div style="flex:1; min-width:0; padding-right:10px;">
+                                <div style="font-weight:700; font-size:0.88rem; color:#111; display:flex; align-items:center; gap:6px;">
+                                    <span>${escapeHtml(p.name)}</span>
+                                    <span style="font-size:0.7rem; font-weight:600; background:#e2e8f0; color:#475569; padding:1px 6px; border-radius:3px;">${ruleCount} rules</span>
+                                    <span style="font-size:0.7rem; font-weight:600; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:3px;">Max ${p.maxGrade || 20}</span>
+                                </div>
+                                <div style="font-size:0.75rem; color:#666; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    ${dateStr ? `<span style="color:#888;">${dateStr} &bull; </span>` : ''}Metrics: ${escapeHtml(ruleSummary)}
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" onclick="applyRulesPresetById('${p.id}')" style="background:#111; color:#fff; border:1px solid #111; border-radius:4px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;" data-i18n="ptBtnApply">Apply</button>
+                                <button type="button" onclick="deleteRulesPreset('${p.id}')" style="background:#fff; color:#c33; border:1px solid #ecc; border-radius:4px; padding:4px 8px; font-size:0.75rem; cursor:pointer;" title="Delete preset">&times;</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Configured group rules
+            if (groupConfigs.length > 0) {
+                html += `<div style="padding: 6px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; font-weight: 700; font-size: 0.75rem; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;" data-i18n="ptGroupRulesHeader">Existing Group Rules</div>`;
+                groupConfigs.forEach(g => {
+                    window._ptSavedPresetsCache[g.id] = g;
+                    const ruleCount = (g.rules || []).length;
+                    const ruleSummary = (g.rules || []).map(r => r.metric).join(', ');
+
+                    html += `
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #eee; transition:background 0.1s;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
+                            <div style="flex:1; min-width:0; padding-right:10px;">
+                                <div style="font-weight:700; font-size:0.88rem; color:#111; display:flex; align-items:center; gap:6px;">
+                                    <span>${escapeHtml(g.name)}</span>
+                                    <span style="font-size:0.7rem; font-weight:600; background:#e2e8f0; color:#475569; padding:1px 6px; border-radius:3px;">${ruleCount} rules</span>
+                                    <span style="font-size:0.7rem; font-weight:600; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:3px;">Max ${g.maxGrade || 20}</span>
+                                </div>
+                                <div style="font-size:0.75rem; color:#666; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    Metrics: ${escapeHtml(ruleSummary)}
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" onclick="applyRulesPresetById('${g.id}')" style="background:#111; color:#fff; border:1px solid #111; border-radius:4px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;" data-i18n="ptBtnApply">Apply</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            listEl.innerHTML = html;
+        }
+
         function getStudentBadgeCounts(badges) {
             const counts = {};
             (badges || []).forEach(badge => {
@@ -3754,29 +4059,67 @@
             const isInverse = minVal > maxVal;
 
             if (isInverse) {
-                if (studentValue > minVal) return 0;
+                if (studentValue >= minVal) return minPts;
                 if (studentValue <= maxVal) return maxPts;
                 if (studentValue >= passVal) {
+                    if (minVal === passVal) return minPts;
                     const ratio = (minVal - studentValue) / (minVal - passVal);
                     return minPts + ratio * (passPts - minPts);
                 } else {
+                    if (passVal === maxVal) return passPts;
                     const ratio = (passVal - studentValue) / (passVal - maxVal);
                     return passPts + ratio * (maxPts - passPts);
                 }
             } else {
-                if (studentValue < minVal) return 0;
+                if (studentValue <= minVal) return minPts;
                 if (studentValue >= maxVal) return maxPts;
                 if (studentValue <= passVal) {
+                    if (minVal === passVal) return minPts;
                     const ratio = (studentValue - minVal) / (passVal - minVal);
                     return minPts + ratio * (passPts - minPts);
                 } else {
+                    if (passVal === maxVal) return passPts;
                     const ratio = (studentValue - passVal) / (maxVal - passVal);
                     return passPts + ratio * (maxPts - passPts);
                 }
             }
         }
 
-        function calculateStudentProvisionalGrade(studentData, customRulesConfig = null) {
+        function getRuleLabel(rule, idx) {
+            const ruleNum = idx + 1;
+            if (rule.metric === 'formula') {
+                return `Rule ${ruleNum} (Formula: ${rule.value || rule.formulaVal || 'Custom'})`;
+            }
+            const metricLabels = {
+                netPoints: 'Net Points',
+                picks: 'Times Picked',
+                attendanceRate: 'Attendance Rate',
+                positivePoints: 'Positive Points',
+                badgePositive: 'Positive Badges',
+                badgeNegative: 'Negative Badges',
+                pluses: 'Pluses',
+                minuses: 'Minuses',
+                teamPluses: 'Team Pluses',
+                teamMinuses: 'Team Minuses',
+                absent: 'Absent',
+                sessions: 'Sessions',
+                posRatio: '+/Session',
+                negRatio: '-/Session',
+                netRatio: 'Net/Session',
+                ratio: 'Good/Bad Ratio',
+                trend: 'Trend',
+                teamRoleEvents: 'Team/Role Events'
+            };
+            let label = metricLabels[rule.metric];
+            if (!label) {
+                if (rule.metric.startsWith('badge_icon:')) label = `Badge ${rule.metric.replace('badge_icon:', '')}`;
+                else if (rule.metric.startsWith('badge_label:')) label = `Badge ${rule.metric.replace('badge_label:', '')}`;
+                else label = rule.metric;
+            }
+            return `Rule ${ruleNum} (${label})`;
+        }
+
+        function calculateStudentProvisionalGradeDetails(studentData, customRulesConfig = null) {
             const groupRulesConfig = customRulesConfig || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
             if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
                 return null;
@@ -3792,7 +4135,6 @@
             const positivePoints = studentData.pluses + studentData.teamPluses;
             const badgeCounts = getStudentBadgeCounts(studentData.badges);
 
-            // Compute additional metric columns
             const attendedSessions = studentData.attendedSessions || 0;
             const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
             const negRatio = attendedSessions ? (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative) / attendedSessions : 0;
@@ -3804,39 +4146,25 @@
 
             let achievedPoints = 0;
             let totalPossiblePoints = 0;
+            const ruleDetails = [];
 
-            groupRulesConfig.rules.forEach(rule => {
+            groupRulesConfig.rules.forEach((rule, idx) => {
                 let studentValue = 0;
-                let isFormula = false;
-                let met = false;
                 let rulePoints = 0;
+                let minPts = Number(rule.minPts) ?? 0;
+                let passPts = Number(rule.passPts) ?? 0;
                 let maxPts = Number(rule.maxPts) ?? 0;
+                let effectiveMaxPts = rule.metric === 'formula' ? maxPts : Math.max(minPts, passPts, maxPts);
+                let met = false;
 
                 if (rule.metric === 'formula') {
-                    isFormula = true;
                     const context = {
-                        netPoints: net,
-                        net: net,
-                        picks: picks,
-                        attendanceRate: attendanceRate,
-                        attendance: attendanceRate,
-                        positivePoints: positivePoints,
-                        positive: positivePoints,
-                        pluses: studentData.pluses,
-                        minuses: studentData.minuses,
-                        teamPluses: studentData.teamPluses,
-                        teamMinuses: studentData.teamMinuses,
-                        badgePositive: badgePositive,
-                        badgeNegative: studentData.badgeNegative,
-                        sessions: studentData.sessions,
-                        absent: studentData.absent,
-                        posRatio: posRatio,
-                        negRatio: negRatio,
-                        netRatio: netRatio,
-                        ratio: ratio,
-                        trend: trend,
-                        teamRoleEvents: studentData.teamRoleEvents,
-                        ...badgeCounts
+                        netPoints: net, net: net, picks: picks, attendanceRate: attendanceRate, attendance: attendanceRate,
+                        positivePoints: positivePoints, positive: positivePoints, pluses: studentData.pluses,
+                        minuses: studentData.minuses, teamPluses: studentData.teamPluses, teamMinuses: studentData.teamMinuses,
+                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative, sessions: studentData.sessions,
+                        absent: studentData.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
+                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts
                     };
                     try {
                         const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
@@ -3852,6 +4180,7 @@
                         }
                     } catch (e) {
                         met = false;
+                        rulePoints = 0;
                     }
                     achievedPoints += rulePoints;
                     totalPossiblePoints += maxPts;
@@ -3881,20 +4210,52 @@
                         const label = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
                         studentValue = badgeCounts[label] || 0;
                     }
-                    
-                    const pointsAwarded = calculateCriterionPoints(studentValue, rule);
-                    achievedPoints += pointsAwarded;
-                    totalPossiblePoints += maxPts;
+
+                    rulePoints = calculateCriterionPoints(studentValue, rule);
+                    achievedPoints += rulePoints;
+                    totalPossiblePoints += effectiveMaxPts;
                 }
+
+                ruleDetails.push({
+                    ruleIndex: idx,
+                    metric: rule.metric,
+                    name: getRuleLabel(rule, idx),
+                    rawPoints: parseFloat(rulePoints.toFixed(2)),
+                    maxPts: effectiveMaxPts
+                });
             });
 
+            let finalGrade = achievedPoints;
+            const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
+
             if (groupRulesConfig.scaleToMax) {
-                const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
-                if (totalPossiblePoints === 0) return 0;
-                return parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+                if (totalPossiblePoints > 0) {
+                    finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+                    ruleDetails.forEach(rd => {
+                        rd.points = parseFloat(((rd.rawPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+                        rd.maxPoints = parseFloat(((rd.maxPts / totalPossiblePoints) * maxGrade).toFixed(2));
+                    });
+                } else {
+                    finalGrade = 0;
+                    ruleDetails.forEach(rd => { rd.points = 0; rd.maxPoints = 0; });
+                }
+            } else {
+                ruleDetails.forEach(rd => {
+                    rd.points = rd.rawPoints;
+                    rd.maxPoints = rd.maxPts;
+                });
             }
 
-            return achievedPoints;
+            return {
+                grade: finalGrade,
+                totalPossible: totalPossiblePoints,
+                rules: ruleDetails
+            };
+        }
+
+        function calculateStudentProvisionalGrade(studentData, customRulesConfig = null) {
+            const details = calculateStudentProvisionalGradeDetails(studentData, customRulesConfig);
+            return details ? details.grade : null;
         }
 
         function updateProvisionalGradesPreview() {
@@ -3904,6 +4265,8 @@
 
             const previewSection = document.getElementById('provisionalGradesPreviewSection');
             const textarea = document.getElementById('provisionalGradesTextarea');
+            const tableHeader = document.getElementById('provisionalGradesTableHeader');
+            const tableBody = document.getElementById('provisionalGradesTableBody');
 
             if (rules.length === 0) {
                 previewSection.classList.add('hidden');
@@ -3958,18 +4321,60 @@
                 return;
             }
 
-            const groupRulesConfig = {
-                rules,
-                maxGrade,
-                scaleToMax
-            };
+            const groupRulesConfig = { rules, maxGrade, scaleToMax };
+            const totalPossible = rules.reduce((sum, r) => {
+                const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                return sum + effMax;
+            }, 0);
 
-            const lines = students.map(s => {
-                const grade = calculateStudentProvisionalGrade(s, groupRulesConfig);
-                return `${s.name}\t${formatSummaryNumber(grade)}`;
+            // Construct header info
+            const ruleHeaders = rules.map((r, i) => {
+                const label = getRuleLabel(r, i);
+                const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                const maxP = scaleToMax && totalPossible > 0
+                    ? parseFloat(((effMax / totalPossible) * maxGrade).toFixed(2))
+                    : effMax;
+                return { label, maxP };
             });
 
-            textarea.value = lines.join('\n');
+            // Populate Table Header HTML
+            let thHtml = `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 700; color: #111;">Student</th>`;
+            thHtml += `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 700; color: #1b4f9c; background: #e0ecff;">Total Grade</th>`;
+            ruleHeaders.forEach(rh => {
+                thHtml += `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 600; color: #333;">${escapeHtml(rh.label)} <span style="font-size: 0.72rem; color: #666; font-weight: normal;">(max ${rh.maxP})</span></th>`;
+            });
+            if (tableHeader) tableHeader.innerHTML = thHtml;
+
+            // Populate Table Body HTML & TSV Textarea content
+            let trHtml = '';
+            const tsvHeader = `Student\tTotal Grade\t${ruleHeaders.map(rh => `${rh.label} [max ${rh.maxP}]`).join('\t')}`;
+            const tsvLines = [];
+
+            students.forEach((s, idx) => {
+                const details = calculateStudentProvisionalGradeDetails(s, groupRulesConfig);
+                const bg = idx % 2 === 0 ? '#ffffff' : '#f9fafb';
+                if (!details) {
+                    trHtml += `<tr style="background:${bg};"><td style="padding:5px 10px; border:1px solid #eee; font-weight:600;">${escapeHtml(s.name)}</td><td style="padding:5px 10px; border:1px solid #eee; font-weight:700; color:#111;">0</td>`;
+                    ruleHeaders.forEach(() => { trHtml += `<td style="padding:5px 10px; border:1px solid #eee; color:#888;">0</td>`; });
+                    trHtml += `</tr>`;
+                    tsvLines.push(`${s.name}\t0\t${ruleHeaders.map(() => '0').join('\t')}`);
+                } else {
+                    const gradeStr = formatSummaryNumber(details.grade);
+                    trHtml += `<tr style="background:${bg};"><td style="padding:5px 10px; border:1px solid #eee; font-weight:600;">${escapeHtml(s.name)}</td><td style="padding:5px 10px; border:1px solid #eee; font-weight:700; color:#1b4f9c; background:#f0f4ff;">${gradeStr}</td>`;
+                    
+                    const rulePts = details.rules.map(rd => {
+                        const ptsStr = formatSummaryNumber(rd.points);
+                        trHtml += `<td style="padding:5px 10px; border:1px solid #eee; color:#333;">${ptsStr}</td>`;
+                        return ptsStr;
+                    });
+                    trHtml += `</tr>`;
+                    tsvLines.push(`${s.name}\t${gradeStr}\t${rulePts.join('\t')}`);
+                }
+            });
+
+            if (tableBody) tableBody.innerHTML = trHtml;
+            if (textarea) textarea.value = [tsvHeader, ...tsvLines].join('\n');
+
             previewSection.classList.remove('hidden');
         }
 
@@ -4038,12 +4443,46 @@
                 return;
             }
 
-            // Generate grades dictionary
+            // Build criteria definition array: [{ id, name, maxPoints }]
+            const totalPossible = rules.reduce((sum, r) => {
+                const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                return sum + effMax;
+            }, 0);
+            const criteria = rules.map((r, i) => {
+                const name = getRuleLabel(r, i);
+                const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                const maxPointsRaw = scaleToMax && totalPossible > 0
+                    ? ((effMax / totalPossible) * maxGrade)
+                    : effMax;
+                const maxPoints = Math.round(maxPointsRaw * 2) / 2;
+                return {
+                    id: `rule_crit_${i + 1}`,
+                    name: name,
+                    maxPoints: maxPoints,
+                    bonus: false
+                };
+            });
+
+            // Generate grades dictionary and per-student criteria scores
             const grades = {};
+            const studentCriteriaScores = {};
+
             students.forEach(s => {
-                const grade = calculateStudentProvisionalGrade(s, groupRulesConfig);
-                if (grade !== null) {
-                    grades[s.name] = grade;
+                const details = calculateStudentProvisionalGradeDetails(s, groupRulesConfig);
+                if (details) {
+                    // Round grade to nearest 0.5
+                    const roundedGrade = Math.round(details.grade * 2) / 2;
+                    grades[s.name] = roundedGrade;
+                    studentCriteriaScores[s.name] = {};
+                    details.rules.forEach(rd => {
+                        const critId = `rule_crit_${rd.ruleIndex + 1}`;
+                        // Round per-criterion points to nearest 0.5
+                        const roundedPts = Math.round(rd.points * 2) / 2;
+                        studentCriteriaScores[s.name][critId] = {
+                            points: roundedPts,
+                            comment: ''
+                        };
+                    });
                 }
             });
 
@@ -4054,13 +4493,16 @@
                 class: groupName,
                 classGroupId: currentGroupId,
                 grades: grades,
+                criteria: criteria,
+                studentCriteriaScores: studentCriteriaScores,
+                maxGrade: maxGrade,
                 dateFrom: dateRange.from,
                 dateTo: dateRange.to
             };
 
             localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(importData));
 
-            showMessage('Grades prepared! Opening Grade Sheet tool...', 'success');
+            showMessage('Grades & rule criteria prepared! Opening Grade Sheet tool...', 'success');
             setTimeout(() => {
                 openGradeSheetTool();
             }, 1000);
@@ -4449,6 +4891,14 @@
 
         document.getElementById('resetWarn2Modal').addEventListener('click', function(e) {
             if (e.target === this) closeResetModal2();
+        });
+
+        document.getElementById('savedRulesModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeSavedRulesModal();
+        });
+
+        document.getElementById('confirmNewRulesModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeConfirmNewRulesModal();
         });
 
         // Show message helper
