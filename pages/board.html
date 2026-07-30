@@ -7798,12 +7798,37 @@
       };
     }
 
-    function conGetDefaultPdfMediaRect() {
+    async function conGetPdfPageAspectRatio(pdfLike, pageNum = 1) {
+      if (!pdfLike) return null;
+      try {
+        const pdfjsLib = await conEnsurePdfjsLib();
+        let pdfDoc = pdfLike._pdfDoc;
+        if (!pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(pdfLike);
+          if (!buf) return null;
+          pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          pdfLike._pdfDoc = pdfDoc;
+        }
+        const pNum = Math.max(1, Math.min(pdfDoc.numPages, Number(pageNum) || 1));
+        const page = await pdfDoc.getPage(pNum);
+        const rotation = (((Number(pdfLike.pdfRotation) || 0) % 360) + 360) % 360;
+        const vp = page.getViewport({ scale: 1, rotation });
+        if (vp && vp.width > 0 && vp.height > 0) {
+          return vp.height / vp.width;
+        }
+      } catch (e) {
+        console.warn('[PDF] Could not get aspect ratio:', e);
+      }
+      return null;
+    }
+
+    function conGetDefaultPdfMediaRect(aspectRatio) {
       const board = document.getElementById('constellation-board');
       const boardW = board ? Math.max(320, board.clientWidth || 0) : 960;
       const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
       const w = (window._bcPdfInsertWidth > 0) ? Math.max(260, window._bcPdfInsertWidth) : Math.max(260, Math.round(boardW * 0.8));
-      const h = Math.max(220, Math.min(boardH - 24, Math.round(w * 1.35)));
+      const ratio = (Number.isFinite(aspectRatio) && aspectRatio > 0) ? aspectRatio : 1.35;
+      const h = Math.max(180, Math.min(boardH - 24, Math.round(w * ratio)));
       const x = Math.max(12, Math.round((boardW - w) / 2));
       return { x, y: 12, w, h };
     }
@@ -7811,9 +7836,10 @@
     function conBuildPdfMediaItem(pdfLike, options = {}) {
       if (!pdfLike) return null;
       const linkedAttachment = conResolvePdfBackgroundAttachment(pdfLike);
-      const rect = conGetDefaultPdfMediaRect();
+      const ratio = options && Number.isFinite(options.aspectRatio) ? options.aspectRatio : null;
+      const rect = conGetDefaultPdfMediaRect(ratio);
       const pageNumber = Math.max(1, Number(pdfLike.pageNumber) || 1);
-      return {
+      const item = {
         id: String(options.id || ('cm' + (conMediaNextId++))),
         kind: 'pdf',
         attachmentId: String((linkedAttachment && linkedAttachment.id) || pdfLike.attachmentId || ''),
@@ -7822,11 +7848,20 @@
         relativePath: String((linkedAttachment && linkedAttachment.relativePath) || pdfLike.relativePath || ''),
         file: (linkedAttachment && linkedAttachment.file) || pdfLike.file || null,
         pageNumber,
+        pdfFit: options.pdfFit || 'h',
+        pdfZoom: options.pdfZoom != null ? options.pdfZoom : 1,
+        pdfRotation: options.pdfRotation || 0,
+        pdfScrollX: options.pdfScrollX || 0,
+        pdfScrollY: options.pdfScrollY || 0,
+        pdfLockSize: options.pdfLockSize !== undefined ? !!options.pdfLockSize : true,
+        locked: options.locked !== undefined ? !!options.locked : true,
         x: Number.isFinite(options.x) ? Math.round(options.x) : rect.x,
         y: Number.isFinite(options.y) ? Math.round(options.y) : rect.y,
         w: Number.isFinite(options.w) ? Math.max(220, Math.round(options.w)) : rect.w,
-        h: Number.isFinite(options.h) ? Math.max(220, Math.round(options.h)) : rect.h
+        h: Number.isFinite(options.h) ? Math.max(180, Math.round(options.h)) : rect.h
       };
+      if (ratio) item._ratioInitialized = true;
+      return item;
     }
 
     function conRemoveInsertAttachmentChooser() {
@@ -8314,9 +8349,27 @@
       let page;
       try { page = await item._pdfDoc.getPage(pageNum); } catch (e) { return; }
       const rotation = (((Number(item.pdfRotation) || 0) % 360) + 360) % 360;
-      const contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
-      const contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
+      let contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
+      let contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
       const baseVp = page.getViewport({ scale: 1, rotation });
+
+      if (baseVp && baseVp.width > 0 && baseVp.height > 0) {
+        if (!item._ratioInitialized) {
+          item._ratioInitialized = true;
+          const pdfAspect = baseVp.height / baseVp.width;
+          const board = document.getElementById('constellation-board');
+          const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
+          const targetH = Math.max(100, Math.min(boardH - 24, Math.round(item.w * pdfAspect)));
+          if (Math.abs((item.h || 0) - targetH) > 2) {
+            item.h = targetH;
+            contentH = targetH;
+            if (contentEl) {
+              const wrapEl = contentEl.closest('.con-media-item');
+              if (wrapEl) wrapEl.style.height = targetH + 'px';
+            }
+          }
+        }
+      }
       const fitScale = baseVp.width > 0 ? contentW / baseVp.width : 1;
 
       let scale;
@@ -8890,12 +8943,12 @@
           pdfRotation: (kind === 'pdf' ? (((Number(raw.pdfRotation) || 0) % 360) + 360) % 360 : undefined),
           pdfScrollX: (kind === 'pdf' ? (Number(raw.pdfScrollX) || 0) : undefined),
           pdfScrollY: (kind === 'pdf' ? (Number(raw.pdfScrollY) || 0) : undefined),
-          pdfLockSize: (kind === 'pdf' ? !!raw.pdfLockSize : undefined),
+          pdfLockSize: (kind === 'pdf' ? (raw.pdfLockSize !== undefined ? !!raw.pdfLockSize : true) : undefined),
           x: Number(raw.x) || 40,
           y: Number(raw.y) || 40,
           w: Number(raw.w) || (kind === 'sounds' ? 320 : (kind === 'pdf' ? defaultPdfRect.w : 260)),
           h: Number(raw.h) || (kind === 'sounds' ? 90 : (kind === 'pdf' ? defaultPdfRect.h : 200)),
-          locked: !!raw.locked,
+          locked: (kind === 'pdf' ? (raw.locked !== undefined ? !!raw.locked : true) : !!raw.locked),
           blink: !!raw.blink,
           borderWidth: Math.max(0, Number(raw.borderWidth) || 0),
           borderStyle: raw.borderStyle || 'solid',
@@ -9054,7 +9107,7 @@
       document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn').forEach(b => b.classList.remove('selected'));
     };
 
-    window.conPdfPagePickerConfirm = function () {
+    window.conPdfPagePickerConfirm = async function () {
       const att = _conPdfPagePickerAtt;
       if (!att) return;
       const btns = document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn.selected');
@@ -9066,7 +9119,16 @@
       // Save current page snapshot before we start adding new pages
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
 
-      const rect = conGetDefaultPdfMediaRect();
+      const pdfLike = {
+        attachmentId: att.id,
+        name: att.name,
+        mime: att.mime || 'application/pdf',
+        relativePath: att.relativePath || '',
+        file: att.file || null
+      };
+
+      const ratio = await conGetPdfPageAspectRatio(pdfLike, selectedPages[0] || 1);
+      const rect = conGetDefaultPdfMediaRect(ratio);
       const insertAfterIdx = conCurrentPageIndex;
 
       const newSnaps = selectedPages.map(pageNum => {
@@ -9083,10 +9145,13 @@
           pdfRotation: 0,
           pdfScrollX: 0,
           pdfScrollY: 0,
+          pdfLockSize: true,
+          locked: true,
           x: rect.x,
           y: rect.y,
           w: rect.w,
-          h: rect.h
+          h: rect.h,
+          _ratioInitialized: true
         }];
         return snap;
       });
@@ -9123,7 +9188,9 @@
           pageNumber: Math.max(1, Number(pageNum) || 1)
         });
 
-        const item = conBuildPdfMediaItem(pdfForPage(1));
+        const pdfLike = pdfForPage(1);
+        const ratio = await conGetPdfPageAspectRatio(pdfLike, 1);
+        const item = conBuildPdfMediaItem(pdfLike, { aspectRatio: ratio });
         if (item) {
           conMediaItems.push(item);
           conBuildMediaWidget(item);
