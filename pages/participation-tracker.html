@@ -4225,12 +4225,15 @@
                 });
             });
 
-            let finalGrade = achievedPoints;
+            let finalGrade = 0;
             const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
+
+            if (totalPossiblePoints > 0) {
+                finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+            }
 
             if (groupRulesConfig.scaleToMax) {
                 if (totalPossiblePoints > 0) {
-                    finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
                     ruleDetails.forEach(rd => {
                         rd.points = parseFloat(((rd.rawPoints / totalPossiblePoints) * maxGrade).toFixed(2));
                         rd.maxPoints = parseFloat(((rd.maxPts / totalPossiblePoints) * maxGrade).toFixed(2));
@@ -4248,6 +4251,7 @@
 
             return {
                 grade: finalGrade,
+                totalPoints: achievedPoints,
                 totalPossible: totalPossiblePoints,
                 rules: ruleDetails
             };
@@ -4337,9 +4341,11 @@
                 return { label, maxP };
             });
 
+            const totalHeaderLabel = scaleToMax ? 'Total Grade' : 'Total Points';
+
             // Populate Table Header HTML
             let thHtml = `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 700; color: #111;">Student</th>`;
-            thHtml += `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 700; color: #1b4f9c; background: #e0ecff;">Total Grade</th>`;
+            thHtml += `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 700; color: #1b4f9c; background: #e0ecff;">${escapeHtml(totalHeaderLabel)}</th>`;
             ruleHeaders.forEach(rh => {
                 thHtml += `<th style="padding: 6px 10px; border: 1px solid #ccc; font-weight: 600; color: #333;">${escapeHtml(rh.label)} <span style="font-size: 0.72rem; color: #666; font-weight: normal;">(max ${rh.maxP})</span></th>`;
             });
@@ -4347,7 +4353,7 @@
 
             // Populate Table Body HTML & TSV Textarea content
             let trHtml = '';
-            const tsvHeader = `Student\tTotal Grade\t${ruleHeaders.map(rh => `${rh.label} [max ${rh.maxP}]`).join('\t')}`;
+            const tsvHeader = `Student\t${totalHeaderLabel}\t${ruleHeaders.map(rh => `${rh.label} [max ${rh.maxP}]`).join('\t')}`;
             const tsvLines = [];
 
             students.forEach((s, idx) => {
@@ -4359,7 +4365,8 @@
                     trHtml += `</tr>`;
                     tsvLines.push(`${s.name}\t0\t${ruleHeaders.map(() => '0').join('\t')}`);
                 } else {
-                    const gradeStr = formatSummaryNumber(details.grade);
+                    const totalVal = scaleToMax ? details.grade : (details.totalPoints ?? details.grade);
+                    const gradeStr = formatSummaryNumber(totalVal);
                     trHtml += `<tr style="background:${bg};"><td style="padding:5px 10px; border:1px solid #eee; font-weight:600;">${escapeHtml(s.name)}</td><td style="padding:5px 10px; border:1px solid #eee; font-weight:700; color:#1b4f9c; background:#f0f4ff;">${gradeStr}</td>`;
                     
                     const rulePts = details.rules.map(rd => {
@@ -4496,6 +4503,7 @@
                 criteria: criteria,
                 studentCriteriaScores: studentCriteriaScores,
                 maxGrade: maxGrade,
+                scaleToMax: scaleToMax,
                 dateFrom: dateRange.from,
                 dateTo: dateRange.to
             };

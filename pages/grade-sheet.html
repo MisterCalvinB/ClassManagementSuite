@@ -2007,7 +2007,7 @@
 
       config.criteria.forEach(criterion => {
         const maxPts = Math.max(0, toNumber(criterion.maxPoints) ?? 0);
-        const pointCoeff = Math.max(0, toNumber(criterion.pointCoefficient) ?? 0);
+        const pointCoeff = Math.max(0, toNumber(criterion.pointCoefficient) ?? 1);
         const weightedMax = maxPts * pointCoeff;
 
         const result = criteriaResultMap[criterion.id] || {};
@@ -7463,7 +7463,8 @@
               id: c.id,
               name: c.name,
               maxPoints: c.maxPoints,
-              bonus: false
+              pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
+              isBonus: !!c.bonus
             }));
           }
           classObj.testConfigs[sem][newIndex] = cfg;
@@ -7528,7 +7529,27 @@
             matched++;
             const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
             const current = arr[ti];
-            const newGrade = entry.grade != null && !isNaN(entry.grade) ? Math.min(6, Math.max(1, entry.grade)) : null;
+            let newGrade = entry.grade != null && !isNaN(entry.grade) ? Math.round(entry.grade * 2) / 2 : null;
+
+            if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0 &&
+                parsed.studentCriteriaScores && parsed.studentCriteriaScores[entry.name]) {
+              const testCfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
+              const mergedCfg = Object.assign({}, testCfg, {
+                criteria: parsed.criteria.map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  maxPoints: c.maxPoints,
+                  pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
+                  isBonus: !!c.bonus
+                }))
+              });
+              const criteriaMap = parsed.studentCriteriaScores[entry.name];
+              const totals = calcCriteriaTotals(mergedCfg, criteriaMap);
+              if (totals.totalPossible > 0) {
+                const ratio = (totals.totalScored + (totals.totalBonusScored || 0)) / totals.totalPossible;
+                newGrade = gradeFromRatio(ratio, mergedCfg);
+              }
+            }
             const willChange = newGrade !== current && newGrade != null;
             if (willChange) changed++;
             const currentStr = current != null ? fmtN(current) : "—";
@@ -7587,7 +7608,8 @@
             id: c.id,
             name: c.name,
             maxPoints: c.maxPoints,
-            bonus: false
+            pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
+            isBonus: !!c.bonus
           }));
           classObj.testConfigs[sem][ti] = cfg;
         }
@@ -7619,6 +7641,11 @@
             student.criteriaResults[sem][ti] = Object.assign({}, parsed.studentCriteriaScores[entry.name]);
           }
         });
+
+        if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
+          recalcAllStudentGradesForTest(classObj, sem, ti);
+        }
+
         saveState();
         renderSummary();
         if (appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
