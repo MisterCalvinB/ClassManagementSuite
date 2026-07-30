@@ -6215,20 +6215,25 @@
                 const classFiles = listResult.files.filter(f => f.filename === '_class.js');
                 const testFiles = listResult.files.filter(f => f.filename !== '_class.js');
 
+                const classTitle = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+
                 // Find the _class.js matching selectedGroupName (current format: <classSlug>/_class.js)
                 let gsStudentId = null;
                 let matchedClassId = null;
                 let matchedSubdir = null;
+                let matchedClassName = null;
 
                 for (const cf of classFiles) {
                     const res = await window.Desktop.readByPath('grades', cf.relativePath);
                     if (!res || !res.content) continue;
                     const meta = _parseGradeJs(res.content);
-                    if (!meta || meta.className !== selectedGroupName) continue;
+                    if (!meta) continue;
+                    if (meta.groupId !== selectedGroupName && meta.className !== selectedGroupName && meta.className !== classTitle) continue;
 
                     const parts = cf.relativePath.replace(/\\/g, '/').split('/');
                     if (parts.length < 2) continue;
                     matchedClassId = meta.classId;
+                    matchedClassName = meta.className;
                     matchedSubdir = parts.slice(0, -1).join('/');
 
                     const match = (meta.students || []).find(gs => {
@@ -6241,8 +6246,10 @@
                     break;
                 }
 
+                const displayClassTitle = matchedClassName || classTitle;
+
                 if (!matchedSubdir) {
-                    _showAndPosition(`<div class="grades-empty">No grade data for <em>${escapeSettingsHtml(selectedGroupName)}</em>.</div>`);
+                    _showAndPosition(`<div class="grades-empty">No grade data for <em>${escapeSettingsHtml(displayClassTitle)}</em>.</div>`);
                     return;
                 }
                 if (!gsStudentId) {
@@ -6292,7 +6299,9 @@
                     const avg = _calcAvg(tests, configs);
                     if (avg != null) semAvgs.push(avg);
 
-                    html += `<div class="stats-section-label">${sem === 'sem1' ? t('gsSem1') : t('gsSem2')}</div>`;
+                    const semLabel = sem === 'sem1' ? t('gsSem1') : t('gsSem2');
+                    const sectionTitle = displayClassTitle ? `${displayClassTitle} – ${semLabel}` : semLabel;
+                    html += `<div class="stats-section-label">${escapeSettingsHtml(sectionTitle)}</div>`;
 
                     activeTests.forEach(({ index, grade, cfg }) => {
                         const label = escapeSettingsHtml((cfg && cfg.testName) || ('Test ' + (index + 1)));
