@@ -365,7 +365,14 @@
       showToast(extra.delta > 0 ? '✓ +1 for ' + student.name : '✓ −1 for ' + student.name);
     } else if (extra.action === 'badge_add') {
       if (!student.badges) student.badges = [];
-      student.badges.push({ icon: extra.icon, label: extra.label, tone: extra.tone || 'positive' });
+      const now = new Date();
+      student.badges.push({
+        icon: extra.icon,
+        label: extra.label,
+        tone: extra.tone || 'positive',
+        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        timestamp: now.toISOString()
+      });
       renderStudents();
       showToast('✓ ' + extra.icon + ' ' + extra.label);
     } else if (extra.action === 'badge_remove') {

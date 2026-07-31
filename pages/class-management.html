@@ -9377,10 +9377,13 @@ syncState();
             if (!validStudents.length) return;
 
             const badgeDef = (badgeDefinitions || []).find(d => d.icon === icon && d.label === label);
+            const now = new Date();
+            const bTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const bTimestamp = now.toISOString();
 
             validStudents.forEach(student => {
                 if (!student.badges) student.badges = [];
-                student.badges.push({ icon, label, tone, meaning });
+                student.badges.push({ icon, label, tone, meaning, time: bTime, timestamp: bTimestamp });
 
                 // Strike student if configured
                 if (badgeDef?.strikeOnAward) {
@@ -9571,7 +9574,7 @@ syncState();
 
         function logHistory(type, studentName, detail) {
             const now = new Date();
-            const time = now.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const timestamp = now.toISOString();
             sessionHistory.push({ type: type, studentName: studentName, detail: detail, time: time, timestamp: timestamp, group: selectedGroupName });
             if (document.getElementById('history-modal').style.display === 'flex') {
@@ -9722,8 +9725,8 @@ syncState();
             if (!student.comments) student.comments = [];
             const now = new Date();
             const datetime = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' +
-                now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-            student.comments.push({ text: text, datetime: datetime });
+                now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            student.comments.push({ text: text, datetime: datetime, timestamp: now.toISOString() });
 
             logHistory('comment', student.name, text.substring(0, 60) + (text.length > 60 ? '…' : ''));
 
@@ -10194,7 +10197,7 @@ syncState();
             if (!selectedGroupName || isViewingPastSession) return null;
 
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const isoKey = now.toISOString();
 
             const snapshot = buildInteractionSnapshot(studentGroups);
@@ -10483,7 +10486,7 @@ syncState();
 
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const isoKey = now.toISOString();
 
             // Save only groups with interactions
@@ -10527,7 +10530,7 @@ syncState();
                 const origText = strong ? strong.textContent : '';
                 btn.classList.add('just-saved');
                 if (strong) strong.textContent = '✓ Saved!';
-                if (small) small.textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                if (small) small.textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 setTimeout(() => {
                     btn.classList.remove('just-saved');
                     if (strong) strong.textContent = origText;
@@ -10561,7 +10564,7 @@ syncState();
 
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const todayStr = now.toDateString();
 
             // Shared filtered snapshot: only groups with interactions
@@ -10625,7 +10628,7 @@ syncState();
             if (!studentGroups) return;
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             const todayStr = now.toDateString();
             const sessions = getDb();
             let changed = false;

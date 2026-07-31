@@ -3121,6 +3121,32 @@
             modal.classList.add('active');
         }
 
+        function getStudentPointTimestamps(session, groupId, student, typeName) {
+            if (!session || !Array.isArray(session.sessionHistory) || !student) return [];
+            const targetStudent = String(student.name || '').trim().toUpperCase();
+            const teamId = student.teamId;
+
+            const matches = session.sessionHistory.filter(entry => {
+                if (!entry) return false;
+                if (entry.group && entry.group !== groupId) return false;
+                const entryType = String(entry.type || '').toLowerCase();
+                if (entryType !== typeName.toLowerCase()) return false;
+
+                const entryStudent = String(entry.studentName || '').trim().toUpperCase();
+                if (entryStudent === targetStudent) return true;
+
+                if (typeName === 'team-plus' || typeName === 'team-minus') {
+                    if (teamId != null) {
+                        if (entryStudent.includes(`TEAM ${teamId}`) || entryStudent.startsWith(`${teamId}.`)) return true;
+                        if (entry.detail && String(entry.detail).toLowerCase().includes(`team ${teamId}`)) return true;
+                    }
+                }
+                return false;
+            });
+
+            return matches.map(e => formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)).filter(Boolean);
+        }
+
         function showStudentDetailModal(student, session) {
             const modal = document.getElementById('detailModal');
             const title = document.getElementById('detailModalTitle');
@@ -3128,19 +3154,42 @@
 
             title.textContent = `${student.name} - ${new Date(session.id).toLocaleDateString()}`;
 
-            const badgeDisplay = formatBadges(student.badges);
+            const plusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'plus');
+            const minusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'minus');
+            const teamPlusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'team-plus');
+            const teamMinusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'team-minus');
+
+            const plusesTimeStr = plusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${plusesTimes.join(', ')})</span>` : '';
+            const minusesTimeStr = minusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${minusesTimes.join(', ')})</span>` : '';
+            const teamPlusesTimeStr = teamPlusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${teamPlusesTimes.join(', ')})</span>` : '';
+            const teamMinusesTimeStr = teamMinusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${teamMinusesTimes.join(', ')})</span>` : '';
+
+            const badgeDisplay = (student.badges && student.badges.length > 0)
+                ? student.badges.map(b => {
+                    const data = resolveBadgeData(b);
+                    const label = data.label || b.icon || (typeof b === 'string' ? b : 'Badge');
+                    const icon = data.icon || '🏅';
+                    const rawTime = (typeof b === 'object' && b ? (b.time || b.timestamp || b.date || b.createdAt) : null) || data.time || data.timestamp || (session ? (session.time || session.id) : null);
+                    const formattedTime = formatTimeWithSeconds(rawTime);
+                    const color = data.tone === 'positive' ? '#2ca02c' : (data.tone === 'negative' ? '#d62728' : 'inherit');
+                    const timePart = formattedTime ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${formattedTime})</span>` : '';
+                    return `<span style="color:${color}; font-weight:600;">${icon} ${label}</span>${timePart}`;
+                }).join(', ')
+                : '-';
+
             const badgeSentiment = countBadgeSentiment(student.badges || []);
             const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
             const teamRoleDetails = teamRoleEvents.length
-                ? teamRoleEvents.map(e => `${e.time || ''} [${e.type}] ${e.detail || ''}`).join('<br>')
+                ? teamRoleEvents.map(e => `${formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)} [${e.type}] ${e.detail || ''}`).join('<br>')
                 : '(none)';
+
             body.innerHTML = `
                 <p><strong>Picked:</strong> ${student.isPicked ? 'Yes' : 'No'}</p>
                 <p><strong>Absent:</strong> ${student.isAbsent ? 'Yes' : 'No'}</p>
-                <p><strong>Positive Points:</strong> ${student.pluses || 0}</p>
-                <p><strong>Negative Points:</strong> ${student.minuses || 0}</p>
-                <p><strong>Team Positive Points (T+):</strong> ${student.teamPluses || 0}</p>
-                <p><strong>Team Negative Points (T-):</strong> ${student.teamMinuses || 0}</p>
+                <p><strong>Positive Points:</strong> ${student.pluses || 0}${plusesTimeStr}</p>
+                <p><strong>Negative Points:</strong> ${student.minuses || 0}${minusesTimeStr}</p>
+                <p><strong>Team Positive Points (T+):</strong> ${student.teamPluses || 0}${teamPlusesTimeStr}</p>
+                <p><strong>Team Negative Points (T-):</strong> ${student.teamMinuses || 0}${teamMinusesTimeStr}</p>
                 <p><strong>Team:</strong> ${student.teamId != null ? `Team ${student.teamId}` : '-'}</p>
                 <p><strong>Role:</strong> ${student.role || '-'}</p>
                 <p><strong>Badges:</strong> ${badgeDisplay}</p>
@@ -3153,7 +3202,7 @@
 
             if (student.comments && student.comments.length > 0) {
                 const commentsHtml = student.comments.map(c =>
-                    `<p style="margin:4px 0; font-size:13px;"><span style="color:#888; font-size:11px;">${c.datetime || ''}</span> ${c.text}</p>`
+                    `<p style="margin:4px 0; font-size:13px;"><span style="color:#888; font-size:11px;">${formatTimeWithSeconds(c.datetime || c.time || c.timestamp) || c.datetime || ''}</span> ${c.text}</p>`
                 ).join('');
                 body.innerHTML += `<div style="margin-top:10px; padding:8px; background:#f0f4ff; border-radius:4px; border-left:3px solid #0066cc;"><strong style="font-size:12px; color:#555;">Class notes:</strong>${commentsHtml}</div>`;
             }
@@ -3332,12 +3381,56 @@
             hintEl.innerHTML = hints[selectedFormat] || hints.html;
         }
 
+        function formatTimeWithSeconds(val) {
+            if (!val) return '';
+            if (val instanceof Date) return val.toLocaleTimeString();
+            if (typeof val === 'number') return new Date(val).toLocaleTimeString();
+            const str = String(val).trim();
+            if (!isNaN(Date.parse(str))) {
+                const d = new Date(str);
+                if (!isNaN(d.getTime())) return d.toLocaleTimeString();
+            }
+            if (/^\d{1,2}:\d{2}$/.test(str)) {
+                return str + ':00';
+            }
+            return str;
+        }
+
+        function formatBadgeWithTime(b, session) {
+            const data = resolveBadgeData(b);
+            const label = data.label || b.icon || (typeof b === 'string' ? b : 'Badge');
+            const rawTime = (typeof b === 'object' && b ? (b.time || b.timestamp || b.date || b.createdAt) : null) || data.time || data.timestamp || (session ? (session.time || session.id) : null);
+            const formattedTime = formatTimeWithSeconds(rawTime);
+            return formattedTime ? `${label} (${formattedTime})` : label;
+        }
+
+        function formatTeamRoleEventsWithTime(events, session) {
+            if (!events || events.length === 0) return '(none)';
+            return events.map(e => {
+                const rawTime = e.time || e.timestamp || e.date || e.createdAt || (session ? (session.time || session.id) : null);
+                const formattedTime = formatTimeWithSeconds(rawTime);
+                const detail = e.detail || e.type || 'Event';
+                return formattedTime ? `[${formattedTime}] ${detail}` : detail;
+            }).join('; ');
+        }
+
         function getExportDataForCategory(category) {
             const dateRange = getDateRange();
-            const groupMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[currentGroupId] : null;
-            const groupName = groupMeta ? groupMeta.name : (currentGroupId || 'Class');
+            const rawGroupName = (typeof groupDisplayName === 'function')
+                ? groupDisplayName(currentGroupId)
+                : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[currentGroupId]) ? CLASS_GROUPS_META[currentGroupId].name : (currentGroupId || 'Class'));
+            const groupName = rawGroupName || 'Class';
+            const safeGroupTag = groupName.trim().replace(/[\s\/\\:\*\?"<>\|]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'Class';
+
             const dateStrLabel = (dateRange.from && dateRange.to) ? `${dateRange.from} to ${dateRange.to}` : (dateRange.from ? `From ${dateRange.from}` : 'All Data');
-            const timeStamp = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const datePart = now.toISOString().split('T')[0];
+            const timePart = [
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+                String(now.getSeconds()).padStart(2, '0')
+            ].join('-');
+            const timeStamp = `${datePart}_${timePart}`;
 
             let headers = [];
             let rows = [];
@@ -3348,7 +3441,7 @@
             if (category === 'classOverview') {
                 title = `Class Overview & Student Stats — ${groupName}`;
                 description = `Aggregated student performance statistics for group ${groupName} (${dateStrLabel}).`;
-                filenameBase = `student_stats_${currentGroupId}_${timeStamp}`;
+                filenameBase = `student_stats_${safeGroupTag}_${timeStamp}`;
 
                 headers = [
                     'Student', 'Sessions (Attended/Total)', 'Picks', 'Absences',
@@ -3377,6 +3470,7 @@
                                 badges: [],
                                 badgePositive: 0,
                                 badgeNegative: 0,
+                                teamEvents: [],
                                 notes: [],
                                 sessionNets: []
                             };
@@ -3391,11 +3485,16 @@
                         s.teamPluses += student.teamPluses || 0;
                         s.teamMinuses += student.teamMinuses || 0;
 
-                        const studentBadges = student.badges || [];
-                        const badgeSentiment = countBadgeSentiment(studentBadges);
+                        const studentBadges = (student.badges || []).map(b => ({ badge: b, session }));
+                        const badgeSentiment = countBadgeSentiment(student.badges || []);
                         s.badges = s.badges.concat(studentBadges);
                         s.badgePositive += badgeSentiment.positive;
                         s.badgeNegative += badgeSentiment.negative;
+
+                        const studentEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
+                        if (studentEvents.length) {
+                            s.teamEvents = (s.teamEvents || []).concat(studentEvents.map(e => ({ event: e, session })));
+                        }
 
                         const noteText = getStudentNotesText(student);
                         if (noteText) s.notes.push(noteText);
@@ -3434,7 +3533,7 @@
                             teamMinuses: s.teamMinuses,
                             badgePositive: s.badgePositive,
                             badgeNegative: s.badgeNegative,
-                            badges: s.badges,
+                            badges: s.badges.map(item => item.badge),
                             sessions: s.sessions,
                             absent: s.absent,
                             sessionNets: s.sessionNets
@@ -3446,7 +3545,16 @@
                     }
 
                     const badgesSummary = s.badges.length > 0
-                        ? s.badges.map(b => resolveBadgeData(b).label || b.icon || 'Badge').join(', ')
+                        ? s.badges.map(item => formatBadgeWithTime(item.badge, item.session)).join(', ')
+                        : '(none)';
+
+                    const teamEventsSummary = s.teamEvents && s.teamEvents.length > 0
+                        ? s.teamEvents.map(item => {
+                            const rawTime = item.event.time || item.event.timestamp || item.event.date || item.event.createdAt || item.session.time || item.session.id;
+                            const formattedTime = formatTimeWithSeconds(rawTime);
+                            const detail = item.event.detail || item.event.type || 'Event';
+                            return formattedTime ? `[${formattedTime}] ${detail}` : detail;
+                        }).join('; ')
                         : '(none)';
 
                     return [
@@ -3461,7 +3569,7 @@
                         s.badgePositive,
                         s.badgeNegative,
                         badgesSummary,
-                        0,
+                        teamEventsSummary,
                         s.notes.join(' | ') || '(none)',
                         provGrade,
                         net >= 0 ? `+${net}` : `${net}`,
@@ -3476,7 +3584,7 @@
             } else if (category === 'history') {
                 title = `Session History — ${groupName}`;
                 description = `Complete session log for group ${groupName} (${dateStrLabel}).`;
-                filenameBase = `session_history_${currentGroupId}_${timeStamp}`;
+                filenameBase = `session_history_${safeGroupTag}_${timeStamp}`;
 
                 headers = [
                     'Date', 'Time', 'Picks', 'Pluses', 'Minuses', 'Team Pluses (T+)',
@@ -3493,11 +3601,13 @@
                     const session = sessions.find(s => s.id === m.date);
                     const notes = getGroupSessionNotes(session) || '(no notes)';
                     const objectives = getSessionObjectives(session) || '(none)';
-                    const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId).length;
+                    const teamRoleEventsList = getSessionTeamRoleEvents(session, currentGroupId);
+                    const teamRoleEventsSummary = formatTeamRoleEventsWithTime(teamRoleEventsList, session);
+                    const sessionTimeStr = formatTimeWithSeconds(m.time || session?.time || session?.id) || m.time || '-';
 
                     return [
                         dateStr,
-                        m.time || '-',
+                        sessionTimeStr,
                         m.picks,
                         m.pluses,
                         m.minuses,
@@ -3505,7 +3615,7 @@
                         m.teamMinuses || 0,
                         m.badgePositive || 0,
                         m.badgeNegative || 0,
-                        teamRoleEvents,
+                        teamRoleEventsSummary,
                         m.students,
                         m.badges || 0,
                         objectives,
@@ -3515,9 +3625,10 @@
 
             } else if (category === 'studentDetail') {
                 const targetStudent = currentStudentName;
+                const safeStudentTag = targetStudent ? targetStudent.trim().replace(/[\s\/\\:\*\?"<>\|]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') : '';
                 title = targetStudent ? `Student History — ${targetStudent} (${groupName})` : `Individual Student Activity — ${groupName}`;
                 description = `Detailed session activity for ${targetStudent ? targetStudent : 'all students'} in group ${groupName} (${dateStrLabel}).`;
-                filenameBase = targetStudent ? `student_${targetStudent.replace(/\s+/g, '_')}_${timeStamp}` : `all_students_detail_${currentGroupId}_${timeStamp}`;
+                filenameBase = targetStudent ? `student_${safeStudentTag}_${safeGroupTag}_${timeStamp}` : `all_students_detail_${safeGroupTag}_${timeStamp}`;
 
                 headers = [
                     'Student Name', 'Group', 'Date', 'Time', 'Picked', 'Absent',
@@ -3532,15 +3643,16 @@
 
                     filteredStudents.forEach(student => {
                         const date = new Date(session.id).toLocaleDateString();
-                        const studentBadges = (student.badges || []).map(b => resolveBadgeData(b).label || b.icon || 'Badge').join(', ') || '(none)';
-                        const studentEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name).map(e => e.detail || e.type).join('; ') || '(none)';
+                        const sessionTimeStr = formatTimeWithSeconds(session.time || session.id) || session.time || '-';
+                        const studentBadges = (student.badges || []).map(b => formatBadgeWithTime(b, session)).join(', ') || '(none)';
+                        const studentEvents = formatTeamRoleEventsWithTime(getSessionTeamRoleEvents(session, currentGroupId, student.name), session);
                         const studentNote = getStudentNotesText(student) || '(none)';
 
                         rows.push([
                             student.name,
                             groupName,
                             date,
-                            session.time || '-',
+                            sessionTimeStr,
                             student.isPicked ? 'Yes' : 'No',
                             student.isAbsent ? 'Yes' : 'No',
                             student.isAbsent ? 0 : (student.pluses || 0),
@@ -3597,7 +3709,7 @@
             } else if (category === 'provisionalGrades') {
                 title = `Provisional Grades & Objectives Report — ${groupName}`;
                 description = `Calculated objective scores and final provisional grades for group ${groupName} (${dateStrLabel}).`;
-                filenameBase = `provisional_grades_${currentGroupId}_${timeStamp}`;
+                filenameBase = `provisional_grades_${safeGroupTag}_${timeStamp}`;
 
                 const config = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || { rules: [], maxGrade: 20, scaleToMax: false };
                 const ruleHeaders = config.rules.map((r, i) => getRuleLabel(r, i));
@@ -3720,7 +3832,7 @@
 </head>
 <body>
     <h1>${escHtml(data.title)}</h1>
-    <div class="meta">${escHtml(data.description)} · Date: ${new Date().toLocaleDateString()}</div>
+    <div class="meta">${escHtml(data.description)} · Date: ${new Date().toLocaleString()}</div>
     <table>
         <thead><tr>${tableHeadersHtml}</tr></thead>
         <tbody>${tableRowsHtml}</tbody>
@@ -3731,7 +3843,22 @@
 
         function exportCategoryAsHtml(category, data) {
             const editableAttr = ' contenteditable="true"';
-            let tableHeadersHtml = data.headers.map(h => `<th ${editableAttr}>${escHtml(h)}</th>`).join('');
+            let tableHeadersHtml = data.headers.map(h => `
+                <th onclick="onThClick(event, this)">
+                    <div class="th-content">
+                        <span class="th-label" contenteditable="true" spellcheck="false" onclick="event.stopPropagation()">${escHtml(h)}</span>
+                        <span class="th-actions">
+                            <button type="button" class="col-btn col-sort-btn" title="Sort Column" onclick="event.stopPropagation(); sortTableColumn(this)">
+                                <span class="sort-icon">↕</span>
+                            </button>
+                            <button type="button" class="col-btn col-remove-btn" title="Remove Column" onclick="event.stopPropagation(); removeTableColumn(this)">
+                                ✕
+                            </button>
+                        </span>
+                    </div>
+                </th>
+            `).join('');
+
             let tableRowsHtml = data.rows.map(row => {
                 const cells = row.map(cell => `<td ${editableAttr}>${escHtml(String(cell))}</td>`).join('');
                 return `<tr>${cells}</tr>`;
@@ -3758,14 +3885,24 @@
         .search-box { padding: 7px 12px; border: 2px solid #111; border-radius: 5px; font-family: inherit; font-size: 0.85rem; width: 240px; box-shadow: 2px 2px 0 #111; }
         .table-wrap { overflow-x: auto; border: 2px solid #111; border-radius: 6px; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
-        th { background: #f0f4ff; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; border-bottom: 2px solid #111; border-right: 1px solid #ddd; cursor: pointer; user-select: none; }
+        th { background: #f0f4ff; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; border-bottom: 2px solid #111; border-right: 1px solid #ddd; cursor: pointer; user-select: none; position: relative; }
         th:hover { background: #e0ebff; }
+        th.sorted-asc, th.sorted-desc { background: #dbeafe; }
+        .th-content { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+        .th-label { flex: 1; outline: none; border-radius: 3px; cursor: text; }
+        .th-label:focus { background: #ffffd8; box-shadow: 0 0 0 2px #0066cc; }
+        .th-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.7; transition: opacity 0.15s ease; }
+        th:hover .th-actions { opacity: 1; }
+        .col-btn { background: #fff; border: 1px solid #111; border-radius: 4px; color: #111; cursor: pointer; font-size: 0.75rem; padding: 2px 6px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; box-shadow: 1px 1px 0 #111; transition: all 0.1s; }
+        .col-btn:hover { background: #111; color: #fff; }
+        .col-remove-btn:hover { background: #e11d48; color: #fff; border-color: #111; }
+        .sort-icon { font-weight: bold; font-size: 0.75rem; }
         td { padding: 9px 12px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; transition: background 0.1s; }
         tr:nth-child(even) td { background: #fafafa; }
         tr:hover td { background: #f0f7ff; }
         [contenteditable="true"]:focus { outline: 2px solid #0066cc; background: #ffffd8 !important; }
         .editable-badge { display: inline-block; font-size: 0.7rem; font-weight: 800; background: #e6fffa; color: #047857; border: 1px solid #10b981; padding: 2px 6px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; }
-        @media print { .toolbar, .search-box { display: none !important; } body { background: #fff; padding: 0; } .report-card { border: none; box-shadow: none; padding: 0; } }
+        @media print { .toolbar, .search-box, .th-actions, #resetColsBtn { display: none !important; } body { background: #fff; padding: 0; } .report-card { border: none; box-shadow: none; padding: 0; } }
     </style>
 </head>
 <body>
@@ -3773,7 +3910,7 @@
         <div class="report-header">
             <div>
                 <h1 class="report-title">${escHtml(data.title)} <span class="editable-badge">Editable HTML</span></h1>
-                <div class="report-meta">${escHtml(data.description)} · Generated on ${new Date().toLocaleDateString()}</div>
+                <div class="report-meta">${escHtml(data.description)} · Generated on ${new Date().toLocaleString()}</div>
             </div>
             <div>
                 <input type="text" class="search-box" id="tableFilterInput" placeholder="🔍 Search records..." onkeyup="filterTable()">
@@ -3784,6 +3921,7 @@
             <button class="btn btn-primary" onclick="window.print()">🖨️ Print Report</button>
             <button class="btn" onclick="exportEditedHtml()">💾 Save HTML Copy</button>
             <button class="btn" onclick="exportTableToCsv()">⬇ Export CSV</button>
+            <button class="btn" id="resetColsBtn" style="display: none;" onclick="restoreColumns()">🔄 Restore Columns</button>
         </div>
 
         <div class="table-wrap">
@@ -3799,6 +3937,8 @@
     </div>
 
     <script>
+        window._initialTableMarkup = document.getElementById('reportTable').outerHTML;
+
         function filterTable() {
             var input = document.getElementById('tableFilterInput');
             var filter = input.value.toLowerCase();
@@ -3809,28 +3949,90 @@
             });
         }
 
-        document.querySelectorAll('#reportTable th').forEach(function(th, idx) {
-            th.addEventListener('click', function(e) {
-                if (e.target.isContentEditable) return;
-                var table = document.getElementById('reportTable');
-                var tbody = table.querySelector('tbody');
-                var rows = Array.from(tbody.querySelectorAll('tr'));
-                var isAsc = th.dataset.sortDir !== 'asc';
-                th.dataset.sortDir = isAsc ? 'asc' : 'desc';
+        function onThClick(e, th) {
+            if (e.target.closest('.col-remove-btn')) return;
+            if (e.target.classList.contains('th-label') && document.activeElement === e.target) return;
+            sortTableColumn(th);
+        }
 
-                rows.sort(function(a, b) {
-                    var aText = a.children[idx] ? a.children[idx].textContent.trim() : '';
-                    var bText = b.children[idx] ? b.children[idx].textContent.trim() : '';
-                    var aNum = parseFloat(aText), bNum = parseFloat(bText);
-                    if (!isNaN(aNum) && !isNaN(bNum)) {
-                        return isAsc ? aNum - bNum : bNum - aNum;
-                    }
-                    return isAsc ? aText.localeCompare(bText) : bText.localeCompare(aText);
-                });
+        function sortTableColumn(target) {
+            var th = target.closest ? target.closest('th') : target;
+            if (!th) return;
+            var table = document.getElementById('reportTable');
+            var colIdx = Array.from(th.parentNode.children).indexOf(th);
+            if (colIdx === -1) return;
+            var tbody = table.querySelector('tbody');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
 
-                rows.forEach(function(r) { tbody.appendChild(r); });
+            var currentDir = th.dataset.sortDir;
+            var newDir = currentDir === 'asc' ? 'desc' : 'asc';
+
+            table.querySelectorAll('th').forEach(function(header) {
+                delete header.dataset.sortDir;
+                header.classList.remove('sorted-asc', 'sorted-desc');
+                var icon = header.querySelector('.sort-icon');
+                if (icon) icon.textContent = '↕';
             });
-        });
+
+            th.dataset.sortDir = newDir;
+            th.classList.add(newDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+            var currentIcon = th.querySelector('.sort-icon');
+            if (currentIcon) currentIcon.textContent = newDir === 'asc' ? '▲' : '▼';
+
+            rows.sort(function(a, b) {
+                var aCell = a.children[colIdx];
+                var bCell = b.children[colIdx];
+                var aText = aCell ? aCell.textContent.trim() : '';
+                var bText = bCell ? bCell.textContent.trim() : '';
+
+                var cleanA = aText.replace(/[\\$,%]/g, '').replace(/,/g, '').trim();
+                var cleanB = bText.replace(/[\\$,%]/g, '').replace(/,/g, '').trim();
+
+                var aNum = Number(cleanA);
+                var bNum = Number(cleanB);
+
+                if (cleanA !== '' && cleanB !== '' && !isNaN(aNum) && !isNaN(bNum)) {
+                    return newDir === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+
+                return newDir === 'asc'
+                    ? aText.localeCompare(bText, undefined, { numeric: true, sensitivity: 'base' })
+                    : bText.localeCompare(aText, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            rows.forEach(function(r) { tbody.appendChild(r); });
+        }
+
+        function removeTableColumn(btn) {
+            var th = btn.closest('th');
+            if (!th) return;
+            var table = th.closest('table');
+            var colIdx = Array.from(th.parentNode.children).indexOf(th);
+            if (colIdx === -1) return;
+
+            th.remove();
+
+            table.querySelectorAll('tbody tr').forEach(function(row) {
+                if (row.children[colIdx]) {
+                    row.children[colIdx].remove();
+                }
+            });
+
+            var resetBtn = document.getElementById('resetColsBtn');
+            if (resetBtn) resetBtn.style.display = 'inline-flex';
+        }
+
+        function restoreColumns() {
+            if (window._initialTableMarkup) {
+                var wrap = document.querySelector('.table-wrap');
+                if (wrap) {
+                    wrap.innerHTML = window._initialTableMarkup;
+                }
+                var resetBtn = document.getElementById('resetColsBtn');
+                if (resetBtn) resetBtn.style.display = 'none';
+                filterTable();
+            }
+        }
 
         function exportEditedHtml() {
             var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
@@ -3845,13 +4047,16 @@
             var rows = document.querySelectorAll('#reportTable tr');
             var csv = [];
             rows.forEach(function(row) {
+                if (row.style.display === 'none') return;
                 var cols = row.querySelectorAll('th, td');
                 var rowData = [];
                 cols.forEach(function(col) {
-                    var val = col.textContent.trim().replace(/"/g, '""');
+                    var labelEl = col.querySelector('.th-label');
+                    var val = labelEl ? labelEl.textContent.trim() : col.textContent.trim();
+                    val = val.replace(/"/g, '""');
                     rowData.push('"' + val + '"');
                 });
-                csv.push(rowData.join(','));
+                if (rowData.length > 0) csv.push(rowData.join(','));
             });
             var blob = new Blob([csv.join('\\n')], { type: 'text/csv' });
             var a = document.createElement('a');
