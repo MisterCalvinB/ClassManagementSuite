@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Participation Tracker</title>
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
+    <script src="../modules/xlsx.min.js"></script>
     <script src="../js/i18n.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
         <script src="../electron-bridge.js"></script>
@@ -106,7 +107,7 @@
 
             <div class="control-group" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
                 <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport">📂 Import & Merge</button>
-                <button class="btn-primary btn-icon" id="exportBtn" data-i18n="ptBtnExport">📥 Export CSV</button>
+                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport">📥 Export ▾</button>
                 <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint">🖨️ Print</button>
                 <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives">🎯 Objectives & Grading</button>
                 <button class="btn-danger btn-icon" id="resetAllBtn" data-i18n="ptBtnResetAll">🗑 Reset All Data</button>
@@ -597,6 +598,115 @@
             <div class="button-group">
                 <button class="btn-secondary" onclick="closeCompareGroupsModal()" data-i18n="ptBtnCancel">Cancel</button>
                 <button class="btn-primary" onclick="applyCompareGroupsSelection()" data-i18n="ptBtnShowSummary">Show Summary</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options Modal (Neobrutalist Popup) -->
+    <div id="ptExportModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePtExportModal()">&times;</button>
+            <div class="pt-export-modal-header">
+                <h2>📥 <span data-i18n="ptExportModalTitle">Export Student Statistics & Data</span></h2>
+                <div class="pt-export-subtitle" data-i18n="ptExportSub">Choose a category and format to export current data.</div>
+            </div>
+
+            <div class="pt-export-grid">
+                <!-- Category Selection -->
+                <div class="pt-export-section">
+                    <label class="pt-export-section-title">1. <span data-i18n="ptExportSelectCategory">Select Data Category</span></label>
+                    <div class="pt-export-options-list">
+                        <label class="pt-export-option-card">
+                            <input type="radio" name="ptExportCategory" value="classOverview" checked>
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title">📊 <span data-i18n="ptCatClassOverview">Class Overview / Student Stats</span></div>
+                                <div class="pt-export-card-desc">Aggregated statistics per student (picks, pluses, minuses, badges, prov. grade, net score, trends).</div>
+                            </div>
+                        </label>
+                        <label class="pt-export-option-card">
+                            <input type="radio" name="ptExportCategory" value="history">
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title">📅 <span data-i18n="ptCatSessionHistory">Session History</span></div>
+                                <div class="pt-export-card-desc">Session-by-session log with date, time, total picks, team points, badges, objectives, and notes.</div>
+                            </div>
+                        </label>
+                        <label class="pt-export-option-card">
+                            <input type="radio" name="ptExportCategory" value="studentDetail">
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title">👤 <span data-i18n="ptCatStudentDetail">Individual Student History</span></div>
+                                <div class="pt-export-card-desc">Detailed session activity log (<span id="ptExportActiveStudentName">All Students</span>).</div>
+                            </div>
+                        </label>
+                        <label class="pt-export-option-card">
+                            <input type="radio" name="ptExportCategory" value="groupComparison">
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title">⚔️ <span data-i18n="ptCatGroupComparison">Group Comparison Summary</span></div>
+                                <div class="pt-export-card-desc">Cross-group comparison breakdown (sessions, picks/student, pos/neg rates, net scores).</div>
+                            </div>
+                        </label>
+                        <label class="pt-export-option-card">
+                            <input type="radio" name="ptExportCategory" value="provisionalGrades">
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title">🎯 <span data-i18n="ptCatProvisionalGrades">Provisional Grades & Objectives</span></div>
+                                <div class="pt-export-card-desc">Detailed breakdown of objective rules met and calculated grades per student.</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Format Selection -->
+                <div class="pt-export-section">
+                    <label class="pt-export-section-title">2. <span data-i18n="ptExportSelectFormat">Select Export Format</span></label>
+                    <div class="pt-export-formats-grid">
+                        <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="html" checked>
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon">📄</span>
+                                <span class="pt-format-name">HTML</span>
+                                <span class="pt-format-tag">Editable</span>
+                            </div>
+                        </label>
+                        <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="pdf">
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon">🖨️</span>
+                                <span class="pt-format-name">PDF</span>
+                                <span class="pt-format-tag">Print</span>
+                            </div>
+                        </label>
+                        <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="docx">
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon">📝</span>
+                                <span class="pt-format-name">DOCX</span>
+                                <span class="pt-format-tag">Word</span>
+                            </div>
+                        </label>
+                        <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="xlsx">
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon">📊</span>
+                                <span class="pt-format-name">XLSX</span>
+                                <span class="pt-format-tag">Excel</span>
+                            </div>
+                        </label>
+                        <label class="pt-format-tile">
+                            <input type="radio" name="ptExportFormat" value="csv">
+                            <div class="pt-format-box">
+                                <span class="pt-format-icon">⬇️</span>
+                                <span class="pt-format-name">CSV</span>
+                                <span class="pt-format-tag">Data</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="ptExportFormatHint" class="pt-export-hint"></div>
+                </div>
+            </div>
+
+            <div class="pt-export-footer">
+                <button type="button" class="btn-secondary" onclick="closePtExportModal()" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-primary" onclick="executePtExport()" id="ptConfirmExportBtn">🚀 Export Now</button>
             </div>
         </div>
     </div>
@@ -1526,7 +1636,7 @@
             });
 
             // Export and Print
-            document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+            document.getElementById('exportBtn').addEventListener('click', openPtExportModal);
             document.getElementById('printBtn').addEventListener('click', () => window.print());
             const compareBtn = document.getElementById('openCompareGroupsBtn');
             if (compareBtn) compareBtn.addEventListener('click', openCompareGroupsModal);
@@ -3163,43 +3273,696 @@
             table.querySelector('tbody').append(...rows);
         }
 
-        function exportToCSV() {
-            if (!currentGroupId) {
-                showMessage(t('ptMsgSelectGroup'), 'error');
-                return;
-            }
+        // ─── NEOBRUTALIST EXPORT MODAL SYSTEM ──────────────────────────
+        function escHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
-            const dateRange = getDateRange();
-            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
-            const metrics = aggregateMetrics(sessions);
-
-            let csv = 'Date,Time,Picks,Pluses,Minuses,TeamPluses,TeamMinuses,TeamRoleEvents,Badge Positive,Badge Negative,Students,Badges,Objectives,Notes\n';
-
-            metrics.forEach(metric => {
-                const date = new Date(metric.date);
-                const dateStr = date.toLocaleDateString();
-                const session = sessions.find(s => s.id === metric.date);
-                const notes = getGroupSessionNotes(session) || '';
-                const objectives = getSessionObjectives(session) || '';
-                const notesEscaped = `"${notes.replace(/"/g, '""')}"`;
-                const objectivesEscaped = `"${objectives.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
-                const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId).length;
-
-                csv += `${dateStr},${metric.time || '-'},${metric.picks},${metric.pluses},${metric.minuses},${metric.teamPluses || 0},${metric.teamMinuses || 0},${teamRoleEvents},${metric.badgePositive || 0},${metric.badgeNegative || 0},${metric.students},${metric.badges || 0},${objectivesEscaped},${notesEscaped}\n`;
-            });
-
-            // Download
-            const blob = new Blob([csv], { type: 'text/csv' });
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `participation-${currentGroupId}-${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+        }
 
-            showMessage(t('ptMsgCsvExported'), 'success');
+        function openPtExportModal() {
+            if (!currentGroupId) {
+                showMessage(t('ptMsgSelectGroup'), 'error');
+                return;
+            }
+            const modal = document.getElementById('ptExportModal');
+            if (!modal) return;
+
+            const studentLabelEl = document.getElementById('ptExportActiveStudentName');
+            if (studentLabelEl) {
+                studentLabelEl.textContent = currentStudentName ? `Active: ${currentStudentName}` : 'All Students';
+            }
+
+            updatePtExportHint();
+            modal.classList.add('active');
+        }
+
+        function closePtExportModal() {
+            const modal = document.getElementById('ptExportModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function updatePtExportHint() {
+            const selectedFormat = document.querySelector('input[name="ptExportFormat"]:checked')?.value || 'html';
+            const hintEl = document.getElementById('ptExportFormatHint');
+            if (!hintEl) return;
+
+            const hints = {
+                html: '📄 <strong>HTML (Editable):</strong> Creates an interactive HTML report with <code>contenteditable="true"</code> on all table cells, column sorting, search filter, and save-edited feature.',
+                pdf: '🖨️ <strong>PDF:</strong> Generates clean print-ready layout formatted for desktop printing or PDF export via Electron / system dialog.',
+                docx: '📝 <strong>DOCX:</strong> Editable Word document report compatible with Microsoft Word and desktop editors.',
+                xlsx: '📊 <strong>XLSX:</strong> Native Excel workbook spreadsheet file containing structured columns and headers.',
+                csv: '⬇️ <strong>CSV:</strong> Standard comma-separated values spreadsheet file for raw data analysis.'
+            };
+            hintEl.innerHTML = hints[selectedFormat] || hints.html;
+        }
+
+        function getExportDataForCategory(category) {
+            const dateRange = getDateRange();
+            const groupMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[currentGroupId] : null;
+            const groupName = groupMeta ? groupMeta.name : (currentGroupId || 'Class');
+            const dateStrLabel = (dateRange.from && dateRange.to) ? `${dateRange.from} to ${dateRange.to}` : (dateRange.from ? `From ${dateRange.from}` : 'All Data');
+            const timeStamp = new Date().toISOString().split('T')[0];
+
+            let headers = [];
+            let rows = [];
+            let title = '';
+            let description = '';
+            let filenameBase = '';
+
+            if (category === 'classOverview') {
+                title = `Class Overview & Student Stats — ${groupName}`;
+                description = `Aggregated student performance statistics for group ${groupName} (${dateStrLabel}).`;
+                filenameBase = `student_stats_${currentGroupId}_${timeStamp}`;
+
+                headers = [
+                    'Student', 'Sessions (Attended/Total)', 'Picks', 'Absences',
+                    'Pluses (+)', 'Minuses (-)', 'Team Pluses (T+)', 'Team Minuses (T-)',
+                    'Badge Positive', 'Badge Negative', 'Badges Awarded', 'Team/Role Events',
+                    'Notes', 'Provisional Grade', 'Net Score', '+/Session', '-/Session',
+                    'Net/Session', 'Good/Bad Ratio', 'Trend'
+                ];
+
+                const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+                const studentMap = {};
+
+                sessions.forEach(session => {
+                    (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                        if (!studentMap[student.name]) {
+                            studentMap[student.name] = {
+                                name: student.name,
+                                sessions: 0,
+                                attendedSessions: 0,
+                                picks: 0,
+                                absent: 0,
+                                pluses: 0,
+                                minuses: 0,
+                                teamPluses: 0,
+                                teamMinuses: 0,
+                                badges: [],
+                                badgePositive: 0,
+                                badgeNegative: 0,
+                                notes: [],
+                                sessionNets: []
+                            };
+                        }
+                        const s = studentMap[student.name];
+                        s.sessions++;
+                        if (!student.isAbsent) s.attendedSessions++;
+                        if (student.isPicked) s.picks++;
+                        if (student.isAbsent) s.absent++;
+                        s.pluses += student.pluses || 0;
+                        s.minuses += student.minuses || 0;
+                        s.teamPluses += student.teamPluses || 0;
+                        s.teamMinuses += student.teamMinuses || 0;
+
+                        const studentBadges = student.badges || [];
+                        const badgeSentiment = countBadgeSentiment(studentBadges);
+                        s.badges = s.badges.concat(studentBadges);
+                        s.badgePositive += badgeSentiment.positive;
+                        s.badgeNegative += badgeSentiment.negative;
+
+                        const noteText = getStudentNotesText(student);
+                        if (noteText) s.notes.push(noteText);
+
+                        s.sessionNets.push(getStudentSessionNet(student));
+                    });
+                });
+
+                const students = Object.values(studentMap);
+                students.sort((a, b) => a.name.localeCompare(b.name));
+
+                const config = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) ? window.CMS_PARTICIPATION_RULES[currentGroupId] : null;
+
+                rows = students.map(s => {
+                    const net = (s.pluses + s.teamPluses + s.badgePositive) - (s.minuses + s.teamMinuses + s.badgeNegative);
+                    const attended = s.attendedSessions;
+                    const posRatio = attended ? (s.pluses + s.teamPluses + s.badgePositive) / attended : 0;
+                    const negRatio = attended ? (s.minuses + s.teamMinuses + s.badgeNegative) / attended : 0;
+                    const netRatio = attended ? net / attended : 0;
+                    const totalGood = s.pluses + s.teamPluses + s.badgePositive;
+                    const totalBad = s.minuses + s.teamMinuses + s.badgeNegative;
+                    const ratioVal = totalBad > 0 ? (totalGood / totalBad) : (totalGood > 0 ? 999 : 0);
+                    const ratioText = ratioVal === 999 ? '∞' : ratioVal.toFixed(2);
+
+                    const trendCode = (s.sessionNets && typeof computeTrend !== 'undefined') ? computeTrend(s.sessionNets) : 'flat';
+                    const trendLabel = trendCode === 'up' ? '↗ Improving' : (trendCode === 'down' ? '↘ Declining' : '→ Stable');
+
+                    let provGrade = '-';
+                    if (config) {
+                        const gradeVal = calculateStudentProvisionalGrade({
+                            picks: s.picks,
+                            attendedSessions: s.attendedSessions,
+                            pluses: s.pluses,
+                            minuses: s.minuses,
+                            teamPluses: s.teamPluses,
+                            teamMinuses: s.teamMinuses,
+                            badgePositive: s.badgePositive,
+                            badgeNegative: s.badgeNegative,
+                            badges: s.badges,
+                            sessions: s.sessions,
+                            absent: s.absent,
+                            sessionNets: s.sessionNets
+                        });
+                        if (gradeVal !== null) {
+                            const rounded = Math.round(gradeVal * 2) / 2;
+                            provGrade = config.scaleToMax ? `${rounded} / ${config.maxGrade}` : `${rounded}`;
+                        }
+                    }
+
+                    const badgesSummary = s.badges.length > 0
+                        ? s.badges.map(b => resolveBadgeData(b).label || b.icon || 'Badge').join(', ')
+                        : '(none)';
+
+                    return [
+                        s.name,
+                        `${s.attendedSessions} / ${s.sessions}`,
+                        s.picks,
+                        s.absent,
+                        s.pluses,
+                        s.minuses,
+                        s.teamPluses,
+                        s.teamMinuses,
+                        s.badgePositive,
+                        s.badgeNegative,
+                        badgesSummary,
+                        0,
+                        s.notes.join(' | ') || '(none)',
+                        provGrade,
+                        net >= 0 ? `+${net}` : `${net}`,
+                        posRatio.toFixed(2),
+                        negRatio.toFixed(2),
+                        netRatio.toFixed(2),
+                        ratioText,
+                        trendLabel
+                    ];
+                });
+
+            } else if (category === 'history') {
+                title = `Session History — ${groupName}`;
+                description = `Complete session log for group ${groupName} (${dateStrLabel}).`;
+                filenameBase = `session_history_${currentGroupId}_${timeStamp}`;
+
+                headers = [
+                    'Date', 'Time', 'Picks', 'Pluses', 'Minuses', 'Team Pluses (T+)',
+                    'Team Minuses (T-)', 'Badge Positive', 'Badge Negative',
+                    'Team/Role Events', 'Students Present', 'Badges', 'Objectives', 'Notes'
+                ];
+
+                const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+                const metrics = aggregateMetrics(sessions);
+
+                rows = metrics.map(m => {
+                    const date = new Date(m.date);
+                    const dateStr = date.toLocaleDateString();
+                    const session = sessions.find(s => s.id === m.date);
+                    const notes = getGroupSessionNotes(session) || '(no notes)';
+                    const objectives = getSessionObjectives(session) || '(none)';
+                    const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId).length;
+
+                    return [
+                        dateStr,
+                        m.time || '-',
+                        m.picks,
+                        m.pluses,
+                        m.minuses,
+                        m.teamPluses || 0,
+                        m.teamMinuses || 0,
+                        m.badgePositive || 0,
+                        m.badgeNegative || 0,
+                        teamRoleEvents,
+                        m.students,
+                        m.badges || 0,
+                        objectives,
+                        notes
+                    ];
+                });
+
+            } else if (category === 'studentDetail') {
+                const targetStudent = currentStudentName;
+                title = targetStudent ? `Student History — ${targetStudent} (${groupName})` : `Individual Student Activity — ${groupName}`;
+                description = `Detailed session activity for ${targetStudent ? targetStudent : 'all students'} in group ${groupName} (${dateStrLabel}).`;
+                filenameBase = targetStudent ? `student_${targetStudent.replace(/\s+/g, '_')}_${timeStamp}` : `all_students_detail_${currentGroupId}_${timeStamp}`;
+
+                headers = [
+                    'Student Name', 'Group', 'Date', 'Time', 'Picked', 'Absent',
+                    'Pluses (+)', 'Minuses (-)', 'Team Pluses (T+)', 'Team Minuses (T-)',
+                    'Badges', 'Team/Role Events', 'Notes'
+                ];
+
+                const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+                sessions.forEach(session => {
+                    const students = session.groups[currentGroupId] || [];
+                    const filteredStudents = targetStudent ? students.filter(s => s.name === targetStudent) : students;
+
+                    filteredStudents.forEach(student => {
+                        const date = new Date(session.id).toLocaleDateString();
+                        const studentBadges = (student.badges || []).map(b => resolveBadgeData(b).label || b.icon || 'Badge').join(', ') || '(none)';
+                        const studentEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name).map(e => e.detail || e.type).join('; ') || '(none)';
+                        const studentNote = getStudentNotesText(student) || '(none)';
+
+                        rows.push([
+                            student.name,
+                            groupName,
+                            date,
+                            session.time || '-',
+                            student.isPicked ? 'Yes' : 'No',
+                            student.isAbsent ? 'Yes' : 'No',
+                            student.isAbsent ? 0 : (student.pluses || 0),
+                            student.isAbsent ? 0 : (student.minuses || 0),
+                            student.isAbsent ? 0 : (student.teamPluses || 0),
+                            student.isAbsent ? 0 : (student.teamMinuses || 0),
+                            studentBadges,
+                            studentEvents,
+                            studentNote
+                        ]);
+                    });
+                });
+
+            } else if (category === 'groupComparison') {
+                title = `Group Comparison Summary`;
+                description = `Comparative performance metrics across class groups (${dateStrLabel}).`;
+                filenameBase = `group_comparison_${timeStamp}`;
+
+                headers = [
+                    'Group', 'Sessions', 'Students', 'Picks', 'Pick/s',
+                    'Positive Points', 'Pos/s', 'Pos/s/student',
+                    'Negative Points', 'Neg/s', 'Neg/s/student',
+                    'Badge Positive', 'Badge Negative', 'Total Badges', 'Badges/s/student',
+                    'Net Score', 'Net/s', 'Net/s/student'
+                ];
+
+                const targetGroups = (compareGroupIds && compareGroupIds.length > 0) ? compareGroupIds : extractGroupsFromData();
+                targetGroups.forEach(groupId => {
+                    const gName = groupDisplayName(groupId);
+                    const metrics = aggregateMetricsForGroup(groupId, dateRange.from, dateRange.to);
+
+                    rows.push([
+                        gName,
+                        metrics.sessionCount,
+                        metrics.studentCount,
+                        metrics.totalPicks,
+                        metrics.picksPerSession.toFixed(2),
+                        metrics.totalPositive,
+                        metrics.posPerSession.toFixed(2),
+                        metrics.posPerSessionStudent.toFixed(2),
+                        metrics.totalNegative,
+                        metrics.negPerSession.toFixed(2),
+                        metrics.negPerSessionStudent.toFixed(2),
+                        metrics.totalBadgePositive,
+                        metrics.totalBadgeNegative,
+                        metrics.totalBadges,
+                        metrics.badgesPerSessionStudent.toFixed(2),
+                        metrics.totalNet >= 0 ? `+${metrics.totalNet}` : `${metrics.totalNet}`,
+                        metrics.netPerSession >= 0 ? `+${metrics.netPerSession.toFixed(2)}` : metrics.netPerSession.toFixed(2),
+                        metrics.netPerSessionStudent >= 0 ? `+${metrics.netPerSessionStudent.toFixed(2)}` : metrics.netPerSessionStudent.toFixed(2)
+                    ]);
+                });
+
+            } else if (category === 'provisionalGrades') {
+                title = `Provisional Grades & Objectives Report — ${groupName}`;
+                description = `Calculated objective scores and final provisional grades for group ${groupName} (${dateStrLabel}).`;
+                filenameBase = `provisional_grades_${currentGroupId}_${timeStamp}`;
+
+                const config = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || { rules: [], maxGrade: 20, scaleToMax: false };
+                const ruleHeaders = config.rules.map((r, i) => getRuleLabel(r, i));
+
+                headers = ['Student', 'Final Grade', ...ruleHeaders, 'Net Score', 'Picks', 'Attendance %'];
+
+                const dateRangeVal = getDateRange();
+                const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRangeVal.from, dateRangeVal.to);
+                const studentMap = {};
+
+                sessions.forEach(session => {
+                    (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                        if (!studentMap[student.name]) {
+                            studentMap[student.name] = {
+                                name: student.name,
+                                sessions: 0,
+                                attendedSessions: 0,
+                                picks: 0,
+                                absent: 0,
+                                pluses: 0,
+                                minuses: 0,
+                                teamPluses: 0,
+                                teamMinuses: 0,
+                                badges: [],
+                                badgePositive: 0,
+                                badgeNegative: 0
+                            };
+                        }
+                        const s = studentMap[student.name];
+                        s.sessions++;
+                        if (!student.isAbsent) s.attendedSessions++;
+                        if (student.isPicked) s.picks++;
+                        if (student.isAbsent) s.absent++;
+                        s.pluses += student.pluses || 0;
+                        s.minuses += student.minuses || 0;
+                        s.teamPluses += student.teamPluses || 0;
+                        s.teamMinuses += student.teamMinuses || 0;
+                        const studentBadges = student.badges || [];
+                        const badgeSentiment = countBadgeSentiment(studentBadges);
+                        s.badges = s.badges.concat(studentBadges);
+                        s.badgePositive += badgeSentiment.positive;
+                        s.badgeNegative += badgeSentiment.negative;
+                    });
+                });
+
+                const students = Object.values(studentMap);
+                students.sort((a, b) => a.name.localeCompare(b.name));
+
+                rows = students.map(s => {
+                    const details = calculateStudentProvisionalGradeDetails(s, config);
+                    const roundedGrade = details ? (Math.round(details.grade * 2) / 2) : '-';
+                    const ruleScores = config.rules.map((r, idx) => {
+                        const rd = details ? details.rules.find(item => item.ruleIndex === idx) : null;
+                        return rd ? `${Math.round(rd.points * 2) / 2} pts` : '0 pts';
+                    });
+
+                    const net = (s.pluses + s.teamPluses + s.badgePositive) - (s.minuses + s.teamMinuses + s.badgeNegative);
+                    const attRate = s.sessions > 0 ? ((s.attendedSessions / s.sessions) * 100).toFixed(0) + '%' : '0%';
+
+                    return [
+                        s.name,
+                        config.scaleToMax ? `${roundedGrade} / ${config.maxGrade}` : roundedGrade,
+                        ...ruleScores,
+                        net >= 0 ? `+${net}` : net,
+                        s.picks,
+                        attRate
+                    ];
+                });
+            }
+
+            return { title, description, groupName, dateStrLabel, headers, rows, filenameBase };
+        }
+
+        async function executePtExport() {
+            const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value || 'classOverview';
+            const format = document.querySelector('input[name="ptExportFormat"]:checked')?.value || 'html';
+
+            const data = getExportDataForCategory(category);
+            if (!data || !data.rows || data.rows.length === 0) {
+                showMessage('No records found for the selected export options.', 'error');
+                return;
+            }
+
+            closePtExportModal();
+
+            if (format === 'html') {
+                exportCategoryAsHtml(category, data);
+            } else if (format === 'pdf') {
+                await exportCategoryAsPdf(category, data);
+            } else if (format === 'docx') {
+                await exportCategoryAsDocx(category, data);
+            } else if (format === 'xlsx') {
+                exportCategoryAsXlsx(category, data);
+            } else if (format === 'csv') {
+                exportCategoryAsCsv(category, data);
+            }
+        }
+
+        function generatePrintableHtmlReport(data) {
+            let tableHeadersHtml = data.headers.map(h => `<th>${escHtml(h)}</th>`).join('');
+            let tableRowsHtml = data.rows.map(row => {
+                const cells = row.map(cell => `<td>${escHtml(String(cell))}</td>`).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('\n');
+
+            return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${escHtml(data.title)}</title>
+    <style>
+        body { font-family: 'Lexend', system-ui, sans-serif; padding: 20px; color: #111; }
+        h1 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: 6px; }
+        .meta { font-size: 0.85rem; color: #555; margin-bottom: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
+        th, td { border: 1px solid #111; padding: 8px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        tr:nth-child(even) td { background: #fdfdfd; }
+    </style>
+</head>
+<body>
+    <h1>${escHtml(data.title)}</h1>
+    <div class="meta">${escHtml(data.description)} · Date: ${new Date().toLocaleDateString()}</div>
+    <table>
+        <thead><tr>${tableHeadersHtml}</tr></thead>
+        <tbody>${tableRowsHtml}</tbody>
+    </table>
+</body>
+</html>`;
+        }
+
+        function exportCategoryAsHtml(category, data) {
+            const editableAttr = ' contenteditable="true"';
+            let tableHeadersHtml = data.headers.map(h => `<th ${editableAttr}>${escHtml(h)}</th>`).join('');
+            let tableRowsHtml = data.rows.map(row => {
+                const cells = row.map(cell => `<td ${editableAttr}>${escHtml(String(cell))}</td>`).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('\n');
+
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escHtml(data.title)}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; background: #f5f5f5; color: #111; padding: 24px; }
+        .report-card { max-width: 1300px; margin: 0 auto; background: #fff; border: 3px solid #111; border-radius: 8px; box-shadow: 6px 6px 0 #111; padding: 24px; }
+        .report-header { border-bottom: 3px solid #111; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+        .report-title { font-size: 1.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #111; margin-bottom: 6px; }
+        .report-meta { font-size: 0.85rem; color: #555; font-weight: 600; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .btn { font-family: inherit; font-weight: 800; font-size: 0.8rem; padding: 8px 14px; border: 2px solid #111; border-radius: 5px; background: #fff; cursor: pointer; box-shadow: 2px 2px 0 #111; text-transform: uppercase; }
+        .btn:hover { background: #111; color: #fff; }
+        .btn-primary { background: #111; color: #fff; }
+        .btn-primary:hover { background: #333; }
+        .search-box { padding: 7px 12px; border: 2px solid #111; border-radius: 5px; font-family: inherit; font-size: 0.85rem; width: 240px; box-shadow: 2px 2px 0 #111; }
+        .table-wrap { overflow-x: auto; border: 2px solid #111; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+        th { background: #f0f4ff; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; border-bottom: 2px solid #111; border-right: 1px solid #ddd; cursor: pointer; user-select: none; }
+        th:hover { background: #e0ebff; }
+        td { padding: 9px 12px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; transition: background 0.1s; }
+        tr:nth-child(even) td { background: #fafafa; }
+        tr:hover td { background: #f0f7ff; }
+        [contenteditable="true"]:focus { outline: 2px solid #0066cc; background: #ffffd8 !important; }
+        .editable-badge { display: inline-block; font-size: 0.7rem; font-weight: 800; background: #e6fffa; color: #047857; border: 1px solid #10b981; padding: 2px 6px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; }
+        @media print { .toolbar, .search-box { display: none !important; } body { background: #fff; padding: 0; } .report-card { border: none; box-shadow: none; padding: 0; } }
+    </style>
+</head>
+<body>
+    <div class="report-card">
+        <div class="report-header">
+            <div>
+                <h1 class="report-title">${escHtml(data.title)} <span class="editable-badge">Editable HTML</span></h1>
+                <div class="report-meta">${escHtml(data.description)} · Generated on ${new Date().toLocaleDateString()}</div>
+            </div>
+            <div>
+                <input type="text" class="search-box" id="tableFilterInput" placeholder="🔍 Search records..." onkeyup="filterTable()">
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="window.print()">🖨️ Print Report</button>
+            <button class="btn" onclick="exportEditedHtml()">💾 Save HTML Copy</button>
+            <button class="btn" onclick="exportTableToCsv()">⬇ Export CSV</button>
+        </div>
+
+        <div class="table-wrap">
+            <table id="reportTable">
+                <thead>
+                    <tr>${tableHeadersHtml}</tr>
+                </thead>
+                <tbody>
+                    ${tableRowsHtml}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function filterTable() {
+            var input = document.getElementById('tableFilterInput');
+            var filter = input.value.toLowerCase();
+            var rows = document.querySelectorAll('#reportTable tbody tr');
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                row.style.display = text.indexOf(filter) > -1 ? '' : 'none';
+            });
+        }
+
+        document.querySelectorAll('#reportTable th').forEach(function(th, idx) {
+            th.addEventListener('click', function(e) {
+                if (e.target.isContentEditable) return;
+                var table = document.getElementById('reportTable');
+                var tbody = table.querySelector('tbody');
+                var rows = Array.from(tbody.querySelectorAll('tr'));
+                var isAsc = th.dataset.sortDir !== 'asc';
+                th.dataset.sortDir = isAsc ? 'asc' : 'desc';
+
+                rows.sort(function(a, b) {
+                    var aText = a.children[idx] ? a.children[idx].textContent.trim() : '';
+                    var bText = b.children[idx] ? b.children[idx].textContent.trim() : '';
+                    var aNum = parseFloat(aText), bNum = parseFloat(bText);
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return isAsc ? aNum - bNum : bNum - aNum;
+                    }
+                    return isAsc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+                });
+
+                rows.forEach(function(r) { tbody.appendChild(r); });
+            });
+        });
+
+        function exportEditedHtml() {
+            var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
+            var blob = new Blob([html], { type: 'text/html' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '${data.filenameBase}_edited.html';
+            a.click();
+        }
+
+        function exportTableToCsv() {
+            var rows = document.querySelectorAll('#reportTable tr');
+            var csv = [];
+            rows.forEach(function(row) {
+                var cols = row.querySelectorAll('th, td');
+                var rowData = [];
+                cols.forEach(function(col) {
+                    var val = col.textContent.trim().replace(/"/g, '""');
+                    rowData.push('"' + val + '"');
+                });
+                csv.push(rowData.join(','));
+            });
+            var blob = new Blob([csv.join('\\n')], { type: 'text/csv' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '${data.filenameBase}.csv';
+            a.click();
+        }
+    <\/script>
+</body>
+</html>`;
+
+            downloadFile(`${data.filenameBase}.html`, htmlContent, 'text/html');
+            showMessage('Editable HTML report exported successfully!', 'success');
+        }
+
+        async function exportCategoryAsPdf(category, data) {
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportPdf === 'function') {
+                const html = generatePrintableHtmlReport(data);
+                const result = await Desktop.exportPdf({
+                    html: html,
+                    title: data.title,
+                    defaultPath: `${data.filenameBase}.pdf`
+                });
+                if (result && result.ok) {
+                    showMessage('PDF report exported successfully!', 'success');
+                } else if (!result || !result.canceled) {
+                    showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
+                }
+            } else {
+                const printWin = window.open('', '_blank');
+                if (!printWin) {
+                    showMessage('Pop-up blocked. Please allow pop-ups to print PDF.', 'error');
+                    return;
+                }
+                printWin.document.write(generatePrintableHtmlReport(data));
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(() => {
+                    printWin.print();
+                }, 500);
+            }
+        }
+
+        async function exportCategoryAsDocx(category, data) {
+            const htmlReport = generatePrintableHtmlReport(data);
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportDocx === 'function') {
+                const result = await Desktop.exportDocx({
+                    html: htmlReport,
+                    title: data.title,
+                    defaultPath: `${data.filenameBase}.docx`
+                });
+                if (result && result.ok) {
+                    showMessage('DOCX report exported successfully!', 'success');
+                } else if (!result || !result.canceled) {
+                    showMessage('DOCX export error: ' + (result?.error || 'failed'), 'error');
+                }
+            } else {
+                const docHtml = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>${escHtml(data.title)}</title></head>
+<body>${htmlReport}</body></html>`;
+                downloadFile(`${data.filenameBase}.doc`, docHtml, 'application/msword');
+                showMessage('Word document exported successfully!', 'success');
+            }
+        }
+
+        function exportCategoryAsXlsx(category, data) {
+            if (typeof XLSX === 'undefined') {
+                showMessage('XLSX library not loaded. Exporting as CSV instead.', 'error');
+                exportCategoryAsCsv(category, data);
+                return;
+            }
+
+            const aoa = [
+                [data.title],
+                [data.description],
+                [],
+                data.headers,
+                ...data.rows
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, (data.groupName || 'Stats').slice(0, 31));
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.filenameBase}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showMessage('XLSX spreadsheet exported successfully!', 'success');
+        }
+
+        function exportCategoryAsCsv(category, data) {
+            let csv = data.headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\n';
+
+            data.rows.forEach(row => {
+                const line = row.map(cell => {
+                    const val = String(cell ?? '').replace(/"/g, '""').replace(/\n/g, ' ');
+                    return `"${val}"`;
+                }).join(',');
+                csv += line + '\n';
+            });
+
+            downloadFile(`${data.filenameBase}.csv`, csv, 'text/csv');
+            showMessage('CSV file exported successfully!', 'success');
         }
 
         // ─── Objectives & Grading Rules and Student Performance Chart Logic ───
@@ -4907,6 +5670,10 @@
 
         document.getElementById('confirmNewRulesModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeConfirmNewRulesModal();
+        });
+
+        document.getElementById('ptExportModal')?.addEventListener('click', function(e) {
+            if (e.target === this) closePtExportModal();
         });
 
         // Show message helper

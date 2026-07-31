@@ -213,8 +213,25 @@
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-export-pdf" data-i18n="deExportPdf">Export PDF</button>
         <button class="nav-pop-item" id="btn-export-docx">Export DOCX</button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="btn-export-batch-mp">Batch Export (Mailposting)…</button>
       </div>
     </div>
+
+    <!-- Mailposting group -->
+    <div class="nav-group">
+      <button class="nav-btn" id="btn-mailposting-menu">Mailposting ✉️ ▾</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" id="btn-mp-connect">Connect Class…</button>
+        <button class="nav-pop-item" id="btn-mp-insert-field">Insert Field…</button>
+        <button class="nav-pop-item" id="btn-mp-toggle-preview">Toggle Student Preview</button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="btn-mp-batch-export">Batch Export (Mailposting)…</button>
+      </div>
+    </div>
+
+    <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none">🎓 <span id="mp-class-badge-label">Class</span></span>
+    <span id="mp-active-preview-badge" class="mp-preview-active-badge" style="display:none">👤 <select id="mp-nav-student-select" class="mp-select-sm"></select></span>
 
     <button class="nav-btn" id="btn-preview" data-i18n="dePreview">Preview</button>
     <button class="nav-btn" id="btn-pres-mode" data-i18n="dePresMode">Presentation Mode</button>
@@ -431,6 +448,96 @@
     </div>
   </div>
 
+  <!-- ── Mailposting Class Connect Modal ──────────────────── -->
+  <div id="mp-connect-modal" class="modal-overlay" hidden>
+    <div class="modal-box modal-box-mp">
+      <div class="modal-header">
+        <span class="modal-title">Connect Class to Document (Mailposting)</span>
+        <button class="modal-close-btn" id="mp-connect-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="mp-form-group">
+          <label class="mp-form-label">Select Target Class</label>
+          <select id="mp-class-select" class="mp-form-select">
+            <option value="">-- No Class Connected --</option>
+          </select>
+        </div>
+        <div class="mp-form-group">
+          <label class="mp-form-label">Class Roster (<span id="mp-roster-count">0</span> students)</label>
+          <div id="mp-roster-preview" style="max-height:160px; overflow-y:auto; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px; font-size:.82rem; color:#334155;">
+            No class selected.
+          </div>
+        </div>
+        <div class="mp-form-group">
+          <label class="mp-form-label">Available Field Placeholders</label>
+          <div class="mp-tag-grid" id="mp-tag-grid-preview"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn" id="btn-mp-connect-confirm">Connect & Save</button>
+          <button class="modal-btn modal-btn-cancel" id="btn-mp-connect-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Mailposting Field Picker Modal ───────────────────── -->
+  <div id="mp-field-picker-modal" class="modal-overlay" hidden>
+    <div class="modal-box modal-narrow">
+      <div class="modal-header">
+        <span class="modal-title">Insert Field Placeholder</span>
+        <button class="modal-close-btn" id="mp-field-picker-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.84rem; color:#64748b; margin-bottom:12px;">Click a field below to insert it at your current cursor position:</p>
+        <div class="mp-tag-grid" id="mp-field-picker-grid"></div>
+        <div class="modal-actions" style="margin-top:16px;">
+          <button class="modal-btn modal-btn-cancel" id="btn-mp-field-picker-cancel">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Mailposting Batch Export Modal ────────────────────── -->
+  <div id="mp-export-modal" class="modal-overlay" hidden>
+    <div class="modal-box modal-box-mp">
+      <div class="modal-header">
+        <span class="modal-title">Batch Export (Mailposting)</span>
+        <button class="modal-close-btn" id="mp-export-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="mp-form-group">
+          <label class="mp-form-label">Connected Class</label>
+          <select id="mp-export-class-select" class="mp-form-select"></select>
+        </div>
+        <div class="mp-form-group">
+          <label class="mp-form-label">Export Format</label>
+          <select id="mp-export-format" class="mp-form-select">
+            <option value="pdf">PDF Document (.pdf)</option>
+            <option value="docx">Word Document (.docx)</option>
+            <option value="html">Web Page (.html)</option>
+          </select>
+        </div>
+        <div class="mp-form-group">
+          <label class="mp-form-label">Output Mode</label>
+          <div class="mp-radio-group">
+            <label class="mp-radio-label">
+              <input type="radio" name="mp-export-mode" value="combined" checked>
+              <span><strong>Single Combined Document</strong> — All student records merged into one file with page breaks</span>
+            </label>
+            <label class="mp-radio-label">
+              <input type="radio" name="mp-export-mode" value="separate">
+              <span><strong>Separate Files per Student</strong> — Individual file created for each student in the class</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn" id="btn-mp-export-confirm">Start Batch Export</button>
+          <button class="modal-btn modal-btn-cancel" id="btn-mp-export-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Scripts ──────────────────────────────────────────── -->
   <!-- KaTeX and marked must load BEFORE Monaco's loader.js, which creates a
      global define() (AMD). If they load after, their UMD wrappers detect AMD
@@ -439,6 +546,7 @@
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/mailposting-service.js"></script>
   <script src="../modules/katex/dist/katex.min.js"></script>
   <script src="../modules/marked/marked.umd.js"></script>
   <script>
@@ -558,7 +666,38 @@
     function renderPreview() {
       if (!mdEditor) return;
       try {
-        const raw = mdEditor.getValue();
+        let raw = mdEditor.getValue();
+        if (window.MailpostingService) {
+          let activeStudent = null;
+          let activeClass = mpState.connectedClass;
+
+          if (mpState.connectedClass && mpState.studentList.length > 0) {
+            activeStudent = mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0];
+          } else {
+            activeStudent = {
+              id: 'st-sample',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              fullName: 'Jane Doe',
+              email: 'jane.doe@school.edu'
+            };
+            activeClass = {
+              name: 'Class 101 (Sample)',
+              students: [
+                { id: 'st-1', firstName: 'Alex', lastName: 'Smith', fullName: 'Alex Smith', email: 'alex.smith@school.edu' },
+                { id: 'st-2', firstName: 'Emma', lastName: 'Johnson', fullName: 'Emma Johnson', email: 'emma.johnson@school.edu' },
+                { id: 'st-3', firstName: 'Lucas', lastName: 'Brown', fullName: 'Lucas Brown', email: 'lucas.brown@school.edu' }
+              ]
+            };
+          }
+
+          raw = MailpostingService.renderTemplate(raw, activeStudent, activeClass, {
+            roster: mpState.studentRoster,
+            students: mpState.studentList,
+            isHtml: currentDocType === 'html'
+          });
+        }
+
         const html = currentDocType === 'html' ? raw : marked.parse(raw);
         const container = document.getElementById('preview-content');
         container.innerHTML = html;
@@ -5184,6 +5323,410 @@
       syncLayoutPrefUi();
     }
 
+    // ── Mailposting State & Controllers ─────────────────────
+    const mpState = {
+      loaded: false,
+      classesMeta: {},
+      studentRoster: {},
+      connectedClassId: null,
+      connectedClass: null,
+      studentList: [],
+      previewEnabled: false,
+      previewStudentIndex: 0
+    };
+
+    async function mpInit() {
+      if (mpState.loaded) return;
+      if (window.MailpostingService) {
+        const res = await MailpostingService.loadClassGroups();
+        mpState.classesMeta = res.meta || {};
+        mpState.studentRoster = res.roster || {};
+        mpState.loaded = true;
+        mpPopulateClassSelects();
+      }
+    }
+
+    function mpPopulateClassSelects() {
+      const select = document.getElementById('mp-class-select');
+      const exportSelect = document.getElementById('mp-export-class-select');
+      if (!select) return;
+
+      let html = '<option value="">-- Select Class --</option>';
+      const keys = Object.keys(mpState.classesMeta).filter(k => {
+        const c = mpState.classesMeta[k];
+        return c && !c.archived && !c.isArchived;
+      });
+      keys.forEach(k => {
+        const c = mpState.classesMeta[k];
+        const name = (c && c.name) ? c.name : k;
+        const count = (c && Array.isArray(c.students)) ? c.students.length : 0;
+        html += `<option value="${escHtml(k)}">${escHtml(name)} (${count} students)</option>`;
+      });
+
+      select.innerHTML = html;
+      if (exportSelect) exportSelect.innerHTML = html;
+
+      if (mpState.connectedClassId && mpState.classesMeta[mpState.connectedClassId] && !mpState.classesMeta[mpState.connectedClassId].archived) {
+        select.value = mpState.connectedClassId;
+        if (exportSelect) exportSelect.value = mpState.connectedClassId;
+      }
+    }
+
+    function mpConnectClass(classId) {
+      if (!classId || !mpState.classesMeta[classId]) {
+        mpState.connectedClassId = null;
+        mpState.connectedClass = null;
+        mpState.studentList = [];
+        mpUpdateNavBadges();
+        return;
+      }
+
+      const cMeta = mpState.classesMeta[classId];
+      mpState.connectedClassId = classId;
+      mpState.connectedClass = cMeta;
+
+      const rawStudents = Array.isArray(cMeta.students) ? cMeta.students : [];
+      mpState.studentList = rawStudents.map((s, idx) =>
+        MailpostingService.normalizeStudent(s, idx, mpState.studentRoster)
+      );
+
+      mpUpdateNavBadges();
+      showToast((t('mpClassConnected') || 'Class connected: ') + (cMeta.name || classId));
+    }
+
+    function mpUpdateNavBadges() {
+      const badge = document.getElementById('mp-active-class-badge');
+      const label = document.getElementById('mp-class-badge-label');
+      const prevBadge = document.getElementById('mp-active-preview-badge');
+      const studentSelect = document.getElementById('mp-nav-student-select');
+
+      if (mpState.connectedClass) {
+        if (badge) {
+          badge.style.display = 'inline-flex';
+          if (label) label.textContent = mpState.connectedClass.name || mpState.connectedClassId;
+        }
+      } else {
+        if (badge) badge.style.display = 'none';
+      }
+
+      if (mpState.previewEnabled && mpState.studentList.length > 0) {
+        if (prevBadge) prevBadge.style.display = 'inline-flex';
+        if (studentSelect) {
+          studentSelect.innerHTML = mpState.studentList.map((s, i) =>
+            `<option value="${i}" ${i === mpState.previewStudentIndex ? 'selected' : ''}>${escHtml(s.fullName)}</option>`
+          ).join('');
+        }
+      } else {
+        if (prevBadge) prevBadge.style.display = 'none';
+      }
+    }
+
+    function mpTogglePreview(forceState) {
+      if (!mpState.connectedClass) {
+        showToast('Please connect a class first (Mailposting ✉️ -> Connect Class)', true);
+        mpOpenConnectModal();
+        return;
+      }
+
+      if (typeof forceState === 'boolean') {
+        mpState.previewEnabled = forceState;
+      } else {
+        mpState.previewEnabled = !mpState.previewEnabled;
+      }
+
+      const btn = document.getElementById('btn-mp-toggle-preview');
+      if (btn) {
+        btn.classList.toggle('active', mpState.previewEnabled);
+        btn.textContent = mpState.previewEnabled ? 'Disable Student Preview' : 'Toggle Student Preview';
+      }
+
+      mpUpdateNavBadges();
+      renderPreview();
+    }
+
+    function mpInsertTagAtCursor(tag) {
+      if (!mdEditor) return;
+      const sel = mdEditor.getSelection();
+      mdEditor.executeEdits('user-insert', [{ range: sel, text: tag, forceMoveMarkers: true }]);
+      mdEditor.focus();
+    }
+
+    async function mpOpenConnectModal() {
+      await mpInit();
+      showModal('mp-connect-modal');
+
+      const select = document.getElementById('mp-class-select');
+      const rosterDiv = document.getElementById('mp-roster-preview');
+      const tagGrid = document.getElementById('mp-tag-grid-preview');
+      const countSpan = document.getElementById('mp-roster-count');
+
+      if (tagGrid && window.MailpostingService) {
+        tagGrid.innerHTML = MailpostingService.AVAILABLE_TAGS.map(t =>
+          `<button class="mp-tag-chip" onclick="mpInsertTagAtCursor('${t.tag}'); hideModal('mp-connect-modal');">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${t.tag}</code></button>`
+        ).join('');
+      }
+
+      const updateRosterUI = (cid) => {
+        if (cid && mpState.classesMeta[cid]) {
+          const c = mpState.classesMeta[cid];
+          const raw = Array.isArray(c.students) ? c.students : [];
+          if (countSpan) countSpan.textContent = raw.length;
+          const normalized = raw.map((s, i) => MailpostingService.normalizeStudent(s, i, mpState.studentRoster));
+          rosterDiv.innerHTML = normalized.map((s, i) =>
+            `<div style="padding:2px 0;">${i + 1}. <strong>${escHtml(s.fullName)}</strong> ${s.email ? `<span style="color:#64748b;">(${escHtml(s.email)})</span>` : ''}</div>`
+          ).join('');
+        } else {
+          if (countSpan) countSpan.textContent = '0';
+          rosterDiv.innerHTML = 'No class selected.';
+        }
+      };
+
+      if (select) {
+        mpPopulateClassSelects();
+        select.value = mpState.connectedClassId || (select.options[1] ? select.options[1].value : '');
+        updateRosterUI(select.value);
+        select.onchange = () => updateRosterUI(select.value);
+      }
+    }
+
+    function mpOpenFieldPickerModal() {
+      showModal('mp-field-picker-modal');
+      const grid = document.getElementById('mp-field-picker-grid');
+      if (grid && window.MailpostingService) {
+        grid.innerHTML = MailpostingService.AVAILABLE_TAGS.map(t =>
+          `<button class="mp-tag-chip" onclick="mpInsertTagAtCursor('${t.tag}'); hideModal('mp-field-picker-modal');">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${t.tag}</code></button>`
+        ).join('');
+      }
+    }
+
+    async function mpOpenExportModal() {
+      await mpInit();
+      showModal('mp-export-modal');
+      const select = document.getElementById('mp-export-class-select');
+      if (select) {
+        mpPopulateClassSelects();
+        if (mpState.connectedClassId) {
+          select.value = mpState.connectedClassId;
+        } else if (select.options[1]) {
+          select.value = select.options[1].value;
+        }
+      }
+    }
+
+    async function mpExecuteBatchExport() {
+      const classId = document.getElementById('mp-export-class-select').value;
+      const format = document.getElementById('mp-export-format').value;
+      const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
+      const mode = modeRadio ? modeRadio.value : 'combined';
+
+      if (!classId || !mpState.classesMeta[classId]) {
+        showToast('Please select a valid class for batch export.', true);
+        return;
+      }
+
+      hideModal('mp-export-modal');
+      const classMeta = mpState.classesMeta[classId];
+      const rawStudents = Array.isArray(classMeta.students) ? classMeta.students : [];
+      if (rawStudents.length === 0) {
+        showToast('Selected class has no students.', true);
+        return;
+      }
+
+      const students = rawStudents.map((s, idx) =>
+        MailpostingService.normalizeStudent(s, idx, mpState.studentRoster)
+      );
+
+      const templateContent = mdEditor ? mdEditor.getValue() : '';
+      const isHtmlMode = currentDocType === 'html';
+      const classNameClean = (classMeta.name || classId).replace(/[/\\?%*:|"<>]/g, '_');
+      const docNameClean = (currentDocName || 'document').replace(/[/\\?%*:|"<>]/g, '_');
+
+      showToast(`Starting batch export (${format.toUpperCase()}) for ${students.length} students…`);
+
+      if (mode === 'combined') {
+        if (format === 'pdf') {
+          if (!window.Desktop || !Desktop.isElectron()) {
+            showToast('PDF export requires Electron application.', true);
+            return;
+          }
+          deSyncPageLayoutFromControls();
+          deSyncCssEditorWithLayout(true);
+
+          const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+            templateContent,
+            isHtmlMode,
+            students,
+            classMeta,
+            currentDocType === 'html' ? null : marked.parse
+          );
+
+          const lexendFontsCss = await getEmbeddedLexendFontsCss();
+          const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+          const m = pageLayout.margins;
+          const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
+          const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+          const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
+
+          const defaultPreviewCss =
+            '@page { size: auto; margin: ' + marginCss + '; }\n' +
+            'body { margin: 0; padding: 0; background: #fff; }\n' +
+            '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
+            '.mailposting-student-page { page-break-after: always; break-after: page; padding: 0; margin: 0; }\n' +
+            '.mailposting-student-page:last-child { page-break-after: auto; break-after: auto; }\n' +
+            customCss;
+
+          const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+            '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+            lexendFontsCss + '\n' +
+            defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
+            combinedHtmlBody + '\n</div>\n</body>\n</html>';
+
+          const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.pdf`;
+          const pdfSize = pageLayout.orientation === 'landscape'
+            ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
+            : pageLayout.size;
+
+          const pdfOptions = {
+            landscape: pageLayout.orientation === 'landscape',
+            pageSize: pdfSize,
+            marginsType: 1,
+            preferCSSPageSize: true
+          };
+
+          const result = await Desktop.printPdf({ html, defaultName, pdfOptions });
+          if (result && result.ok) {
+            showToast(`Batch PDF export complete! Saved as ${result.name || defaultName}`);
+          } else if (result && !result.canceled) {
+            showToast(`Batch PDF export failed: ${result.error || 'unknown'}`, true);
+          }
+        } else if (format === 'html') {
+          const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+            templateContent,
+            isHtmlMode,
+            students,
+            classMeta,
+            currentDocType === 'html' ? null : marked.parse
+          );
+          const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>${escHtml(classNameClean)} - ${escHtml(docNameClean)}</title>\n</head>\n<body>\n${combinedHtmlBody}\n</body>\n</html>`;
+          const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.html`;
+
+          if (window.Desktop && Desktop.isElectron()) {
+            await Desktop.saveText('docs', defaultName, fullHtml);
+            showToast(`Batch HTML exported as ${defaultName}`);
+          } else {
+            const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = defaultName;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(`Downloaded ${defaultName}`);
+          }
+        } else if (format === 'docx') {
+          if (!window.Desktop || !Desktop.isElectron()) {
+            showToast('DOCX export requires Electron application.', true);
+            return;
+          }
+          const combinedMarkdown = students.map(s =>
+            MailpostingService.renderTemplate(templateContent, s, classMeta, {
+              roster: mpState.studentRoster,
+              students: students,
+              isHtml: false
+            })
+          ).join('\n\n---\n\n');
+
+          const result = await Desktop.exportDocx({
+            markdown: combinedMarkdown,
+            defaultName: `${classNameClean}_${docNameClean}_BatchCombined`,
+            margins: pageLayout.margins,
+            size: pageLayout.size,
+            orientation: pageLayout.orientation
+          });
+
+          if (result && result.ok) {
+            showToast('Batch DOCX exported');
+          }
+        }
+      } else {
+        // Separate Files mode
+        const docs = MailpostingService.renderBatchIndividualDocs(
+          templateContent,
+          isHtmlMode,
+          students,
+          classMeta,
+          docNameClean,
+          currentDocType === 'html' ? null : marked.parse
+        );
+
+        if (window.Desktop && Desktop.isElectron()) {
+          if (format === 'html') {
+            for (const d of docs) {
+              const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n</head>\n<body>\n${d.processedContent}\n</body>\n</html>`;
+              await Desktop.saveText('docs', `${d.filename}.html`, fullHtml);
+            }
+            showToast(`Exported ${docs.length} individual HTML files to user documents folder.`);
+          } else if (format === 'pdf') {
+            let successCount = 0;
+            const lexendFontsCss = await getEmbeddedLexendFontsCss();
+            const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+            const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
+            const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
+            const m = pageLayout.margins;
+            const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
+
+            const defaultPreviewCss =
+              '@page { size: auto; margin: ' + marginCss + '; }\n' +
+              'body { margin: 0; padding: 0; background: #fff; }\n' +
+              '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
+              customCss;
+
+            for (const d of docs) {
+              const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
+                '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+                lexendFontsCss + '\n' +
+                defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
+                d.processedContent + '\n</div>\n</body>\n</html>';
+
+              const res = await Desktop.printPdf({
+                html,
+                defaultName: `${d.filename}.pdf`,
+                pdfOptions: { landscape: pageLayout.orientation === 'landscape', marginsType: 1, preferCSSPageSize: true }
+              });
+              if (res && res.ok) successCount++;
+            }
+            showToast(`Exported ${successCount}/${docs.length} individual PDF files.`);
+          } else if (format === 'docx') {
+            let successCount = 0;
+            for (const d of docs) {
+              const res = await Desktop.exportDocx({
+                markdown: d.rawRenderedText,
+                defaultName: d.filename,
+                margins: pageLayout.margins,
+                size: pageLayout.size,
+                orientation: pageLayout.orientation
+              });
+              if (res && res.ok) successCount++;
+            }
+            showToast(`Exported ${successCount}/${docs.length} individual DOCX files.`);
+          }
+        } else {
+          // Browser fallback: download HTML files
+          docs.forEach(d => {
+            const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>${escHtml(d.filename)}</title>\n</head>\n<body>\n${d.processedContent}\n</body>\n</html>`;
+            const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${d.filename}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+          showToast(`Downloaded ${docs.length} individual HTML files.`);
+        }
+      }
+    }
+
     // ── DOM init ──────────────────────────────────────────────
     window.addEventListener('DOMContentLoaded', function () {
       if (new URLSearchParams(window.location.search).get('presentation') === '1') return;
@@ -5191,6 +5734,7 @@
       setInterval(autosaveDoc, 60000);
       setupMarked();
       initSplitDivider();
+      mpInit();
       const previewScroll = document.getElementById('preview-scroll');
       if (previewScroll) {
         previewScroll.addEventListener('scroll', deBroadcastScroll);
@@ -5283,6 +5827,30 @@
         if (e.key === 'Escape') hideModal('save-modal');
       });
 
+      // Mailposting event listeners
+      document.getElementById('btn-mp-connect').addEventListener('click', mpOpenConnectModal);
+      document.getElementById('btn-mp-insert-field').addEventListener('click', mpOpenFieldPickerModal);
+      document.getElementById('btn-mp-toggle-preview').addEventListener('click', () => mpTogglePreview());
+      document.getElementById('btn-mp-batch-export').addEventListener('click', mpOpenExportModal);
+      document.getElementById('btn-export-batch-mp').addEventListener('click', mpOpenExportModal);
+      document.getElementById('mp-connect-close').addEventListener('click', () => hideModal('mp-connect-modal'));
+      document.getElementById('btn-mp-connect-cancel').addEventListener('click', () => hideModal('mp-connect-modal'));
+      document.getElementById('btn-mp-connect-confirm').addEventListener('click', function () {
+        const cid = document.getElementById('mp-class-select').value;
+        mpConnectClass(cid);
+        hideModal('mp-connect-modal');
+      });
+      document.getElementById('mp-field-picker-close').addEventListener('click', () => hideModal('mp-field-picker-modal'));
+      document.getElementById('btn-mp-field-picker-cancel').addEventListener('click', () => hideModal('mp-field-picker-modal'));
+      document.getElementById('mp-export-close').addEventListener('click', () => hideModal('mp-export-modal'));
+      document.getElementById('btn-mp-export-cancel').addEventListener('click', () => hideModal('mp-export-modal'));
+      document.getElementById('btn-mp-export-confirm').addEventListener('click', mpExecuteBatchExport);
+      document.getElementById('mp-nav-student-select').addEventListener('change', function () {
+        mpState.previewStudentIndex = parseInt(this.value, 10) || 0;
+        renderPreview();
+      });
+
+
       // PDF export modal
       document.getElementById('btn-pdf-export-same-folder').addEventListener('click', () => closePdfExportModal('same-folder'));
       document.getElementById('btn-pdf-export-picker').addEventListener('click', () => closePdfExportModal('picker'));
@@ -5343,6 +5911,10 @@
       initTablePicker();
       initImageDrop();
       deBookPopulateDropdown();
+
+      if (typeof mpInit === 'function') {
+        mpInit();
+      }
 
       updateDocIndicator();
     });
