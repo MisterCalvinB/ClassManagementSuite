@@ -11007,11 +11007,16 @@ syncState();
                     .map(entry => JSON.parse(JSON.stringify(entry)))
                 : [];
 
+            const activeGroupTitle = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name)
+                ? rawMeta[selectedGroupName].name
+                : selectedGroupName;
+
             return {
                 id: isoKey,
                 date: dateStr,
                 time: timeStr,
                 activeGroup: selectedGroupName,
+                activeGroupTitle: activeGroupTitle,
                 groups: activeGroupSnapshot,
                 lessonObjectives: currentObjectives,
                 sessionHistory: activeGroupHistory
@@ -11506,24 +11511,29 @@ syncState();
             }
         }
 
-        async function getTimeMachineSessions({ forceRefresh = false } = {}) {
+        async function getTimeMachineSessions({ forceRefresh = false, includeArchived = false } = {}) {
             const localSessions = getDb().map(session => ({ ...session, _tmSource: 'local' }));
+            let results = [];
 
             if (!(window.Desktop && Desktop.isElectron())) {
                 timeMachineSessionsCache = _dedupeSessionsByClassDay(_sortSessionsNewestFirst(localSessions));
-                return timeMachineSessionsCache;
+                results = timeMachineSessionsCache;
+            } else if (!forceRefresh && timeMachineSessionsCache.length > 0) {
+                results = timeMachineSessionsCache;
+            } else {
+                const logSessions = await _loadLogDbSessions();
+                // logSessions go first so they win dedup and keep the 'log' tag.
+                // Sessions only in localStorage (not yet on disk) appear second and keep 'local'.
+                const merged = _mergeSessionsById(logSessions, localSessions);
+                timeMachineSessionsCache = merged;
+                results = merged;
             }
 
-            if (!forceRefresh && timeMachineSessionsCache.length > 0) {
-                return timeMachineSessionsCache;
+            if (!includeArchived) {
+                results = results.filter(s => !s || !s.activeGroup || !(rawMeta[s.activeGroup] && rawMeta[s.activeGroup].archived));
             }
 
-            const logSessions = await _loadLogDbSessions();
-            // logSessions go first so they win dedup and keep the 'log' tag.
-            // Sessions only in localStorage (not yet on disk) appear second and keep 'local'.
-            const merged = _mergeSessionsById(logSessions, localSessions);
-            timeMachineSessionsCache = merged;
-            return merged;
+            return results;
         }
 
         async function openTimeMachine() {
@@ -11564,13 +11574,16 @@ syncState();
                 const isActive = isViewingPastSession && liveStudentGroups && sessions[i].id === (liveStudentGroups._viewingId || '');
                 const sourceLabel = s._tmSource === 'log' ? 'Log' : 'Local DB';
                 const canDelete = s._tmSource === 'local';
+                const groupTitle = (rawMeta[s.activeGroup] && rawMeta[s.activeGroup].name)
+                    ? rawMeta[s.activeGroup].name
+                    : (s.activeGroupTitle || s.groupTitle || s.name || s.activeGroup);
 
                 html += `
             <li class="tm-session-item ${isActive ? 'active' : ''}">
                 <div style="flex:1;min-width:0;">
                     <div class="tm-session-date">${s.date} — ${s.time}</div>
                     <div class="tm-session-meta">
-                        Group: <strong>${s.activeGroup}</strong> &nbsp;|&nbsp;
+                        Group: <strong>${groupTitle}</strong> &nbsp;|&nbsp;
                         ${studentCount} students &nbsp;|&nbsp;
                         ${scoredCount} scored &nbsp;|&nbsp;
                         Source: <strong>${sourceLabel}</strong>
