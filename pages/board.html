@@ -13500,6 +13500,156 @@
         }), 0);
       };
 
+      // ---- Mini-Thumb context menu & Drag-and-Drop reorder ----
+      let _conMiniThumbDragIdx = null;
+
+      function conCloseMiniThumbContextMenu() {
+        const existing = document.getElementById('con-mini-thumb-context-menu');
+        if (existing) existing.remove();
+      }
+
+      function conShowMiniThumbContextMenu(e, pageIndex) {
+        e.preventDefault();
+        e.stopPropagation();
+        conCloseMiniThumbContextMenu();
+
+        const menu = document.createElement('div');
+        menu.id = 'con-mini-thumb-context-menu';
+        menu.className = 'con-mini-thumb-menu';
+
+        const dupItem = document.createElement('button');
+        dupItem.type = 'button';
+        dupItem.className = 'con-mini-thumb-menu-item';
+        dupItem.innerHTML = '📋 Duplicate page';
+        dupItem.onclick = function (evt) {
+          evt.stopPropagation();
+          conCloseMiniThumbContextMenu();
+          conDuplicatePageMiniThumb(pageIndex);
+        };
+
+        const delItem = document.createElement('button');
+        delItem.type = 'button';
+        delItem.className = 'con-mini-thumb-menu-item danger';
+        delItem.innerHTML = '🗑️ Delete page';
+        delItem.onclick = function (evt) {
+          evt.stopPropagation();
+          conCloseMiniThumbContextMenu();
+          conDeletePageMiniThumb(pageIndex);
+        };
+
+        menu.appendChild(dupItem);
+        menu.appendChild(delItem);
+        document.body.appendChild(menu);
+
+        const menuWidth = 150;
+        const menuHeight = 80;
+        let top = e.clientY;
+        let left = e.clientX;
+        if (left + menuWidth > window.innerWidth) left = Math.max(10, window.innerWidth - menuWidth - 8);
+        if (top + menuHeight > window.innerHeight) top = Math.max(10, window.innerHeight - menuHeight - 8);
+        menu.style.top = top + 'px';
+        menu.style.left = left + 'px';
+
+        const dismiss = function (evt) {
+          if (!menu.contains(evt.target)) {
+            conCloseMiniThumbContextMenu();
+            document.removeEventListener('pointerdown', dismiss, true);
+            document.removeEventListener('keydown', keyDismiss, true);
+          }
+        };
+        const keyDismiss = function (evt) {
+          if (evt.key === 'Escape') {
+            conCloseMiniThumbContextMenu();
+            document.removeEventListener('pointerdown', dismiss, true);
+            document.removeEventListener('keydown', keyDismiss, true);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener('pointerdown', dismiss, true);
+          document.addEventListener('keydown', keyDismiss, true);
+        }, 0);
+      }
+
+      function conDuplicatePageMiniThumb(idx) {
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+        if (typeof conQueueCurrentPageSnapshotPng === 'function') {
+          conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
+        }
+        const snap = conPageSnapshots[idx] || conBuildEmptyPageSnapshot();
+        const clone = JSON.parse(JSON.stringify(snap));
+        const insertIdx = idx + 1;
+        conPageSnapshots.splice(insertIdx, 0, clone);
+        conCurrentPageIndex = insertIdx;
+        _conRestorePageToBoard(clone);
+
+        const strip = document.getElementById('con-page-mini-strip');
+        if (strip) strip.dataset.pageCount = '';
+        conUpdatePageBar();
+        if (typeof mdbToast === 'function') {
+          mdbToast('📋 Duplicated page ' + (idx + 1));
+        }
+      }
+
+      function conDeletePageMiniThumb(idx) {
+        if (!Array.isArray(conPageSnapshots) || conPageSnapshots.length <= 1) {
+          if (typeof mdbToast === 'function') {
+            mdbToast('⚠️ Only one page – cannot delete.');
+          }
+          return;
+        }
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+        if (idx === conCurrentPageIndex) {
+          const goTo = idx > 0 ? idx - 1 : 0;
+          conPageSnapshots.splice(idx, 1);
+          conCurrentPageIndex = Math.min(goTo, conPageSnapshots.length - 1);
+          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+        } else {
+          conPageSnapshots.splice(idx, 1);
+          if (idx < conCurrentPageIndex) {
+            conCurrentPageIndex--;
+          }
+          if (conCurrentPageIndex >= conPageSnapshots.length) {
+            conCurrentPageIndex = conPageSnapshots.length - 1;
+          }
+        }
+
+        const strip = document.getElementById('con-page-mini-strip');
+        if (strip) strip.dataset.pageCount = '';
+        conUpdatePageBar();
+        if (typeof mdbToast === 'function') {
+          mdbToast('🗑️ Deleted page ' + (idx + 1));
+        }
+      }
+
+      function conMovePageMiniThumb(fromIdx, toIdx) {
+        if (fromIdx === toIdx || fromIdx === null || toIdx === null) return;
+        if (!Array.isArray(conPageSnapshots)) return;
+        if (fromIdx < 0 || fromIdx >= conPageSnapshots.length || toIdx < 0 || toIdx >= conPageSnapshots.length) return;
+
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+
+        const draggedSnap = conPageSnapshots.splice(fromIdx, 1)[0];
+        conPageSnapshots.splice(toIdx, 0, draggedSnap);
+
+        if (conCurrentPageIndex === fromIdx) {
+          conCurrentPageIndex = toIdx;
+        } else if (fromIdx < conCurrentPageIndex && toIdx >= conCurrentPageIndex) {
+          conCurrentPageIndex--;
+        } else if (fromIdx > conCurrentPageIndex && toIdx <= conCurrentPageIndex) {
+          conCurrentPageIndex++;
+        }
+
+        _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+
+        const strip = document.getElementById('con-page-mini-strip');
+        if (strip) strip.dataset.pageCount = '';
+        conUpdatePageBar();
+        if (typeof mdbToast === 'function') {
+          mdbToast('↔️ Moved page ' + (fromIdx + 1) + ' to position ' + (toIdx + 1));
+        }
+      }
+
       // ---- Multi-page navigation ----
       function conUpdatePageBar() {
         const indicator = document.getElementById('con-page-indicator');
@@ -13597,6 +13747,50 @@
             btn.setAttribute('aria-label', navTitle);
             btn.onclick = function () { window.conGoToPage(i); };
 
+            btn.draggable = true;
+            btn.oncontextmenu = function (e) {
+              conShowMiniThumbContextMenu(e, i);
+            };
+
+            btn.addEventListener('dragstart', function (e) {
+              _conMiniThumbDragIdx = i;
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', String(i));
+              strip.classList.add('is-dragging');
+              document.body.classList.add('is-dragging-mini-thumb');
+              setTimeout(() => btn.classList.add('dragging'), 0);
+            });
+            btn.addEventListener('dragend', function () {
+              btn.classList.remove('dragging');
+              _conMiniThumbDragIdx = null;
+              strip.classList.remove('is-dragging');
+              document.body.classList.remove('is-dragging-mini-thumb');
+              document.querySelectorAll('.con-page-mini-thumb').forEach(t => {
+                t.classList.remove('drag-over', 'dragging');
+              });
+            });
+            btn.addEventListener('dragover', function (e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              document.querySelectorAll('.con-page-mini-thumb').forEach(t => t.classList.remove('drag-over'));
+              if (_conMiniThumbDragIdx !== null && _conMiniThumbDragIdx !== i) {
+                btn.classList.add('drag-over');
+              }
+            });
+            btn.addEventListener('dragleave', function () {
+              btn.classList.remove('drag-over');
+            });
+            btn.addEventListener('drop', function (e) {
+              e.preventDefault();
+              btn.classList.remove('drag-over');
+              strip.classList.remove('is-dragging');
+              document.body.classList.remove('is-dragging-mini-thumb');
+              if (_conMiniThumbDragIdx !== null && _conMiniThumbDragIdx !== i) {
+                conMovePageMiniThumb(_conMiniThumbDragIdx, i);
+              }
+              _conMiniThumbDragIdx = null;
+            });
+
             const canvas = document.createElement('canvas');
             canvas.width = 56;
             canvas.height = 36;
@@ -13636,6 +13830,7 @@
           activeThumb.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
       }
+
 
       window.conAddPage = function () {
         // Capture the current live board into its slot
@@ -13758,8 +13953,13 @@
         const edges = (snap && snap.edges) || [];
         const notes = (snap && snap.notes) || [];
         const masks = (snap && snap.masks) || [];
+        const media = (snap && (snap.media || snap.images)) || [];
+        const drawings = (snap && (snap.drawings || snap.strokes)) || [];
+        const pdfBg = (snap && (snap.pdf || snap.pdfBackground || snap.conPageBackgroundPdf)) || null;
 
-        if (nodes.length === 0 && notes.length === 0) {
+        const hasContent = nodes.length > 0 || notes.length > 0 || masks.length > 0 || media.length > 0 || drawings.length > 0 || !!pdfBg;
+
+        if (!hasContent) {
           ctx.fillStyle = '#ccc';
           ctx.font = '10px sans-serif';
           ctx.textAlign = 'center';
@@ -13767,15 +13967,55 @@
           return;
         }
 
-        // Collect all points to determine bounding box
+        // Collect all points to determine bounding box clipped to lowest/rightmost element
         const allPts = [
-          ...nodes.map(n => ({ x: n.x, y: n.y })),
-          ...notes.map(n => ({ x: n.x, y: n.y }))
+          { x: 0, y: 0 } // Include top-left origin so page top stays anchored
         ];
-        const pad = 10;
+
+        nodes.forEach(n => {
+          const nx = Number(n.x) || 0, ny = Number(n.y) || 0;
+          allPts.push({ x: nx, y: ny });
+          allPts.push({ x: nx + (Number(n.w || n.width) || 40), y: ny + (Number(n.h || n.height) || 40) });
+        });
+
+        notes.forEach(n => {
+          const nx = Number(n.x) || 0, ny = Number(n.y) || 0;
+          allPts.push({ x: nx, y: ny });
+          allPts.push({ x: nx + (Number(n.w || n.width) || 60), y: ny + (Number(n.h || n.height) || 60) });
+        });
+
+        masks.forEach(m => {
+          const mx = Number(m.x) || 0, my = Number(m.y) || 0;
+          allPts.push({ x: mx, y: my });
+          allPts.push({ x: mx + (Number(m.w || m.width) || 100), y: my + (Number(m.h || m.height) || 100) });
+        });
+
+        media.forEach(m => {
+          const mx = Number(m.x) || 0, my = Number(m.y) || 0;
+          allPts.push({ x: mx, y: my });
+          allPts.push({ x: mx + (Number(m.w || m.width) || 120), y: my + (Number(m.h || m.height) || 90) });
+        });
+
+        drawings.forEach(d => {
+          if (Array.isArray(d.points)) {
+            d.points.forEach(p => allPts.push({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+          } else if (d.x != null && d.y != null) {
+            const dx = Number(d.x) || 0, dy = Number(d.y) || 0;
+            allPts.push({ x: dx, y: dy });
+            if (d.width || d.w) allPts.push({ x: dx + (Number(d.width || d.w) || 0), y: dy + (Number(d.height || d.h) || 0) });
+          }
+        });
+
+        if (pdfBg) {
+          const px = Number(pdfBg.x) || 0, py = Number(pdfBg.y) || 0;
+          allPts.push({ x: px, y: py });
+          allPts.push({ x: px + (Number(pdfBg.width || pdfBg.w) || 600), y: py + (Number(pdfBg.height || pdfBg.h) || 800) });
+        }
+
+        const pad = 6;
         const xs = allPts.map(p => p.x), ys = allPts.map(p => p.y);
-        let minX = Math.min(...xs), maxX = Math.max(...xs);
-        let minY = Math.min(...ys), maxY = Math.max(...ys);
+        let minX = Math.min(0, Math.min(...xs)), maxX = Math.max(100, Math.max(...xs));
+        let minY = Math.min(0, Math.min(...ys)), maxY = Math.max(100, Math.max(...ys));
         const spanX = Math.max(maxX - minX, 1), spanY = Math.max(maxY - minY, 1);
         const scaleX = (W - pad * 2) / spanX, scaleY = (H - pad * 2) / spanY;
         const scale = Math.min(scaleX, scaleY);
@@ -13785,22 +14025,66 @@
         function tx(x) { return offX + (x - minX) * scale; }
         function ty(y) { return offY + (y - minY) * scale; }
 
-        // Build node id -> position map
-        const nodePos = {};
-        nodes.forEach(n => { nodePos[n.id] = { x: tx(n.x), y: ty(n.y) }; });
+        // Draw PDF Background if present
+        if (pdfBg) {
+          ctx.fillStyle = '#f5f5f7';
+          ctx.strokeStyle = '#cccccc';
+          ctx.lineWidth = 0.8;
+          const px = tx(pdfBg.x || 0), py = ty(pdfBg.y || 0);
+          const pw = (pdfBg.width || pdfBg.w || 600) * scale;
+          const ph = (pdfBg.height || pdfBg.h || 800) * scale;
+          ctx.fillRect(px, py, pw, ph);
+          ctx.strokeRect(px, py, pw, ph);
+          ctx.fillStyle = '#999999';
+          ctx.font = '8px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('PDF', px + pw / 2, py + ph / 2 + 3);
+        }
+
+        // Draw Media / Images
+        media.forEach(m => {
+          const mx = tx(m.x || 0), my = ty(m.y || 0);
+          const mw = (m.w || m.width || 120) * scale;
+          const mh = (m.h || m.height || 90) * scale;
+          ctx.fillStyle = '#e8f0fe';
+          ctx.strokeStyle = '#1a73e8';
+          ctx.lineWidth = 0.8;
+          ctx.fillRect(mx, my, mw, mh);
+          ctx.strokeRect(mx, my, mw, mh);
+          ctx.fillStyle = '#1a73e8';
+          ctx.font = '7px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('IMG', mx + mw / 2, my + mh / 2 + 2);
+        });
 
         // Draw masks
         masks.forEach(m => {
           ctx.globalAlpha = Number(m.opacity) || 0.9;
           ctx.fillStyle = m.color || '#111';
           const mx = tx(m.x), my = ty(m.y);
-          ctx.fillRect(mx, my, m.width * scale, m.height * scale);
+          ctx.fillRect(mx, my, (m.width || m.w || 100) * scale, (m.height || m.h || 100) * scale);
         });
         ctx.globalAlpha = 1;
 
+        // Draw drawings / strokes
+        drawings.forEach(d => {
+          if (Array.isArray(d.points) && d.points.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(tx(d.points[0].x), ty(d.points[0].y));
+            for (let i = 1; i < d.points.length; i++) {
+              ctx.lineTo(tx(d.points[i].x), ty(d.points[i].y));
+            }
+            ctx.strokeStyle = d.color || '#333';
+            ctx.lineWidth = Math.max(0.6, (d.width || 2) * scale);
+            ctx.stroke();
+          }
+        });
+
+        // Build node id -> position map
+        const nodePos = {};
+        nodes.forEach(n => { nodePos[n.id] = { x: tx(n.x), y: ty(n.y) }; });
+
         // Draw edges
-        const nodeById = {};
-        nodes.forEach(n => { nodeById[n.id] = n; });
         edges.forEach(e => {
           const pa = nodePos[e.a], pb = nodePos[e.b];
           if (!pa || !pb) return;
@@ -27178,8 +27462,61 @@
           } catch { return false; }
         };
         let drawn = false;
-        if (kind === 'pdf') { drawn = drawSource(wrap.querySelector('canvas.con-media-pdf-canvas')); } else { drawn = drawSource(wrap.querySelector('.con-media-asset')); }
-        if (!drawn && kind === 'sounds') { ctx.fillStyle = '#4b5563'; ctx.font = '700 16px "Segoe UI", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('AUDIO', contentX + contentW / 2, contentY + contentH / 2); }
+        if (kind === 'pdf') {
+          const pdfCanvases = wrap.querySelectorAll('canvas');
+          if (pdfCanvases && pdfCanvases.length > 0) {
+            pdfCanvases.forEach(c => {
+              if (drawSource(c)) drawn = true;
+            });
+          }
+          if (!drawn) {
+            drawn = drawSource(wrap.querySelector('.con-media-asset')) || drawSource(wrap.querySelector('img'));
+          }
+        } else {
+          drawn = drawSource(wrap.querySelector('.con-media-asset')) || drawSource(wrap.querySelector('canvas')) || drawSource(wrap.querySelector('img'));
+        }
+
+        if (!drawn) {
+          if (kind === 'pdf') {
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(contentX, contentY, contentW, contentH);
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(contentX, contentY, contentW, contentH);
+            
+            // Draw red PDF badge
+            ctx.fillStyle = '#e53935';
+            ctx.fillRect(contentX + 6, contentY + 6, 32, 16);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PDF', contentX + 22, contentY + 14);
+
+            // Draw PDF document title
+            ctx.fillStyle = '#424242';
+            ctx.font = '600 12px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const pdfTitle = (header && header.textContent.trim()) ? header.textContent.trim().replace(/\s*✕\s*/g, '') : 'PDF Document';
+            ctx.fillText(pdfTitle.length > 25 ? pdfTitle.substring(0, 22) + '...' : pdfTitle, contentX + contentW / 2, contentY + contentH / 2 + 6);
+            drawn = true;
+          } else if (kind === 'sounds') {
+            ctx.fillStyle = '#4b5563';
+            ctx.font = '700 16px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('AUDIO', contentX + contentW / 2, contentY + contentH / 2);
+          } else if (kind === 'pics' || kind === 'videos') {
+            ctx.fillStyle = '#e8f0fe';
+            ctx.fillRect(contentX, contentY, contentW, contentH);
+            ctx.fillStyle = '#1a73e8';
+            ctx.font = '700 14px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(kind === 'pics' ? 'IMAGE' : 'VIDEO', contentX + contentW / 2, contentY + contentH / 2);
+          }
+        }
         ctx.restore();
       });
     }
@@ -27188,7 +27525,76 @@
       const board = document.getElementById('constellation-board');
       if (!board) return null;
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
-      const bw = board.scrollWidth; const bh = board.scrollHeight;
+
+      let maxX = 0;
+      let maxY = 0;
+
+      nodes.forEach(n => {
+        if (n && n.el) {
+          const rx = (n.x || 0) + (n.el.offsetWidth || 100);
+          const ry = (n.y || 0) + (n.el.offsetHeight || 40);
+          if (rx > maxX) maxX = rx;
+          if (ry > maxY) maxY = ry;
+        }
+      });
+
+      document.querySelectorAll('#constellation-board .con-word-note').forEach(note => {
+        const rx = note.offsetLeft + note.offsetWidth;
+        const ry = note.offsetTop + note.offsetHeight;
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      document.querySelectorAll('.con-group').forEach(grp => {
+        const rx = grp.offsetLeft + grp.offsetWidth;
+        const ry = grp.offsetTop + grp.offsetHeight;
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      document.querySelectorAll('#constellation-board .con-media-wrap').forEach(wrap => {
+        const rx = wrap.offsetLeft + wrap.offsetWidth;
+        const ry = wrap.offsetTop + wrap.offsetHeight;
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      (window.conGetShapes ? window.conGetShapes() : []).forEach(s => {
+        const rx = (s.x || 0) + (s.w || s.width || 100);
+        const ry = (s.y || 0) + (s.h || s.height || 100);
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      (window.conGetDrawings ? window.conGetDrawings() : []).forEach(d => {
+        if (Array.isArray(d.points)) {
+          d.points.forEach(p => {
+            const px = (d.x || 0) + p.x;
+            const py = (d.y || 0) + p.y;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+          });
+        }
+      });
+
+      (window.conGetMasks ? window.conGetMasks() : []).forEach(mask => {
+        if (mask && mask.el) {
+          const rx = mask.el.offsetLeft + mask.el.offsetWidth;
+          const ry = mask.el.offsetTop + mask.el.offsetHeight;
+          if (rx > maxX) maxX = rx;
+          if (ry > maxY) maxY = ry;
+        }
+      });
+
+      if (typeof conPageBackgroundPdf !== 'undefined' && conPageBackgroundPdf) {
+        const pw = conPageBackgroundPdf.width || 800;
+        const ph = conPageBackgroundPdf.height || 1000;
+        if (pw > maxX) maxX = pw;
+        if (ph > maxY) maxY = ph;
+      }
+
+      const bw = (maxX > 0) ? Math.max(600, maxX + 40) : Math.max(600, board.clientWidth || 800);
+      const bh = (maxY > 0) ? Math.max(400, maxY + 40) : Math.max(400, board.clientHeight || 600);
       const PAD = 24; const scale = Math.max(window.devicePixelRatio || 1, 2);
       const canvas = document.createElement('canvas');
       canvas.width = (bw + PAD * 2) * scale;
@@ -27393,13 +27799,35 @@
     // Save a PNG snapshot of the current board state for a given page index.
     // Writes to mindmaps/<folderName>/page-snapshots/page-NNN.png (fire-and-forget).
     async function conSaveCurrentPageSnapshotPng(pageIndex) {
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
-      if (!_conCurrentFolderName) return;
+      const idx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
+      if (typeof idx !== 'number' || idx < 0) return;
       const result = await _conBuildBoardCanvas();
       if (!result) return;
       const dataUrl = result.canvas.toDataURL('image/png');
+
+      // Update thumbnail image in mini-strip immediately in DOM
+      const strip = document.getElementById('con-page-mini-strip');
+      if (strip) {
+        const thumbs = strip.querySelectorAll('.con-page-mini-thumb');
+        if (thumbs[idx]) {
+          const img = thumbs[idx].querySelector('img');
+          const canvas = thumbs[idx].querySelector('canvas');
+          if (img) {
+            img.onload = function () {
+              if (canvas) canvas.style.display = 'none';
+              img.style.display = 'block';
+              img.dataset.pngLoaded = '1';
+            };
+            img.src = dataUrl;
+          }
+        }
+      }
+
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
+      if (!_conCurrentFolderName) return;
+
       const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
-      const padded = String((pageIndex || 0) + 1).padStart(3, '0');
+      const padded = String(idx + 1).padStart(3, '0');
       Desktop.saveFiles('mindmaps', [{
         filename: 'page-' + padded + '.png',
         subdir: _conCurrentFolderName + '/page-snapshots',
@@ -27411,9 +27839,9 @@
     let _conPageSnapshotSaveTimer = null;
     let _conPageSnapshotSaveQueued = null;
     function conQueueCurrentPageSnapshotPng(pageIndex) {
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
-      if (!_conCurrentFolderName) return;
-      _conPageSnapshotSaveQueued = pageIndex;
+      const targetIdx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
+      if (typeof targetIdx !== 'number' || targetIdx < 0) return;
+      _conPageSnapshotSaveQueued = targetIdx;
       if (_conPageSnapshotSaveTimer) return;
 
       const schedule = window.requestIdleCallback
@@ -27433,6 +27861,49 @@
         }
       });
     }
+
+    let _conLiveSnapshotDebounceTimer = null;
+    function conTriggerLivePageSnapshot(delayMs = 800) {
+      if (typeof conCurrentPageIndex !== 'number') return;
+      if (_conLiveSnapshotDebounceTimer) clearTimeout(_conLiveSnapshotDebounceTimer);
+      _conLiveSnapshotDebounceTimer = setTimeout(() => {
+        _conLiveSnapshotDebounceTimer = null;
+        if (typeof conQueueCurrentPageSnapshotPng === 'function') {
+          conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
+        }
+      }, delayMs);
+    }
+    window.conTriggerLivePageSnapshot = conTriggerLivePageSnapshot;
+
+    // Attach event listeners to trigger live page snapshot on user interaction & PDF renders
+    (function _conInitLiveSnapshotListeners() {
+      const attach = function () {
+        const board = document.getElementById('constellation-board');
+        if (!board) return;
+        board.addEventListener('pointerup', () => conTriggerLivePageSnapshot(600), { passive: true });
+        board.addEventListener('keyup', () => conTriggerLivePageSnapshot(1000), { passive: true });
+        board.addEventListener('change', () => conTriggerLivePageSnapshot(400), { passive: true });
+
+        // Observe PDF canvas renders to refresh snapshot when PDF pages finish loading
+        try {
+          const obs = new MutationObserver(mutations => {
+            for (let i = 0; i < mutations.length; i += 1) {
+              const m = mutations[i];
+              if (m.target && (m.target.tagName === 'CANVAS' || (m.target.classList && m.target.classList.contains('con-media-pdf-canvas')))) {
+                conTriggerLivePageSnapshot(500);
+                break;
+              }
+            }
+          });
+          obs.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height', 'style'] });
+        } catch (_) { }
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attach);
+      } else {
+        attach();
+      }
+    })();
 
     async function conSaveSessionFolderBundle(sessionFilename, persistedData) {
       const bundle = await conBuildSessionFolderBundle(sessionFilename, persistedData);
