@@ -43,6 +43,35 @@
     return getDesktopApi().saveFile(request);
   }
 
+  function _pathToUrl(filePath) {
+    if (!filePath) return "";
+    let str = "";
+    if (typeof filePath === "string") {
+      str = filePath;
+    } else if (typeof filePath === "object" && filePath !== null) {
+      str = filePath.path || filePath.filepath || filePath.filename || "";
+    } else {
+      str = String(filePath);
+    }
+    if (!str) return "";
+    if (str.startsWith("data:") || str.startsWith("http://") || str.startsWith("https://") || str.startsWith("file://")) {
+      return str;
+    }
+    let p = str.replace(/\\/g, "/");
+    if (!p.startsWith("/")) p = "/" + p;
+    return "file://" + encodeURI(p).replace(/#/g, "%23").replace(/\?/g, "%3F");
+  }
+
+  async function resolvePath(target, relativePath) {
+    if (!isElectron()) return null;
+    try {
+      const res = await getDesktopApi().resolvePath({ target, relativePath });
+      return res?.path ? _pathToUrl(res.path) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function saveFile(req) {
     if (!isElectron()) return null;
     let target = req.target || "user";
@@ -72,8 +101,10 @@
       encoding,
       subdir
     });
+    const savedAbsFile = result?.file || (result?.ok ? req.filename : null);
+    const fileUrl = savedAbsFile ? _pathToUrl(savedAbsFile) : null;
     const relativeSavedPath = subdir ? `${target}/${subdir}/${req.filename}` : `${target}/${req.filename}`;
-    return { ok: !!(result && result.ok !== false), path: relativeSavedPath, ...result };
+    return { ok: !!(result && result.ok !== false), path: relativeSavedPath, fileUrl, file: savedAbsFile, ...result };
   }
 
   async function saveFiles(target, files) {
@@ -744,6 +775,7 @@
     printPdf,
     exportDocx,
     resetFolders,
+    resolvePath,
     restoreZip,
     saveBlob,
     saveFile,

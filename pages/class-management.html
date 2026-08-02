@@ -10367,12 +10367,40 @@ syncState();
             activeEditingModeId = null;
         }
 
+        function resolveModeImgUrl(imgSrc) {
+            if (!imgSrc) return '';
+            const src = (typeof imgSrc === 'object' && imgSrc !== null) ? (imgSrc.fileUrl || imgSrc.path || imgSrc.filename || String(imgSrc)) : String(imgSrc);
+            if (!src) return '';
+            if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('file://')) {
+                return src;
+            }
+            if (src.startsWith('user/')) {
+                return '../' + src;
+            }
+            if (src.startsWith('../user/') || src.startsWith('./') || src.startsWith('../')) {
+                return src;
+            }
+            return '../user/mode-image/' + src.replace(/^mode-image\//, '');
+        }
+
         function togglePictureTypeFields() {
             const type = document.getElementById('mode-edit-pic-type').value;
             const fileWrap = document.getElementById('mode-edit-pic-file-wrap');
             const urlWrap = document.getElementById('mode-edit-pic-url-wrap');
             if (fileWrap) fileWrap.style.display = type === 'custom_file' ? 'block' : 'none';
             if (urlWrap) urlWrap.style.display = type === 'custom_url' ? 'block' : 'none';
+
+            const previewWrap = document.getElementById('mode-edit-pic-preview');
+            const previewImg = document.getElementById('mode-edit-pic-preview-img');
+            const srcVal = document.getElementById('mode-edit-pic-src')?.value || '';
+            if (previewWrap && previewImg) {
+                if ((type === 'custom_file' || type === 'custom_url') && srcVal) {
+                    previewImg.src = resolveModeImgUrl(srcVal);
+                    previewWrap.style.display = 'block';
+                } else {
+                    previewWrap.style.display = 'none';
+                }
+            }
         }
 
         function toggleSoundTypeFields() {
@@ -10457,9 +10485,9 @@ syncState();
                             filename: targetName,
                             content: content
                         });
-                        const savedPath = res?.path ? `../${res.path}` : `../user/mode-image/${targetName}`;
+                        const savedPath = res?.fileUrl || (res?.file ? res.file : `../user/mode-image/${targetName}`);
                         document.getElementById('mode-edit-pic-src').value = savedPath;
-                        if (previewImg) previewImg.src = content;
+                        if (previewImg) previewImg.src = res?.fileUrl || content;
                         if (previewWrap) previewWrap.style.display = 'block';
                     };
                     reader.readAsDataURL(file);
@@ -10594,14 +10622,7 @@ syncState();
 
             let picHtml = '';
             if (mode.picture?.type === 'custom_file' || mode.picture?.type === 'custom_url') {
-                let imgSrc = mode.picture.src || '';
-                if (imgSrc && !imgSrc.startsWith('data:') && !imgSrc.startsWith('http://') && !imgSrc.startsWith('https://') && !imgSrc.startsWith('file://')) {
-                    if (imgSrc.startsWith('user/')) {
-                        imgSrc = '../' + imgSrc;
-                    } else if (!imgSrc.startsWith('../user/') && !imgSrc.startsWith('./') && !imgSrc.startsWith('../')) {
-                        imgSrc = '../user/mode-image/' + imgSrc.replace(/^mode-image\//, '');
-                    }
-                }
+                const imgSrc = resolveModeImgUrl(mode.picture?.src || '');
                 const fit = mode.picture?.fit || 'fit';
                 let fitStyle = 'object-fit:contain; max-height:45vh; max-width:85vw;';
                 if (fit === 'stretch') {
