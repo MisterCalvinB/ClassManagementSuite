@@ -122,19 +122,10 @@
 <body>
     <!-- Menu -->
     <div id="menu">
-        <!-- Date/time + Timer group (left side) -->
+        <!-- Date/time (left side) -->
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <div id="datetime" onclick="openDatetimeOverlay()" title="Click for fullscreen clock"
                 data-i18n-title="datetime_title"></div>
-            <div style="width:1px;height:20px;background:#ddd;flex-shrink:0;"></div>
-            <!-- Timer button + active display -->
-            <div id="timer-container" style="display:flex;align-items:center;gap:4px;">
-                <button id="timer-open-btn" onclick="toggleTimerPopup()"
-                    style="padding:3px 8px;background:#111;color:#fff;border:2px solid #111;border-radius:5px;cursor:pointer;font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;transition:all 0.12s;white-space:nowrap;"
-                    onmouseover="this.style.background='#fff';this.style.color='#111'"
-                    onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="btn_timer">⏱
-                    Timer</button>
-            </div>
             <!-- Hidden legacy elements kept for JS compatibility -->
             <input type="number" id="timer-minutes" value="5" min="0">
             <input type="number" id="timer-seconds" value="0" min="0" max="59">
@@ -175,83 +166,7 @@
         </div>
     </div>
 
-    <!-- Timer Popup -->
-    <div id="timer-popup">
-        <h3 id="timer-popup-title" data-i18n="timer_title">⏱ Timer</h3>
-        <!-- Mode toggle -->
-        <div class="timer-mode-toggle">
-            <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
-                data-i18n="timer_mode_timer">⏱ Timer</button>
-            <button class="timer-mode-btn" id="mode-btn-stopwatch" onclick="setTimerMode('stopwatch')"
-                data-i18n="timer_mode_stopwatch">⏱ Stopwatch</button>
-        </div>
-        <!-- Time inputs (shown only for timer mode) -->
-        <div id="timer-inputs-section">
-            <div class="timer-popup-row">
-                <span class="timer-popup-label" data-i18n="timer_duration">Duration</span>
-                <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0" max="23"
-                    placeholder="h">
-                <span class="timer-popup-sep">h</span>
-                <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5" min="0" max="59"
-                    placeholder="m">
-                <span class="timer-popup-sep">m</span>
-            </div>
-            <hr class="timer-popup-divider">
-            <div class="timer-popup-beep-row">
-                <span class="timer-popup-label" data-i18n="timer_beeps">Beeps</span>
-                <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1" max="20"
-                    style="width:40px;">
 
-            </div>
-        </div>
-        <hr class="timer-popup-divider">
-        <!-- Ambient audio -->
-        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label">🌊 Ambient
-                Sound</span> <span style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
-                M mute</span></div>
-        <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
-            <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')" title="White noise"
-                data-i18n="noise_white" data-i18n-title="noise_white_title">White</button>
-            <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')" title="Pink noise"
-                data-i18n="noise_pink" data-i18n-title="noise_pink_title">Pink</button>
-            <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')" title="Brown noise"
-                data-i18n="noise_brown" data-i18n-title="noise_brown_title">Brown</button>
-            <button class="wn-type-btn" id="wn-type-file" onclick="showMp3Picker(event)"
-                title="Loop the selected timer audio file" data-i18n-title="noise_mp3_title">MP3</button>
-        </div>
-        <div class="timer-popup-whitenoise-row">
-            <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()" title="Mute/Unmute (M)"
-                data-i18n-title="noise_mute_title">🔇</button>
-            <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30" value="5"
-                oninput="setWhiteNoiseVolume(this.value)" title="Volume" data-i18n-title="noise_volume">
-            <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()" data-i18n="noise_play">▶
-                Play</button>
-        </div>
-        <hr class="timer-popup-divider">
-        <div class="timer-popup-actions">
-            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start">▶ Start</button>
-            <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()" style="display:none;"
-                data-i18n="timer_stop">■ Stop</button>
-            <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()" style="display:none;"
-                data-i18n="timer_pause" data-i18n-title="timer_pause_title">⏸ Pause</button>
-            <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()" title="-30 seconds"
-                data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
-            <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()" title="+30 seconds"
-                data-i18n-title="timer_add30s_title">+30s</button>
-            <button class="btn-fullscreen-timer" onclick="openTimerFullscreen()" title="Fullscreen"
-                data-i18n-title="timer_fullscreen_title">⛶</button>
-        </div>
-        <hr class="timer-popup-divider">
-        <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class Mode</div>
-        <div class="timer-mode-shortcuts">
-            <button class="timer-mode-shortcut" onclick="activateMode('quiet')" data-i18n-title="mode_quiet_title"
-                title="Quiet Work (1)">🤫<span data-i18n="mode_quiet_short">Quiet</span></button>
-            <button class="timer-mode-shortcut" onclick="activateMode('conversation')" data-i18n-title="mode_conv_title"
-                title="Conversation (2)">💬<span data-i18n="mode_talk_short">Talk</span></button>
-            <button class="timer-mode-shortcut" onclick="activateMode('group')" data-i18n-title="mode_group_title"
-                title="Group Work (3)">👥<span data-i18n="mode_group_short">Group</span></button>
-        </div>
-    </div>
     <!-- MP3 Picker Popup -->
     <div id="mp3-picker-popup">
         <div id="mp3-picker-header">
@@ -516,6 +431,86 @@
                                 </div>
                             </div>
                             <div class="group-btns" id="group-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="timer-anchor">
+                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer"
+                        data-i18n="btn_timer">⏱ Timer</button>
+                    <div id="timer-popup">
+                        <h3 id="timer-popup-title" data-i18n="timer_title">⏱ Timer</h3>
+                        <!-- Mode toggle -->
+                        <div class="timer-mode-toggle">
+                            <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
+                                data-i18n="timer_mode_timer">⏱ Timer</button>
+                            <button class="timer-mode-btn" id="mode-btn-stopwatch" onclick="setTimerMode('stopwatch')"
+                                data-i18n="timer_mode_stopwatch">⏱ Stopwatch</button>
+                        </div>
+                        <!-- Time inputs (shown only for timer mode) -->
+                        <div id="timer-inputs-section">
+                            <div class="timer-popup-row">
+                                <span class="timer-popup-label" data-i18n="timer_duration">Duration</span>
+                                <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0" max="23"
+                                    placeholder="h">
+                                <span class="timer-popup-sep">h</span>
+                                <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5" min="0" max="59"
+                                    placeholder="m">
+                                <span class="timer-popup-sep">m</span>
+                            </div>
+                            <hr class="timer-popup-divider">
+                            <div class="timer-popup-beep-row">
+                                <span class="timer-popup-label" data-i18n="timer_beeps">Beeps</span>
+                                <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1" max="20"
+                                    style="width:40px;">
+                            </div>
+                        </div>
+                        <hr class="timer-popup-divider">
+                        <!-- Ambient audio -->
+                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label">🌊 Ambient
+                                Sound</span> <span style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
+                                M mute</span></div>
+                        <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
+                            <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')" title="White noise"
+                                data-i18n="noise_white" data-i18n-title="noise_white_title">White</button>
+                            <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')" title="Pink noise"
+                                data-i18n="noise_pink" data-i18n-title="noise_pink_title">Pink</button>
+                            <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')" title="Brown noise"
+                                data-i18n="noise_brown" data-i18n-title="noise_brown_title">Brown</button>
+                            <button class="wn-type-btn" id="wn-type-file" onclick="showMp3Picker(event)"
+                                title="Loop the selected timer audio file" data-i18n-title="noise_mp3_title">MP3</button>
+                        </div>
+                        <div class="timer-popup-whitenoise-row">
+                            <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()" title="Mute/Unmute (M)"
+                                data-i18n-title="noise_mute_title">🔇</button>
+                            <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30" value="5"
+                                oninput="setWhiteNoiseVolume(this.value)" title="Volume" data-i18n-title="noise_volume">
+                            <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()" data-i18n="noise_play">▶
+                                Play</button>
+                        </div>
+                        <hr class="timer-popup-divider">
+                        <div class="timer-popup-actions">
+                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start">▶ Start</button>
+                            <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()" style="display:none;"
+                                data-i18n="timer_stop">■ Stop</button>
+                            <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()" style="display:none;"
+                                data-i18n="timer_pause" data-i18n-title="timer_pause_title">⏸ Pause</button>
+                            <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()" title="-30 seconds"
+                                data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
+                            <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()" title="+30 seconds"
+                                data-i18n-title="timer_add30s_title">+30s</button>
+                            <button class="btn-fullscreen-timer" onclick="openTimerFullscreen()" title="Fullscreen"
+                                data-i18n-title="timer_fullscreen_title">⛶</button>
+                        </div>
+                        <hr class="timer-popup-divider">
+                        <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class Mode</div>
+                        <div class="timer-mode-shortcuts">
+                            <button class="timer-mode-shortcut" onclick="activateMode('quiet')" data-i18n-title="mode_quiet_title"
+                                title="Quiet Work (1)">🤫<span data-i18n="mode_quiet_short">Quiet</span></button>
+                            <button class="timer-mode-shortcut" onclick="activateMode('conversation')" data-i18n-title="mode_conv_title"
+                                title="Conversation (2)">💬<span data-i18n="mode_talk_short">Talk</span></button>
+                            <button class="timer-mode-shortcut" onclick="activateMode('group')" data-i18n-title="mode_group_title"
+                                title="Group Work (3)">👥<span data-i18n="mode_group_short">Group</span></button>
                         </div>
                     </div>
                 </div>
@@ -7117,7 +7112,13 @@
                 ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
                 : null;
             const pool = studentGroups[selectedGroupName].filter(s => !s.isPicked && !s.isAbsent && (!halfNames || halfNames.includes(s.name)));
-            if (pool.length === 0) { showToast("Everyone has been called!"); return; }
+            if (pool.length === 0) {
+                showToast(t('alert_everyone_called') || "Everyone has been called!");
+                showConfirm((t('alert_everyone_called') || "Everyone has been called!") + "\n\nReset strikes?", function () {
+                    resetStrikesOnly();
+                });
+                return;
+            }
             // Flagged students get 3x weight so they are more likely to be picked first
             const FLAG_PICK_WEIGHT = 3;
             const weightedPool = pool.flatMap(s => s.isFlagged ? Array(FLAG_PICK_WEIGHT).fill(s) : [s]);
@@ -8323,10 +8324,19 @@
             setWhiteNoiseVolume(val);
         }
 
-        function toggleTimerPopup() {
+        function toggleTimerPopup(event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
             const popup = document.getElementById('timer-popup');
-            popup.classList.toggle('open');
-            if (popup.classList.contains('open')) {
+            const btn = document.getElementById('timer-open-btn');
+            if (!popup) return;
+            const isOpen = popup.classList.contains('open');
+            if (isOpen) {
+                closeTimerPopup();
+            } else {
+                if (typeof closeClassSelectionPopup === 'function') closeClassSelectionPopup();
+                if (typeof closeRosterSettingsPopup === 'function') closeRosterSettingsPopup(true);
+                popup.classList.add('open');
+                if (btn) btn.classList.add('active');
                 // Sync stop btn visibility
                 const running = timerInterval || stopwatchInterval || timerPaused;
                 document.getElementById('popup-stop-btn').style.display = running ? 'block' : 'none';
@@ -8336,6 +8346,13 @@
             }
         }
 
+        function closeTimerPopup() {
+            const popup = document.getElementById('timer-popup');
+            const btn = document.getElementById('timer-open-btn');
+            if (popup) popup.classList.remove('open');
+            if (btn) btn.classList.remove('active');
+        }
+
         // Close popup when clicking outside
         document.addEventListener('click', function (e) {
             const popup = document.getElementById('timer-popup');
@@ -8343,9 +8360,11 @@
             const display = document.getElementById('timer-active-display');
             const mp3Picker = document.getElementById('mp3-picker-popup');
             if (popup && popup.classList.contains('open')) {
-                if (!popup.contains(e.target) && e.target !== btn && e.target !== display
-                    && !(mp3Picker && mp3Picker.contains(e.target))) {
-                    popup.classList.remove('open');
+                const inPopup = popup.contains(e.target) || (e.composedPath && e.composedPath().includes(popup));
+                const isBtn = (e.target === btn || (btn && btn.contains(e.target)));
+                const isDisplay = (e.target === display || (display && display.contains(e.target)));
+                if (!inPopup && !isBtn && !isDisplay && !(mp3Picker && mp3Picker.contains(e.target))) {
+                    closeTimerPopup();
                 }
             }
         });
@@ -9403,6 +9422,14 @@ syncState();
             const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
             if (popup) popup.classList.remove('open');
             _openBadgePopupKey = null;
+
+            // Play score sound feedback (positive or negative based on badge tone)
+            const effectiveTone = badgeDef?.tone || tone || 'positive';
+            if (effectiveTone === 'negative') {
+                playScoreBuzzer();
+            } else {
+                playScoreJingle();
+            }
 
             // Flash animation feedback
             showBadgeFlash(icon);
@@ -11178,6 +11205,7 @@ syncState();
             if (isOpen) {
                 closeRosterSettingsPopup();
             } else {
+                if (typeof closeTimerPopup === 'function') closeTimerPopup();
                 updateRosterSettingsPopupContext();
                 popup.classList.add('open');
                 if (btn) btn.classList.add('active');
@@ -11270,6 +11298,7 @@ syncState();
                 closeClassSelectionPopup();
             } else {
                 closeRosterSettingsPopup(true);
+                if (typeof closeTimerPopup === 'function') closeTimerPopup();
                 popup.classList.add('open');
                 if (btn) btn.classList.add('active');
             }
