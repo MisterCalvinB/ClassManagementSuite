@@ -43,6 +43,39 @@
     return getDesktopApi().saveFile(request);
   }
 
+  async function saveFile(req) {
+    if (!isElectron()) return null;
+    let target = req.target || "user";
+    let subdir = req.subdir || null;
+    if (req.folder) {
+      const parts = String(req.folder).replace(/\\/g, "/").split("/");
+      if (parts[0] === "user") {
+        target = "user";
+        subdir = parts.slice(1).join("/");
+      } else {
+        subdir = req.folder;
+      }
+    }
+    let content = req.content || "";
+    let encoding = req.encoding || "utf8";
+    if (typeof content === "string" && content.startsWith("data:")) {
+      const commaIdx = content.indexOf(",");
+      if (commaIdx !== -1) {
+        content = content.substring(commaIdx + 1);
+        encoding = "base64";
+      }
+    }
+    const result = await getDesktopApi().saveFile({
+      target,
+      filename: req.filename,
+      content,
+      encoding,
+      subdir
+    });
+    const relativeSavedPath = subdir ? `${target}/${subdir}/${req.filename}` : `${target}/${req.filename}`;
+    return { ok: !!(result && result.ok !== false), path: relativeSavedPath, ...result };
+  }
+
   async function saveFiles(target, files) {
     if (!isElectron()) {
       return null;
@@ -713,6 +746,7 @@
     resetFolders,
     restoreZip,
     saveBlob,
+    saveFile,
     saveFiles,
     saveJson,
     saveText,

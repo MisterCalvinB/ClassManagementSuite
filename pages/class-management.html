@@ -352,6 +352,13 @@
                 <small data-i18n="settings_edit_autoflag_small">Auto-flag low-participation students</small>
             </span>
         </button>
+        <button class="db-popup-btn" onclick="closeSettingsPopup(); openModeManager();">
+            <span class="db-popup-btn-icon">🎭</span>
+            <span class="db-popup-btn-text">
+                <strong data-i18n="settings_edit_modes">Edit Modes</strong>
+                <small data-i18n="settings_edit_modes_small">Customise working modes (sound, picture, text)</small>
+            </span>
+        </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html');">
             <span class="db-popup-btn-icon">📐</span>
             <span class="db-popup-btn-text">
@@ -436,8 +443,8 @@
                 </div>
 
                 <div id="timer-anchor">
-                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer"
-                        data-i18n="btn_timer">⏱ Timer</button>
+                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer" data-i18n="btn_timer">⏱
+                        Timer</button>
                     <div id="timer-popup">
                         <h3 id="timer-popup-title" data-i18n="timer_title">⏱ Timer</h3>
                         <!-- Mode toggle -->
@@ -451,66 +458,84 @@
                         <div id="timer-inputs-section">
                             <div class="timer-popup-row">
                                 <span class="timer-popup-label" data-i18n="timer_duration">Duration</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0" max="23"
-                                    placeholder="h">
+                                <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0"
+                                    max="23" placeholder="h">
                                 <span class="timer-popup-sep">h</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5" min="0" max="59"
-                                    placeholder="m">
+                                <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5"
+                                    min="0" max="59" placeholder="m">
                                 <span class="timer-popup-sep">m</span>
                             </div>
                             <hr class="timer-popup-divider">
                             <div class="timer-popup-beep-row">
                                 <span class="timer-popup-label" data-i18n="timer_beeps">Beeps</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1" max="20"
-                                    style="width:40px;">
+                                <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1"
+                                    max="20" style="width:40px;">
                             </div>
                         </div>
                         <hr class="timer-popup-divider">
                         <!-- Ambient audio -->
-                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label">🌊 Ambient
-                                Sound</span> <span style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
+                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label">🌊
+                                Ambient
+                                Sound</span> <span
+                                style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
                                 M mute</span></div>
                         <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
-                            <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')" title="White noise"
-                                data-i18n="noise_white" data-i18n-title="noise_white_title">White</button>
-                            <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')" title="Pink noise"
-                                data-i18n="noise_pink" data-i18n-title="noise_pink_title">Pink</button>
-                            <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')" title="Brown noise"
-                                data-i18n="noise_brown" data-i18n-title="noise_brown_title">Brown</button>
+                            <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')"
+                                title="White noise" data-i18n="noise_white"
+                                data-i18n-title="noise_white_title">White</button>
+                            <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')"
+                                title="Pink noise" data-i18n="noise_pink"
+                                data-i18n-title="noise_pink_title">Pink</button>
+                            <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')"
+                                title="Brown noise" data-i18n="noise_brown"
+                                data-i18n-title="noise_brown_title">Brown</button>
                             <button class="wn-type-btn" id="wn-type-file" onclick="showMp3Picker(event)"
-                                title="Loop the selected timer audio file" data-i18n-title="noise_mp3_title">MP3</button>
+                                title="Loop the selected timer audio file"
+                                data-i18n-title="noise_mp3_title">MP3</button>
                         </div>
                         <div class="timer-popup-whitenoise-row">
-                            <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()" title="Mute/Unmute (M)"
-                                data-i18n-title="noise_mute_title">🔇</button>
-                            <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30" value="5"
-                                oninput="setWhiteNoiseVolume(this.value)" title="Volume" data-i18n-title="noise_volume">
-                            <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()" data-i18n="noise_play">▶
+                            <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()"
+                                title="Mute/Unmute (M)" data-i18n-title="noise_mute_title">🔇</button>
+                            <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30"
+                                value="5" oninput="setWhiteNoiseVolume(this.value)" title="Volume"
+                                data-i18n-title="noise_volume">
+                            <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()"
+                                data-i18n="noise_play">▶
                                 Play</button>
                         </div>
                         <hr class="timer-popup-divider">
                         <div class="timer-popup-actions">
-                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start">▶ Start</button>
-                            <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()" style="display:none;"
-                                data-i18n="timer_stop">■ Stop</button>
-                            <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()" style="display:none;"
-                                data-i18n="timer_pause" data-i18n-title="timer_pause_title">⏸ Pause</button>
-                            <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()" title="-30 seconds"
-                                data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
-                            <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()" title="+30 seconds"
-                                data-i18n-title="timer_add30s_title">+30s</button>
+                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start">▶
+                                Start</button>
+                            <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()"
+                                style="display:none;" data-i18n="timer_stop">■ Stop</button>
+                            <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()"
+                                style="display:none;" data-i18n="timer_pause" data-i18n-title="timer_pause_title">⏸
+                                Pause</button>
+                            <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()"
+                                title="-30 seconds" data-i18n-title="timer_sub30s_title"
+                                style="display:none;">-30s</button>
+                            <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()"
+                                title="+30 seconds" data-i18n-title="timer_add30s_title">+30s</button>
                             <button class="btn-fullscreen-timer" onclick="openTimerFullscreen()" title="Fullscreen"
                                 data-i18n-title="timer_fullscreen_title">⛶</button>
                         </div>
                         <hr class="timer-popup-divider">
-                        <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class Mode</div>
-                        <div class="timer-mode-shortcuts">
-                            <button class="timer-mode-shortcut" onclick="activateMode('quiet')" data-i18n-title="mode_quiet_title"
-                                title="Quiet Work (1)">🤫<span data-i18n="mode_quiet_short">Quiet</span></button>
-                            <button class="timer-mode-shortcut" onclick="activateMode('conversation')" data-i18n-title="mode_conv_title"
-                                title="Conversation (2)">💬<span data-i18n="mode_talk_short">Talk</span></button>
-                            <button class="timer-mode-shortcut" onclick="activateMode('group')" data-i18n-title="mode_group_title"
-                                title="Group Work (3)">👥<span data-i18n="mode_group_short">Group</span></button>
+                        <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class
+                            Mode</div>
+                        <div class="timer-mode-shortcuts" id="timer-mode-shortcuts-container">
+                            <button class="timer-mode-shortcut" onclick="activateMode('quiet')"
+                                data-i18n-title="mode_quiet_title" title="Quiet Work (1)">🤫<span
+                                    data-i18n="mode_quiet_short">Quiet</span></button>
+                            <button class="timer-mode-shortcut" onclick="activateMode('conversation')"
+                                data-i18n-title="mode_conv_title" title="Conversation (2)">💬<span
+                                    data-i18n="mode_talk_short">Talk</span></button>
+                            <button class="timer-mode-shortcut" onclick="activateMode('group')"
+                                data-i18n-title="mode_group_title" title="Group Work (3)">👥<span
+                                    data-i18n="mode_group_short">Group</span></button>
+                            <button class="timer-mode-shortcut timer-mode-edit-btn" onclick="openModeManager()"
+                                title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;">⚙️<span
+                                    data-i18n="btn_edit_short">Edit</span></button>
                         </div>
                     </div>
                 </div>
@@ -657,6 +682,7 @@
                                         data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
                                 </div>
                             </div>
+
                         </div>
 
                         <!-- Tab 3: Grouping -->
@@ -1350,13 +1376,13 @@
 
     <!-- MODE PICKER MODAL -->
     <div class="modal-overlay" id="mode-picker-modal" onclick="closeModePicker()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:460px; text-align:center;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:480px; text-align:center;">
             <button class="close-modal" onclick="closeModePicker()">&times;</button>
             <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="mode_title">Class
                 Mode</h2>
             <p style="color:#666; font-size:0.85rem; margin-top:0;" data-i18n="mode_subtitle">Choose a working mode to
                 display for students</p>
-            <div class="mode-options">
+            <div class="mode-options" id="mode-picker-options-container">
                 <button class="mode-option-btn" onclick="activateMode('quiet')">
                     <span class="mode-icon">🤫</span>
                     <span data-i18n="mode_quiet">Quiet</span>
@@ -1372,6 +1398,240 @@
                     <span data-i18n="mode_group">Group Work</span>
                     <span class="mode-kbd">3</span>
                 </button>
+            </div>
+            <div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px;">
+                <button onclick="closeModePicker(); openModeManager();"
+                    style="width:100%; padding:10px; font-weight:700; background:#f0f4f8; color:#1a5fb4; border:1px solid #c3d7f0; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <span>⚙️</span> <span data-i18n="btn_edit_modes">Edit Modes</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODE MANAGER MODAL -->
+    <div class="modal-overlay" id="mode-manager-modal" onclick="closeModeManager()">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:580px; width:92%;">
+            <button class="close-modal" onclick="closeModeManager()">&times;</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; text-transform:uppercase; letter-spacing:1px; font-size:1.2rem;"
+                    data-i18n="mode_manager_title">Manage Class Modes</h2>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="createNewMode()"
+                        style="padding:6px 12px; font-size:0.82rem; font-weight:bold; background:#111; color:#fff; border:none; border-radius:4px; cursor:pointer;">+
+                        New Mode</button>
+                    <button onclick="resetModesToDefault()"
+                        style="padding:6px 10px; font-size:0.82rem; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer;"
+                        title="Reset built-in modes to default">🔄 Reset</button>
+                </div>
+            </div>
+            <p style="color:#666; font-size:0.85rem; margin-top:0; margin-bottom:16px;" data-i18n="mode_manager_desc">
+                Create, reorder, or edit working modes. Assign custom sounds, images, and instructions text.</p>
+
+            <div id="mode-manager-list" class="mode-manager-list"
+                style="display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto; padding-right:4px;">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+                <button onclick="closeModeManager()"
+                    style="background:#111; color:#fff; border:none; border-radius:4px; padding:8px 24px; font-weight:700; cursor:pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODE EDITOR MODAL -->
+    <div class="modal-overlay" id="mode-editor-modal" onclick="closeModeEditor()">
+        <div class="modal-content" onclick="event.stopPropagation()"
+            style="max-width:620px; width:95%; max-height:90vh; overflow-y:auto; text-align:left;">
+            <button class="close-modal" onclick="closeModeEditor()">&times;</button>
+            <h2 id="mode-editor-title"
+                style="margin-top:0; margin-bottom:14px; text-transform:uppercase; letter-spacing:1px; font-size:1.15rem;">
+                Edit Mode</h2>
+
+            <!-- Editor Nav Tabs -->
+            <div class="mode-editor-tabs"
+                style="display:flex; gap:6px; border-bottom:2px solid #ddd; margin-bottom:16px;">
+                <button class="mode-editor-tab active" id="tab-btn-gen"
+                    onclick="switchModeEditorTab('general', event)">⚙️ General</button>
+                <button class="mode-editor-tab" id="tab-btn-txt" onclick="switchModeEditorTab('text', event)">🔤
+                    Text</button>
+                <button class="mode-editor-tab" id="tab-btn-pic" onclick="switchModeEditorTab('picture', event)">🖼️
+                    Picture</button>
+                <button class="mode-editor-tab" id="tab-btn-snd" onclick="switchModeEditorTab('sound', event)">🔊
+                    Sound</button>
+            </div>
+
+            <!-- Tab 1: General -->
+            <div id="mode-editor-tab-general" class="mode-editor-tab-content active">
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Mode
+                        Name</label>
+                    <input type="text" id="mode-edit-name"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
+                        placeholder="e.g. Silent Reading">
+                </div>
+                <div style="display:flex; gap:12px; margin-bottom:12px;">
+                    <div style="flex:1;">
+                        <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Icon /
+                            Emoji</label>
+                        <input type="text" id="mode-edit-icon"
+                            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; text-align:center; font-size:1.2rem;"
+                            value="🤫">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Shortcut
+                            Key (1-9)</label>
+                        <input type="text" id="mode-edit-shortcut"
+                            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; text-align:center;"
+                            maxlength="1" placeholder="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Text -->
+            <div id="mode-editor-tab-text" class="mode-editor-tab-content" style="display:none;">
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Display
+                        Title</label>
+                    <input type="text" id="mode-edit-text-title"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
+                        placeholder="e.g. Quiet Work">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Subtitle /
+                        Instructions</label>
+                    <input type="text" id="mode-edit-text-subtitle"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
+                        placeholder="e.g. Read individually at your desk">
+                </div>
+                <div style="display:flex; gap:12px; margin-bottom:12px;">
+                    <div style="flex:1;">
+                        <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Text
+                            Color</label>
+                        <input type="color" id="mode-edit-text-color"
+                            style="width:100%; height:38px; border:1px solid #ccc; border-radius:4px; padding:2px; cursor:pointer;"
+                            value="#ffffff">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Font
+                            Size</label>
+                        <select id="mode-edit-text-size"
+                            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                            <option value="medium">Medium</option>
+                            <option value="large" selected>Large</option>
+                            <option value="xlarge">Extra Large</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Picture -->
+            <div id="mode-editor-tab-picture" class="mode-editor-tab-content" style="display:none;">
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Picture
+                        Type</label>
+                    <select id="mode-edit-pic-type" onchange="togglePictureTypeFields()"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="emoji">Emoji Icon</option>
+                        <option value="speech_bubbles">Speech Bubbles (Conversation)</option>
+                        <option value="group_icons">Group Avatars (Group Work)</option>
+                        <option value="custom_file">Custom Uploaded Image (Saved to user/mode-image/)</option>
+                        <option value="custom_url">Custom Image URL</option>
+                    </select>
+                </div>
+                <div id="mode-edit-pic-file-wrap" style="display:none; margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Upload Image
+                        File</label>
+                    <input type="file" id="mode-edit-pic-file" accept="image/*" onchange="handleModeImageUpload(event)"
+                        style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px;">
+                    <input type="hidden" id="mode-edit-pic-src">
+                    <div id="mode-edit-pic-preview" style="margin-top:8px; text-align:center; display:none;">
+                        <img id="mode-edit-pic-preview-img"
+                            style="max-height:100px; max-width:100%; border:1px solid #ccc; border-radius:6px;">
+                    </div>
+                </div>
+                <div id="mode-edit-pic-url-wrap" style="display:none; margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Image URL /
+                        Path</label>
+                    <input type="text" id="mode-edit-pic-url"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"
+                        placeholder="user/mode-image/my_image.png">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Animation
+                        Style</label>
+                    <select id="mode-edit-pic-anim"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="none">None (Static)</option>
+                        <option value="pulse">Pulse / Glow</option>
+                        <option value="float">Float / Drift</option>
+                        <option value="bounce">Bounce</option>
+                        <option value="shush">Shush Particles</option>
+                        <option value="bubbles">Speech Bubbles</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Image Sizing &amp; Fit</label>
+                    <select id="mode-edit-pic-fit"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="fit">Fit (Keep proportions, full image visible)</option>
+                        <option value="stretch">Stretch (Fill width &amp; height)</option>
+                        <option value="clip">Clip / Cover (Crop edges to fill area)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tab 4: Sound -->
+            <div id="mode-editor-tab-sound" class="mode-editor-tab-content" style="display:none;">
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Ambient Noise
+                        Type</label>
+                    <select id="mode-edit-sound-type" onchange="toggleSoundTypeFields()"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="none">None</option>
+                        <option value="white">White Noise</option>
+                        <option value="pink">Pink Noise</option>
+                        <option value="brown">Brown Noise</option>
+                        <option value="file">Timer Audio MP3 / Sound File</option>
+                    </select>
+                </div>
+                <div id="mode-edit-sound-file-wrap" style="display:none; margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Select Audio
+                        File</label>
+                    <select id="mode-edit-sound-file"
+                        style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; margin-bottom:6px;">
+                        <!-- Options populated dynamically from availableSoundFiles -->
+                    </select>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                        <span style="font-size:0.8rem; color:#666;">Or upload custom audio file:</span>
+                        <input type="file" id="mode-edit-sound-upload" accept="audio/*"
+                            onchange="handleModeAudioUpload(event)" style="font-size:0.8rem;">
+                    </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Default Volume
+                        (0 - 100%)</label>
+                    <input type="range" id="mode-edit-sound-vol" min="0" max="100" value="20" style="width:100%;"
+                        oninput="document.getElementById('mode-edit-sound-vol-val').textContent = this.value + '%'">
+                    <span id="mode-edit-sound-vol-val"
+                        style="font-size:0.85rem; font-weight:bold; color:#555;">20%</span>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label
+                        style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:0.85rem; cursor:pointer;">
+                        <input type="checkbox" id="mode-edit-sound-chime"> Play chime sound on mode activation
+                    </label>
+                </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div
+                style="margin-top:24px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #eee; padding-top:16px;">
+                <button onclick="closeModeEditor()"
+                    style="background:#fff; color:#666; border:1px solid #ccc; border-radius:4px; padding:8px 16px; font-weight:700; cursor:pointer;">Cancel</button>
+                <button onclick="saveModeFromEditor()"
+                    style="background:#111; color:#fff; border:none; border-radius:4px; padding:8px 24px; font-weight:700; cursor:pointer;">Save
+                    Mode</button>
             </div>
         </div>
     </div>
@@ -2356,6 +2616,10 @@
                 if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
                 if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last'].includes(ui.nameDisplayMode)) nameDisplayMode = ui.nameDisplayMode;
             }
+            if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
+                classModes = config.classModes.map(m => ({ ...m }));
+                if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+            }
             if (config?.classPlans && typeof config.classPlans === 'object') {
                 classPlans = config.classPlans;
             } else {
@@ -2501,6 +2765,7 @@
                     border: entry.border
                 })),
                 badgeDefinitions: badgeDefinitions.map(entry => ({ ...entry })),
+                classModes: classModes.map(entry => ({ ...entry })),
                 soundSettings: normalizeSoundSettings(soundSettings),
                 participationSettings: (() => { const pb = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+'); return normalizeParticipationSettings({ plusMinusCoefficient: pb && Number.isFinite(pb.coefficient) ? pb.coefficient : participationSettings.plusMinusCoefficient, autoFlagLowParticipation: participationSettings.autoFlagLowParticipation, autoFlagBottomPercent: participationSettings.autoFlagBottomPercent, autoFlagElements: participationSettings.autoFlagElements, autoFlagTimeline: participationSettings.autoFlagTimeline }); })(),
                 roleDefinitions: (rolesLibraryLoaded && Array.isArray(roleDefinitions))
@@ -8193,6 +8458,18 @@
             _syncWhiteNoiseUI();
         }
 
+        function stopWhiteNoise() {
+            whiteNoisePlaying = false;
+            whiteNoiseMuted = true;
+            _stopNoiseFileAudio();
+            ['white', 'pink', 'brown'].forEach(t => {
+                if (_noiseGains[t] && audioContext) {
+                    try { _noiseGains[t].gain.setTargetAtTime(0, audioContext.currentTime, 0.05); } catch (e) { }
+                }
+            });
+            _syncWhiteNoiseUI();
+        }
+
         async function toggleWhiteNoiseMute() {
             whiteNoiseMuted = !whiteNoiseMuted;
 
@@ -9019,6 +9296,7 @@ syncState();
             const remaining = timerEndTime - now;
 
             if (remaining <= 0) {
+                stopWhiteNoise();
                 document.getElementById('timer-display').textContent = '00:00';
                 document.getElementById('timer-overlay-display').textContent = '00:00';
                 document.getElementById('timer-display').style.color = '#555';
@@ -9841,10 +10119,90 @@ syncState();
         }
 
         // ============================================================
-        // MODE SYSTEM
+        // MODE SYSTEM & CUSTOMIZABLE MODE MANAGER
         // ============================================================
 
+        const DEFAULT_CLASS_MODES = [
+            {
+                id: 'quiet',
+                name: 'Quiet',
+                icon: '🤫',
+                shortcutKey: '1',
+                text: { title: 'Quiet Work', subtitle: '', size: 'large', color: '#ffffff' },
+                picture: { type: 'emoji', src: '🤫', animation: 'shush' },
+                sound: { type: 'none', volume: 20, chime: false },
+                isBuiltIn: true
+            },
+            {
+                id: 'conversation',
+                name: 'Talk',
+                icon: '💬',
+                shortcutKey: '2',
+                text: { title: 'Conversation', subtitle: '', size: 'large', color: '#ffffff' },
+                picture: { type: 'speech_bubbles', src: '', animation: 'bubbles' },
+                sound: { type: 'none', volume: 20, chime: false },
+                isBuiltIn: true
+            },
+            {
+                id: 'group',
+                name: 'Group',
+                icon: '👥',
+                shortcutKey: '3',
+                text: { title: 'Group Work', subtitle: 'Work together with your team', size: 'large', color: '#ffffff' },
+                picture: { type: 'group_icons', src: '', animation: 'bounce' },
+                sound: { type: 'none', volume: 20, chime: false },
+                isBuiltIn: true
+            }
+        ];
+
+        let classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
+        let activeEditingModeId = null;
+
+        function renderTimerModeShortcuts() {
+            // Render 1: Timer Popup shortcuts (.timer-mode-shortcuts)
+            const popupContainer = document.getElementById('timer-mode-shortcuts-container');
+            if (popupContainer) {
+                let html = classModes.map(mode => {
+                    const icon = mode.icon || '🎭';
+                    const name = mode.name || 'Mode';
+                    const keyStr = mode.shortcutKey ? ` (${mode.shortcutKey})` : '';
+                    return `<button class="timer-mode-shortcut" onclick="activateMode('${mode.id}')" title="${name}${keyStr}">${icon}<span>${name}</span></button>`;
+                }).join('');
+                html += `<button class="timer-mode-shortcut timer-mode-edit-btn" onclick="openModeManager()" title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;">⚙️<span>Edit</span></button>`;
+                popupContainer.innerHTML = html;
+            }
+
+            // Render 2: Mode Picker options (.mode-options)
+            const pickerContainer = document.getElementById('mode-picker-options-container');
+            if (pickerContainer) {
+                pickerContainer.innerHTML = classModes.map(mode => {
+                    const icon = mode.icon || '🎭';
+                    const name = mode.name || 'Mode';
+                    const kbd = mode.shortcutKey ? `<span class="mode-kbd">${mode.shortcutKey}</span>` : '';
+                    return `<button class="mode-option-btn" onclick="activateMode('${mode.id}')">
+                        <span class="mode-icon">${icon}</span>
+                        <span>${name}</span>
+                        ${kbd}
+                    </button>`;
+                }).join('');
+            }
+
+            // Render 3: Fullscreen Overlay shortcuts (#mode-overlay-shortcuts)
+            const overlayContainer = document.getElementById('mode-overlay-shortcuts');
+            if (overlayContainer) {
+                const noisePanel = document.getElementById('mode-overlay-noise-panel');
+                const noiseHtml = noisePanel ? noisePanel.outerHTML : '';
+                let btnsHtml = classModes.map(mode => {
+                    const icon = mode.icon || '🎭';
+                    const kbd = mode.shortcutKey ? `<kbd>${mode.shortcutKey}</kbd>` : '';
+                    return `<button class="mode-overlay-shortcut-btn" onclick="activateMode('${mode.id}')">${icon}${kbd}</button>`;
+                }).join('');
+                overlayContainer.innerHTML = btnsHtml + noiseHtml;
+            }
+        }
+
         function openModePicker() {
+            renderTimerModeShortcuts();
             document.getElementById('mode-picker-modal').style.display = 'flex';
         }
 
@@ -9852,21 +10210,362 @@ syncState();
             document.getElementById('mode-picker-modal').style.display = 'none';
         }
 
-        function activateMode(mode) {
+        function openModeManager() {
+            closeModePicker();
+            renderModeManagerList();
+            document.getElementById('mode-manager-modal').style.display = 'flex';
+        }
+
+        function closeModeManager() {
+            document.getElementById('mode-manager-modal').style.display = 'none';
+        }
+
+        function renderModeManagerList() {
+            const list = document.getElementById('mode-manager-list');
+            if (!list) return;
+            if (!classModes.length) {
+                list.innerHTML = '<div style="color:#888; text-align:center; padding:12px;">No modes defined. Click "+ New Mode" to add one.</div>';
+                return;
+            }
+            list.innerHTML = classModes.map((mode, index) => {
+                const icon = mode.icon || '🎭';
+                const key = mode.shortcutKey ? `<span style="background:#eee; border:1px solid #ccc; border-radius:3px; padding:1px 5px; font-size:0.75rem; font-weight:bold;">${mode.shortcutKey}</span>` : '';
+                const builtInBadge = mode.isBuiltIn ? '<span style="font-size:0.7rem; color:#888; background:#f0f0f0; border-radius:3px; padding:2px 6px;">Built-in</span>' : '';
+                const isFirst = index === 0;
+                const isLast = index === classModes.length - 1;
+
+                return `<div class="mode-manager-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f9f9f9; border:1px solid #e0e0e0; border-radius:6px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <button onclick="reorderMode(${index}, -1)" ${isFirst ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; font-size:0.75rem; padding:0;">▲</button>
+                            <button onclick="reorderMode(${index}, 1)" ${isLast ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; font-size:0.75rem; padding:0;">▼</button>
+                        </div>
+                        <span style="font-size:1.4rem;">${icon}</span>
+                        <div>
+                            <div style="font-weight:bold; font-size:0.95rem; display:flex; align-items:center; gap:6px;">${mode.name} ${key} ${builtInBadge}</div>
+                            <div style="font-size:0.78rem; color:#666;">${mode.text?.title || ''}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button onclick="openModeEditor('${mode.id}')" title="Edit Mode" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">✏️ Edit</button>
+                        <button onclick="duplicateMode('${mode.id}')" title="Duplicate Mode" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">📋 Duplicate</button>
+                        <button onclick="deleteMode('${mode.id}')" title="Delete Mode" style="background:#fff; border:1px solid #f9c2c2; color:#c00; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">🗑️ Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function reorderMode(index, delta) {
+            const target = index + delta;
+            if (target < 0 || target >= classModes.length) return;
+            const item = classModes.splice(index, 1)[0];
+            classModes.splice(target, 0, item);
+            renderModeManagerList();
+            renderTimerModeShortcuts();
+            persistSettingsToUserFile().catch(err => console.warn('reorderMode config save error:', err));
+        }
+
+        function createNewMode() {
+            const newId = 'mode_' + Date.now();
+            const newMode = {
+                id: newId,
+                name: 'Custom Mode',
+                icon: '⭐️',
+                shortcutKey: String(Math.min(classModes.length + 1, 9)),
+                text: { title: 'Custom Mode', subtitle: 'Follow instructions', size: 'large', color: '#ffffff' },
+                picture: { type: 'emoji', src: '⭐️', animation: 'pulse' },
+                sound: { type: 'none', volume: 20, chime: false },
+                isBuiltIn: false
+            };
+            classModes.push(newMode);
+            renderModeManagerList();
+            renderTimerModeShortcuts();
+            openModeEditor(newId);
+        }
+
+        function duplicateMode(modeId) {
+            const original = classModes.find(m => m.id === modeId);
+            if (!original) return;
+            const dup = JSON.parse(JSON.stringify(original));
+            dup.id = 'mode_' + Date.now();
+            dup.name = original.name + ' (Copy)';
+            dup.isBuiltIn = false;
+            dup.shortcutKey = String(Math.min(classModes.length + 1, 9));
+            classModes.push(dup);
+            renderModeManagerList();
+            renderTimerModeShortcuts();
+            persistSettingsToUserFile().catch(err => console.warn('duplicateMode save config:', err));
+        }
+
+        function deleteMode(modeId) {
+            const index = classModes.findIndex(m => m.id === modeId);
+            if (index === -1) return;
+            if (confirm(`Are you sure you want to delete "${classModes[index].name}"?`)) {
+                classModes.splice(index, 1);
+                renderModeManagerList();
+                renderTimerModeShortcuts();
+                persistSettingsToUserFile().catch(err => console.warn('deleteMode save config:', err));
+            }
+        }
+
+        function resetModesToDefault() {
+            if (confirm('Reset class modes to standard defaults (Quiet, Talk, Group)?')) {
+                classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
+                renderModeManagerList();
+                renderTimerModeShortcuts();
+                persistSettingsToUserFile().catch(err => console.warn('resetModesToDefault save config:', err));
+            }
+        }
+
+        function switchModeEditorTab(tabName, evt) {
+            document.querySelectorAll('.mode-editor-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.mode-editor-tab-content').forEach(c => c.style.display = 'none');
+
+            if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+            const target = document.getElementById('mode-editor-tab-' + tabName);
+            if (target) target.style.display = 'block';
+        }
+
+        function openModeEditor(modeId) {
+            const mode = classModes.find(m => m.id === modeId);
+            if (!mode) return;
+            activeEditingModeId = modeId;
+
+            document.getElementById('mode-editor-title').textContent = 'Edit Mode: ' + mode.name;
+            document.getElementById('mode-edit-name').value = mode.name || '';
+            document.getElementById('mode-edit-icon').value = mode.icon || '🎭';
+            document.getElementById('mode-edit-shortcut').value = mode.shortcutKey || '';
+
+            document.getElementById('mode-edit-text-title').value = mode.text?.title || mode.name || '';
+            document.getElementById('mode-edit-text-subtitle').value = mode.text?.subtitle || '';
+            document.getElementById('mode-edit-text-color').value = mode.text?.color || '#ffffff';
+            document.getElementById('mode-edit-text-size').value = mode.text?.size || 'large';
+
+            const picType = mode.picture?.type || 'emoji';
+            document.getElementById('mode-edit-pic-type').value = picType;
+            document.getElementById('mode-edit-pic-src').value = mode.picture?.src || '';
+            document.getElementById('mode-edit-pic-url').value = (picType === 'custom_url' || picType === 'custom_file') ? (mode.picture?.src || '') : '';
+            document.getElementById('mode-edit-pic-anim').value = mode.picture?.animation || 'none';
+            document.getElementById('mode-edit-pic-fit').value = mode.picture?.fit || 'fit';
+            togglePictureTypeFields();
+
+            document.getElementById('mode-edit-sound-type').value = mode.sound?.type || 'none';
+            populateModeAudioFileDropdown(mode.sound?.file || '');
+            toggleSoundTypeFields();
+
+            const vol = mode.sound?.volume ?? 20;
+            document.getElementById('mode-edit-sound-vol').value = vol;
+            document.getElementById('mode-edit-sound-vol-val').textContent = vol + '%';
+            document.getElementById('mode-edit-sound-chime').checked = !!mode.sound?.chime;
+
+            switchModeEditorTab('general', { currentTarget: document.getElementById('tab-btn-gen') });
+            document.getElementById('mode-editor-modal').style.display = 'flex';
+        }
+
+        function closeModeEditor() {
+            document.getElementById('mode-editor-modal').style.display = 'none';
+            activeEditingModeId = null;
+        }
+
+        function togglePictureTypeFields() {
+            const type = document.getElementById('mode-edit-pic-type').value;
+            const fileWrap = document.getElementById('mode-edit-pic-file-wrap');
+            const urlWrap = document.getElementById('mode-edit-pic-url-wrap');
+            if (fileWrap) fileWrap.style.display = type === 'custom_file' ? 'block' : 'none';
+            if (urlWrap) urlWrap.style.display = type === 'custom_url' ? 'block' : 'none';
+        }
+
+        function toggleSoundTypeFields() {
+            const type = document.getElementById('mode-edit-sound-type').value;
+            const fileWrap = document.getElementById('mode-edit-sound-file-wrap');
+            if (fileWrap) fileWrap.style.display = (type === 'file') ? 'block' : 'none';
+        }
+
+        function populateModeAudioFileDropdown(selectedPath = '') {
+            const select = document.getElementById('mode-edit-sound-file');
+            if (!select) return;
+            if (!availableSoundFiles || !availableSoundFiles.length) {
+                select.innerHTML = '<option value="">(No sound files found)</option>';
+                return;
+            }
+            select.innerHTML = availableSoundFiles.map(f => {
+                const label = f.replace(/^sounds\//, '').replace(/^user\/custom-data\/sounds\//, '');
+                const isSel = (f === selectedPath) ? ' selected' : '';
+                return `<option value="${f}"${isSel}>🎵 ${label}</option>`;
+            }).join('');
+        }
+
+        async function handleModeAudioUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (window.Desktop && typeof window.Desktop.saveFile === 'function') {
+                try {
+                    const ext = file.name.split('.').pop() || 'mp3';
+                    const targetName = `sound_${Date.now()}.${ext}`;
+                    const targetFolder = 'user/custom-data/sounds';
+
+                    const reader = new FileReader();
+                    reader.onload = async function (e) {
+                        const content = e.target.result;
+                        const res = await window.Desktop.saveFile({
+                            folder: targetFolder,
+                            filename: targetName,
+                            content: content
+                        });
+                        const filePath = res?.path || `sounds/${targetName}`;
+                        if (!availableSoundFiles.includes(filePath)) availableSoundFiles.push(filePath);
+                        populateModeAudioFileDropdown(filePath);
+                        persistSettingsToUserFile({ soundFiles: availableSoundFiles }).catch(() => { });
+                    };
+                    reader.readAsDataURL(file);
+                    return;
+                } catch (err) {
+                    console.warn('Custom audio upload error:', err);
+                }
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const dataUrl = e.target.result;
+                const nameKey = file.name;
+                if (!availableSoundFiles.includes(nameKey)) availableSoundFiles.push(nameKey);
+                populateModeAudioFileDropdown(nameKey);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function handleModeImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const previewImg = document.getElementById('mode-edit-pic-preview-img');
+            const previewWrap = document.getElementById('mode-edit-pic-preview');
+
+            // If Desktop electron bridge available, save file into dedicated user/mode-image directory
+            if (window.Desktop && typeof window.Desktop.saveFile === 'function') {
+                try {
+                    const ext = file.name.split('.').pop() || 'png';
+                    const targetName = `mode_img_${Date.now()}.${ext}`;
+                    const targetSubfolder = 'user/mode-image';
+
+                    const reader = new FileReader();
+                    reader.onload = async function (e) {
+                        const content = e.target.result;
+                        const res = await window.Desktop.saveFile({
+                            folder: targetSubfolder,
+                            filename: targetName,
+                            content: content
+                        });
+                        const savedPath = res?.path ? `../${res.path}` : `../user/mode-image/${targetName}`;
+                        document.getElementById('mode-edit-pic-src').value = savedPath;
+                        if (previewImg) previewImg.src = content;
+                        if (previewWrap) previewWrap.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                    return;
+                } catch (err) {
+                    console.warn('Dedicated mode image save failed, using reader data url fallback:', err);
+                }
+            }
+
+            // Web fallback
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const dataUrl = e.target.result;
+                document.getElementById('mode-edit-pic-src').value = dataUrl;
+                if (previewImg) previewImg.src = dataUrl;
+                if (previewWrap) previewWrap.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveModeFromEditor() {
+            if (!activeEditingModeId) return;
+            const mode = classModes.find(m => m.id === activeEditingModeId);
+            if (!mode) return;
+
+            const name = document.getElementById('mode-edit-name').value.trim() || 'Mode';
+            const icon = document.getElementById('mode-edit-icon').value.trim() || '🎭';
+            const shortcutKey = document.getElementById('mode-edit-shortcut').value.trim();
+
+            const textTitle = document.getElementById('mode-edit-text-title').value.trim() || name;
+            const textSubtitle = document.getElementById('mode-edit-text-subtitle').value.trim();
+            const textColor = document.getElementById('mode-edit-text-color').value;
+            const textSize = document.getElementById('mode-edit-text-size').value;
+
+            const picType = document.getElementById('mode-edit-pic-type').value;
+            let picSrc = document.getElementById('mode-edit-pic-src').value;
+            if (picType === 'custom_url') {
+                picSrc = document.getElementById('mode-edit-pic-url').value.trim();
+            } else if (picType === 'emoji') {
+                picSrc = icon;
+            }
+            const picAnim = document.getElementById('mode-edit-pic-anim').value;
+            const picFit = document.getElementById('mode-edit-pic-fit')?.value || 'fit';
+
+            const soundType = document.getElementById('mode-edit-sound-type').value;
+            const soundFile = document.getElementById('mode-edit-sound-file')?.value || '';
+            const soundVol = parseInt(document.getElementById('mode-edit-sound-vol').value, 10) || 20;
+            const soundChime = document.getElementById('mode-edit-sound-chime').checked;
+
+            mode.name = name;
+            mode.icon = icon;
+            mode.shortcutKey = shortcutKey;
+            mode.text = { title: textTitle, subtitle: textSubtitle, color: textColor, size: textSize };
+            mode.picture = { type: picType, src: picSrc, animation: picAnim, fit: picFit };
+            mode.sound = { type: soundType, file: soundFile, volume: soundVol, chime: soundChime };
+
+            closeModeEditor();
+            renderModeManagerList();
+            renderTimerModeShortcuts();
+            persistSettingsToUserFile().catch(err => console.warn('saveModeFromEditor config save error:', err));
+        }
+
+        function activateMode(modeId) {
             closeModePicker();
             // Close fullscreen timer overlay so the mode overlay is visible on top
             document.getElementById('timer-overlay').classList.remove('active');
             const overlay = document.getElementById('mode-animation-overlay');
             const content = document.getElementById('mode-animation-content');
 
-            if (mode === 'quiet') {
+            const mode = classModes.find(m => m.id === modeId || m.name.toLowerCase() === modeId.toLowerCase());
+
+            if (mode) {
+                // Built-in presets custom handlers vs generic builder
+                if (mode.id === 'quiet' && mode.picture?.type === 'emoji' && mode.picture?.animation === 'shush') {
+                    content.innerHTML = buildQuietMode();
+                    spawnShushParticles();
+                } else if (mode.id === 'conversation' && mode.picture?.type === 'speech_bubbles') {
+                    content.innerHTML = buildConversationMode();
+                    animateSpeechBubbles();
+                } else if (mode.id === 'group' && mode.picture?.type === 'group_icons') {
+                    content.innerHTML = buildGroupMode();
+                } else {
+                    // Custom Mode Renderer
+                    content.innerHTML = buildCustomModeHTML(mode);
+                    if (mode.picture?.animation === 'shush') spawnShushParticles();
+                    if (mode.picture?.animation === 'bubbles') animateSpeechBubbles();
+                }
+
+                // Handle sound options
+                if (mode.sound && mode.sound.type && mode.sound.type !== 'none') {
+                    if (mode.sound.type === 'file') {
+                        if (mode.sound.file) {
+                            soundSettings = soundSettings || {};
+                            soundSettings.timerBackground = soundSettings.timerBackground || {};
+                            soundSettings.timerBackground.file = mode.sound.file;
+                        }
+                        if (typeof overlaySetNoise === 'function') overlaySetNoise('file');
+                    } else {
+                        if (typeof overlaySetNoise === 'function') overlaySetNoise(mode.sound.type);
+                    }
+                }
+                if (mode.sound && mode.sound.chime) {
+                    playTimerBeep(2, 600);
+                }
+            } else {
                 content.innerHTML = buildQuietMode();
-                spawnShushParticles();
-            } else if (mode === 'conversation') {
-                content.innerHTML = buildConversationMode();
-                animateSpeechBubbles();
-            } else if (mode === 'group') {
-                content.innerHTML = buildGroupMode();
             }
 
             overlay.classList.add('active');
@@ -9879,14 +10578,59 @@ syncState();
 
             // Mark active shortcut button
             document.querySelectorAll('.mode-overlay-shortcut-btn').forEach(btn => btn.classList.remove('active-mode'));
-            const modeIndex = { quiet: 0, conversation: 1, group: 2 }[mode];
+            const modeIndex = classModes.findIndex(m => m.id === modeId || m.id === mode?.id);
             const btns = document.querySelectorAll('.mode-overlay-shortcut-btn');
             if (btns[modeIndex]) btns[modeIndex].classList.add('active-mode');
 
-            if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode });
+            if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode: modeId });
+        }
+
+        function buildCustomModeHTML(mode) {
+            const title = mode.text?.title || mode.name || '';
+            const subtitle = mode.text?.subtitle || '';
+            const color = mode.text?.color || '#ffffff';
+            const sizeClass = mode.text?.size === 'xlarge' ? 'size-xl' : (mode.text?.size === 'medium' ? 'size-m' : 'size-l');
+            const animClass = mode.picture?.animation ? 'anim-' + mode.picture.animation : '';
+
+            let picHtml = '';
+            if (mode.picture?.type === 'custom_file' || mode.picture?.type === 'custom_url') {
+                let imgSrc = mode.picture.src || '';
+                if (imgSrc && !imgSrc.startsWith('data:') && !imgSrc.startsWith('http://') && !imgSrc.startsWith('https://') && !imgSrc.startsWith('file://')) {
+                    if (imgSrc.startsWith('user/')) {
+                        imgSrc = '../' + imgSrc;
+                    } else if (!imgSrc.startsWith('../user/') && !imgSrc.startsWith('./') && !imgSrc.startsWith('../')) {
+                        imgSrc = '../user/mode-image/' + imgSrc.replace(/^mode-image\//, '');
+                    }
+                }
+                const fit = mode.picture?.fit || 'fit';
+                let fitStyle = 'object-fit:contain; max-height:45vh; max-width:85vw;';
+                if (fit === 'stretch') {
+                    fitStyle = 'object-fit:fill; width:85vw; height:45vh;';
+                } else if (fit === 'clip') {
+                    fitStyle = 'object-fit:cover; width:85vw; height:45vh;';
+                }
+                picHtml = `<img src="${imgSrc}" class="custom-mode-img ${animClass}" style="${fitStyle} border-radius:12px; margin-bottom:16px;">`;
+            } else if (mode.picture?.type === 'speech_bubbles') {
+                picHtml = `<div class="speech-bubbles-container"><div class="speech-bubble left">Great idea!</div><div class="speech-bubble right">I agree!</div></div>`;
+            } else if (mode.picture?.type === 'group_icons') {
+                picHtml = `<div class="group-icons-row"><div class="group-person"><div class="group-person-icon">🧑🏿</div></div><div class="group-person"><div class="group-person-icon">👩🏼</div></div><div class="group-person"><div class="group-person-icon">🧒🏽</div></div></div>`;
+            } else {
+                const icon = mode.icon || mode.picture?.src || '🎭';
+                picHtml = `<div class="custom-mode-icon ${animClass}" style="font-size:5rem; margin-bottom:12px;">${icon}</div>`;
+            }
+
+            return `
+                <div class="custom-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
+                    ${picHtml}
+                    <div class="custom-mode-title" style="font-size:3rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;">${title}</div>
+                    ${subtitle ? `<div class="custom-mode-subtitle" style="font-size:1.3rem; opacity:0.9; margin-bottom:16px;">${subtitle}</div>` : ''}
+                    ${getModeTimerHTML()}
+                </div>
+            `;
         }
 
         function closeMode() {
+            stopWhiteNoise();
             document.getElementById('mode-animation-overlay').classList.remove('active');
             document.getElementById('mode-animation-content').innerHTML = '';
             if (!PRESENTATION_MODE && presSettings.modes) {
@@ -9975,7 +10719,7 @@ syncState();
                 ["Building on what you said...", "How does that connect to our previous point?", "That reminds me of a similar situation where..."],
                 ["If we changed one variable, would your view hold?", "What would be the best-case scenario?", "Suppose the opposite were true; what then?"],
                 ["Just so I’m following—are you saying that...?", "I want to make sure I grasp your point; is it...?", "Could you give me a concrete example?"],
-                ["It sounds like we agree on X, but differ on Y. Right?", "How can we reconcile these two viewpoints?", "If we had to find a middle ground, what would it be?"]
+                ["It sounds like we agree on X, but differ on Y. Right?", "How can we reconcile these two viewpoints?", "If we had to find a middle ground, what would be it?"]
             ];
             let set = 0;
             function cycle() {
@@ -10083,7 +10827,7 @@ syncState();
                 toggleRosterPlanView();
             }
 
-            // 1/2/3 shortcuts — switch mode when mode-picker OR fullscreen timer is open
+            // Dynamic numeric key shortcuts (1-9) for modes when overlay/picker is open
             if (!e.ctrlKey && !e.altKey && !e.metaKey) {
                 const modeOverlay = document.getElementById('mode-animation-overlay');
                 const modePicker = document.getElementById('mode-picker-modal');
@@ -10093,9 +10837,11 @@ syncState();
                 const modeOpen = modeOverlay && modeOverlay.classList.contains('active');
 
                 if (pickerOpen || timerFsOpen || modeOpen) {
-                    if (e.key === '1') { e.preventDefault(); activateMode('quiet'); }
-                    if (e.key === '2') { e.preventDefault(); activateMode('conversation'); }
-                    if (e.key === '3') { e.preventDefault(); activateMode('group'); }
+                    const matchedMode = classModes.find(m => m.shortcutKey === e.key);
+                    if (matchedMode) {
+                        e.preventDefault();
+                        activateMode(matchedMode.id);
+                    }
                 }
 
                 // White noise shortcuts — active when any overlay is open

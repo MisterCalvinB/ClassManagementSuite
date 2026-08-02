@@ -558,11 +558,18 @@ The main classroom control panel. Open at the start of every lesson to manage th
 
 ### Timer
 
+### Timer & Class Modes
+
 A countdown or stopwatch displayed as a full-screen overlay.
 
 - Set duration in hours and minutes.
-- **Class Mode** shortcuts: 🤫 Quiet Work · 💬 Conversation · 👥 Group Work (also mapped to keys **1 / 2 / 3**).
-- **Ambient sound**: white noise, pink noise, brown noise, or a custom MP3 file that loops softly while the timer runs.
+- **Class Mode** shortcuts: 🤫 Quiet Work · 💬 Conversation · 👥 Group Work (or any custom modes, mapped to keys **1**–**9**).
+- **Edit Modes Manager**: open via **⚙ Settings → Edit Modes**, timer popup **⚙️ Edit**, or mode picker **Edit Modes**. Create, edit, duplicate, reorder (▲/▼), and delete working modes.
+- **Mode Editor options**:
+  - **General**: Name, Icon/Emoji, Shortcut key (1–9).
+  - **Text**: Custom full-screen title, instructions subtitle, font size, and text color.
+  - **Picture**: Emojis, speech bubbles, group avatars, custom image URLs, or upload custom images (saved into `user/mode-image/`). Sizing & fit modes (*Fit*, *Stretch*, *Clip/Cover*). Visual animations: *Pulse*, *Float*, *Bounce*, *Shush*, *Bubbles*.
+  - **Sound**: Ambient noise (White, Pink, Brown), select specific MP3 audio files from the sound library or upload custom audio into `user/custom-data/sounds/`, volume control, and activation chimes.
 - Configurable end-of-timer beeps (1–20), drumroll lead-up, and gavel/alarm sound.
 - A progress bar shrinks as time elapses; the overlay collapses when the timer reaches zero.
 
@@ -617,6 +624,7 @@ Accessed from the top-right ⚙ menu:
 | **Edit Sounds** | Pick audio files or built-in sounds for every event slot (timer end, ambient, drumroll, gavel, score sounds); each slot has a 0–100 volume slider. Use **⊕ Import Audio Files** to copy audio files directly from disk into the sounds folder, then **↻ Refresh** to make them available |
 | **Edit Roles** | Manage role titles and descriptions |
 | **Edit Autoflag** | Bottom-% threshold, elements to count, and timeline |
+| **Edit Modes** | Create, edit, duplicate, reorder, and delete class modes; set custom text, picture/animations, and ambient audio files |
 | **Class Plan** | Seating layout and weekly schedule |
 | **App Title** | Custom teacher or school name shown in the header |
 | **Startup Window** | Which tool opens automatically at launch |
@@ -667,7 +675,7 @@ A language switcher supports **EN · FR · DE · IT**.
 | Ctrl+Space | Pick a random student |
 | Ctrl+Shift+K | Open Team Maker |
 | Ctrl+M | Open Class Mode picker |
-| 1 / 2 / 3 (mode/timer open) | Switch mode — Quiet / Talk / Group |
+| 1–9 (mode/timer open) | Switch mode (activates mode assigned to numeric key 1–9) |
 | W (mode/timer open) | Toggle white noise on / off |
 | M (mode/timer open) | Mute / unmute white noise |
 | [ / ] (mode/timer open) | Decrease / increase white noise volume |
