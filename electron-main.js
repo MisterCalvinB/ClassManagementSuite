@@ -1861,12 +1861,11 @@ async function saveDriveConfig(cfg) {
 }
 
 function buildOAuth2Client(clientId, clientSecret, redirectPort) {
-  const { google } = require('googleapis');
-  return new google.auth.OAuth2(clientId, clientSecret, `http://localhost:${redirectPort}`);
+  const { auth } = require('@googleapis/drive');
+  return new auth.OAuth2(clientId, clientSecret, `http://localhost:${redirectPort}`);
 }
 
 async function startDriveOAuthFlow(cfg) {
-  const { google } = require('googleapis');
   return new Promise((resolve, reject) => {
     const server = http.createServer();
     server.listen(0, '127.0.0.1', () => {
@@ -1905,8 +1904,8 @@ async function startDriveOAuthFlow(cfg) {
           oauth2.setCredentials(tokens);
           let email = '';
           try {
-            const info = await google.oauth2({ version: 'v2', auth: oauth2 }).userinfo.get();
-            email = info.data.email || '';
+            const info = await oauth2.request({ url: 'https://www.googleapis.com/oauth2/v2/userinfo' });
+            email = (info.data && info.data.email) || '';
           } catch {}
           const updated = { ...cfg, tokens, userEmail: email };
           await saveDriveConfig(updated);
@@ -1926,14 +1925,14 @@ async function startDriveOAuthFlow(cfg) {
 
 async function getDriveApiClient(cfg) {
   if (!cfg.tokens) throw new Error('Not connected to Google Drive.');
-  const { google } = require('googleapis');
+  const { drive } = require('@googleapis/drive');
   const oauth2 = buildOAuth2Client(cfg.clientId, cfg.clientSecret, 0);
   oauth2.setCredentials(cfg.tokens);
   oauth2.on('tokens', async (newTokens) => {
     const latest = await loadDriveConfig();
     await saveDriveConfig({ ...latest, tokens: { ...latest.tokens, ...newTokens } }).catch(() => {});
   });
-  return google.drive({ version: 'v3', auth: oauth2 });
+  return drive({ version: 'v3', auth: oauth2 });
 }
 
 async function driveEnsureFolder(drive, name, parentId) {
