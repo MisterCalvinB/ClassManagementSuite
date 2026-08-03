@@ -1213,16 +1213,7 @@
     });
   }
 
-  async function init() {
-    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
-      try {
-        const cfgResult = await Desktop.readJson('user', 'config.js');
-        if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
-          const merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
-          localStorage.setItem('cmt-general-config', JSON.stringify(merged));
-        }
-      } catch (e) { console.warn('launcher: could not read config.js:', e); }
-    }
+  function init() {
     const popup = document.getElementById('cfgPopup');
     popup.querySelector('.cfg-label-input').addEventListener('input',  persistPopupConfig);
     popup.querySelector('.cfg-notes').addEventListener('input',        persistPopupConfig);
@@ -1232,6 +1223,17 @@
     applyTitle();
     renderSections();
     initSidebarCollapse();
+
+    // Async sync config from disk in background without blocking launcher render
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
+      Desktop.readJson('user', 'config.js').then(function(cfgResult) {
+        if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
+          const merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+          localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+          applyTitle();
+        }
+      }).catch(function(e) { console.warn('launcher: could not read config.js:', e); });
+    }
 
     // Sidebar
     var _sbPrefs = sbGetPrefs();
@@ -1254,7 +1256,11 @@
     document.getElementById('sbCountInput').addEventListener('blur', function() {
       if (!document.getElementById('sbCountPopup').hidden) sbApplyCount(this.value);
     });
-    if (_sbOpen) sbLoadAll();
+
+    // Defer sidebar file loading slightly so main launcher grid renders instantly
+    if (_sbOpen) {
+      setTimeout(function() { sbLoadAll(); }, 50);
+    }
 
     document.getElementById('addSectionBtn').addEventListener('click', function() {
       var groups = resolveGroups();

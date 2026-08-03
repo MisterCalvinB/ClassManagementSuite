@@ -469,6 +469,8 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
   mainWindow = new BrowserWindow({
     width: 1600,
     height: 1000,
+    show: false,
+    backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
@@ -477,6 +479,20 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
       sandbox: false
     }
   });
+
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
+  });
+
+  // Fallback to ensure window is shown even if ready-to-show is delayed
+  const showFallbackTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }, 800);
+  mainWindow.once('show', () => clearTimeout(showFallbackTimer));
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.on('close', (event) => {
@@ -5765,7 +5781,9 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
 });
 
 // ── DOCX Export ───────────────────────────────────────────────────────────────
-{
+let _docxExporter = null;
+function _getDocxExporter() {
+  if (_docxExporter) return _docxExporter;
   const { Marked } = require('marked');
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
           WidthType, BorderStyle, AlignmentType, ExternalHyperlink, ImageRun,
@@ -6112,64 +6130,68 @@ ipcMain.handle('app:reset-folders', async (event, { targets: targetNames = [] } 
     return out;
   }
 
-  ipcMain.handle('app:export-docx', async (event, request = {}) => {
-    try {
-      const cleanFont = String(request.fontFamily || 'Segoe UI')
-        .split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Segoe UI';
-      const ptSize = parseCssFontSize(String(request.fontSize || ''), Number(request.fontSize) || 11);
-      const halfPt = Math.round(ptSize * 2);
-      const margins = request.margins || { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 };
-      const pmm = PAGE_SIZES_MM_DOCX[request.size] || PAGE_SIZES_MM_DOCX.A4;
-      const landscape = request.orientation === 'landscape';
-      const pageW = MM2T(landscape ? pmm.h : pmm.w);
-      const pageH = MM2T(landscape ? pmm.w : pmm.h);
-
-      const bodyColor   = parseCssColor(request.color);
-      const lineSpacing = parseCssLineHeight(request.lineHeight);
-      const bodyRun = { ...(bodyColor ? { color: bodyColor } : {}) };
-      const textWidthMm = (landscape ? pmm.h : pmm.w) - margins.left - margins.right;
-      const textWidthPx = textWidthMm * 96 / 25.4;
-      const ctx = {
-        font: cleanFont, halfPt, numConfigs: [], bodyRun, lineSpacing,
-        images: request.images || {},
-        textWidthPx,
-        imageWidthMode: String(request.imageWidth || 'auto')
-      };
-      const tokens = _markedDocx.lexer(String(request.markdown || ''));
-      const children = docxBlockTokens(tokens, ctx);
-      if (!children.length) children.push(new Paragraph({ children: [] }));
-
-      const doc = new Document({
-        numbering: ctx.numConfigs.length ? { config: ctx.numConfigs } : undefined,
-        sections: [{
-          properties: {
-            page: {
-              size: { width: pageW, height: pageH },
-              margin: { top: MM2T(margins.top), right: MM2T(margins.right), bottom: MM2T(margins.bottom), left: MM2T(margins.left) }
-            }
-          },
-          children
-        }]
-      });
-
-      const buffer = await Packer.toBuffer(doc);
-      const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
-        ? request.defaultName.trim().replace(/\.md$/, '')
-        : 'document';
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        title: 'Save as DOCX',
-        defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
-        filters: [{ name: 'Word Document', extensions: ['docx'] }]
-      });
-      if (canceled || !filePath) return { ok: false, canceled: true };
-      await fs.writeFile(filePath, buffer);
-      return { ok: true, path: filePath, name: path.basename(filePath) };
-    } catch (err) {
-      console.error('export-docx failed', err);
-      return { ok: false, error: String(err && err.message ? err.message : err) };
-    }
-  });
+  _docxExporter = { _markedDocx, MM2T, parseCssColor, parseCssLineHeight, parseCssFontSize, PAGE_SIZES_MM_DOCX, docxBlockTokens, Document, Packer, Paragraph };
+  return _docxExporter;
 }
+
+ipcMain.handle('app:export-docx', async (event, request = {}) => {
+  try {
+    const { _markedDocx, MM2T, parseCssColor, parseCssLineHeight, parseCssFontSize, PAGE_SIZES_MM_DOCX, docxBlockTokens, Document, Packer, Paragraph } = _getDocxExporter();
+    const cleanFont = String(request.fontFamily || 'Segoe UI')
+      .split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Segoe UI';
+    const ptSize = parseCssFontSize(String(request.fontSize || ''), Number(request.fontSize) || 11);
+    const halfPt = Math.round(ptSize * 2);
+    const margins = request.margins || { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 };
+    const pmm = PAGE_SIZES_MM_DOCX[request.size] || PAGE_SIZES_MM_DOCX.A4;
+    const landscape = request.orientation === 'landscape';
+    const pageW = MM2T(landscape ? pmm.h : pmm.w);
+    const pageH = MM2T(landscape ? pmm.w : pmm.h);
+
+    const bodyColor   = parseCssColor(request.color);
+    const lineSpacing = parseCssLineHeight(request.lineHeight);
+    const bodyRun = { ...(bodyColor ? { color: bodyColor } : {}) };
+    const textWidthMm = (landscape ? pmm.h : pmm.w) - margins.left - margins.right;
+    const textWidthPx = textWidthMm * 96 / 25.4;
+    const ctx = {
+      font: cleanFont, halfPt, numConfigs: [], bodyRun, lineSpacing,
+      images: request.images || {},
+      textWidthPx,
+      imageWidthMode: String(request.imageWidth || 'auto')
+    };
+    const tokens = _markedDocx.lexer(String(request.markdown || ''));
+    const children = docxBlockTokens(tokens, ctx);
+    if (!children.length) children.push(new Paragraph({ children: [] }));
+
+    const doc = new Document({
+      numbering: ctx.numConfigs.length ? { config: ctx.numConfigs } : undefined,
+      sections: [{
+        properties: {
+          page: {
+            size: { width: pageW, height: pageH },
+            margin: { top: MM2T(margins.top), right: MM2T(margins.right), bottom: MM2T(margins.bottom), left: MM2T(margins.left) }
+          }
+        },
+        children
+      }]
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+    const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
+      ? request.defaultName.trim().replace(/\.md$/, '')
+      : 'document';
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Save as DOCX',
+      defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
+      filters: [{ name: 'Word Document', extensions: ['docx'] }]
+    });
+    if (canceled || !filePath) return { ok: false, canceled: true };
+    await fs.writeFile(filePath, buffer);
+    return { ok: true, path: filePath, name: path.basename(filePath) };
+  } catch (err) {
+    console.error('export-docx failed', err);
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -6394,32 +6416,40 @@ app.whenReady().then(async () => {
     }
   });
 
-  try {
-    await migrateLogFolders();
-  } catch (error) {
-    console.error('Log folder migration failed:', error);
-  }
-
-  try {
-    await ensureWritableSeedDataWithFallback();
-  } catch (error) {
-    console.error('Data initialization failed, opening app anyway:', error);
-  }
-
   if (firstRunDetected) {
     initialPageFile = PAGE_FILES.generalConfig;
   }
 
   buildMenu();
   createMainWindow(initialPageFile);
-  _startReminderEngine();
 
-  // Start auto-sync watcher if the user had it enabled.
-  loadAutoSyncEnabled().then(enabled => { if (enabled) startAutoSyncWatcher(); }).catch(() => {});
+  // Defer heavy disk migration and seed folder initialization to background
+  (async () => {
+    try {
+      await migrateLogFolders();
+    } catch (error) {
+      console.error('Log folder migration failed:', error);
+    }
 
-  // Start FTP / WebDAV auto-sync timers if configured.
-  startFtpAutoSyncTimer().catch(() => {});
-  startWebdavAutoSyncTimer().catch(() => {});
+    try {
+      await ensureWritableSeedDataWithFallback();
+    } catch (error) {
+      console.error('Data initialization failed:', error);
+    }
+
+    if (firstRunDetected && mainWindow && !mainWindow.isDestroyed()) {
+      loadTool(PAGE_FILES.generalConfig, mainWindow).catch(() => {});
+    }
+
+    _startReminderEngine();
+
+    // Start auto-sync watcher if the user had it enabled.
+    loadAutoSyncEnabled().then(enabled => { if (enabled) startAutoSyncWatcher(); }).catch(() => {});
+
+    // Start FTP / WebDAV auto-sync timers if configured.
+    startFtpAutoSyncTimer().catch(() => {});
+    startWebdavAutoSyncTimer().catch(() => {});
+  })();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
