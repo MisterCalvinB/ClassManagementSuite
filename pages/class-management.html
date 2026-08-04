@@ -8822,7 +8822,28 @@
             if (!PRESENTATION_MODE) _broadcastAnimation('timer-fullscreen-close');
         }
 
+        function getFormattedTimerInputTime() {
+            if (typeof timerMode !== 'undefined' && timerMode === 'stopwatch') {
+                return '00:00';
+            }
+            const overlayActive = document.getElementById('timer-overlay') && document.getElementById('timer-overlay').classList.contains('active');
+            const hoursInput = overlayActive ? document.getElementById('overlay-timer-hours') : document.getElementById('popup-timer-hours');
+            const minutesInput = overlayActive ? document.getElementById('overlay-timer-minutes') : document.getElementById('popup-timer-minutes');
+            const h = hoursInput ? (parseInt(hoursInput.value) || 0) : 0;
+            const m = minutesInput ? (parseInt(minutesInput.value) || 5) : 5;
+            if (h > 0) {
+                return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00';
+            }
+            return String(m).padStart(2, '0') + ':00';
+        }
+
         function detachTimerWindow() {
+            const initDisplayEl = document.getElementById('timer-active-display');
+            let initText = (initDisplayEl && initDisplayEl.textContent && initDisplayEl.textContent !== '--:--')
+                ? initDisplayEl.textContent
+                : getFormattedTimerInputTime();
+            const initCls = initDisplayEl ? initDisplayEl.className : '';
+
             const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>&#x23F1; Timer</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -8844,7 +8865,7 @@ body{display:flex;align-items:center;justify-content:center}
 </style></head><body>
 <div id="dtw-overlay" onclick="hideMenu()"></div>
 <div id="dtw-btns"><button id="dtw-menu-btn" onclick="toggleMenu()" title="Controls">&#x22EE;</button><button id="dtw-close" onclick="window.close()" title="Close">&#x2715;</button></div>
-<div id="dtw-display">--:--</div>
+<div id="dtw-display" class="${initCls}">${initText}</div>
 <div id="dtw-menu">
   <div class="dtw-mi" id="dtw-mi-pp" onclick="dtwCmd('pause')">&#x23F8; Pause</div>
   <div class="dtw-mi" id="dtw-mi-stop" onclick="dtwCmd('stop')">&#x25A0; Stop</div>
@@ -8893,8 +8914,10 @@ function syncState() {
     if (!res || !res.ok) return;
     _state = res.state;
     var d = document.getElementById('dtw-display');
-    d.textContent = _state.text;
-    d.className   = _state.cls;
+    if (d && _state.text) {
+      d.textContent = _state.text;
+      d.className   = _state.cls || '';
+    }
   }).catch(function(){});
 }
 setInterval(syncState, 500);

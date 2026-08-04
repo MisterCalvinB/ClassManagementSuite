@@ -3548,19 +3548,32 @@ ipcMain.handle('app:timer-state', async (event) => {
       (function(){
         var d=document.getElementById('timer-active-display');
         var bar=document.getElementById('timer-overlay-progress-bar');
-        var ph=document.getElementById('popup-timer-hours');
-        var pm=document.getElementById('popup-timer-minutes');
+        var ph=document.getElementById('popup-timer-hours') || document.getElementById('overlay-timer-hours');
+        var pm=document.getElementById('popup-timer-minutes') || document.getElementById('overlay-timer-minutes');
         var pb=document.getElementById('overlay-playpause-btn');
+        var mode = typeof timerMode !== 'undefined' ? timerMode : 'timer';
+        var txt = d ? d.textContent : '';
+        if (!txt || txt === '--:--') {
+          if (mode === 'stopwatch') {
+            txt = '00:00';
+          } else {
+            var h = ph ? (parseInt(ph.value) || 0) : 0;
+            var m = pm ? (parseInt(pm.value) || 5) : 5;
+            txt = h > 0 
+              ? (String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00')
+              : (String(m).padStart(2, '0') + ':00');
+          }
+        }
         return {
-          text: d ? d.textContent : '--:--',
+          text: txt,
           cls:  d ? d.className  : '',
-          running: !!(timerInterval || stopwatchInterval),
+          running: !!(typeof timerInterval !== 'undefined' && timerInterval || typeof stopwatchInterval !== 'undefined' && stopwatchInterval),
           paused:  !!(pb && pb.classList.contains('paused')),
-          canAdj:  !!(timerInterval  || timerPaused),
-          mode: timerMode || 'timer',
+          canAdj:  !!(typeof timerInterval !== 'undefined' && timerInterval || typeof timerPaused !== 'undefined' && timerPaused),
+          mode: mode,
           barWidth: bar ? bar.style.width : '100%',
-          h: ph ? ph.value : 0,
-          m: pm ? pm.value : 5
+          h: ph ? (parseInt(ph.value) || 0) : 0,
+          m: pm ? (parseInt(pm.value) || 5) : 5
         };
       })()`
     );
