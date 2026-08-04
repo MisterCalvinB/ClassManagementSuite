@@ -5485,6 +5485,30 @@
           ptsSlider.max = String(criterion.maxPoints);
           ptsSlider.value = dr.points == null ? "0" : String(dr.points);
 
+          const maxPts = Number(criterion.maxPoints) || 0;
+          const datalistId = `smod-pts-datalist-${criterion.id}-${Math.random().toString(36).substring(2, 7)}`;
+          const datalist = document.createElement("datalist");
+          datalist.id = datalistId;
+
+          let tickStep = 1;
+          if (maxPts > 30) tickStep = 5;
+          else if (maxPts > 15) tickStep = 2;
+          else if (maxPts > 8) tickStep = 1;
+          else tickStep = 0.5;
+
+          for (let v = 0; v <= maxPts; v += tickStep) {
+            const opt = document.createElement("option");
+            opt.value = String(v);
+            datalist.appendChild(opt);
+          }
+          if (maxPts > 0 && maxPts % tickStep !== 0) {
+            const opt = document.createElement("option");
+            opt.value = String(maxPts);
+            datalist.appendChild(opt);
+          }
+
+          ptsSlider.setAttribute("list", datalistId);
+
           function applyPtsValue(val) {
             const raw = toNumber(String(val));
             dr.points = raw == null ? null : Math.max(0, Math.min(criterion.maxPoints, raw));
@@ -5577,6 +5601,7 @@
 
           ptsCellWrap.appendChild(ptsInput);
           ptsCellWrap.appendChild(ptsSlider);
+          ptsCellWrap.appendChild(datalist);
           tdPts.appendChild(ptsCellWrap);
 
           const tdComment = document.createElement("td");
