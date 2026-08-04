@@ -919,12 +919,18 @@
   }
 
   async function rfPrimeSessionTypes(files) {
-    if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+    if (!(window.Desktop && Desktop.isElectron())) return;
     var pending = (Array.isArray(files) ? files : []).filter(function(f) {
       if (!f) return false;
       var target = f.target || 'mindmaps';
       if (target !== 'mindmaps') return false;
-      return !rfSessionTypeCache.has(rfSessionCacheKey(f));
+      var key = rfSessionCacheKey(f);
+      var st = f.sessionType || f._type;
+      if (st !== undefined) {
+        rfSessionTypeCache.set(key, st || '');
+        return false;
+      }
+      return !rfSessionTypeCache.has(key);
     });
     if (!pending.length) return;
 
@@ -1044,6 +1050,22 @@
     });
   }
 
+  function rfMatchesSearch(f, isSession, search) {
+    if (!search) return true;
+    var fn = (f.filename || '').toLowerCase();
+    if (fn.indexOf(search) !== -1) return true;
+    var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/').toLowerCase();
+    if (rel.indexOf(search) !== -1) return true;
+    if (isSession) {
+      var _sp = rfStripClassPrefix(f.filename);
+      var _searchable = ((_sp.className ? _sp.className + ' ' : '') + _sp.title).toLowerCase();
+      if (_searchable.indexOf(search) !== -1) return true;
+      var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+      if (rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1) return true;
+    }
+    return false;
+  }
+
   function rfApplyFilters() {
     var filter = document.getElementById('rfTypeFilter').value;
     var search = document.getElementById('rfSearchBox').value.trim().toLowerCase();
@@ -1054,22 +1076,13 @@
     var sessionPool = (search && !isDoc) ? rfAllFiles.concat(rfAllArchivedFiles) : rfAllFiles;
     var ff = isDoc ? [] : sessionPool.filter(function(f) {
       if (isSess && f.target !== filter) return false;
-      if (search) {
-        var _sp = rfStripClassPrefix(f.filename);
-        var _searchable = (_sp.className ? _sp.className + ' ' : '') + _sp.title;
-        if (_searchable.toLowerCase().indexOf(search) !== -1) return true;
-        var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
-        if (rfContentCache.has(key)) return rfContentCache.get(key).indexOf(search) !== -1;
-        return false;
-      }
-      return true;
+      return rfMatchesSearch(f, true, search);
     });
     ff.sort(rfGetSortFn(sort));
     rfRenderFiles(ff);
     var fd = isSess ? [] : rfAllDocs.filter(function(f) {
       if (isDoc && rfDocTypeInfo(f.filename).cssClass !== filter) return false;
-      if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
-      return true;
+      return rfMatchesSearch(f, false, search);
     });
     fd.sort(rfGetSortFn(sort));
     rfRenderDocs(fd);
@@ -1088,44 +1101,47 @@
     rfAllDocs = [];
     rfAllArchivedFiles = [];
 
-    try {
-      var r = await Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true });
-      if (r && r.ok && Array.isArray(r.files)) {
-        r.files.forEach(function(f) {
-          var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
-          var fWithTarget = Object.assign({}, f, { target: 'mindmaps' });
-          if (rel.split('/').indexOf('archived') !== -1) {
-            rfAllArchivedFiles.push(fWithTarget);
-          } else {
-            rfAllFiles.push(fWithTarget);
-          }
-        });
-      }
-    } catch(e) {}
+    var results = await Promise.all([
+      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true }).catch(function(){ return null; }),
+      Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true }).catch(function(){ return null; }),
+      Desktop.readByPath('user', 'class-groups.js').catch(function(){ return null; })
+    ]);
+
+    var r = results[0];
+    var d = results[1];
+    var cgr = results[2];
+
+    if (r && r.ok && Array.isArray(r.files)) {
+      r.files.forEach(function(f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        var fWithTarget = Object.assign({}, f, { target: 'mindmaps' });
+        if (rel.split('/').indexOf('archived') !== -1) {
+          rfAllArchivedFiles.push(fWithTarget);
+        } else {
+          rfAllFiles.push(fWithTarget);
+        }
+      });
+    }
 
     try {
       await rfExcludeTemplateSessions();
     } catch(e) {}
 
-    try {
-      var d = await Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true });
-      if (d && d.ok && Array.isArray(d.files)) {
-        rfAllDocs = d.files.filter(function(f) {
-          var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
-          return rel.split('/').indexOf('archived') === -1;
-        });
-      }
-    } catch(e) {}
+    if (d && d.ok && Array.isArray(d.files)) {
+      rfAllDocs = d.files.filter(function(f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        return rel.split('/').indexOf('archived') === -1;
+      });
+    }
 
     rfGroupMeta = {};
-    try {
-      var cgr = await Desktop.readByPath('user', 'class-groups.js');
-      if (cgr && cgr.content) {
+    if (cgr && cgr.content) {
+      try {
         var cgFn = new Function(cgr.content + '\nreturn typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null;');
         var cgd = cgFn();
         if (cgd && cgd.classGroupsMeta) rfGroupMeta = cgd.classGroupsMeta;
-      }
-    } catch(e) {}
+      } catch(e) {}
+    }
   }
 
   async function openRecentFilesModal() {
@@ -1637,30 +1653,30 @@
       return;
     }
     var docs = [];
-    try {
-      var r = await Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'] });
-      if (r && r.ok && Array.isArray(r.files)) {
-        r.files.forEach(function(f) {
-          var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
-          if (rel.indexOf('archived') === -1
-              && !/-Autosave\.(js|json)$/i.test(f.filename)
-              && !/\.v\d{8}-\d{6}\.(js|json)$/i.test(f.filename)) {
-            docs.push(Object.assign({}, f, { _type: 'mindmap' }));
-          }
-        });
-      }
-    } catch(e) {}
-    try {
-      var r2 = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] });
-      if (r2 && r2.ok && Array.isArray(r2.files)) {
-        r2.files.forEach(function(f) {
-          var rel = (f.relativePath || '').replace(/\\/g, '/');
-          var isHistory = rel.split('/').indexOf('history') !== -1
-                       || /\.v\d{8}-\d{6}\.(md|html)$/i.test(f.filename);
-          if (!isHistory) docs.push(Object.assign({}, f, { _type: 'doc' }));
-        });
-      }
-    } catch(e) {}
+    var results = await Promise.all([
+      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'] }).catch(function(){ return null; }),
+      Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] }).catch(function(){ return null; })
+    ]);
+    var r = results[0];
+    var r2 = results[1];
+    if (r && r.ok && Array.isArray(r.files)) {
+      r.files.forEach(function(f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        if (rel.indexOf('archived') === -1
+            && !/-Autosave\.(js|json)$/i.test(f.filename)
+            && !/\.v\d{8}-\d{6}\.(js|json)$/i.test(f.filename)) {
+          docs.push(Object.assign({}, f, { _type: 'mindmap' }));
+        }
+      });
+    }
+    if (r2 && r2.ok && Array.isArray(r2.files)) {
+      r2.files.forEach(function(f) {
+        var rel = (f.relativePath || '').replace(/\\/g, '/');
+        var isHistory = rel.split('/').indexOf('history') !== -1
+                     || /\.v\d{8}-\d{6}\.(md|html)$/i.test(f.filename);
+        if (!isHistory) docs.push(Object.assign({}, f, { _type: 'doc' }));
+      });
+    }
     docs.sort(function(a, b) { return rfFileDateMs(b) - rfFileDateMs(a); });
     var count = Number(sbGetPrefs().docsCount) || 5;
     docs = docs.slice(0, count);

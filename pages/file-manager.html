@@ -495,26 +495,38 @@ function rfSessionCacheKey(fileObj) {
 }
 
 async function rfFilterOutTemplateSessions(files) {
-  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) {
+  if (!(window.Desktop && Desktop.isElectron())) {
     return Array.isArray(files) ? files : [];
   }
   var list = Array.isArray(files) ? files : [];
   if (!list.length) return list;
 
-  var BATCH = 8;
-  for (var i = 0; i < list.length; i += BATCH) {
-    var batch = list.slice(i, i + BATCH);
-    await Promise.all(batch.map(async function(f) {
-      var key = rfSessionCacheKey(f);
-      if (rfSessionTypeCache.has(key)) return;
-      try {
-        var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
-        var raw = result && result.content ? result.content : '';
-        rfSessionTypeCache.set(key, rfExtractSessionType(raw));
-      } catch(e) {
-        rfSessionTypeCache.set(key, '');
-      }
-    }));
+  var missing = [];
+  list.forEach(function(f) {
+    var key = rfSessionCacheKey(f);
+    var st = f.sessionType || f._type;
+    if (st !== undefined) {
+      rfSessionTypeCache.set(key, st || '');
+    } else if (!rfSessionTypeCache.has(key)) {
+      missing.push(f);
+    }
+  });
+
+  if (missing.length > 0 && typeof Desktop.readByPath === 'function') {
+    var BATCH = 8;
+    for (var i = 0; i < missing.length; i += BATCH) {
+      var batch = missing.slice(i, i + BATCH);
+      await Promise.all(batch.map(async function(f) {
+        var key = rfSessionCacheKey(f);
+        try {
+          var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+          var raw = result && result.content ? result.content : '';
+          rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+        } catch(e) {
+          rfSessionTypeCache.set(key, '');
+        }
+      }));
+    }
   }
 
   return list.filter(function(f) {
@@ -532,7 +544,7 @@ function fmIsTemplateMindmapFile(fileObj) {
 }
 
 async function fmPrimeBrowseSessionTypes(files) {
-  if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+  if (!(window.Desktop && Desktop.isElectron())) return;
   var list = (Array.isArray(files) ? files : []).filter(function(f) {
     if (!f || f.isDirectory) return false;
     var target = f.target || browseTarget || 'mindmaps';
@@ -543,21 +555,33 @@ async function fmPrimeBrowseSessionTypes(files) {
   });
   if (!list.length) return;
 
-  var BATCH = 8;
-  for (var i = 0; i < list.length; i += BATCH) {
-    var batch = list.slice(i, i + BATCH);
-    await Promise.all(batch.map(async function(f) {
-      var target = f.target || browseTarget || 'mindmaps';
-      var key = rfSessionCacheKey(f);
-      if (rfSessionTypeCache.has(key)) return;
-      try {
-        var result = await Desktop.readByPath(target, f.relativePath || f.filename);
-        var raw = result && result.content ? result.content : '';
-        rfSessionTypeCache.set(key, rfExtractSessionType(raw));
-      } catch (e) {
-        rfSessionTypeCache.set(key, '');
-      }
-    }));
+  var missing = [];
+  list.forEach(function(f) {
+    var key = rfSessionCacheKey(f);
+    var st = f.sessionType || f._type;
+    if (st !== undefined) {
+      rfSessionTypeCache.set(key, st || '');
+    } else if (!rfSessionTypeCache.has(key)) {
+      missing.push(f);
+    }
+  });
+
+  if (missing.length > 0 && typeof Desktop.readByPath === 'function') {
+    var BATCH = 8;
+    for (var i = 0; i < missing.length; i += BATCH) {
+      var batch = missing.slice(i, i + BATCH);
+      await Promise.all(batch.map(async function(f) {
+        var target = f.target || browseTarget || 'mindmaps';
+        var key = rfSessionCacheKey(f);
+        try {
+          var result = await Desktop.readByPath(target, f.relativePath || f.filename);
+          var raw = result && result.content ? result.content : '';
+          rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+        } catch (e) {
+          rfSessionTypeCache.set(key, '');
+        }
+      }));
+    }
   }
 }
 
@@ -765,14 +789,24 @@ function rfRender() {
     });
   }
 
+  function rfMatchesSearch(f, isSession) {
+    if (!search) return true;
+    var fn = (f.filename || '').toLowerCase();
+    if (fn.indexOf(search) !== -1) return true;
+    if (isSession && prettyName(f.filename).toLowerCase().indexOf(search) !== -1) return true;
+    var rel = normPath(f.relativePath || f.filename || '').toLowerCase();
+    if (rel.indexOf(search) !== -1) return true;
+    if (isSession) {
+      var key = normPath(f.relativePath || f.filename);
+      if (rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1) return true;
+    }
+    return false;
+  }
+
   var filteredS = (isDocFilter || isEditorFilter) ? [] : rfSessions.filter(function(f) {
     if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
-    if (!search) return true;
-    var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
-    if (nameMatch) return true;
-    var key = normPath(f.relativePath || f.filename);
-    return rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1;
+    return rfMatchesSearch(f, true);
   }).map(function(f) {
     var snippet = '';
     if (search) {
@@ -785,24 +819,19 @@ function rfRender() {
 
   var filteredD = (isSessFilter || isEditorFilter) ? [] : rfDocs.filter(function(f) {
     if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
-    if (search && f.filename.toLowerCase().indexOf(search) === -1) return false;
-    return true;
+    return rfMatchesSearch(f, false);
   });
   filteredD.sort(rfSortFn(sort));
 
   var filteredE = (isSessFilter || isDocFilter) ? [] : rfEditorDocs.filter(function(f) {
-    if (search && (f.filename || '').toLowerCase().indexOf(search) === -1) return false;
-    return true;
+    return rfMatchesSearch(f, false);
   });
   filteredE.sort(rfSortFn(sort));
 
   var filteredAS = !search ? [] : ((isDocFilter || isEditorFilter) ? [] : rfArchivedSessions.filter(function(f) {
     if (!showVersions && isVersionFile(f)) return false;
     if (isSessFilter && f.target !== filter) return false;
-    var nameMatch = prettyName(f.filename).toLowerCase().indexOf(search) !== -1;
-    if (nameMatch) return true;
-    var key = normPath(f.relativePath || f.filename);
-    return rfContentCache.has(key) && rfContentCache.get(key).indexOf(search) !== -1;
+    return rfMatchesSearch(f, true);
   }).map(function(f) {
     var snippet = '';
     var cached = rfContentCache.get(normPath(f.relativePath || f.filename));
@@ -813,12 +842,12 @@ function rfRender() {
 
   var filteredAD = !search ? [] : ((isSessFilter || isEditorFilter) ? [] : rfArchivedDocs.filter(function(f) {
     if (isDocFilter && docTypeKey(f.filename) !== filter) return false;
-    return f.filename.toLowerCase().indexOf(search) !== -1;
+    return rfMatchesSearch(f, false);
   }));
   filteredAD.sort(rfSortFn(sort));
 
   var filteredAE = !search ? [] : ((isSessFilter || isDocFilter) ? [] : rfArchivedEditorDocs.filter(function(f) {
-    return (f.filename || '').toLowerCase().indexOf(search) !== -1;
+    return rfMatchesSearch(f, false);
   }));
   filteredAE.sort(rfSortFn(sort));
 
@@ -882,51 +911,52 @@ async function loadRecent() {
     return;
   }
 
-  try {
-    var r = await Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true });
-    if (r && r.ok && Array.isArray(r.files)) {
-      var allSessions = r.files.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
-      allSessions = await rfFilterOutTemplateSessions(allSessions);
-      rfSessions = allSessions.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return rel.split('/').indexOf('archived') === -1;
-      });
-      rfArchivedSessions = allSessions.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return rel.split('/').indexOf('archived') !== -1;
-      });
-    }
-  } catch(e) { console.warn('loadRecent sessions:', e); }
+  var results = await Promise.all([
+    Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true }).catch(function(e){ console.warn('loadRecent sessions:', e); return null; }),
+    Desktop.listByPath('user', 'custom-data', { extensions:DOC_EXTS, recursive:true }).catch(function(e){ console.warn('loadRecent docs:', e); return null; }),
+    Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true }).catch(function(e){ console.warn('loadRecent editorDocs:', e); return null; })
+  ]);
 
-  try {
-    var d = await Desktop.listByPath('user', 'custom-data', { extensions:DOC_EXTS, recursive:true });
-    if (d && d.ok && Array.isArray(d.files)) {
-      rfDocs = d.files.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return rel.split('/').indexOf('archived') === -1;
-      });
-      rfArchivedDocs = d.files.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return rel.split('/').indexOf('archived') !== -1;
-      });
-    }
-  } catch(e) { console.warn('loadRecent docs:', e); }
+  var r = results[0];
+  var d = results[1];
+  var e = results[2];
 
-  try {
-    var e = await Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true });
-    if (e && e.ok && Array.isArray(e.files)) {
-      var allEditorDocs = e.files.filter(function(f) {
-        var rel = normPath(f.relativePath || f.filename || '');
-        return !rel.startsWith('history/');
-      }).map(function(f) { return Object.assign({}, f, { target: 'docEditorDocs' }); });
-      rfEditorDocs = allEditorDocs.filter(function(f) {
-        return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') === -1;
-      });
-      rfArchivedEditorDocs = allEditorDocs.filter(function(f) {
-        return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') !== -1;
-      });
-    }
-  } catch(e) { console.warn('loadRecent editorDocs:', e); }
+  if (r && r.ok && Array.isArray(r.files)) {
+    var allSessions = r.files.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+    allSessions = await rfFilterOutTemplateSessions(allSessions);
+    rfSessions = allSessions.filter(function(f) {
+      var rel = normPath(f.relativePath || f.filename || '');
+      return rel.split('/').indexOf('archived') === -1;
+    });
+    rfArchivedSessions = allSessions.filter(function(f) {
+      var rel = normPath(f.relativePath || f.filename || '');
+      return rel.split('/').indexOf('archived') !== -1;
+    });
+  }
+
+  if (d && d.ok && Array.isArray(d.files)) {
+    rfDocs = d.files.filter(function(f) {
+      var rel = normPath(f.relativePath || f.filename || '');
+      return rel.split('/').indexOf('archived') === -1;
+    });
+    rfArchivedDocs = d.files.filter(function(f) {
+      var rel = normPath(f.relativePath || f.filename || '');
+      return rel.split('/').indexOf('archived') !== -1;
+    });
+  }
+
+  if (e && e.ok && Array.isArray(e.files)) {
+    var allEditorDocs = e.files.filter(function(f) {
+      var rel = normPath(f.relativePath || f.filename || '');
+      return !rel.startsWith('history/');
+    }).map(function(f) { return Object.assign({}, f, { target: 'docEditorDocs' }); });
+    rfEditorDocs = allEditorDocs.filter(function(f) {
+      return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') === -1;
+    });
+    rfArchivedEditorDocs = allEditorDocs.filter(function(f) {
+      return normPath(f.relativePath || f.filename || '').split('/').indexOf('archived') !== -1;
+    });
+  }
 
   rfRender();
 }
@@ -1627,21 +1657,28 @@ function renderBrowse() {
     }
   });
 
-  // Files directly at current level (no sub-slash after prefix)
-  var levelFiles = browseAllFiles.filter(function(f) {
-    var rel = getBrowseRel(f);
-    if (prefix && !rel.startsWith(prefix)) return false;
-    var rest = rel.slice(prefix.length);
-    return rest.indexOf('/') === -1 && rest.length > 0 && !f.isDirectory;
-  });
-
-  // Apply search filter
+  // Files directly at current level, or all matching subfolder files when searching
+  var levelFiles;
   if (searchVal) {
-    levelFiles = levelFiles.filter(function(f) {
+    levelFiles = browseAllFiles.filter(function(f) {
+      if (f.isDirectory) return false;
+      var rel = getBrowseRel(f);
+      if (prefix && !rel.startsWith(prefix)) return false;
       var filename = (f.filename || '').toLowerCase();
-      var rel = getBrowseRel(f).toLowerCase();
+      var relLower = rel.toLowerCase();
+      var pretty = prettyName(f.filename || '').toLowerCase();
       var kind = String(f._docKindLabel || '').toLowerCase();
-      return filename.indexOf(searchVal) !== -1 || rel.indexOf(searchVal) !== -1 || kind.indexOf(searchVal) !== -1;
+      return filename.indexOf(searchVal) !== -1 ||
+             pretty.indexOf(searchVal) !== -1 ||
+             relLower.indexOf(searchVal) !== -1 ||
+             kind.indexOf(searchVal) !== -1;
+    });
+  } else {
+    levelFiles = browseAllFiles.filter(function(f) {
+      var rel = getBrowseRel(f);
+      if (prefix && !rel.startsWith(prefix)) return false;
+      var rest = rel.slice(prefix.length);
+      return rest.indexOf('/') === -1 && rest.length > 0 && !f.isDirectory;
     });
   }
 
@@ -1901,7 +1938,10 @@ function makeBrowseRow(file) {
   meta.className = 'file-meta';
   var kb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
   var src = file._docKindLabel ? (file._docKindLabel + ' · ') : '';
-  meta.textContent = src + formatDate(file.mtimeMs || 0) + (kb ? ' · ' + kb : '');
+  var relPath = normPath(file._browseRel || file.relativePath || '');
+  var relDir = fmDirName(relPath);
+  var dirTag = relDir ? (relDir + ' · ') : '';
+  meta.textContent = src + dirTag + formatDate(file.mtimeMs || 0) + (kb ? ' · ' + kb : '');
   info.appendChild(meta);
   row.appendChild(info);
 

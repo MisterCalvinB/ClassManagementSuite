@@ -750,6 +750,54 @@ function readSessionTimestampMeta(rawText, ext) {
   return meta;
 }
 
+async function readSessionTimestampMetaFast(filePath, ext) {
+  const meta = {};
+  let fileHandle;
+  try {
+    fileHandle = await fs.open(filePath, 'r');
+    const buf = Buffer.alloc(4096);
+    const { bytesRead } = await fileHandle.read(buf, 0, 4096, 0);
+    const text = buf.toString('utf8', 0, bytesRead).replace(/^\uFEFF/, '');
+
+    const createdComment = text.match(/^\s*\/\/\s*_createdAt:\s*(\d+)\s*$/m);
+    const savedComment = text.match(/^\s*\/\/\s*_savedAt:\s*(\d+)\s*$/m);
+    if (createdComment) meta.createdAt = Number(createdComment[1]) || 0;
+    if (savedComment) meta.savedAt = Number(savedComment[1]) || 0;
+
+    const typeMatch = text.match(/"_type"\s*:\s*"([^"]+)"/) || text.match(/"_typ"\s*:\s*"([^"]+)"/);
+    if (typeMatch) meta.sessionType = typeMatch[1];
+
+    const cgMatch = text.match(/"_classGroup"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_classGroup:\s*([^\s]+)\s*$/m);
+    if (cgMatch && cgMatch[1]) meta.classGroup = cgMatch[1];
+
+    const pidMatch = text.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_plannerEntryId:\s*([^\s]+)\s*$/m);
+    if (pidMatch && pidMatch[1]) meta.plannerEntryId = pidMatch[1];
+
+    if (!meta.createdAt) {
+      const createdKey = text.match(/"_createdAt"\s*:\s*(\d+)/);
+      if (createdKey) meta.createdAt = Number(createdKey[1]) || 0;
+    }
+    if (!meta.savedAt) {
+      const savedKey = text.match(/"_savedAt"\s*:\s*(\d+)/);
+      if (savedKey) meta.savedAt = Number(savedKey[1]) || 0;
+    }
+
+    if (!meta.createdAt) {
+      const dcMatch = text.match(/"dateCreated"\s*:\s*"([^"]+)"/);
+      if (dcMatch) {
+        const stripped = dcMatch[1].replace(/_\d+$/, '');
+        const ms = Date.parse(stripped);
+        if (Number.isFinite(ms) && ms > 0) meta.createdAt = ms;
+      }
+    }
+  } catch {} finally {
+    if (fileHandle) {
+      try { await fileHandle.close(); } catch {}
+    }
+  }
+  return meta;
+}
+
 async function listAllowedFiles(pageFile, target, request = {}) {
   const targetDir = resolveAllowedTargetDir(pageFile, target);
   const extensions = Array.isArray(request.extensions) ? request.extensions : ['.json'];
@@ -778,8 +826,7 @@ async function listAllowedFiles(pageFile, target, request = {}) {
     let jsonMeta = {};
     if (ext === '.json' || ext === '.js') {
       try {
-        const raw = await fs.readFile(filePath, 'utf8');
-        jsonMeta = readSessionTimestampMeta(raw, ext);
+        jsonMeta = await readSessionTimestampMetaFast(filePath, ext);
       } catch {}
     }
 
@@ -966,8 +1013,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       let jsonMeta = {};
       if (ext === '.json' || ext === '.js') {
         try {
-          const raw = await fs.readFile(absolutePath, 'utf8');
-          jsonMeta = readSessionTimestampMeta(raw, ext);
+          jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext);
         } catch {}
       }
 

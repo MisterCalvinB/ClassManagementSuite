@@ -29284,7 +29284,7 @@
       if (createdAt && modifiedAt && createdAt === modifiedAt && fsCreatedAt && fsCreatedAt !== modifiedAt) {
         createdAt = fsCreatedAt;
       }
-      const classGroup = historyInferClassGroup(baseName);
+      const classGroup = (file && file.classGroup) || historyInferClassGroup(baseName);
       const isArchived = relativePath.startsWith('archived/');
       const source = isArchived ? 'archived'
         : ((file && file.source === 'autosave') || /autosave/i.test(baseName))
@@ -29328,9 +29328,15 @@
       const entries = historyEntries.filter(entry => {
         if (!entry) return false;
         if (q) {
-          // Text search: include all sources (including archived), filter by name or cached content
-          const name = (entry.baseName || entry.filename || '').toLowerCase();
-          if (name.indexOf(q) !== -1) return true;
+          // Text search: include all sources (including archived), filter by filename, extension, relative path, class label, or cached content
+          const fn = (entry.filename || '').toLowerCase();
+          if (fn.indexOf(q) !== -1) return true;
+          const base = (entry.baseName || '').toLowerCase();
+          if (base.indexOf(q) !== -1) return true;
+          const rel = (entry.relativePath || '').toLowerCase();
+          if (rel.indexOf(q) !== -1) return true;
+          const classLbl = (entry.classLabel || '').toLowerCase();
+          if (classLbl.indexOf(q) !== -1) return true;
           const key = historyEntryKey(entry);
           if (key && historyContentCache.has(key)) return historyContentCache.get(key).indexOf(q) !== -1;
           return false;
