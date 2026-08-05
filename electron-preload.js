@@ -298,6 +298,13 @@ const exposedApi = {
     if (!ipcRenderer) return;
     ipcRenderer.on('app:data-changed', function (_event, data) { callback(data); });
   },
+  hasSecondDisplay() {
+    return invoke('app:has-second-display');
+  },
+  onDisplayChanged(callback) {
+    if (!ipcRenderer) return;
+    ipcRenderer.on('display-changed', function (_event, data) { callback(data); });
+  },
 
   // ── FTP Sync ────────────────────────────────────────────────────────────────
   ftpGetConfig()         { return invoke('app:ftp-get-config'); },

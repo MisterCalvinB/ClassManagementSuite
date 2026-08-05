@@ -459,6 +459,23 @@
     return getDesktopApi().mirrorWindowCommand(command);
   }
 
+  async function hasSecondDisplay() {
+    if (!isElectron()) return false;
+    const api = getDesktopApi();
+    if (api && typeof api.hasSecondDisplay === 'function') {
+      return api.hasSecondDisplay();
+    }
+    return false;
+  }
+
+  function onDisplayChanged(callback) {
+    if (!isElectron()) return;
+    const api = getDesktopApi();
+    if (api && typeof api.onDisplayChanged === 'function') {
+      api.onDisplayChanged(callback);
+    }
+  }
+
   async function openCmsPresentation(opts) {
     if (!isElectron()) return null;
     return getDesktopApi().openCmsPresentation(opts || {});
@@ -786,6 +803,8 @@
     timerState,
     openMirrorWindow,
     mirrorWindowCommand,
+    hasSecondDisplay,
+    onDisplayChanged,
     openCmsPresentation,
     isCmsPresentationOpen,
     cmsPresentationCommand,

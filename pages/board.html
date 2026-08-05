@@ -1677,10 +1677,8 @@
       </div>
 
       <div id="history-view-tabs" style="display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap;">
-        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')">Manual
-          saves</button>
-        <button id="history-tab-autosave" class="action-btn btn-grey" type="button"
-          onclick="historySetViewTab('autosave')">Autosaves</button>
+        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')">Saved
+          files</button>
         <button id="history-tab-archived" class="action-btn btn-grey" type="button"
           onclick="historySetViewTab('archived')">🗄 Archived</button>
       </div>
@@ -1882,6 +1880,20 @@
             <button id="con-class-dropdown-btn" class="action-btn btn-grey con-class-dropdown-btn" type="button"
               onclick="conToggleClassDropdown()"></button>
             <ul id="con-class-pills" class="con-class-dropdown-menu"></ul>
+        </div>
+
+        <div class="con-tb-group" id="con-tb-mode-toggle" style="margin-left: auto;">
+          <span class="con-tb-group-label" id="con-mode-group-label" style="font-weight: 800; color: #111; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">Mode: <span id="con-mode-label-text">🔤 Text</span> ▾</span>
+          <div class="con-tb-group-body" style="right: 0; left: auto; border-radius: 4px 0 4px 4px; min-width: 125px;">
+            <button class="action-btn btn-grey con-mode-option-btn active-mode" id="con-mode-opt-text" type="button" onclick="setBoardMode('text')" title="Text & selection mode">
+              <span style="font-size:0.9rem;">🔤</span> Text
+            </button>
+            <button class="action-btn btn-grey con-mode-option-btn" id="con-mode-opt-drawings" type="button" onclick="setBoardMode('drawings')" title="Freehand drawing annotations">
+              <span style="font-size:0.9rem;">✎</span> Drawings
+            </button>
+            <button class="action-btn btn-grey con-mode-option-btn" id="con-mode-opt-laser" type="button" onclick="setBoardMode('laser')" title="Laser pointer mode">
+              <span style="font-size:0.9rem;">⬤</span> Laser
+            </button>
           </div>
         </div>
 
@@ -2710,7 +2722,7 @@
 
   <!-- History Preview Pane -->
   <div id="history-preview-pane"
-    style="position:fixed;right:-400px;top:0;width:400px;height:100vh;background:#fff;border-left:1.5px solid #ccc;box-shadow:-2px 0 12px rgba(0,0,0,0.15);z-index:9050;overflow:hidden;display:flex;flex-direction:column;transition:right 0.3s ease-out;">
+    style="position:fixed;right:-400px;top:0;width:400px;height:100vh;background:#fff;border-left:1.5px solid #ccc;box-shadow:-2px 0 12px rgba(0,0,0,0.15);z-index:25000;overflow:hidden;display:flex;flex-direction:column;transition:right 0.3s ease-out;">
     <div
       style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1.5px solid #eee;background:#f9f9f9;flex-shrink:0;">
       <h3 style="margin:0;font-size:0.95rem;font-weight:700;">👁 Preview</h3>
@@ -12454,6 +12466,66 @@
         // Init shape panel too
         conShapeInitPanel();
       }
+      window.updateBoardModeToggleUI = function () {
+        const labelText = document.getElementById('con-mode-label-text');
+        if (!labelText) return;
+
+        let mode = 'text';
+        if (document.body.classList.contains('laser-active')) {
+          mode = 'laser';
+        } else if (typeof conMode !== 'undefined' && conMode === 'draw') {
+          mode = 'drawings';
+        }
+
+        const modeDetails = {
+          text: { icon: '🔤', label: 'Text' },
+          drawings: { icon: '✎', label: 'Drawings' },
+          laser: { icon: '⬤', label: 'Laser' }
+        };
+
+        const curr = modeDetails[mode] || modeDetails.text;
+        labelText.textContent = curr.icon + ' ' + curr.label;
+
+        ['text', 'drawings', 'laser'].forEach(m => {
+          const optBtn = document.getElementById('con-mode-opt-' + m);
+          if (optBtn) {
+            optBtn.classList.toggle('active-mode', m === mode);
+          }
+        });
+      };
+
+      window.setBoardMode = function (targetMode) {
+        if (targetMode === 'text') {
+          if (document.body.classList.contains('laser-active') && typeof window.laserToggle === 'function') {
+            window.laserToggle();
+          }
+          if (typeof window.conSetMode === 'function') {
+            if (typeof conMode !== 'undefined' && conMode === 'draw') {
+              if (window._conPolygonReset) window._conPolygonReset();
+            }
+            window.conSetMode('move');
+          }
+        } else if (targetMode === 'drawings') {
+          if (document.body.classList.contains('laser-active') && typeof window.laserToggle === 'function') {
+            window.laserToggle();
+          }
+          if (typeof window.conToggleDrawMode === 'function') {
+            if (typeof conMode === 'undefined' || conMode !== 'draw') {
+              window.conToggleDrawMode();
+            }
+          }
+        } else if (targetMode === 'laser') {
+          if (typeof conMode !== 'undefined' && conMode === 'draw' && typeof window.conSetMode === 'function') {
+            if (window._conPolygonReset) window._conPolygonReset();
+            window.conSetMode('move');
+          }
+          if (!document.body.classList.contains('laser-active') && typeof window.laserToggle === 'function') {
+            window.laserToggle();
+          }
+        }
+        window.updateBoardModeToggleUI();
+      };
+
       window.conToggleDrawMode = function () {
         if (conMode === 'draw') {
           if (window._conPolygonReset) window._conPolygonReset();
@@ -12470,6 +12542,7 @@
           _conDrawSyncOverlayCursor();
         }
         _conSyncEraserToolbarBtn();
+        if (typeof window.updateBoardModeToggleUI === 'function') window.updateBoardModeToggleUI();
       };
       window.conToggleEraserMode = function () {
         if (conMode === 'draw' && _conDrawEraserMode) {
@@ -12942,6 +13015,7 @@
           if (btn) btn.classList.toggle('con-panel-active', m === mode);
         });
         conUpdateInstructions(mode);
+        if (typeof window.updateBoardModeToggleUI === 'function') window.updateBoardModeToggleUI();
       };
 
       // 12 colour presets: [bg, textColor, borderColor]
@@ -14754,6 +14828,67 @@
           _mirrorPeers.clear();
           _setPresentationActive(false);
         };
+
+        (function initBoardSecondScreenPrompt() {
+          if (location.search.includes('mirror=1')) return;
+          function showSecondScreenBanner(onStartPresentation) {
+            if (document.getElementById('second-screen-prompt-banner')) return;
+            const promptMsg = typeof window.t === 'function' ? window.t('secondDisplayPrompt') : 'Second display detected! Would you like to launch Presentation Mode on monitor 2?';
+            const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : '📽️ Start Presentation Mode';
+            const dismissBtnTxt = typeof window.t === 'function' ? window.t('btnDismissPrompt') : 'Dismiss';
+            const banner = document.createElement('div');
+            banner.id = 'second-screen-prompt-banner';
+            banner.style.cssText = 'position:fixed;top:16px;right:20px;z-index:99999;display:flex;align-items:center;gap:12px;padding:10px 16px;border:1px solid rgba(74,144,217,0.4);border-radius:12px;background:rgba(18,24,38,0.92);box-shadow:0 8px 24px rgba(0,0,0,0.35);backdrop-filter:blur(10px);color:#fff;font-family:inherit;font-size:0.86rem;line-height:1.3;animation:slideDownPrompt 0.3s ease-out;';
+            if (!document.getElementById('second-screen-banner-styles')) {
+              const styleEl = document.createElement('style');
+              styleEl.id = 'second-screen-banner-styles';
+              styleEl.textContent = '@keyframes slideDownPrompt { from { transform: translateY(-20px); opacity:0; } to { transform: translateY(0); opacity:1; } }';
+              document.head.appendChild(styleEl);
+            }
+            banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🖥️</span><span>' + promptMsg + '</span></div>'
+              + '<div style="display:flex;align-items:center;gap:8px;margin-left:8px;">'
+              + '<button type="button" id="btn-start-second-pres" style="padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg, #28a745, #208637);color:#fff;font-weight:700;font-size:0.8rem;cursor:pointer;box-shadow:0 2px 8px rgba(40,167,69,0.3);transition:transform 0.1s, background 0.15s;">' + startBtnTxt + '</button>'
+              + '<button type="button" id="btn-dismiss-second-pres" style="padding:6px 10px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#ccc;font-weight:600;font-size:0.8rem;cursor:pointer;transition:background 0.15s;">' + dismissBtnTxt + '</button>'
+              + '</div>';
+            document.body.appendChild(banner);
+            banner.querySelector('#btn-start-second-pres').onclick = function() {
+              banner.remove();
+              onStartPresentation();
+            };
+            banner.querySelector('#btn-dismiss-second-pres').onclick = function() {
+              sessionStorage.setItem('dismissed_second_screen_prompt', '1');
+              banner.remove();
+            };
+          }
+
+          async function checkAndPrompt() {
+            if (_mirrorPeers.size > 0 || (_mirrorPopupRef && !_mirrorPopupRef.closed)) return;
+            if (sessionStorage.getItem('dismissed_second_screen_prompt')) return;
+            let hasSecond = false;
+            if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.hasSecondDisplay === 'function') {
+              hasSecond = await window.Desktop.hasSecondDisplay();
+            } else if ('isExtended' in window.screen) {
+              hasSecond = !!window.screen.isExtended;
+            }
+            if (hasSecond) {
+              showSecondScreenBanner(function() {
+                if (typeof window.conOpenMirrorWindow === 'function') window.conOpenMirrorWindow();
+              });
+            }
+          }
+
+          setTimeout(checkAndPrompt, 1500);
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.onDisplayChanged === 'function') {
+            window.Desktop.onDisplayChanged(function(data) {
+              if (data && data.hasSecond) {
+                checkAndPrompt();
+              } else {
+                const existing = document.getElementById('second-screen-prompt-banner');
+                if (existing) existing.remove();
+              }
+            });
+          }
+        })();
         window.conMirrorResizeWindow = async function () {
           if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
             await window.Desktop.mirrorWindowCommand('resize-window');
@@ -29191,7 +29326,7 @@
     }
 
     function historySetViewTab(tab) {
-      const next = tab === 'autosave' ? 'autosave' : tab === 'archived' ? 'archived' : 'manual';
+      const next = tab === 'archived' ? 'archived' : 'manual';
       if (historyViewTab === next) return;
       historyViewTab = next;
       historyRenderList();
@@ -29199,10 +29334,8 @@
 
     function historyRenderViewTabs() {
       const manualBtn = document.getElementById('history-tab-manual');
-      const autosaveBtn = document.getElementById('history-tab-autosave');
       const archivedBtn = document.getElementById('history-tab-archived');
       if (manualBtn) manualBtn.classList.toggle('btn-grey', historyViewTab !== 'manual');
-      if (autosaveBtn) autosaveBtn.classList.toggle('btn-grey', historyViewTab !== 'autosave');
       if (archivedBtn) archivedBtn.classList.toggle('btn-grey', historyViewTab !== 'archived');
       const filterBar = document.getElementById('history-filter-bar');
       if (filterBar) filterBar.style.display = historyViewTab === 'archived' ? 'none' : '';
@@ -29343,8 +29476,6 @@
         }
         if (historyViewTab === 'archived') return entry.source === 'archived';
         if (entry.source === 'archived') return false;
-        const isAutosave = entry.source === 'autosave';
-        if (historyViewTab === 'autosave' ? !isAutosave : isAutosave) return false;
         if (historyFilterDateFrom && entry.dateKey < historyFilterDateFrom) return false;
         if (historyFilterDateTo && entry.dateKey > historyFilterDateTo) return false;
         if (historyFilterClass && entry.classGroup !== historyFilterClass) return false;
@@ -29423,18 +29554,16 @@
 
       const entries = historyGetSortedEntries();
       const allArchived = historyEntries.filter(entry => entry && entry.source === 'archived').length;
-      const allAutosaves = historyEntries.filter(entry => entry && entry.source === 'autosave').length;
-      const allManual = historyEntries.length - allAutosaves - allArchived;
+      const allManual = historyEntries.length - allArchived;
       if (historyFilterText) {
         historySetStatus(
           entries.length + ' result' + (entries.length === 1 ? '' : 's') + ' for "' + historyFilterText + '" (all files searched, including archived)'
         );
       } else {
-        const currentLabel = historyViewTab === 'autosave' ? 'autosaves' : historyViewTab === 'archived' ? 'archived' : 'manual saves';
+        const currentLabel = historyViewTab === 'archived' ? 'archived' : 'saved files';
         historySetStatus(
           entries.length + ' ' + currentLabel + ' shown · '
-          + allManual + ' manual · '
-          + allAutosaves + ' autosaves · '
+          + allManual + ' active · '
           + allArchived + ' archived'
         );
       }
@@ -29444,11 +29573,9 @@
       if (!entries.length) {
         const emptyText = historyFilterText
           ? 'No files match "' + historyFilterText + '". Content search is loading — try again in a moment if results seem incomplete.'
-          : historyViewTab === 'autosave'
-            ? 'No autosaves found.'
-            : historyViewTab === 'archived'
-              ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
-              : 'No manual saves found.';
+          : historyViewTab === 'archived'
+            ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
+            : 'No saved files found.';
         list.innerHTML = '<tr><td class="history-empty" colspan="7">' + emptyText + '</td></tr>';
         historyUpdateSelectionUI();
         return;
@@ -29538,7 +29665,11 @@
           const btn = document.createElement('button');
           btn.textContent = label;
           if (danger) btn.className = 'danger';
-          btn.onclick = () => { menu.classList.remove('open'); action(); };
+          btn.onclick = (ev) => {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+            menu.classList.remove('open');
+            setTimeout(() => { action(); }, 0);
+          };
           menu.appendChild(btn);
         }
 
@@ -29826,7 +29957,7 @@
         return;
       }
 
-      const scopeLabel = historyViewTab === 'autosave' ? 'all autosaves' : 'all manual saves';
+      const scopeLabel = historyViewTab === 'archived' ? 'all archived files' : 'all saved files';
       historyBulkDeleteOpen('Delete ' + entriesToDelete.length + ' file(s) in this view (' + scopeLabel + ')? This cannot be undone.', async () => {
         let deleted = 0;
         let failed = 0;
@@ -30069,20 +30200,39 @@
 
     let _historyRenameEntry = null;
 
-    function historyRenameEntry(entry) {
+    async function historyRenameEntry(entry) {
       if (!entry) return;
       _historyRenameEntry = entry;
+      const oldName = entry.baseName || boardStripJsonExt(entry.filename);
+
+      if (typeof window.showPrompt === 'function') {
+        const result = await window.showPrompt('Rename session:', oldName);
+        if (result === null) return;
+        const input = document.getElementById('history-rename-input');
+        if (input) input.value = result;
+        await historyRenameCommit();
+        return;
+      }
+
       const input = document.getElementById('history-rename-input');
-      if (input) input.value = entry.baseName || boardStripJsonExt(entry.filename);
+      if (input) input.value = oldName;
       const overlay = document.getElementById('history-rename-overlay');
-      if (overlay) overlay.classList.add('active');
+      if (overlay) {
+        if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+        overlay.style.zIndex = '999999';
+      }
       if (input) { input.focus(); input.select(); }
     }
 
     function historyRenameCancel() {
       _historyRenameEntry = null;
       const overlay = document.getElementById('history-rename-overlay');
-      if (overlay) overlay.classList.remove('active');
+      if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+      }
     }
 
     async function historyRenameCommit() {
@@ -30158,28 +30308,56 @@
     let _historyDeleteEntry = null;
     let _historyDeleteBulkFn = null;
 
-    function historyBulkDeleteOpen(msg, fn) {
+    async function historyBulkDeleteOpen(msg, fn) {
       _historyDeleteBulkFn = fn;
+      if (typeof window.showConfirm === 'function') {
+        const confirmed = await window.showConfirm(msg);
+        if (confirmed && fn) {
+          await fn();
+        }
+        return;
+      }
       const label = document.getElementById('history-delete-label');
       if (label) label.textContent = msg;
       const overlay = document.getElementById('history-delete-overlay');
-      if (overlay) overlay.classList.add('active');
+      if (overlay) {
+        if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+        overlay.style.zIndex = '999999';
+      }
     }
 
-    function historyDeleteEntry(entry) {
+    async function historyDeleteEntry(entry) {
       if (!entry) return;
       _historyDeleteEntry = entry;
+      const msg = 'Delete "' + (entry.baseName || entry.filename) + '"? This cannot be undone.';
+      if (typeof window.showConfirm === 'function') {
+        const confirmed = await window.showConfirm(msg);
+        if (confirmed) {
+          await historyDeleteConfirm();
+        }
+        return;
+      }
       const label = document.getElementById('history-delete-label');
-      if (label) label.textContent = 'Delete "' + (entry.baseName || entry.filename) + '"? This cannot be undone.';
+      if (label) label.textContent = msg;
       const overlay = document.getElementById('history-delete-overlay');
-      if (overlay) overlay.classList.add('active');
+      if (overlay) {
+        if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+        overlay.style.zIndex = '999999';
+      }
     }
 
     function historyDeleteCancel() {
       _historyDeleteEntry = null;
       _historyDeleteBulkFn = null;
       const overlay = document.getElementById('history-delete-overlay');
-      if (overlay) overlay.classList.remove('active');
+      if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+      }
     }
 
     async function historyDeleteConfirm() {
@@ -30231,13 +30409,25 @@
 
     let _historyDuplicateEntry = null;
 
-    function historyDuplicateEntry(entry) {
+    async function historyDuplicateEntry(entry) {
       if (!entry || !entry.target || !entry.filename) return;
       _historyDuplicateEntry = entry;
 
       // Show just the bare session title (no class prefix) in the name input
       const rawBase = boardStripJsonExt(entry.filename || '');
       const bareTitle = historyDisplayBaseName({ baseName: rawBase, classGroup: entry.classGroup });
+
+      if (typeof window.showPrompt === 'function') {
+        const result = await window.showPrompt('Duplicate session — enter new title:', bareTitle);
+        if (result === null) return;
+        const input = document.getElementById('history-duplicate-input');
+        if (input) input.value = result;
+        const sel = document.getElementById('history-duplicate-class');
+        if (sel) sel.value = entry.classGroup || '';
+        await historyDuplicateCommit();
+        return;
+      }
+
       const input = document.getElementById('history-duplicate-input');
       if (input) input.value = bareTitle;
 
@@ -30260,14 +30450,22 @@
       }
 
       const overlay = document.getElementById('history-duplicate-overlay');
-      if (overlay) overlay.classList.add('active');
+      if (overlay) {
+        if (overlay.parentNode !== document.body) document.body.appendChild(overlay);
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+        overlay.style.zIndex = '999999';
+      }
       if (input) { input.focus(); input.select(); }
     }
 
     function historyDuplicateCancel() {
       _historyDuplicateEntry = null;
       const overlay = document.getElementById('history-duplicate-overlay');
-      if (overlay) overlay.classList.remove('active');
+      if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+      }
     }
 
     async function historyDuplicateCommit() {
@@ -30390,8 +30588,22 @@
       content.innerHTML = '<div style="padding:20px;color:#888;font-size:0.82rem;">Loading preview…</div>';
 
       // Open the pane immediately so the user sees the loading state
+      let backdrop = document.getElementById('history-preview-backdrop');
+      if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'history-preview-backdrop';
+        backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:999998;display:none;';
+        backdrop.onclick = historyPreviewClose;
+        document.body.appendChild(backdrop);
+      }
+      backdrop.style.display = 'block';
       const pane = document.getElementById('history-preview-pane');
-      if (pane) pane.style.right = '0';
+      if (pane) {
+        if (pane.parentNode !== document.body) document.body.appendChild(pane);
+        pane.style.zIndex = '999999';
+        pane.style.display = 'flex';
+        pane.style.right = '0';
+      }
 
       try {
         const result = await historyReadEntryJson(entry);
@@ -30569,6 +30781,8 @@
       if (pane) {
         pane.style.right = '-400px';
       }
+      const backdrop = document.getElementById('history-preview-backdrop');
+      if (backdrop) backdrop.style.display = 'none';
       _historyPreviewEntry = null;
     }
 
@@ -34314,6 +34528,7 @@
           if (_markTimer) { clearTimeout(_markTimer); _markTimer = null; }
         }
         _syncBtns();
+        if (typeof window.updateBoardModeToggleUI === 'function') window.updateBoardModeToggleUI();
       };
 
       window.laserClearMarks = function () {

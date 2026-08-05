@@ -3747,6 +3747,10 @@ function dockTargetWindow(targetWindow, edge, ratio = 0.2) {
   return true;
 }
 
+ipcMain.handle('app:has-second-display', async () => {
+  return screen.getAllDisplays().length > 1;
+});
+
 ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   if (mirrorWindow && !mirrorWindow.isDestroyed()) {
     mirrorWindow.focus();
@@ -6480,6 +6484,18 @@ app.whenReady().then(async () => {
 
   buildMenu();
   createMainWindow(initialPageFile);
+
+  const _notifyDisplayChanged = () => {
+    const count = screen.getAllDisplays().length;
+    const hasSecond = count > 1;
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        win.webContents.send('display-changed', { count, hasSecond });
+      }
+    }
+  };
+  screen.on('display-added', _notifyDisplayChanged);
+  screen.on('display-removed', _notifyDisplayChanged);
 
   // Defer heavy disk migration and seed folder initialization to background
   (async () => {

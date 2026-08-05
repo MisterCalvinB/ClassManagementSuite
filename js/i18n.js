@@ -2474,6 +2474,9 @@
       katexHelpSum: 'Summation / Sum',
       katexHelpGreek: 'Greek letters (e.g. \\alpha, \\beta, \\pi)',
       katexHelpSymbols: 'Mathematical symbols (e.g. \\times, \\pm, \\neq)',
+      secondDisplayPrompt: 'Second display detected! Would you like to launch Presentation Mode on monitor 2?',
+      btnStartPresentation: '📽️ Start Presentation Mode',
+      btnDismissPrompt: 'Dismiss',
     },
 
     fr: {
@@ -4940,6 +4943,9 @@
       katexHelpSum: 'Sommation / Somme',
       katexHelpGreek: 'Lettres grecques (ex. \\alpha, \\beta, \\pi)',
       katexHelpSymbols: 'Symboles mathématiques (ex. \\times, \\pm, \\neq)',
+      secondDisplayPrompt: 'Second écran détecté ! Souhaitez-vous projeter le Mode Présentation sur le 2nd écran ?',
+      btnStartPresentation: '📽️ Démarrer la présentation',
+      btnDismissPrompt: 'Ignorer',
     },
 
     de: {
@@ -6094,6 +6100,9 @@
       katexHelpSum: 'Summenzeichen / Summe',
       katexHelpGreek: 'Griechische Buchstaben (z. B. \\alpha, \\beta, \\pi)',
       katexHelpSymbols: 'Mathematische Symbole (z. B. \\times, \\pm, \\neq)',
+      secondDisplayPrompt: 'Zweiter Bildschirm erkannt! Möchten Sie den Präsentationsmodus auf den 2. Bildschirm projizieren?',
+      btnStartPresentation: '📽️ Präsentationsmodus starten',
+      btnDismissPrompt: 'Ignorieren',
     },
 
 
@@ -7249,6 +7258,9 @@
       katexHelpSum: 'Sommatoria / Somma',
       katexHelpGreek: 'Lettere greche (es. \\alpha, \\beta, \\pi)',
       katexHelpSymbols: 'Simboli matematici (es. \\times, \\pm, \\neq)',
+      secondDisplayPrompt: 'Secondo schermo rilevato! Vuoi proiettare la Modalità Presentazione sul secondo schermo?',
+      btnStartPresentation: '📽️ Avvia Presentazione',
+      btnDismissPrompt: 'Ignora',
     }
   };
 
