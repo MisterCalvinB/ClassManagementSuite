@@ -1810,6 +1810,17 @@ async function saveSyncBaseline(baselineMap) {
   }
 }
 
+async function resetSyncBaseline() {
+  _pendingBaselineEntries = [];
+  try {
+    const p = getSyncBaselinePath();
+    try { await fs.unlink(p); } catch {}
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
+  }
+}
+
 // Pending baseline entries collected during a sync run; committed after all
 // conflicts are resolved (or immediately if there are none).
 let _pendingBaselineEntries = [];
@@ -5150,6 +5161,10 @@ ipcMain.handle('app:pick-sync-location', async () => {
 
   await saveSyncLocation(selected);
   return { ok: true, canceled: false, syncLocation: selected };
+});
+
+ipcMain.handle('app:reset-sync-baseline', async () => {
+  return resetSyncBaseline();
 });
 
 ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => {

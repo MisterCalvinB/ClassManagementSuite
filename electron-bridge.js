@@ -213,6 +213,11 @@
     return getDesktopApi().migrateClassUuids();
   }
 
+  async function resetSyncBaseline() {
+    if (!isElectron()) return null;
+    return getDesktopApi().resetSyncBaseline();
+  }
+
   async function renameFile(target, oldFilename, newFilename) {
     if (!isElectron()) {
       return null;
@@ -782,6 +787,7 @@
     migrateClassUuids,
     renameFile,
     renameByPath,
+    resetSyncBaseline,
     statByPath,
     copyByPath,
     moveByPath,

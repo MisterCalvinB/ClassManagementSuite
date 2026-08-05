@@ -22,8 +22,6 @@
       <div class="gc-sidebar">
         <div class="gc-sidebar-item active" data-tab="general" onclick="gcSetTab('general')" data-i18n="gcTabGeneral">
           General</div>
-        <div class="gc-sidebar-item" data-tab="startup" onclick="gcSetTab('startup')" data-i18n="gcTabStartup">Startup
-        </div>
         <div class="gc-sidebar-item" data-tab="storage" onclick="gcSetTab('storage')" data-i18n="gcTabStorage">Storage
           &amp; Sync</div>
         <div class="gc-sidebar-item" data-tab="remote" onclick="gcSetTab('remote')" data-i18n="gcTabRemote">Remote
@@ -76,10 +74,7 @@
               </p>
             </div>
           </section>
-        </div>
 
-        <!-- Tab pane: Startup -->
-        <div class="gc-tab-pane" data-pane="startup">
           <!-- ── Startup & Launch ──────────────────────────────── -->
           <section class="config-section">
             <h2 data-i18n="gcSecStartup">Startup &amp; Launch</h2>
@@ -177,9 +172,9 @@
             <div id="firstRunStatus" class="status"></div>
           </div>
 
-          <!-- ── Data & Storage ───────────────────────────────── -->
+          <!-- ── Data Location ───────────────────────────────── -->
           <section class="config-section">
-            <h2 data-i18n="gcSecData">Data &amp; Storage</h2>
+            <h2 data-i18n="gcSecData">Data Location</h2>
             <p class="section-desc" data-i18n="gcSecDataDesc">The data folder holds all custom content, class groups,
               and saved session files.</p>
             <p class="path-label" data-i18n="gcCurrentDataFolder">Current data folder</p>
@@ -207,7 +202,7 @@
 
           </section>
           <section class="config-section">
-            <h2 data-i18n="gcBackupLocation">Backup Location</h2>
+            <h2 data-i18n="gcBackupLocation">Local Backup</h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcBackupDesc">When you click "Backup Now",
               all user data is copied to this folder.</p>
             <div class="path-box" id="backupPath" data-i18n="notSet">Not set</div>
@@ -229,7 +224,7 @@
 
           </section>
           <section class="config-section">
-            <h2 data-i18n="gcSyncLocation">Sync Location</h2>
+            <h2 data-i18n="gcSyncLocation">Local Sync</h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcSyncDesc">Synchronize the current data
               folder with another saved location.</p>
             <div class="path-box" id="syncPath" data-i18n="notSet">Not set</div>
@@ -237,6 +232,7 @@
               <button class="btn btn-outline" id="pickSyncBtn" type="button" data-i18n="gcChooseFolder">Choose
                 Folder</button>
               <button class="btn" id="runSyncBtn" type="button" disabled data-i18n="gcSyncNow">Sync Now</button>
+              <button class="btn btn-outline" id="resetSyncBaselineBtn" type="button" data-i18n="gcResetSyncBaseline">Reset Baseline</button>
             </div>
             <div style="margin-top:10px;">
               <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;">
@@ -257,8 +253,8 @@
 
             <!-- ── FTP Sync ─────────────────────────────────── -->
           </section>
-          <section class="config-section">
-            <h2 data-i18n="gcFtpSync">FTP Sync</h2>
+          <section class="config-section" data-dev-only="true">
+            <h2 data-i18n="gcFtpSync">FTP Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcFtpSyncDesc">Upload or download your data
               to/from an FTP or FTPS server.</p>
 
@@ -331,8 +327,8 @@
 
             <!-- ── Google Drive Sync ─────────────────────────── -->
           </section>
-          <section class="config-section">
-            <h2 data-i18n="gcDriveSync">Google Drive Sync</h2>
+          <section class="config-section" data-dev-only="true">
+            <h2 data-i18n="gcDriveSync">Google Drive Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcDriveSyncDesc">Sync your data with Google
               Drive using your own OAuth 2.0 credentials.</p>
 
@@ -390,8 +386,8 @@
 
             <!-- ── WebDAV Sync ───────────────────────────────── -->
           </section>
-          <section class="config-section">
-            <h2 data-i18n="gcWebdavSync">WebDAV Sync</h2>
+          <section class="config-section" data-dev-only="true">
+            <h2 data-i18n="gcWebdavSync">WebDAV Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcWebdavSyncDesc">Upload or download your
               data via WebDAV — compatible with kDrive, Nextcloud, ownCloud, and others.</p>
 
@@ -932,9 +928,17 @@
       flashSaved(langStatus);
     });
 
+    function updateDevFeaturesVisibility() {
+      var isDev = !!showDevFeaturesToggle.checked;
+      document.querySelectorAll('[data-dev-only="true"]').forEach(function (el) {
+        el.style.display = isDev ? '' : 'none';
+      });
+    }
+
     var showDevFeaturesToggle = document.getElementById('showDevFeaturesToggle');
     showDevFeaturesToggle.addEventListener('change', function () {
       patchLauncherSettings({ showDevFeatures: !!showDevFeaturesToggle.checked });
+      updateDevFeaturesVisibility();
       flashSaved(startupStatus);
     });
 
@@ -1538,6 +1542,23 @@
     });
 
     document.getElementById('runSyncBtn').addEventListener('click', doSync);
+
+    document.getElementById('resetSyncBaselineBtn').addEventListener('click', async function () {
+      if (!window.Desktop || typeof Desktop.resetSyncBaseline !== 'function') return;
+      this.disabled = true;
+      try {
+        var res = await Desktop.resetSyncBaseline();
+        if (res && res.ok) {
+          setSyncStatus(t('gcResetSyncBaselineDone'), 'ok');
+        } else {
+          setSyncStatus((res && res.error) || t('gcResetSyncBaselineErr'), 'err');
+        }
+      } catch (err) {
+        setSyncStatus(String(err && err.message ? err.message : err), 'err');
+      } finally {
+        this.disabled = false;
+      }
+    });
 
     function groupSyncItems(items) {
       // First pass: find depth-3+ paths; their "dir/name" prefix means a file at
@@ -2654,6 +2675,7 @@
       splitPct.textContent = pct + ' / ' + (100 - pct);
 
       showDevFeaturesToggle.checked = cfg.showDevFeatures === true;
+      updateDevFeaturesVisibility();
 
       refreshCurrentPath();
       checkFirstRun();

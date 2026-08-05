@@ -147,6 +147,9 @@ const exposedApi = {
   applySyncChoices(request) {
     return invoke('app:apply-sync-choices', request);
   },
+  resetSyncBaseline() {
+    return invoke('app:reset-sync-baseline');
+  },
   getAutoSync() {
     return invoke('app:get-auto-sync');
   },
