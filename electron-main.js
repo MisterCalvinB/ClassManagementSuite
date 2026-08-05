@@ -1457,28 +1457,260 @@ function getBackupLocationConfigPath() {
   return path.join(app.getPath('userData'), 'backup-location.json');
 }
 
-async function loadSavedBackupLocation() {
+async function loadSavedBackupConfig() {
   try {
     const raw = await fs.readFile(getBackupLocationConfigPath(), 'utf8');
     const parsed = JSON.parse(raw);
-    const saved = String(parsed?.backupLocation || '').trim();
-    return saved || null;
+    return {
+      backupLocation: String(parsed?.backupLocation || '').trim() || null,
+      backupFormat: ['folder', 'zip', 'targz'].includes(parsed?.backupFormat) ? parsed.backupFormat : 'folder'
+    };
   } catch {
-    return null;
+    return { backupLocation: null, backupFormat: 'folder' };
+  }
+}
+
+async function loadSavedBackupLocation() {
+  const cfg = await loadSavedBackupConfig();
+  return cfg.backupLocation;
+}
+
+async function saveBackupConfig(updates = {}) {
+  try {
+    await fs.mkdir(app.getPath('userData'), { recursive: true });
+    const current = await loadSavedBackupConfig();
+    const newConfig = {
+      backupLocation: updates.backupLocation !== undefined ? updates.backupLocation : current.backupLocation,
+      backupFormat: updates.backupFormat !== undefined ? updates.backupFormat : current.backupFormat
+    };
+    await fs.writeFile(
+      getBackupLocationConfigPath(),
+      JSON.stringify(newConfig, null, 2),
+      'utf8'
+    );
+    return newConfig;
+  } catch (err) {
+    console.error('Failed to save backup config:', err);
+    return { backupLocation: null, backupFormat: 'folder' };
   }
 }
 
 async function saveBackupLocation(dirPath) {
-  try {
-    await fs.mkdir(app.getPath('userData'), { recursive: true });
-    await fs.writeFile(
-      getBackupLocationConfigPath(),
-      JSON.stringify({ backupLocation: dirPath }, null, 2),
-      'utf8'
-    );
-  } catch (err) {
-    console.error('Failed to save backup location config:', err);
+  return saveBackupConfig({ backupLocation: dirPath });
+}
+
+async function collectFilesForBackup(dir, baseDir = dir) {
+  const fileList = [];
+  async function walk(currentDir) {
+    let entries;
+    try {
+      entries = await fs.readdir(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile()) {
+        fileList.push({ fullPath, relativePath: 'user/' + relativePath });
+      }
+    }
   }
+  await walk(dir);
+  return fileList;
+}
+
+async function createZipBackup(sourceDir, destZipFile) {
+  const files = await collectFilesForBackup(sourceDir);
+  const zlib = require('zlib');
+  const centralDirs = [];
+  let currentOffset = 0;
+  let copiedCount = 0;
+  const errors = [];
+
+  function calcCrc32(buf) {
+    if (typeof zlib.crc32 === 'function') return zlib.crc32(buf);
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < buf.length; i++) {
+      crc ^= buf[i];
+      for (let j = 0; j < 8; j++) {
+        crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+      }
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function toDosDateTime(date) {
+    const d = date || new Date();
+    const year = Math.max(1980, d.getFullYear());
+    const dosDate = ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2);
+    return { dosDate, dosTime };
+  }
+
+  const parts = [];
+
+  for (const file of files) {
+    try {
+      const rawContent = await fs.readFile(file.fullPath);
+      const stats = await fs.stat(file.fullPath);
+      const { dosDate, dosTime } = toDosDateTime(stats.mtime);
+
+      const uncompressedSize = rawContent.length;
+      const crc = calcCrc32(rawContent);
+
+      let deflated = zlib.deflateRawSync(rawContent);
+      let compMethod = 8;
+      let compData = deflated;
+      let compSize = deflated.length;
+
+      if (compSize >= uncompressedSize) {
+        compMethod = 0;
+        compData = rawContent;
+        compSize = uncompressedSize;
+      }
+
+      const nameBuf = Buffer.from(file.relativePath, 'utf8');
+      const nameLen = nameBuf.length;
+
+      const lfh = Buffer.alloc(30 + nameLen);
+      lfh.writeUInt32LE(0x04034b50, 0);
+      lfh.writeUInt16LE(20, 4);
+      lfh.writeUInt16LE(0x0800, 6);
+      lfh.writeUInt16LE(compMethod, 8);
+      lfh.writeUInt16LE(dosTime, 10);
+      lfh.writeUInt16LE(dosDate, 12);
+      lfh.writeUInt32LE(crc, 14);
+      lfh.writeUInt32LE(compSize, 18);
+      lfh.writeUInt32LE(uncompressedSize, 22);
+      lfh.writeUInt16LE(nameLen, 26);
+      lfh.writeUInt16LE(0, 28);
+      nameBuf.copy(lfh, 30);
+
+      const headerOffset = currentOffset;
+      parts.push(lfh);
+      parts.push(compData);
+      currentOffset += lfh.length + compSize;
+
+      const cdh = Buffer.alloc(46 + nameLen);
+      cdh.writeUInt32LE(0x02014b50, 0);
+      cdh.writeUInt16LE(20, 4);
+      cdh.writeUInt16LE(20, 6);
+      cdh.writeUInt16LE(0x0800, 8);
+      cdh.writeUInt16LE(compMethod, 10);
+      cdh.writeUInt16LE(dosTime, 12);
+      cdh.writeUInt16LE(dosDate, 14);
+      cdh.writeUInt32LE(crc, 16);
+      cdh.writeUInt32LE(compSize, 20);
+      cdh.writeUInt32LE(uncompressedSize, 24);
+      cdh.writeUInt16LE(nameLen, 28);
+      cdh.writeUInt16LE(0, 30);
+      cdh.writeUInt16LE(0, 32);
+      cdh.writeUInt16LE(0, 34);
+      cdh.writeUInt16LE(0, 36);
+      cdh.writeUInt32LE(0x81a40000, 38);
+      cdh.writeUInt32LE(headerOffset, 42);
+      nameBuf.copy(cdh, 46);
+
+      centralDirs.push(cdh);
+      copiedCount++;
+    } catch (err) {
+      errors.push({ filename: file.relativePath, error: String(err?.message || err) });
+    }
+  }
+
+  const cdStartOffset = currentOffset;
+  let cdSize = 0;
+  for (const cdh of centralDirs) {
+    parts.push(cdh);
+    cdSize += cdh.length;
+  }
+
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(centralDirs.length, 8);
+  eocd.writeUInt16LE(centralDirs.length, 10);
+  eocd.writeUInt32LE(cdSize, 12);
+  eocd.writeUInt32LE(cdStartOffset, 16);
+  eocd.writeUInt16LE(0, 20);
+  parts.push(eocd);
+
+  const finalZipBuffer = Buffer.concat(parts);
+  await fs.mkdir(path.dirname(destZipFile), { recursive: true });
+  await fs.writeFile(destZipFile, finalZipBuffer);
+  return { ok: true, copied: copiedCount, errors };
+}
+
+async function createTarGzBackup(sourceDir, destTarGzFile) {
+  const files = await collectFilesForBackup(sourceDir);
+  const zlib = require('zlib');
+  const blocks = [];
+  let copiedCount = 0;
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      const content = await fs.readFile(file.fullPath);
+      const stats = await fs.stat(file.fullPath);
+
+      const header = Buffer.alloc(512);
+
+      let nameStr = file.relativePath;
+      let prefixStr = '';
+      if (Buffer.byteLength(nameStr) > 100) {
+        const slashIdx = nameStr.indexOf('/', nameStr.length - 100);
+        if (slashIdx > 0 && slashIdx <= 155) {
+          prefixStr = nameStr.substring(0, slashIdx);
+          nameStr = nameStr.substring(slashIdx + 1);
+        }
+      }
+
+      header.write(nameStr, 0, Math.min(100, Buffer.byteLength(nameStr)), 'utf8');
+      header.write('0000644\0', 100, 8, 'utf8');
+      header.write('0000000\0', 108, 8, 'utf8');
+      header.write('0000000\0', 116, 8, 'utf8');
+      header.write(content.length.toString(8).padStart(11, '0') + '\0', 124, 12, 'utf8');
+      const mtimeSec = Math.floor(stats.mtimeMs / 1000);
+      header.write(mtimeSec.toString(8).padStart(11, '0') + '\0', 136, 12, 'utf8');
+      header.write('        ', 148, 8, 'utf8');
+      header.write('0', 156, 1, 'utf8');
+      header.write('ustar\0', 257, 6, 'utf8');
+      header.write('00', 263, 2, 'utf8');
+      if (prefixStr) {
+        header.write(prefixStr, 345, Math.min(155, Buffer.byteLength(prefixStr)), 'utf8');
+      }
+
+      let chksum = 0;
+      for (let i = 0; i < 512; i++) {
+        chksum += header[i];
+      }
+      header.write(chksum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'utf8');
+
+      blocks.push(header);
+      blocks.push(content);
+
+      const padLen = (512 - (content.length % 512)) % 512;
+      if (padLen > 0) {
+        blocks.push(Buffer.alloc(padLen));
+      }
+
+      copiedCount++;
+    } catch (err) {
+      errors.push({ filename: file.relativePath, error: String(err?.message || err) });
+    }
+  }
+
+  blocks.push(Buffer.alloc(1024));
+
+  const tarBuffer = Buffer.concat(blocks);
+  const compressedGz = zlib.gzipSync(tarBuffer);
+  await fs.mkdir(path.dirname(destTarGzFile), { recursive: true });
+  await fs.writeFile(destTarGzFile, compressedGz);
+  return { ok: true, copied: copiedCount, errors };
 }
 
 function getSyncLocationConfigPath() {
@@ -4808,8 +5040,14 @@ ipcMain.handle('app:pick-and-copy-files', async (event, request = {}) => {
 });
 
 ipcMain.handle('app:get-backup-location', async () => {
-  const backupLocation = await loadSavedBackupLocation();
-  return { ok: true, backupLocation };
+  const cfg = await loadSavedBackupConfig();
+  return { ok: true, backupLocation: cfg.backupLocation, backupFormat: cfg.backupFormat };
+});
+
+ipcMain.handle('app:set-backup-format', async (_event, { format } = {}) => {
+  const valid = ['folder', 'zip', 'targz'].includes(format) ? format : 'folder';
+  await saveBackupConfig({ backupFormat: valid });
+  return { ok: true, backupFormat: valid };
 });
 
 ipcMain.handle('app:pick-backup-location', async () => {
@@ -4831,12 +5069,13 @@ ipcMain.handle('app:pick-backup-location', async () => {
     return { ok: false, canceled: false, error: 'Selected folder is not writable.' };
   }
 
-  await saveBackupLocation(selected);
-  return { ok: true, canceled: false, backupLocation: selected };
+  const cfg = await saveBackupConfig({ backupLocation: selected });
+  return { ok: true, canceled: false, backupLocation: selected, backupFormat: cfg.backupFormat };
 });
 
-ipcMain.handle('app:run-backup', async () => {
-  const backupLocation = await loadSavedBackupLocation();
+ipcMain.handle('app:run-backup', async (_event, request = {}) => {
+  const cfg = await loadSavedBackupConfig();
+  const backupLocation = cfg.backupLocation;
   if (!backupLocation) {
     return { ok: false, error: 'No backup location configured.' };
   }
@@ -4847,27 +5086,42 @@ ipcMain.handle('app:run-backup', async () => {
     return { ok: false, error: 'Backup folder is not accessible or not writable.' };
   }
 
+  const format = ['folder', 'zip', 'targz'].includes(request?.format)
+    ? request.format
+    : cfg.backupFormat;
+
   const writableRoot = getWritableRootDir();
-  const sources = [
-    { dir: path.join(writableRoot, 'user'), prefix: 'user' }
-  ];
+  const userDir = path.join(writableRoot, 'user');
 
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-  const destRoot = path.join(backupLocation, timestamp);
 
-  let totalCopied = 0;
-  const allErrors = [];
+  if (format === 'zip') {
+    const targetFile = path.join(backupLocation, `backup_${timestamp}.zip`);
+    const result = await createZipBackup(userDir, targetFile);
+    return { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
+  } else if (format === 'targz') {
+    const targetFile = path.join(backupLocation, `backup_${timestamp}.tar.gz`);
+    const result = await createTarGzBackup(userDir, targetFile);
+    return { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
+  } else {
+    const sources = [
+      { dir: userDir, prefix: 'user' }
+    ];
+    const destRoot = path.join(backupLocation, timestamp);
+    let totalCopied = 0;
+    const allErrors = [];
 
-  for (const { dir, prefix } of sources) {
-    const destDir = path.join(destRoot, prefix);
-    const result = await copyTreeForBackup(dir, destDir);
-    totalCopied += result.copied;
-    allErrors.push(...result.errors);
+    for (const { dir, prefix } of sources) {
+      const destDir = path.join(destRoot, prefix);
+      const result = await copyTreeForBackup(dir, destDir);
+      totalCopied += result.copied;
+      allErrors.push(...result.errors);
+    }
+
+    return { ok: true, copied: totalCopied, errors: allErrors, backupLocation: destRoot };
   }
-
-  return { ok: true, copied: totalCopied, errors: allErrors, backupLocation: destRoot };
 });
 
 ipcMain.handle('app:get-sync-location', async () => {

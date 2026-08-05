@@ -211,6 +211,15 @@
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcBackupDesc">When you click "Backup Now",
               all user data is copied to this folder.</p>
             <div class="path-box" id="backupPath" data-i18n="notSet">Not set</div>
+            <div class="field" style="margin-top:10px;margin-bottom:12px;">
+              <label class="field-label" for="backupFormatSelect" data-i18n="gcBackupFormat">Backup format</label>
+              <select id="backupFormatSelect"
+                style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.88rem;background:#fff;color:var(--text);cursor:pointer;max-width:220px;">
+                <option value="folder" data-i18n="gcBackupFormatFolder">Folder</option>
+                <option value="zip" data-i18n="gcBackupFormatZip">ZIP Archive (.zip)</option>
+                <option value="targz" data-i18n="gcBackupFormatTarGz">TAR.GZ Archive (.tar.gz)</option>
+              </select>
+            </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-outline" id="pickBackupBtn" type="button" data-i18n="gcChooseFolder">Choose
                 Folder</button>
@@ -454,6 +463,15 @@
             <button class="btn" type="button" id="openBakManagerBtn" data-i18n="gcBakManagerBtn">Manage backup
               files…</button>
           </section>
+
+          <!-- ── Reset App ───────────────────────────────────── -->
+          <section class="config-section" style="border-color:#c00;">
+            <h2 style="color:#c00;">Reset App</h2>
+            <p class="section-desc">Permanently erase selected app data folders. A backup ZIP will be offered first.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn-danger" id="resetAppBtn" type="button">Reset App…</button>
+            </div>
+          </section>
         </div>
 
         <!-- ── Backup file manager modal ─────────────────────────── -->
@@ -470,6 +488,57 @@
             <div id="bakManagerBody" style="overflow-y:auto;max-height:60vh;"></div>
             <div class="modal-footer">
               <button type="button" class="btn-cancel" id="bakManagerClose" data-i18n="gcCancel">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Reset App Modal ───────────────────────────────────── -->
+        <div id="resetOverlay" class="reset-overlay" style="display:none;" role="dialog" aria-modal="true">
+          <div class="reset-modal">
+            <div id="resetStep1">
+              <h2>Reset App</h2>
+              <p class="reset-modal-desc">This will permanently erase selected folders. <strong>This cannot be undone.</strong><br>We strongly recommend saving a backup ZIP first.</p>
+              <div class="btn-row" style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn" id="resetBackupBtn" type="button">Save Backup ZIP</button>
+                <div id="resetBackupStatus" style="font-size:0.83rem;font-weight:600;align-self:center;min-height:1.2em;"></div>
+              </div>
+              <div class="btn-row" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+                <button class="btn-outline" id="resetToStep2Btn" type="button">Skip, choose folders →</button>
+                <button class="btn-outline" id="resetCancelStep1Btn" type="button">Cancel</button>
+              </div>
+            </div>
+
+            <div id="resetStep2" style="display:none;">
+              <h2>Choose folders to erase</h2>
+              <p class="reset-modal-desc">Check the folders you want to delete. Unchecked folders will be kept.</p>
+              <div class="reset-folder-list" id="resetFolderList"></div>
+              <hr class="reset-divider">
+              <div class="reset-folder-list">
+                <label class="reset-folder-item everything" id="resetEverythingItem">
+                  <input type="checkbox" id="resetEverythingCb">
+                  <div class="reset-folder-item-body">
+                    <div class="reset-folder-label">Everything</div>
+                    <div class="reset-folder-desc">All app data — settings, class rosters, and all folders above</div>
+                  </div>
+                </label>
+              </div>
+              <div class="btn-row" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
+                <button class="btn-danger" id="resetToStep3Btn" type="button" disabled>Erase Selected →</button>
+                <button class="btn-outline" id="resetBackStep2Btn" type="button">← Back</button>
+              </div>
+            </div>
+
+            <div id="resetStep3" style="display:none;">
+              <h2>Confirm erasure</h2>
+              <p class="reset-modal-desc">You are about to permanently erase:</p>
+              <div class="reset-selected-list" id="resetSelectedList"></div>
+              <p class="reset-modal-desc" style="margin-bottom:10px;">Type <strong>ERASE</strong> to confirm:</p>
+              <input type="text" class="reset-confirm-input" id="resetConfirmInput" placeholder="ERASE" autocomplete="off" spellcheck="false">
+              <div class="btn-row" style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn-danger" id="resetExecuteBtn" type="button" disabled>Erase Now</button>
+                <button class="btn-outline" id="resetBackStep3Btn" type="button">← Back</button>
+              </div>
+              <div id="resetExecStatus" style="font-size:0.85rem;font-weight:600;margin-top:8px;min-height:1.2em;"></div>
             </div>
           </div>
         </div>
@@ -1243,6 +1312,18 @@
         document.getElementById('backupPath').textContent = typeof t === 'function' ? t('notSet') : 'Not set';
         document.getElementById('runBackupBtn').disabled = true;
       }
+      if (res && res.ok && res.backupFormat) {
+        var fmtSel = document.getElementById('backupFormatSelect');
+        if (fmtSel) fmtSel.value = res.backupFormat;
+      }
+    }
+
+    var backupFmtSel = document.getElementById('backupFormatSelect');
+    if (backupFmtSel) {
+      backupFmtSel.addEventListener('change', async function () {
+        if (!window.electronApi || !window.electronApi.setBackupFormat) return;
+        await window.electronApi.setBackupFormat(this.value);
+      });
     }
 
     document.getElementById('pickBackupBtn').addEventListener('click', async function () {
@@ -1260,6 +1341,7 @@
           setBackupStatus(t('gcBackupFolderUpdated'), 'ok');
           document.getElementById('backupPath').textContent = res.backupLocation;
           document.getElementById('runBackupBtn').disabled = false;
+          if (res.backupFormat && backupFmtSel) backupFmtSel.value = res.backupFormat;
         }
       } catch (err) { setBackupStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { this.disabled = false; }
@@ -1269,7 +1351,8 @@
       this.disabled = true;
       setBackupStatus(t('gcBackingUp'), '');
       try {
-        var res = await window.electronApi.runBackup();
+        var selectedFmt = backupFmtSel ? backupFmtSel.value : 'folder';
+        var res = await window.electronApi.runBackup({ format: selectedFmt });
         if (!res || !res.ok) {
           setBackupStatus((res && res.error) || t('gcBackupFailed'), 'err');
         } else {
@@ -2666,9 +2749,221 @@
       });
     }
 
+    /* ════════════════════════════════════════════
+       RESET APP MODAL
+       ════════════════════════════════════════════ */
+
+    function escHtml(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    var RESET_FOLDER_DEFS = [
+      { id: 'mindmaps',           label: 'Board sessions',     desc: 'Constellation maps and board session saves' },
+      { id: 'grades',             label: 'Grades',             desc: 'Grade log records' },
+      { id: 'gradeSheet',         label: 'Grade sheets',       desc: 'Grade sheet documents' },
+      { id: 'groupParticipation', label: 'Participation logs', desc: 'Group participation tracking records' },
+      { id: 'customData',         label: 'Custom content',     desc: 'Wordbanks, books, dictations, quizzes and other custom data' },
+      { id: 'classPlans',         label: 'Class plans',        desc: 'Saved class plan documents' }
+    ];
+
+    function resetShowStep(n) {
+      document.getElementById('resetStep1').style.display = n === 1 ? '' : 'none';
+      document.getElementById('resetStep2').style.display = n === 2 ? '' : 'none';
+      document.getElementById('resetStep3').style.display = n === 3 ? '' : 'none';
+    }
+
+    function resetGetSelectedFolders() {
+      if (document.getElementById('resetEverythingCb').checked) {
+        return ['user'];
+      }
+      return RESET_FOLDER_DEFS
+        .filter(function(d) { return document.getElementById('resetCb_' + d.id).checked; })
+        .map(function(d) { return d.id; });
+    }
+
+    function resetUpdateStep2Btn() {
+      var sel = resetGetSelectedFolders();
+      document.getElementById('resetToStep3Btn').disabled = sel.length === 0;
+    }
+
+    function openResetModal() {
+      // Build folder checklist
+      var list = document.getElementById('resetFolderList');
+      list.innerHTML = '';
+      RESET_FOLDER_DEFS.forEach(function(def) {
+        var lbl = document.createElement('label');
+        lbl.className = 'reset-folder-item';
+        lbl.htmlFor = 'resetCb_' + def.id;
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id   = 'resetCb_' + def.id;
+        cb.addEventListener('change', function() {
+          lbl.classList.toggle('checked', cb.checked);
+          resetUpdateStep2Btn();
+        });
+
+        var body = document.createElement('div');
+        body.className = 'reset-folder-item-body';
+        body.innerHTML = '<div class="reset-folder-label">' + escHtml(def.label) + '</div>' +
+                         '<div class="reset-folder-desc">'  + escHtml(def.desc)  + '</div>';
+
+        lbl.appendChild(cb);
+        lbl.appendChild(body);
+        list.appendChild(lbl);
+      });
+
+      // Reset "Everything" checkbox state
+      var everyCb   = document.getElementById('resetEverythingCb');
+      var everyItem = document.getElementById('resetEverythingItem');
+      everyCb.checked = false;
+      everyItem.classList.remove('checked');
+
+      document.getElementById('resetBackupStatus').textContent = '';
+      document.getElementById('resetConfirmInput').value = '';
+      document.getElementById('resetExecStatus').textContent = '';
+      document.getElementById('resetToStep3Btn').disabled = true;
+      document.getElementById('resetExecuteBtn').disabled = true;
+
+      resetShowStep(1);
+      document.getElementById('resetOverlay').style.display = 'flex';
+    }
+
+    function closeResetModal() {
+      document.getElementById('resetOverlay').style.display = 'none';
+    }
+
+    function initResetApp() {
+      var resetBtn = document.getElementById('resetAppBtn');
+      if (!resetBtn) return;
+
+      document.getElementById('resetEverythingCb').addEventListener('change', function() {
+        var everyItem = document.getElementById('resetEverythingItem');
+        everyItem.classList.toggle('checked', this.checked);
+        RESET_FOLDER_DEFS.forEach(function(def) {
+          var cb2 = document.getElementById('resetCb_' + def.id);
+          if (!cb2) return;
+          if (document.getElementById('resetEverythingCb').checked) {
+            cb2.checked = false;
+            cb2.disabled = true;
+            cb2.closest('.reset-folder-item').classList.remove('checked');
+          } else {
+            cb2.disabled = false;
+          }
+        });
+        resetUpdateStep2Btn();
+      });
+
+      resetBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        openResetModal();
+      });
+
+      document.getElementById('resetCancelStep1Btn').addEventListener('click', closeResetModal);
+
+      document.getElementById('resetOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeResetModal();
+      });
+
+      document.getElementById('resetBackupBtn').addEventListener('click', async function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        this.disabled = true;
+        var st = document.getElementById('resetBackupStatus');
+        st.textContent = 'Saving…';
+        st.style.color = '';
+        try {
+          var r = await Desktop.backupZip();
+          if (r && r.ok) {
+            st.textContent = 'Backup saved.';
+            st.style.color = '#1a7f37';
+          } else if (r && r.canceled) {
+            st.textContent = '';
+          } else {
+            st.textContent = 'Backup failed.';
+            st.style.color = '#c00';
+          }
+        } catch(e) {
+          st.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+          st.style.color = '#c00';
+        } finally { this.disabled = false; }
+      });
+
+      document.getElementById('resetToStep2Btn').addEventListener('click', function() {
+        resetShowStep(2);
+      });
+
+      document.getElementById('resetBackStep2Btn').addEventListener('click', function() {
+        resetShowStep(1);
+      });
+
+      document.getElementById('resetToStep3Btn').addEventListener('click', function() {
+        var sel = resetGetSelectedFolders();
+        if (!sel.length) return;
+
+        var isEverything = sel[0] === 'user';
+        var lines = isEverything
+          ? ['Everything (all app data, settings, and rosters)']
+          : sel.map(function(id) {
+              var def = RESET_FOLDER_DEFS.find(function(d) { return d.id === id; });
+              return def ? def.label : id;
+            });
+
+        document.getElementById('resetSelectedList').innerHTML =
+          lines.map(function(l) { return '• ' + escHtml(l); }).join('<br>');
+
+        document.getElementById('resetConfirmInput').value = '';
+        document.getElementById('resetExecuteBtn').disabled = true;
+        document.getElementById('resetExecStatus').textContent = '';
+        resetShowStep(3);
+      });
+
+      document.getElementById('resetBackStep3Btn').addEventListener('click', function() {
+        resetShowStep(2);
+      });
+
+      document.getElementById('resetConfirmInput').addEventListener('input', function() {
+        var ok = this.value.trim().toUpperCase() === 'ERASE';
+        this.classList.toggle('ready', ok);
+        document.getElementById('resetExecuteBtn').disabled = !ok;
+      });
+
+      document.getElementById('resetExecuteBtn').addEventListener('click', async function() {
+        if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.resetFolders !== 'function') return;
+        var sel = resetGetSelectedFolders();
+        if (!sel.length) return;
+
+        this.disabled = true;
+        var backBtn = document.getElementById('resetBackStep3Btn');
+        backBtn.disabled = true;
+        var st = document.getElementById('resetExecStatus');
+        st.textContent = 'Erasing…';
+        st.style.color = '';
+
+        try {
+          var r = await Desktop.resetFolders(sel);
+          if (r && r.ok) {
+            st.textContent = 'Done. Selected folders have been erased.';
+            st.style.color = '#1a7f37';
+            setTimeout(function() { closeResetModal(); }, 1800);
+          } else {
+            st.textContent = 'Error: ' + (r && r.error ? r.error : 'Unknown error.');
+            st.style.color = '#c00';
+            this.disabled = false;
+            backBtn.disabled = false;
+          }
+        } catch(e) {
+          st.textContent = 'Error: ' + (e && e.message ? e.message : String(e));
+          st.style.color = '#c00';
+          this.disabled = false;
+          backBtn.disabled = false;
+        }
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', async function () {
       await init();  // reads config from file, populates path boxes
       initGeneralConfigCollapsible();
+      initResetApp();
       if (typeof applyTranslations === 'function') applyTranslations();
     });
   </script>

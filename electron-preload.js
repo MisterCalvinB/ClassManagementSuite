@@ -126,11 +126,14 @@ const exposedApi = {
   getBackupLocation() {
     return invoke('app:get-backup-location');
   },
+  setBackupFormat(format) {
+    return invoke('app:set-backup-format', { format });
+  },
   pickBackupLocation() {
     return invoke('app:pick-backup-location');
   },
-  runBackup() {
-    return invoke('app:run-backup');
+  runBackup(request) {
+    return invoke('app:run-backup', request);
   },
   getSyncLocation() {
     return invoke('app:get-sync-location');

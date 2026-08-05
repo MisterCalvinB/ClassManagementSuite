@@ -215,6 +215,21 @@
     </div>
   </div>
 
+  <!-- Autofill Suggestions Modal -->
+  <div id="autofill-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeAutofill()">
+    <div class="modal modal-sm">
+      <div class="modal-hd">
+        <span id="autofill-title" data-i18n="mdbAutofillModalTitle">Autofill Suggestions</span>
+        <button class="modal-x" onclick="closeAutofill()">✕</button>
+      </div>
+      <div class="modal-bd" id="autofill-body"></div>
+      <div class="modal-ft">
+        <button class="btn btn-secondary" onclick="closeAutofill()" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" onclick="applyAutofillSuggestions()" data-i18n="mdbAutofillApply">Apply Selected Suggestions</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete Confirm -->
   <div id="del-bg" class="modal-bg hidden">
     <div class="modal modal-sm">
@@ -1301,15 +1316,63 @@
         ? `<span class="field-help-icon" title="${esc(helpText)}" style="cursor:help;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#eee;color:#666;font-size:0.65rem;font-weight:bold;text-transform:none;letter-spacing:normal;vertical-align:middle;user-select:none;">?</span>`
         : '';
 
+      const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word));
+      const autofillBtn = isWordField
+        ? `<button type="button" class="btn btn-secondary btn-sm" onclick="triggerWordAutofill()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill">✨ Autofill</button>`
+        : '';
+
       return `<div class="form-field">
-    <label class="form-lbl" for="${id}">${esc(cap(field.key))}${helpIcon}</label>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <label class="form-lbl" for="${id}" style="margin-bottom:0;">${esc(cap(field.key))}${helpIcon}</label>
+      ${autofillBtn}
+    </div>
     ${input}
   </div>`;
     }
 
+    let _activeFormSchema = null;
+
+    function getMergedFormSchema(rec = {}) {
+      const defaultFields = getDefaultSchema(S.typeKey);
+      const currentSchema = S.schema || [];
+      const map = new Map();
+
+      for (const f of defaultFields) {
+        map.set(f.key, { ...f });
+      }
+
+      for (const f of currentSchema) {
+        if (!map.has(f.key)) {
+          map.set(f.key, { ...f });
+        } else {
+          const existing = map.get(f.key);
+          if (f.uniqueVals && f.uniqueVals.length) existing.uniqueVals = f.uniqueVals;
+          if (f.useSelect) existing.useSelect = f.useSelect;
+        }
+      }
+
+      if (rec && typeof rec === 'object') {
+        for (const key of Object.keys(rec)) {
+          if (key.startsWith('_')) continue;
+          if (!map.has(key)) {
+            const val = rec[key];
+            const isArr = Array.isArray(val);
+            const isObj = val !== null && typeof val === 'object' && !isArr;
+            const isNum = typeof val === 'number';
+            const isBool = typeof val === 'boolean';
+            const type = isArr ? 'array' : isObj ? 'object' : isNum ? 'number' : isBool ? 'boolean' : 'string';
+            map.set(key, { key, type, isLong: false, longArray: isArr, uniqueVals: [], useSelect: false });
+          }
+        }
+      }
+
+      return Array.from(map.values());
+    }
+
     function buildForm(rec, schema, fi, isAdd) {
       let html = '';
-      const activeSchema = schema.length ? schema : getDefaultSchema(S.typeKey);
+      const activeSchema = getMergedFormSchema(rec);
+      _activeFormSchema = activeSchema;
 
       if (isAdd) {
         // Tab bar
@@ -1379,7 +1442,7 @@
     }
 
     async function submitEdit() {
-      const schema = S.schema.length ? S.schema : getDefaultSchema(S.typeKey);
+      const schema = _activeFormSchema || getMergedFormSchema(S.editFI !== null && S.files[S.editFI] ? S.files[S.editFI].records[S.editRI] : {});
       if (S.editMode === 'add') {
         const bulkEl = $('ff-_bulk');
         const isBulk = bulkEl && !$('tab-bulk-content').classList.contains('hidden');
@@ -1447,9 +1510,13 @@
 
     function readFormValues(schema) {
       const result = {};
-      for (const field of schema) {
+      const fields = schema || [];
+      const keysProcessed = new Set();
+
+      for (const field of fields) {
         const el = $(`ff-${field.key}`);
         if (!el) continue;
+        keysProcessed.add(field.key);
         if (field.type === 'boolean') result[field.key] = el.checked;
         else if (field.type === 'number') result[field.key] = el.value === '' ? null : Number(el.value);
         else if (field.type === 'array') {
@@ -1463,12 +1530,200 @@
           result[field.key] = el.value;
         }
       }
+
+      document.querySelectorAll('[id^="ff-"]').forEach(el => {
+        const key = el.id.replace('ff-', '');
+        if (key.startsWith('_') || keysProcessed.has(key)) return;
+        result[key] = el.value;
+      });
+
       return result;
     }
 
     function closeEdit() {
       $('edit-bg').classList.add('hidden');
       S.editMode = S.editFI = S.editRI = null;
+      _activeFormSchema = null;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // AUTOFILL
+    // ─────────────────────────────────────────────────────────────────────
+    let _autofillPendingSuggestions = null;
+
+    async function triggerWordAutofill() {
+      const wordEl = $('ff-word') || $('ff-english');
+      const targetWord = (wordEl ? wordEl.value : '').trim();
+
+      if (!targetWord) {
+        showToast(t('mdbAutofillNoWord'), true);
+        return;
+      }
+
+      const targetWordLower = targetWord.toLowerCase();
+      const hits = [];
+
+      for (const [typeKey, typeFiles] of Object.entries(_gsc)) {
+        if (!typeFiles) continue;
+        for (const [filename, fileData] of Object.entries(typeFiles)) {
+          if (!fileData || !Array.isArray(fileData.records)) continue;
+          for (const rec of fileData.records) {
+            if (!rec) continue;
+            const recWord = String(rec.word || rec.english || '').trim().toLowerCase();
+            if (recWord === targetWordLower) {
+              hits.push({ typeKey, filename, rec });
+            }
+          }
+        }
+      }
+
+      for (const f of S.files) {
+        if (f.status === 'loaded' && Array.isArray(f.records)) {
+          for (const rec of f.records) {
+            if (!rec) continue;
+            const recWord = String(rec.word || rec.english || '').trim().toLowerCase();
+            if (recWord === targetWordLower) {
+              if (!hits.some(h => h.filename === f.name && h.rec === rec)) {
+                hits.push({ typeKey: S.typeKey, filename: f.name, rec });
+              }
+            }
+          }
+        }
+      }
+
+      if (!hits.length) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      const fieldSuggestions = {};
+      const sources = new Set();
+
+      for (const hit of hits) {
+        sources.add(hit.filename);
+        const r = hit.rec;
+        for (const [key, val] of Object.entries(r)) {
+          if (key.startsWith('_') || key === 'word') continue;
+          if (val === undefined || val === null || val === '') continue;
+          if (Array.isArray(val) && val.length === 0) continue;
+
+          if (!fieldSuggestions[key]) {
+            fieldSuggestions[key] = [];
+          }
+          
+          const valStr = JSON.stringify(val);
+          if (!fieldSuggestions[key].some(existing => JSON.stringify(existing.val) === valStr)) {
+            fieldSuggestions[key].push({ val, filename: hit.filename });
+          }
+        }
+      }
+
+      if (Object.keys(fieldSuggestions).length === 0) {
+        showToast(t('mdbAutofillNoMatches'), true);
+        return;
+      }
+
+      _autofillPendingSuggestions = fieldSuggestions;
+
+      let html = `<div style="font-size:0.83rem;color:#555;margin-bottom:12px;">`;
+      html += `<div>${tFmt('mdbAutofillFoundN', { n: hits.length })}</div>`;
+      html += `<div style="font-size:0.75rem;color:#888;margin-top:2px;">${t('mdbAutofillSourceLabel')} ${esc([...sources].join(', '))}</div>`;
+      html += `</div>`;
+      html += `<div style="font-size:0.82rem;font-weight:700;margin-bottom:8px;">${t('mdbAutofillSelectFields')}</div>`;
+
+      html += `<div style="display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;padding-right:4px;">`;
+
+      for (const [fieldKey, candidateList] of Object.entries(fieldSuggestions)) {
+        const el = $(`ff-${fieldKey}`);
+        const currentVal = el ? el.value.trim() : '';
+        const isCurrentEmpty = !currentVal;
+
+        const primaryCandidate = candidateList[0].val;
+        let displayVal = '';
+        if (Array.isArray(primaryCandidate)) {
+          displayVal = primaryCandidate.join(', ');
+        } else if (typeof primaryCandidate === 'object' && primaryCandidate !== null) {
+          displayVal = JSON.stringify(primaryCandidate);
+        } else {
+          displayVal = String(primaryCandidate);
+        }
+
+        html += `<label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border:1.5px solid #eee;border-radius:6px;background:${isCurrentEmpty ? '#fcfcfc' : '#fff'};cursor:pointer;">
+          <input type="checkbox" class="af-field-cb" data-field="${esc(fieldKey)}" ${isCurrentEmpty ? 'checked' : ''} style="margin-top:3px;accent-color:#111;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:0.82rem;color:#111;display:flex;justify-content:space-between;">
+              <span>${esc(cap(fieldKey))}</span>
+              ${isCurrentEmpty ? '<span style="font-size:0.7rem;color:#27ae60;font-weight:600;">(empty)</span>' : '<span style="font-size:0.7rem;color:#e67e22;font-weight:600;">(existing)</span>'}
+            </div>
+            <div style="font-size:0.8rem;color:#333;margin-top:2px;word-break:break-word;">${esc(displayVal)}</div>
+            ${candidateList.length > 1 ? `<div style="font-size:0.72rem;color:#777;margin-top:2px;">+ ${candidateList.length - 1} alternative(s)</div>` : ''}
+          </div>
+        </label>`;
+      }
+
+      html += `</div>`;
+
+      $('autofill-body').innerHTML = html;
+      $('autofill-bg').classList.remove('hidden');
+    }
+
+    function closeAutofill() {
+      $('autofill-bg').classList.add('hidden');
+      _autofillPendingSuggestions = null;
+    }
+
+    function applyAutofillSuggestions() {
+      if (!_autofillPendingSuggestions) return;
+      const checkboxes = document.querySelectorAll('.af-field-cb:checked');
+
+      checkboxes.forEach(cb => {
+        const fieldKey = cb.dataset.field;
+        const candidates = _autofillPendingSuggestions[fieldKey];
+        if (!candidates || !candidates.length) return;
+
+        const val = candidates[0].val;
+        let el = $(`ff-${fieldKey}`);
+
+        if (!el) {
+          const isArr = Array.isArray(val);
+          const isObj = val !== null && typeof val === 'object' && !isArr;
+          const isNum = typeof val === 'number';
+          const isBool = typeof val === 'boolean';
+          const type = isArr ? 'array' : isObj ? 'object' : isNum ? 'number' : isBool ? 'boolean' : 'string';
+          
+          const newFieldDef = { key: fieldKey, type, isLong: false, longArray: isArr, uniqueVals: [], useSelect: false };
+          if (_activeFormSchema && !_activeFormSchema.some(f => f.key === fieldKey)) {
+            _activeFormSchema.push(newFieldDef);
+          }
+
+          const container = $('tab-single-content') || $('edit-body');
+          if (container) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = buildFieldInputHtml(newFieldDef, {});
+            container.appendChild(tempDiv.firstElementChild);
+            el = $(`ff-${fieldKey}`);
+          }
+        }
+
+        if (!el) return;
+
+        const schema = _activeFormSchema || S.schema.length ? S.schema : getDefaultSchema(S.typeKey);
+        const fieldDef = schema.find(f => f.key === fieldKey);
+
+        if (fieldDef && fieldDef.type === 'array') {
+          const sep = fieldDef.longArray ? '\n' : ', ';
+          el.value = Array.isArray(val) ? val.join(sep) : String(val);
+        } else if (fieldDef && fieldDef.type === 'boolean') {
+          el.checked = Boolean(val);
+        } else if (fieldDef && fieldDef.type === 'object') {
+          el.value = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
+        } else {
+          el.value = Array.isArray(val) ? val.join(', ') : String(val);
+        }
+      });
+
+      closeAutofill();
+      showToast(t('mdbAutofillApplied'));
     }
 
     // ─────────────────────────────────────────────────────────────────────
