@@ -2104,8 +2104,18 @@
       applySyncConflictFilters();
     });
 
-    syncConflictCancel.addEventListener('click', function () {
+    function closeSyncConflictModal() {
       syncConflictOverlay.classList.remove('open');
+      var runSyncBtn = document.getElementById('runSyncBtn');
+      if (runSyncBtn) runSyncBtn.disabled = false;
+    }
+
+    syncConflictCancel.addEventListener('click', closeSyncConflictModal);
+
+    syncConflictOverlay.addEventListener('click', function (e) {
+      if (e.target === syncConflictOverlay) {
+        closeSyncConflictModal();
+      }
     });
 
     syncConflictApply.addEventListener('click', async function () {
