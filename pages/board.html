@@ -462,7 +462,7 @@
     /* ── CONSTELLATION TABLES ──────────────────────────────────────── */
     .con-table-el {
       position: absolute;
-      z-index: 500;
+      z-index: 200;
       background: #fff;
       border: 1.5px solid #111;
       border-radius: 4px;
@@ -26841,78 +26841,7 @@
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
       }
     }
-
-    async function conExportPNG() {
-      const brd = document.getElementById('constellation-board');
-      if (!brd) return;
-      try {
-        const canvas = await html2canvas(brd, {
-          backgroundColor: '#ffffff',
-          scale: window.devicePixelRatio || 1,
-          useCORS: true,
-          allowTaint: true,
-          logging: false
-        });
-        canvas.toBlob(function (blob) {
-          if (!blob) { showToast('PNG export failed.', true); return; }
-          const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
-          const filename = titleVal.replace(/[\/\\?*:|"<>]/g, '-') + '.png';
-          if (window.Desktop && Desktop.isElectron()) {
-            const reader = new FileReader();
-            reader.onloadend = function () {
-              const base64data = reader.result.split(',')[1];
-              Desktop.saveToDisk({
-                title: 'Save PNG Image',
-                defaultPath: filename,
-                filters: [{ name: 'PNG Images', extensions: ['png'] }],
-                content: base64data,
-                encoding: 'base64'
-              }).then(res => {
-                if (res && res.ok) {
-                  if (window.showExportSuccessPopup) showExportSuccessPopup(res.path, filename);
-                } else if (res && !res.ok && !res.canceled) {
-                  showToast('Save failed: ' + (res.error || 'unknown'), true);
-                }
-              });
-            };
-            reader.readAsDataURL(blob);
-          } else {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = filename;
-            document.body.appendChild(a); a.click();
-            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-          }
-        }, 'image/png');
-      } catch (err) {
-        console.error('[conExportPNG]', err);
-        showToast('PNG export failed: ' + err.message, true);
-      }
-    }
-
-    async function conCopyPNG() {
-      const brd = document.getElementById('constellation-board');
-      if (!brd) return;
-      try {
-        const canvas = await html2canvas(brd, {
-          backgroundColor: '#ffffff',
-          scale: window.devicePixelRatio || 1,
-          useCORS: true, allowTaint: true, logging: false
-        });
-        canvas.toBlob(async function (blob) {
-          if (!blob) { showToast('Copy PNG failed.', true); return; }
-          try {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-            if (typeof mdbToast === 'function') mdbToast('📋 Board copied to clipboard.');
-          } catch (e) {
-            showToast('Clipboard write failed: ' + e.message, true);
-          }
-        }, 'image/png');
-      } catch (err) {
-        console.error('[conCopyPNG]', err);
-        showToast('Copy PNG failed: ' + err.message, true);
-      }
-    }
+ 
 
     // Offer CSV or PDF export. PDF exports only the words/definitions table (printable HTML -> print/save as PDF).
     function conExport() {
@@ -27371,32 +27300,106 @@
       const fontStyle = fmt.italic ? 'italic' : (wordStyles.fontStyle || 'normal');
       const fontSize = wordStyles.fontSize || '14px';
       const fontFamily = wordStyles.fontFamily || '"Segoe UI", Arial, sans-serif';
+      const wordText = conGetNodeWordText(node, el);
+      const wordCenterY = pad + ny + conGetRelativeTextCenterY(el, primaryTextNode, nh);
+
+      const rel = String(node.relation || '').toLowerCase();
+      const hasRelBadge = rel === 'translation' || rel === 'ipa';
+      const relLabel = rel === 'translation' ? 'FR' : (rel === 'ipa' ? 'IPA' : '');
+      const relBg = rel === 'translation' ? '#e53935' : '#8e24aa';
+
+      const hasPageBadge = node.pageNum != null;
+      const pageText = hasPageBadge ? `(${node.pageNum})` : '';
+
       ctx.fillStyle = wordStyles.color || color;
       ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.globalAlpha = 1;
-      const wordText = conGetNodeWordText(node, el);
-      const wordCenterY = pad + ny + conGetRelativeTextCenterY(el, primaryTextNode, nh);
+
       if (wordText) {
         const wordLines = wordText.includes('//') ? wordText.split('//').map(s => s.trim()) : null;
         const fsPx = parseFloat(fontSize) || 14; const lineH = fsPx * 1.25;
         const renderLines = wordLines || [wordText];
         const lineStartY = wordLines ? wordCenterY - ((renderLines.length - 1) * lineH) / 2 : wordCenterY;
+
         renderLines.forEach((line, li) => {
           const lineY = lineStartY + li * lineH;
+          const isLastLine = li === renderLines.length - 1;
+
+          let badgeExtraW = 0;
+          let relW = 0;
+          let pageW = 0;
+
+          if (isLastLine && (hasRelBadge || hasPageBadge)) {
+            if (hasRelBadge) relW = 20;
+            if (hasPageBadge) {
+              ctx.save();
+              ctx.font = `600 ${Math.max(9, Math.round(fsPx * 0.75))}px "Segoe UI", Arial, sans-serif`;
+              pageW = ctx.measureText(pageText).width + 4;
+              ctx.restore();
+            }
+            badgeExtraW = (hasRelBadge ? relW + 4 : 0) + (hasPageBadge ? pageW : 0);
+          }
+
+          const mainTextW = ctx.measureText(line).width;
+          const totalRowW = mainTextW + badgeExtraW;
+          const mainTextX = pad + nx + (nw - totalRowW) / 2;
+
+          ctx.textAlign = 'left';
+
           if (node.textStrokeWidth > 0 && node.textStrokeColor) {
             ctx.save(); ctx.strokeStyle = node.textStrokeColor; ctx.lineWidth = node.textStrokeWidth * 2; ctx.lineJoin = 'round';
-            ctx.strokeText(line, pad + nx + nw / 2, lineY); ctx.restore();
+            ctx.strokeText(line, mainTextX, lineY); ctx.restore();
           }
-          ctx.fillText(line, pad + nx + nw / 2, lineY);
+          ctx.fillText(line, mainTextX, lineY);
+
           if (fmt.underline || fmt.strike) {
-            const metrics = ctx.measureText(line); const tw = metrics.width; const tx = pad + nx + nw / 2 - tw / 2;
             ctx.save(); ctx.strokeStyle = wordStyles.color || color; ctx.lineWidth = Math.max(1, fsPx / 14); ctx.setLineDash([]);
-            if (fmt.underline) { ctx.beginPath(); ctx.moveTo(tx, lineY + fsPx * 0.55); ctx.lineTo(tx + tw, lineY + fsPx * 0.55); ctx.stroke(); }
-            if (fmt.strike) { ctx.beginPath(); ctx.moveTo(tx, lineY); ctx.lineTo(tx + tw, lineY); ctx.stroke(); }
+            if (fmt.underline) { ctx.beginPath(); ctx.moveTo(mainTextX, lineY + fsPx * 0.55); ctx.lineTo(mainTextX + mainTextW, lineY + fsPx * 0.55); ctx.stroke(); }
+            if (fmt.strike) { ctx.beginPath(); ctx.moveTo(mainTextX, lineY); ctx.lineTo(mainTextX + mainTextW, lineY); ctx.stroke(); }
+            ctx.restore();
+          }
+
+          let curBadgeX = mainTextX + mainTextW + 4;
+          if (isLastLine && hasRelBadge) {
+            ctx.save();
+            const bw = 18, bh = 12;
+            const by = lineY - bh / 2;
+            ctx.fillStyle = relBg;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') ctx.roundRect(curBadgeX, by, bw, bh, 3);
+            else ctx.rect(curBadgeX, by, bw, bh);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 8px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(relLabel, curBadgeX + bw / 2, lineY);
+            ctx.restore();
+            curBadgeX += bw + 4;
+          }
+
+          if (isLastLine && hasPageBadge) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.font = `600 ${Math.max(9, Math.round(fsPx * 0.75))}px "Segoe UI", Arial, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pageText, curBadgeX, lineY);
             ctx.restore();
           }
         });
       }
+
+      const isStarred = node.starred || (node.dbWord && node.dbWord.starred) || (el && el.querySelector('.con-node-star-btn.active'));
+      if (isStarred) {
+        ctx.save();
+        ctx.font = '12px "Segoe UI Emoji", "Segoe UI Symbol", Arial, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText('⭐', pad + nx + nw - 4, pad + ny + 3);
+        ctx.restore();
+      }
+
       const anns = el.querySelectorAll('.con-node-ann');
       anns.forEach(ann => {
         const text = ann.textContent.trim(); if (!text) return;
@@ -27404,10 +27407,114 @@
         const annRect = ann.getBoundingClientRect(); const nodeRect = el.getBoundingClientRect();
         ctx.font = conCanvasFontFromStyles(annStyles, '"Segoe UI", Arial, sans-serif');
         ctx.fillStyle = annStyles.color || color;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.globalAlpha = Number.isFinite(annOpacity) ? annOpacity : 1;
         ctx.fillText(text, pad + nx + nw / 2, pad + ny + (annRect.top - nodeRect.top) + (annRect.height / 2));
       });
       ctx.globalAlpha = 1;
+    }
+
+    function conDrawTablesToCanvas(ctx, PAD) {
+      const tables = window.conGetTables ? window.conGetTables() : [];
+      tables.forEach(tbl => {
+        if (!tbl) return;
+        const totalW = tbl.colWidths ? tbl.colWidths.reduce((s, w) => s + w, 0) : 200;
+        const totalH = tbl.rowHeights ? tbl.rowHeights.reduce((s, h) => s + h, 0) : 100;
+        const barH = 24;
+        const tx = PAD + (tbl.x || 0);
+        const ty = PAD + (tbl.y || 0);
+
+        ctx.fillStyle = '#f3f4f6';
+        ctx.fillRect(tx, ty, totalW, barH);
+        ctx.strokeStyle = '#cccccc';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx, ty, totalW, barH);
+
+        ctx.fillStyle = '#666666';
+        ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⠿  Table', tx + 8, ty + barH / 2);
+
+        const gridY = ty + barH;
+        ctx.fillStyle = tbl.defaultBg || '#ffffff';
+        ctx.fillRect(tx, gridY, totalW, totalH);
+        ctx.strokeStyle = '#bbbbbb';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx, gridY, totalW, totalH);
+
+        let curY = gridY;
+        for (let r = 0; r < tbl.rows; r++) {
+          const rh = tbl.rowHeights[r] || 36;
+          let curX = tx;
+          for (let c = 0; c < tbl.cols; c++) {
+            const cw = tbl.colWidths[c] || 80;
+            const cell = tbl.cells ? tbl.cells[r * tbl.cols + c] : null;
+
+            const cellBg = (cell && cell.bg) || (r === 0 && tbl.hasHeader ? '#f7f7f7' : (tbl.defaultBg || '#ffffff'));
+            ctx.fillStyle = cellBg;
+            ctx.fillRect(curX, curY, cw, rh);
+
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(curX, curY, cw, rh);
+
+            if (cell) {
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(curX + 2, curY + 2, Math.max(1, cw - 4), Math.max(1, rh - 4));
+              ctx.clip();
+
+              if (cell.type === 'node' && cell.nodeData) {
+                const nd = cell.nodeData;
+                const nodeBg = nd.bg || '#ffffff';
+                const nodeColor = nd.color || '#111111';
+                const nodeBorder = nd.border || '#111111';
+                const nodeText = nd.baseWord || '';
+
+                ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+                const tw = Math.min(cw - 8, ctx.measureText(nodeText).width + 12);
+                const th = 22;
+                const nx = curX + (cw - tw) / 2;
+                const ny = curY + (rh - th) / 2;
+
+                ctx.fillStyle = nodeBg;
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') ctx.roundRect(nx, ny, tw, th, 4);
+                else ctx.rect(nx, ny, tw, th);
+                ctx.fill();
+                ctx.strokeStyle = nodeBorder;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.fillStyle = nodeColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(nodeText, nx + tw / 2, ny + th / 2);
+              } else if (cell.text && cell.text.trim()) {
+                const fontStyle = cell.italic ? 'italic ' : '';
+                const fontWeight = (cell.bold || (tbl.hasHeader && r === 0)) ? 'bold ' : '';
+                const fontSize = cell.fontSize || tbl.defaultFontSize || 14;
+                ctx.font = `${fontStyle}${fontWeight}${fontSize}px "Segoe UI", Arial, sans-serif`;
+                ctx.fillStyle = cell.color || tbl.defaultColor || (r === 0 && tbl.hasHeader ? '#111111' : '#333333');
+
+                const align = cell.textAlign || 'left';
+                let textX = curX + 6;
+                if (align === 'center') textX = curX + cw / 2;
+                else if (align === 'right') textX = curX + cw - 6;
+
+                ctx.textAlign = align;
+                ctx.textBaseline = 'middle';
+                ctx.fillText(cell.text.trim(), textX, curY + rh / 2);
+              }
+              ctx.restore();
+            }
+
+            curX += cw;
+          }
+          curY += rh;
+        }
+      });
     }
 
     function canvasWrapText(ctx, text, maxWidth) {
@@ -27430,12 +27537,13 @@
       const noteCS = getComputedStyle(note);
       const baseFontPx = parseFloat(note.style.fontSize) || parseFloat(noteCS.fontSize) || 14;
       const baseColor = note.style.color || noteCS.color || '#111111';
+      const baseFontFamily = note.style.fontFamily || noteCS.fontFamily || window._bcNoteFontFamily || '"Segoe UI", Arial, sans-serif';
       const rawLH = parseFloat(note.style.lineHeight || noteCS.lineHeight);
       const lineh = (Number.isFinite(rawLH) && rawLH >= baseFontPx * 0.8) ? rawLH : baseFontPx * 1.45;
       const padX = 6, padY = 6; const contentW = w - padX * 2;
       if (editor.tagName === 'TEXTAREA') {
         const txt = (editor.value || '').trim(); if (!txt) return;
-        ctx.fillStyle = baseColor; ctx.font = `normal 400 ${baseFontPx}px "Segoe UI", Arial, sans-serif`;
+        ctx.fillStyle = baseColor; ctx.font = `normal 400 ${baseFontPx}px ${baseFontFamily}`;
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         canvasWrapText(ctx, txt, contentW).forEach((line, i) => { ctx.fillText(line, x + padX, y + padY + i * lineh); });
         return;
@@ -27461,28 +27569,35 @@
         if (ibg && ibg !== 'transparent' && ibg !== '' && !/^rgba\(0,\s*0,\s*0,\s*0\)$/.test(ibg)) ns.bgColor = ibg;
         const ic = node.style.color; if (ic && ic !== '' && ic !== 'inherit') ns.color = ic;
         const fsPx = parseFloat(cs.fontSize); if (Number.isFinite(fsPx) && fsPx > 0) ns.fontSize = fsPx;
+        const ff = cs.fontFamily; if (ff && ff !== 'inherit') ns.fontFamily = ff;
+        if (tag === 'ul' || tag === 'ol') ns.indentDepth = (st.indentDepth || 0) + 1;
         if (tag === 'li') {
           if (segs.length > 0 && !segs[segs.length - 1].br) segs.push({ br: true });
           const listEl = node.closest('ol, ul'); const isOrdered = listEl && listEl.tagName.toLowerCase() === 'ol';
-          let marker; if (isOrdered) { let idx = 1; let prev = node.previousElementSibling; while (prev) { if (prev.tagName.toLowerCase() === 'li') idx++; prev = prev.previousElementSibling; } marker = idx + '. '; } else { marker = '• '; }
-          segs.push({ ...ns, text: marker }); node.childNodes.forEach(c => _walkNote(c, { ...ns, indent: true })); return;
+          const depth = Math.max(0, (ns.indentDepth || 1) - 1);
+          let marker; if (isOrdered) { let idx = 1; let prev = node.previousElementSibling; while (prev) { if (prev.tagName.toLowerCase() === 'li') idx++; prev = prev.previousElementSibling; } marker = idx + '. '; } else { marker = (depth % 2 === 1) ? '◦ ' : '• '; }
+          const indentPx = depth * 14;
+          const liState = { ...ns, indentPx };
+          segs.push({ ...liState, text: marker }); node.childNodes.forEach(c => _walkNote(c, liState)); return;
         }
         node.childNodes.forEach(c => _walkNote(c, ns));
         if ((tag === 'div' || tag === 'p') && node !== editor && node.nextSibling) segs.push({ br: true });
         if ((tag === 'ul' || tag === 'ol') && node.nextSibling) segs.push({ br: true });
       }
-      _walkNote(editor, { bold: noteIsBold, italic: noteIsItalic, underline: noteTD.includes('underline'), strike: noteTD.includes('line-through'), color: baseColor, bgColor: null, fontSize: baseFontPx });
+      _walkNote(editor, { bold: noteIsBold, italic: noteIsItalic, underline: noteTD.includes('underline'), strike: noteTD.includes('line-through'), color: baseColor, bgColor: null, fontSize: baseFontPx, fontFamily: baseFontFamily, indentDepth: 0 });
       while (segs.length && segs[segs.length - 1].br) segs.pop();
-      function _segFont(s) { return `${s.italic ? 'italic' : 'normal'} ${s.bold ? 'bold' : 'normal'} ${s.fontSize || baseFontPx}px "Segoe UI", Arial, sans-serif`; }
+      function _segFont(s) { return `${s.italic ? 'italic' : 'normal'} ${s.bold ? 'bold' : 'normal'} ${s.fontSize || baseFontPx}px ${s.fontFamily || baseFontFamily}`; }
       const paras = [[]];
       segs.forEach(s => { if (s.br) { paras.push([]); return; } (s.text.match(/\S+|\s+/g) || []).forEach(tok => paras[paras.length - 1].push({ word: tok, seg: s })); });
       const lines = [];
       paras.forEach(para => {
         if (!para.length) { lines.push([]); return; }
         let curLine = [], curW = 0;
+        const indentPx = (para[0] && para[0].seg && para[0].seg.indentPx) ? para[0].seg.indentPx : 0;
+        const availW = Math.max(30, contentW - indentPx);
         para.forEach(item => {
           ctx.font = _segFont(item.seg); const tw = ctx.measureText(item.word).width; const isWs = /^\s+$/.test(item.word);
-          if (!isWs && curW + tw > contentW && curLine.length > 0) { lines.push(curLine); curLine = [item]; curW = tw; } else { curLine.push(item); curW += tw; }
+          if (!isWs && curW + tw > availW && curLine.length > 0) { lines.push(curLine); curLine = [item]; curW = tw; } else { curLine.push(item); curW += tw; }
         });
         if (curLine.length) lines.push(curLine);
       });
@@ -27492,11 +27607,12 @@
       lines.forEach(line => {
         if (cy + lineh > maxY) return;
         let trimLine = [...line]; while (trimLine.length && /^\s+$/.test(trimLine[trimLine.length - 1].word)) trimLine.pop();
-        let cx = x + padX;
+        const lineIndent = (line.length && line[0].seg && line[0].seg.indentPx) ? line[0].seg.indentPx : 0;
+        let cx = x + padX + lineIndent;
         if (noteTextAlign === 'center' || noteTextAlign === 'right') {
           let lineW = 0;
           trimLine.forEach(item => { ctx.font = _segFont(item.seg); lineW += ctx.measureText(item.word).width; });
-          if (noteTextAlign === 'center') cx = x + padX + Math.max(0, (contentW - lineW) / 2);
+          if (noteTextAlign === 'center') cx = x + padX + lineIndent + Math.max(0, (contentW - lineIndent - lineW) / 2);
           else cx = x + w - padX - lineW;
         }
         trimLine.forEach(item => {
@@ -27551,6 +27667,10 @@
         const w = Math.max(1, wrap.offsetWidth); const h = Math.max(1, wrap.offsetHeight);
         if (w < 2 || h < 2) return;
         const wrapStyles = getComputedStyle(wrap);
+        const wrapOpacity = parseFloat(wrapStyles.opacity);
+        const widgetOp = Number.isFinite(wrapOpacity) ? wrapOpacity : 1;
+        ctx.save();
+        ctx.globalAlpha = widgetOp;
         const radius = parseFloat(wrapStyles.borderTopLeftRadius) || 7;
         const borderW = parseFloat(wrapStyles.borderWidth) || 1.5;
         const borderColor = wrapStyles.borderColor || '#444';
@@ -27574,7 +27694,7 @@
             }
           }
         }
-        const content = wrap.querySelector('.con-media-content'); if (!content) return;
+        const content = wrap.querySelector('.con-media-content'); if (!content) { ctx.restore(); return; }
         const contentX = x + content.offsetLeft; const contentY = y + content.offsetTop;
         const contentW = Math.max(1, content.offsetWidth); const contentH = Math.max(1, content.offsetHeight);
         const contentStyles = getComputedStyle(content);
@@ -27653,12 +27773,24 @@
           }
         }
         ctx.restore();
+        ctx.restore();
       });
     }
 
     async function _conBuildBoardCanvas() {
       const board = document.getElementById('constellation-board');
       if (!board) return null;
+
+      // Pre-wait for any board images and web fonts to finish loading
+      if (document.fonts && typeof document.fonts.ready !== 'undefined') {
+        try { await document.fonts.ready; } catch (_) { }
+      }
+      const allImgs = Array.from(board.querySelectorAll('img'));
+      await Promise.all(allImgs.map(img => {
+        if (img.complete || !img.src) return Promise.resolve();
+        return new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 600); });
+      }));
+
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
 
       let maxX = 0;
@@ -27687,9 +27819,27 @@
         if (ry > maxY) maxY = ry;
       });
 
-      document.querySelectorAll('#constellation-board .con-media-wrap').forEach(wrap => {
+      document.querySelectorAll('#constellation-board .con-media-item, #constellation-board .con-media-wrap, #constellation-board img').forEach(wrap => {
         const rx = wrap.offsetLeft + wrap.offsetWidth;
         const ry = wrap.offsetTop + wrap.offsetHeight;
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      (window.conGetMediaItems ? window.conGetMediaItems() : []).forEach(m => {
+        if (!m) return;
+        const rx = (m.x || 0) + (m.w || m.width || m.offsetWidth || 200);
+        const ry = (m.y || 0) + (m.h || m.height || m.offsetHeight || 200);
+        if (rx > maxX) maxX = rx;
+        if (ry > maxY) maxY = ry;
+      });
+
+      (window.conGetTables ? window.conGetTables() : []).forEach(tbl => {
+        if (!tbl) return;
+        const tw = tbl.colWidths ? tbl.colWidths.reduce((s, w) => s + w, 0) : 200;
+        const th = (tbl.rowHeights ? tbl.rowHeights.reduce((s, h) => s + h, 0) : 100) + 24;
+        const rx = (tbl.x || 0) + tw;
+        const ry = (tbl.y || 0) + th;
         if (rx > maxX) maxX = rx;
         if (ry > maxY) maxY = ry;
       });
@@ -27728,6 +27878,13 @@
         if (ph > maxY) maxY = ph;
       }
 
+      if (window._bcBoardLayoutConfig && window._bcBoardLayoutConfig.dims) {
+        const lw = window._bcBoardLayoutConfig.dims.w;
+        const lh = window._bcBoardLayoutConfig.dims.h;
+        if (lw > maxX) maxX = lw;
+        if (lh > maxY) maxY = lh;
+      }
+
       const bw = (maxX > 0) ? Math.max(600, maxX + 40) : Math.max(600, board.clientWidth || 800);
       const bh = (maxY > 0) ? Math.max(400, maxY + 40) : Math.max(400, board.clientHeight || 600);
       const PAD = 24; const scale = Math.max(window.devicePixelRatio || 1, 2);
@@ -27735,11 +27892,17 @@
       canvas.width = (bw + PAD * 2) * scale;
       canvas.height = (bh + PAD * 2) * scale;
       const ctx = canvas.getContext('2d'); ctx.scale(scale, scale);
-      ctx.fillStyle = _conBoardBgColor || '#ffffff'; ctx.fillRect(0, 0, bw + PAD * 2, bh + PAD * 2);
+
+      const computedBg = board ? getComputedStyle(board).backgroundColor : '';
+      const activeBg = _conBoardBgColor || (computedBg && computedBg !== 'transparent' && !/^rgba\(0,\s*0,\s*0,\s*0\)$/.test(computedBg) ? computedBg : '#ffffff');
+      ctx.fillStyle = activeBg;
+      ctx.fillRect(0, 0, bw + PAD * 2, bh + PAD * 2);
+
       if (_conBoardBg && _conBoardBg._cachedDataUrl) {
         await new Promise(resolve => { const img = new Image(); img.onload = () => { ctx.drawImage(img, PAD, PAD, _conBoardBg._cachedW, _conBoardBg._cachedH); resolve(); }; img.onerror = resolve; img.src = _conBoardBg._cachedDataUrl; });
       }
       ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
+
       const svgEl = document.getElementById('constellation-svg');
       if (svgEl) {
         svgEl.querySelectorAll('.con-line-group').forEach(grp => {
@@ -27771,15 +27934,20 @@
       }
       document.querySelectorAll('.con-group').forEach(grp => {
         const rx = grp.offsetLeft; const ry = grp.offsetTop; const rw = grp.offsetWidth; const rh = grp.offsetHeight;
-        ctx.fillStyle = grp.style.background || '#f3f4f6'; const r = 8;
+        const grpCS = getComputedStyle(grp);
+        const grpBS = grp.style.borderStyle || grpCS.borderStyle || 'solid';
+        const grpBW = parseFloat(grp.style.borderWidth || grpCS.borderWidth) || 2;
+        ctx.fillStyle = grp.style.background || grpCS.backgroundColor || '#f3f4f6'; const r = 8;
         ctx.beginPath(); ctx.moveTo(PAD + rx + r, PAD + ry); ctx.lineTo(PAD + rx + rw - r, PAD + ry); ctx.quadraticCurveTo(PAD + rx + rw, PAD + ry, PAD + rx + rw, PAD + ry + r); ctx.lineTo(PAD + rx + rw, PAD + ry + rh - r); ctx.quadraticCurveTo(PAD + rx + rw, PAD + ry + rh, PAD + rx + rw - r, PAD + ry + rh); ctx.lineTo(PAD + rx + r, PAD + ry + rh); ctx.quadraticCurveTo(PAD + rx, PAD + ry + rh, PAD + rx, PAD + ry + rh - r); ctx.lineTo(PAD + rx, PAD + ry + r); ctx.quadraticCurveTo(PAD + rx, PAD + ry, PAD + rx + r, PAD + ry); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = grp.style.borderColor || '#aaa'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = grp.style.borderColor || grpCS.borderColor || '#aaa'; ctx.lineWidth = grpBW;
+        if (grpBS === 'dashed') ctx.setLineDash([grpBW * 4, grpBW * 2]); else if (grpBS === 'dotted') ctx.setLineDash([grpBW, grpBW * 2]); else ctx.setLineDash([]);
+        ctx.stroke(); ctx.setLineDash([]);
         const titleEl = grp.querySelector('.con-group-title');
         if (titleEl && titleEl.textContent.trim() && titleEl.style.display !== 'none') {
           const tx = rx + titleEl.offsetLeft; const ty = ry + titleEl.offsetTop; const tw = titleEl.offsetWidth; const th = titleEl.offsetHeight;
           const borderColor = titleEl.style.borderColor || grp.style.borderColor || '#aaa';
           const textColor = titleEl.style.color || grp.style.borderColor || '#333';
-          const bgColor = grp.style.background || '#f3f4f6'; const tr = 4;
+          const bgColor = grp.style.background || grpCS.backgroundColor || '#f3f4f6'; const tr = 4;
           ctx.fillStyle = bgColor;
           ctx.beginPath(); ctx.moveTo(PAD + tx + tr, PAD + ty); ctx.lineTo(PAD + tx + tw - tr, PAD + ty); ctx.quadraticCurveTo(PAD + tx + tw, PAD + ty, PAD + tx + tw, PAD + ty + tr); ctx.lineTo(PAD + tx + tw, PAD + ty + th - tr); ctx.quadraticCurveTo(PAD + tx + tw, PAD + ty + th, PAD + tx + tw - tr, PAD + ty + th); ctx.lineTo(PAD + tx + tr, PAD + ty + th); ctx.quadraticCurveTo(PAD + tx, PAD + ty + th, PAD + tx, PAD + ty + th - tr); ctx.lineTo(PAD + tx, PAD + ty + tr); ctx.quadraticCurveTo(PAD + tx, PAD + ty, PAD + tx + tr, PAD + ty); ctx.closePath(); ctx.fill();
           ctx.strokeStyle = borderColor; ctx.lineWidth = 2; ctx.stroke();
@@ -27789,6 +27957,9 @@
           ctx.save(); ctx.rect(PAD + tx + 2, PAD + ty, tw - 4, th); ctx.clip(); ctx.fillText(titleEl.textContent.trim(), PAD + tx + 7, PAD + ty + th / 2); ctx.restore();
         }
       });
+
+      conDrawTablesToCanvas(ctx, PAD);
+
       (window.conGetShapes ? window.conGetShapes() : []).forEach(s => {
         const sw = s.thickness || 2; const op = Number.isFinite(s.opacity) ? s.opacity : 1; const color = s.color || '#333333'; const fill = s.fillColor || 'none';
         ctx.save(); ctx.globalAlpha = op; ctx.strokeStyle = color; ctx.lineWidth = sw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -27833,7 +28004,8 @@
       });
       (window.conGetDrawings ? window.conGetDrawings() : []).forEach(d => {
         if (!d.points || d.points.length < 2) return;
-        ctx.save(); ctx.strokeStyle = d.color || '#e53935'; ctx.lineWidth = d.thickness || 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const op = Number.isFinite(d.opacity) ? d.opacity : 1;
+        ctx.save(); ctx.globalAlpha = op; ctx.strokeStyle = d.color || '#e53935'; ctx.lineWidth = d.thickness || 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); ctx.moveTo(PAD + d.x + d.points[0].x, PAD + d.y + d.points[0].y);
         for (let i = 1; i < d.points.length; i++) ctx.lineTo(PAD + d.x + d.points[i].x, PAD + d.y + d.points[i].y);
         ctx.stroke(); ctx.restore();

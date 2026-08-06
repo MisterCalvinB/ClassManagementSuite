@@ -196,7 +196,8 @@ function getSaveTargets() {
     docEditorTemplates: path.join(writableRoot, 'user/document-editor/templates'),
     docEditorSettings: path.join(writableRoot, 'user/document-editor'),
     gameResults: path.join(writableRoot, 'user/game-results'),
-    gradeSheet:  path.join(writableRoot, 'user/log/grade-sheet')
+    gradeSheet:  path.join(writableRoot, 'user/log/grade-sheet'),
+    toPrint:     path.join(writableRoot, 'user/to-print')
   };
 }
 
@@ -213,14 +214,14 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
-  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs']),
+  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
-  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation']),
+  [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps']),
   [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
@@ -1369,7 +1370,8 @@ async function ensureWritableSeedData() {
     fs.mkdir(saveTargets.groupParticipation, { recursive: true }),
     fs.mkdir(saveTargets.mindmaps, { recursive: true }),
     fs.mkdir(saveTargets.constellationTemplates, { recursive: true }),
-    fs.mkdir(saveTargets.grades, { recursive: true })
+    fs.mkdir(saveTargets.grades, { recursive: true }),
+    fs.mkdir(saveTargets.toPrint, { recursive: true })
   ]);
 
   await copyMissingTree(getBundledDataRoot(), saveTargets.data, {

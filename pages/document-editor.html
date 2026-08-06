@@ -418,6 +418,7 @@
         </div>
         <div class="modal-actions" style="flex-direction:column;align-items:stretch;">
           <button class="modal-btn" id="btn-pdf-export-same-folder"></button>
+          <button class="modal-btn" id="btn-pdf-export-to-print"></button>
           <button class="modal-btn" id="btn-pdf-export-picker"></button>
           <button class="modal-btn modal-btn-cancel" id="btn-pdf-export-cancel"></button>
         </div>
@@ -2922,12 +2923,14 @@
       const textEl = document.getElementById('pdf-export-modal-text');
       const hintEl = document.getElementById('pdf-export-same-folder-hint');
       const sameBtn = document.getElementById('btn-pdf-export-same-folder');
+      const toPrintBtn = document.getElementById('btn-pdf-export-to-print');
       const pickerBtn = document.getElementById('btn-pdf-export-picker');
       const cancelBtn = document.getElementById('btn-pdf-export-cancel');
 
       titleEl.textContent = t('deExportPdfDestinationTitle') || 'Export PDF';
       textEl.textContent = t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?';
       sameBtn.textContent = t('deExportPdfSameFolder') || 'Save in same folder';
+      if (toPrintBtn) toPrintBtn.textContent = t('deExportPdfToPrintFolder') || 'Export to Print folder';
       pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
       cancelBtn.textContent = t('btnCancel') || 'Cancel';
 
@@ -3098,6 +3101,9 @@
           request.subdir = sameFolderInfo.subdir;
           request.filename = sameFolderInfo.filename;
         }
+      } else if (destination === 'to-print') {
+        request.target = 'toPrint';
+        request.filename = defaultName;
       }
       const result = await Desktop.printPdf(request);
       if (result && !result.ok && !result.canceled) {
@@ -3106,7 +3112,9 @@
         showToast(
           destination === 'same-folder'
             ? ((t('deExportPdfSameFolderSuccess') || 'PDF saved in the same folder: ') + (sameFolderInfo.filename || defaultName))
-            : (t('deExportPdfSuccess') || 'PDF exported')
+            : destination === 'to-print'
+              ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (result.name || defaultName))
+              : (t('deExportPdfSuccess') || 'PDF exported')
         );
         if (window.showExportSuccessPopup && result.path) {
           showExportSuccessPopup(result.path, result.name || defaultName);
@@ -5853,6 +5861,8 @@
 
       // PDF export modal
       document.getElementById('btn-pdf-export-same-folder').addEventListener('click', () => closePdfExportModal('same-folder'));
+      const toPrintBtn = document.getElementById('btn-pdf-export-to-print');
+      if (toPrintBtn) toPrintBtn.addEventListener('click', () => closePdfExportModal('to-print'));
       document.getElementById('btn-pdf-export-picker').addEventListener('click', () => closePdfExportModal('picker'));
       document.getElementById('btn-pdf-export-cancel').addEventListener('click', () => closePdfExportModal(null));
       document.getElementById('pdf-export-modal-close').addEventListener('click', () => closePdfExportModal(null));
