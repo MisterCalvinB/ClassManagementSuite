@@ -27903,6 +27903,9 @@
       }
       ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, bw + PAD * 2 - 2, bh + PAD * 2 - 2);
 
+      // Render media widgets (Images, PDFs, Videos, Sounds) first so they act as background elements underneath lines, groups, tables, shapes, nodes, notes, and drawings (matching DOM z-index)
+      conDrawMediaWidgetsToCanvas(ctx, PAD);
+
       const svgEl = document.getElementById('constellation-svg');
       if (svgEl) {
         svgEl.querySelectorAll('.con-line-group').forEach(grp => {
@@ -27989,7 +27992,6 @@
         ctx.setLineDash([]); conDrawNodeLabelToCanvas(ctx, n, PAD, color);
         if (n.emoji) { const dotEl = el.querySelector('.con-emoji-dot'); if (dotEl) { const dr = dotEl.getBoundingClientRect(); const er = el.getBoundingClientRect(); const dx = dr.left - er.left + dr.width / 2; const dy = dr.top - er.top + dr.height / 2; const dotFontPx = parseFloat(getComputedStyle(dotEl).fontSize) || 11; ctx.font = `${dotFontPx}px "Segoe UI",Arial,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n.emoji, PAD + nx + dx, PAD + ny + dy); } }
       });
-      conDrawMediaWidgetsToCanvas(ctx, PAD);
       document.querySelectorAll('#constellation-board .con-word-note').forEach(note => {
         const nx = note.offsetLeft; const ny = note.offsetTop; const nw = note.offsetWidth; const nh = note.offsetHeight;
         const bg = note.style.background || '#ffffff'; const border = note.style.borderColor || '#cdc9c9';
