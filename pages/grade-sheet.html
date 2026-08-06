@@ -244,7 +244,10 @@
   <!-- Reference data editor popup -->
   <div id="reference-data-popup-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup ref-data-editor panel" role="dialog" aria-modal="true">
-      <div class="crit-popup-title" data-i18n="gsRefEditorTitle">Reference Data Editor</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="crit-popup-title" data-i18n="gsRefEditorTitle" style="margin:0;">Reference Data Editor</div>
+        <button type="button" class="btn" onclick="showGsRefDataTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel">▶ Tour</button>
+      </div>
       <div class="ref-inline-note" style="margin-bottom:14px;">Edit the shared data stored in <strong>user/correction-criteria.js</strong> and <strong>user/grade-scale-models.js</strong>. Changes update the live page immediately and are saved to disk in Electron.</div>
       
       <!-- Tab Header Buttons -->
@@ -7774,12 +7777,43 @@ function showGsModalTour() {
   ], labels);
 }
 
-function showGsTour() {
-  var onTest = !document.getElementById('screen-test').classList.contains('hidden');
-  if (!onTest) {
-    ShortcutsModal.open({ title: t('tourBtnLabel'), rows: [], noShortcutsText: t('gsTestTourNeedTest') });
-    return;
-  }
+function showGsClassesTour() {
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#screen-classes .title-wrap',  title: t('tutGsC1Title'), text: t('tutGsC1Text') },
+    { selector: '#classes-grid',                title: t('tutGsC2Title'), text: t('tutGsC2Text') },
+    { selector: '#btn-add-class',               title: t('tutGsC3Title'), text: t('tutGsC3Text') },
+    { selector: '#btn-export',                  title: t('tutGsC4Title'), text: t('tutGsC4Text') },
+    { selector: '#btn-edit-reference-data',     title: t('tutGsC5Title'), text: t('tutGsC5Text') }
+  ], labels);
+}
+
+function showGsSummaryTour() {
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#summary-title',           title: t('tutGsS1Title'), text: t('tutGsS1Text') },
+    { selector: '#summary-chips',           title: t('tutGsS2Title'), text: t('tutGsS2Text') },
+    { selector: '#summary-table',           title: t('tutGsS3Title'), text: t('tutGsS3Text') },
+    { selector: '#btn-add-test',            title: t('tutGsS4Title'), text: t('tutGsS4Text') },
+    { selector: '#btn-add-student',         title: t('tutGsS5Title'), text: t('tutGsS5Text') },
+    { selector: '#summary-export-dropdown', title: t('tutGsS6Title'), text: t('tutGsS6Text') }
+  ], labels);
+}
+
+function showGsRefDataTour() {
+  var refModal = document.getElementById('reference-data-popup-overlay');
+  if (refModal) refModal.classList.remove('hidden');
+  var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  Tutorial.start([
+    { selector: '#reference-data-popup-overlay .ref-data-tabs', title: t('tutGsR1Title'), text: t('tutGsR1Text') },
+    { selector: '#ref-section-criteria',                        title: t('tutGsR2Title'), text: t('tutGsR2Text') },
+    { selector: '#tab-btn-scales',                              title: t('tutGsR3Title'), text: t('tutGsR3Text') },
+    { selector: '#tab-btn-chips',                               title: t('tutGsR5Title'), text: t('tutGsR5Text') },
+    { selector: '#reference-data-save',                         title: t('tutGsR4Title'), text: t('tutGsR4Text') }
+  ], labels);
+}
+
+function showGsTestTour() {
   var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
   Tutorial.start([
     { selector: '#test-title',           title: t('tutGs1Title'), text: t('tutGs1Text') },
@@ -7788,6 +7822,34 @@ function showGsTour() {
     { selector: '#test-table thead',     title: t('tutGs4Title'), text: t('tutGs4Text') },
     { selector: '#test-table',           title: t('tutGs5Title'), text: t('tutGs5Text') }
   ], labels);
+}
+
+function showGsTour() {
+  var refModalOpen = document.getElementById('reference-data-popup-overlay') && !document.getElementById('reference-data-popup-overlay').classList.contains('hidden');
+  var testOptsModalOpen = document.getElementById('test-options-overlay') && !document.getElementById('test-options-overlay').classList.contains('hidden');
+
+  if (refModalOpen) {
+    showGsRefDataTour();
+    return;
+  }
+  if (testOptsModalOpen) {
+    showGsModalTour();
+    return;
+  }
+
+  var classesScreen = document.getElementById('screen-classes');
+  var summaryScreen = document.getElementById('screen-summary');
+  var testScreen = document.getElementById('screen-test');
+
+  if (classesScreen && !classesScreen.classList.contains('hidden')) {
+    showGsClassesTour();
+  } else if (summaryScreen && !summaryScreen.classList.contains('hidden')) {
+    showGsSummaryTour();
+  } else if (testScreen && !testScreen.classList.contains('hidden')) {
+    showGsTestTour();
+  } else {
+    showGsClassesTour();
+  }
 }
 </script>
 <script>

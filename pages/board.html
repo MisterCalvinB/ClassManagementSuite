@@ -679,14 +679,18 @@
       display: none;
       position: fixed;
       inset: 0;
-      z-index: 5000;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2000000;
       background: rgba(0, 0, 0, 0.45);
       align-items: center;
       justify-content: center;
     }
 
     #tour-choice-overlay.active {
-      display: flex;
+      display: flex !important;
     }
 
     #tour-choice-popup {
@@ -698,6 +702,8 @@
       width: 340px;
       max-width: 92vw;
       font-family: inherit;
+      position: relative;
+      z-index: 2000001;
     }
 
     #tour-choice-popup h4 {
@@ -2325,12 +2331,13 @@
 
   <div id="tour-choice-overlay" onclick="if(event.target===this)closeTourChoice()">
     <div id="tour-choice-popup">
-      <h4>▶ Start Tour</h4>
-      <p>Which tour would you like to take?</p>
+      <h4 data-i18n="tutChoiceTitle">▶ Start Tour</h4>
+      <p data-i18n="tutChoiceDesc">Which tour would you like to take?</p>
       <div class="sfn-btns">
-        <button class="action-btn btn-grey" onclick="closeTourChoice()">Cancel</button>
-        <button class="action-btn btn-orange" onclick="startTourChoice('history')">🕘 History Tour</button>
-        <button class="action-btn" onclick="startTourChoice('board')">🌐 Board Tour</button>
+        <button class="action-btn btn-grey" onclick="closeTourChoice()" data-i18n="btnCancel">Cancel</button>
+        <button class="action-btn btn-grey" onclick="startTourChoice('main')" data-i18n="tutChoiceMain">🏠 Main View Tour</button>
+        <button class="action-btn btn-orange" onclick="startTourChoice('history')" data-i18n="tutChoiceHistory">🕘 History Tour</button>
+        <button class="action-btn" onclick="startTourChoice('board')" data-i18n="tutChoiceBoard">🌐 Board Tour</button>
       </div>
     </div>
   </div>
@@ -36921,7 +36928,11 @@
     }
 
     function showTourChoice() {
-      document.getElementById('tour-choice-overlay').classList.add('active');
+      var el = document.getElementById('tour-choice-overlay');
+      if (el) {
+        if (el.parentNode !== document.body) document.body.appendChild(el);
+        el.classList.add('active');
+      }
     }
     function closeTourChoice() {
       document.getElementById('tour-choice-overlay').classList.remove('active');
@@ -36929,7 +36940,17 @@
     function startTourChoice(tourType) {
       closeTourChoice();
       var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
-      if (tourType === 'history') {
+      if (tourType === 'main') {
+        Tutorial.start([
+          { selector: '#main-menu .menu-grid', title: t('tutMv1Title'), text: t('tutMv1Text') },
+          { selector: '#history-section h2', title: t('tutMv2Title'), text: t('tutMv2Text') },
+          { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
+          { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
+          { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
+          { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
+          { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
+        ], labels);
+      } else if (tourType === 'history') {
         Tutorial.start([
           { selector: '#history-section h2', title: t('tutHi1Title'), text: t('tutHi1Text') },
           { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
@@ -36970,18 +36991,6 @@
 
       if (active === 'main-menu') {
         showTourChoice();
-        return;
-      }
-
-      if (active === 'history-section') {
-        Tutorial.start([
-          { selector: '#history-section h2', title: t('tutHi1Title'), text: t('tutHi1Text') },
-          { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
-          { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
-          { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
-          { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
-          { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
-        ], labels);
         return;
       }
 

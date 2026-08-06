@@ -10,9 +10,9 @@
     var s = document.createElement('style');
     s.id = 'tut-styles';
     s.textContent = [
-      '.tut-panel{position:fixed;background:rgba(0,0,0,.65);z-index:19000;pointer-events:all}',
-      '.tut-target{outline:2px solid rgba(255,255,255,.6)!important;outline-offset:6px}',
-      '.tut-tooltip{position:fixed;z-index:19001;background:#fff;border-radius:10px;padding:16px 18px 14px;width:300px;box-shadow:0 8px 32px rgba(0,0,0,.28);font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;box-sizing:border-box}',
+      '.tut-panel{position:fixed;background:rgba(0,0,0,.65);z-index:1000000;pointer-events:all}',
+      '.tut-target{position:relative!important;z-index:1000002!important;outline:2px solid rgba(255,255,255,.6)!important;outline-offset:6px}',
+      '.tut-tooltip{position:fixed;z-index:1000003;background:#fff;border-radius:10px;padding:16px 18px 14px;width:300px;box-shadow:0 8px 32px rgba(0,0,0,.28);font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;box-sizing:border-box}',
       '.tut-tt-title{font-weight:800;font-size:.92rem;margin-bottom:6px;color:#111}',
       '.tut-tt-body{font-size:.82rem;color:#555;line-height:1.55;margin-bottom:14px}',
       '.tut-tt-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}',
@@ -65,6 +65,9 @@
 
   function _show(index) {
     var step = _steps[index];
+    if (step && typeof step.onShow === 'function') {
+      try { step.onShow(); } catch (e) { console.warn('Tutorial onShow error:', e); }
+    }
     var target = document.querySelector(step.selector);
     if (!target) { _next(); return; }
 
