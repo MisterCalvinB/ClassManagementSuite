@@ -1,14 +1,59 @@
 # Class Management Tools — User Guide
 
+Welcome to the **Class Management Tools** comprehensive documentation. This guide details every tool, feature, configuration option, and cross-app integration in the desktop suite.
+
+---
+
+## Table of Contents
+
+<details open>
+<summary><strong>Expand / Collapse Table of Contents</strong></summary>
+
+- [How to Begin](#how-to-begin)
+  - [1. Place the app in a writable folder](#1-place-the-app-in-a-writable-folder)
+  - [2. First launch checklist](#2-first-launch-checklist)
+- [Overview](#overview)
+- [Cross-App Connections](#cross-app-connections)
+  - [Shared Class Data (`class-groups.js`)](#shared-class-data-class-groupsjs)
+  - [Term Date Sync (Group Editor ↔ Planner)](#term-date-sync-group-editor--planner)
+  - [Planner → Grade Sheet (Automatic Test Linking)](#planner--grade-sheet-automatic-test-linking)
+  - [Board ↔ Planner (Lesson Tagging)](#board--planner-lesson-tagging)
+  - [Class Management ↔ Board (Live Sync)](#class-management--board-live-sync)
+  - [File Manager → Board (Reopen Saved Sessions)](#file-manager--board-reopen-saved-sessions)
+  - [Class Plan ↔ Class Management (Shared Seating Plans)](#class-plan--class-management-shared-seating-plans)
+  - [Presentation Windows](#presentation-windows)
+- [Tool Reference](#tool-reference)
+  - [Launcher (`launcher.html`)](#launcherhtml)
+  - [General Config (`general-config.html`)](#general-confightml)
+  - [Group Editor (`group-editor.html`)](#group-editorhtml)
+  - [Import Tool (`import-tool.html`)](#import-toolhtml)
+  - [Planner (`planner.html`)](#plannerhtml)
+  - [Class Plan (`class-plan.html`)](#class-planhtml)
+  - [Schedule Maker (`schedule-maker.html`)](#schedule-makerhtml)
+  - [Oral Marking (`oral-marking.html`)](#oral-markinghtml)
+  - [File Manager (`file-manager.html`)](#file-managerhtml)
+  - [Class Management (`class-management.html`)](#class-managementhtml)
+  - [Board (`board.html`)](#boardhtml)
+  - [Learning Tools (`learning-tools.html`)](#learning-toolshtml)
+  - [Manage Database (`manage-database.html`)](#manage-databasehtml)
+  - [Grade Sheet (`grade-sheet.html`)](#grade-sheethtml)
+  - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
+  - [Document Editor (`document-editor.html`)](#document-editorhtml)
+  - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
+
+</details>
+
+---
+
 ## How to Begin
 
 ### 1. Place the app in a writable folder
 
-Class Management Tools saves all your data (students, grades, sessions, settings) directly alongside the application files. For this to work, **the app folder must be in a location your user account can write to.**
+Class Management Tools saves all user data (students, grades, sessions, custom settings) directly inside your local data folder. For this to work, **the app folder must be in a location your user account can write to.**
 
 Avoid running the app from:
 - `C:\Program Files` or `C:\Program Files (x86)` — Windows blocks writes here
-- A read-only network share or a ZIP archive that was never fully extracted
+- A read-only network share or an unextracted ZIP archive
 - A USB drive with write protection enabled
 
 **Recommended locations:**
@@ -18,1347 +63,433 @@ Avoid running the app from:
 
 If you downloaded a ZIP file, extract the entire folder before launching. Double-clicking inside a ZIP without extracting will prevent the app from saving any data.
 
-> **How to tell if the folder is writable:** Open the app and go to **General Config → Data Location**. If a path is shown and no error appears, the app can write there. If you see a warning or the path is empty, move the folder to a writable location and relaunch.
+> **How to tell if the folder is writable:** Open the app and go to [General Config → Storage & Sync](#general-confightml). If a valid path is shown without error, the app can write there.
 
 ---
 
 ### 2. First launch checklist
 
-1. **Open the Launcher** — double-click `Class Management Tools.exe` (or run the `.bat` file on unpackaged builds). The Launcher is the home screen for all tools.
-2. **Set your language** — click **General Config** (⚙ gear icon) and pick your language (English, French, German, or Italian). Changes take effect immediately across all tools.
-3. **Create your classes** — open **Group Editor** and add your class groups and students. This step is required before most other tools are useful, since they all read their student and class data from Group Editor.
-4. **Explore the tools** — return to the Launcher and open any tool. Each tool has a built-in **?** help button in its navigation bar.
+1. **Open the Launcher** — double-click `Class Management Tools.exe` (or run `npm start` / launch script). The [Launcher](#launcherhtml) is the home screen for all tools.
+2. **Set your language** — click [General Config](#general-confightml) (⚙ gear icon) → **General tab** and pick your interface language (English 🇬🇧, French 🇫🇷, German 🇩🇪, or Italian 🇮🇹).
+3. **Create your classes** — open [Group Editor](#group-editorhtml) and add your class groups and student rosters. This step is essential as all tools draw student data from Group Editor.
+4. **Explore the tools** — return to the Launcher and open any tool. Each tool features a built-in **?** help button in its toolbar to launch interactive documentation.
 
 ---
 
 ## Overview
 
-| File | Purpose |
-|---|---|
-| `launcher.html` | Home screen — one-click access to all tools, startup app configuration, and per-card notes |
-| `class-management.html` | Classroom session manager — students, teams, timer, scoring, and settings |
-| `board.html` | Visual tools — Board, session History, and vocabulary Search |
-| `learning-tools.html` | Student-facing vocabulary and grammar games with team scoring |
-| `manage-database.html` | Vocabulary database browser, editor, and bulk-management tool |
-| `grade-sheet.html` | Test and grade tracking per class, term, and criterion |
-| `participation-tracker.html` | Participation analytics dashboard sourced from Class Management sessions |
-| `group-editor.html` | Create, edit, archive, and delete class groups; set the active year and term shared by all tools |
-| `import-tool.html` | Bulk-import students and class groups from CSV, XLSX, or JSON with automatic column mapping and conflict resolution |
-| `planner.html` | Week-by-week lesson and assessment planner with ICS, PDF, CSV, and HTML table export |
-| `class-plan.html` | Design and manage seating plans with grid, U-shape, and pod desk layouts |
-| `schedule-maker.html` | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, named saves, and a saved schedules browser with archive support |
-| `oral-marking.html` | Run live oral exam sessions: per-student prep/exam timers, criteria scoring, notes, and a live presenter view broadcasted to a second screen |
-| `general-config.html` | App title, language, startup layout, data folder, backup, and sync settings |
-| `file-manager.html` | Browse, rename, and sync data files; navigate folders; manage the sync location |
-| `document-editor.html` | Document Editor — Markdown + LaTeX (KaTeX) editor with dual preview, single-file inline styles, templates, PDF export with same-folder or Save As choice, and Save to folder |
-| `data-location.html` | Legacy data-folder configuration page (superseded by General Config) |
-
-All tools run as standalone HTML files in a browser or via Electron (desktop builds available through the `.bat` launcher scripts).
+| File | Purpose | Key Connections |
+|---|---|---|
+| [`launcher.html`](#launcherhtml) | Home screen — one-click access to all tools, startup layout config, sidebar panels, and per-card notes | Central hub |
+| [`general-config.html`](#general-confightml) | Global settings across 4 tabs: App Identity, Language, Startup & Launch, Storage & Sync, Remote Server, and App Notes | Global application preferences |
+| [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, and Planner terms | Sinks to all roster-aware tools |
+| [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON, or copy media files | Populates `students.js`, database, sounds, docs |
+| [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Group Editor](#group-editorhtml) |
+| [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF and DOCX export | Shared with [Class Management](#class-managementhtml) |
+| [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
+| [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
+| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool | Links directly to [Board](#boardhtml) & [Document Editor](#document-editorhtml) |
+| [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, modes, scoring, badges, random picker, phone remote) | Broadcasts to [Board](#boardhtml) & Presentation screens |
+| [`board.html`](#boardhtml) | Infinite mind-map canvas, voice recordings, student input notes, and live timer overlay | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
+| [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host, and team mode | Sourced from [Manage Database](#manage-databasehtml) |
+| [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor, and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
+| [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with PDF/DOCX export | Linked from [Planner](#plannerhtml) & [Oral Marking](#oral-markinghtml) |
+| [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard sourced from Class Management sessions | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
+| [`document-editor.html`](#document-editorhtml) | Markdown + KaTeX editor with split live preview, custom CSS rules, and PDF/DOCX export | Edits `.md` / `.html` files suite-wide |
+| [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
 ---
 
 ## Cross-App Connections
 
-The tools share data files and communicate in real time. Setting something up once propagates automatically — no duplication needed.
+Class Management Tools features deep cross-tool synchronisation. Data edited in one tool instantly propagates across the entire suite.
 
-### Shared class data: `class-groups.js`
+### Shared Class Data: `class-groups.js`
 
-**Group Editor** is the single source of truth for all class and student data. Every other tool reads from the same `class-groups.js` file at startup — no import or copy required.
+[Group Editor](#group-editorhtml) is the single source of truth for all class groups and student data. Every other tool reads from `class-groups.js` and `students.js` dynamically at startup.
 
-| Tool | What it reads from `class-groups.js` |
+| Tool | Shared Data Consumption |
 |---|---|
-| Class Management | Student roster and group list |
-| Participation Tracker | Groups for session filtering and the *This Term* date range |
-| Grade Sheet | Student list per class |
-| Planner | Class list for the weekly schedule |
-| Learning Tools | Groups for Team Mode |
-| Schedule Maker | Students and SEN flags per group |
-| Class Plan | Student lists for seat assignment |
+| **Class Management** | Reads active class roster, student UUIDs, and group metadata |
+| **Participation Tracker** | Filters session logs by group and active term dates |
+| **Grade Sheet** | Loads student lists per class automatically |
+| **Planner** | Class selection dropdowns for lesson schedules |
+| **Learning Tools** | Populates Team Mode rosters |
+| **Schedule Maker** | Loads student lists and SEN accommodation flags |
+| **Class Plan** | Imports student lists for seat assignment |
 
-**Recommended first step:** Create your classes in Group Editor before opening any other tool.
+<details>
+<summary><strong>Live Cross-App Sync Notifications</strong></summary>
 
-> **Built-in tutorial:** Click the **?** button in the top navigation bar of Group Editor to launch an interactive step-by-step tour of its main features.
+When any tool mutates shared configuration (`class-groups.js`, `planner-config.js`, `config.js`), all open tool windows receive a notification banner:
+> **"[Tool Name] updated shared data."** → **Reload data** | **Save & reload** | **Dismiss**
 
-#### Live cross-app notifications
+- **Reload data**: Refreshes runtime state without losing active session context where possible.
+- **Save & reload**: Appears on pages with unsaved edits (e.g., Grade Sheet) to safely save changes before refreshing.
+- **Dismiss**: Ignores the banner until manual page reload.
+</details>
 
-When any tool saves shared data (groups, student names, class config, planner or class-plan data), all other open tool windows are notified instantly. A slide-in banner appears at the top of each affected window:
+<details>
+<summary><strong>Renaming Safety & Stable UUIDs</strong></summary>
 
-> **"[Tool name] updated shared data."** → **Reload data** | **Save & reload** | **Dismiss**
+Classes and students are linked by persistent UUIDs (`st-…` for students, UUID v4 for groups). Renaming a class or student in [Group Editor](#group-editorhtml) automatically updates displays across Grade Sheet, Participation Tracker, Planner, and Class Plan without severing historical data links.
+</details>
 
-- **Reload data** — refreshes the data in that window without a full page reload where possible (Group Editor, Class Plan, Planner), or reloads the page for tools with active sessions (Participation Tracker, Board, Grade Sheet).
-- **Save & reload** — appears only on pages with potentially unsaved work (Grade Sheet). Saves first, then reloads.
-- **Dismiss** — hides the banner; the window keeps its current data until manually reloaded.
+---
 
-The banner auto-dismisses after 30 seconds if no action is taken.
+### Term Date Sync: Group Editor ↔ Planner
 
-#### Renaming a class
+Group Editor's **Active Context** defines the current school year, term (S1/S2), and start/end dates.
+- **Option A (From Group Editor)**: Under **Planner Terms**, click **+ New Term** → **Save to Planner** to sync term dates directly into `planner-config.js`.
+- **Option B (From Planner)**: In Group Editor Active Context, click **↕ Planner** to pull start and end dates from an existing Planner term.
 
-Edit the class name directly in Group Editor and click **Save**. The new name propagates automatically to every tool on their next load — Grade Sheet, Participation Tracker, Planner, Class Plan, Schedule Maker, and Class Management all read the updated name from `class-groups.js`.
+---
 
-Class identity is tracked by a stable internal ID, not the name, so renaming never breaks historical data. Participation sessions, grade files, and planner entries are all linked by ID and continue to display under the new name after the rename.
+### Planner → Grade Sheet: Automatic Test Linking
 
-### Term date sync: Group Editor ↔ Planner
+Creating an entry of type **Test** in [Planner](#plannerhtml) automatically verifies if a corresponding class exists in [Grade Sheet](#grade-sheethtml). If an open test slot is available, the test is registered automatically in Grade Sheet and a green indicator badge confirms the link.
 
-Group Editor's **Active Context** holds the current year, term (S1/S2), and start/end dates. These dates power Participation Tracker's *This Term* filter and the end-of-term archive prompt.
+---
 
-If you also use the Planner, avoid entering dates twice. You have two options:
+### Board ↔ Planner: Lesson Tagging
 
-**Option A — Create terms in Group Editor:**
-1. In **Group Editor**, find the **Planner Terms** section (below Active Context).
-2. Click **+ New Term**, fill in the label, start date, end date, and any holidays.
-3. Click **Save to Planner** — the term is written to `planner-config.js` immediately.
-4. To edit or delete an existing term, click **Edit** next to it in the list.
+- **Board → Planner**: Click **Planner** in the Board toolbar to tag a constellation session map to a specific Planner lesson, test, or assignment (`_plannerEntryId`).
+- **Planner → Board**: Right-click any entry in [Planner](#plannerhtml) (or click the modal button) to immediately create or open its linked Board mind-map file.
 
-**Option B — Pull from Planner into Group Editor:**
-1. Create a term in **Planner** with its start and end dates.
-2. In **Group Editor → Active Context**, click **↕ Planner** to fill the dates in one click.
+---
 
-The *Add Term* modal in Planner also offers a blue hint to auto-fill dates from the Group Editor active context — so the link works in both directions.
+### Class Management ↔ Board: Live Sync
 
-### Planner → Grade Sheet: automatic test linking
+- **Live Timer**: Timers started in [Class Management](#class-managementhtml) automatically render as floating widgets on active [Board](#boardhtml) windows.
+- **Presentation Mode**: Classroom updates, active group selections, and score animations stream to Board presentation views in real time.
 
-When you add a **Test** entry in the Planner, it checks for a Grade Sheet class with the same name. If a free test slot exists, the test is registered there automatically — a green badge in the Planner confirms the link.
+---
 
-### Board ↔ Planner: lesson tagging
+### File Manager → Board: Reopen Saved Sessions
 
-Board sessions can be tagged to a specific Planner lesson, test, or assignment entry so every constellation map is linked to the class and date it was used.
+The [File Manager](#file-managerhtml) **Recent** tab includes an **Open in Board** button next to saved constellation maps to open them directly in Board.
 
-- A **Planner** button in the Board toolbar opens a popover listing upcoming and recent Planner entries for all classes. By default only entries within roughly 30 days are shown; click **Show all** to see the full list.
-- Click an entry to tag the current board session to it. The tag is stored with every manual save and autosave so it persists when the session is reloaded.
-- When you load a previously saved session its planner tag is restored automatically, keeping the link intact.
-- The `_plannerEntryId` field in saved `.js` constellation files holds the reference.
-- In the Planner, right-click an entry or use the modal button to create or open its linked board file directly from the schedule.
+---
 
-### Class Management ↔ Board: live sync
+### Class Plan ↔ Class Management: Shared Seating Plans
 
-- The **timer** started in Class Management appears as a floating overlay on Board automatically.
-- When **Presentation Mode** is open in Class Management, group updates and activity state broadcast to the Board window in real time via a background channel — no manual action required.
+Seating arrangements created in [Class Plan](#class-planhtml) are written to `user/config.js` and immediately available in [Class Management](#class-managementhtml) (and vice versa).
 
-### File Manager → Board: reopen saved sessions
+---
 
-The File Manager's **Recent** tab shows an **Open in Board** button on every constellation map row — click it to reopen the map directly in Board without going through the launcher.
+### Presentation Windows
 
-### Class Plan ↔ Class Management: shared seating plans
+Four tools support multi-monitor presentation modes:
 
-Plans are written to `user/config.js` on every save, so they are always available in both tools. Plans created in either tool are imported by the other on startup.
-
-### Presentation windows
-
-Four tools support a detached second window for projection on a second monitor:
-
-| Tool | How to open | What is projected |
+| Tool | How to Launch | Projected Content |
 |---|---|---|
-| **Board** | Toolbar → 📽️ Presentation Mode | Live canvas; includes a compact, localized popup with stop, freeze, resize, and left/right window controls |
-| **Class Management** | Top menu → Presentation | Roster with roles, badges, and animated effects; includes the same compact popup controls and can be frozen independently |
-| **Learning Tools** | Individual game → Presentation icon | Game view on a student-facing display; includes the same compact popup controls while teacher controls stay on the main screen |
-| **Document Editor** | Presentation Mode | Live document preview on a dark background; updates with every keystroke |
+| **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with optional laser dot, freeze mode, and window position popups |
+| **Class Management** | Top Menu → Presentation | Student roster with roles, badges, point animations, and independent freeze control |
+| **Learning Tools** | Game Toolbar → 📽️ Presentation Icon | Student-facing quiz & game screen while teacher control panel remains private |
+| **Document Editor** | Nav Bar → Presentation Mode | Live rendered Markdown/KaTeX preview on dark background, updated per keystroke |
 
 ---
 
-## launcher.html
+## Tool Reference
 
-The home screen of the app. Opens automatically on startup and provides one-click access to every tool.
+### launcher.html
 
-### App Cards
+The central entry point for the suite. Opens on app launch and provides quick navigation, upcoming agenda items, and card customization.
 
-Each tool is represented by a card showing its name, description, and a launch button. Cards are laid out in a grid and can be individually customised:
-
-- **⚙ Card settings** (gear icon on hover): set a **custom label**, **personal notes**, a display **size (%)**, and a **position** on screen (default, centre, corners, or full-height sides).
-- Clicking a card opens the corresponding tool; the launcher stays open in the background.
-
-The **File Manager** card opens a standalone tool window with three tabs: Recent, Browse, and Sync.
-
-### Sidebar Panel
-
-The launcher has a collapsible right-side panel with three sections:
-
-- **Upcoming Events** — pulls entries from the Planner (lessons, tests, assignments) with dates on or after today, sorted by date. Click an entry to open the Planner.
-- **To-do** — shows incomplete to-do items from the Planner, sorted by due date. Overdue items are highlighted. Click an item to open the Planner.
-- **Recent Docs** — shows the most recently modified constellation maps (Board sessions) and Document Editor files, sorted by date. Click an entry to open it directly in Board or Document Editor; right-click a Board session to delete it and its companion folder.
-
-The launcher now refreshes Recent Docs automatically when those files are saved, renamed, moved, copied, or deleted from other tools, so names and modified dates stay current without reopening the launcher.
-
-Click the **Panel** button in the header to show or hide the sidebar. Each section has a small count button (e.g. **5**) in its header — click it to change how many items are shown (1–20). Counts are saved per-device.
-
-### Header Buttons
-
-| Button | Action |
-|---|---|
-| **⚙ Config** | Opens General Config (language, startup, data folder) |
-| **⌨** | Opens the keyboard shortcuts reference for the Launcher |
-| **? How To** | Opens the built-in how-to guide |
-| **▶ Tour** | Starts an interactive step-by-step tour of the launcher, including the sidebar sections |
-| **ℹ️ Credits** | Opens the credits modal |
-| **Panel** | Toggles the sidebar panel (Upcoming Events, To-do, Recent Docs) |
-
-In the **How To** guide, every section now includes a **Saved In** panel showing the relative storage paths used by that tool/config area, plus a **Reveal folder** / **Open folder** link to jump directly to the containing folder in the desktop app.
-
-### Startup Behaviour
-
-The launcher can automatically open tools at startup. Configure this in **General Config → Startup & Launch**:
-
-- **Separate windows** — open each selected app in its own window.
-- **Maximised** — open selected apps maximised.
-- **Split screen** — open two apps side by side; drag the divider to set the split ratio.
-
-The launcher renders first, then the configured apps open silently in the background.
+#### Key Features
+- **Customizable App Cards**: Hover over any card and click ⚙ to set custom titles, personal notes, card size (%), and screen position presets.
+- **Collapsible Sidebar**:
+  - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates.
+  - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red.
+  - **Recent Docs**: Quick links to recently modified Board constellation maps and Document Editor files.
+- **Header Actions**:
+  - **⚙ Config**: Launches [General Config](#general-confightml).
+  - **? How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
+  - **▶ Tour**: Triggers an interactive step-by-step onboarding guide.
 
 ---
 
-## general-config.html
-
-Centralised settings page for app-wide configuration. Opened from the launcher via **⚙ Config**.
-
-### App Identity
-
-Set a custom **app title** (displayed in the header of all tool windows).
-
-### Language
-
-Choose the UI language: **EN · FR · DE · IT**. The selection applies to all tools and is stored in `localStorage` under `cmt-general-config.language`.
-
-### Development Features
-
-Use **General Config → Startup & Launch → Show features in development** to show or hide beta features.
-
-- Off (default): hides **Phone Remote** (Class Management), **Student Input Note** (Board), and **Multiplayer Host** (Learning Tools quiz).
-- On: shows those features again.
-
-### Startup & Launch
-
-Choose which apps open automatically when the launcher starts, and how they are arranged:
-
-| Layout | Behaviour |
-|---|---|
-| Separate windows | Each selected app opens in its own resizable window |
-| Maximised | Selected apps open full-screen |
-| Split screen | Two apps open side by side; choose left/right apps and the split percentage |
-
-### Data & Storage
-
-Mirrors the data-folder, backup, and sync controls previously found in `data-location.html`:
-
-- **Data folder** — current path displayed; **Change folder**, **Reset to default**, and **Check for Updates** buttons.
-- **First Launch banner** — detects a missing data folder and offers **Select Existing Folder** or **Start Fresh**.
-- **Migration** — when the folder is changed, a banner offers to copy files from the old location.
-- **Backup** — choose a backup folder and trigger a manual backup.
-- **Sync** — set a sync target; **Sync Now** opens conflict resolution; **Keep target up to date automatically** enables auto-sync.
-
----
-
-## group-editor.html
-
-Manages the class groups stored in `class-groups.js`. Opened from the launcher or from within Class Management. Groups created here are shared by every other tool — Class Management, Participation Tracker, Grade Sheet, and Learning Tools all read from the same file.
-
-### Active Context
-
-The **Active Context** banner at the top sets the default year, term, and date range used by every tool.
-
-- **Year** — school year in `YYYY-YYYY` format (e.g. `2025-2026`).
-- **Term** — S1 or S2; controls which section groups appear in and powers the end-of-term archive prompt.
-- **Start / End dates** — term dates used by Participation Tracker's *This Term* filter and by the end-of-term banner.
-- **↕ Planner** — click to fill the active-context dates from a configured Planner term. If the Planner has one term, it applies immediately; if it has several, a picker appears.
-
-**Planner Terms** (section below Active Context, desktop app only): create, edit, and delete Planner semester entries without opening the Planner. The inline form pre-fills from the Active Context. Each term can include holidays (with optional end dates). Overlapping-date conflicts prompt a confirmation before saving.
-
-Click **💾 Save** to persist the active context to `class-groups.js`.
-
-### Managing Groups
-
-- **Active Groups** — groups are displayed in collapsible S1 / S2 sections, then a *No term* section at the bottom. Edit name, year, level, and student list inline.
-- **Add New Group** — fill the name, term (required), year, and level fields, then click **Add**. The term field is mandatory — a group must belong to S1 or S2.
-- **Import CSV** — import groups from a CSV file. Columns: Group, First Name, Last Name, Date of Birth, Admin Class, Year, Term, Level, SEN.
-- **SEN flag** — each student row has a SEN checkbox. SEN students receive the longer preparation time in Schedule Maker by default.
-
-### Student Roster & UUIDs
-
-Student data is stored in a dedicated file `user/students.js` (`STUDENTS_ROSTER` array) separate from `class-groups.js`. Each student and each class group is identified by a stable UUID (`st-…` for students, a random UUID for groups) so renaming never breaks historical links.
-
-- Groups in `class-groups.js` are keyed by UUID, with a `name` field in the metadata object rather than as the map key.
-- Students are referenced inside groups as arrays of UUID strings, with their full record (first name, last name, date of birth, admin class, SEN flag) living in `students.js`.
-- **One-time migration**: on first launch after upgrading, the app automatically rewrites `class-groups.js`, `planner-config.js`, planner entry files, class-plan data, and participation session files to use UUIDs. The migration is idempotent — running it again on already-migrated data is safe.
-
-### Archiving
-
-Archiving hides groups from all rosters without deleting their data. Participation files are moved to an `archived/` sub-folder and can be restored at any time.
-
-- **Archive a single group** — click the Archive button on the group row.
-- **Archive a whole term** — click **Archive S1** or **Archive S2** in the section header.
-- **End-of-term offer** — when the active term end date has passed, a yellow banner appears at the top offering to archive the whole term in one click. Dismissing it stores a flag in localStorage so the prompt does not re-appear.
-- **Unarchive** — scroll to the *Archived Groups* section and click **Unarchive** on any row.
-
-### Keyboard Shortcuts
-
-No keyboard shortcuts yet.
-
----
-
-## import-tool.html
-
-Wizard for bulk-importing structured data (students, vocabulary, quizzes…) from CSV, XLSX, or JSON, as well as copying binary files (audio, documents) into their managed folders. Accessible from the Launcher (📥 Import card) or via **📥 Import** in the Class Management settings popup.
-
-### Supported destination types
-
-**Structured data (CSV / XLSX / JSON mapping wizard):** Students, Class Groups, Wordbank, Quiz, Gap-Fill, Quotes, Error Correction, Dictation, Grammar, Sentences, Story.
-
-**File-copy (OS file picker, no CSV step):** Sounds, Documents.
-
-### Supported formats for structured imports
-
-| Format | Notes |
-|---|---|
-| CSV | First row = column headers. Any standard separator. |
-| XLSX / XLS | First sheet only. First row = column headers. Native Excel dates handled correctly. |
-| JSON | Array of objects: `[{"firstName":"…","lastName":"…"},…]`. Object keys are treated as column names. |
-
-### Wizard steps (structured data)
-
-1. **Destination** — choose a destination. Step 1 also shows group or file-picker sub-options where relevant.
-2. **File** — drag-and-drop or browse. Supported: `.csv`, `.xlsx`, `.xls`, `.json`. A raw preview of the first five rows is shown immediately.
-3. **Column mapping** — each destination field gets a dropdown. Common header names in EN, FR, DE, and IT are auto-detected (green border = matched). Optional fields can be skipped. You can also select **— Manually input value —** from the mapping dropdown to set a static, custom value for any destination field (such as checking a boolean flag or setting a static date for all imported rows) without needing that column in the source file.
-4. **Preview & conflicts** — all rows are listed. Conflicting rows are highlighted with per-row resolution choices: **Skip**, **Overwrite**, or **Import as new**. Bulk actions apply the same decision to all conflicts.
-5. **Done** — summary of records added / updated / skipped.
-
-### File-copy destinations (Sounds & Documents)
-
-Selecting **Sounds** or **Documents** in Step 1 changes the **Next** button to **Pick Files…**. Clicking it opens an OS file picker (multi-select):
-
-- **Sounds** — audio files (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.aac`, `.flac`) are copied into `user/custom-data/sounds`. Open Class Management afterwards to refresh and use them.
-- **Documents** — document files (`.html`, `.md`, `.txt`) are copied into the Document Editor's docs folder (`user/document-editor/docs`). Open Document Editor to edit them.
-
-The Done screen shows how many files were copied.
-
-### Class Groups destination
-
-When *Class Groups* is selected, Step 1 expands a group-assignment panel:
-
-- **Create new group** — enter a name, year, semester, and optional level. Year and semester pre-fill from the current active context.
-- **Use existing group** — pick from the list of active groups. Imported students are appended; existing members are not duplicated.
-
-Students who do not already exist in `students.js` are created automatically — no separate student import needed.
-
-### Extensibility
-
-Each destination is a self-contained descriptor in `js/import-modules/`. To add a structured destination, create a file there with `id`, `i18nKey`, `hasGroupStep`, `fields[]`, and `conflictKey()`. For a file-copy destination, set `isFileCopy: true` with `target`, `copySubdir`, and `copyFilters`. Register it in the `MODULES` array at the top of `pages/import-tool.html`.
-
----
-
-## planner.html
-
-Week-by-week planning tool for lessons, tests, assignments, and holidays. Data is saved to `user/planner-config.js` (term configuration) and `user/planner-entries.js` (entries).
-
-### Terms
-
-- Click **+ Term** to create a new term. Enter a label, start date, and end date.
-- When Group Editor has active-context dates set, a blue hint in the *Add Term* modal offers to auto-fill the dates from Group Editor in one click.
-- Add **Holidays** within a term (school breaks, bank holidays). Entries on holiday days are flagged in the week view.
-- Use the term selector in the toolbar to switch between terms. Multiple terms can co-exist (e.g. S1 and S2).
-
-### Classes
-
-- Click **Classes** in the toolbar to configure which class groups are tracked in the Planner.
-- Each class gets a **colour** for the week view, is assigned to **Term 1**, **Term 2**, or both, and can have a **weekly schedule** (which days and times it meets) and **learning objectives** for the term.
-- The class list is drawn from `class-groups.js` — add groups in Group Editor first.
-- Use the class filter chips in the toolbar to focus the agenda. The **Unassigned** chip toggles entries that are not assigned to any class.
-- In table view, the planner renders one table per week using an absolute-time grid (60-minute steps). The first column shows clock times, weekday columns show entries positioned by start time, and each entry block height reflects its real duration; overlaps are split side-by-side.
-- Right-click any entry, or open it in the entry modal, to create or open its linked board file in `user/mindmaps`.
-- **Weeks Navigation Panel** — a collapsible sidebar drawer is available on the left side of the screen. It displays a list of all weeks in the active term. Click any week to instantly smooth-scroll to it, with past weeks automatically dimmed.
-
-### Entries
-
-Each entry has a type (Lesson, Test, Assignment Due, Holiday, or custom) and belongs to a class and date. Optional fields: Topic, Objective, Readings, Activities, Homework, Notes.
-
-- **Test entries linked to Grade Sheet** — if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically recorded there.
-- **No Class for multiple classes** — when you set an entry to **No Class** with multiple classes selected, Planner updates matching existing entries at that same date/time and also applies to matching class lesson slots from the weekly schedule. If a matching slot has no entry yet, Planner creates a no-class entry for that slot.
-- **Duplicate** — copy an entry to another date.
-
-### Reminders
-
-Each entry can have a **start reminder** (fires N minutes before the entry starts) and an **end reminder** (fires N minutes before the entry ends). Lesson entries automatically get a 5-minute end reminder — this can be disabled in **Display ▾ → Auto end reminder**.
-
-Reminders appear as toast notifications in every open app window and dismiss across all windows simultaneously after 5 minutes or on manual close.
-
-### To-do list
-
-A collapsible **To-do** panel sits on the right side of the planner. Click the **To-do** tab to open it.
-
-- **Add / edit** to-dos with a task description, optional due date, class tag, fixed date/time reminder, and links to a planner entry, a board constellation map, or a grade-sheet class.
-- **Complete** — click the checkbox to archive a to-do. Toggle **Show done** to see archived items.
-- **Overdue** items are highlighted in red.
-- To-dos are saved to `user/todos.js` and also appear in the Launcher sidebar.
-
-### Export
-
-| Format | Description |
-|---|---|
-| **ICS** | Calendar file for Google Calendar, Apple Calendar, or Outlook. Filter by class, and optionally include lesson slots from the weekly schedule. Use the "No assigned class" filter to export only unassigned entries. |
-| **PDF** | Compact print-ready table with 2 columns: date + week number, and activities. Filter by class, optionally include lesson slots from the weekly schedule, and use the "fit on one page" option to aggressively reduce margins, font sizes, and padding for single-page output. Unassigned entries appear only in "All classes" or "No assigned class". |
-| **CSV** | Spreadsheet of all entries with full field data. Filter by class and optionally include lesson slots from the weekly schedule. Unassigned entries appear only in "All classes" or "No assigned class". |
-| **HTML Table** | Structured HTML table document for browser viewing or sharing. Filter by class and optionally include lesson slots from the weekly schedule. Unassigned entries appear only in "All classes" or "No assigned class". |
-| **DOCX** | Editable Word document with the same two-column table structure as PDF (date + week number, activities), with the same class filters and lesson-slot options. |
-
-### Keyboard Shortcuts
-
-No keyboard shortcuts yet.
-
----
-
-## class-plan.html
-
-Standalone seating-plan designer. Plans are saved as `user/class-plans/plans.js` and synced to `user/config.js` so **Class Management** can read the same data.
-
-### Layout types
-
-| Layout | Description | Configuration |
-|---|---|---|
-| **Grid** | Standard rows × columns grid of desks | Rows (1–12), Columns (1–14) |
-| **U-Shape** | One top row + two side arms forming a U | Width (top row count), Depth (arm length) |
-| **Pods** | Clusters of desks arranged in a room grid | Pod size (rows × cols), Room layout (pods rows × pods cols) |
-
-### Workflow
-
-1. Select a class group from the sidebar.
-2. Click **+ New Plan**, choose a layout type, and set dimensions.
-3. Drag students from the panel onto desk cells to assign seats.
-4. Drag from desk to desk to swap students; click **✕** to unassign.
-5. Use **🎲 Random** to shuffle all students automatically.
-6. Changes auto-save; use **Save** for an immediate write.
-7. Use **🖨 Print** to produce a printable A4 seating chart.
-8. Use **Export ▾** to download plans in various formats: CSV (seats mapping), XLSX (native spreadsheet), DOCX (editable Word document in desktop app), HTML (editable preview table), or standard browser Print PDF.
-
-### Sharing with Class Management
-
-Plans created here are visible in `class-management.html`'s Class Plans manager after the next load. Plans created in Class Management are imported when Class Plan starts.
-
----
-
-## schedule-maker.html
-
-Plans oral exam sessions where one student prepares while another presents, accounting for SEN accommodation time, breaks, named saves, and a saved schedules browser with archive support.
-
-### Configuration
-| Field | Purpose |
-|---|---|
-| Exam title | Free-text label printed on the schedule |
-| Date / Start time | Session start |
-| Class / group | Load students from `class-groups.js` |
-| Prep time – standard | Preparation room time for regular students (min) |
-| Prep time – SEN | Preparation room time for SEN students (min) |
-| Exam time | Duration of each student's presentation (min) |
-| Number of breaks | How many breaks to auto-place when clicking Apply |
-| Break duration | Duration of each break (min) |
-| Initial order | Random, alphabetical, or keep current manual order |
-
-### Timing model
-- **First student in each segment** (start or after a break): pure prep time, then exam. No one presents while they prepare.
-- **Subsequent students**: enter the prep room as the previous student enters the exam room. Their exam starts as soon as the previous student's exam ends (or when prep is done if prep time > exam time, creating a brief examiner wait).
-- **Last student before a break / at the end**: presents with no one preparing behind them.
-
-### Workflow
-1. Fill in the configuration and click **Apply** — students are loaded and breaks auto-placed.
-2. Drag student rows and break markers to adjust order.
-3. Toggle the SEN checkbox per student to override the class-groups.js default for this session.
-4. The schedule table updates live.
-5. Click **Print** for a print-friendly view or **Save** to save the session for later recall.
-
----
-
-## oral-marking.html
-
-Runs live oral exam sessions using a schedule from Schedule Maker. Tracks per-student prep and exam timers, collects criteria scores and comments, and saves results directly to Grade Sheet.
-
-### Setup
-1. Open **Oral Marking** from the launcher.
-2. Click **Load Schedule** and select a saved Schedule Maker session.
-3. The student roster, group name, and exam configuration are loaded automatically.
-4. Click **Present** to open the live presenter window on a second screen.
-
-### Session flow
-| Phase | Description |
-|---|---|
-| **Prep** | Countdown for the current student's preparation time (SEN students get the longer prep time). |
-| **Exam** | Countdown for the student's presentation. The **Finish Exam** button stops the timer early and records the actual duration. |
-| **Between students** | Timer pauses. Use **Next Student** to advance, or click a name in the sidebar to jump. |
-
-The **Skip** button marks a student as skipped and moves on without recording a grade.
-
-### Criteria scoring
-Criteria are loaded from `correction-criteria.js` (the same file used by Grade Sheet). For each criterion:
-- Click a **score pill** to assign a grade (6 / 5.5 / … / 1).
-- Type a **comment** below the pills for that criterion.
-- The **Overall grade** row shows the auto-computed average; click any pill to override it manually.
-
-A **Personal notes** field at the bottom is saved with the student's result and appears in Grade Sheet under the student's **Teacher observations** section for that test.
-
-### 2-minute warning
-When fewer than 2 minutes remain in the exam phase, the timer bar flashes red and the presenter window background flashes dark red.
-
-### Presenter view
-The presenter window (opened via **Present**) shows the student's name, current phase, time remaining, and elapsed time in large text for a second display. It receives updates via `BroadcastChannel` — no network required.
-
-### Saving grades
-Click **Save Grades** after all students are done. The tool:
-1. Looks for an existing Grade Sheet class whose `groupId` matches the schedule's group.
-2. If found, appends a new oral-exam test to the next empty slot for that semester and auto-creates/registers that test slot in class metadata.
-3. If not found, creates a new class using students from `class-groups.js`.
-4. Saves the session's selected criteria and each student's per-criterion points/comments in Grade Sheet-compatible format.
-5. Repeated manual saves in the same oral session update that same linked test (by test UUID) instead of creating extra test entries.
-
-Results appear immediately in `grade-sheet.html` on the next load.
-
-### Crash recovery
-The session is auto-saved to `localStorage` (`cmt-oral-session`) each time a student finishes. If the app closes mid-session, reopening Oral Marking restores the last saved state automatically.
-
----
-
-## file-manager.html
-
-Browse, rename, and sync data files. Opens as a standalone tool window from the launcher.
-
-### Recent tab
-- **Search / filter / sort** — filter by filename, type (constellation, PDF, image, sound, book), and sort order.
-- **Open in Board** — reopen any constellation map directly in the Board tool.
-- **Rename** — inline rename any session file; edit the name in place and press Enter to save.
-
-### Browse tab
-- **Target selector** — switch between Constellation Maps, User Data, Custom Data, Grades, Grade Sheets, or Participation logs.
-- **Folder navigation** — click into subdirectories; breadcrumb trail shows your current path.
-- **Search** — filter filenames at the current folder level.
-- **Add Folder** — create a new folder in the current path directly from the toolbar.
-- **Rename** — inline rename any file; the change is written to disk immediately.
-- **Multi-select** — click to select; use **Ctrl/Cmd+click** to toggle items and **Shift+click** for range selection.
-- **Drag & drop move** — drag any selected item and drop on a folder row or breadcrumb segment to move all selected items.
-- **Context menu move/copy** — right-click and use **Move to...** or **Copy to...** to open a destination-folder picker.
-- **Edit in Doc Editor** — HTML and Markdown (`.html`, `.md`) files can be edited directly inside the Document Editor tool via context menus or action buttons.
-- **Pin to sidebar** — right-click a folder to pin/unpin it from the launcher sidebar collapsible panel for quick access.
-- **Paste workflow** — copy/cut selected items and paste into the current folder.
-- **Conflict dialog** — on name collisions choose per item: **Rename** (auto unique), **Replace**, or **Skip**.
-
-### Sync tab
-- **Sync location** — shows the configured sync folder (set in General Config or directly here).
-- **Choose Folder / Sync Now** — pick a sync folder and run an immediate sync.
-- **Auto-sync** — keep the sync folder up to date automatically on every save.
-- **Conflict resolution** — when both sides differ, choose per file: keep mine, keep sync, or skip.
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| Enter | Confirm inline rename |
-| Escape | Cancel inline rename |
-| Ctrl/Cmd + C | Copy selected files/folders |
-| Ctrl/Cmd + X | Cut (move) selected files/folders |
-| Ctrl/Cmd + V | Paste into current Browse folder |
-
----
-
-## class-management.html
-
-The main classroom control panel. Open at the start of every lesson to manage the roster, run timers, assign teams, and record participation.
-
-### Timer
-
-### Timer & Class Modes
-
-A countdown or stopwatch displayed as a full-screen overlay.
-
-- Set duration in hours and minutes.
-- **Class Mode** shortcuts: 🤫 Quiet Work · 💬 Conversation · 👥 Group Work (or any custom modes, mapped to keys **1**–**9**).
-- **Edit Modes Manager**: open via **⚙ Settings → Edit Modes**, timer popup **⚙️ Edit**, or mode picker **Edit Modes**. Create, edit, duplicate, reorder (▲/▼), and delete working modes.
-- **Mode Editor options**:
-  - **General**: Name, Icon/Emoji, Shortcut key (1–9).
-  - **Text**: Custom full-screen title, instructions subtitle, font size, and text color.
-  - **Picture**: Emojis, speech bubbles, group avatars, custom image URLs, or upload custom images (saved into `user/mode-image/`). Sizing & fit modes (*Fit*, *Stretch*, *Clip/Cover*). Visual animations: *Pulse*, *Float*, *Bounce*, *Shush*, *Bubbles*.
-  - **Sound**: Ambient noise (White, Pink, Brown), select specific MP3 audio files from the sound library or upload custom audio into `user/custom-data/sounds/`, volume control, and activation chimes.
-- Configurable end-of-timer beeps (1–20), drumroll lead-up, and gavel/alarm sound.
-- A progress bar shrinks as time elapses; the overlay collapses when the timer reaches zero.
-
-### Roster
-
-The main panel shows every student in the active class.
-
-- Click a name to award a participation mark (**+**) or deduct (**−**) with configurable coefficients.
-- Right-click a name for the context menu: mark **Absent**, **Flag**, **Add Role**, **View Stats**, **View Grades**.
-- **Multi-select** (Shift+click or checkboxes) lets you bulk-apply actions — create teams, assign roles, flag a group.
-- Inline indicators show badges, strikes, and cumulative points for each student.
-- Name size can be adjusted with **−/+** controls so the roster fits any screen.
-- Roster settings can be **pinned** so they stay docked at the bottom of the roster panel.
-
-### Teams & Roles
-
-- **Create Teams**: split the roster into N teams, or into groups of N students. Teams are colour-coded.
-- In **Team Maker**, use **Reshuffle Teams** to re-randomise current teams or **Clear Teams** to reset team assignments.
-- **Random Picker**: drumroll animation selects a random student or team, finishing with a gavel sound.
-- **Roles**: assign custom role titles (Speaker, Reporter, etc.) to individuals or by random rank; students can read their role description on the Presentation window.
-
-### Scoring & Badges
-
-- Participation marks feed a live ranking (Results & Ranking modal shows medals and a "performance of the day" highlight).
-- Custom **badges** (positive or negative tone) can be awarded alongside marks.
-- **Autoflag**: automatically highlights low-participation students based on a configurable bottom-percentage threshold.
-
-### Presentation Mode
-
-Opens a second window intended for a projector or secondary screen.
-
-- Displays the roster with optional overlays: roles, badges, autoflag indicators, and animated effects.
-- **Freeze** the presentation to pause live updates while you make changes on the control panel.
-- Minimize, dock, or maximize the window independently.
-
-### Time Machine & Session History
-
-- The app **autosaves** a snapshot every 20 seconds to localStorage.
-- **Time Machine** lets you scroll back through snapshots and restore any previous state.
-- **Session History** shows an activity log for the current lesson.
-- Export the database as a `.zip` backup or import a previous backup to restore all data.
-
-### Settings
-
-Accessed from the top-right ⚙ menu:
-
-| Setting | What it controls |
-|---|---|
-| **Edit Groups** | Add/rename classes; each group has a name, year, term, and level |
-| **Edit Teams** | Customise team names and colours (palette of 10+ colours) |
-| **Edit Badges** | Define badge icons, names, tone, and meaning |
-| **Edit Sounds** | Pick audio files or built-in sounds for every event slot (timer end, ambient, drumroll, gavel, score sounds); each slot has a 0–100 volume slider. Use **⊕ Import Audio Files** to copy audio files directly from disk into the sounds folder, then **↻ Refresh** to make them available |
-| **Edit Roles** | Manage role titles and descriptions |
-| **Edit Autoflag** | Bottom-% threshold, elements to count, and timeline |
-| **Edit Modes** | Create, edit, duplicate, reorder, and delete class modes; set custom text, picture/animations, and ambient audio files |
-| **Class Plan** | Seating layout and weekly schedule |
-| **App Title** | Custom teacher or school name shown in the header |
-| **Startup Window** | Which tool opens automatically at launch |
-
-### Phone Remote
-
-Lets any phone or tablet control student scoring and badges from a browser — no app install required.
-
-Open the **📱 Phone Remote** panel from the top menu. Two connection modes are available:
-
-#### Local network mode (same WiFi)
-
-1. Select **Local network** and leave the port at the default (8787).
-2. Click **▶ Start Remote Server** — the app starts a combined classroom server on your machine.
-3. A URL, QR code, and 6-character token appear. Project or share them so phones can connect.
-4. Students open the URL in any phone browser, enter the token, and can immediately award or remove points and badges.
-
-> **Windows firewall:** the first time you run the local server, Windows may block port 8787. Follow the PowerShell command shown in the panel to add a firewall rule.
-
-#### External server mode (internet, any network)
-
-1. Deploy `js/classroom-server.js` to any Node.js hosting service (Railway, Render, Fly.io, or a VPS). The file is self-contained; the only dependency is `ws`.
-2. Select **External server** in the panel, enter your server's URL, and set a **host secret** — a password of your choice that prevents another host from taking over your relay.
-3. Click **▶ Start Remote Server** — the app connects to your hosted relay.
-4. Share the URL shown (e.g. `https://your-server.com/?t=ABCDEF`) — students can connect from any network.
-
-The host secret and mode are saved in `user/remote-config.js` so you only need to set them once. The **same Local/External toggle appears in the Multiplayer Quiz panel (Learning Tools) and the Student Input Note popup (Board)** — they all read and write the same config, so switching mode in any one of them applies everywhere.
-
-### Presentation Mode
-
-Opens a second window intended for a projector or secondary screen.
-
-- Displays the roster with optional overlays: roles, badges, autoflag indicators, and animated effects.
-- **Freeze** the presentation to pause live updates while you make changes on the control panel.
-- Minimize, dock, or maximize the window independently.
-- When the Board is also open, timer events and group-activity updates broadcast to it in real time.
-
-### Navigation
-
-The **Links** popup (top menu) gives one-click access to every other tool: Board, Learning Tools, Grade Sheet, Participation Tracker, Database Manager, and Data Location.
-
-A language switcher supports **EN · FR · DE · IT**.
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| Ctrl+Space | Pick a random student |
-| Ctrl+Shift+K | Open Team Maker |
-| Ctrl+M | Open Class Mode picker |
-| 1–9 (mode/timer open) | Switch mode (activates mode assigned to numeric key 1–9) |
-| W (mode/timer open) | Toggle white noise on / off |
-| M (mode/timer open) | Mute / unmute white noise |
-| [ / ] (mode/timer open) | Decrease / increase white noise volume |
-
----
-
-## board.html
-
-A companion tool focused on vocabulary and text work. It opens from the Links menu in Class Management. The three sections covered here are **Board**, **History**, and **Search**.
-
----
-
-### Board (🌐 Board)
-
-An infinite-canvas mind-map and vocabulary board. Words are draggable nodes; you can annotate, group, draw on, and export the board.
-
-#### Adding Words
-
-Right-click anywhere on the blank canvas to open the quick-add menu:
-
-| Suffix | Node type |
-|---|---|
-| *(none)* | Standard single word |
-| `, ` (comma-separated) | Multiple words at once |
-| `_` | Phrase group (words treated as a unit) |
-| `//` | Two-line node |
-| `+` | Co-located group (words pinned together) |
-| `--` | Linked chain (nodes connected by an arrow) |
-
-Words from the vocabulary database can be bulk-imported via **📥 Import**; a search box filters the list before adding.
-
-#### Node Interactions
-
-- **Drag** to reposition; **double-click** to edit the text in place.
-- Right-click a node for its context menu: edit text, change style, apply a **Preset**, copy/cut, delete.
-- **Multi-select** with Ctrl/Cmd+click or drag-select, then align, distribute, or grid-arrange the selection.
-- Ctrl/Cmd+G groups selected nodes into a named group container.
-
-#### Styling Nodes
-
-Each node can be styled individually or via **Presets** (up to 15 saved configurations per board):
-
-- Background colour, text colour, border colour/width/style (solid · dashed · dotted · double).
-- Highlight glow ring.
-- Node shape.
-- Font family and formatting (bold · italic · underline · strikethrough).
-
-Right-click → **Preset** row → quick-apply any saved preset. The ⚙ button in the preset row opens the preset editor.
-
-#### Notes
-
-Any node or empty area can have a rich-text **Note** attached:
-
-- Notes support bold, italic, underline, strikethrough, text/background colour, and font family.
-- **Ctrl+Space** clears formatting from a selection (or the whole note if nothing is selected).
-- Notes also have their own **Presets** (stored separately from node presets).
-
-#### Drawing & Laser
-
-Activate **✎ Draw mode** from the toolbar:
-
-- Freehand pen with colour picker, thickness (1–40 px), and opacity (5–100%).
-- **Pen Presets**: save and restore pen configurations (colour, opacity, thickness, shape) — up to 15 presets.
-- Shapes: rectangle, circle, line, polygon; each with optional fill and border style.
-- **⌫ Erase** removes freehand strokes.
-- **⬭ Laser** (Ctrl+L): click to leave a fading mark, drag to draw a trail, double-click for a pulse ring — useful for pointing at things on a projector without permanent marks.
-
-#### Pages
-
-A board can have multiple pages:
-
-- **➕** Add a new blank page; **⎘ Copy** / **⎗ Paste** to duplicate a page.
-- **⊞ Preview** shows thumbnails of all pages and lets you reorder or delete them.
-- Navigate with ← / → buttons; the current page indicator shows "Page X / N".
-- When a saved board file is open and has at least 2 pages, the **File** menu also shows a compact navigation strip with tiny thumbnails and page numbers for quick jumps.
-- Each page has an editable inline title (up to 60 characters).
-
-#### Vocabulary Overlays
-
-- **[ ] IPA**: toggle International Phonetic Alphabet pronunciation under every word.
-- **( ) Translation**: toggle the translation in the current app language under every word (resolved via `getTranslation()` — shows the French, German, or Italian equivalent depending on the active UI language).
-- **❓ Unknown**: list words on the board that are not found in the vocabulary database.
-
-#### Pasting Tables
-
-Paste a table from any source (a web page, Word, Excel, Google Sheets) directly onto the board canvas:
-
-- Copy a `<table>` from HTML and paste with **Ctrl/Cmd+V** — the board detects the HTML table structure and creates a draggable table element at the paste position.
-- Copy cells from a spreadsheet (tab-separated values) and paste — rows with at least one tab are interpreted as TSV and converted to the same table element.
-- The first row is treated as a header when the source `<th>` elements are detected. Column widths can be dragged to resize; rows too.
-- Tables are saved as part of the board session and exported with it.
-
-#### Board Operations
-
-| Button | Action |
-|---|---|
-| ⇢ Spread | Push selected nodes apart to remove overlaps |
-| ⇠ Compact | Pull selected nodes closer together |
-| 👁 Hide/Show | Toggle visibility of all nodes |
-| ▭ Mask | Add a movable opaque rectangle (for revelation effects) |
-| ⬡ Group | Insert an empty group container |
-| 📐 Snap | Toggle snap-to-align (hold Alt to bypass momentarily) |
-
-#### Saving & Exporting
-
-- **💾 Save** — downloads the board as a `.js` file (includes `_createdAt` / `_savedAt` timestamps; loadable back into the board).
-- **⧉ Duplicate** — creates a duplicate of the current board file. If the current file is linked to a Planner timeslot, a warning popup explains that the duplicate will be unlinked and offers to open the timeslot picker so you can relink the duplicate to another class slot.
-- **📂 Load** — opens a saved `.js` or `.json` board file.
-- **✚ New** — saves the current board and starts a fresh one.
-- **⬇ Export** — export the board as a **PNG image**, **CSV word list**, or **PDF**.
-- **📋 Templates** — save the current board as a reusable template, or load a template to pre-populate a new board.
-- **🧩 Media** — attach images, audio, video, or PDFs directly to the board; manage and delete attachments. Includes a **🎙 Record Audio** button to record voice directly from the microphone.
-- **Rename file on disk** — if the board file has already been saved, a grey **Rename file** button appears next to the title input at the top. In the desktop app, clicking this button renames both the file and its companion folders/history files on disk to match the new board title.
-- **Mirror Mode** — if the board is opened with the URL query parameter `?mirror=1`, autosave is disabled to prevent overwriting active board layouts.
-
-#### Voice Recordings
-
-- **Record**: click **🧩 Media → 🎙 Record Audio**, or right-click the board canvas and choose **🎙 Record Audio**.
-- The popup shows a mic level bar, a live timer, and a record/stop toggle (⏺ / ⏹).
-- After stopping, a preview player appears. Click **Save to board** to save the clip to the constellation's companion folder (`audio/`) and place it as a sound node.
-- If no constellation file is open yet, a **💾 Save constellation & proceed** button appears; saving creates the companion folder so the recording can be attached.
-- **Trim**: right-click any audio node on the board and choose **✂ Trim**. Drag the region handles on the waveform to select the portion to keep, then click **Save trimmed**. The trimmed clip is saved as a new `.wav` file alongside the original (the original is never deleted).
-
-#### Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| Ctrl/Cmd+S | Save |
-| Ctrl/Cmd+Z | Undo |
-| Ctrl/Cmd+Y / Ctrl/Cmd+Shift+Z | Redo |
-| Ctrl/Cmd+A | Select all |
-| Ctrl/Cmd+C / X / V | Copy / Cut / Paste (in move mode) |
-| Ctrl/Cmd+G | Group selection |
-| Ctrl/Cmd+H | Hide / reveal selection |
-| Ctrl/Cmd+↑ / ↓ | Increase / decrease font size of selection |
-| Ctrl/Cmd+L | Toggle laser pointer |
-| Delete / Backspace | Remove selection |
-| Ctrl+Space | Clear note formatting |
-| Esc | Close menus / exit mode |
-
-#### Presentation Mode
-
-- **📽️ Presentation Mode**: mirrors the board to a second monitor window.
-- **🖱 Mouse Pointer**: shows a laser dot at the cursor position in the presentation window.
-- **❄️ Freeze Board**: stops the presentation from updating while you prepare the next state.
-- A fixed popup menu in the presentation window provides stop, freeze, resize, and left/right window controls.
-
----
-
-### History (🕘 History)
-
-Browses and manages all saved Board sessions stored on disk.
-
-#### View Tabs
-
-| Tab | Contents |
-|---|---|
-| Manual Saves | Sessions saved explicitly by the user |
-| Autosaves | Automatically saved versions |
-| 🗄 Archived | Sessions moved to the archive (hidden from the main tabs) |
-
-#### Filtering
-
-A filter bar above the table lets you narrow results by:
-
-- **From / To date** (date pickers) — filters by the session creation date.
-- **Class / Group** — dropdown of known group names.
-- **✕ Clear** resets all filters instantly.
-
-#### History Table
-
-Columns (all sortable by clicking the header):
-
-| Column | Description |
-|---|---|
-| Name | Session filename |
-| Type | Board |
-| Class/Group | Associated class group |
-| Created | Original creation timestamp |
-| Saved | Last modification timestamp |
-| Size | File size |
-| Actions | Per-row: Load · Rename · Duplicate · Download · Delete |
-
-Select multiple rows with the header checkbox or individual checkboxes, then use the toolbar:
-
-- **⬇ Export Selected** — download selected files.
-- **🗄 Archive Selected** — move to archive.
-- **↩ Unarchive Selected** — restore from archive.
-- **🗑 Delete Selected** — permanently remove.
-- **🧹 Delete All** — clear all sessions (requires confirmation).
-- **↻ Refresh** — reload the file list from disk.
-
----
-
-### Search (🔍 Search)
-
-Searches for a word or phrase across a loaded book or text file, showing every occurrence with its surrounding context.
-
-#### How It Works
-
-1. A book or text document must be loaded into the board's vocabulary database (via the Import system or directly from `data/books/`).
-2. Type a word or phrase into the search box.
-3. Results show each occurrence with the surrounding paragraph (or up to 200 words of context).
-4. Useful for finding collocations, example sentences, and contextual usage before adding a word to the Board.
-
-### Student Input Note
-
-Lets students submit short text responses from their phones that appear as notes on the board. Right-click the canvas → **👥 Student Input Note**.
-
-- Select a **class group** and give the session a **title**.
-- Use the **Local / External toggle** to choose the server — reads from the shared `user/remote-config.js` so it is already set if you previously configured Phone Remote or Multiplayer Quiz.
-- Click **Connect & Open Room** — a join URL and QR code appear. Share them with the class.
-- Students open the URL on any browser, pick their name, and type a short response. Submissions appear live in the board note.
-- Click **Copy Join URL** to copy the link, or click the QR image to paste it directly onto the canvas as a scannable node.
-
----
-
-## learning-tools.html
-
-Student-facing activity hub. Open it on a shared screen or student devices for interactive vocabulary and grammar practice. All content is drawn from the vocabulary database; filters narrow the word pool before starting any activity.
-
-### Filters
-
-Three independent filters sit at the top of the page and carry over as you move between activities:
-
-- **Level** — CEFR level (A1 → C2); select one or more values.
-- **Theme** — topic categories (a word can belong to several themes simultaneously).
-- **Type** — word type / grammar category.
-
-**Reset** clears all filters back to "All". The active word count updates in real time.
-
-### Vocabulary Games
-
-| Game | How it works |
-|---|---|
-| **🧩 Definition Match** | Flip card pairs to match each word to its definition. All pairs must be found to win. |
-| **😵 Hangman** | Guess the hidden word letter by letter. Choose 4–12 allowed mistakes. 💡 Clue reveals the definition. |
-| **🔠 Scrambled Word** | Letters are shuffled — click them in order to reconstruct the word. 💡 Clue reveals the next letter. |
-| **🔍 Word Quest** | A definition is shown; unlock up to 4 progressive hints (synonyms, letter clues) then type the answer. |
-| **🔉 Phonetic Guess** | An IPA transcription is shown — identify the word it represents (4-choice or free typing). |
-| **🔗 Synonyms & Antonyms** | A word is shown; find its synonym or antonym. Toggle Synonym / Antonym / Both modes. Multiple choice or free typing. |
-
-### Grammar Games
-
-| Game | How it works |
-|---|---|
-| **✍️ Sentence Builder** | Reconstruct a scrambled sentence by clicking words in order. 💡 Clue reveals the next word. |
-| **🕳️ Gap Fill** | One word is removed from a sentence — type it back. Filter by grammar type (Relatives, Conditionals…). |
-| **🔴 Find the Error** | Spot the grammatical mistake. **Spot** mode: choose correct vs erroneous. **Rewrite** mode: correct the sentence yourself. |
-| **📝 Dictation** | A text is read aloud; type what you hear word by word. Difficulty: Easy (10% words hidden) · Medium (50%) · Hard (90%). |
-
-### Tools
-
-| Tool | Description |
-|---|---|
-| **📐 Grammar Practice** | Reference library of grammar rules — formulas, signal words, common mistakes, and tips. Filter by category or level. |
-| **🎴 Flash Cards** | Hover a card to flip and reveal the translation (in the active UI language) and definition. Passive review mode. |
-| **📜 Quote Analyser** | A literary quote is displayed; guess its theme and keywords, unlock clues one by one, or request a full analysis. |
-| **📋 View All Words** | Browse the entire filtered vocabulary bank. Click any entry for full details. Export to CSV or TXT. |
-| **🌐 Board** | Opens the visual word-map in board.html showing connections by theme and meaning. |
-| **➕ Add Words to DB** | Add custom vocabulary entries with word, IPA, French/English/German/Italian translations, definition, example sentence, synonyms, antonyms, and more. Saved locally; download an updated DB file to make them permanent. |
-
-### Multiplayer Quiz
-
-Run a quiz as a live multiplayer session where every student answers on their own device simultaneously.
-
-#### Local network mode
-
-1. Load a quiz, then switch to **Multiplayer Host** mode in the quiz panel.
-2. Click **Connect** — the app auto-starts the combined classroom server (same one used by Phone Remote).
-3. Share the quiz player URL that appears (e.g. `http://192.168.x.x:8787/quiz-player.html`) or its QR code.
-4. Students open the URL, select their class and name, and click **Join**.
-5. Advance questions from the host panel; students see each question in real time on their screen.
-6. At the end of the session, results are saved automatically to `user/game-results/game-results.js`.
-
-#### External server mode
-
-1. In the quiz panel, click **External** in the Local/External toggle.
-2. Enter your hosted server URL in the field that appears (pre-filled from the shared config if already set in Phone Remote).
-3. Click **Connect** — no local server starts; the app connects to your relay.
-4. Students open `https://your-server.com/quiz-player.html` from any network.
-
-> The quiz server and Phone Remote share the same combined server (`js/classroom-server.js`). The Local/External toggle is shared across Phone Remote, Multiplayer Quiz, and Student Input Note in Board — changing it in any panel updates all three.
-
-### Team Mode
-
-- **Add teams** on the home screen — give each a name and colour.
-- Teams take turns across all games; the current team's panel is highlighted in that team's colour.
-- A correct answer awards points to the active team.
-- **Reset Scores** zeroes all scores; **Clear Teams** removes all teams.
-
-### Timer
-
-Most games have a **⏱ Timer** button in the top-right corner. Configure:
-
-- **Grace period** — seconds before points start being deducted.
-- **Points deducted per interval** — how many points are lost each tick.
-- **Deduction interval** — seconds between deductions.
-
-The timer runs independently of the game, making it usable for timed rounds or team challenges.
-
-### Presentation Mode
-
-Individual games have a presentation icon (📽️) in their toolbar that opens a second window for student-facing display:
-
-- Projects the game interface onto a projector or secondary monitor.
-- Teacher controls (team scores, navigation, settings) remain on the main window.
-- The presentation window updates live as you advance through questions or activities.
-- Close it from either screen via the close button or the presentation indicator in the main toolbar.
-
-### Other Controls
-
-- **Language switcher**: EN · DE · IT · FR (top-right). Affects which translation column is shown in games and flash cards.
-- **Font size**: A− · A · A+ buttons to scale the UI text.
-- **Mute**: toggle all game sound effects.
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| Enter | Submit answer |
-
----
-
-## manage-database.html
-
-The vocabulary database manager. Use it to browse, edit, enrich, and maintain the word bank that powers all other tools.
-
-### Word List & Filters
-
-The main view shows all words in the database with three live filters:
-
-- **Search** — free-text match on the word field.
-- **Theme filter** — narrow to a specific theme.
-- **Source filter** — All Sources · Custom only · Built-in only.
-
-Click any word to open the **Word Detail** overlay.
-
-### Word Detail Overlay
-
-Displays the full record for a word and supports inline editing (toggle with the ✏️ button):
-
-| Field | Notes |
-|---|---|
-| Word | The entry's spelling |
-| IPA | Phonetic transcription (without slashes) |
-| Source Language | The language the word belongs to (`en`, `fr`, `de`, `it`) |
-| English | English form of the word |
-| French | French translation |
-| German | German translation |
-| Italian | Italian translation |
-| Part of Speech | noun · verb · adjective · etc. |
-| Level | CEFR level (A1–C2) |
-| Theme | Comma-separated list of themes |
-| Keywords | Comma-separated tags (e.g. lesson codes) |
-| Definition | English definition |
-| Example Sentence | Usage in context |
-| Synonyms | Comma-separated |
-| Antonyms | Comma-separated |
-| Other Forms | Plurals, conjugations, irregular forms |
-
-**Save** options: to browser memory, to the main database file, or to a named custom `.js` file (via the file picker). Navigate between entries with ← Prev / Next → / ↩ Back buttons. Zoom controls (−/+) scale the overlay text.
-
-### Multi-Language Word Schema
-
-Each word entry can carry translations for all supported languages alongside the source word:
-
-```json
-{
-  "word": "resilient",
-  "sourceLanguage": "en",
-  "english": "resilient",
-  "french": "résilient",
-  "german": "belastbar",
-  "italian": "resiliente"
-}
+### general-config.html
+
+Centralized settings page organized into **four dedicated tabs** for intuitive navigation.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  General Config                                          │
+├───────────────┬──────────────────────────────────────────┤
+│ General       │  App Identity  · Language · Startup     │
+│ Storage & Sync│  Data Location · Backup · Sync · Cloud   │
+│ Remote Server │  Remote Classroom Server & Secret        │
+│ App Notes     │  Per-App Personal Notes Accordion        │
+└───────────────┴──────────────────────────────────────────┘
 ```
 
-The `getTranslation(word)` helper (shared across all tools) reads the active UI language and returns the correct translation automatically. This means flash cards, vocabulary overlays, and game hints all adapt to the selected language without any per-tool configuration.
+#### 1. General Tab (`data-tab="general"`)
 
-### Exporting Database Content
+- **App Identity**: Customize the global **App Title** displayed in launcher headers and tool window title bars.
+- **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Learning Tools](#learning-toolshtml).
+- **Startup & Launch**:
+  - **Apps to open at startup**: Select tools to auto-launch when the app starts.
+  - **Window arrangement**: Choose layout mode:
+    - *Separate*: Opens each app in its own window.
+    - *Maximized*: Opens apps full-screen.
+    - *Split screen*: Opens two apps side-by-side. Includes dropdown selection for Left/Right windows and a slider to adjust width split ratio (e.g. 50/50).
+  - **Show features in development**: Toggle switch to show/hide beta features (**Phone Remote**, **Student Input Note**, **Multiplayer Quiz Host**).
 
-Click **Export ▾** to select an export format:
-- **Export CSV** — exports database records to a spreadsheet-ready CSV file.
-- **Print PDF** — saves a printable PDF document (desktop app) or opens the browser print dialog (browser).
-- **Export HTML (Editable)** — exports an editable HTML table where cell values can be modified directly.
-- **Export XLSX** — exports a native Excel spreadsheet file.
-- **Export DOCX** — exports an editable Microsoft Word document (desktop app).
+#### 2. Storage & Sync Tab (`data-tab="storage"`)
 
-Each export format opens a **column picker** allowing you to select which fields to include (e.g. Word, Translations, IPA, POS, Level, Definition, Synonyms, etc.) before downloading. Active filters are respected — only the currently visible records are exported.
+- **Data Location**:
+  - Displays current data directory path.
+  - Buttons for **Change folder…**, **Reset to default**, and **Check for Updates**.
+  - **Migrate Files Wizard**: Automatically copies existing user files when switching data locations.
+- **Local Backup**: Select target directory and backup format (*Folder*, *ZIP Archive (.zip)*, or *TAR.GZ Archive (.tar.gz)*), then click **Backup Now**.
+- **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), enable **Keep target up to date automatically**, reset baseline, or trigger manual **Sync Now**.
+- **Cloud & Server Sync (Dev)**:
+  - **FTP / FTPS Sync**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).
+  - **Google Drive Sync**: OAuth 2.0 Client ID & Secret configuration, Google login authentication, and selective folder upload/download.
+  - **WebDAV Sync**: Compatible with kDrive, Nextcloud, ownCloud. Server URL, username, app password, remote path, and interval sync.
+- **Backup Files Manager**: Open modal to browse, inspect, and batch delete saved backup files.
+- **Reset App**: Safety wizard to permanently erase selected app data folders. Requires typing `ERASE` to confirm and offers a compulsory backup ZIP creation first.
 
-### Database Management Overlay
+#### 3. Remote Server Tab (`data-tab="remote"`)
 
-A slide-over panel with five tabs for bulk operations:
+- **Remote Classroom Server**: Configure central **Server URL** (e.g., `https://classroom.example.com`) and **Host Secret**.
+- Automatically utilized by mobile integration features: [Phone Remote](#phone-remote), [Multiplayer Quiz Host](#multiplayer-quiz), and [Student Input Note](#student-input-note).
 
-#### 🗂️ Manage Custom
-Browse all words (custom and built-in) with search + theme + source filters. Select individual entries or use **Select All**, then **🗑 Delete Selected** to remove them.
+#### 4. App Notes Tab (`data-tab="notes"`)
 
-#### ➕ Add Words
-Form to add a new vocabulary entry, quote, gap-fill sentence, or error pair. Wiktionary auto-lookup can pre-fill IPA and the definition.
-
-#### 🏷️ Themes
-Five sub-sections for bulk theme/metadata operations:
-
-| Sub-section | What it does |
-|---|---|
-| **✏️ Rename Theme** | Rename a theme across every word in the database (including built-in words). Shows a live count of affected entries before confirming. |
-| **🔀 Merge Themes** | Drag theme pills into the merge zone, choose a target theme name, and collapse multiple themes into one. |
-| **📋 Assign Theme by Word List** | Enter a theme name and a comma-separated word list. Existing words get the theme added; unrecognised words are created as new entries. |
-| **🔑 Assign Keyword by Word List** | Same as above but adds a keyword tag instead of a theme. |
-| **📊 Assign Level by Word List** | Set the CEFR level for a list of words in one operation. |
-| **🏷️ Assign Part of Speech by Word List** | Set the POS for a list of words in one operation. |
-
-#### 🔁 Find Duplicates
-Scans for entries with the same base spelling (case-insensitive) and the same word type. For each group of duplicates, choose which entry to keep; the others are removed. **🔄 Rescan** refreshes the list after changes.
-
-#### 🗑️ Delete Words
-Search + theme + source filter to locate entries, then select and bulk-delete.
+- **Per-app Notes**: Interactive accordion containing personal notes for each tool in the suite. Notes entered here sync with the note panels on Launcher tool cards.
 
 ---
 
-## grade-sheet.html
+### group-editor.html
 
-Manages test results by class, term, and grading criterion. Data is persisted to disk in Electron or exportable as JSON for use elsewhere.
+Master roster and class group editor. Serves as the single source of truth for student records.
 
-### Classes Screen
-
-The landing screen. Shows all configured classes.
-
-- **Add class**: enter a name (e.g. `3ANdf-03`), year (`2025-2026`), term (1 or 2), and level (1–4), then click **Add Class**.
-- **Export JSON** / **Import JSON** — back up or restore the entire grade dataset.
-- **Edit Criteria / Scales** — opens the Reference Data Editor (see below).
-
-### Summary Screen
-
-Opened by clicking a class card. Shows all tests (T1–T8) for the selected term as a summary table.
-
-- Columns: student names + one column per test + calculated average/total.
-- Click a test header to open the individual test sheet.
-- Toolbar buttons: **Back to Classes** · **Add Student** · **Add Test** · **Import Test** · **Print Term** · **Export DOCX** · **Export HTML** · **Import Grades** · **Edit Class** · **Delete Class**.
-
-- **Export HTML (term)** downloads a standalone HTML report with draggable/resizable columns.
-
-### Test Screen
-
-The detailed view for one test. An editable table shows one row per student with columns for each grading criterion.
-
-- **Test config** strip at the top shows test metadata (name, date, max score, weight).
-- **Apply Criteria to Grades** — auto-calculates student grades from criterion scores.
-- **Criteria Reference** — shows descriptor text for each criterion level.
-- **Print Results** — prints the test sheet.
-- **Export Test DOCX** — downloads the same test-results report content as Print Results, in editable DOCX format.
-- **Export Test HTML** — downloads the same per-student report format as Print Results (grade + criteria + observations + scale) in HTML, with draggable/resizable table columns.
-- **Duplicate / Import** — copies the test configuration (criteria, scale, weight) from another class/term/test slot.
-- **Delete Test** / **Clear Test** — remove or zero the test data.
-
-#### Test Weight
-Each test can be weighted as a **Coefficient** multiplier or a **Fixed weight (%)** of the term total.
-
-### Reference Data Editor
-
-Shared configuration stored in `user/correction-criteria.js` and `user/grade-scale-models.js`. Changes apply to all classes immediately.
-
-- **Correction criteria**: define criterion names and grade descriptors (e.g. Grammar → A/B/C/D with descriptions). Add, duplicate, or remove criteria.
-- **Grading scale models**: define named scale presets with threshold percentages that map raw scores to letter or number grades. Add, duplicate, or remove models.
-
-### Student Modal
-
-Click a student's name for an individual view:
-
-- Enter or adjust grades per criterion for each test.
-- View the calculated overall grade and per-criterion breakdown.
-- Save or cancel changes.
-
-### Keyboard Shortcuts
-
-No keyboard shortcuts yet.
+#### Features
+- **Active Context**: Set the current school year, term (S1/S2), and start/end dates.
+- **Planner Terms**: Manage semester start/end dates and school holiday periods directly.
+- **Group Management**: Create S1/S2 groups, edit rosters, set student levels, and toggle **SEN** (Special Educational Needs) flags.
+- **Student Roster & UUIDs**: Student data is stored cleanly in `user/students.js`. UUID keys preserve historical links when students or groups are renamed.
+- **Archiving**: Archive single groups or entire terms to hide them from active tools without deleting historical session data.
 
 ---
 
-## participation-tracker.html
+### import-tool.html
 
-An analytics dashboard that reads the session data written by Class Management. Use it after lessons to review participation patterns over time.
+Wizard for bulk-importing structured data or copying media files into managed workspace folders.
 
-### Controls
+#### Supported Import Types
+- **Structured Data (CSV / XLSX / JSON)**: Students, Class Groups, Word Banks, Quizzes, Gap-Fill, Quotes, Error Correction, Dictation, Grammar, Sentences, Story.
+- **File Copy**: Sounds (`.mp3`, `.wav`, `.ogg`, `.m4a`) → `user/custom-data/sounds/`; Documents (`.html`, `.md`, `.txt`) → `user/document-editor/docs/`.
 
-At the top of the page:
+<details>
+<summary><strong>Wizard Steps & Custom Values</strong></summary>
 
-- **Select Group** — toggle buttons for each configured class group. An **Show archived** toggle reveals archived groups.
-- **Date Range** — presets: All Data · Last 30 Days · Last 7 Days. Or set a custom **From / To** date range.
-- **📂 Import & Merge** — drag-and-drop `.json`, `.js`, or legacy `.txt` session files to merge external data.
-- **📥 Export CSV** — download all visible data as a spreadsheet.
-- **🖨️ Print** — print the current view.
-- **🗑 Reset All Data** / **🗑 Reset Group** — permanently delete data (two-step confirmation).
-
-### Dashboard
-
-Two panels updated live based on the current group and date filter:
-
-- **Participation Trend** — line chart showing Picks, Positive Points, and Negative Points per session over time.
-- **Summary Statistics** — four stat cards: Total Picks · Positive Points · Negative Points · Badges Awarded.
-
-### Session History Table
-
-One row per recorded session. Sortable columns:
-
-Date · Time · Picks · Pluses · Minuses · T+ · T− · Badge+ · Badge− · Team/Role Events · Students · Badges · Objectives · Notes · (delete row)
-
-A **Columns ▾** toggle lets you show or hide individual columns. Clicking a row **filters the Class Overview** table below to show only that session's data (with a highlight and title update). A **Clear Session Filter** button restores the full view.
-
-### Class Overview Table
-
-One row per student, aggregated across all sessions in the current filter. Sortable columns:
-
-Student · Sessions · Picks · Absent · + · − · T+ · T− · Badge+ · Badge− · Badges · Team/Role Events · Notes · Net · +/session · −/session · Net/session · Good/Bad ratio · Trend
-
-A **Columns ▾** toggle controls visibility. Click a student's row to open the **Individual Student Analysis** section.
-
-### Individual Student Analysis
-
-Below the Class Overview table, shows a stats summary and a per-session history table for the selected student (Date · Time · Picked · Absent · + · − · T+ · T− · Badges · Team/Role Events · Notes). Click a session row to open the **Notes modal** where you can add or edit a text note for that student's session.
-
-### Provisional Grading & Grade Sheet Export
-
-Participation Tracker includes a grading engine that converts participation metrics (e.g. picks, positive/negative points, badges) into grades:
-
-- **Grading Rules** — Click **Grading Rules** to open the rule configurator. Define rules based on minimum points, passing points, maximum points, and custom formulas (e.g., `💎 >= 2 and 👍 >= 5`).
-- **Date Range Filters** — Use the built-in preset buttons (*All Data*, *Last 30 Days*, *Last 7 Days*) and date pickers directly inside the rules modal to filter the session data used for grading. This automatically syncs with the main dashboard filters.
-- **Provisional Grade** — Displays a preview of calculated grades for all students in the active group.
-- **Copy Grades** — Copy grades as a tab-separated values (TSV) list to the clipboard.
-- **Export to Grade Sheet** — Generates a grade list, saves it locally as a pending import, and opens the **Grade Sheet** tool. At startup, Grade Sheet detects the pending import and prompts you to import the grades as a new *Participation* test column.
-
-### Keyboard Shortcuts
-
-No keyboard shortcuts yet.
+1. **Destination**: Pick target data type and group options.
+2. **File Selection**: Drag-and-drop `.csv`, `.xlsx`, `.xls`, or `.json`.
+3. **Column Mapping**: Match source headers to destination fields. Includes **— Manually input value —** to inject static values across all imported rows.
+4. **Preview & Conflict Resolution**: Per-row decisions (*Skip*, *Overwrite*, *Import as new*).
+5. **Done**: Execution summary.
+</details>
 
 ---
 
-## data-location.html
+### planner.html
 
-A single-page utility for configuring where the app stores its data, how it backs up, and how it synchronises with a secondary location. The same controls are also available in **General Config**.
+Lesson, assessment, and holiday scheduling tool with export capabilities.
 
-### Data Folder
-
-- **Current path** is displayed at the top.
-- **Choose Folder** — browse for a new data directory. After selection, a migration prompt appears if existing files are detected at the old location.
-- **Reset to Default** — revert to the path next to the app or AppImage.
-- **Check for Updates** — manually trigger an update check.
-
-#### First Launch
-On the very first run, a banner offers two options: **Select Existing Folder** (point to a previous installation's data) or **Start Fresh** (use the default location).
-
-#### Migration
-When the data folder is changed, a yellow banner offers to **Copy Files Now** from the old location to the new one. Other app windows are reloaded automatically to use the new path.
-
-### Backup
-
-- **Choose Folder** — set a destination for manual backups.
-- **Backup Now** — copies all user data (logs, settings, custom files) to the backup folder.
-
-### Sync
-
-Synchronises the data folder with a second location (e.g. a network drive or USB).
-
-- **Choose Folder** — set the sync target.
-- **Sync Now** — opens a conflict-resolution table before applying changes.
-- **Keep target up to date automatically** checkbox — enables auto-sync so the target stays current without manual intervention.
-
-#### Conflict Resolution Table
-Before applying a sync, a modal lists every file that differs between source and target. Columns (sortable): file path · source date · target date · source size · target size · status. Per-file action dropdown:
-
-- Keep newer
-- Keep source
-- Keep target
+#### Key Features
+- **Term Management**: Create terms, define weekly schedules, and flag holidays.
+- **Class Schedules**: Color-coded classes with lesson slot auto-population.
+- **Entries & Reminders**: Lesson, Test, and Assignment entries. Configurable pre-start and end-of-lesson reminder alerts.
+- **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map.
+- **To-do Drawer**: Integrated task list synced with `user/todos.js` and Launcher sidebar.
+- **Export Options**: Export schedule to **ICS**, **PDF**, **CSV**, **HTML Table**, or **DOCX**.
 
 ---
 
-## document-editor.html
+### class-plan.html
 
-**Document Editor** — a dual-pane Markdown editor with live KaTeX maths rendering, inline CSS + layout styling, document/template management, and PDF export.
+Interactive desk layout designer for classroom seating charts.
 
-### Layout
+#### Features
+- **Layout Engines**:
+  - **Grid**: Standard rows × columns matrix.
+  - **U-Shape**: Front row with side arms.
+  - **Pods**: Clusters of desks arranged across a room grid.
+- **Drag-and-Drop Editor**: Seat assignment, student swapping, and **🎲 Random** shuffle.
+- **Export Formats**: Print A4 seating plan, export to CSV, XLSX, DOCX, or HTML.
+- **Sync**: Auto-saved to `user/config.js` for immediate access in [Class Management](#class-managementhtml).
 
-The window is divided into three horizontal regions:
+---
 
-1. **Nav bar** — grouped into hover menus:
-  - **File ▾** — New, Open, **Open from disk…** (import any file from anywhere on disk; saves as a copy on first Save), Save, Save As, Save All, History
-  - **Save / Save All behavior** — if a file was opened from a specific location (Documents bundle, another managed target, or disk), Save and Save All now write back to that same location instead of creating duplicate markdown files in a second path.
-  - **Insert ▾** — Table, Image, Books (import text from the books folder)
-  - **Format ▾** — Open template, Save as template, Page Layout
-  - **Export ▾** — Export PDF, Export DOCX
-  - **Preview** — Opens the full-page layout preview
-  - **Presentation Mode** — Projects the live document preview
-  - **⚙ Settings** — snippets, shortcuts, triggers, **Custom CSS Rules** repository, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)
-  - **☰** — Launcher
-2. **CSS panel** — always-visible header row plus a collapsible Monaco CSS editor.
-3. **Split pane** — Monaco Markdown editor on the left, live preview on the right. Drag the divider to adjust the split.
+### schedule-maker.html
 
-### Markdown & Maths
+Oral exam scheduler with timing optimization and SEN accommodations.
 
-Write standard [GitHub Flavored Markdown](https://github.github.com/gfm/). Maths is rendered by KaTeX:
+#### Features
+- **Timing Model**: Calculates prep and exam overlap so one student prepares while another presents.
+- **SEN Accommodations**: Applies custom preparation durations for SEN-flagged students automatically.
+- **Breaks**: Auto-places breaks across exam blocks.
+- **Output**: Export schedule to print or save for loading in [Oral Marking](#oral-markinghtml).
 
-| Syntax | Rendering |
-|---|---|
-| `$...$` | Inline maths |
-| `$$...$$` | Display (block) maths |
+---
 
-### Documents
+### oral-marking.html
 
-Files are saved as single `.md` or `.html` documents under `custom-data/document-editor/docs/`.
+Live oral exam evaluation tool that streams to secondary displays and writes directly to Grade Sheet.
 
-| Action | How |
-|---|---|
-| **New** | Clears the editor (prompts if unsaved changes) |
-| **Open** | Folder browser modal for Documents. Navigate folders/subfolders, create folders, then open or delete a document |
-| **Open from disk…** | OS file picker — opens any `.html`, `.md`, or `.txt` file from anywhere on disk. The content is loaded into the editor; use **Save** to store a managed copy in Documents |
-| **Save** | Saves under current name; if the document is new, opens the same folder browser so you can choose a folder and filename |
-| **Save As** | Opens the folder browser so you can pick a folder/subfolder, create folders, and save under a new filename |
-| Ctrl+S | Save | Ctrl+N | New | Ctrl+O | Open |
+#### Features
+- **Live Timers**: Prep countdown, exam countdown, 2-minute flashing warning, and **Finish Exam** early controls.
+- **Criteria Scoring**: Real-time scoring using criteria from `correction-criteria.js` with comment fields per criterion.
+- **Presenter View**: Opens a clean second-screen window projecting the student name, current phase, and countdown timer.
+- **Grade Sheet Integration**: Saves oral exam scores directly into [Grade Sheet](#grade-sheethtml) as a new test column upon session completion.
 
-Saved documents can be organised into folders and subfolders. The browser shows the folder tree, lets you create new folders in place, and each managed document now saves as a single file with its CSS and page layout embedded inline.
+---
 
-### Templates
+### file-manager.html
 
-Templates are `.md` files under `custom-data/document-editor/templates/`. Use the **Format ▾** menu to:
+Data file manager with built-in search, rename, move, and synchronization features.
 
-- **Open template…** — open the Templates browser, navigate folders/subfolders, and insert a template into the editor.
-- **Save as template…** — save the current editor content through the same browser, including into newly created template folders.
+#### Tabs & Capabilities
+- **Recent Tab**: Filter constellation maps, PDFs, images, and audio. Reopen maps in Board with one click.
+- **Browse Tab**: Deep folder navigation across `user/` subdirectories. Supports multi-select (Ctrl/Shift+click), drag-and-drop moving, inline renaming, folder creation, and sidebar folder pinning.
+- **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs.
 
-### Book Text Import
-
-The **Insert ▾ → Books** dropdown lists all files in `custom-data/books/` (`.epub`, `.html`, `.txt`). Selecting a book opens a picker modal:
-
-- The full book text is displayed in a scrollable area.
-- Use the **search bar** to find a passage — type to see the match count, then press **Enter** or **▼/▲** to jump to each match (highlighted by browser selection).
-- Select the text you want (adjust the selection with Shift+click or Shift+arrows), then click **Insert selection** to paste it at the editor cursor.
-
-### CSS Panel
-
-The top panel customises how the preview looks:
-
-| Control | Purpose |
-|---|---|
-| **Inline stylesheet** | The document always carries one inline `<style>` tag. The selector row remains visible, but separate stylesheet files are no longer used for new saves |
-| **Quick Rule builder** | Type a CSS selector, choose a property from the dropdown, type a value, press **+ Add** — the rule is appended to the CSS editor and applied immediately |
-| **CSS Editor ▾** | Toggle a Monaco CSS editor showing the raw inline stylesheet; changes apply to the preview in real time and save back into the document file |
-
-The stylesheet now stores both presentation CSS and the page-layout settings from **Format ▾ → Page Layout**. The editor writes those settings into the same inline `<style>` tag, so page size, margins, typography, footer, page numbers, and image width travel with the document.
-
-### Settings: Custom CSS Rules
-
-Inside **⚙ Settings → Custom CSS Rules**, you can build a reusable repository of named CSS blocks.
-
-- **New Rule / Edit / Del** — manage reusable rule entries (name + full CSS block) in `user/document-editor/settings.js`.
-- **Add to document CSS** — appends that rule to the current document stylesheet only when clicked.
-- **Duplicate rule handling** — if the exact block already exists in the current document CSS, the editor asks whether to insert it again.
-
-Custom CSS scopes to the preview area. Use `.doc-preview` as the root selector to override default document styles (headings, tables, code blocks, etc.).
-Generic selectors (for example `div`, `p`, `table`) are automatically scoped to the editor preview so they do not restyle the surrounding app chrome.
-
-### Presentation Mode
-
-**Presentation Mode** (top-level button in the nav bar) opens a separate full-screen window that projects the live document preview — ideal for displaying the formatted document on a second monitor or projector.
-
-- The presentation window opens on a second display when one is detected, otherwise it opens beside the main editor.
-- The document updates live: every keystroke, page layout change, or CSS edit is reflected instantly.
-- A red **● Presenting** indicator appears in the nav bar while the window is open; click **Stop** to close it.
-- The presentation window shows only the rendered document on a dark background, with no editor chrome.
-
-### PDF Export
-
-Click **Export PDF** to render the current preview (including custom CSS and KaTeX fonts) as a PDF, then choose whether to save it beside the current managed document or a file opened from disk, or via the system Save As dialog.
-
-### Keyboard Shortcuts
+<details>
+<summary><strong>Keyboard Shortcuts</strong></summary>
 
 | Shortcut | Action |
 |---|---|
-| Ctrl/Cmd+S | Save current document |
-| Ctrl/Cmd+Shift+S | Save all open documents |
-| Ctrl/Cmd+N | New document |
-| Ctrl/Cmd+O | Open document |
-| Enter (book import) | Next search result |
-| Shift+Enter (book import) | Previous search result |
-| Esc | Close modal / full preview |
+| `Enter` | Confirm inline rename |
+| `Esc` | Cancel inline rename |
+| `Ctrl/Cmd + C` | Copy selected files |
+| `Ctrl/Cmd + X` | Cut (move) selected files |
+| `Ctrl/Cmd + V` | Paste into current folder |
+</details>
 
-Bulk-action buttons let you apply one strategy to all files at once. A search bar and status filter narrow the list when many files are involved.
+---
+
+### class-management.html
+
+Active classroom control panel for student scoring, timers, class working modes, and remote controls.
+
+#### Features
+- **Timer & Class Modes**: Full-screen timer with customizable working modes (Quiet Work 🤫, Group Work 👥, Conversation 💬). Includes background ambient noise (White/Pink/Brown noise), custom images, animations, and sound effects.
+- **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. Context menu for attendance, flagging, and role assignment.
+- **Team Maker & Picker**: Random student picker with drumroll sound, team auto-balancer, and role generator.
+- **Presentation View**: Projects roster state, active badges, and points onto a second screen with independent freeze controls.
+- **Phone Remote**:
+  - *Local Mode*: Node server on port `8787` for local WiFi mobile scoring.
+  - *External Mode*: Connects via WebSocket relay (`js/classroom-server.js`) for internet access.
+
+<details>
+<summary><strong>Keyboard Shortcuts</strong></summary>
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl + Space` | Random student picker |
+| `Ctrl + Shift + K` | Open Team Maker |
+| `Ctrl + M` | Open Class Mode picker |
+| `1–9` (timer active) | Switch active class mode |
+| `W` (timer active) | Toggle white noise |
+| `M` (timer active) | Mute / unmute audio |
+</details>
+
+---
+
+### board.html
+
+Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, and live lesson projection.
+
+#### Features
+- **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches.
+- **Voice Recordings**: Record microphone audio directly into companion folders (`audio/`) and attach sound nodes to the board with built-in audio trimming (`✂ Trim`).
+- **Student Input Note**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
+- **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
+- **Live Sync**: Displays floating timer widgets streamed live from [Class Management](#class-managementhtml).
+
+<details>
+<summary><strong>Keyboard Shortcuts</strong></summary>
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl/Cmd + S` | Save constellation file |
+| `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
+| `Ctrl/Cmd + G` | Group selected nodes |
+| `Ctrl/Cmd + L` | Toggle laser pointer |
+| `Ctrl/Cmd + ↑ / ↓` | Increase / decrease node font size |
+| `Delete` | Remove selected nodes |
+</details>
+
+---
+
+### learning-tools.html
+
+Student-facing activity suite featuring 12 vocabulary and grammar games powered by the central word bank.
+
+#### Games & Modes
+- **Vocabulary Games**: Definition Match 🧩, Hangman 😵, Scrambled Word 🔠, Word Quest 🔍, Phonetic Guess 🔉, Synonyms & Antonyms 🔗.
+- **Grammar Games**: Sentence Builder ✍️, Gap Fill 🕳️, Find the Error 🔴, Dictation 📝.
+- **Multiplayer Quiz**: Live classroom quiz host (Local WiFi or External relay) where students answer synchronously on their mobile devices.
+- **Team Mode & Timer**: Score tracking across custom teams with progressive point deduction timers.
+
+---
+
+### manage-database.html
+
+Vocabulary and question bank database editor supporting multi-language translations.
+
+#### Features
+- **Word Detail Editor**: Edit IPA, CEFR levels (A1–C2), themes, keywords, definitions, example sentences, synonyms, and antonyms.
+- **Multi-Language Schema**: Stores English, French, German, and Italian translations for every word. Active UI language automatically selects the appropriate column.
+- **Bulk Theme Operations**: Rename themes across all words, merge themes, or batch-assign levels/POS tags.
+- **Exporting**: Column picker export to CSV, PDF, HTML Table, XLSX, or DOCX.
+
+---
+
+### grade-sheet.html
+
+Grade and assessment tracking spreadsheet supporting custom evaluation criteria and scale models.
+
+#### Features
+- **Class Summary & Test Sheets**: Track student grades across test slots (T1–T8). Auto-calculate averages based on weighted coefficients or fixed percentages.
+- **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
+- **Export**: Export grade reports to PDF, DOCX, or HTML with draggable column layouts.
+
+---
+
+### participation-tracker.html
+
+Analytics dashboard sourcing session data from [Class Management](#class-managementhtml).
+
+#### Features
+- **Visual Analytics**: Participation trend line charts, total pick counts, and positive/negative point distributions.
+- **Session & Student Overviews**: Detailed tabular logs per session and per student.
+- **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
+
+---
+
+### document-editor.html
+
+Dual-pane Markdown + KaTeX LaTeX editor with inline CSS styling and live presentation mode.
+
+#### Features
+- **Markdown & KaTeX**: Full GFM markdown support with `$inline$` and `$$display$$` maths rendering.
+- **CSS Panel & Templates**: Built-in CSS editor and rule repository. Page layout controls (margins, paper size, footers) save directly into document headers.
+- **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` into active documents.
+- **Presentation View**: Projects formatted documents onto a second screen without editor controls.
+- **Export**: Export clean PDF and DOCX files.
+
+---
+
+### data-location.html
+
+*Legacy configuration page.* Storage, backup, and sync settings are now integrated directly into the **Storage & Sync tab** of [General Config](#general-confightml).
+
+---
+
+<p align="center">
+  <strong>Class Management Tools</strong> — Built for Teachers. Offline-First & Privacy-Focused.
+</p>
