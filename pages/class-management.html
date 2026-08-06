@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
     <script src="../electron-bridge.js"></script>
     <script src="../js/dialogs.js"></script>
+    <script src="../js/i18n.js"></script>
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
     <script>
@@ -6820,6 +6821,181 @@
 
             histEl.innerHTML = histHtml;
 
+            // Async: provisional participation grade from pt-rules
+            try {
+                const rulesMap = await getOrLoadParticipationRules();
+                const config = (rulesMap && rulesMap[selectedGroupName]) ? rulesMap[selectedGroupName] : null;
+                if (config && config.rules && config.rules.length > 0) {
+                    let pPicks = 0, pAbsent = 0, pPluses = 0, pMinuses = 0, pTeamPluses = 0, pTeamMinuses = 0, pTotal = 0, pTeamRoleEvents = 0;
+                    let pBadgesAccumulated = [];
+                    const pSessionNets = [];
+
+                    sessions.forEach(s => {
+                        if (s.activeGroup !== selectedGroupName) return;
+                        const grpStudents = (s.groups && s.groups[selectedGroupName]) || [];
+                        const match = grpStudents.find(st => st.name === student.name);
+                        if (!match) return;
+                        pTotal++;
+                        if (match.isPicked) pPicks++;
+                        if (match.isAbsent) pAbsent++;
+                        pPluses += match.pluses || 0;
+                        pMinuses += match.minuses || 0;
+                        pTeamPluses += match.teamPluses || 0;
+                        pTeamMinuses += match.teamMinuses || 0;
+                        const sBadges = match.badges || [];
+                        pBadgesAccumulated = pBadgesAccumulated.concat(sBadges);
+                        
+                        const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(s, selectedGroupName, student.name) : [];
+                        pTeamRoleEvents += events.length;
+
+                        pSessionNets.push(getStudentSessionNetForStudent(match));
+                    });
+
+                    const badgeSentiment = countBadgeSentimentForStudent(pBadgesAccumulated);
+                    
+                    const mockOverviewData = {
+                        picks: pPicks,
+                        attendedSessions: Math.max(0, pTotal - pAbsent),
+                        pluses: pPluses,
+                        minuses: pMinuses,
+                        teamPluses: pTeamPluses,
+                        teamMinuses: pTeamMinuses,
+                        badgePositive: badgeSentiment.positive,
+                        badgeNegative: badgeSentiment.negative,
+                        badges: pBadgesAccumulated,
+                        sessions: pTotal,
+                        absent: pAbsent,
+                        teamRoleEvents: pTeamRoleEvents,
+                        sessionNets: pSessionNets
+                    };
+
+                    const provGrade = calculateStudentProvisionalGrade(mockOverviewData, config, selectedGroupName);
+
+                    if (provGrade !== null) {
+                        const maxText = config.scaleToMax ? ` / ${config.maxGrade}` : '';
+                        
+                        const net = (pPluses + pTeamPluses + badgeSentiment.positive) - (pMinuses + pTeamMinuses + badgeSentiment.negative);
+                        const attendanceRate = pTotal > 0 ? ((pTotal - pAbsent) / pTotal) * 100 : 0;
+                        const attendedSessions = pTotal - pAbsent;
+                        const posRatio = attendedSessions ? (pPluses + pTeamPluses + badgeSentiment.positive) / attendedSessions : 0;
+                        const negRatio = attendedSessions ? (pMinuses + pTeamMinuses + badgeSentiment.negative) / attendedSessions : 0;
+                        const netRatio = attendedSessions ? net / attendedSessions : 0;
+                        const totalGood = pPluses + pTeamPluses + badgeSentiment.positive;
+                        const totalBad = pMinuses + pTeamMinuses + badgeSentiment.negative;
+                        const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
+                        const trend = (pSessionNets.length > 0) ? (computeTrend(pSessionNets) === 'up' ? 1 : computeTrend(pSessionNets) === 'down' ? -1 : 0) : 0;
+
+                        const trHelper = (key, fallback) => {
+                            if (typeof window.t === 'function') {
+                                const res = window.t(key);
+                                if (res && res !== key) return res;
+                            }
+                            return fallback;
+                        };
+                        const achievedRuleLabels = [];
+                        config.rules.forEach((rule, idx) => {
+                            let studentValue = 0;
+                            let label = '';
+                            let rulePoints = 0;
+                            let possiblePoints = 0;
+                            
+                            if (rule.metric === 'formula') {
+                                let met = false;
+                                let maxPts = Number(rule.maxPts) ?? 0;
+                                possiblePoints = maxPts;
+                                const context = {
+                                    netPoints: net, net: net, picks: pPicks, attendanceRate: attendanceRate, attendance: attendanceRate,
+                                    positivePoints: pPluses + pTeamPluses, positive: pPluses + pTeamPluses, pluses: pPluses,
+                                    minuses: pMinuses, teamPluses: pTeamPluses, teamMinuses: pTeamMinuses,
+                                    badgePositive: badgeSentiment.positive, badgeNegative: badgeSentiment.negative, sessions: pTotal,
+                                    absent: pAbsent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
+                                    trend: trend, teamRoleEvents: pTeamRoleEvents,
+                                    ...getStudentBadgeCounts(pBadgesAccumulated)
+                                };
+                                try {
+                                    const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
+                                    if (typeof formulaResult === 'boolean') {
+                                        met = formulaResult;
+                                        rulePoints = met ? maxPts : 0;
+                                    } else if (typeof formulaResult === 'number') {
+                                        met = formulaResult > 0;
+                                        rulePoints = formulaResult;
+                                    } else {
+                                        met = !!formulaResult;
+                                        rulePoints = met ? maxPts : 0;
+                                    }
+                                } catch (e) {
+                                    met = false;
+                                }
+                                label = `Criteria: ${rule.value || rule.formulaVal}`;
+                                if (met) {
+                                    achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                                } else {
+                                    achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (0 / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                                }
+                            } else {
+                                if (rule.metric === 'netPoints') { studentValue = net; label = `${trHelper('ptStatsNetPoints', 'Net Points')}: ${net}`; }
+                                else if (rule.metric === 'picks') { studentValue = pPicks; label = `${trHelper('ptStatsTimesPicked', 'Times Picked')}: ${pPicks}`; }
+                                else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${trHelper('ptStatsSessionsRecorded', 'Attendance Rate')}: ${attendanceRate.toFixed(0)}%`; }
+                                else if (rule.metric === 'positivePoints') { studentValue = pPluses + pTeamPluses; label = `${trHelper('ptStatPluses', 'Positive Points')}: ${pPluses + pTeamPluses}`; }
+                                else if (rule.metric === 'badgePositive') { studentValue = badgeSentiment.positive; label = `${trHelper('ptStatsPosBadges', 'Positive Badges')}: ${badgeSentiment.positive}`; }
+                                else if (rule.metric === 'badgeNegative') { studentValue = badgeSentiment.negative; label = `${trHelper('ptColBadgeMinus', 'Negative Badges')}: ${badgeSentiment.negative}`; }
+                                else if (rule.metric === 'pluses') { studentValue = pPluses; label = `${trHelper('ptColPluses', 'Pluses')}: ${pPluses}`; }
+                                else if (rule.metric === 'minuses') { studentValue = pMinuses; label = `${trHelper('ptColMinuses', 'Minuses')}: ${pMinuses}`; }
+                                else if (rule.metric === 'teamPluses') { studentValue = pTeamPluses; label = `${trHelper('ptColT', 'Team Pluses')}: ${pTeamPluses}`; }
+                                else if (rule.metric === 'teamMinuses') { studentValue = pTeamMinuses; label = `${trHelper('ptColTm', 'Team Minuses')}: ${pTeamMinuses}`; }
+                                else if (rule.metric === 'absent') { studentValue = pAbsent; label = `${trHelper('ptColAbsent', 'Absences')}: ${pAbsent}`; }
+                                else if (rule.metric === 'sessions') { studentValue = pTotal; label = `${trHelper('ptColSess', 'Total Sessions')}: ${pTotal}`; }
+                                else if (rule.metric === 'posRatio') { studentValue = posRatio; label = `${trHelper('ptColPosRatio', '+/session')}: ${posRatio.toFixed(2)}`; }
+                                else if (rule.metric === 'negRatio') { studentValue = negRatio; label = `${trHelper('ptColNegRatio', '-/session')}: ${negRatio.toFixed(2)}`; }
+                                else if (rule.metric === 'netRatio') { studentValue = netRatio; label = `${trHelper('ptColNetRatio', 'Net/session')}: ${netRatio.toFixed(2)}`; }
+                                else if (rule.metric === 'ratio') { studentValue = ratio; label = `${trHelper('ptColGoodBad', 'Good/Bad Ratio')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
+                                else if (rule.metric === 'trend') { studentValue = trend; label = `${trHelper('ptColTrend', 'Performance Trend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
+                                else if (rule.metric === 'teamRoleEvents') { studentValue = pTeamRoleEvents; label = `${trHelper('ptColTeamRole', 'Team/Role Activity')}: ${pTeamRoleEvents}`; }
+                                else if (rule.metric.startsWith('badge_icon:')) {
+                                    const icon = rule.metric.replace('badge_icon:', '');
+                                    studentValue = getStudentBadgeCounts(pBadgesAccumulated)[icon] || 0;
+                                    label = `${icon} count: ${studentValue}`;
+                                } else if (rule.metric.startsWith('badge_label:')) {
+                                    const bLabel = rule.metric.replace('badge_label:', '');
+                                    const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                    studentValue = getStudentBadgeCounts(pBadgesAccumulated)[key] || 0;
+                                    label = `${bLabel} count: ${studentValue}`;
+                                }
+                                
+                                rulePoints = calculateCriterionPoints(studentValue, rule);
+                                possiblePoints = Number(rule.maxPts) ?? 0;
+                                
+                                const isMet = rulePoints > (Number(rule.minPts) || 0);
+                                if (isMet) {
+                                    achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                                } else {
+                                    achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                                }
+                            }
+                        });
+
+                        const provGradeHtml = `
+                            <hr class="stats-divider">
+                            <div class="detail-stat" style="display: flex; flex-direction: column; gap: 4px; border-left-color: #2ca02c; background: #f4faf4; margin-top: 6px; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #2ca02c;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div class="detail-stat-label" style="color: #2ca02c; font-weight:700; margin-bottom: 0;">${trHelper('ptProvisionalGradeTitle', 'Provisional Participation Grade')}</div>
+                                    <div class="detail-stat-value" style="color: #2ca02c; font-size: 1.15rem;">${formatSummaryNumber(provGrade)}${maxText}</div>
+                                </div>
+                                ${achievedRuleLabels.length > 0 ? `
+                                <div style="font-size:11px; text-align:left; border-top: 1px solid #c8e6c9; padding-top: 5px; margin-top: 2px;">
+                                    <strong style="color:#555;">${trHelper('ptAchievedRulesTitle', 'Criteria Met')}</strong><br>
+                                    ${achievedRuleLabels.join('<br>')}
+                                </div>` : ''}
+                            </div>
+                        `;
+                        body.insertAdjacentHTML('beforeend', provGradeHtml);
+                    }
+                }
+            } catch (err) {
+                console.warn('openStudentStatsPopup: error computing provisional grade', err);
+            }
+
             // Re-position after content update (height may have grown)
             requestAnimationFrame(() => {
                 const ph2 = popup.offsetHeight;
@@ -6831,6 +7007,424 @@
         }
 
         // ---- End Student Stats Popup ----
+
+        // ---- Provisional Participation Grade Calculation Helpers ----
+        async function getOrLoadParticipationRules() {
+            if (window.CMS_PARTICIPATION_RULES) return window.CMS_PARTICIPATION_RULES;
+            window.CMS_PARTICIPATION_RULES = {};
+            if (window.Desktop && typeof Desktop.readText === 'function') {
+                try {
+                    const rp = await Desktop.readText('groupParticipation', 'pt-rules.js');
+                    if (rp?.ok && rp.content) {
+                        const m = rp.content.match(/window\.CMS_PARTICIPATION_RULES\s*=\s*(\{[\s\S]*\});?\s*$/);
+                        if (m) {
+                            window.CMS_PARTICIPATION_RULES = JSON.parse(m[1]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load pt-rules.js:', e);
+                }
+            }
+            return window.CMS_PARTICIPATION_RULES;
+        }
+
+        function countBadgeSentimentForStudent(badges) {
+            return (badges || []).reduce((acc, b) => {
+                const icon = b.icon || '';
+                const tone = b.tone || 'positive';
+                const def = (typeof badgeDefinitions !== 'undefined' && Array.isArray(badgeDefinitions)) ? badgeDefinitions.find(d => d.icon === icon) : null;
+                const coeff = def ? (def.coefficient || 1) : (b.coefficient || 1);
+                if (tone === 'negative') acc.negative += coeff;
+                else acc.positive += coeff;
+                return acc;
+            }, { positive: 0, negative: 0 });
+        }
+
+        function getStudentBadgeCounts(badges) {
+            const counts = {};
+            (badges || []).forEach(b => {
+                const icon = String(b.icon || '').trim();
+                const label = String(b.label || b.icon || '').trim();
+                if (icon) counts[icon] = (counts[icon] || 0) + 1;
+                if (label) {
+                    const normalized = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    counts[normalized] = (counts[normalized] || 0) + 1;
+                }
+            });
+            return counts;
+        }
+
+        function getStudentSessionNetForStudent(studentMatch) {
+            const defs = (typeof badgeDefinitions !== 'undefined' && Array.isArray(badgeDefinitions)) ? badgeDefinitions : [];
+            const plusDef = defs.find(d => d.isBuiltin && d.icon === '+');
+            const minusDef = defs.find(d => d.isBuiltin && d.icon === '-');
+            const fallbackCoeff = (typeof participationSettings !== 'undefined' && participationSettings.plusMinusCoefficient) ? participationSettings.plusMinusCoefficient : 1;
+            const plusCoeff = plusDef ? plusDef.coefficient : fallbackCoeff;
+            const minusCoeff = minusDef ? minusDef.coefficient : fallbackCoeff;
+            const sentiment = countBadgeSentimentForStudent(studentMatch.badges || []);
+            const raw = ((studentMatch.pluses || 0) + (studentMatch.teamPluses || 0)) * plusCoeff
+                - ((studentMatch.minuses || 0) + (studentMatch.teamMinuses || 0)) * minusCoeff
+                + sentiment.positive - sentiment.negative;
+            return parseFloat(raw.toFixed(2));
+        }
+
+        function computeTrend(sessionNets) {
+            const n = sessionNets.length;
+            if (n < 2) return 'flat';
+            const mid = Math.ceil(n / 2);
+            const firstHalf = sessionNets.slice(0, mid);
+            const secondHalf = sessionNets.slice(n - mid);
+            const avgFirst = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+            const diff = avgSecond - avgFirst;
+            if (diff > 0.5) return 'up';
+            if (diff < -0.5) return 'down';
+            return 'flat';
+        }
+
+        function tokenize(str) {
+            const tokens = [];
+            let i = 0;
+            while (i < str.length) {
+                const char = str[i];
+                if (/\s/.test(char)) { i++; continue; }
+                if (char === '[') {
+                    let start = i + 1;
+                    let end = str.indexOf(']', start);
+                    if (end === -1) throw new Error('Unterminated bracket in formula');
+                    tokens.push({ type: 'IDENTIFIER', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
+                }
+                if (char === '"' || char === "'") {
+                    let quote = char;
+                    let start = i + 1;
+                    let end = str.indexOf(quote, start);
+                    if (end === -1) throw new Error('Unterminated string literal');
+                    tokens.push({ type: 'STRING', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
+                }
+                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i+1]))) {
+                    let numStr = '';
+                    while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
+                        numStr += str[i]; i++;
+                    }
+                    tokens.push({ type: 'NUMBER', value: parseFloat(numStr) });
+                    continue;
+                }
+                if (i + 1 < str.length) {
+                    const two = str.substr(i, 2);
+                    if (two === '>=' || two === '<=' || two === '==' || two === '!=' || two === '&&' || two === '||') {
+                        tokens.push({ type: 'OPERATOR', value: two }); i += 2; continue;
+                    }
+                }
+                if ('+-*/(),><=!'.includes(char)) {
+                    tokens.push({ type: 'OPERATOR', value: char }); i++; continue;
+                }
+                let identStr = '';
+                while (i < str.length && (!/\s/.test(str[i]) && !'+-*/(),><=![]"\''.includes(str[i]))) {
+                    identStr += str[i]; i++;
+                }
+                if (identStr) {
+                    const upper = identStr.toUpperCase();
+                    if (upper === 'AND') tokens.push({ type: 'OPERATOR', value: '&&' });
+                    else if (upper === 'OR') tokens.push({ type: 'OPERATOR', value: '||' });
+                    else if (upper === 'NOT') tokens.push({ type: 'OPERATOR', value: '!' });
+                    else if (upper === 'IF') tokens.push({ type: 'KEYWORD', value: 'IF' });
+                    else tokens.push({ type: 'IDENTIFIER', value: identStr });
+                    continue;
+                }
+                throw new Error(`Unexpected character: ${char}`);
+            }
+            return tokens;
+        }
+
+        function evaluateExpression(exprStr, context) {
+            let tokens;
+            try { tokens = tokenize(exprStr); } catch (e) { throw new Error(`Syntax Error: ${e.message}`); }
+            let position = 0;
+            function peek() { return tokens[position]; }
+            function consume(expectedValue) {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                if (expectedValue !== undefined && token.value !== expectedValue) throw new Error(`Expected '${expectedValue}' but found '${token.value}'`);
+                position++;
+                return token;
+            }
+            function parsePrimary() {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                if (token.type === 'NUMBER') { consume(); return token.value; }
+                if (token.type === 'STRING') { consume(); return token.value; }
+                if (token.type === 'KEYWORD' && token.value === 'IF') {
+                    consume(); consume('(');
+                    const cond = parseExpression(); consume(',');
+                    const trueVal = parseExpression(); consume(',');
+                    const falseVal = parseExpression(); consume(')');
+                    return cond ? trueVal : falseVal;
+                }
+                if (token.type === 'IDENTIFIER') {
+                    consume();
+                    const name = token.value.trim();
+                    const lowerName = name.toLowerCase();
+                    const normalizedName = lowerName.replace(/[^a-z0-9]/g, '');
+                    if (name in context) return context[name];
+                    if (lowerName in context) return context[lowerName];
+                    if (normalizedName in context) return context[normalizedName];
+                    for (const [k, v] of Object.entries(context)) {
+                        if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedName) return v;
+                    }
+                    return 0;
+                }
+                if (token.type === 'OPERATOR' && token.value === '(') {
+                    consume('('); const val = parseExpression(); consume(')'); return val;
+                }
+                throw new Error(`Unexpected token: ${token.value}`);
+            }
+            function parseUnary() {
+                const token = peek();
+                if (token && token.type === 'OPERATOR' && (token.value === '!' || token.value === '-')) {
+                    consume(); const val = parseUnary(); return token.value === '!' ? !val : -val;
+                }
+                return parsePrimary();
+            }
+            function parseMultiplicative() {
+                let val = parseUnary();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '*' || token.value === '/')) {
+                        consume(); const right = parseUnary(); val = token.value === '*' ? val * right : val / right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseAdditive() {
+                let val = parseMultiplicative();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '+' || token.value === '-')) {
+                        consume(); const right = parseMultiplicative(); val = token.value === '+' ? val + right : val - right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseComparison() {
+                let val = parseAdditive();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '>' || token.value === '<' || token.value === '>=' || token.value === '<=')) {
+                        consume(); const right = parseAdditive();
+                        if (token.value === '>') val = val > right;
+                        else if (token.value === '<') val = val < right;
+                        else if (token.value === '>=') val = val >= right;
+                        else if (token.value === '<=') val = val <= right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseEquality() {
+                let val = parseComparison();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && (token.value === '==' || token.value === '!=' || token.value === '=')) {
+                        consume(); const right = parseComparison();
+                        if (token.value === '!=' || token.value === '!==') val = val != right;
+                        else val = val == right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseLogicalAnd() {
+                let val = parseEquality();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && token.value === '&&') {
+                        consume(); const right = parseEquality(); val = val && right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseLogicalOr() {
+                let val = parseLogicalAnd();
+                while (true) {
+                    const token = peek();
+                    if (token && token.type === 'OPERATOR' && token.value === '||') {
+                        consume(); const right = parseLogicalAnd(); val = val || right;
+                    } else break;
+                }
+                return val;
+            }
+            function parseExpression() { return parseLogicalOr(); }
+            const result = parseExpression();
+            if (position < tokens.length) throw new Error(`Extra characters at end of formula: ${tokens[position].value}`);
+            return result;
+        }
+
+        function calculateCriterionPoints(studentValue, rule) {
+            const minVal = Number(rule.minVal) ?? 0;
+            const minPts = Number(rule.minPts) ?? 0;
+            const passVal = Number(rule.passVal) ?? 0;
+            const passPts = Number(rule.passPts) ?? 0;
+            const maxVal = Number(rule.maxVal) ?? 0;
+            const maxPts = Number(rule.maxPts) ?? 0;
+
+            const isInverse = minVal > maxVal;
+
+            if (isInverse) {
+                if (studentValue >= minVal) return minPts;
+                if (studentValue <= maxVal) return maxPts;
+                if (studentValue >= passVal) {
+                    if (minVal === passVal) return minPts;
+                    const ratio = (minVal - studentValue) / (minVal - passVal);
+                    return minPts + ratio * (passPts - minPts);
+                } else {
+                    if (passVal === maxVal) return passPts;
+                    const ratio = (passVal - studentValue) / (passVal - maxVal);
+                    return passPts + ratio * (maxPts - passPts);
+                }
+            } else {
+                if (studentValue <= minVal) return minPts;
+                if (studentValue >= maxVal) return maxPts;
+                if (studentValue <= passVal) {
+                    if (minVal === passVal) return minPts;
+                    const ratio = (studentValue - minVal) / (passVal - minVal);
+                    return minPts + ratio * (passPts - minPts);
+                } else {
+                    if (passVal === maxVal) return passPts;
+                    const ratio = (studentValue - passVal) / (maxVal - passVal);
+                    return passPts + ratio * (maxPts - passPts);
+                }
+            }
+        }
+
+        function calculateStudentProvisionalGradeDetails(studentData, groupRulesConfig, groupName) {
+            if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
+                return null;
+            }
+
+            const totalSessions = studentData.sessions || 0;
+            const picks = studentData.picks || 0;
+            const net = (studentData.pluses + studentData.teamPluses + studentData.badgePositive) - (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative);
+            const attendanceRate = totalSessions > 0 ? (studentData.attendedSessions / totalSessions) * 100 : 0;
+            const badgePositive = studentData.badgePositive || 0;
+            const positivePoints = (studentData.pluses || 0) + (studentData.teamPluses || 0);
+            const badgeCounts = getStudentBadgeCounts(studentData.badges);
+
+            const attendedSessions = studentData.attendedSessions || 0;
+            const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
+            const negRatio = attendedSessions ? (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative) / attendedSessions : 0;
+            const netRatio = attendedSessions ? net / attendedSessions : 0;
+            const totalGood = studentData.pluses + studentData.teamPluses + studentData.badgePositive;
+            const totalBad = studentData.minuses + studentData.teamMinuses + studentData.badgeNegative;
+            const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
+            const trend = (studentData.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(studentData.sessionNets) === 'up' ? 1 : computeTrend(studentData.sessionNets) === 'down' ? -1 : 0) : 0;
+
+            let achievedPoints = 0;
+            let totalPossiblePoints = 0;
+            const ruleDetails = [];
+
+            groupRulesConfig.rules.forEach((rule, idx) => {
+                let studentValue = 0;
+                let rulePoints = 0;
+                let minPts = Number(rule.minPts) ?? 0;
+                let passPts = Number(rule.passPts) ?? 0;
+                let maxPts = Number(rule.maxPts) ?? 0;
+                let effectiveMaxPts = rule.metric === 'formula' ? maxPts : Math.max(minPts, passPts, maxPts);
+                let met = false;
+
+                if (rule.metric === 'formula') {
+                    const context = {
+                        netPoints: net, net: net, picks: picks, attendanceRate: attendanceRate, attendance: attendanceRate,
+                        positivePoints: positivePoints, positive: positivePoints, pluses: studentData.pluses,
+                        minuses: studentData.minuses, teamPluses: studentData.teamPluses, teamMinuses: studentData.teamMinuses,
+                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative, sessions: studentData.sessions,
+                        absent: studentData.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
+                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts
+                    };
+                    try {
+                        const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
+                        if (typeof formulaResult === 'boolean') {
+                            met = formulaResult;
+                            rulePoints = met ? maxPts : 0;
+                        } else if (typeof formulaResult === 'number') {
+                            met = formulaResult > 0;
+                            rulePoints = formulaResult;
+                        } else {
+                            met = !!formulaResult;
+                            rulePoints = met ? maxPts : 0;
+                        }
+                    } catch (e) {
+                        met = false;
+                        rulePoints = 0;
+                    }
+                    achievedPoints += rulePoints;
+                    totalPossiblePoints += maxPts;
+                } else {
+                    if (rule.metric === 'netPoints') studentValue = net;
+                    else if (rule.metric === 'picks') studentValue = picks;
+                    else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
+                    else if (rule.metric === 'positivePoints') studentValue = positivePoints;
+                    else if (rule.metric === 'badgePositive') studentValue = badgePositive;
+                    else if (rule.metric === 'badgeNegative') studentValue = studentData.badgeNegative;
+                    else if (rule.metric === 'pluses') studentValue = studentData.pluses;
+                    else if (rule.metric === 'minuses') studentValue = studentData.minuses;
+                    else if (rule.metric === 'teamPluses') studentValue = studentData.teamPluses;
+                    else if (rule.metric === 'teamMinuses') studentValue = studentData.teamMinuses;
+                    else if (rule.metric === 'absent') studentValue = studentData.absent;
+                    else if (rule.metric === 'sessions') studentValue = studentData.sessions;
+                    else if (rule.metric === 'posRatio') studentValue = posRatio;
+                    else if (rule.metric === 'negRatio') studentValue = negRatio;
+                    else if (rule.metric === 'netRatio') studentValue = netRatio;
+                    else if (rule.metric === 'ratio') studentValue = ratio;
+                    else if (rule.metric === 'trend') studentValue = trend;
+                    else if (rule.metric === 'teamRoleEvents') studentValue = studentData.teamRoleEvents;
+                    else if (rule.metric.startsWith('badge_icon:')) {
+                        const icon = rule.metric.replace('badge_icon:', '');
+                        studentValue = badgeCounts[icon] || 0;
+                    } else if (rule.metric.startsWith('badge_label:')) {
+                        const label = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = badgeCounts[label] || 0;
+                    }
+
+                    rulePoints = calculateCriterionPoints(studentValue, rule);
+                    achievedPoints += rulePoints;
+                    totalPossiblePoints += effectiveMaxPts;
+                }
+
+                ruleDetails.push({
+                    ruleIndex: idx,
+                    metric: rule.metric,
+                    rawPoints: parseFloat(rulePoints.toFixed(2)),
+                    maxPts: effectiveMaxPts
+                });
+            });
+
+            let finalGrade = 0;
+            const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
+
+            if (totalPossiblePoints > 0) {
+                finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+            }
+
+            return {
+                grade: finalGrade,
+                totalPoints: achievedPoints,
+                totalPossible: totalPossiblePoints,
+                rules: ruleDetails
+            };
+        }
+
+        function calculateStudentProvisionalGrade(studentData, groupRulesConfig, groupName) {
+            const details = calculateStudentProvisionalGradeDetails(studentData, groupRulesConfig, groupName);
+            return details ? details.grade : null;
+        }
+
+        function formatSummaryNumber(value, decimals = 2) {
+            const num = Number(value) || 0;
+            if (Number.isInteger(num)) return String(num);
+            return num.toFixed(decimals).replace(/\.00$/, '');
+        }
 
         function renameTeam(teamId) {
             const teamIndex = (teamId - 1) % teamColors.length;
