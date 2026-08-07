@@ -110,7 +110,6 @@
                 <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport">📥 Export ▾</button>
                 <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint">🖨️ Print</button>
                 <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives">🎯 Objectives & Grading</button>
-                <button class="btn-danger btn-icon" id="resetAllBtn" data-i18n="ptBtnResetAll">🗑 Reset All Data</button>
             </div>
         </div>
         <!-- Compare Groups Summary -->
@@ -215,8 +214,7 @@
         <div class="section-header-actions">
             <h2 data-i18n="ptHistoryTitle">Session History</h2>
             <div style="display:flex;gap:8px;align-items:center;">
-                <button class="col-toggle-btn" onclick="openColToggleMenu('historyTable', this)" type="button" data-i18n="ptColumns">Columns ▾</button>
-                <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px;" data-i18n="ptBtnResetGroup">🗑 Reset Group</button>
+                <button class="btn-danger btn-icon" id="resetGroupBtn" onclick="handleResetGroupClick(event)" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup">🗑 Reset Group</button>
             </div>
         </div>
         <div class="section-header-actions-line"></div>
@@ -254,7 +252,6 @@
                     <span class="right-click-hint-banner" data-i18n="ptRightClickHint">Right-click any student row to edit past interactions & points</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <button class="col-toggle-btn" onclick="openColToggleMenu('classOverviewTable', this)" type="button" data-i18n="ptColumns">Columns ▾</button>
                     <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button" data-i18n="ptMsgClearSessionFilter">Clear Session Filter</button>
                 </div>
             </div>
@@ -308,23 +305,22 @@
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:15px;">
                     <h3 data-i18n="ptStudentSessionHistory">Session History</h3>
-                    <button class="col-toggle-btn" onclick="openColToggleMenu('studentTable', this)" type="button" data-i18n="ptColumns">Columns ▾</button>
                 </div>
                 <div class="table-container">
                     <table id="studentTable">
                         <thead>
                             <tr>
-                                <th data-i18n="ptColDate">Date</th>
-                                <th data-i18n="ptColTime">Time</th>
-                                <th data-i18n="ptColPicked">Picked</th>
-                                <th data-i18n="ptColAbsent">Absent</th>
-                                <th>+</th>
-                                <th>-</th>
-                                <th data-i18n="ptColT">T+</th>
-                                <th data-i18n="ptColTm">T-</th>
-                                <th data-i18n="ptColBadges">Badges</th>
-                                <th data-i18n="ptColTeamRole">Team/Role Events</th>
-                                <th data-i18n="ptColNotes">Notes</th>
+                                <th class="sortable" data-col="date" data-sort="date" data-i18n="ptColDate">Date</th>
+                                <th class="sortable" data-col="time" data-sort="time" data-i18n="ptColTime">Time</th>
+                                <th class="sortable" data-col="picked" data-sort="picked" data-i18n="ptColPicked">Picked</th>
+                                <th class="sortable" data-col="absent" data-sort="absent" data-i18n="ptColAbsent">Absent</th>
+                                <th class="sortable" data-col="pluses" data-sort="pluses">+</th>
+                                <th class="sortable" data-col="minuses" data-sort="minuses">-</th>
+                                <th class="sortable" data-col="teamPluses" data-sort="teamPluses" data-i18n="ptColT">T+</th>
+                                <th class="sortable" data-col="teamMinuses" data-sort="teamMinuses" data-i18n="ptColTm">T-</th>
+                                <th class="sortable" data-col="badges" data-sort="badges" data-i18n="ptColBadges">Badges</th>
+                                <th class="sortable" data-col="teamRoleEvents" data-sort="teamRoleEvents" data-i18n="ptColTeamRole">Team/Role Events</th>
+                                <th class="sortable" data-col="notes" data-sort="notes" data-i18n="ptColNotes">Notes</th>
                             </tr>
                         </thead>
                         <tbody id="studentTableBody">
@@ -501,6 +497,7 @@
                 <button class="btn-primary" onclick="confirmSaveNotes()" data-i18n="ptBtnSaveNotes">Save Student Data</button>
             </div>
         </div>
+    </div>
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal">
         <div class="modal-content" style="max-width: 400px;">
@@ -714,13 +711,22 @@
         </div>
     </div>
 
-    <!-- Column visibility floating menu -->
-    <div id="colToggleMenu"></div>
+
 
     <!-- Import electron bridge and data files -->
     <!-- In Electron mode the Desktop API is used instead; skip the legacy flat file to avoid a 404. -->
     <script>if (!window.electronApi || !window.electronApi.isElectron) { document.write('\x3Cscript src="user\/log\/group-participation\/cms-db.js">\x3C\/script>'); }</script>
     <script>
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function cloneDbSessions(source) {
             try {
                 return JSON.parse(JSON.stringify(Array.isArray(source) ? source : []));
@@ -837,12 +843,13 @@
                 { idx: 10, label: 'Badges' },
                 { idx: 11, label: 'Team/Role Events' },
                 { idx: 12, label: 'Notes' },
-                { idx: 13, label: 'Net' },
-                { idx: 14, label: '+/s' },
-                { idx: 15, label: '-/s' },
-                { idx: 16, label: 'Net/s' },
-                { idx: 17, label: 'Good/Bad' },
-                { idx: 18, label: 'Trend' }
+                { idx: 13, label: 'Prov. Grade' },
+                { idx: 14, label: 'Net' },
+                { idx: 15, label: '+/s' },
+                { idx: 16, label: '-/s' },
+                { idx: 17, label: 'Net/s' },
+                { idx: 18, label: 'Good/Bad' },
+                { idx: 19, label: 'Trend' }
             ],
             studentTable: [
                 { idx: 0,  label: 'Date',             fixed: true },
@@ -903,85 +910,14 @@
             });
         }
 
-        let _colToggleActiveTable = null;
-
-        function openColToggleMenu(tableId, anchorEl) {
-            const menu = document.getElementById('colToggleMenu');
-            const config = TABLE_COL_CONFIGS[tableId] || [];
-            const hidden = hiddenCols[tableId] || new Set();
-            const tableLabels = {
-                historyTable: t('ptColToggleHistory'),
-                classOverviewTable: t('ptColToggleOverview'),
-                studentTable: t('ptColToggleStudent')
-            };
-            menu.innerHTML = `
-                <div class="col-toggle-menu-header">${tableLabels[tableId] || tableId}</div>
-                <div class="col-toggle-menu-actions">
-                    <button onclick="colToggleSetAll('${tableId}', true)">${t('ptColToggleShowAll')}</button>
-                    <button onclick="colToggleSetAll('${tableId}', false)">${t('ptColToggleHideOpt')}</button>
-                </div>
-                ${config.map(col => `
-                    <label class="col-toggle-item${col.fixed ? ' disabled-item' : ''}">
-                        <input type="checkbox" data-col-idx="${col.idx}"
-                            ${!hidden.has(col.idx) ? 'checked' : ''} ${col.fixed ? 'disabled' : ''}
-                            onchange="colToggleChange('${tableId}', ${col.idx}, this.checked)">
-                        ${col.label}
-                    </label>
-                `).join('')}
-            `;
-            _colToggleActiveTable = tableId;
-            const rect = anchorEl.getBoundingClientRect();
-            menu.style.top  = (rect.bottom + 4) + 'px';
-            if (rect.right > window.innerWidth / 2) {
-                menu.style.right = (window.innerWidth - rect.right) + 'px';
-                menu.style.left  = '';
-            } else {
-                menu.style.left  = rect.left + 'px';
-                menu.style.right = '';
+        function getHiddenColsSet(tableId) {
+            if (!hiddenCols[tableId] || !(hiddenCols[tableId] instanceof Set)) {
+                hiddenCols[tableId] = new Set();
             }
-            menu.classList.add('open');
+            return hiddenCols[tableId];
         }
 
-        function closeColToggleMenu() {
-            const menu = document.getElementById('colToggleMenu');
-            if (menu) menu.classList.remove('open');
-            _colToggleActiveTable = null;
-        }
 
-        function colToggleChange(tableId, colIdx, visible) {
-            const hidden = hiddenCols[tableId];
-            if (visible) { hidden.delete(colIdx); } else { hidden.add(colIdx); }
-            _saveHiddenCols();
-            applyHiddenCols(tableId);
-        }
-
-        function colToggleSetAll(tableId, showAll) {
-            const config = TABLE_COL_CONFIGS[tableId] || [];
-            const hidden = hiddenCols[tableId];
-            if (showAll) {
-                hidden.clear();
-            } else {
-                config.forEach(col => { if (!col.fixed) hidden.add(col.idx); });
-            }
-            _saveHiddenCols();
-            applyHiddenCols(tableId);
-            // Update checkboxes in the open menu
-            const menu = document.getElementById('colToggleMenu');
-            if (menu && menu.classList.contains('open')) {
-                menu.querySelectorAll('input[type="checkbox"][data-col-idx]').forEach(cb => {
-                    cb.checked = !hidden.has(parseInt(cb.dataset.colIdx));
-                });
-            }
-        }
-
-        // Close col-toggle menu when clicking outside
-        document.addEventListener('click', function(e) {
-            const menu = document.getElementById('colToggleMenu');
-            if (!menu || !menu.classList.contains('open')) return;
-            if (!menu.contains(e.target) && !e.target.classList.contains('col-toggle-btn')) {
-                closeColToggleMenu();
-            }
-        }, true);
 
         const DEFAULT_BADGE_DEFINITIONS = [
             { icon: '💎', label: 'Diamond', tone: 'positive', meaning: 'Outstanding contribution' },
@@ -1222,6 +1158,7 @@
 
 
             setupImportHandlers();
+            setupEventListeners();
 
             if (DB_EXPORT.length === 0) {
                 showMessage(t('ptMsgNoData'), 'error');
@@ -1247,7 +1184,6 @@
                 return;
             }
 
-            setupEventListeners();
             populateGroups();
             selectFirstGroup();
             _initActiveContext();
@@ -1649,21 +1585,32 @@
                 updateDashboard();
             });
 
-            // Class overview table sorting
-            document.querySelectorAll('#classOverviewTable thead th').forEach(th => {
-                th.addEventListener('click', function() {
-                    sortClassOverviewTable(this.dataset.col);
+            // Table header sorting event delegation across all 3 tables
+            ['historyTable', 'classOverviewTable', 'studentTable'].forEach(tableId => {
+                const table = document.getElementById(tableId);
+                if (!table) return;
+                const thead = table.querySelector('thead');
+                if (!thead) return;
+                thead.addEventListener('click', function(e) {
+                    const th = e.target.closest('th');
+                    if (!th) return;
+                    const col = th.dataset.col || th.dataset.sort;
+                    if (!col) return;
+                    if (tableId === 'historyTable') {
+                        sortHistoryTable(col);
+                    } else if (tableId === 'classOverviewTable') {
+                        sortClassOverviewTable(col);
+                    } else if (tableId === 'studentTable') {
+                        sortStudentTable(col);
+                    }
                 });
             });
 
             // Reset buttons
-            document.getElementById('resetAllBtn').addEventListener('click', () => {
-                openResetModal('all', null);
-            });
-            document.getElementById('resetGroupBtn').addEventListener('click', () => {
-                if (!currentGroupId) { showMessage(t('ptMsgSelectGroup'), 'error'); return; }
-                openResetModal('group', currentGroupId);
-            });
+            const resetGroupBtn = document.getElementById('resetGroupBtn');
+            if (resetGroupBtn) {
+                resetGroupBtn.addEventListener('click', handleResetGroupClick);
+            }
 
             document.getElementById('clearSessionFilterBtn').addEventListener('click', () => {
                 if (!selectedHistorySessionId) return;
@@ -1675,7 +1622,6 @@
             });
 
             // Export and Print
-            document.getElementById('exportBtn').addEventListener('click', openPtExportModal);
             document.getElementById('printBtn').addEventListener('click', () => window.print());
             const compareBtn = document.getElementById('openCompareGroupsBtn');
             if (compareBtn) compareBtn.addEventListener('click', openCompareGroupsModal);
@@ -1687,13 +1633,6 @@
                     renderCompareGroupsSummary();
                 });
             }
-
-            // Table sorting
-            document.querySelectorAll('th.sortable').forEach(th => {
-                th.addEventListener('click', function() {
-                    sortTable(this, 'historyTable');
-                });
-            });
 
             // Context menu event delegation for student rows
             document.addEventListener('contextmenu', function(e) {
@@ -1882,6 +1821,12 @@
 
                 return true;
             });
+        }
+
+        function getFilteredSessions() {
+            if (!currentGroupId) return [];
+            const dateRange = getDateRange();
+            return filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
         }
 
         function updateDashboard() {
@@ -2231,16 +2176,47 @@
             renderClassOverviewRows();
         }
 
+        let historySortCol = 'date';
+        let historySortDir = -1;
+
+        function sortHistoryTable(col) {
+            if (historySortCol === col) {
+                historySortDir *= -1;
+            } else {
+                historySortCol = col;
+                historySortDir = (col === 'date' || col === 'time') ? -1 : 1;
+            }
+            const filteredSessions = getFilteredSessions();
+            updateHistoryTable(filteredSessions);
+        }
+
+        let studentTableSortCol = 'date';
+        let studentTableSortDir = -1;
+
+        function sortStudentTable(col) {
+            if (studentTableSortCol === col) {
+                studentTableSortDir *= -1;
+            } else {
+                studentTableSortCol = col;
+                studentTableSortDir = (col === 'date' || col === 'time') ? -1 : 1;
+            }
+            if (currentStudentName) {
+                const filteredSessions = getFilteredSessions();
+                renderStudentDetails(filteredSessions, currentStudentName);
+            }
+        }
+
         function sortClassOverviewTable(col) {
             if (classOverviewSortCol === col) {
                 classOverviewSortDir *= -1;
             } else {
                 classOverviewSortCol = col;
-                classOverviewSortDir = 1;
+                classOverviewSortDir = (col === 'name') ? 1 : -1;
             }
             document.querySelectorAll('#classOverviewTable thead th').forEach(th => {
                 th.classList.remove('sort-asc', 'sort-desc');
-                if (th.dataset.col === col) th.classList.add(classOverviewSortDir === 1 ? 'sort-asc' : 'sort-desc');
+                const c = th.dataset.col || th.dataset.sort;
+                if (c === col) th.classList.add(classOverviewSortDir === 1 ? 'sort-asc' : 'sort-desc');
             });
             renderClassOverviewRows();
         }
@@ -2811,6 +2787,37 @@
 
             const metrics = aggregateMetrics(sessions);
 
+            metrics.sort((a, b) => {
+                const col = historySortCol;
+                let av, bv;
+                if (col === 'date') {
+                    av = new Date(a.date).getTime() || 0;
+                    bv = new Date(b.date).getTime() || 0;
+                } else if (col === 'time') {
+                    av = a.time || '';
+                    bv = b.time || '';
+                } else if (col === 'teamRoleEvents') {
+                    const sessionA = sessions.find(s => s.id === a.date);
+                    const sessionB = sessions.find(s => s.id === b.date);
+                    av = sessionA ? getSessionTeamRoleEvents(sessionA, currentGroupId).length : 0;
+                    bv = sessionB ? getSessionTeamRoleEvents(sessionB, currentGroupId).length : 0;
+                } else {
+                    av = a[col] ?? 0;
+                    bv = b[col] ?? 0;
+                }
+
+                if (typeof av === 'string') {
+                    return av.localeCompare(bv) * historySortDir;
+                }
+                return (av - bv) * historySortDir;
+            });
+
+            document.querySelectorAll('#historyTable thead th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                const c = th.dataset.sort || th.dataset.col;
+                if (c === historySortCol) th.classList.add(historySortDir === 1 ? 'sort-asc' : 'sort-desc');
+            });
+
             metrics.forEach((metric, index) => {
                 const row = document.createElement('tr');
                 row.className = `expandable-row${metric.date === selectedHistorySessionId ? ' selected-session-row' : ''}`;
@@ -3115,38 +3122,75 @@
                 ${provGradeHtml}
             `;
 
+            // Filter student sessions and sort them
+            const studentSessions = [];
+            sessions.forEach(session => {
+                const students = session.groups[currentGroupId] || [];
+                const student = students.find(s => s.name === currentStudentName);
+                if (student) {
+                    studentSessions.push({
+                        session: session,
+                        student: student,
+                        dateMs: new Date(session.id).getTime() || 0,
+                        time: session.time || '',
+                        picked: student.isPicked ? 1 : 0,
+                        absent: student.isAbsent ? 1 : 0,
+                        pluses: student.pluses || 0,
+                        minuses: student.minuses || 0,
+                        teamPluses: student.teamPluses || 0,
+                        teamMinuses: student.teamMinuses || 0,
+                        badges: (student.badges || []).length,
+                        teamRoleEvents: getSessionTeamRoleEvents(session, currentGroupId, currentStudentName).length,
+                        notes: (getStudentNotesText(student) || '').length
+                    });
+                }
+            });
+
+            studentSessions.sort((a, b) => {
+                const col = studentTableSortCol;
+                let av = a[col] ?? 0;
+                let bv = b[col] ?? 0;
+                if (col === 'date') { av = a.dateMs; bv = b.dateMs; }
+                if (typeof av === 'string') return av.localeCompare(bv) * studentTableSortDir;
+                return (av - bv) * studentTableSortDir;
+            });
+
+            document.querySelectorAll('#studentTable thead th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                const c = th.dataset.sort || th.dataset.col;
+                if (c === studentTableSortCol) th.classList.add(studentTableSortDir === 1 ? 'sort-asc' : 'sort-desc');
+            });
+
             // Update student table
             const studentTbody = document.getElementById('studentTableBody');
             studentTbody.innerHTML = '';
 
-            sessions.forEach(session => {
-                const students = session.groups[currentGroupId] || [];
-                const student = students.find(s => s.name === currentStudentName);
+            studentSessions.forEach(item => {
+                const session = item.session;
+                const student = item.student;
+                const date = new Date(session.id);
+                const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
 
-                if (student) {
-                    const date = new Date(session.id);
-                    const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+                const row = document.createElement('tr');
+                row.className = 'expandable-row';
+                const notesText = getStudentNotesText(student);
+                const notesPreview = notesText ? notesText.substring(0, 50) : '';
+                const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
+                const teamRolePreview = formatTeamRoleEventsPreview(teamRoleEvents, 70);
 
-                    const row = document.createElement('tr');
-                    row.className = 'expandable-row';
-                    const notesText = getStudentNotesText(student);
-                    const notesPreview = notesText ? notesText.substring(0, 50) : '';
-                    const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
-                    const teamRolePreview = formatTeamRoleEventsPreview(teamRoleEvents, 70);
-
-                    row.innerHTML = `
-                        <td>${dateStr}</td>
-                        <td>${session.time || '-'}</td>
-                        <td>${student.isPicked ? '✓' : '-'}</td>
-                        <td>${student.isAbsent ? '✓' : '-'}</td>
-                        <td>${student.pluses || 0}</td>
-                        <td>${student.minuses || 0}</td>
-                        <td style="color: #1f5a2b; font-weight: 600;">${student.teamPluses || 0}</td>
-                        <td style="color: #8a1e1e; font-weight: 600;">${student.teamMinuses || 0}</td>
-                        <td>${formatBadges(student.badges)}</td>
-                        <td><span class="notes-preview ${teamRoleEvents.length ? '' : 'empty'}">${teamRolePreview}</span></td>
-                        <td><span class="notes-preview ${notesText ? '' : 'empty'}">${notesText ? notesPreview + (notesPreview.length < notesText.length ? '...' : '') : '(no notes)'}</span></td>
-                    `;
+                row.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${session.time || '-'}</td>
+                    <td>${student.isPicked ? '✓' : '-'}</td>
+                    <td>${student.isAbsent ? '✓' : '-'}</td>
+                    <td>${student.pluses || 0}</td>
+                    <td>${student.minuses || 0}</td>
+                    <td style="color: #1f5a2b; font-weight: 600;">${student.teamPluses || 0}</td>
+                    <td style="color: #8a1e1e; font-weight: 600;">${student.teamMinuses || 0}</td>
+                    <td>${formatBadges(student.badges)}</td>
+                    <td><span class="notes-preview ${teamRoleEvents.length ? '' : 'empty'}">${teamRolePreview}</span></td>
+                    <td><span class="notes-preview ${notesText ? '' : 'empty'}">${notesText ? notesPreview + (notesPreview.length < notesText.length ? '...' : '') : '(no notes)'}</span></td>
+                `;
 
                     row.addEventListener('click', () => {
                         currentSessionId = session.id;
@@ -3155,7 +3199,6 @@
                     });
 
                     studentTbody.appendChild(row);
-                }
             });
 
             document.getElementById('studentDetailsArea').classList.remove('hidden');
@@ -4081,26 +4124,15 @@
         }
 
         function sortTable(header, tableId) {
-            const table = document.getElementById(tableId);
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
-            const column = header.dataset.sort;
-
-            rows.sort((a, b) => {
-                const aVal = a.cells[Array.from(header.parentNode.cells).indexOf(header)].textContent;
-                const bVal = b.cells[Array.from(header.parentNode.cells).indexOf(header)].textContent;
-
-                // Try numeric sort first
-                const aNum = parseFloat(aVal);
-                const bNum = parseFloat(bVal);
-
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return aNum - bNum;
-                }
-
-                return aVal.localeCompare(bVal);
-            });
-
-            table.querySelector('tbody').append(...rows);
+            const column = header.dataset.sort || header.dataset.col;
+            if (!column) return;
+            if (tableId === 'historyTable') {
+                sortHistoryTable(column);
+            } else if (tableId === 'classOverviewTable') {
+                sortClassOverviewTable(column);
+            } else if (tableId === 'studentTable') {
+                sortStudentTable(column);
+            }
         }
 
         // ─── NEOBRUTALIST EXPORT MODAL SYSTEM ──────────────────────────
@@ -4126,20 +4158,8 @@
         }
 
         function openPtExportModal() {
-            if (!currentGroupId) {
-                showMessage(t('ptMsgSelectGroup'), 'error');
-                return;
-            }
             const modal = document.getElementById('ptExportModal');
-            if (!modal) return;
-
-            const studentLabelEl = document.getElementById('ptExportActiveStudentName');
-            if (studentLabelEl) {
-                studentLabelEl.textContent = currentStudentName ? `Active: ${currentStudentName}` : 'All Students';
-            }
-
-            updatePtExportHint();
-            modal.classList.add('active');
+            if (modal) modal.classList.add('active');
         }
 
         function closePtExportModal() {
@@ -6480,68 +6500,98 @@
         });
 
         // ─── Reset helpers ────────────────────────────────────────────
-        function openResetModal(type, payload) {
-            pendingResetAction = { type, payload };
-            const modal = document.getElementById('resetWarn1Modal');
-            const title = document.getElementById('resetWarn1Title');
-            const body  = document.getElementById('resetWarn1Body');
-
-            if (type === 'session') {
-                const date = new Date(payload).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                const session = DB_EXPORT.find(s => s.id === payload);
-                const count = session && session.groups && session.groups[currentGroupId] ? session.groups[currentGroupId].length : 0;
-                title.textContent = '⚠️ Delete Session';
-                body.innerHTML = `You are about to <strong>permanently delete</strong> the session recorded on <strong>${date}</strong>.<br><br>This will remove all participation data for <strong>${count} student(s)</strong> in this session.`;
-            } else if (type === 'group') {
-                const sessions = filterSessionsByDateAndGroup(payload, '', '');
-                let students = new Set();
-                sessions.forEach(s => (s.groups[payload] || []).forEach(st => students.add(st.name)));
-                title.textContent = '⚠️ Reset Group Data';
-                body.innerHTML = `You are about to <strong>permanently delete all participation data</strong> for group <strong>${payload}</strong>.<br><br>This affects <strong>${sessions.length} session(s)</strong> and <strong>${students.size} student(s)</strong>.`;
-            } else {
-                title.textContent = '⚠️ Reset All Data';
-                body.innerHTML = `You are about to <strong>permanently delete ALL participation data</strong> across every group.<br><br>This affects <strong>${DB_EXPORT.length} session(s)</strong> and cannot be reversed.`;
+        async function handleResetGroupClick(e) {
+            if (e) {
+                if (typeof e.preventDefault === 'function') e.preventDefault();
+                if (typeof e.stopPropagation === 'function') e.stopPropagation();
             }
 
-            modal.classList.add('active');
+            if (!currentGroupId) {
+                const activeBtn = document.querySelector('.group-btn.active');
+                if (activeBtn) {
+                    currentGroupId = activeBtn.dataset.group || activeBtn.dataset.groupId || activeBtn.textContent.trim();
+                }
+            }
+
+            if (!currentGroupId) {
+                const msg = (typeof t === 'function' ? t('ptMsgSelectGroup') : '') || 'Please select a class group first';
+                if (typeof showToast === 'function') showToast(msg, true);
+                if (typeof showMessage === 'function') showMessage(msg, 'error');
+                return;
+            }
+
+            const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(currentGroupId) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[currentGroupId]?.name) ? CLASS_GROUPS_META[currentGroupId].name : currentGroupId);
+            const confirmMsg = `⚠️ RESET GROUP DATA\n\nAre you sure you want to permanently delete all participation data for "${groupName}"?\n\nThis will remove all recorded session logs for this group.`;
+
+            let confirmed = false;
+            if (typeof showConfirm === 'function') {
+                confirmed = await showConfirm(confirmMsg);
+            } else {
+                confirmed = window.confirm(confirmMsg);
+            }
+
+            if (!confirmed) return;
+
+            const finalMsg = `🛑 FINAL WARNING\n\nAll session data and student scores for "${groupName}" will be permanently erased. Proceed?`;
+            let finalConfirmed = false;
+            if (typeof showConfirm === 'function') {
+                finalConfirmed = await showConfirm(finalMsg);
+            } else {
+                finalConfirmed = window.confirm(finalMsg);
+            }
+
+            if (!finalConfirmed) return;
+
+            pendingResetAction = { type: 'group', payload: currentGroupId };
+            await executeReset();
+        }
+
+        async function openResetModal(type, payload) {
+            if (type === 'session') {
+                let dateStr = payload;
+                const d = new Date(payload);
+                if (!isNaN(d.getTime())) {
+                    dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                }
+                const confirmMsg = `⚠️ DELETE SESSION\n\nAre you sure you want to permanently delete the session from ${dateStr}?\n\nThis action cannot be undone.`;
+                let confirmed = false;
+                if (typeof showConfirm === 'function') {
+                    confirmed = await showConfirm(confirmMsg);
+                } else {
+                    confirmed = window.confirm(confirmMsg);
+                }
+                if (!confirmed) return;
+
+                pendingResetAction = { type: 'session', payload };
+                await executeReset();
+            } else if (type === 'group') {
+                currentGroupId = payload;
+                await handleResetGroupClick();
+            }
         }
 
         function closeResetModal1() {
-            document.getElementById('resetWarn1Modal').classList.remove('active');
             pendingResetAction = null;
         }
 
         function proceedResetStep2() {
-            document.getElementById('resetWarn1Modal').classList.remove('active');
-            const body2 = document.getElementById('resetWarn2Body');
-            const { type, payload } = pendingResetAction;
-
-            if (type === 'session') {
-                const date = new Date(payload).toLocaleDateString();
-                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>The session from <strong>${date}</strong> will be <strong>permanently deleted</strong> from the database and this action <strong>cannot be undone</strong>.`;
-            } else if (type === 'group') {
-                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>All data for group <strong>${payload}</strong> will be <strong>permanently erased</strong>. This action <strong>cannot be undone</strong>.`;
-            } else {
-                body2.innerHTML = `<strong>This is your final chance to cancel.</strong><br><br>The <strong>entire database</strong> will be permanently erased. Every session, every student record, every badge — <strong>all gone forever</strong>. This action <strong>cannot be undone</strong>.`;
-            }
-
-            document.getElementById('resetWarn2Modal').classList.add('active');
         }
 
         function closeResetModal2() {
-            document.getElementById('resetWarn2Modal').classList.remove('active');
             pendingResetAction = null;
         }
 
         async function executeReset() {
             if (!pendingResetAction) return;
-            document.getElementById('resetWarn2Modal').classList.remove('active');
             const { type, payload } = pendingResetAction;
             pendingResetAction = null;
 
             if (type === 'session') {
                 const idx = DB_EXPORT.findIndex(s => s.id === payload);
                 if (idx !== -1) DB_EXPORT.splice(idx, 1);
+                if (selectedHistorySessionId === payload) {
+                    selectedHistorySessionId = null;
+                }
                 showMessage(t('ptMsgSessionDeleted'), 'success');
             } else if (type === 'group') {
                 DB_EXPORT.forEach(session => {
@@ -6549,13 +6599,14 @@
                 });
                 const filtered = DB_EXPORT.filter(s => s.groups && Object.keys(s.groups).length > 0);
                 DB_EXPORT.splice(0, DB_EXPORT.length, ...filtered);
-                showMessage(tFmt('ptMsgGroupDeleted', { name: payload }), 'success');
-            } else {
-                DB_EXPORT.splice(0);
-                showMessage(t('ptMsgAllReset'), 'success');
+                const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[payload]?.name) ? CLASS_GROUPS_META[payload].name : payload);
+                showMessage(tFmt('ptMsgGroupDeleted', { name: groupName }), 'success');
             }
 
             await persistResetToFile(type, payload);
+            if (type === 'session' && currentGroupId) {
+                await persistEditedGroupSessionsToDisk(currentGroupId);
+            }
             currentStudentName = null;
             document.getElementById('studentDetailsArea').classList.add('hidden');
             document.getElementById('studentDetailTitle').classList.add('hidden');
@@ -6575,30 +6626,37 @@
         async function persistResetToFile(type, payload) {
             if (!ELECTRON_AVAILABLE || !window.Desktop) return;
             if (type === 'group') {
-                const safeDir = groupNameToSafeDir(payload);
+                const safeDirs = new Set();
+                safeDirs.add(groupNameToSafeDir(payload));
+                const dispName = (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : null;
+                if (dispName) safeDirs.add(groupNameToSafeDir(dispName));
+                if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[payload]?.name) {
+                    safeDirs.add(groupNameToSafeDir(CLASS_GROUPS_META[payload].name));
+                }
+
+                for (const safeDir of safeDirs) {
+                    if (!safeDir) continue;
+                    try {
+                        await Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true });
+                    } catch (e) {}
+                    try {
+                        await Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true });
+                    } catch (e) {}
+                }
+
                 try {
-                    await Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true });
-                } catch (e) {}
-                try {
-                    await Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true });
+                    const listResult = await Desktop.listByPath('groupParticipation', '.', { extensions: ['.js'] });
+                    for (const fileInfo of (listResult?.files || [])) {
+                        const fname = fileInfo.relativePath || fileInfo.name || '';
+                        for (const safeDir of safeDirs) {
+                            if (safeDir && fname.includes(safeDir)) {
+                                try { await Desktop.deleteByPath('groupParticipation', fname, { force: true }); } catch (e) {}
+                            }
+                        }
+                    }
                 } catch (e) {}
             } else if (type === 'session') {
                 await addSessionTombstone(payload);
-            } else {
-                // all: delete every group subfolder and clear overlay files
-                try {
-                    const listResult = await Desktop.listByPath('groupParticipation', '.', { extensions: ['.js'] });
-                    const subFolders = new Set(
-                        (listResult?.files || [])
-                            .filter(f => f.relativePath && f.relativePath.includes('/'))
-                            .map(f => f.relativePath.split('/')[0])
-                    );
-                    for (const folder of subFolders) {
-                        try { await Desktop.deleteByPath('groupParticipation', folder, { recursive: true, force: true }); } catch (e) {}
-                    }
-                } catch (e) {}
-                try { await Desktop.saveText('groupParticipation', 'pt-notes.js', 'window.CMS_NOTES_PATCH = {};\n'); } catch (e) {}
-                try { await Desktop.saveText('groupParticipation', 'pt-deleted.js', 'window.CMS_DELETED_SESSIONS = [];\n'); } catch (e) {}
             }
         }
 
