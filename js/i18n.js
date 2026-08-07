@@ -1122,6 +1122,16 @@
       ptCopyClipboardGrades: 'Copy grades to clipboard',
       ptLinkToGradeSheet: 'Open Grade Sheet tool',
       ptGradesCopied: 'Grades copied to clipboard!',
+      ptModalEditStudentTitle: 'Edit Student Data & History',
+      ptModalStudentTotals: 'Summary Totals',
+      ptModalPastInteractions: 'Past Session Interactions',
+      ptModalAddInteraction: '+ Add Past Interaction',
+      ptModalSaveStudent: 'Save Student Data',
+      ptModalDeleteInteraction: 'Delete Entry',
+      ptConfirmDeleteEntry: 'Are you sure you want to delete this interaction entry?',
+      ptRightClickHint: 'Right-click any student row to edit past interactions & points',
+
+      ptMsgStudentSaved: '✓ Student data updated and saved successfully',
 
 
       // Grade Sheet

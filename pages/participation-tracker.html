@@ -249,7 +249,10 @@
         <!-- Student Drill-Down Section -->
         <div class="student-section">
             <div class="class-overview-header">
-                <h2 id="classOverviewTitle" data-i18n="ptClassOverviewTitle">Class Overview</h2>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <h2 id="classOverviewTitle" style="margin:0;" data-i18n="ptClassOverviewTitle">Class Overview</h2>
+                    <span class="right-click-hint-banner" data-i18n="ptRightClickHint">Right-click any student row to edit past interactions & points</span>
+                </div>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <button class="col-toggle-btn" onclick="openColToggleMenu('classOverviewTable', this)" type="button" data-i18n="ptColumns">Columns ▾</button>
                     <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button" data-i18n="ptMsgClearSessionFilter">Clear Session Filter</button>
@@ -477,10 +480,9 @@
     </div>
 
 
-    <!-- Detail Modal for Notes Editing -->
+    <!-- Detail Modal for Notes & Student Data Editing -->
     <div id="detailModal" class="modal">
-
-        <div class="modal-content">
+        <div class="modal-content student-edit-modal-content">
             <div class="modal-header">
                 <h3 id="detailModalTitle"></h3>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
@@ -489,18 +491,16 @@
             <div id="detailModalBody">
             </div>
 
-            <div class="notes-editor">
-                <label data-i18n="ptNotesLabel">Notes</label>
+            <div class="notes-editor" style="margin-top:14px;">
+                <label data-i18n="ptNotesLabel">Notes / Comments</label>
                 <textarea id="notesTextarea" data-i18n-placeholder="ptNotesPlaceholder" placeholder="Add notes about this student's participation..."></textarea>
             </div>
 
             <div class="button-group">
                 <button class="btn-secondary" onclick="closeDetailModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-primary" onclick="confirmSaveNotes()" data-i18n="ptBtnSaveNotes">Save Notes</button>
+                <button class="btn-primary" onclick="confirmSaveNotes()" data-i18n="ptBtnSaveNotes">Save Student Data</button>
             </div>
         </div>
-    </div>
-
     <!-- Confirmation Modal -->
     <div id="confirmModal" class="modal">
         <div class="modal-content" style="max-width: 400px;">
@@ -519,7 +519,10 @@
         </div>
     </div>
 
+
+
     <!-- Reset Warning Modal – Step 1 -->
+
     <div id="resetWarn1Modal" class="modal">
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">
@@ -1655,7 +1658,27 @@
                     sortTable(this, 'historyTable');
                 });
             });
+
+            // Context menu event delegation for student rows
+            document.addEventListener('contextmenu', function(e) {
+                const tr = e.target.closest('tr');
+                if (!tr) return;
+                const table = tr.closest('table');
+                if (!table) return;
+
+                if (table.id === 'classOverviewTable' || table.id === 'studentTable' || table.classList.contains('class-overview-table')) {
+                    if (tr.parentNode && (tr.parentNode.tagName === 'THEAD' || tr.parentNode.tagName === 'TFOOT')) return;
+
+                    const studentName = tr.dataset.studentName || (tr.cells && tr.cells[0] ? tr.cells[0].textContent.trim() : null);
+                    if (studentName && !['Total', 'Class Total', 'Class Avg', 'TOTAL', 'AVERAGE'].includes(studentName)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openStudentEditModal(studentName);
+                    }
+                }
+            });
         }
+
 
         let showArchivedGroups = false;
 
@@ -2458,6 +2481,8 @@
                     <td style="font-weight: 600; color: ${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '#888' : (bd === 0 ? '#2ca02c' : (g / bd >= 1 ? '#2ca02c' : '#d62728')); })()};">${(() => { const g = data.pluses + data.teamPluses + data.badgePositive; const bd = data.minuses + data.teamMinuses + data.badgeNegative; return (g === 0 && bd === 0) ? '—' : (bd === 0 ? '∞' : (g / bd).toFixed(2)); })()}</td>
                     <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? t('ptTrendImproving') : computeTrend(data.sessionNets) === 'down' ? t('ptTrendDeclining') : t('ptTrendStable')}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
                 `;
+                row.dataset.studentName = data.name;
+                row.title = t('ptRightClickHint');
                 row.addEventListener('click', () => {
                     currentStudentName = data.name;
                     document.querySelectorAll('#classOverviewTableBody tr').forEach(r => r.classList.remove('selected-student'));
@@ -2466,7 +2491,17 @@
                     updateStudentDetails();
                     document.getElementById('studentDetailsArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 });
+                row.oncontextmenu = function(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    openStudentEditModal(data.name);
+                    return false;
+                };
                 tbody.appendChild(row);
+
+
             });
             buildClassOverviewSummaryRows();
             applyHiddenCols('classOverviewTable');
@@ -3147,66 +3182,94 @@
             return matches.map(e => formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)).filter(Boolean);
         }
 
-        function showStudentDetailModal(student, session) {
-            const modal = document.getElementById('detailModal');
-            const title = document.getElementById('detailModalTitle');
-            const body = document.getElementById('detailModalBody');
+        function openStudentEditModal(studentName) {
+            showStudentDetailModal(studentName, null);
+        }
 
-            title.textContent = `${student.name} - ${new Date(session.id).toLocaleDateString()}`;
+        function showStudentDetailModal(studentOrName, session) {
+            const studentName = (typeof studentOrName === 'string') ? studentOrName : (studentOrName && studentOrName.name ? studentOrName.name : currentStudentName);
+            if (!studentName) return;
 
-            const plusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'plus');
-            const minusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'minus');
-            const teamPlusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'team-plus');
-            const teamMinusesTimes = getStudentPointTimestamps(session, currentGroupId, student, 'team-minus');
+            if (!currentGroupId) {
+                const activeBtn = document.querySelector('#groupButtons .group-btn.active, #groupButtons button.active');
+                if (activeBtn) currentGroupId = activeBtn.dataset.groupId || activeBtn.dataset.group || activeBtn.textContent.trim();
+            }
+            if (!currentGroupId && typeof DB_EXPORT !== 'undefined' && DB_EXPORT.length > 0) {
+                for (const s of DB_EXPORT) {
+                    if (s.groups && Object.keys(s.groups).length > 0) {
+                        currentGroupId = Object.keys(s.groups)[0];
+                        break;
+                    }
+                }
+            }
+            if (!currentGroupId) return;
 
-            const plusesTimeStr = plusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${plusesTimes.join(', ')})</span>` : '';
-            const minusesTimeStr = minusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${minusesTimes.join(', ')})</span>` : '';
-            const teamPlusesTimeStr = teamPlusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${teamPlusesTimes.join(', ')})</span>` : '';
-            const teamMinusesTimeStr = teamMinusesTimes.length ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${teamMinusesTimes.join(', ')})</span>` : '';
+            const allGroupSessions = DB_EXPORT.filter(s => s.groups && s.groups[currentGroupId]);
+            const studentSessions = [];
 
-            const badgeDisplay = (student.badges && student.badges.length > 0)
-                ? student.badges.map(b => {
-                    const data = resolveBadgeData(b);
-                    const label = data.label || b.icon || (typeof b === 'string' ? b : 'Badge');
-                    const icon = data.icon || '🏅';
-                    const rawTime = (typeof b === 'object' && b ? (b.time || b.timestamp || b.date || b.createdAt) : null) || data.time || data.timestamp || (session ? (session.time || session.id) : null);
-                    const formattedTime = formatTimeWithSeconds(rawTime);
-                    const color = data.tone === 'positive' ? '#2ca02c' : (data.tone === 'negative' ? '#d62728' : 'inherit');
-                    const timePart = formattedTime ? ` <span style="font-size:0.88em; color:#666; font-weight:normal;">(${formattedTime})</span>` : '';
-                    return `<span style="color:${color}; font-weight:600;">${icon} ${label}</span>${timePart}`;
-                }).join(', ')
-                : '-';
+            allGroupSessions.forEach(sess => {
+                const students = sess.groups[currentGroupId] || [];
+                const st = students.find(s => s.name === studentName);
+                if (st) {
+                    studentSessions.push({
+                        sessionId: sess.id,
+                        time: sess.time || '',
+                        studentData: JSON.parse(JSON.stringify(st))
+                    });
+                }
+            });
 
-            const badgeSentiment = countBadgeSentiment(student.badges || []);
-            const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, student.name);
-            const teamRoleDetails = teamRoleEvents.length
-                ? teamRoleEvents.map(e => `${formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)} [${e.type}] ${e.detail || ''}`).join('<br>')
-                : '(none)';
-
-            body.innerHTML = `
-                <p><strong>Picked:</strong> ${student.isPicked ? 'Yes' : 'No'}</p>
-                <p><strong>Absent:</strong> ${student.isAbsent ? 'Yes' : 'No'}</p>
-                <p><strong>Positive Points:</strong> ${student.pluses || 0}${plusesTimeStr}</p>
-                <p><strong>Negative Points:</strong> ${student.minuses || 0}${minusesTimeStr}</p>
-                <p><strong>Team Positive Points (T+):</strong> ${student.teamPluses || 0}${teamPlusesTimeStr}</p>
-                <p><strong>Team Negative Points (T-):</strong> ${student.teamMinuses || 0}${teamMinusesTimeStr}</p>
-                <p><strong>Team:</strong> ${student.teamId != null ? `Team ${student.teamId}` : '-'}</p>
-                <p><strong>Role:</strong> ${student.role || '-'}</p>
-                <p><strong>Badges:</strong> ${badgeDisplay}</p>
-                <p><strong>Badge Feedback:</strong> +${badgeSentiment.positive} / -${badgeSentiment.negative}</p>
-                <p><strong>Team/Role Event Log:</strong><br>${teamRoleDetails}</p>
-            `;
-
-            document.getElementById('notesTextarea').disabled = false;
-            document.getElementById('notesTextarea').value = student.notes || '';
-
-            if (student.comments && student.comments.length > 0) {
-                const commentsHtml = student.comments.map(c =>
-                    `<p style="margin:4px 0; font-size:13px;"><span style="color:#888; font-size:11px;">${formatTimeWithSeconds(c.datetime || c.time || c.timestamp) || c.datetime || ''}</span> ${c.text}</p>`
-                ).join('');
-                body.innerHTML += `<div style="margin-top:10px; padding:8px; background:#f0f4ff; border-radius:4px; border-left:3px solid #0066cc;"><strong style="font-size:12px; color:#555;">Class notes:</strong>${commentsHtml}</div>`;
+            let targetSession = session;
+            if (!targetSession && studentSessions.length > 0) {
+                targetSession = DB_EXPORT.find(s => s.id === studentSessions[0].sessionId);
             }
 
+            let targetStudent = (targetSession && targetSession.groups && targetSession.groups[currentGroupId])
+                ? targetSession.groups[currentGroupId].find(s => s.name === studentName)
+                : null;
+
+            if (!targetStudent && typeof studentOrName === 'object') {
+                targetStudent = studentOrName;
+            }
+
+            if (!targetStudent) {
+                targetStudent = {
+                    name: studentName,
+                    pluses: 0,
+                    minuses: 0,
+                    teamPluses: 0,
+                    teamMinuses: 0,
+                    isPicked: false,
+                    isAbsent: false,
+                    badges: [],
+                    notes: ''
+                };
+            }
+
+            currentSessionId = targetSession ? targetSession.id : (studentSessions.length > 0 ? studentSessions[0].sessionId : null);
+            editingStudentId = targetStudent ? targetStudent.id : null;
+
+            editingStudentModalData = {
+                name: studentName,
+                groupId: currentGroupId,
+                currentSessionId: currentSessionId,
+                targetStudent: targetStudent,
+                studentSessions: studentSessions
+            };
+
+            const modal = document.getElementById('detailModal');
+            const title = document.getElementById('detailModalTitle');
+            const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(currentGroupId) : currentGroupId;
+
+            title.textContent = `👤 ${studentName} (${groupName})`;
+
+            const notesInput = document.getElementById('notesTextarea');
+            if (notesInput) {
+                notesInput.disabled = false;
+                notesInput.value = targetStudent.notes || '';
+            }
+
+            renderStudentDetailBodyContent();
             modal.classList.add('active');
         }
 
@@ -3214,34 +3277,504 @@
             document.getElementById('detailModal').classList.remove('active');
             currentSessionId = null;
             editingStudentId = null;
+            editingStudentModalData = null;
         }
 
-        function saveNotes() {
-            if (!currentGroupId || !currentSessionId) {
-                showMessage(t('ptMsgErrSessionNotSet'), 'error');
+        function renderStudentDetailBodyContent() {
+            if (!editingStudentModalData) return;
+
+            const { name, targetStudent, studentSessions } = editingStudentModalData;
+            const body = document.getElementById('detailModalBody');
+            if (!body) return;
+
+            let totalPicks = 0, totalAbsences = 0, totalPluses = 0, totalMinuses = 0, totalTeamPluses = 0, totalTeamMinuses = 0;
+
+            studentSessions.forEach(item => {
+                const st = item.studentData;
+                if (st.isPicked) totalPicks++;
+                if (st.isAbsent) totalAbsences++;
+                totalPluses += Number(st.pluses) || 0;
+                totalMinuses += Number(st.minuses) || 0;
+                totalTeamPluses += Number(st.teamPluses) || 0;
+                totalTeamMinuses += Number(st.teamMinuses) || 0;
+            });
+
+            const net = (totalPluses + totalTeamPluses) - (totalMinuses + totalTeamMinuses);
+
+            let currentSessionFormHtml = '';
+            if (targetStudent) {
+                currentSessionFormHtml = `
+                    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px;">
+                        <div style="font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:8px;">⚡ Current / Active Session Controls</div>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px;">
+                            <div>
+                                <label style="font-size:0.72rem; font-weight:700; color:#2ca02c;">Pluses (+)</label>
+                                <input type="number" id="editDetailPluses" class="past-input-num" value="${targetStudent.pluses || 0}" min="0" style="width:100%;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.72rem; font-weight:700; color:#d62728;">Minuses (-)</label>
+                                <input type="number" id="editDetailMinuses" class="past-input-num" value="${targetStudent.minuses || 0}" min="0" style="width:100%;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.72rem; font-weight:700; color:#1f5a2b;">Team +</label>
+                                <input type="number" id="editDetailTeamPluses" class="past-input-num" value="${targetStudent.teamPluses || 0}" min="0" style="width:100%;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.72rem; font-weight:700; color:#8a1e1e;">Team -</label>
+                                <input type="number" id="editDetailTeamMinuses" class="past-input-num" value="${targetStudent.teamMinuses || 0}" min="0" style="width:100%;">
+                            </div>
+                            <div style="text-align:center;">
+                                <label style="font-size:0.72rem; font-weight:700; color:#475569;">Picked</label>
+                                <input type="checkbox" id="editDetailPicked" ${targetStudent.isPicked ? 'checked' : ''} style="display:block; margin:6px auto 0;">
+                            </div>
+                            <div style="text-align:center;">
+                                <label style="font-size:0.72rem; font-weight:700; color:#475569;">Absent</label>
+                                <input type="checkbox" id="editDetailAbsent" ${targetStudent.isAbsent ? 'checked' : ''} style="display:block; margin:6px auto 0;">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            body.innerHTML = `
+                ${currentSessionFormHtml}
+
+                <div class="student-edit-stats-summary" style="margin-bottom:16px;">
+                    <div class="student-edit-stat-card">
+                        <div class="label">${t('ptStatsSessionsRecorded')}</div>
+                        <div class="val">${studentSessions.length}</div>
+                    </div>
+                    <div class="student-edit-stat-card">
+                        <div class="label" style="color:#2ca02c;">${t('ptStatPluses')}</div>
+                        <div class="val" style="color:#2ca02c;">${totalPluses}</div>
+                    </div>
+                    <div class="student-edit-stat-card">
+                        <div class="label" style="color:#d62728;">${t('ptStatMinuses')}</div>
+                        <div class="val" style="color:#d62728;">${totalMinuses}</div>
+                    </div>
+                    <div class="student-edit-stat-card">
+                        <div class="label" style="color:#1f5a2b;">T+ / T-</div>
+                        <div class="val" style="color:#1f5a2b;">${totalTeamPluses} / ${totalTeamMinuses}</div>
+                    </div>
+                    <div class="student-edit-stat-card">
+                        <div class="label">${t('ptStatPicks')} / ${t('ptColAbs')}</div>
+                        <div class="val">${totalPicks} / ${totalAbsences}</div>
+                    </div>
+                    <div class="student-edit-stat-card">
+                        <div class="label">${t('ptStatNet')}</div>
+                        <div class="val" style="color:${net >= 0 ? '#2ca02c' : '#d62728'};">${net >= 0 ? '+' : ''}${net}</div>
+                    </div>
+                </div>
+
+                <div class="student-edit-section-title">
+                    <span data-i18n="ptModalPastInteractions">Past Session Interactions</span>
+                    <button type="button" class="btn-primary" style="font-size:11px; padding:4px 10px;" onclick="toggleAddPastInteractionForm()" data-i18n="ptModalAddInteraction">+ Add Past Interaction</button>
+                </div>
+
+                <div id="addPastInteractionBox" class="add-past-interaction-box hidden">
+                    <strong style="font-size: 0.82rem; color: #0f172a;">Log New Session Interaction Entry</strong>
+                    <div class="add-past-interaction-grid">
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Date</label>
+                            <input type="date" id="newInteractionDate" class="past-input-text" value="${new Date().toISOString().split('T')[0]}">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Time</label>
+                            <input type="time" id="newInteractionTime" class="past-input-text" value="10:00">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#2ca02c;">Pluses (+)</label>
+                            <input type="number" id="newInteractionPluses" class="past-input-num" value="0" min="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#d62728;">Minuses (-)</label>
+                            <input type="number" id="newInteractionMinuses" class="past-input-num" value="0" min="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#1f5a2b;">Team +</label>
+                            <input type="number" id="newInteractionTeamPluses" class="past-input-num" value="0" min="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#8a1e1e;">Team -</label>
+                            <input type="number" id="newInteractionTeamMinuses" class="past-input-num" value="0" min="0">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Picked?</label>
+                            <input type="checkbox" id="newInteractionPicked" style="display:block; margin-top:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Absent?</label>
+                            <input type="checkbox" id="newInteractionAbsent" style="display:block; margin-top:6px;">
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Notes / Comment</label>
+                        <input type="text" id="newInteractionNotes" class="past-input-text" placeholder="e.g. Active participation, good answer">
+                    </div>
+                    <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap:8px;">
+                        <button type="button" class="btn-secondary" style="font-size:11px; padding:4px 10px;" onclick="toggleAddPastInteractionForm()" data-i18n="ptBtnCancel">Cancel</button>
+                        <button type="button" class="btn-success" style="font-size:11px; padding:4px 10px;" onclick="submitNewPastInteraction()">Add Entry</button>
+                    </div>
+                </div>
+
+                <div class="student-past-table-container">
+                    <table class="student-past-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="ptColDate">Date</th>
+                                <th data-i18n="ptColTime">Time</th>
+                                <th style="color:#2ca02c;">+</th>
+                                <th style="color:#d62728;">-</th>
+                                <th style="color:#86efac;">T+</th>
+                                <th style="color:#fca5a5;">T-</th>
+                                <th data-i18n="ptColPick">Pick</th>
+                                <th data-i18n="ptColAbs">Abs</th>
+                                <th data-i18n="ptColBadges">Badges</th>
+                                <th data-i18n="ptColNotes">Notes</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentPastTableBody"></tbody>
+                    </table>
+                </div>
+            `;
+
+            renderStudentPastTableRows();
+        }
+
+        function renderStudentPastTableRows() {
+            if (!editingStudentModalData) return;
+            const tbody = document.getElementById('studentPastTableBody');
+            if (!tbody) return;
+
+            const { studentSessions } = editingStudentModalData;
+            tbody.innerHTML = '';
+
+            if (studentSessions.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#888; padding:16px;">${t('ptMsgNoDataRange')}</td></tr>`;
                 return;
             }
 
-            const notes = document.getElementById('notesTextarea').value;
+            const sorted = [...studentSessions].sort((a, b) => new Date(b.sessionId) - new Date(a.sessionId));
 
-            // Find the session
-            const session = DB_EXPORT.find(s => s.id === currentSessionId);
-            if (!session || !session.groups[currentGroupId]) {
-                showMessage(t('ptMsgErrSessionNotFound'), 'error');
+            sorted.forEach(item => {
+                const sessionId = item.sessionId;
+                const st = item.studentData;
+                const dateObj = new Date(sessionId);
+                const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : sessionId;
+                const timeStr = item.time || (sessionId.includes('T') ? sessionId.split('T')[1].substring(0, 5) : '10:00');
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><input type="date" class="past-input-text" value="${dateStr}" style="width:115px;" onchange="updateStudentEditSessionDate('${sessionId}', this.value)"></td>
+                    <td><input type="time" class="past-input-text" value="${timeStr}" style="width:75px;" onchange="updateStudentEditSessionTime('${sessionId}', this.value)"></td>
+                    <td><input type="number" class="past-input-num" value="${st.pluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'pluses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num" value="${st.minuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'minuses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num" value="${st.teamPluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamPluses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num" value="${st.teamMinuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamMinuses', parseInt(this.value)||0)"></td>
+                    <td style="text-align:center;"><input type="checkbox" ${st.isPicked ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isPicked', this.checked)"></td>
+                    <td style="text-align:center;"><input type="checkbox" ${st.isAbsent ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isAbsent', this.checked)"></td>
+                    <td>${formatBadgesEditable(sessionId, st.badges || [])}</td>
+                    <td><input type="text" class="past-input-text" value="${escHtml(st.notes || '')}" placeholder="Notes..." onchange="updateStudentEditField('${sessionId}', 'notes', this.value)"></td>
+                    <td><button type="button" class="btn-mini-danger" onclick="deleteStudentPastEntry('${sessionId}')">🗑</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function formatBadgesEditable(sessionId, badges) {
+            if (!Array.isArray(badges)) badges = [];
+            const chips = badges.map((b, idx) => {
+                const label = (typeof b === 'string') ? b : (b.label || b.icon || 'Badge');
+                const icon = (typeof b === 'object' && b.icon) ? b.icon : '';
+                const displayStr = icon ? `${icon} ${label}` : label;
+                return `
+                    <span class="badge-edit-chip">
+                        <span>${escHtml(displayStr)}</span>
+                        <button type="button" class="badge-chip-remove" onclick="removeBadgeFromStudentSession('${sessionId}', ${idx})" title="Remove Badge">&times;</button>
+                    </span>
+                `;
+            }).join('');
+
+            return `
+                <div class="badge-edit-container">
+                    ${chips}
+                    <button type="button" class="btn-add-badge-mini" onclick="promptAddBadgeToSession('${sessionId}')">+ Badge</button>
+                </div>
+            `;
+        }
+
+        function promptAddBadgeToSession(sessionId) {
+            if (!editingStudentModalData) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            if (!item) return;
+
+            const badgeOptions = [
+                '⭐ Star',
+                '🏅 Helpful',
+                '💡 Great Answer',
+                '🤝 Teamwork',
+                '🏆 Top Performer',
+                '⚠️ Disruptive',
+                '💬 Off-topic',
+                '⏳ Late'
+            ];
+
+            const input = window.prompt(
+                'Add a badge (select or type a custom badge name):\n\n' + badgeOptions.map((b, i) => `${i + 1}. ${b}`).join('\n'),
+                '⭐ Star'
+            );
+
+            if (!input) return;
+            let val = input.trim();
+            if (!val) return;
+
+            // Allow typing a number 1-8 to pick preset
+            const numIndex = parseInt(val) - 1;
+            if (!isNaN(numIndex) && numIndex >= 0 && numIndex < badgeOptions.length) {
+                val = badgeOptions[numIndex];
+            }
+
+            if (!Array.isArray(item.studentData.badges)) {
+                item.studentData.badges = [];
+            }
+            item.studentData.badges.push(val);
+            renderStudentDetailBodyContent();
+        }
+
+        async function removeBadgeFromStudentSession(sessionId, badgeIndex) {
+            if (!editingStudentModalData) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            if (item && Array.isArray(item.studentData.badges)) {
+                const badge = item.studentData.badges[badgeIndex];
+                const label = (typeof badge === 'string') ? badge : (badge?.label || badge?.icon || 'badge');
+                const msg = `Are you sure you want to remove the badge "${label}"?`;
+
+                const confirmed = (typeof showConfirm === 'function') ? (await showConfirm(msg)) : window.confirm(msg);
+                if (!confirmed) return;
+
+                item.studentData.badges.splice(badgeIndex, 1);
+                renderStudentDetailBodyContent();
+            }
+        }
+
+
+        function updateStudentEditField(sessionId, field, value) {
+            if (!editingStudentModalData) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            if (item) {
+                item.studentData[field] = value;
+                renderStudentDetailBodyContent();
+            }
+        }
+
+        function updateStudentEditSessionDate(oldSessionId, newDateStr) {
+            if (!editingStudentModalData || !newDateStr) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === oldSessionId);
+            if (item) {
+                const timePart = item.time ? `T${item.time}:00` : 'T10:00:00';
+                item.newSessionId = `${newDateStr}${timePart}`;
+            }
+        }
+
+        function updateStudentEditSessionTime(sessionId, newTimeStr) {
+            if (!editingStudentModalData) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            if (item) {
+                item.time = newTimeStr;
+            }
+        }
+
+        async function deleteStudentPastEntry(sessionId) {
+            if (!editingStudentModalData) return;
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            const dateObj = item ? new Date(item.sessionId) : null;
+            const dateStr = dateObj && !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString() : (item?.sessionId || '');
+            const defaultMsg = `Are you sure you want to delete this interaction entry (${dateStr})?`;
+            const msg = (typeof t === 'function' && t('ptConfirmDeleteEntry')) ? `${t('ptConfirmDeleteEntry')}\n(${dateStr})` : defaultMsg;
+
+            const confirmed = (typeof showConfirm === 'function') ? (await showConfirm(msg)) : window.confirm(msg);
+            if (!confirmed) return;
+
+            editingStudentModalData.studentSessions = editingStudentModalData.studentSessions.filter(s => s.sessionId !== sessionId);
+            renderStudentDetailBodyContent();
+        }
+
+
+        function toggleAddPastInteractionForm() {
+            const box = document.getElementById('addPastInteractionBox');
+            if (box) box.classList.toggle('hidden');
+        }
+
+        function submitNewPastInteraction() {
+            if (!editingStudentModalData) return;
+
+            const dateVal = document.getElementById('newInteractionDate').value;
+            const timeVal = document.getElementById('newInteractionTime').value || '10:00';
+            if (!dateVal) {
+                showMessage(t('ptMsgSelectGroup') || 'Please select a valid date', 'error');
                 return;
             }
 
-            // If editing a specific student
-            if (editingStudentId !== null && editingStudentId !== undefined) {
-                const student = session.groups[currentGroupId].find(s => s.id === editingStudentId);
-                if (student) {
-                    student.notes = notes;
-                    persistNotesToFile();
-                    return;
+            const newSessionId = `${dateVal}T${timeVal}:00`;
+            const pluses = parseInt(document.getElementById('newInteractionPluses').value) || 0;
+            const minuses = parseInt(document.getElementById('newInteractionMinuses').value) || 0;
+            const teamPluses = parseInt(document.getElementById('newInteractionTeamPluses').value) || 0;
+            const teamMinuses = parseInt(document.getElementById('newInteractionTeamMinuses').value) || 0;
+            const isPicked = document.getElementById('newInteractionPicked').checked;
+            const isAbsent = document.getElementById('newInteractionAbsent').checked;
+            const notes = (document.getElementById('newInteractionNotes').value || '').trim();
+
+            const newStudentData = {
+                name: editingStudentModalData.name,
+                isPicked,
+                isAbsent,
+                pluses,
+                minuses,
+                teamPluses,
+                teamMinuses,
+                badges: [],
+                notes
+            };
+
+            editingStudentModalData.studentSessions.push({
+                sessionId: newSessionId,
+                time: timeVal,
+                studentData: newStudentData,
+                isNewEntry: true
+            });
+
+            toggleAddPastInteractionForm();
+            renderStudentDetailBodyContent();
+        }
+
+        async function saveNotes() {
+            if (!editingStudentModalData) {
+                closeDetailModal();
+                return;
+            }
+
+            const { name, groupId, currentSessionId, studentSessions } = editingStudentModalData;
+            const notesText = (document.getElementById('notesTextarea')?.value || '').trim();
+
+            const plusesIn = document.getElementById('editDetailPluses');
+            const minusesIn = document.getElementById('editDetailMinuses');
+            const teamPlusesIn = document.getElementById('editDetailTeamPluses');
+            const teamMinusesIn = document.getElementById('editDetailTeamMinuses');
+            const pickedIn = document.getElementById('editDetailPicked');
+            const absentIn = document.getElementById('editDetailAbsent');
+
+            if (currentSessionId) {
+                let currentItem = studentSessions.find(s => s.sessionId === currentSessionId);
+                if (currentItem) {
+                    if (plusesIn) currentItem.studentData.pluses = parseInt(plusesIn.value) || 0;
+                    if (minusesIn) currentItem.studentData.minuses = parseInt(minusesIn.value) || 0;
+                    if (teamPlusesIn) currentItem.studentData.teamPluses = parseInt(teamPlusesIn.value) || 0;
+                    if (teamMinusesIn) currentItem.studentData.teamMinuses = parseInt(teamMinusesIn.value) || 0;
+                    if (pickedIn) currentItem.studentData.isPicked = pickedIn.checked;
+                    if (absentIn) currentItem.studentData.isAbsent = absentIn.checked;
+                    currentItem.studentData.notes = notesText;
                 }
             }
 
+            const originalSessionIds = new Set();
+            DB_EXPORT.forEach(s => {
+                if (s.groups && s.groups[groupId]) {
+                    const st = s.groups[groupId].find(st => st.name === name);
+                    if (st) originalSessionIds.add(s.id);
+                }
+            });
+
+            const currentSessionIds = new Set(studentSessions.map(s => s.newSessionId || s.sessionId));
+
+            originalSessionIds.forEach(oldId => {
+                if (!currentSessionIds.has(oldId)) {
+                    const session = DB_EXPORT.find(s => s.id === oldId);
+                    if (session && session.groups && session.groups[groupId]) {
+                        session.groups[groupId] = session.groups[groupId].filter(s => s.name !== name);
+                    }
+                }
+            });
+
+            studentSessions.forEach(item => {
+                const targetSessionId = item.newSessionId || item.sessionId;
+                let session = DB_EXPORT.find(s => s.id === targetSessionId);
+
+                if (!session) {
+                    session = {
+                        id: targetSessionId,
+                        time: item.time || '10:00',
+                        groups: {
+                            [groupId]: []
+                        }
+                    };
+                    DB_EXPORT.push(session);
+                } else if (!session.groups) {
+                    session.groups = {};
+                }
+
+                if (!session.groups[groupId]) {
+                    session.groups[groupId] = [];
+                }
+
+                const existingStudentIdx = session.groups[groupId].findIndex(s => s.name === name);
+                if (existingStudentIdx !== -1) {
+                    session.groups[groupId][existingStudentIdx] = {
+                        ...session.groups[groupId][existingStudentIdx],
+                        ...item.studentData
+                    };
+                } else {
+                    session.groups[groupId].push({
+                        ...item.studentData
+                    });
+                }
+            });
+
+            syncGlobalDbExport();
+            await persistEditedGroupSessionsToDisk(groupId);
+
             closeDetailModal();
+
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(groupId, dateRange.from, dateRange.to);
+            updateDashboard();
+            updateClassOverviewTable(sessions);
+            if (currentStudentName === name) {
+                updateStudentDetails();
+            }
+
+            showMessage(t('ptMsgStudentSaved'), 'success');
+        }
+
+        async function persistEditedGroupSessionsToDisk(groupId) {
+            if (!ELECTRON_AVAILABLE || !window.Desktop) return;
+
+            try {
+                const rawMeta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+                const displayName = (rawMeta[groupId] && rawMeta[groupId].name) ? rawMeta[groupId].name : groupId;
+                const safeGroup = displayName
+                    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+                    .replace(/\s+/g, '_')
+                    .replace(/^\.+/, '')
+                    .trim() || '_class';
+
+                const byDate = {};
+                DB_EXPORT.forEach(s => {
+                    if (s.groups && s.groups[groupId]) {
+                        const dateKey = s.id.split('T')[0];
+                        if (!byDate[dateKey]) byDate[dateKey] = [];
+                        byDate[dateKey].push(s);
+                    }
+                });
+
+                for (const [dateStr, classSessions] of Object.entries(byDate)) {
+                    const filename = `${dateStr}_${safeGroup}.js`;
+                    const content = `window.CMS_DB_EXPORT = ${JSON.stringify(classSessions, null, 2)};\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n`;
+                    await Desktop.saveText('groupParticipation', filename, content, safeGroup);
+                }
+            } catch (err) {
+                console.warn('Failed persisting group sessions to disk:', err);
+            }
         }
 
         function buildDbJsContent() {
@@ -3280,15 +3813,9 @@
         }
 
         function confirmSaveNotes() {
-            const notes = document.getElementById('notesTextarea').value;
-            const studentName = currentStudentName || 'Session';
-            const date = new Date(currentSessionId).toLocaleDateString();
-
-            const confirmMsg = `Are you sure you want to save these notes for ${studentName} on ${date}?<br><br><strong>Notes:</strong> "${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}"`;
-
-            document.getElementById('confirmMessage').innerHTML = confirmMsg;
-            document.getElementById('confirmModal').classList.add('active');
+            saveNotes();
         }
+
 
         function closeConfirmModal() {
             document.getElementById('confirmModal').classList.remove('active');
@@ -5837,35 +6364,35 @@
         }
 
         // Close modal when clicking outside
-        document.getElementById('detailModal').addEventListener('click', function(e) {
+        document.getElementById('detailModal')?.addEventListener('click', function(e) {
             if (e.target === this) {
                 closeDetailModal();
             }
         });
 
-        document.getElementById('confirmModal').addEventListener('click', function(e) {
+        document.getElementById('confirmModal')?.addEventListener('click', function(e) {
             if (e.target === this) {
                 closeConfirmModal();
             }
         });
 
-        document.getElementById('importModal').addEventListener('click', function(e) {
+        document.getElementById('importModal')?.addEventListener('click', function(e) {
             if (e.target === this) {
                 closeImportModal();
             }
         });
 
-        document.getElementById('compareGroupsModal').addEventListener('click', function(e) {
+        document.getElementById('compareGroupsModal')?.addEventListener('click', function(e) {
             if (e.target === this) {
                 closeCompareGroupsModal();
             }
         });
 
-        document.getElementById('resetWarn1Modal').addEventListener('click', function(e) {
+        document.getElementById('resetWarn1Modal')?.addEventListener('click', function(e) {
             if (e.target === this) closeResetModal1();
         });
 
-        document.getElementById('resetWarn2Modal').addEventListener('click', function(e) {
+        document.getElementById('resetWarn2Modal')?.addEventListener('click', function(e) {
             if (e.target === this) closeResetModal2();
         });
 
@@ -5880,6 +6407,8 @@
         document.getElementById('ptExportModal')?.addEventListener('click', function(e) {
             if (e.target === this) closePtExportModal();
         });
+
+
 
         // Show message helper
         function showMessage(text, type = 'info') {
