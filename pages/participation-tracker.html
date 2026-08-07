@@ -3345,32 +3345,33 @@
                         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px;">
                             <div>
                                 <label style="font-size:0.72rem; font-weight:700; color:#2ca02c;">Pluses (+)</label>
-                                <input type="number" id="editDetailPluses" class="past-input-num" value="${targetStudent.pluses || 0}" min="0" style="width:100%;">
+                                <input type="number" id="editDetailPluses" class="past-input-num" value="${targetStudent.pluses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)">
                             </div>
                             <div>
                                 <label style="font-size:0.72rem; font-weight:700; color:#d62728;">Minuses (-)</label>
-                                <input type="number" id="editDetailMinuses" class="past-input-num" value="${targetStudent.minuses || 0}" min="0" style="width:100%;">
+                                <input type="number" id="editDetailMinuses" class="past-input-num" value="${targetStudent.minuses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)">
                             </div>
                             <div>
                                 <label style="font-size:0.72rem; font-weight:700; color:#1f5a2b;">Team +</label>
-                                <input type="number" id="editDetailTeamPluses" class="past-input-num" value="${targetStudent.teamPluses || 0}" min="0" style="width:100%;">
+                                <input type="number" id="editDetailTeamPluses" class="past-input-num" value="${targetStudent.teamPluses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)">
                             </div>
                             <div>
                                 <label style="font-size:0.72rem; font-weight:700; color:#8a1e1e;">Team -</label>
-                                <input type="number" id="editDetailTeamMinuses" class="past-input-num" value="${targetStudent.teamMinuses || 0}" min="0" style="width:100%;">
+                                <input type="number" id="editDetailTeamMinuses" class="past-input-num" value="${targetStudent.teamMinuses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)">
                             </div>
                             <div style="text-align:center;">
                                 <label style="font-size:0.72rem; font-weight:700; color:#475569;">Picked</label>
-                                <input type="checkbox" id="editDetailPicked" ${targetStudent.isPicked ? 'checked' : ''} style="display:block; margin:6px auto 0;">
+                                <input type="checkbox" id="editDetailPicked" ${targetStudent.isPicked ? 'checked' : ''} style="display:block; margin:6px auto 0;" onchange="updateStudentEditField('${currentSessionId}', 'isPicked', this.checked)">
                             </div>
                             <div style="text-align:center;">
                                 <label style="font-size:0.72rem; font-weight:700; color:#475569;">Absent</label>
-                                <input type="checkbox" id="editDetailAbsent" ${targetStudent.isAbsent ? 'checked' : ''} style="display:block; margin:6px auto 0;">
+                                <input type="checkbox" id="editDetailAbsent" ${targetStudent.isAbsent ? 'checked' : ''} style="display:block; margin:6px auto 0;" onchange="updateStudentEditField('${currentSessionId}', 'isAbsent', this.checked)">
                             </div>
                         </div>
                     </div>
                 `;
             }
+
 
             body.innerHTML = `
                 ${currentSessionFormHtml}
@@ -3478,6 +3479,18 @@
             renderStudentPastTableRows();
         }
 
+        function formatIsoDate(rawDate) {
+            if (!rawDate) return new Date().toISOString().split('T')[0];
+            const str = String(rawDate).trim().replace(' ', 'T');
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                return d.toISOString().split('T')[0];
+            }
+            const match = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+            return new Date().toISOString().split('T')[0];
+        }
+
         function renderStudentPastTableRows() {
             if (!editingStudentModalData) return;
             const tbody = document.getElementById('studentPastTableBody');
@@ -3496,22 +3509,23 @@
             sorted.forEach(item => {
                 const sessionId = item.sessionId;
                 const st = item.studentData;
-                const dateObj = new Date(sessionId);
-                const dateStr = !isNaN(dateObj.getTime()) ? dateObj.toISOString().split('T')[0] : sessionId;
+                const dateStr = formatIsoDate(sessionId);
                 const timeStr = item.time || (sessionId.includes('T') ? sessionId.split('T')[1].substring(0, 5) : '10:00');
 
+
                 const row = document.createElement('tr');
+                row.dataset.sessionId = sessionId;
                 row.innerHTML = `
-                    <td><input type="date" class="past-input-text" value="${dateStr}" style="width:115px;" onchange="updateStudentEditSessionDate('${sessionId}', this.value)"></td>
-                    <td><input type="time" class="past-input-text" value="${timeStr}" style="width:75px;" onchange="updateStudentEditSessionTime('${sessionId}', this.value)"></td>
-                    <td><input type="number" class="past-input-num" value="${st.pluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'pluses', parseInt(this.value)||0)"></td>
-                    <td><input type="number" class="past-input-num" value="${st.minuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'minuses', parseInt(this.value)||0)"></td>
-                    <td><input type="number" class="past-input-num" value="${st.teamPluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamPluses', parseInt(this.value)||0)"></td>
-                    <td><input type="number" class="past-input-num" value="${st.teamMinuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamMinuses', parseInt(this.value)||0)"></td>
-                    <td style="text-align:center;"><input type="checkbox" ${st.isPicked ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isPicked', this.checked)"></td>
-                    <td style="text-align:center;"><input type="checkbox" ${st.isAbsent ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isAbsent', this.checked)"></td>
+                    <td><input type="date" class="past-input-text past-date-in" value="${dateStr}" style="width:115px;" onchange="updateStudentEditSessionDate('${sessionId}', this.value)"></td>
+                    <td><input type="time" class="past-input-text past-time-in" value="${timeStr}" style="width:75px;" onchange="updateStudentEditSessionTime('${sessionId}', this.value)"></td>
+                    <td><input type="number" class="past-input-num past-plus-in" value="${st.pluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'pluses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num past-minus-in" value="${st.minuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'minuses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num past-tplus-in" value="${st.teamPluses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamPluses', parseInt(this.value)||0)"></td>
+                    <td><input type="number" class="past-input-num past-tminus-in" value="${st.teamMinuses || 0}" min="0" onchange="updateStudentEditField('${sessionId}', 'teamMinuses', parseInt(this.value)||0)"></td>
+                    <td style="text-align:center;"><input type="checkbox" class="past-pick-in" ${st.isPicked ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isPicked', this.checked)"></td>
+                    <td style="text-align:center;"><input type="checkbox" class="past-abs-in" ${st.isAbsent ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isAbsent', this.checked)"></td>
                     <td>${formatBadgesEditable(sessionId, st.badges || [])}</td>
-                    <td><input type="text" class="past-input-text" value="${escHtml(st.notes || '')}" placeholder="Notes..." onchange="updateStudentEditField('${sessionId}', 'notes', this.value)"></td>
+                    <td><input type="text" class="past-input-text past-note-in" value="${escHtml(st.notes || '')}" placeholder="Notes..." onchange="updateStudentEditField('${sessionId}', 'notes', this.value)"></td>
                     <td><button type="button" class="btn-mini-danger" onclick="deleteStudentPastEntry('${sessionId}')">🗑</button></td>
                 `;
                 tbody.appendChild(row);
@@ -3643,21 +3657,124 @@
         }
 
 
+        function updateModalSummaryTotals() {
+            if (!editingStudentModalData) return;
+            const summaryContainer = document.querySelector('.student-edit-stats-summary');
+            if (!summaryContainer) return;
+
+            let totalPicks = 0, totalAbsences = 0, totalPluses = 0, totalMinuses = 0, totalTeamPluses = 0, totalTeamMinuses = 0;
+
+            editingStudentModalData.studentSessions.forEach(item => {
+                const st = item.studentData || {};
+                if (st.isPicked) totalPicks++;
+                if (st.isAbsent) totalAbsences++;
+                totalPluses += Number(st.pluses) || 0;
+                totalMinuses += Number(st.minuses) || 0;
+                totalTeamPluses += Number(st.teamPluses) || 0;
+                totalTeamMinuses += Number(st.teamMinuses) || 0;
+            });
+
+            const net = (totalPluses + totalTeamPluses) - (totalMinuses + totalTeamMinuses);
+
+            summaryContainer.innerHTML = `
+                <div class="student-edit-stat-card">
+                    <div class="label">${t('ptStatsSessionsRecorded')}</div>
+                    <div class="val">${editingStudentModalData.studentSessions.length}</div>
+                </div>
+                <div class="student-edit-stat-card">
+                    <div class="label" style="color:#2ca02c;">${t('ptStatPluses')}</div>
+                    <div class="val" style="color:#2ca02c;">${totalPluses}</div>
+                </div>
+                <div class="student-edit-stat-card">
+                    <div class="label" style="color:#d62728;">${t('ptStatMinuses')}</div>
+                    <div class="val" style="color:#d62728;">${totalMinuses}</div>
+                </div>
+                <div class="student-edit-stat-card">
+                    <div class="label" style="color:#1f5a2b;">T+ / T-</div>
+                    <div class="val" style="color:#1f5a2b;">${totalTeamPluses} / ${totalTeamMinuses}</div>
+                </div>
+                <div class="student-edit-stat-card">
+                    <div class="label">${t('ptStatPicks')} / ${t('ptColAbs')}</div>
+                    <div class="val">${totalPicks} / ${totalAbsences}</div>
+                </div>
+                <div class="student-edit-stat-card">
+                    <div class="label">${t('ptStatNet')}</div>
+                    <div class="val" style="color:${net >= 0 ? '#2ca02c' : '#d62728'};">${net >= 0 ? '+' : ''}${net}</div>
+                </div>
+            `;
+        }
+
         function updateStudentEditField(sessionId, field, value) {
+
             if (!editingStudentModalData) return;
             const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
-            if (item) {
-                item.studentData[field] = value;
-                renderStudentDetailBodyContent();
+            if (!item) return;
+
+            item.studentData[field] = value;
+
+            if (editingStudentModalData.currentSessionId === sessionId) {
+                if (field === 'pluses') {
+                    const el = document.getElementById('editDetailPluses');
+                    if (el && el.value != value) el.value = value;
+                } else if (field === 'minuses') {
+                    const el = document.getElementById('editDetailMinuses');
+                    if (el && el.value != value) el.value = value;
+                } else if (field === 'teamPluses') {
+                    const el = document.getElementById('editDetailTeamPluses');
+                    if (el && el.value != value) el.value = value;
+                } else if (field === 'teamMinuses') {
+                    const el = document.getElementById('editDetailTeamMinuses');
+                    if (el && el.value != value) el.value = value;
+                } else if (field === 'isPicked') {
+                    const el = document.getElementById('editDetailPicked');
+                    if (el) el.checked = !!value;
+                } else if (field === 'isAbsent') {
+                    const el = document.getElementById('editDetailAbsent');
+                    if (el) el.checked = !!value;
+                }
             }
+
+            const tbody = document.getElementById('studentPastTableBody');
+            if (tbody) {
+                const tr = tbody.querySelector(`tr[data-session-id="${CSS.escape ? CSS.escape(sessionId) : sessionId}"]`);
+                if (tr) {
+                    if (field === 'pluses') {
+                        const el = tr.querySelector('.past-plus-in');
+                        if (el && el.value != value) el.value = value;
+                    } else if (field === 'minuses') {
+                        const el = tr.querySelector('.past-minus-in');
+                        if (el && el.value != value) el.value = value;
+                    } else if (field === 'teamPluses') {
+                        const el = tr.querySelector('.past-tplus-in');
+                        if (el && el.value != value) el.value = value;
+                    } else if (field === 'teamMinuses') {
+                        const el = tr.querySelector('.past-tminus-in');
+                        if (el && el.value != value) el.value = value;
+                    } else if (field === 'isPicked') {
+                        const el = tr.querySelector('.past-pick-in');
+                        if (el) el.checked = !!value;
+                    } else if (field === 'isAbsent') {
+                        const el = tr.querySelector('.past-abs-in');
+                        if (el) el.checked = !!value;
+                    } else if (field === 'notes') {
+                        const el = tr.querySelector('.past-note-in');
+                        if (el && el.value != value) el.value = value;
+                    }
+                }
+            }
+
+            updateModalSummaryTotals();
         }
 
         function updateStudentEditSessionDate(oldSessionId, newDateStr) {
             if (!editingStudentModalData || !newDateStr) return;
             const item = editingStudentModalData.studentSessions.find(s => s.sessionId === oldSessionId);
             if (item) {
-                const timePart = item.time ? `T${item.time}:00` : 'T10:00:00';
-                item.newSessionId = `${newDateStr}${timePart}`;
+                const cleanTime = String(item.time || '10:00').trim();
+                const timeParts = cleanTime.split(':');
+                const hh = (timeParts[0] || '10').padStart(2, '0');
+                const mm = (timeParts[1] || '00').padStart(2, '0');
+                item.newSessionId = `${newDateStr}T${hh}:${mm}:00`;
             }
         }
 
@@ -3694,13 +3811,18 @@
             if (!editingStudentModalData) return;
 
             const dateVal = document.getElementById('newInteractionDate').value;
-            const timeVal = document.getElementById('newInteractionTime').value || '10:00';
+            let rawTime = String(document.getElementById('newInteractionTime').value || '10:00').trim();
             if (!dateVal) {
                 showMessage(t('ptMsgSelectGroup') || 'Please select a valid date', 'error');
                 return;
             }
 
-            const newSessionId = `${dateVal}T${timeVal}:00`;
+            const timeParts = rawTime.split(':');
+            const hh = (timeParts[0] || '10').padStart(2, '0');
+            const mm = (timeParts[1] || '00').padStart(2, '0');
+            const formattedTime = `${hh}:${mm}`;
+            const newSessionId = `${dateVal}T${hh}:${mm}:00`;
+
             const pluses = parseInt(document.getElementById('newInteractionPluses').value) || 0;
             const minuses = parseInt(document.getElementById('newInteractionMinuses').value) || 0;
             const teamPluses = parseInt(document.getElementById('newInteractionTeamPluses').value) || 0;
@@ -3723,7 +3845,7 @@
 
             editingStudentModalData.studentSessions.push({
                 sessionId: newSessionId,
-                time: timeVal,
+                time: formattedTime,
                 studentData: newStudentData,
                 isNewEntry: true
             });
@@ -3732,34 +3854,57 @@
             renderStudentDetailBodyContent();
         }
 
+        function collectModalFormData() {
+            if (!editingStudentModalData) return;
+            const { studentSessions } = editingStudentModalData;
+
+            const tbody = document.getElementById('studentPastTableBody');
+            if (tbody) {
+                const rows = tbody.querySelectorAll('tr[data-session-id]');
+                rows.forEach(tr => {
+                    const sid = tr.dataset.sessionId;
+                    if (!sid) return;
+                    const item = studentSessions.find(s => s.sessionId === sid);
+                    if (!item) return;
+
+                    const dateIn = tr.querySelector('.past-date-in');
+                    const timeIn = tr.querySelector('.past-time-in');
+                    const plusIn = tr.querySelector('.past-plus-in');
+                    const minusIn = tr.querySelector('.past-minus-in');
+                    const tPlusIn = tr.querySelector('.past-tplus-in');
+                    const tMinusIn = tr.querySelector('.past-tminus-in');
+                    const pickIn = tr.querySelector('.past-pick-in');
+                    const absIn = tr.querySelector('.past-abs-in');
+                    const noteIn = tr.querySelector('.past-note-in');
+
+                    if (dateIn && dateIn.value) {
+                        const rawTime = String(timeIn && timeIn.value ? timeIn.value : item.time || '10:00').trim();
+                        const timeParts = rawTime.split(':');
+                        const hh = (timeParts[0] || '10').padStart(2, '0');
+                        const mm = (timeParts[1] || '00').padStart(2, '0');
+                        item.newSessionId = `${dateIn.value}T${hh}:${mm}:00`;
+                        item.time = `${hh}:${mm}`;
+                    }
+                    if (plusIn) item.studentData.pluses = parseInt(plusIn.value) || 0;
+                    if (minusIn) item.studentData.minuses = parseInt(minusIn.value) || 0;
+                    if (tPlusIn) item.studentData.teamPluses = parseInt(tPlusIn.value) || 0;
+                    if (tMinusIn) item.studentData.teamMinuses = parseInt(tMinusIn.value) || 0;
+                    if (pickIn) item.studentData.isPicked = pickIn.checked;
+                    if (absIn) item.studentData.isAbsent = absIn.checked;
+                    if (noteIn) item.studentData.notes = noteIn.value;
+                });
+            }
+        }
+
         async function saveNotes() {
             if (!editingStudentModalData) {
                 closeDetailModal();
                 return;
             }
 
-            const { name, groupId, currentSessionId, studentSessions } = editingStudentModalData;
-            const notesText = (document.getElementById('notesTextarea')?.value || '').trim();
+            collectModalFormData();
 
-            const plusesIn = document.getElementById('editDetailPluses');
-            const minusesIn = document.getElementById('editDetailMinuses');
-            const teamPlusesIn = document.getElementById('editDetailTeamPluses');
-            const teamMinusesIn = document.getElementById('editDetailTeamMinuses');
-            const pickedIn = document.getElementById('editDetailPicked');
-            const absentIn = document.getElementById('editDetailAbsent');
-
-            if (currentSessionId) {
-                let currentItem = studentSessions.find(s => s.sessionId === currentSessionId);
-                if (currentItem) {
-                    if (plusesIn) currentItem.studentData.pluses = parseInt(plusesIn.value) || 0;
-                    if (minusesIn) currentItem.studentData.minuses = parseInt(minusesIn.value) || 0;
-                    if (teamPlusesIn) currentItem.studentData.teamPluses = parseInt(teamPlusesIn.value) || 0;
-                    if (teamMinusesIn) currentItem.studentData.teamMinuses = parseInt(teamMinusesIn.value) || 0;
-                    if (pickedIn) currentItem.studentData.isPicked = pickedIn.checked;
-                    if (absentIn) currentItem.studentData.isAbsent = absentIn.checked;
-                    currentItem.studentData.notes = notesText;
-                }
-            }
+            const { name, groupId, studentSessions } = editingStudentModalData;
 
             const originalSessionIds = new Set();
             DB_EXPORT.forEach(s => {
@@ -3781,7 +3926,25 @@
             });
 
             studentSessions.forEach(item => {
-                const targetSessionId = item.newSessionId || item.sessionId;
+                let targetSessionId = item.newSessionId || item.sessionId;
+                targetSessionId = String(targetSessionId).trim().replace(/\s+/g, 'T').replace(/(T\d{2}:\d{2}:\d{2})(:\d{2})+$/, '$1');
+
+                if (!targetSessionId.includes('T')) {
+                    targetSessionId = `${targetSessionId}T10:00:00`;
+                } else {
+                    const parts = targetSessionId.split('T');
+                    const datePart = parts[0];
+                    const timePart = parts[1] || '10:00:00';
+                    const tParts = timePart.split(':');
+                    const hh = (tParts[0] || '10').padStart(2, '0');
+                    const mm = (tParts[1] || '00').padStart(2, '0');
+                    const ss = (tParts[2] || '00').padStart(2, '0');
+                    targetSessionId = `${datePart}T${hh}:${mm}:${ss}`;
+                }
+
+                item.sessionId = targetSessionId;
+                delete item.newSessionId;
+
                 let session = DB_EXPORT.find(s => s.id === targetSessionId);
 
                 if (!session) {
@@ -3813,6 +3976,13 @@
                     });
                 }
             });
+
+            DB_EXPORT.forEach(s => {
+                if (s.id && (s.id.includes('Invalid') || s.id.includes('NaN'))) {
+                    s.id = new Date().toISOString().split('T')[0] + 'T10:00:00';
+                }
+            });
+
 
             syncGlobalDbExport();
             await persistEditedGroupSessionsToDisk(groupId);
