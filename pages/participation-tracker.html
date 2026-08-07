@@ -1047,28 +1047,64 @@
         }
 
         function resolveBadgeDefinition(badge) {
-            const icon = normalizeBadgeLabel(badge && badge.icon);
-            const label = normalizeBadgeLabel(badge && badge.label);
+            if (!badge) return null;
+            let icon = '';
+            let label = '';
+
+            if (typeof badge === 'object') {
+                icon = normalizeBadgeLabel(badge.icon);
+                label = normalizeBadgeLabel(badge.label);
+            } else if (typeof badge === 'string') {
+                label = normalizeBadgeLabel(badge);
+            }
+
             const definitions = getConfiguredBadgeDefinitions();
 
-            return definitions.find(def => normalizeBadgeLabel(def.icon) === icon && normalizeBadgeLabel(def.label) === label)
-                || definitions.find(def => icon && normalizeBadgeLabel(def.icon) === icon)
-                || definitions.find(def => label && normalizeBadgeLabel(def.label) === label)
-                || null;
+            if (icon && label) {
+                const exact = definitions.find(def => normalizeBadgeLabel(def.icon) === icon && normalizeBadgeLabel(def.label) === label);
+                if (exact) return exact;
+            }
+
+            if (icon) {
+                const iconMatch = definitions.find(def => normalizeBadgeLabel(def.icon) === icon);
+                if (iconMatch) return iconMatch;
+            }
+
+            if (label) {
+                const labelMatch = definitions.find(def => normalizeBadgeLabel(def.label) === label);
+                if (labelMatch) return labelMatch;
+                const comboMatch = definitions.find(def => normalizeBadgeLabel(`${def.icon} ${def.label}`) === label);
+                if (comboMatch) return comboMatch;
+            }
+
+            return null;
         }
 
         function resolveBadgeData(badge) {
             const configured = resolveBadgeDefinition(badge);
-            const rawCoeff = configured?.coefficient !== undefined ? configured.coefficient : badge?.coefficient;
+            const rawCoeff = configured?.coefficient !== undefined ? configured.coefficient : (typeof badge === 'object' ? badge?.coefficient : 1);
             const coefficient = Number.isFinite(Number(rawCoeff)) ? Number(rawCoeff) : 1;
+
+            let icon = String(configured?.icon || (typeof badge === 'object' ? badge?.icon : '') || '').trim();
+            let label = String(configured?.label || (typeof badge === 'object' ? badge?.label : (typeof badge === 'string' ? badge : 'Badge')) || '').trim();
+
+            if (!icon && typeof badge === 'string') {
+                const parts = badge.trim().split(/\s+/);
+                if (parts.length > 1 && (parts[0].length <= 4 || /\p{Extended_Pictographic}/u.test(parts[0]))) {
+                    icon = parts[0];
+                    label = parts.slice(1).join(' ');
+                }
+            }
+
             return {
-                icon: String(configured?.icon || badge?.icon || '').trim(),
-                label: String(configured?.label || badge?.label || '').trim(),
-                meaning: String(configured?.meaning || badge?.meaning || '').trim(),
-                tone: normalizeBadgeTone(configured?.tone || badge?.tone) || 'neutral',
+                icon,
+                label,
+                meaning: String(configured?.meaning || (typeof badge === 'object' ? badge?.meaning : '') || '').trim(),
+                tone: normalizeBadgeTone(configured?.tone || (typeof badge === 'object' ? badge?.tone : '')) || 'neutral',
                 coefficient
             };
         }
+
 
         // Initialize app
         async function initializeApp() {
@@ -3485,55 +3521,102 @@
         function formatBadgesEditable(sessionId, badges) {
             if (!Array.isArray(badges)) badges = [];
             const chips = badges.map((b, idx) => {
-                const label = (typeof b === 'string') ? b : (b.label || b.icon || 'Badge');
-                const icon = (typeof b === 'object' && b.icon) ? b.icon : '';
-                const displayStr = icon ? `${icon} ${label}` : label;
+                const data = (typeof resolveBadgeData === 'function') ? resolveBadgeData(b) : {};
+                const label = data.label || (typeof b === 'string' ? b : (b.label || b.icon || 'Badge'));
+                const icon = data.icon || (typeof b === 'object' && b.icon ? b.icon : '');
+                const displayStr = (icon && !label.includes(icon)) ? `${icon} ${label}` : label;
+                const toneColor = data.tone === 'positive' ? '#0369a1' : (data.tone === 'negative' ? '#b91c1c' : '#334155');
+                const toneBg = data.tone === 'positive' ? '#e0f2fe' : (data.tone === 'negative' ? '#fee2e2' : '#f1f5f9');
+                const toneBorder = data.tone === 'positive' ? '#7dd3fc' : (data.tone === 'negative' ? '#fca5a5' : '#cbd5e1');
+
                 return `
-                    <span class="badge-edit-chip">
+                    <span class="badge-edit-chip" style="color:${toneColor}; background:${toneBg}; border-color:${toneBorder};">
                         <span>${escHtml(displayStr)}</span>
-                        <button type="button" class="badge-chip-remove" onclick="removeBadgeFromStudentSession('${sessionId}', ${idx})" title="Remove Badge">&times;</button>
+                        <button type="button" class="badge-chip-remove" style="color:${toneColor};" onclick="removeBadgeFromStudentSession('${sessionId}', ${idx})" title="Remove Badge">&times;</button>
                     </span>
                 `;
+            }).join('');
+
+            const configuredDefs = (typeof getConfiguredBadgeDefinitions === 'function') ? getConfiguredBadgeDefinitions() : [];
+            const filteredDefs = configuredDefs.filter(d => !d.isBuiltin || (d.icon !== '+' && d.icon !== '-'));
+
+            const optionsHtml = filteredDefs.map((def, idx) => {
+                const icon = def.icon ? `${def.icon} ` : '';
+                const label = def.label || def.icon || 'Badge';
+                const val = `${icon}${label}`.trim();
+                const toneSymbol = def.tone === 'positive' ? ' (+)' : (def.tone === 'negative' ? ' (-)' : '');
+                return `<option value="${idx}">${escHtml(val + toneSymbol)}</option>`;
             }).join('');
 
             return `
                 <div class="badge-edit-container">
                     ${chips}
-                    <button type="button" class="btn-add-badge-mini" onclick="promptAddBadgeToSession('${sessionId}')">+ Badge</button>
+                    <select class="badge-add-select" onchange="handleAddBadgeSelect('${sessionId}', this)">
+                        <option value="">+ Badge...</option>
+                        ${optionsHtml}
+                        <option value="__custom__">✏️ Custom...</option>
+                    </select>
                 </div>
             `;
         }
 
-        function promptAddBadgeToSession(sessionId) {
+
+        async function handleAddBadgeSelect(sessionId, selectEl) {
+            if (!selectEl || !editingStudentModalData) return;
+            const val = selectEl.value;
+            selectEl.value = '';
+            if (val === '' || val === null || val === undefined) return;
+
+            const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
+            if (!item) return;
+
+            let newBadge = null;
+            if (val === '__custom__') {
+                const msg = 'Enter custom badge name or label:';
+                const input = (typeof showPrompt === 'function') ? (await showPrompt(msg, '')) : null;
+                if (!input || !input.trim()) return;
+                const txt = input.trim();
+                const parts = txt.split(/\s+/);
+                if (parts.length > 1 && (parts[0].length <= 4 || /\p{Extended_Pictographic}/u.test(parts[0]))) {
+                    newBadge = { icon: parts[0], label: parts.slice(1).join(' '), tone: 'positive' };
+                } else {
+                    newBadge = { icon: '🏅', label: txt, tone: 'positive' };
+                }
+            } else {
+                const configuredDefs = (typeof getConfiguredBadgeDefinitions === 'function') ? getConfiguredBadgeDefinitions() : [];
+                const filteredDefs = configuredDefs.filter(d => !d.isBuiltin || (d.icon !== '+' && d.icon !== '-'));
+                const defIndex = parseInt(val);
+                if (!isNaN(defIndex) && filteredDefs[defIndex]) {
+                    const selDef = filteredDefs[defIndex];
+                    newBadge = {
+                        icon: selDef.icon,
+                        label: selDef.label,
+                        tone: selDef.tone
+                    };
+                }
+            }
+
+            if (!newBadge) return;
+
+            if (!Array.isArray(item.studentData.badges)) {
+                item.studentData.badges = [];
+            }
+            item.studentData.badges.push(newBadge);
+            renderStudentDetailBodyContent();
+        }
+
+
+        async function promptAddBadgeToSession(sessionId) {
             if (!editingStudentModalData) return;
             const item = editingStudentModalData.studentSessions.find(s => s.sessionId === sessionId);
             if (!item) return;
 
-            const badgeOptions = [
-                '⭐ Star',
-                '🏅 Helpful',
-                '💡 Great Answer',
-                '🤝 Teamwork',
-                '🏆 Top Performer',
-                '⚠️ Disruptive',
-                '💬 Off-topic',
-                '⏳ Late'
-            ];
-
-            const input = window.prompt(
-                'Add a badge (select or type a custom badge name):\n\n' + badgeOptions.map((b, i) => `${i + 1}. ${b}`).join('\n'),
-                '⭐ Star'
-            );
+            const msg = 'Enter custom badge name or label:';
+            const input = (typeof showPrompt === 'function') ? (await showPrompt(msg, '⭐ Star')) : null;
 
             if (!input) return;
-            let val = input.trim();
+            let val = String(input).trim();
             if (!val) return;
-
-            // Allow typing a number 1-8 to pick preset
-            const numIndex = parseInt(val) - 1;
-            if (!isNaN(numIndex) && numIndex >= 0 && numIndex < badgeOptions.length) {
-                val = badgeOptions[numIndex];
-            }
 
             if (!Array.isArray(item.studentData.badges)) {
                 item.studentData.badges = [];
@@ -3541,6 +3624,7 @@
             item.studentData.badges.push(val);
             renderStudentDetailBodyContent();
         }
+
 
         async function removeBadgeFromStudentSession(sessionId, badgeIndex) {
             if (!editingStudentModalData) return;
