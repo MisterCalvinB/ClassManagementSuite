@@ -1886,6 +1886,7 @@
             <button id="con-class-dropdown-btn" class="action-btn btn-grey con-class-dropdown-btn" type="button"
               onclick="conToggleClassDropdown()"></button>
             <ul id="con-class-pills" class="con-class-dropdown-menu"></ul>
+          </div>
         </div>
 
         <div class="con-tb-group" id="con-tb-mode-toggle" style="margin-left: auto;">
@@ -1902,8 +1903,6 @@
             </button>
           </div>
         </div>
-
-      </div>
 
       <div id="con-page-nav">
         <div id="con-page-nav-main">
@@ -15672,12 +15671,17 @@
           _preDragSnap = conBuildPageSnapshot();
 
           // Snapshot offsets for all multi-selected nodes relative to this drag origin
-          const isMulti = conMultiSelected.size > 1 && conMultiSelected.has(id);
+          const allSelectedNodeIds = new Set(conMultiSelected);
+          if (conSelected) allSelectedNodeIds.add(conSelected);
+          const isSelected = allSelectedNodeIds.has(id);
+          const totalSelectedObjects = allSelectedNodeIds.size + conNoteSelected.size + conDrawingSelected.size;
+          const isMulti = isSelected && (allSelectedNodeIds.size > 1 || totalSelectedObjects > 1);
+
           // Expand selection to include phrase siblings of any selected node
           let _multiDragIds = null;
           if (isMulti) {
-            _multiDragIds = new Set(conMultiSelected);
-            conMultiSelected.forEach(nid => {
+            _multiDragIds = new Set(allSelectedNodeIds);
+            allSelectedNodeIds.forEach(nid => {
               const pg = conGroups.find(g => g.phraseGroup && g.nodeIds.includes(nid));
               if (pg) pg.nodeIds.forEach(sid => _multiDragIds.add(sid));
             });
@@ -15687,14 +15691,14 @@
             : null;
           // Snapshot selected notes for joint drag
           const nodeStartX = node.x, nodeStartY = node.y;
-          const noteGroupSnap = (conNoteSelected.size > 0 && conMultiSelected.has(id))
+          const noteGroupSnap = (conNoteSelected.size > 0 && isSelected)
             ? Array.from(conNoteSelected).map(nid => {
               const nd = conNotes.find(n => n.id === nid);
               return nd ? { nd, snapX: nd.x, snapY: nd.y } : null;
             }).filter(Boolean)
             : [];
           // Snapshot selected drawings for joint drag
-          const drawGroupSnap = (conDrawingSelected.size > 0 && conMultiSelected.has(id))
+          const drawGroupSnap = (conDrawingSelected.size > 0 && isSelected)
             ? Array.from(conDrawingSelected).map(did => {
               const dr = conDrawings.find(d => d.id === did);
               return dr ? { dr, snapX: dr.x, snapY: dr.y } : null;
@@ -15959,8 +15963,18 @@
                   conMultiSelected.add(id);
                   el.classList.add('con-multi-selected');
                 }
-              } else if (e.shiftKey && conMultiSelected.size > 0) {
+              } else if (e.shiftKey && (conMultiSelected.size > 0 || conSelected)) {
                 // Shift-click: also toggle
+                if (conSelected && conSelected !== id) {
+                  const prevEl = conNodes.find(n => n.id === conSelected);
+                  if (prevEl) {
+                    conMultiSelected.add(conSelected);
+                    prevEl.el.classList.remove('con-selected');
+                    prevEl.el.classList.add('con-multi-selected');
+                  }
+                }
+                conSelected = null;
+                conNodes.forEach(n => n.el.classList.remove('con-selected'));
                 if (conMultiSelected.has(id)) {
                   conMultiSelected.delete(id);
                   el.classList.remove('con-multi-selected');
@@ -32374,6 +32388,8 @@
         if (type === 'node') {
           const node = (window.conGetNodes ? window.conGetNodes() : []).find(n => n.id === id);
           if (!node || !node.el) return;
+          node.emoji = emoji || null;
+          _updateNodeDot(node);
           // Place a board-level draggable sticker near the node
           if (emoji) {
             const board = document.getElementById('constellation-board');
@@ -32393,6 +32409,12 @@
             }
           }
         } else if (type === 'note') {
+          const note = typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === id) : null;
+          if (note) {
+            note.emoji = emoji || null;
+            const noteEl = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(id) : null;
+            if (noteEl) _updateNoteDot(noteEl, emoji);
+          }
           if (emoji && window.conNoteAddEmojiSticker) {
             window.conNoteAddEmojiSticker(id, emoji);
           }
@@ -32403,7 +32425,7 @@
         if (!node || !node.el) return;
         const dot = node.el.querySelector('.con-emoji-dot');
         if (!dot) return;
-        dot.textContent = node.emoji || '●';
+        dot.textContent = node.emoji || '•';
         dot.classList.toggle('has-emoji', !!node.emoji);
         dot.title = node.emoji ? 'Change reaction' : 'Add reaction';
       }
@@ -32412,7 +32434,7 @@
         if (!noteEl) return;
         const dot = noteEl.querySelector('.con-emoji-dot');
         if (!dot) return;
-        dot.textContent = emoji || '●';
+        dot.textContent = emoji || '•';
         dot.classList.toggle('has-emoji', !!emoji);
         dot.title = emoji ? 'Change reaction' : 'Add reaction';
       }
@@ -32420,7 +32442,7 @@
       function _makeEmojiDot(type, id) {
         const dot = document.createElement('button');
         dot.className = 'con-emoji-dot';
-        dot.textContent = '●';
+        dot.textContent = '•';
         dot.title = 'Add reaction';
         dot.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
         dot.addEventListener('click', e => _pickerOpen(e, type, id));
