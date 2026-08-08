@@ -24,10 +24,12 @@
         <button class="nav-pop-item" id="btn-new-doc">New <span class="nav-pop-hint">Ctrl+N</span></button>
         <button class="nav-pop-item" id="btn-open-doc">Open <span class="nav-pop-hint">Ctrl+O</span></button>
         <button class="nav-pop-item" id="btn-open-from-disk" data-i18n="deOpenFromDisk">Open from disk…</button>
+        <button class="nav-pop-item" id="btn-open-template">Open template…</button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-save-doc">Save <span class="nav-pop-hint">Ctrl+S</span></button>
         <button class="nav-pop-item" id="btn-save-as-doc">Save As…</button>
         <button class="nav-pop-item" id="btn-save-to-folder" data-i18n="deSaveToFolder">Save to folder…</button>
+        <button class="nav-pop-item" id="btn-save-as-template">Save as template…</button>
         <button class="nav-pop-item" id="btn-save-all-doc">Save All <span class="nav-pop-hint">Ctrl+⇧S</span></button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-doc-history">History</button>
@@ -61,9 +63,6 @@
     <div class="nav-group">
       <button class="nav-btn">Format ▾</button>
       <div class="nav-group-popup">
-        <button class="nav-pop-item" id="btn-open-template">Open template…</button>
-        <button class="nav-pop-item" id="btn-save-as-template">Save as template…</button>
-        <hr class="nav-pop-sep">
         <div id="page-layout-wrap">
           <button class="nav-pop-item" id="btn-page-layout">Page Layout…</button>
           <div id="page-layout-popup">
@@ -1771,7 +1770,7 @@
     }
 
     function deTemplateBrowserDisplayName(relativePath) {
-      return deBasename(relativePath).replace(/\.md$/i, '');
+      return deBasename(relativePath).replace(/\.(md|html)$/i, '');
     }
 
     function deStylesheetBrowserDisplayName(relativePath) {
@@ -2697,13 +2696,13 @@
     async function refreshTemplateList() {
       if (!window.Desktop || !Desktop.isElectron()) return [];
       try {
-        const r = await Desktop.listByPath('docEditorTemplates', '', { extensions: ['.md'], recursive: true });
+        const r = await Desktop.listByPath('docEditorTemplates', '', { extensions: ['.md', '.html'], recursive: true });
         if (!r || !r.ok || !Array.isArray(r.files)) return [];
         return r.files.filter(f => {
           const rp = f.relativePath || '';
           const parts = rp.split('/');
           if (parts.length === 1) return true;
-          if (parts.length === 2) return parts[1] === parts[0] + '.md';
+          if (parts.length === 2) return parts[1] === parts[0] + '.md' || parts[1] === parts[0] + '.html';
           return false;
         });
       } catch (e) { return []; }
@@ -2714,7 +2713,7 @@
         title: t('deFileBrowserTemplatesTitle') || 'Templates',
         target: 'docEditorTemplates',
         currentPath: '',
-        extensions: ['.md'],
+        extensions: ['.md', '.html'],
         bundleMode: false,
         displayNameFn: deTemplateBrowserDisplayName,
         rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
@@ -2741,6 +2740,15 @@
       try {
         const r = await Desktop.readByPath('docEditorTemplates', filename);
         if (r && r.ok) {
+          const isHtml = (filename || '').toLowerCase().endsWith('.html');
+          currentDocType = isHtml ? 'html' : 'md';
+          const typeBtn = document.getElementById('btn-doc-type');
+          if (typeBtn) {
+            typeBtn.textContent = currentDocType.toUpperCase();
+            typeBtn.classList.toggle('html-mode', currentDocType === 'html');
+          }
+          if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : 'markdown');
+
           const inlineState = deExtractStyleBlocks(r.content || '');
           mdEditor.setValue(inlineState.content || '');
           currentDocName = null;
@@ -2762,17 +2770,18 @@
 
     async function saveAsTemplate() {
       if (!window.Desktop || !Desktop.isElectron()) return;
-      const suggested = currentDocName ? currentDocName.replace(/\.md$/i, '') + '.md' : '';
+      const currentExt = (currentDocType === 'html') ? '.html' : '.md';
+      const suggested = currentDocName ? currentDocName.replace(/\.(md|html)$/i, '') + currentExt : ('template' + currentExt);
       await deOpenFileBrowser({
         title: t('deFileBrowserSaveTemplate') || 'Save as template',
         target: 'docEditorTemplates',
         currentPath: '',
-        extensions: ['.md'],
+        extensions: ['.md', '.html'],
         bundleMode: false,
         displayNameFn: deTemplateBrowserDisplayName,
         rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
         mode: 'save',
-        placeholder: 'template-name.md',
+        placeholder: 'template-name' + currentExt,
         suggestedName: suggested,
         confirmOverwrite: true,
         onSave: async (name, folderPath) => {
@@ -2781,7 +2790,7 @@
             showToast(t('deFileBrowserEnterName') || 'Enter a file name.', true);
             return;
           }
-          if (!nextName.endsWith('.md')) nextName += '.md';
+          if (!/\.(md|html)$/i.test(nextName)) nextName += currentExt;
           try {
             const r = await Desktop.saveText('docEditorTemplates', nextName, deBuildPersistedCurrentDocContent(), deNormalizeRelPath(folderPath) || null);
             if (r && r.ok) {
@@ -3851,11 +3860,16 @@
       applyPageLayoutToPreview();
 
       const popup = document.getElementById('page-layout-popup');
+      const navGroupPopup = popup ? popup.closest('.nav-group-popup') : null;
 
       document.getElementById('btn-page-layout').addEventListener('click', function (e) {
         e.stopPropagation();
         popup.classList.toggle('open');
-        if (popup.classList.contains('open')) {
+        const isOpen = popup.classList.contains('open');
+        if (navGroupPopup) {
+          navGroupPopup.classList.toggle('has-open-popup', isOpen);
+        }
+        if (isOpen) {
           const rect = this.getBoundingClientRect();
           popup.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
           popup.style.top = rect.bottom + 'px';
@@ -3864,11 +3878,7 @@
       document.getElementById('pl-close-btn').addEventListener('click', function (e) {
         e.stopPropagation();
         popup.classList.remove('open');
-      });
-      document.addEventListener('click', function (e) {
-        if (!popup.contains(e.target) && e.target.id !== 'btn-page-layout') {
-          popup.classList.remove('open');
-        }
+        if (navGroupPopup) navGroupPopup.classList.remove('has-open-popup');
       });
 
       // Orientation buttons
