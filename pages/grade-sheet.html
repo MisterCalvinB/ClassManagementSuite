@@ -502,131 +502,202 @@
 
   <!-- Test Options unified modal -->
   <div id="test-options-overlay" class="crit-popup-overlay hidden">
-    <div class="crit-popup wide panel topt-modal" role="dialog" aria-modal="true">
-      <div class="crit-popup-title" style="display:flex;align-items:center;gap:10px;">
-        <span data-i18n="gsTestOptionsTitle">Test Options</span>
-        <button type="button" class="btn" onclick="showGsModalTour()" style="margin-left:auto;font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel">▶ Tour</button>
+    <div class="crit-popup topt-modal-panel panel" role="dialog" aria-modal="true">
+      <!-- Modal Header Bar -->
+      <div class="topt-header-bar">
+        <div class="topt-header-title">
+          <span data-i18n="gsTestOptionsTitle">Test Options</span>
+          <span id="topt-context-badge" class="topt-context-badge"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="btn" onclick="showGsModalTour()" style="font-size:0.78rem;padding:3px 10px;" data-i18n="tourBtnLabel">▶ Tour</button>
+          <button id="topt-close-top" type="button" class="btn" style="padding:2px 8px;font-size:1rem;line-height:1;" aria-label="Close">✕</button>
+        </div>
       </div>
 
-      <!-- Test Info -->
-      <div class="topt-section" data-section="info">
-        <button type="button" class="topt-head">
-          <span class="topt-chevron">▶</span><span data-i18n="gsTestInfoTitle">Test Info</span>
-          <span class="topt-summary" id="topt-info-summary"></span>
-        </button>
-        <div class="topt-body">
-          <div class="form-group">
-            <label for="topt-info-name" data-i18n="gsToptName">Name</label>
-            <input id="topt-info-name" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderName" placeholder="e.g. End-of-term, Oral, Quiz 2" />
-          </div>
-          <div class="form-group">
-            <label for="topt-info-date" data-i18n="gsToptDate">Date</label>
-            <input id="topt-info-date" class="input" type="date" />
-            <p class="field-hint" data-i18n="gsToptPlannerHint"></p>
-          </div>
-          <div class="form-group">
-            <label for="topt-info-scope" data-i18n="gsToptScope">Scope</label>
-            <input id="topt-info-scope" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderScope" placeholder="e.g. Unit 3, Ch. 1–4" />
-          </div>
-          <div class="form-group">
-            <label for="topt-info-type" data-i18n="gsToptType">Type</label>
-            <input id="topt-info-type" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderType" placeholder="e.g. Written, Oral, Quiz" />
-          </div>
-          <div class="form-group">
-            <label data-i18n="gsAddClassLabelSem">Term</label>
-            <div id="topt-info-term" class="chip-group">
-              <button type="button" class="chip" data-value="sem1" data-i18n="gsSem1">Term 1</button>
-              <button type="button" class="chip" data-value="sem2" data-i18n="gsSem2">Term 2</button>
+      <!-- Top Tab Navigation Bar -->
+      <div class="topt-tab-bar">
+        <button type="button" class="topt-tab-btn active" data-tab="info" data-i18n="gsToptTabInfo">General Info</button>
+        <button type="button" class="topt-tab-btn" data-tab="coeff" data-i18n="gsToptTabCoeff">Weighting</button>
+        <button type="button" class="topt-tab-btn" data-tab="grading" data-i18n="gsToptTabGrading">Grading Scale</button>
+        <button type="button" class="topt-tab-btn" data-tab="criteria" data-i18n="gsToptTabCriteria">Criteria</button>
+        <button type="button" class="topt-tab-btn" data-tab="preview" data-i18n="gsToptTabPreview">Grade Preview</button>
+      </div>
+
+      <!-- Tab Content Panels Body -->
+      <div class="topt-tab-body">
+
+        <!-- Tab 1: General Info -->
+        <div class="topt-tab-panel active" data-tab="info">
+          <div class="topt-grid-2col">
+            <div class="topt-card">
+              <div class="topt-card-title"><span data-i18n="gsTestInfoTitle">Test Details</span></div>
+              <div class="form-group">
+                <label for="topt-info-name" data-i18n="gsToptName">Name</label>
+                <input id="topt-info-name" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderName" placeholder="e.g. End-of-term, Oral, Quiz 2" />
+              </div>
+              <div class="form-group">
+                <label for="topt-info-date" data-i18n="gsToptDate">Date</label>
+                <input id="topt-info-date" class="input" type="date" />
+                <p class="field-hint" data-i18n="gsToptPlannerHint"></p>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label data-i18n="gsAddClassLabelSem">Term</label>
+                <div id="topt-info-term" class="chip-group">
+                  <button type="button" class="chip" data-value="sem1" data-i18n="gsSem1">Term 1</button>
+                  <button type="button" class="chip" data-value="sem2" data-i18n="gsSem2">Term 2</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="topt-card">
+              <div class="topt-card-title">Classification & Highlighting</div>
+              <div class="form-group">
+                <label for="topt-info-scope" data-i18n="gsToptScope">Scope</label>
+                <input id="topt-info-scope" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderScope" placeholder="e.g. Unit 3, Ch. 1–4" />
+              </div>
+              <div class="form-group">
+                <label for="topt-info-type" data-i18n="gsToptType">Type</label>
+                <input id="topt-info-type" class="input" type="text" data-i18n-placeholder="gsTestInfoPlaceholderType" placeholder="e.g. Written, Oral, Quiz" />
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label for="topt-info-next-grade" data-i18n="gsToptHighlight">Next-grade highlight (points, 0 = off)</label>
+                <input id="topt-info-next-grade" class="input" type="number" min="0" step="0.1" />
+              </div>
             </div>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="topt-info-next-grade" data-i18n="gsToptHighlight">Next-grade highlight (points, 0 = off)</label>
-            <input id="topt-info-next-grade" class="input" type="number" min="0" step="0.1" />
-          </div>
         </div>
-      </div>
 
-      <!-- Coefficient -->
-      <div class="topt-section" data-section="coeff">
-        <button type="button" class="topt-head">
-          <span class="topt-chevron">▶</span><span data-i18n="gsCoeffTitle">Coefficient</span>
-          <span class="topt-summary" id="topt-coeff-summary"></span>
-        </button>
-        <div class="topt-body">
-          <div class="form-group" style="margin-bottom:0.4rem;">
-            <label style="display:flex;gap:1.2rem;align-items:center;font-weight:600;">
-              <span><input type="radio" name="topt-coeff-mode" id="topt-coeff-mode-coeff" value="coeff"> <span data-i18n="gsCoeffLabelCoeff">Coefficient</span></span>
-              <span><input type="radio" name="topt-coeff-mode" id="topt-coeff-mode-fixed" value="fixed"> <span data-i18n="gsCoeffLabelFixed">Fixed weight (%)</span></span>
-            </label>
-          </div>
-          <div class="form-group" id="topt-coeff-coeff-wrap">
-            <label for="topt-coeff-input" data-i18n="gsCoeffLabelCoeff">Coefficient</label>
-            <input id="topt-coeff-input" class="input" type="number" min="0" step="0.1" />
-          </div>
-          <div class="form-group hidden" id="topt-coeff-fixed-wrap" style="margin-bottom:0;">
-            <label for="topt-coeff-fixed-input" data-i18n="gsCoeffLabelFixed">Fixed weight (%)</label>
-            <input id="topt-coeff-fixed-input" class="input" type="number" min="0" max="100" step="0.1" placeholder="e.g. 33.33" data-i18n-placeholder="gsCoeffFixedPlaceholder" />
-            <div style="font-size:0.8em;color:var(--muted);margin-top:0.2rem;" data-i18n="gsToptCoeffNote">This test always counts for exactly this % of the semester grade.</div>
-          </div>
-        </div>
-      </div>
+        <!-- Tab 2: Weighting & Coefficients -->
+        <div class="topt-tab-panel" data-tab="coeff">
+          <div class="topt-grid-2col">
+            <div class="topt-card">
+              <div class="topt-card-title"><span data-i18n="gsCoeffTitle">Weighting Mode</span></div>
+              <div class="form-group" style="margin-bottom:0.8rem;">
+                <label style="display:flex;gap:1.2rem;align-items:center;font-weight:600;">
+                  <span><input type="radio" name="topt-coeff-mode" id="topt-coeff-mode-coeff" value="coeff"> <span data-i18n="gsCoeffLabelCoeff">Coefficient</span></span>
+                  <span><input type="radio" name="topt-coeff-mode" id="topt-coeff-mode-fixed" value="fixed"> <span data-i18n="gsCoeffLabelFixed">Fixed weight (%)</span></span>
+                </label>
+              </div>
+              <div class="form-group" id="topt-coeff-coeff-wrap">
+                <label for="topt-coeff-input" data-i18n="gsCoeffLabelCoeff">Coefficient multiplier</label>
+                <input id="topt-coeff-input" class="input" type="number" min="0" step="0.1" />
+                <div style="font-size:0.8em;color:var(--muted);margin-top:0.3rem;">Proportional weight relative to other tests in the semester average.</div>
+              </div>
+              <div class="form-group hidden" id="topt-coeff-fixed-wrap" style="margin-bottom:0;">
+                <label for="topt-coeff-fixed-input" data-i18n="gsCoeffLabelFixed">Fixed weight (%)</label>
+                <input id="topt-coeff-fixed-input" class="input" type="number" min="0" max="100" step="0.1" placeholder="e.g. 33.33" data-i18n-placeholder="gsCoeffFixedPlaceholder" />
+                <div style="font-size:0.8em;color:var(--muted);margin-top:0.3rem;" data-i18n="gsToptCoeffNote">This test always counts for exactly this % of the semester grade.</div>
+              </div>
+            </div>
 
-      <!-- Grading Scale -->
-      <div class="topt-section" data-section="grading">
-        <button type="button" class="topt-head">
-          <span class="topt-chevron">▶</span><span data-i18n="gsGradingTitle">Grading Scale</span>
-          <span class="topt-summary" id="topt-grading-summary"></span>
-        </button>
-        <div class="topt-body">
-          <div class="form-group">
-            <label data-i18n="gsGradingLabelMode">Mode</label>
-            <div id="topt-grading-mode" class="chip-group">
-              <button type="button" class="chip" data-value="formula" data-i18n="gsGradingModeFormula">Formula (one % reference)</button>
-              <button type="button" class="chip" data-value="manual" data-i18n="gsToptModeManualPct">Manual % per grade</button>
-              <button type="button" class="chip" data-value="manual-points" data-i18n="gsToptModeManualPts">Manual pts per grade</button>
+            <div class="topt-card">
+              <div class="topt-card-title">Semester Weight Summary</div>
+              <div id="topt-coeff-summary-card" style="font-size:0.9rem;line-height:1.5;color:var(--ink);">
+                Active summary: <strong id="topt-coeff-summary"></strong>
+              </div>
             </div>
           </div>
-          <div id="topt-grading-formula-wrap" class="form-group">
-            <label for="topt-grading-pass4" data-i18n="gsGradingLabelPass4">% for grade 4</label>
-            <input id="topt-grading-pass4" class="input" type="number" min="0" max="100" step="0.1" />
+        </div>
+
+        <!-- Tab 3: Grading Scale -->
+        <div class="topt-tab-panel" data-tab="grading">
+          <div class="topt-card" style="margin-bottom:16px;">
+            <div class="topt-card-title"><span data-i18n="gsGradingTitle">Grading Policy & Scale Model</span></div>
+            <div class="topt-grid-2col">
+              <div class="form-group">
+                <label data-i18n="gsGradingLabelMode">Calculation Mode</label>
+                <div id="topt-grading-mode" class="chip-group">
+                  <button type="button" class="chip" data-value="formula" data-i18n="gsGradingModeFormula">Formula (one % reference)</button>
+                  <button type="button" class="chip" data-value="manual" data-i18n="gsToptModeManualPct">Manual % per grade</button>
+                  <button type="button" class="chip" data-value="manual-points" data-i18n="gsToptModeManualPts">Manual pts per grade</button>
+                </div>
+              </div>
+              <div id="topt-grading-formula-wrap" class="form-group">
+                <label for="topt-grading-pass4" data-i18n="gsGradingLabelPass4">% required for grade 4</label>
+                <input id="topt-grading-pass4" class="input" type="number" min="0" max="100" step="0.1" />
+              </div>
+            </div>
+            <div id="topt-grading-model-wrap" class="form-group" style="margin-top:8px;">
+              <label data-i18n="gsGradingLabelModel">Preset Scale Models</label>
+              <div id="topt-grading-model" class="chip-group"></div>
+            </div>
           </div>
-          <div id="topt-grading-model-wrap" class="form-group">
-            <label data-i18n="gsGradingLabelModel">Scale model</label>
-            <div id="topt-grading-model" class="chip-group"></div>
-          </div>
-          <div id="topt-grading-manual-wrap" class="hidden">
-            <div class="smod-section-title" style="margin-bottom:8px;" data-i18n="gsGradingManualTitle">Manual thresholds</div>
-            <div id="topt-grading-manual-note" style="font-size:0.8em;color:var(--muted);margin-bottom:8px;"></div>
-            <div id="topt-grading-thresholds" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:0;"></div>
+
+          <div id="topt-grading-manual-wrap" class="topt-card hidden">
+            <div class="topt-card-title" data-i18n="gsGradingManualTitle">Grade Step Thresholds</div>
+            <div id="topt-grading-manual-note" style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;"></div>
+            <div id="topt-grading-thresholds" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
           </div>
         </div>
-      </div>
 
-      <!-- Criteria -->
-      <div class="topt-section" data-section="criteria">
-        <button type="button" class="topt-head">
-          <span class="topt-chevron">▶</span><span data-i18n="gsCriteriaTitle">Criteria</span>
-          <span class="topt-summary" id="topt-criteria-summary"></span>
-        </button>
-        <div class="topt-body">
-          <div id="topt-criteria-list" class="criteria-mgmt-list"></div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;background:#f8fbf3;border:1px solid var(--line);border-radius:8px;margin-bottom:0;">
-            <select id="topt-criteria-preset" class="input" style="min-width:160px;font-size:0.85rem;"></select>
-            <input id="topt-criteria-name" class="input" type="text" data-i18n-placeholder="gsCriteriaLabelName" placeholder="Criterion name" style="flex:1;min-width:110px;font-size:0.85rem;" />
-            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelMax">max</span> <input id="topt-criteria-max" class="input" type="number" min="0" step="0.1" value="1" style="width:64px;" /></label>
-            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelCoeff">coeff</span> <input id="topt-criteria-coeff" class="input" type="number" min="0" step="0.1" value="1" style="width:55px;" /></label>
-            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><input id="topt-criteria-bonus" type="checkbox" style="width:16px;height:16px;" /> <span data-i18n="gsCriteriaLabelBonus">Bonus</span></label>
-            <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaMultiplier">×</span> <input id="topt-criteria-count" class="input" type="number" min="1" step="1" value="1" style="width:48px;" title="Number to add" data-i18n-title="gsCriteriaCountTitle" /></label>
-            <button id="topt-criteria-add" class="btn primary" type="button">+</button>
+        <!-- Tab 4: Evaluation Criteria -->
+        <div class="topt-tab-panel" data-tab="criteria">
+          <div class="topt-grid-2col">
+            <div class="topt-card">
+              <div class="topt-card-title">
+                <span data-i18n="gsCriteriaTitle">Active Criteria List</span>
+                <span id="topt-criteria-summary" style="margin-left:auto;font-size:0.8rem;color:var(--muted);font-weight:normal;"></span>
+              </div>
+              <div id="topt-criteria-list" class="criteria-mgmt-list" style="max-height:320px;"></div>
+            </div>
+
+            <div class="topt-card">
+              <div class="topt-card-title">+ Add New Criterion / Load Preset</div>
+              <div class="form-group">
+                <label for="topt-criteria-preset">Preset Template</label>
+                <select id="topt-criteria-preset" class="input"></select>
+              </div>
+              <div class="form-group">
+                <label for="topt-criteria-name" data-i18n="gsCriteriaLabelName">Criterion Name</label>
+                <input id="topt-criteria-name" class="input" type="text" data-i18n-placeholder="gsCriteriaLabelName" placeholder="Criterion name" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div class="form-group" style="margin:0;">
+                  <label for="topt-criteria-max" data-i18n="gsCriteriaLabelMax">Max Points</label>
+                  <input id="topt-criteria-max" class="input" type="number" min="0" step="0.1" value="1" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label for="topt-criteria-coeff" data-i18n="gsCriteriaLabelCoeff">Coefficient</label>
+                  <input id="topt-criteria-coeff" class="input" type="number" min="0" step="0.1" value="1" />
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:0.85rem;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input id="topt-criteria-bonus" type="checkbox" style="width:16px;height:16px;" />
+                  <span data-i18n="gsCriteriaLabelBonus">Bonus Criterion</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;">
+                  <span data-i18n="gsCriteriaMultiplier">×</span>
+                  <input id="topt-criteria-count" class="input" type="number" min="1" step="1" value="1" style="width:52px;" title="Number to add" data-i18n-title="gsCriteriaCountTitle" />
+                </label>
+              </div>
+              <button id="topt-criteria-add" class="btn primary" type="button" style="width:100%;">+ Add Criterion</button>
+            </div>
           </div>
         </div>
+
+        <!-- Tab 5: Live Grade Preview -->
+        <div class="topt-tab-panel" data-tab="preview">
+          <div class="topt-card">
+            <div class="topt-card-title">
+              <span data-i18n="gsToptPreviewTitle">Live Grade Simulation</span>
+            </div>
+            <p style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;" data-i18n="gsToptPreviewHelp">
+              Live point-to-grade mapping based on current criteria total and grading scale parameters.
+            </p>
+            <div id="topt-preview-content"></div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="crit-popup-footer">
+      <!-- Modal Footer -->
+      <div class="topt-footer-bar">
         <div></div>
         <div class="btn-row">
           <button id="topt-cancel" class="btn" type="button" data-i18n="gsToptClose">Close</button>
-          <button id="topt-save" class="btn primary" type="button" data-i18n="gsBtnSave">Save</button>
+          <button id="topt-save" class="btn primary" type="button" data-i18n="gsBtnSave">Save Options</button>
         </div>
       </div>
     </div>
@@ -4044,6 +4115,25 @@
       let activeSem = sem;
       let activeTestIndex = testIndex;
 
+      // Header context badge
+      const badge = document.getElementById("topt-context-badge");
+      if (badge) {
+        badge.textContent = `${classObj.name} · ${sem === "sem1" ? "Term 1" : "Term 2"} Test ${activeTestIndex + 1}`;
+      }
+
+      // Tab switching controller
+      function switchToptTab(tabKey) {
+        const targetTab = tabKey || "info";
+        overlay.querySelectorAll(".topt-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === targetTab));
+        overlay.querySelectorAll(".topt-tab-panel").forEach(p => p.classList.toggle("active", p.dataset.tab === targetTab));
+        if (targetTab === "preview") updateLiveGradePreview();
+      }
+      window._toptSwitchTab = switchToptTab;
+
+      overlay.querySelectorAll(".topt-tab-btn").forEach(btn => {
+        btn.onclick = () => switchToptTab(btn.dataset.tab);
+      });
+
       // ── Test Info ──────────────────────────────────────────────
       document.getElementById("topt-info-name").value = config.testName || "";
       document.getElementById("topt-info-date").value = config.testDate || "";
@@ -4058,10 +4148,13 @@
         if (!chip) return;
         activeSem = chip.dataset.value;
         termChipGroup.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c.dataset.value === activeSem));
+        if (badge) badge.textContent = `${classObj.name} · ${activeSem === "sem1" ? "Term 1" : "Term 2"} Test ${activeTestIndex + 1}`;
       };
 
-      document.getElementById("topt-info-summary").textContent =
-        [config.testName, config.testDate, config.scope, config.type].filter(Boolean).join(" · ") || "—";
+      const infoSum = document.getElementById("topt-info-summary");
+      if (infoSum) {
+        infoSum.textContent = [config.testName, config.testDate, config.scope, config.type].filter(Boolean).join(" · ") || "—";
+      }
 
       // ── Coefficient ────────────────────────────────────────────
       const isFixed = typeof config.fixedWeight === "number";
@@ -4118,9 +4211,12 @@
       syncGradingModeSelect();
       gradingPass4El.value = fmt(gradingDraft.passPercentGrade4);
       rebuildModelChips();
-      document.getElementById("topt-grading-summary").textContent = config.grading.mode === "manual"
-        ? (config.grading.manualInputMode === "points" ? "Manual pts" : "Manual %")
-        : `${fmt(config.grading.passPercentGrade4)}% → 4`;
+      const gradSum = document.getElementById("topt-grading-summary");
+      if (gradSum) {
+        gradSum.textContent = config.grading.mode === "manual"
+          ? (config.grading.manualInputMode === "points" ? "Manual pts" : "Manual %")
+          : `${fmt(config.grading.passPercentGrade4)}% → 4`;
+      }
 
       function refreshGradingVis() {
         const isManualPercent = gradingDraft.mode === "manual" && gradingDraft.manualInputMode !== "points";
@@ -4201,6 +4297,32 @@
       });
 
       gradingPass4El.oninput = () => { gradingDraft.passPercentGrade4 = toNumber(gradingPass4El.value) ?? 66.67; };
+
+      // ── Live Grade Simulation Preview ─────────────────────────
+      function updateLiveGradePreview() {
+        const container = document.getElementById("topt-preview-content");
+        if (!container) return;
+        const currentCriteria = config.criteria || [];
+        const totPossible = Math.max(0, calcCriteriaTotals({ criteria: currentCriteria }, {}).totalPossible);
+        if (totPossible <= 0) {
+          container.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:0.88rem;">${t('gsNoCriteriaYet')}</div>`;
+          return;
+        }
+        const tmpConfig = { criteria: currentCriteria, grading: Object.assign({}, gradingDraft) };
+        let html = '<div class="topt-preview-table-wrap"><table class="topt-preview-table">';
+        html += `<thead><tr><th>${t('gsToptPreviewPts')}</th><th>${t('gsToptPreviewPct')}</th><th>${t('gsToptPreviewGrade')}</th></tr></thead><tbody>`;
+        const stepCount = Math.min(20, Math.max(6, Math.ceil(totPossible)));
+        const step = totPossible / stepCount;
+        for (let p = totPossible; p >= -0.001; p -= step) {
+          const safeP = Math.max(0, Math.min(totPossible, p));
+          const ratio = totPossible > 0 ? safeP / totPossible : 0;
+          const grade = gradeFromRatio(ratio, tmpConfig);
+          const pct = Math.round(ratio * 100);
+          html += `<tr><td><strong>${fmtN(safeP)}</strong> / ${fmtN(totPossible)}</td><td>${pct}%</td><td><span style="font-weight:800;color:#111;">${fmt(grade)}</span></td></tr>`;
+        }
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+      }
 
       // ── Criteria ───────────────────────────────────────────────
       let _openCritId = null;
@@ -4310,8 +4432,10 @@
             list.appendChild(item);
           });
         }
-        document.getElementById("topt-criteria-summary").textContent =
-          config.criteria.length > 0 ? `${config.criteria.length} criteria` : "none";
+        const critSum = document.getElementById("topt-criteria-summary");
+        if (critSum) {
+          critSum.textContent = config.criteria.length > 0 ? `${config.criteria.length} criteria` : "none";
+        }
       }
 
       const toptPresetSel = document.getElementById("topt-criteria-preset");
@@ -4347,15 +4471,8 @@
 
       _toptRebuildCriteriaList = rebuildToptCriteriaList;
 
-      // ── Section toggle ─────────────────────────────────────────
-      overlay.querySelectorAll(".topt-section").forEach(sec => sec.classList.remove("open"));
-      overlay.querySelectorAll(".topt-head").forEach(head => {
-        head.onclick = () => head.closest(".topt-section").classList.toggle("open");
-      });
-      if (openSection) {
-        const sec = overlay.querySelector(`.topt-section[data-section="${openSection}"]`);
-        if (sec) sec.classList.add("open");
-      }
+      // Default active tab
+      switchToptTab(openSection || "info");
 
       // ── Save ───────────────────────────────────────────────────
       document.getElementById("topt-save").onclick = () => {
@@ -4392,8 +4509,10 @@
         syncTestToPlanner(classObj, activeSem, activeTestIndex); // async, non-blocking
       };
 
-      const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; };
+      const closeTestOptions = () => { overlay.classList.add("hidden"); _toptRebuildCriteriaList = null; window._toptSwitchTab = null; };
       document.getElementById("topt-cancel").onclick = closeTestOptions;
+      const topCloseBtn = document.getElementById("topt-close-top");
+      if (topCloseBtn) topCloseBtn.onclick = closeTestOptions;
       overlay.onclick = e => { if (e.target === overlay) closeTestOptions(); };
       overlay.classList.remove("hidden");
     }
@@ -7764,16 +7883,17 @@ function openCreditsModal(){var o=document.getElementById('credits-overlay');if(
 function closeCreditsModal(){var o=document.getElementById('credits-overlay');if(o)o.style.display='none';}
 
 function showGsModalTour() {
-  document.querySelectorAll('#test-options-overlay .topt-section').forEach(function(s) {
-    s.classList.add('open');
-  });
   var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
+  if (typeof window._toptSwitchTab === 'function') {
+    window._toptSwitchTab('info');
+  }
   Tutorial.start([
-    { selector: '.topt-section[data-section="info"]',       title: t('tutGsM1Title'), text: t('tutGsM1Text') },
-    { selector: '.topt-section[data-section="coeff"]',      title: t('tutGsM2Title'), text: t('tutGsM2Text') },
-    { selector: '.topt-section[data-section="grading"]',    title: t('tutGsM3Title'), text: t('tutGsM3Text') },
-    { selector: '.topt-section[data-section="criteria"]',   title: t('tutGsM4Title'), text: t('tutGsM4Text') },
-    { selector: '#test-options-overlay .crit-popup-footer', title: t('tutGsM5Title'), text: t('tutGsM5Text') }
+    { selector: '.topt-tab-btn[data-tab="info"]',       title: t('tutGsM1Title'), text: t('tutGsM1Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('info'); } },
+    { selector: '.topt-tab-btn[data-tab="coeff"]',      title: t('tutGsM2Title'), text: t('tutGsM2Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('coeff'); } },
+    { selector: '.topt-tab-btn[data-tab="grading"]',    title: t('tutGsM3Title'), text: t('tutGsM3Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('grading'); } },
+    { selector: '.topt-tab-btn[data-tab="criteria"]',   title: t('tutGsM4Title'), text: t('tutGsM4Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('criteria'); } },
+    { selector: '.topt-tab-btn[data-tab="preview"]',    title: t('tutGsM6Title'), text: t('tutGsM6Text'), onEnter: function() { if (window._toptSwitchTab) window._toptSwitchTab('preview'); } },
+    { selector: '#test-options-overlay .topt-footer-bar', title: t('tutGsM5Title'), text: t('tutGsM5Text') }
   ], labels);
 }
 
