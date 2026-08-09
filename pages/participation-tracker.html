@@ -80,6 +80,15 @@
 
         <!-- Controls Section -->
         <div class="controls-section">
+            <div class="control-group" style="min-width: 260px; max-width: 380px;">
+                <label data-i18n="ptSearchStudentsPlaceholder">Search Students</label>
+                <div style="position:relative; width: 100%;">
+                    <input type="text" id="ptStudentSearchInput" data-i18n-placeholder="ptSearchStudentsPlaceholder" placeholder="🔍 Search students across groups..." autocomplete="off" style="width:100%; padding:8px 32px 8px 12px; font-size:13px; font-weight:500; font-family:inherit; border:2px solid #ddd; border-radius:4px; background:#fff; color:#222; outline:none; transition:all 0.15s ease;">
+                    <button id="ptStudentSearchClearBtn" type="button" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; cursor:pointer; color:#888; padding:0; line-height:1;" title="Clear search">&times;</button>
+                    <div id="ptSearchResultsDropdown" class="pt-search-results-dropdown hidden"></div>
+                </div>
+            </div>
+
             <div class="control-group">
                 <label data-i18n="ptSelectGroup">Select Group</label>
                 <div class="group-buttons" id="groupButtons"></div>
@@ -1652,6 +1661,282 @@
                     }
                 }
             });
+
+            setupStudentSearchListeners();
+        }
+
+        // ─── Global Student Search ───────────────────────────────────────────
+        let currentSearchHighlightIndex = -1;
+
+        function isGroupArchived(groupId) {
+            const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
+            return !!(meta && meta.archived);
+        }
+
+        function getAllGlobalStudents() {
+            const studentMap = {};
+
+            // 1. Collect students from DB_EXPORT sessions
+            DB_EXPORT.forEach(session => {
+                if (!session.groups) return;
+                Object.keys(session.groups).forEach(groupId => {
+                    const groupStudents = session.groups[groupId] || [];
+                    const isArchived = isGroupArchived(groupId);
+                    groupStudents.forEach(student => {
+                        if (!student || !student.name) return;
+                        const key = `${student.name.toUpperCase()}|${groupId}`;
+                        if (!studentMap[key]) {
+                            studentMap[key] = {
+                                name: student.name,
+                                groupId: groupId,
+                                groupName: groupDisplayName(groupId),
+                                isArchived: isArchived,
+                                picks: 0,
+                                pluses: 0,
+                                minuses: 0,
+                                teamPluses: 0,
+                                teamMinuses: 0,
+                                badgePositive: 0,
+                                badgeNegative: 0,
+                                sessionsCount: 0
+                            };
+                        }
+                        const s = studentMap[key];
+                        s.sessionsCount++;
+                        if (student.isPicked) s.picks++;
+                        s.pluses += student.pluses || 0;
+                        s.minuses += student.minuses || 0;
+                        s.teamPluses += student.teamPluses || 0;
+                        s.teamMinuses += student.teamMinuses || 0;
+                        const badgeSentiment = countBadgeSentiment(student.badges || []);
+                        s.badgePositive += badgeSentiment.positive;
+                        s.badgeNegative += badgeSentiment.negative;
+                    });
+                });
+            });
+
+            // 2. Roster fallback from STUDENTS_ROSTER
+            if (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER)) {
+                STUDENTS_ROSTER.forEach(s => {
+                    if (!s || (!s.firstName && !s.lastName)) return;
+                    const fullName = ((s.firstName || '') + ' ' + (s.lastName || '')).trim();
+                    const groupId = s.groupId || 'unassigned';
+                    const isArchived = isGroupArchived(groupId);
+                    const key = `${fullName.toUpperCase()}|${groupId}`;
+                    if (!studentMap[key]) {
+                        studentMap[key] = {
+                            name: fullName,
+                            groupId: groupId,
+                            groupName: groupDisplayName(groupId),
+                            isArchived: isArchived,
+                            picks: 0,
+                            pluses: 0,
+                            minuses: 0,
+                            teamPluses: 0,
+                            teamMinuses: 0,
+                            badgePositive: 0,
+                            badgeNegative: 0,
+                            sessionsCount: 0
+                        };
+                    }
+                });
+            }
+
+            return Object.values(studentMap).map(s => {
+                const net = getClassOverviewNet(s);
+                return { ...s, net };
+            });
+        }
+
+        function performStudentSearch(query) {
+            const q = String(query || '').trim().toLowerCase();
+            if (!q) return [];
+
+            const all = getAllGlobalStudents();
+            const filtered = all.filter(s => {
+                const nameMatch = s.name.toLowerCase().includes(q);
+                const groupMatch = s.groupName.toLowerCase().includes(q);
+                return nameMatch || groupMatch;
+            });
+
+            filtered.sort((a, b) => {
+                const aStart = a.name.toLowerCase().startsWith(q);
+                const bStart = b.name.toLowerCase().startsWith(q);
+                if (aStart && !bStart) return -1;
+                if (!aStart && bStart) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            return filtered.slice(0, 25);
+        }
+
+        function renderSearchResultsDropdown(results) {
+            const dropdown = document.getElementById('ptSearchResultsDropdown');
+            if (!dropdown) return;
+
+            currentSearchHighlightIndex = -1;
+
+            if (results.length === 0) {
+                dropdown.innerHTML = `<div class="pt-search-no-results">${escapeHtml(t('ptNoStudentsFound'))}</div>`;
+                dropdown.classList.remove('hidden');
+                return;
+            }
+
+            let html = `<div class="pt-search-header">${escapeHtml(t('ptSearchResultsHeader'))} (${results.length})</div>`;
+            results.forEach((item, idx) => {
+                const netColor = item.net >= 0 ? '#2ca02c' : '#d62728';
+                const netSign = item.net >= 0 ? '+' : '';
+                const groupBadge = item.isArchived
+                    ? `<span class="pt-search-item-group archived" style="background:#fff0f0; color:#c0392b; border:1px solid #ecc; opacity:0.9; font-weight:600;">📂 ${escapeHtml(item.groupName)} (${escapeHtml(t('rfArchivedLabel'))})</span>`
+                    : `<span class="pt-search-item-group">${escapeHtml(item.groupName)}</span>`;
+
+                html += `
+                    <div class="pt-search-item" data-index="${idx}" data-student-name="${escapeHtml(item.name)}" data-group-id="${escapeHtml(item.groupId)}">
+                        <div class="pt-search-item-info">
+                            <span class="pt-search-item-name">${escapeHtml(item.name)}</span>
+                            ${groupBadge}
+                        </div>
+                        <div class="pt-search-item-stats">
+                            <span class="pt-search-item-stat" title="Picks">🎯 ${item.picks}</span>
+                            <span class="pt-search-item-stat" style="color:${netColor}; font-weight:700;" title="Net Score">${netSign}${item.net}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            dropdown.innerHTML = html;
+            dropdown.classList.remove('hidden');
+
+            dropdown.querySelectorAll('.pt-search-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const studentName = el.dataset.studentName;
+                    const groupId = el.dataset.groupId;
+                    selectStudentFromSearch(studentName, groupId);
+                });
+            });
+        }
+
+        function selectStudentFromSearch(studentName, groupId) {
+            const dropdown = document.getElementById('ptSearchResultsDropdown');
+            if (dropdown) dropdown.classList.add('hidden');
+
+            if (!groupId || groupId === 'unassigned') {
+                showMessage(t('ptNoGroupForStudent') || (`Student "${studentName}" is not assigned to an active class group.`), 'info');
+                return;
+            }
+
+            // If selected student belongs to an archived group and archived groups are hidden, reveal them first
+            if (isGroupArchived(groupId) && !showArchivedGroups) {
+                showArchivedGroups = true;
+                const btn = document.getElementById('toggleArchivedBtn');
+                if (btn) {
+                    btn.textContent = t('ptHideArchived');
+                    btn.style.color = '#c0392b';
+                }
+                populateGroups();
+            }
+
+            if (currentGroupId !== groupId) {
+                selectGroup(groupId);
+            }
+
+            currentStudentName = studentName;
+
+            document.querySelectorAll('#classOverviewTableBody tr').forEach(r => {
+                if (r.dataset.studentName === studentName) {
+                    r.classList.add('selected-student');
+                } else {
+                    r.classList.remove('selected-student');
+                }
+            });
+
+            const studentDetailTitle = document.getElementById('studentDetailTitle');
+            const studentDetailsArea = document.getElementById('studentDetailsArea');
+            if (studentDetailTitle) studentDetailTitle.classList.remove('hidden');
+            if (studentDetailsArea) studentDetailsArea.classList.remove('hidden');
+
+            updateStudentDetails();
+
+            if (studentDetailsArea) {
+                studentDetailsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function setupStudentSearchListeners() {
+            const input = document.getElementById('ptStudentSearchInput');
+            const clearBtn = document.getElementById('ptStudentSearchClearBtn');
+            const dropdown = document.getElementById('ptSearchResultsDropdown');
+            if (!input) return;
+
+            input.addEventListener('input', () => {
+                const val = input.value;
+                if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+                if (!val.trim()) {
+                    if (dropdown) dropdown.classList.add('hidden');
+                    return;
+                }
+                const results = performStudentSearch(val);
+                renderSearchResultsDropdown(results);
+            });
+
+            input.addEventListener('focus', () => {
+                if (input.value.trim()) {
+                    const results = performStudentSearch(input.value);
+                    renderSearchResultsDropdown(results);
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (!dropdown || dropdown.classList.contains('hidden')) return;
+                const items = dropdown.querySelectorAll('.pt-search-item');
+                if (!items.length) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    currentSearchHighlightIndex = Math.min(currentSearchHighlightIndex + 1, items.length - 1);
+                    updateSearchHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    currentSearchHighlightIndex = Math.max(currentSearchHighlightIndex - 1, 0);
+                    updateSearchHighlight(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentSearchHighlightIndex >= 0 && items[currentSearchHighlightIndex]) {
+                        items[currentSearchHighlightIndex].click();
+                    } else if (items.length > 0) {
+                        items[0].click();
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.add('hidden');
+                    input.blur();
+                }
+            });
+
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    input.value = '';
+                    clearBtn.style.display = 'none';
+                    if (dropdown) dropdown.classList.add('hidden');
+                    input.focus();
+                });
+            }
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#ptStudentSearchInput') && !e.target.closest('#ptSearchResultsDropdown')) {
+                    if (dropdown) dropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        function updateSearchHighlight(items) {
+            items.forEach((item, idx) => {
+                if (idx === currentSearchHighlightIndex) {
+                    item.classList.add('highlighted');
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.classList.remove('highlighted');
+                }
+            });
         }
 
 
@@ -3033,8 +3318,10 @@
                         else if (rule.metric === 'picks') { studentValue = picks; label = `${t('ptStatsTimesPicked')}: ${picks}`; }
                         else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${t('ptStatsSessionsRecorded')}: ${attendanceRate.toFixed(0)}%`; }
                         else if (rule.metric === 'positivePoints') { studentValue = pluses + teamPluses; label = `${t('ptStatPluses')}: ${pluses + teamPluses}`; }
-                        else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')}: ${badgePositive}`; }
-                        else if (rule.metric === 'badgeNegative') { studentValue = badgeNegative; label = `${t('ptColBadgeMinus')}: ${badgeNegative}`; }
+                        else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')} (Total): ${badgePositive}`; }
+                        else if (rule.metric === 'badgePositiveSession') { studentValue = parseFloat((badgePositive / Math.max(1, total)).toFixed(2)); label = `${t('ptStatsPosBadges')}/session: ${studentValue}`; }
+                        else if (rule.metric === 'badgeNegative') { studentValue = badgeNegative; label = `${t('ptColBadgeMinus')} (Total): ${badgeNegative}`; }
+                        else if (rule.metric === 'badgeNegativeSession') { studentValue = parseFloat((badgeNegative / Math.max(1, total)).toFixed(2)); label = `${t('ptColBadgeMinus')}/session: ${studentValue}`; }
                         else if (rule.metric === 'pluses') { studentValue = pluses; label = `${t('ptColPluses')}: ${pluses}`; }
                         else if (rule.metric === 'minuses') { studentValue = minuses; label = `${t('ptColMinuses')}: ${minuses}`; }
                         else if (rule.metric === 'teamPluses') { studentValue = teamPluses; label = `${t('ptColT')}: ${teamPluses}`; }
@@ -3047,15 +3334,26 @@
                         else if (rule.metric === 'ratio') { studentValue = ratio; label = `${t('ptColGoodBad')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
                         else if (rule.metric === 'trend') { studentValue = trend; label = `${t('ptColTrend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
                         else if (rule.metric === 'teamRoleEvents') { studentValue = teamRoleEvents; label = `${t('ptColTeamRole')}: ${teamRoleEvents}`; }
-                        else if (rule.metric.startsWith('badge_icon:')) {
+                        else if (rule.metric.startsWith('badge_icon_session:')) {
+                            const icon = rule.metric.replace('badge_icon_session:', '');
+                            const cnt = getStudentBadgeCounts(studentBadgesAccumulated)[icon] || 0;
+                            studentValue = parseFloat((cnt / Math.max(1, total)).toFixed(2));
+                            label = `${icon}/session: ${studentValue}`;
+                        } else if (rule.metric.startsWith('badge_label_session:')) {
+                            const bLabel = rule.metric.replace('badge_label_session:', '');
+                            const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            const cnt = getStudentBadgeCounts(studentBadgesAccumulated)[key] || 0;
+                            studentValue = parseFloat((cnt / Math.max(1, total)).toFixed(2));
+                            label = `${bLabel}/session: ${studentValue}`;
+                        } else if (rule.metric.startsWith('badge_icon:')) {
                             const icon = rule.metric.replace('badge_icon:', '');
                             studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[icon] || 0;
-                            label = `${icon} count: ${studentValue}`;
+                            label = `${icon} (Total): ${studentValue}`;
                         } else if (rule.metric.startsWith('badge_label:')) {
                             const bLabel = rule.metric.replace('badge_label:', '');
                             const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
                             studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[key] || 0;
-                            label = `${bLabel} count: ${studentValue}`;
+                            label = `${bLabel} (Total): ${studentValue}`;
                         }
                         
                         rulePoints = calculateCriterionPoints(studentValue, rule);
@@ -5131,12 +5429,17 @@
             
             // Get all badge definitions to populate in dropdown
             const badgeDefs = getConfiguredBadgeDefinitions();
-            const badgeOptions = badgeDefs.map(b => {
-                const optVal = `badge_icon:${b.icon}`;
-                const selected = (metric === optVal) ? 'selected' : '';
+            const badgeOptions = badgeDefs.flatMap(b => {
+                const optValTotal = `badge_icon:${b.icon}`;
+                const optValSess = `badge_icon_session:${b.icon}`;
+                const selTotal = (metric === optValTotal) ? 'selected' : '';
+                const selSess = (metric === optValSess) ? 'selected' : '';
                 const sign = b.tone === 'positive' ? '+' : b.tone === 'negative' ? '-' : '';
                 const valText = `${b.tone}, ${sign}${b.coefficient}`;
-                return `<option value="${optVal}" ${selected}>${b.icon} ${b.label} (${valText})</option>`;
+                return [
+                    `<option value="${optValTotal}" ${selTotal}>${b.icon} ${b.label} (Total)</option>`,
+                    `<option value="${optValSess}" ${selSess}>${b.icon} ${b.label} / session</option>`
+                ];
             }).join('');
 
             row.innerHTML = `
@@ -5146,7 +5449,8 @@
                         <option value="picks" ${metric === 'picks' ? 'selected' : ''}>${t('ptStatsTimesPicked')}</option>
                         <option value="attendanceRate" ${metric === 'attendanceRate' ? 'selected' : ''}>${t('ptStatsSessionsRecorded')} (%)</option>
                         <option value="positivePoints" ${metric === 'positivePoints' ? 'selected' : ''}>${t('ptStatPluses')}</option>
-                        <option value="badgePositive" ${metric === 'badgePositive' ? 'selected' : ''}>${t('ptStatsPosBadges')}</option>
+                        <option value="badgePositive" ${metric === 'badgePositive' ? 'selected' : ''}>${t('ptStatsPosBadges')} (Total)</option>
+                        <option value="badgePositiveSession" ${metric === 'badgePositiveSession' ? 'selected' : ''}>${t('ptStatsPosBadges')} / session</option>
                         <optgroup label="Other Columns">
                             <option value="sessions" ${metric === 'sessions' ? 'selected' : ''}>${t('ptColSess') || 'Sessions'}</option>
                             <option value="absent" ${metric === 'absent' ? 'selected' : ''}>${t('ptColAbs') || 'Absent'}</option>
@@ -5154,7 +5458,8 @@
                             <option value="minuses" ${metric === 'minuses' ? 'selected' : ''}>${t('ptColMinuses') || 'Minuses'}</option>
                             <option value="teamPluses" ${metric === 'teamPluses' ? 'selected' : ''}>${t('ptColT') || 'T+'}</option>
                             <option value="teamMinuses" ${metric === 'teamMinuses' ? 'selected' : ''}>${t('ptColTm') || 'T-'}</option>
-                            <option value="badgeNegative" ${metric === 'badgeNegative' ? 'selected' : ''}>${t('ptColBadgeMinus') || 'Badge -'}</option>
+                            <option value="badgeNegative" ${metric === 'badgeNegative' ? 'selected' : ''}>${t('ptColBadgeMinus') || 'Badge -'} (Total)</option>
+                            <option value="badgeNegativeSession" ${metric === 'badgeNegativeSession' ? 'selected' : ''}>${t('ptColBadgeMinus') || 'Badge -'} / session</option>
                             <option value="teamRoleEvents" ${metric === 'teamRoleEvents' ? 'selected' : ''}>${t('ptColTeamRole') || 'Team/Role Events'}</option>
                             <option value="posRatio" ${metric === 'posRatio' ? 'selected' : ''}>${t('ptColPosRatio') || '+/s'}</option>
                             <option value="negRatio" ${metric === 'negRatio' ? 'selected' : ''}>${t('ptColNegRatio') || '-/s'}</option>
@@ -5162,7 +5467,7 @@
                             <option value="ratio" ${metric === 'ratio' ? 'selected' : ''}>${t('ptColGoodBad') || 'Good/Bad'}</option>
                             <option value="trend" ${metric === 'trend' ? 'selected' : ''}>${t('ptColTrend') || 'Trend'}</option>
                         </optgroup>
-                        <optgroup label="Badges">
+                        <optgroup label="Badges (Total & Per Session)">
                             ${badgeOptions}
                         </optgroup>
                         <option value="formula" ${metric === 'formula' ? 'selected' : ''}>Formula / Condition</option>
@@ -5864,8 +6169,10 @@
                 picks: 'Times Picked',
                 attendanceRate: 'Attendance Rate',
                 positivePoints: 'Positive Points',
-                badgePositive: 'Positive Badges',
-                badgeNegative: 'Negative Badges',
+                badgePositive: 'Positive Badges (Total)',
+                badgePositiveSession: 'Positive Badges / Session',
+                badgeNegative: 'Negative Badges (Total)',
+                badgeNegativeSession: 'Negative Badges / Session',
                 pluses: 'Pluses',
                 minuses: 'Minuses',
                 teamPluses: 'Team Pluses',
@@ -5881,8 +6188,10 @@
             };
             let label = metricLabels[rule.metric];
             if (!label) {
-                if (rule.metric.startsWith('badge_icon:')) label = `Badge ${rule.metric.replace('badge_icon:', '')}`;
-                else if (rule.metric.startsWith('badge_label:')) label = `Badge ${rule.metric.replace('badge_label:', '')}`;
+                if (rule.metric.startsWith('badge_icon_session:')) label = `Badge ${rule.metric.replace('badge_icon_session:', '')} / session`;
+                else if (rule.metric.startsWith('badge_icon:')) label = `Badge ${rule.metric.replace('badge_icon:', '')} (Total)`;
+                else if (rule.metric.startsWith('badge_label_session:')) label = `Badge ${rule.metric.replace('badge_label_session:', '')} / session`;
+                else if (rule.metric.startsWith('badge_label:')) label = `Badge ${rule.metric.replace('badge_label:', '')} (Total)`;
                 else label = rule.metric;
             }
             return `Rule ${ruleNum} (${label})`;
@@ -5896,6 +6205,7 @@
 
             const dateRange = getDateRange();
             const totalSessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to).length;
+            const sessionDenom = Math.max(1, totalSessions || studentData.sessions || 1);
             
             const picks = studentData.picks;
             const net = getClassOverviewNet(studentData);
@@ -5903,6 +6213,13 @@
             const badgePositive = studentData.badgePositive;
             const positivePoints = studentData.pluses + studentData.teamPluses;
             const badgeCounts = getStudentBadgeCounts(studentData.badges);
+
+            const badgeSessionCounts = {};
+            Object.keys(badgeCounts).forEach(k => {
+                const val = parseFloat((badgeCounts[k] / sessionDenom).toFixed(2));
+                badgeSessionCounts[k + '_session'] = val;
+                badgeSessionCounts[k + '_per_session'] = val;
+            });
 
             const attendedSessions = studentData.attendedSessions || 0;
             const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
@@ -5931,9 +6248,12 @@
                         netPoints: net, net: net, picks: picks, attendanceRate: attendanceRate, attendance: attendanceRate,
                         positivePoints: positivePoints, positive: positivePoints, pluses: studentData.pluses,
                         minuses: studentData.minuses, teamPluses: studentData.teamPluses, teamMinuses: studentData.teamMinuses,
-                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative, sessions: studentData.sessions,
+                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative,
+                        badgePositiveSession: parseFloat((badgePositive / sessionDenom).toFixed(2)),
+                        badgeNegativeSession: parseFloat((studentData.badgeNegative / sessionDenom).toFixed(2)),
+                        sessions: studentData.sessions,
                         absent: studentData.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
-                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts
+                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts, ...badgeSessionCounts
                     };
                     try {
                         const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
@@ -5959,7 +6279,9 @@
                     else if (rule.metric === 'attendanceRate') studentValue = attendanceRate;
                     else if (rule.metric === 'positivePoints') studentValue = positivePoints;
                     else if (rule.metric === 'badgePositive') studentValue = badgePositive;
+                    else if (rule.metric === 'badgePositiveSession') studentValue = parseFloat((badgePositive / sessionDenom).toFixed(2));
                     else if (rule.metric === 'badgeNegative') studentValue = studentData.badgeNegative;
+                    else if (rule.metric === 'badgeNegativeSession') studentValue = parseFloat((studentData.badgeNegative / sessionDenom).toFixed(2));
                     else if (rule.metric === 'pluses') studentValue = studentData.pluses;
                     else if (rule.metric === 'minuses') studentValue = studentData.minuses;
                     else if (rule.metric === 'teamPluses') studentValue = studentData.teamPluses;
@@ -5972,12 +6294,18 @@
                     else if (rule.metric === 'ratio') studentValue = ratio;
                     else if (rule.metric === 'trend') studentValue = trend;
                     else if (rule.metric === 'teamRoleEvents') studentValue = studentData.teamRoleEvents;
-                    else if (rule.metric.startsWith('badge_icon:')) {
+                    else if (rule.metric.startsWith('badge_icon_session:')) {
+                        const icon = rule.metric.replace('badge_icon_session:', '');
+                        studentValue = parseFloat(((badgeCounts[icon] || 0) / sessionDenom).toFixed(2));
+                    } else if (rule.metric.startsWith('badge_label_session:')) {
+                        const labelKey = rule.metric.replace('badge_label_session:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = parseFloat(((badgeCounts[labelKey] || 0) / sessionDenom).toFixed(2));
+                    } else if (rule.metric.startsWith('badge_icon:')) {
                         const icon = rule.metric.replace('badge_icon:', '');
                         studentValue = badgeCounts[icon] || 0;
                     } else if (rule.metric.startsWith('badge_label:')) {
-                        const label = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        studentValue = badgeCounts[label] || 0;
+                        const labelKey = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = badgeCounts[labelKey] || 0;
                     }
 
                     rulePoints = calculateCriterionPoints(studentValue, rule);

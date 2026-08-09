@@ -2559,6 +2559,10 @@
       mdbAutofillFoundN: 'Found suggestions from {n} matching entry/entries.',
       mdbAutofillSelectFields: 'Select fields to fill into the form:',
       mdbAutofillSourceLabel: 'Source:',
+      ptSearchStudentsPlaceholder: '🔍 Search students across groups...',
+      ptSearchResultsHeader: 'Matching Students',
+      ptNoStudentsFound: 'No students matching search',
+      ptSearchInGroup: 'Group: {group}',
     },
 
     fr: {
@@ -5095,6 +5099,10 @@
       mdbAutofillFoundN: 'Trouvé des suggestions dans {n} entrée(s) correspondante(s).',
       mdbAutofillSelectFields: 'Sélectionnez les champs à remplir dans le formulaire :',
       mdbAutofillSourceLabel: 'Source :',
+      ptSearchStudentsPlaceholder: '🔍 Rechercher des élèves dans tous les groupes...',
+      ptSearchResultsHeader: 'Élèves correspondants',
+      ptNoStudentsFound: 'Aucun élève correspondant',
+      ptSearchInGroup: 'Groupe : {group}',
     },
 
     de: {
@@ -7440,6 +7448,10 @@
       ptCopyClipboardGrades: 'Copia voti negli appunti',
       ptLinkToGradeSheet: 'Apri Registro Voti',
       ptGradesCopied: 'Voti copiati negli appunti!',
+      ptSearchStudentsPlaceholder: '🔍 Cerca studenti in tutti i gruppi...',
+      ptSearchResultsHeader: 'Studenti corrispondenti',
+      ptNoStudentsFound: 'Nessun studente trovato',
+      ptSearchInGroup: 'Gruppo: {group}',
       smDeleteBtn: 'Elimina',
       smDeleteConfirm: 'Sei sicuro di voler eliminare definitivamente "{name}"?\n\nQuesta azione non può essere annullata.',
       smDeleted: 'Pianificazione eliminata.',

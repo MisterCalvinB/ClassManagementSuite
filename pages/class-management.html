@@ -805,8 +805,15 @@
                 <div id="roster-context-menu" class="roster-context-menu">
                     <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
                         data-i18n="ctx_absent">Absent</button>
-                    <button type="button" data-action="flag" onclick="handleRosterContextAction('flag')"
-                        data-i18n="ctx_flag">🚩 Flag</button>
+                    <div style="padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafafa; margin: 3px 0;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>🚩 Flags</span>
+                            <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)" style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
+                        </div>
+                        <div id="ctx-flag-palette" style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                            <!-- Flag color buttons dynamically generated -->
+                        </div>
+                    </div>
                     <button type="button" data-action="role" onclick="openRoleChangePopup()"
                         data-i18n="ctx_add_role">Add Role</button>
                     <button type="button" data-action="stats" onclick="openStudentStatsPopup(rosterContextStudentId)"
@@ -1281,96 +1288,74 @@
 
     <!-- EDIT AUTOFLAG MODAL -->
     <div class="modal-overlay" id="edit-autoflag-modal" onclick="closeEditAutoflagModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:480px; width:min(96vw,480px);">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:820px; width:min(96vw,820px); max-height:88vh; overflow-y:auto;">
             <button class="close-modal" onclick="closeEditAutoflagModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="af_title">Edit
-                Auto-Flag</h2>
+            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="af_title">Edit Auto-Flag Rules & Colors</h2>
             <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="af_desc">
-                Automatically flag students with low participation so they are picked more often.</p>
+                Configure automatic flag rules with customizable colors, metrics (including all badges), operators, and random picker weights.</p>
 
             <!-- Enable toggle -->
-            <div
-                style="display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:10px 12px; background:#f7f7f7; border:1px solid #ddd; border-radius:8px;">
-                <input type="checkbox" id="af-enabled" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-                <label for="af-enabled" style="font-weight:700; font-size:0.92rem; cursor:pointer; margin:0;"
-                    data-i18n="af_enable">Enable auto-flag</label>
-            </div>
-
-            <!-- Percentage threshold -->
-            <div style="margin-bottom:18px;">
-                <label style="font-weight:700; font-size:0.85rem; display:block; margin-bottom:6px;"
-                    data-i18n="af_flag_bottom">Flag bottom</label>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="number" id="af-percent" min="0" max="100" step="5" value="25"
-                        style="width:5em; font-size:0.95rem; padding:5px 7px; border:1px solid #ccc; border-radius:5px; text-align:center;">
-                    <span style="font-size:0.9rem; color:#555;" data-i18n="af_pct_of_students">% of students by
-                        score</span>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px 14px; background:#f7f9fc; border:1px solid #d0d7de; border-radius:8px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="af-enabled" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+                    <label for="af-enabled" style="font-weight:700; font-size:0.95rem; cursor:pointer; margin:0;" data-i18n="af_enable">Enable auto-flag rules</label>
                 </div>
-            </div>
-
-            <!-- Elements taken into account -->
-            <div style="margin-bottom:18px;">
-                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px;" data-i18n="af_elements">Elements
-                    counted</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">
-                    <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.88rem;">
-                        <input type="checkbox" id="af-el-plus" style="width:15px;height:15px;">
-                        <span>➕ Individual <strong>+</strong></span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.88rem;">
-                        <input type="checkbox" id="af-el-minus" style="width:15px;height:15px;">
-                        <span>➖ Individual <strong>−</strong></span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.88rem;">
-                        <input type="checkbox" id="af-el-teamplus" style="width:15px;height:15px;">
-                        <span>🔼 Team <strong>T+</strong></span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.88rem;">
-                        <input type="checkbox" id="af-el-teamminus" style="width:15px;height:15px;">
-                        <span>🔽 Team <strong>T−</strong></span>
-                    </label>
-                </div>
-                <!-- Dynamic per-badge checkboxes -->
-                <div id="af-el-badges-container" style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
-                </div>
+                <span style="font-size:0.8rem; color:#666;">Evaluation engine: Participation Tracker Metrics</span>
             </div>
 
             <!-- Timeline -->
-            <div style="margin-bottom:22px;">
-                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px;" data-i18n="af_timeline">Timeline
-                </div>
-                <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="margin-bottom:20px; background:#fff; padding:12px; border:1px solid #e1e4e8; border-radius:6px;">
+                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px; color:#333;" data-i18n="af_timeline">Timeline Range</div>
+                <div style="display:flex; gap:20px; flex-wrap:wrap;">
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="all" id="af-tl-all"
-                            style="width:15px;height:15px;">
+                        <input type="radio" name="af-timeline" value="all" id="af-tl-all" style="width:15px;height:15px;">
                         <span data-i18n="af_all_sessions">All sessions</span>
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks"
-                            style="width:15px;height:15px;">
-                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1"
-                            max="52" value="4"
-                            style="width:4em; font-size:0.9rem; padding:3px 5px; border:1px solid #ccc; border-radius:4px; text-align:center;"
-                            onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span
-                            data-i18n="af_weeks">weeks</span>
+                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks" style="width:15px;height:15px;">
+                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1" max="52" value="4" style="width:4em; font-size:0.9rem; padding:3px 5px; border:1px solid #ccc; border-radius:4px; text-align:center;" onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span data-i18n="af_weeks">weeks</span>
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="date" id="af-tl-date"
-                            style="width:15px;height:15px;">
-                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value"
-                            style="font-size:0.88rem; padding:3px 6px; border:1px solid #ccc; border-radius:4px;"
-                            onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
+                        <input type="radio" name="af-timeline" value="date" id="af-tl-date" style="width:15px;height:15px;">
+                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value" style="font-size:0.88rem; padding:3px 6px; border:1px solid #ccc; border-radius:4px;" onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
                     </label>
                 </div>
             </div>
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button onclick="saveAutoFlagSettings()"
-                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="btn_save">Save</button>
-                <button onclick="closeEditAutoflagModal()"
-                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="btn_cancel">Cancel</button>
+            <!-- Rules Table -->
+            <div style="margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <strong style="font-size:0.9rem; color:#222;">Flag Rules & Color Assignments</strong>
+                    <button type="button" onclick="addAutoFlagRule()" style="background:#2ecc71; color:#fff; border:none; border-radius:4px; padding:6px 12px; font-weight:700; font-size:0.78rem; cursor:pointer; text-transform:uppercase;">+ Add Rule</button>
+                </div>
+                
+                <div style="overflow-x:auto; border:1px solid #e1e4e8; border-radius:6px; background:#fff;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                        <thead>
+                            <tr style="background:#f6f8fa; border-bottom:1px solid #e1e4e8; text-align:left; color:#555;">
+                                <th style="padding:8px 6px; width:30px; text-align:center;">On</th>
+                                <th style="padding:8px 6px; width:130px;">Rule Name</th>
+                                <th style="padding:8px 6px; width:150px;">Color</th>
+                                <th style="padding:8px 6px; width:190px;">Metric</th>
+                                <th style="padding:8px 6px; width:60px;">Op</th>
+                                <th style="padding:8px 6px;">Value / Formula</th>
+                                <th style="padding:8px 6px; width:60px;" title="Pick Weight Multiplier">Weight</th>
+                                <th style="padding:8px 6px; width:30px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="af-rules-tbody">
+                            <!-- Rule rows rendered dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div style="font-size:0.75rem; color:#777; margin-top:6px;">
+                    Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>, <code>attendanceRate</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g. <code>💎</code>, <code>⭐</code>).
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #eee; padding-top:14px;">
+                <button onclick="saveAutoFlagSettings()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="btn_save">Save Rules & Settings</button>
+                <button onclick="closeEditAutoflagModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="btn_cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -2611,12 +2596,28 @@
             const tlSinceDate = typeof tlSrc.sinceDate === 'string' ? tlSrc.sinceDate.trim() : '';
             const autoFlagTimeline = { mode: tlMode, weeks: tlWeeks, sinceDate: tlSinceDate };
 
+            const flagRulesSrc = Array.isArray(src.flagRules) ? src.flagRules : null;
+            const flagRules = flagRulesSrc ? flagRulesSrc.map(r => ({
+                id: r.id || ('rule_' + Math.random().toString(36).substr(2, 6)),
+                name: typeof r.name === 'string' ? r.name.trim() : 'Flag Rule',
+                color: typeof r.color === 'string' ? r.color.trim() : 'red',
+                metric: typeof r.metric === 'string' ? r.metric.trim() : 'bottomPercent',
+                operator: ['<=', '>=', '<', '>', '==', '!='].includes(r.operator) ? r.operator : '<=',
+                threshold: Number.isFinite(Number(r.threshold)) ? Number(r.threshold) : 25,
+                formula: typeof r.formula === 'string' ? r.formula.trim() : '',
+                pickWeight: Number.isFinite(Number(r.pickWeight)) && Number(r.pickWeight) >= 0 ? Number(r.pickWeight) : 2.0,
+                enabled: r.enabled !== false
+            })) : [
+                { id: 'rule_default_1', name: 'Low Net Participation', color: 'red', metric: 'bottomPercent', operator: '<=', threshold: (Number.isFinite(autoFlagBottomPercent) && autoFlagBottomPercent >= 0 && autoFlagBottomPercent <= 100) ? autoFlagBottomPercent : 25, pickWeight: 3.0, enabled: true }
+            ];
+
             return {
                 plusMinusCoefficient: Number.isFinite(plusMinusCoefficient) ? plusMinusCoefficient : 1,
                 autoFlagLowParticipation: src.autoFlagLowParticipation === true,
                 autoFlagBottomPercent: (Number.isFinite(autoFlagBottomPercent) && autoFlagBottomPercent >= 0 && autoFlagBottomPercent <= 100) ? autoFlagBottomPercent : 25,
                 autoFlagElements,
-                autoFlagTimeline
+                autoFlagTimeline,
+                flagRules
             };
         }
 
@@ -2829,7 +2830,7 @@
                 badgeDefinitions: badgeDefinitions.map(entry => ({ ...entry })),
                 classModes: classModes.map(entry => ({ ...entry })),
                 soundSettings: normalizeSoundSettings(soundSettings),
-                participationSettings: (() => { const pb = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+'); return normalizeParticipationSettings({ plusMinusCoefficient: pb && Number.isFinite(pb.coefficient) ? pb.coefficient : participationSettings.plusMinusCoefficient, autoFlagLowParticipation: participationSettings.autoFlagLowParticipation, autoFlagBottomPercent: participationSettings.autoFlagBottomPercent, autoFlagElements: participationSettings.autoFlagElements, autoFlagTimeline: participationSettings.autoFlagTimeline }); })(),
+                participationSettings: normalizeParticipationSettings(participationSettings),
                 roleDefinitions: (rolesLibraryLoaded && Array.isArray(roleDefinitions))
                     ? roleDefinitions.map(entry => ({ ...entry }))
                     : (Array.isArray(loadedConfig.roleDefinitions) && loadedConfig.roleDefinitions.length
@@ -6187,7 +6188,7 @@
                 li.innerHTML = `
     <div class="student-info">
         <span class="student-name" onclick="toggleStrike(${student.id})">
-            ${getDisplayName(student)}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged: more likely to be picked">🚩</sup>' : ''}
+            ${getDisplayName(student)}${renderStudentFlagsHtml(student)}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: 0.9rem; margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
@@ -6283,19 +6284,40 @@
         }
 
         function openRosterContextMenu(event, studentId) {
-            event.preventDefault();
-            event.stopPropagation();
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
 
             const menu = document.getElementById('roster-context-menu');
             if (!menu) return;
 
             rosterContextStudentId = studentId;
 
-            const student = studentGroups[selectedGroupName].find(s => s.id === studentId);
+            const student = selectedGroupName && studentGroups[selectedGroupName] ? studentGroups[selectedGroupName].find(s => s.id === studentId) : null;
             const absentBtn = menu.querySelector('[data-action="absent"]');
             if (absentBtn) absentBtn.textContent = student && student.isAbsent ? 'Present' : 'Absent';
-            const flagBtn = menu.querySelector('[data-action="flag"]');
-            if (flagBtn) flagBtn.textContent = student && student.isFlagged ? '🚩 Unflag' : '🚩 Flag';
+
+            // Populate multi-color flag palette
+            const paletteEl = document.getElementById('ctx-flag-palette');
+            if (paletteEl && student) {
+                const manualFlags = Array.isArray(student.manualFlags) ? student.manualFlags : (student.isFlagged ? ['red'] : []);
+                let html = FLAG_PRESETS.map(p => {
+                    const isActive = manualFlags.includes(p.key);
+                    return `<button type="button" onclick="toggleStudentManualFlag(${student.id}, '${p.key}')" title="Toggle ${p.name}" style="padding:4px 8px; border-radius:4px; background:${isActive ? p.hex : '#f5f5f5'}; color:${isActive ? '#fff' : '#333'}; border:1.5px solid ${p.hex}; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; transition:all 0.1s;">
+                        ${getFlagIconSvg(isActive ? '#fff' : p.hex, 12)}
+                        <span>${p.name.replace(' Flag', '')}</span>
+                    </button>`;
+                }).join('');
+
+                // Custom color picker button
+                html += `<label title="Add Custom Color Flag" style="padding:4px 8px; border-radius:4px; background:#fff; color:#555; border:1.5px dashed #ccc; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; position:relative; overflow:hidden;">
+                    <input type="color" onchange="toggleStudentManualFlag(${student.id}, this.value)" style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
+                    <span>🎨 Custom...</span>
+                </label>`;
+
+                paletteEl.innerHTML = html;
+            }
 
             menu.classList.add('open');
 
@@ -6952,15 +6974,24 @@
                                 else if (rule.metric === 'ratio') { studentValue = ratio; label = `${trHelper('ptColGoodBad', 'Good/Bad Ratio')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
                                 else if (rule.metric === 'trend') { studentValue = trend; label = `${trHelper('ptColTrend', 'Performance Trend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
                                 else if (rule.metric === 'teamRoleEvents') { studentValue = pTeamRoleEvents; label = `${trHelper('ptColTeamRole', 'Team/Role Activity')}: ${pTeamRoleEvents}`; }
-                                else if (rule.metric.startsWith('badge_icon:')) {
+                                else if (rule.metric.startsWith('badge_icon_session:')) {
+                                    const icon = rule.metric.replace('badge_icon_session:', '');
+                                    studentValue = parseFloat(((getStudentBadgeCounts(pBadgesAccumulated)[icon] || 0) / Math.max(1, pTotal)).toFixed(2));
+                                    label = `${icon}/session: ${studentValue}`;
+                                } else if (rule.metric.startsWith('badge_label_session:')) {
+                                    const bLabel = rule.metric.replace('badge_label_session:', '');
+                                    const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                    studentValue = parseFloat(((getStudentBadgeCounts(pBadgesAccumulated)[key] || 0) / Math.max(1, pTotal)).toFixed(2));
+                                    label = `${bLabel}/session: ${studentValue}`;
+                                } else if (rule.metric.startsWith('badge_icon:')) {
                                     const icon = rule.metric.replace('badge_icon:', '');
                                     studentValue = getStudentBadgeCounts(pBadgesAccumulated)[icon] || 0;
-                                    label = `${icon} count: ${studentValue}`;
+                                    label = `${icon} (Total): ${studentValue}`;
                                 } else if (rule.metric.startsWith('badge_label:')) {
                                     const bLabel = rule.metric.replace('badge_label:', '');
                                     const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
                                     studentValue = getStudentBadgeCounts(pBadgesAccumulated)[key] || 0;
-                                    label = `${bLabel} count: ${studentValue}`;
+                                    label = `${bLabel} (Total): ${studentValue}`;
                                 }
                                 
                                 rulePoints = calculateCriterionPoints(studentValue, rule);
@@ -7379,12 +7410,20 @@
                     else if (rule.metric === 'ratio') studentValue = ratio;
                     else if (rule.metric === 'trend') studentValue = trend;
                     else if (rule.metric === 'teamRoleEvents') studentValue = studentData.teamRoleEvents;
-                    else if (rule.metric.startsWith('badge_icon:')) {
+                    else if (rule.metric === 'badgePositiveSession') studentValue = parseFloat((badgePositive / Math.max(1, studentData.sessions || 1)).toFixed(2));
+                    else if (rule.metric === 'badgeNegativeSession') studentValue = parseFloat((studentData.badgeNegative / Math.max(1, studentData.sessions || 1)).toFixed(2));
+                    else if (rule.metric.startsWith('badge_icon_session:')) {
+                        const icon = rule.metric.replace('badge_icon_session:', '');
+                        studentValue = parseFloat(((badgeCounts[icon] || 0) / Math.max(1, studentData.sessions || 1)).toFixed(2));
+                    } else if (rule.metric.startsWith('badge_label_session:')) {
+                        const labelKey = rule.metric.replace('badge_label_session:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = parseFloat(((badgeCounts[labelKey] || 0) / Math.max(1, studentData.sessions || 1)).toFixed(2));
+                    } else if (rule.metric.startsWith('badge_icon:')) {
                         const icon = rule.metric.replace('badge_icon:', '');
                         studentValue = badgeCounts[icon] || 0;
                     } else if (rule.metric.startsWith('badge_label:')) {
-                        const label = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        studentValue = badgeCounts[label] || 0;
+                        const labelKey = rule.metric.replace('badge_label:', '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        studentValue = badgeCounts[labelKey] || 0;
                     }
 
                     rulePoints = calculateCriterionPoints(studentValue, rule);
@@ -7849,109 +7888,555 @@
             return parseFloat((totalNet / sessionCount).toFixed(2));
         }
 
-        async function applyAutoFlags(groupName) {
-            if (!groupName || !studentGroups[groupName]) return;
-            if (!participationSettings.autoFlagLowParticipation) return;  // auto-flag off — leave manual flags untouched
+        // ---- Multi-Color & Rule-Based Flag System ----
 
-            const percent = Math.max(0, Math.min(100, participationSettings.autoFlagBottomPercent ?? 25));
-            // Use all available sessions (localStorage + disk) so flags are accurate
-            const sessions = await getTimeMachineSessions();
+        const FLAG_PRESETS = [
+            { key: 'red', name: 'Red Flag', hex: '#e74c3c' },
+            { key: 'blue', name: 'Blue Flag', hex: '#3498db' },
+            { key: 'green', name: 'Green Flag', hex: '#2ecc71' },
+            { key: 'yellow', name: 'Yellow Flag', hex: '#f1c40f' },
+            { key: 'purple', name: 'Purple Flag', hex: '#9b59b6' },
+            { key: 'black', name: 'Black Flag', hex: '#34495e' },
+            { key: 'orange', name: 'Orange Flag', hex: '#e67e22' },
+            { key: 'pink', name: 'Pink Flag', hex: '#e84393' }
+        ];
 
-            // Compute Net/s for every student that has data
-            const withData = [];
-            studentGroups[groupName].forEach(s => {
-                const net = computeNetForStudentInSessions(s.name, groupName, sessions);
-                if (net !== null) withData.push({ student: s, net });
-                else s.isFlagged = false;  // no data → don't flag
-            });
-
-            if (withData.length === 0) { renderRoster(); return; }
-
-            // Sort ascending by Net/s and flag the bottom N%
-            withData.sort((a, b) => a.net - b.net);
-            const cutoff = Math.ceil(withData.length * percent / 100);
-            withData.forEach((entry, idx) => {
-                entry.student.isFlagged = idx < cutoff;
-            });
-            renderRoster();
+        function getFlagColorHex(keyOrHex) {
+            if (!keyOrHex) return '#e74c3c';
+            if (keyOrHex.startsWith('#')) return keyOrHex;
+            const found = FLAG_PRESETS.find(p => p.key === keyOrHex.toLowerCase());
+            return found ? found.hex : '#e74c3c';
         }
 
-        function onAutoFlagSettingChange(checked) {
-            participationSettings = normalizeParticipationSettings({
-                ...participationSettings,
-                autoFlagLowParticipation: checked
-            });
-            persistSettingsToUserFile();
-            if (selectedGroupName) {
-                if (!checked) {
-                    // Clear all flags when feature is turned off
-                    if (studentGroups[selectedGroupName]) {
-                        studentGroups[selectedGroupName].forEach(s => { s.isFlagged = false; });
-                        renderRoster();
+        function getFlagColorName(keyOrHex) {
+            if (!keyOrHex) return 'Flag';
+            const found = FLAG_PRESETS.find(p => p.key === keyOrHex.toLowerCase());
+            return found ? found.name : `Flag (${keyOrHex})`;
+        }
+
+        function getActiveFlags(student) {
+            if (!student) return [];
+            const map = new Map();
+
+            // Backward compatibility for legacy boolean student.isFlagged = true
+            if (student.isFlagged && (!student.manualFlags || student.manualFlags.length === 0) && (!student.autoFlags || student.autoFlags.length === 0)) {
+                map.set('red', { key: 'red', color: '#e74c3c', label: 'Red Flag', source: 'manual' });
+            }
+
+            if (Array.isArray(student.manualFlags)) {
+                student.manualFlags.forEach(f => {
+                    const hex = getFlagColorHex(f);
+                    map.set(f, { key: f, color: hex, label: getFlagColorName(f), source: 'manual' });
+                });
+            }
+
+            if (Array.isArray(student.autoFlags)) {
+                student.autoFlags.forEach(f => {
+                    const hex = getFlagColorHex(f);
+                    if (!map.has(f)) {
+                        map.set(f, { key: f, color: hex, label: getFlagColorName(f), source: 'auto' });
                     }
-                } else {
-                    applyAutoFlags(selectedGroupName);
+                });
+            }
+
+            return Array.from(map.values());
+        }
+
+        function getFlagIconSvg(colorHex, size = 14, extraStyle = '') {
+            const hex = colorHex || '#e74c3c';
+            return `<svg class="flag-indicator-svg" viewBox="0 0 24 24" width="${size}" height="${size}" style="fill:${hex}; vertical-align:-2px; display:inline-block; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.25)); ${extraStyle}"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/></svg>`;
+        }
+
+        function renderStudentFlagsHtml(student) {
+            if (!autoFlagVisible || !student) return '';
+            const flags = getActiveFlags(student);
+            if (!flags || flags.length === 0) return '';
+
+            return flags.map(f => {
+                const title = f.ruleName ? `${f.label}: ${f.ruleName}` : `${f.label} (${f.source})`;
+                return `<span title="${title}" style="margin-left:3px; display:inline-block; cursor:default;">${getFlagIconSvg(f.color, 14)}</span>`;
+            }).join('');
+        }
+
+        function toggleStudentManualFlag(studentId, colorKey) {
+            if (!selectedGroupName || !studentGroups[selectedGroupName]) return;
+            const student = studentGroups[selectedGroupName].find(s => s.id === studentId);
+            if (!student) return;
+
+            if (!Array.isArray(student.manualFlags)) student.manualFlags = [];
+
+            const idx = student.manualFlags.indexOf(colorKey);
+            if (idx !== -1) {
+                student.manualFlags.splice(idx, 1);
+            } else {
+                student.manualFlags.push(colorKey);
+            }
+
+            student.isFlagged = getActiveFlags(student).length > 0;
+            renderRoster();
+            if (typeof renderClassPlanCards === 'function') renderClassPlanCards();
+            openRosterContextMenu(null, studentId);
+        }
+
+        function clearStudentManualFlags(studentId) {
+            if (!selectedGroupName || !studentGroups[selectedGroupName]) return;
+            const student = studentGroups[selectedGroupName].find(s => s.id === studentId);
+            if (!student) return;
+
+            student.manualFlags = [];
+            student.isFlagged = getActiveFlags(student).length > 0;
+            renderRoster();
+            if (typeof renderClassPlanCards === 'function') renderClassPlanCards();
+            openRosterContextMenu(null, studentId);
+        }
+
+        // ---- Formula Tokenizer & Evaluator for Rules ----
+
+        function tokenize(str) {
+            const tokens = [];
+            let i = 0;
+            while (i < str.length) {
+                const char = str[i];
+                if (/\s/.test(char)) { i++; continue; }
+                if (char === '[') {
+                    let start = i + 1;
+                    let end = str.indexOf(']', start);
+                    if (end === -1) throw new Error('Unterminated bracket in formula');
+                    tokens.push({ type: 'IDENTIFIER', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
                 }
+                if (char === '"' || char === "'") {
+                    let quote = char;
+                    let start = i + 1;
+                    let end = str.indexOf(quote, start);
+                    if (end === -1) throw new Error('Unterminated string literal');
+                    tokens.push({ type: 'STRING', value: str.substring(start, end) });
+                    i = end + 1;
+                    continue;
+                }
+                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i+1]))) {
+                    let numStr = '';
+                    while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
+                        numStr += str[i];
+                        i++;
+                    }
+                    tokens.push({ type: 'NUMBER', value: parseFloat(numStr) });
+                    continue;
+                }
+                if (i + 1 < str.length) {
+                    const two = str.substr(i, 2);
+                    if (two === '>=' || two === '<=' || two === '==' || two === '!=' || two === '&&' || two === '||') {
+                        tokens.push({ type: 'OPERATOR', value: two });
+                        i += 2;
+                        continue;
+                    }
+                }
+                if ('+-*/(),><=!'.includes(char)) {
+                    tokens.push({ type: 'OPERATOR', value: char });
+                    i++;
+                    continue;
+                }
+                let identStr = '';
+                while (i < str.length && (!/\s/.test(str[i]) && !'+-*/(),><=![]"\''.includes(str[i]))) {
+                    identStr += str[i];
+                    i++;
+                }
+                if (identStr) {
+                    const upper = identStr.toUpperCase();
+                    if (upper === 'AND') tokens.push({ type: 'OPERATOR', value: '&&' });
+                    else if (upper === 'OR') tokens.push({ type: 'OPERATOR', value: '||' });
+                    else if (upper === 'NOT') tokens.push({ type: 'OPERATOR', value: '!' });
+                    else if (upper === 'IF') tokens.push({ type: 'KEYWORD', value: 'IF' });
+                    else tokens.push({ type: 'IDENTIFIER', value: identStr });
+                    continue;
+                }
+                throw new Error(`Unexpected character: ${char}`);
+            }
+            return tokens;
+        }
+
+        function evaluateExpression(exprStr, context) {
+            let tokens;
+            try { tokens = tokenize(exprStr); } catch (e) { throw new Error(`Syntax Error: ${e.message}`); }
+            let position = 0;
+            function peek() { return tokens[position]; }
+            function consume(expectedValue) {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                if (expectedValue !== undefined && token.value !== expectedValue) {
+                    throw new Error(`Expected '${expectedValue}' but found '${token.value}'`);
+                }
+                position++;
+                return token;
+            }
+            function parsePrimary() {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of formula');
+                if (token.type === 'NUMBER') { consume(); return token.value; }
+                if (token.type === 'STRING') { consume(); return token.value; }
+                if (token.type === 'KEYWORD' && token.value === 'IF') {
+                    consume(); consume('(');
+                    const cond = parseExpression(); consume(',');
+                    const trueVal = parseExpression(); consume(',');
+                    const falseVal = parseExpression(); consume(')');
+                    return cond ? trueVal : falseVal;
+                }
+                if (token.type === 'IDENTIFIER') {
+                    consume();
+                    const name = token.value.trim();
+                    const lowerName = name.toLowerCase();
+                    const normalizedName = lowerName.replace(/[^a-z0-9]/g, '');
+                    if (name in context) return context[name];
+                    if (lowerName in context) return context[lowerName];
+                    if (normalizedName in context) return context[normalizedName];
+                    for (const [k, v] of Object.entries(context)) {
+                        if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedName) return v;
+                    }
+                    return 0;
+                }
+                if (token.type === 'OPERATOR' && token.value === '(') {
+                    consume('('); const val = parseExpression(); consume(')'); return val;
+                }
+                throw new Error(`Unexpected token: ${token.value}`);
+            }
+            function parseUnary() {
+                const token = peek();
+                if (token && token.type === 'OPERATOR' && (token.value === '-' || token.value === '!')) {
+                    consume(); const val = parseUnary();
+                    return token.value === '-' ? -val : (val ? 0 : 1);
+                }
+                return parsePrimary();
+            }
+            function parseMultiplicative() {
+                let left = parseUnary();
+                while (peek() && peek().type === 'OPERATOR' && ('*/'.includes(peek().value))) {
+                    const op = consume().value; const right = parseUnary();
+                    if (op === '*') left *= right;
+                    else if (op === '/') left = right === 0 ? 0 : left / right;
+                }
+                return left;
+            }
+            function parseAdditive() {
+                let left = parseMultiplicative();
+                while (peek() && peek().type === 'OPERATOR' && ('+-'.includes(peek().value))) {
+                    const op = consume().value; const right = parseMultiplicative();
+                    if (op === '+') left += right; else if (op === '-') left -= right;
+                }
+                return left;
+            }
+            function parseRelational() {
+                let left = parseAdditive();
+                while (peek() && peek().type === 'OPERATOR' && ['<', '>', '<=', '>='].includes(peek().value)) {
+                    const op = consume().value; const right = parseAdditive();
+                    if (op === '<') left = left < right ? 1 : 0;
+                    else if (op === '>') left = left > right ? 1 : 0;
+                    else if (op === '<=') left = left <= right ? 1 : 0;
+                    else if (op === '>=') left = left >= right ? 1 : 0;
+                }
+                return left;
+            }
+            function parseEquality() {
+                let left = parseRelational();
+                while (peek() && peek().type === 'OPERATOR' && ['==', '!='].includes(peek().value)) {
+                    const op = consume().value; const right = parseRelational();
+                    if (op === '==') left = left === right ? 1 : 0;
+                    else if (op === '!=') left = left !== right ? 1 : 0;
+                }
+                return left;
+            }
+            function parseLogicalAnd() {
+                let left = parseEquality();
+                while (peek() && peek().type === 'OPERATOR' && peek().value === '&&') {
+                    consume(); const right = parseEquality(); left = (left && right) ? 1 : 0;
+                }
+                return left;
+            }
+            function parseLogicalOr() {
+                let left = parseLogicalAnd();
+                while (peek() && peek().type === 'OPERATOR' && peek().value === '||') {
+                    consume(); const right = parseLogicalAnd(); left = (left || right) ? 1 : 0;
+                }
+                return left;
+            }
+            function parseExpression() { return parseLogicalOr(); }
+            return parseExpression();
+        }
+
+        // ---- Metrics & Auto-Flag Engine ----
+
+        function computeStudentMetricsForSessions(studentName, groupName, sessions) {
+            const plusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '+');
+            const minusDef = badgeDefinitions.find(d => d.isBuiltin && d.icon === '-');
+            const plusCoeff = plusDef ? plusDef.coefficient : participationSettings.plusMinusCoefficient;
+            const minusCoeff = minusDef ? minusDef.coefficient : participationSettings.plusMinusCoefficient;
+
+            const tl = participationSettings.autoFlagTimeline || {};
+            let cutoffDate = null;
+            if (tl.mode === 'weeks' && tl.weeks > 0) {
+                cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - tl.weeks * 7);
+            } else if (tl.mode === 'date' && tl.sinceDate) {
+                cutoffDate = new Date(tl.sinceDate);
+            }
+
+            let totalNet = 0, totalPluses = 0, totalMinuses = 0, totalTeamPluses = 0, totalTeamMinuses = 0;
+            let totalBadgePos = 0, totalBadgeNeg = 0, totalPicks = 0, sessionCount = 0, attendedCount = 0;
+            const badgeCounts = {};
+
+            sessions.forEach(session => {
+                if (session.activeGroup !== groupName) return;
+                if (cutoffDate) {
+                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || 0);
+                    if (!isNaN(sessionDate.getTime()) && sessionDate < cutoffDate) return;
+                }
+
+                const students = (session.groups && session.groups[groupName]) || [];
+                const match = students.find(s => s.name === studentName);
+                if (!match) return;
+
+                sessionCount++;
+                if (!match.isAbsent) attendedCount++;
+
+                const p = match.pluses || 0;
+                const m = match.minuses || 0;
+                const tp = match.teamPluses || 0;
+                const tm = match.teamMinuses || 0;
+
+                totalPluses += p; totalMinuses += m; totalTeamPluses += tp; totalTeamMinuses += tm;
+                totalPicks += (match.picks || 0);
+
+                let sessionBadgePos = 0, sessionBadgeNeg = 0;
+
+                (match.badges || []).forEach(b => {
+                    const iconKey = b.icon;
+                    badgeCounts[iconKey] = (badgeCounts[iconKey] || 0) + 1;
+                    if (b.label) badgeCounts[`[${b.label}]`] = (badgeCounts[`[${b.label}]`] || 0) + 1;
+
+                    const def = badgeDefinitions.find(d => d.icon === b.icon);
+                    const tone = def ? def.tone : b.tone || 'positive';
+                    const coeff = def ? (def.coefficient || 1) : 1;
+                    if (tone === 'negative') sessionBadgeNeg += coeff;
+                    else sessionBadgePos += coeff;
+                });
+
+                totalBadgePos += sessionBadgePos;
+                totalBadgeNeg += sessionBadgeNeg;
+                totalNet += (p * plusCoeff - m * minusCoeff + tp * plusCoeff - tm * minusCoeff + sessionBadgePos - sessionBadgeNeg);
+            });
+
+            if (sessionCount === 0) return null;
+
+            const attendanceRate = Math.round((attendedCount / sessionCount) * 100);
+            const avgNet = parseFloat((totalNet / sessionCount).toFixed(2));
+
+            const badgeSessionCounts = {};
+            Object.keys(badgeCounts).forEach(k => {
+                const val = parseFloat((badgeCounts[k] / Math.max(1, sessionCount)).toFixed(2));
+                badgeSessionCounts[k] = val;
+                badgeSessionCounts[k + '_session'] = val;
+                badgeSessionCounts[k + '_per_session'] = val;
+            });
+            const badgePositiveSession = parseFloat((totalBadgePos / Math.max(1, sessionCount)).toFixed(2));
+            const badgeNegativeSession = parseFloat((totalBadgeNeg / Math.max(1, sessionCount)).toFixed(2));
+
+            return {
+                netPoints: avgNet,
+                net: avgNet,
+                picks: totalPicks,
+                attendanceRate,
+                pluses: totalPluses,
+                minuses: totalMinuses,
+                teamPluses: totalTeamPluses,
+                teamMinuses: totalTeamMinuses,
+                badgePositive: totalBadgePos,
+                badgeNegative: totalBadgeNeg,
+                badgePositiveSession,
+                badgeNegativeSession,
+                badgeCounts,
+                badgeSessionCounts,
+                sessionsCount: sessionCount
+            };
+        }
+
+        function evaluateFlagRuleForStudent(student, rule, metrics, allMetrics) {
+            if (!rule || rule.enabled === false) return false;
+
+            const metric = rule.metric || 'bottomPercent';
+            const op = rule.operator || '<=';
+            const thresh = Number(rule.threshold) ?? 0;
+
+            if (metric === 'bottomPercent') {
+                const sorted = [...allMetrics].sort((a, b) => a.metrics.netPoints - b.metrics.netPoints);
+                const cutoff = Math.ceil(sorted.length * (thresh / 100));
+                const idx = sorted.findIndex(item => item.student.id === student.id);
+                return idx !== -1 && idx < cutoff;
+            }
+
+            if (metric === 'topPercent') {
+                const sorted = [...allMetrics].sort((a, b) => b.metrics.netPoints - a.metrics.netPoints);
+                const cutoff = Math.ceil(sorted.length * (thresh / 100));
+                const idx = sorted.findIndex(item => item.student.id === student.id);
+                return idx !== -1 && idx < cutoff;
+            }
+
+            if (metric === 'formula') {
+                if (!rule.formula) return false;
+                try {
+                    const context = {
+                        netPoints: metrics.netPoints,
+                        net: metrics.netPoints,
+                        picks: metrics.picks,
+                        attendanceRate: metrics.attendanceRate,
+                        pluses: metrics.pluses,
+                        minuses: metrics.minuses,
+                        teamPluses: metrics.teamPluses,
+                        teamMinuses: metrics.teamMinuses,
+                        badgePositive: metrics.badgePositive,
+                        badgeNegative: metrics.badgeNegative,
+                        badgePositiveSession: metrics.badgePositiveSession,
+                        badgeNegativeSession: metrics.badgeNegativeSession,
+                        sessionsCount: metrics.sessionsCount,
+                        ...metrics.badgeCounts,
+                        ...metrics.badgeSessionCounts
+                    };
+                    const result = evaluateExpression(rule.formula, context);
+                    return Boolean(result);
+                } catch (e) {
+                    console.warn('Flag rule formula evaluation error:', e);
+                    return false;
+                }
+            }
+
+            let val = 0;
+            if (metric.startsWith('badge_icon_session:')) {
+                const icon = metric.replace('badge_icon_session:', '');
+                val = metrics.badgeSessionCounts[icon] || 0;
+            } else if (metric.startsWith('badge_icon:')) {
+                const icon = metric.replace('badge_icon:', '');
+                val = metrics.badgeCounts[icon] || 0;
+            } else if (metric === 'badgePositiveSession') {
+                val = metrics.badgePositiveSession || 0;
+            } else if (metric === 'badgeNegativeSession') {
+                val = metrics.badgeNegativeSession || 0;
+            } else {
+                val = metrics[metric] ?? 0;
+            }
+
+            switch (op) {
+                case '<=': return val <= thresh;
+                case '>=': return val >= thresh;
+                case '<': return val < thresh;
+                case '>': return val > thresh;
+                case '==': return val == thresh;
+                case '!=': return val != thresh;
+                default: return val <= thresh;
             }
         }
 
-        function onAutoFlagThresholdChange(value) {
-            const parsed = parseFloat(value);
-            participationSettings = normalizeParticipationSettings({
-                ...participationSettings,
-                autoFlagBottomPercent: Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : 25
+        async function applyAutoFlags(groupName) {
+            if (!groupName || !studentGroups[groupName]) return;
+
+            studentGroups[groupName].forEach(s => {
+                s.autoFlags = [];
+                if (!s.manualFlags) s.manualFlags = [];
             });
-            persistSettingsToUserFile();
-            if (selectedGroupName && participationSettings.autoFlagLowParticipation) applyAutoFlags(selectedGroupName);
+
+            if (!participationSettings.autoFlagLowParticipation) {
+                studentGroups[groupName].forEach(s => { s.isFlagged = getActiveFlags(s).length > 0; });
+                renderRoster();
+                return;
+            }
+
+            const rules = (participationSettings.flagRules && participationSettings.flagRules.length > 0)
+                ? participationSettings.flagRules
+                : getDefaultFlagRules();
+
+            const sessions = await getTimeMachineSessions();
+            const allMetrics = [];
+
+            studentGroups[groupName].forEach(s => {
+                const metrics = computeStudentMetricsForSessions(s.name, groupName, sessions);
+                if (metrics) allMetrics.push({ student: s, metrics });
+            });
+
+            if (allMetrics.length === 0) {
+                renderRoster();
+                return;
+            }
+
+            allMetrics.forEach(({ student, metrics }) => {
+                rules.forEach(rule => {
+                    if (rule.enabled === false) return;
+                    const isMet = evaluateFlagRuleForStudent(student, rule, metrics, allMetrics);
+                    if (isMet) {
+                        const colorKey = rule.color || 'red';
+                        if (!student.autoFlags.includes(colorKey)) {
+                            student.autoFlags.push(colorKey);
+                        }
+                    }
+                });
+
+                student.isFlagged = getActiveFlags(student).length > 0;
+            });
+
+            renderRoster();
+            if (typeof renderClassPlanCards === 'function') renderClassPlanCards();
         }
+
+        function getStudentPickWeight(student) {
+            if (!student) return 1.0;
+            const flags = getActiveFlags(student);
+            if (!flags || flags.length === 0) return 1.0;
+
+            let maxWeight = 3.0;
+            const rules = participationSettings.flagRules || [];
+
+            flags.forEach(f => {
+                const rule = rules.find(r => r.color === f.key || r.id === f.key);
+                if (rule && Number.isFinite(Number(rule.pickWeight))) {
+                    maxWeight = Math.max(maxWeight, Number(rule.pickWeight));
+                }
+            });
+
+            return maxWeight;
+        }
+
+        function getDefaultFlagRules() {
+            return [
+                {
+                    id: 'rule_default_1',
+                    name: 'Low Net Participation',
+                    color: 'red',
+                    metric: 'bottomPercent',
+                    operator: '<=',
+                    threshold: 25,
+                    pickWeight: 3.0,
+                    enabled: true
+                }
+            ];
+        }
+
+        // ---- Auto-Flag Rules Modal Management ----
+
+        let tempFlagRules = [];
 
         function openEditAutoflagModal() {
             const s = participationSettings;
-            const el = s.autoFlagElements || {};
             const tl = s.autoFlagTimeline || {};
 
             document.getElementById('af-enabled').checked = !!s.autoFlagLowParticipation;
-            document.getElementById('af-percent').value = s.autoFlagBottomPercent ?? 25;
-            document.getElementById('af-el-plus').checked = el.plus !== false;
-            document.getElementById('af-el-minus').checked = el.minus !== false;
-            document.getElementById('af-el-teamplus').checked = el.teamPlus !== false;
-            document.getElementById('af-el-teamminus').checked = el.teamMinus !== false;
-
-            // Render per-badge checkboxes
-            const badgeContainer = document.getElementById('af-el-badges-container');
-            const customBadges = badgeDefinitions.filter(d => !d.isBuiltin);
-            if (customBadges.length === 0) {
-                badgeContainer.innerHTML = '<span style="color:#aaa; font-size:0.82rem;">No custom badges defined</span>';
-            } else {
-                const badgesVal = el.badges;
-                // Build: toggle-all row + individual rows
-                const allChecked = badgesVal === true || (Array.isArray(badgesVal) && badgesVal.length === customBadges.length);
-                let html = `<div style="border-top:1px solid #e8e8e8; padding-top:8px; margin-top:2px;">`;
-                html += `<label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.85rem; font-weight:700; margin-bottom:5px;">`;
-                html += `<input type="checkbox" id="af-el-badges-all" style="width:15px;height:15px;" onchange="_afToggleAllBadges(this.checked)">`;
-                html += `<span>🏅 Custom badges</span></label>`;
-                html += `<div id="af-el-badges-list" style="display:flex; flex-direction:column; gap:4px; padding-left:22px;">`;
-                customBadges.forEach(b => {
-                    const safeIcon = b.icon.replace(/"/g, '&quot;');
-                    const safeLabel = (b.label || b.icon).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const toneTag = b.tone === 'negative'
-                        ? '<span style="font-size:0.72rem;color:#c0392b;margin-left:3px;">(−)</span>'
-                        : '<span style="font-size:0.72rem;color:#27ae60;margin-left:3px;">(+)</span>';
-                    const checked = badgesVal === true || (Array.isArray(badgesVal) && badgesVal.includes(b.icon));
-                    html += `<label style="display:flex; align-items:center; gap:7px; cursor:pointer; font-size:0.85rem;">`;
-                    html += `<input type="checkbox" class="af-badge-icon" data-icon="${safeIcon}" style="width:14px;height:14px;" ${checked ? 'checked' : ''} onchange="_afSyncBadgeAll()">`;
-                    html += `<span>${safeIcon} ${safeLabel}${toneTag}</span></label>`;
-                });
-                html += `</div></div>`;
-                badgeContainer.innerHTML = html;
-                document.getElementById('af-el-badges-all').checked = allChecked;
-            }
 
             const tlMode = ['all', 'weeks', 'date'].includes(tl.mode) ? tl.mode : 'all';
             document.querySelector(`input[name="af-timeline"][value="${tlMode}"]`).checked = true;
             document.getElementById('af-tl-weeks-value').value = tl.weeks ?? 4;
             document.getElementById('af-tl-date-value').value = tl.sinceDate ?? '';
 
+            tempFlagRules = (s.flagRules && s.flagRules.length > 0)
+                ? JSON.parse(JSON.stringify(s.flagRules))
+                : getDefaultFlagRules();
+
+            renderAutoFlagRulesTable();
             document.getElementById('edit-autoflag-modal').style.display = 'flex';
         }
 
@@ -7960,21 +8445,133 @@
             if (modal) modal.style.display = 'none';
         }
 
-        function _afToggleAllBadges(checked) {
-            document.querySelectorAll('#af-el-badges-list .af-badge-icon').forEach(cb => { cb.checked = checked; });
+        function renderAutoFlagRulesTable() {
+            const tbody = document.getElementById('af-rules-tbody');
+            if (!tbody) return;
+
+            const badgeOpts = (badgeDefinitions || []).flatMap(b => {
+                const iconEsc = (b.icon || '').replace(/"/g, '&quot;');
+                const labelEsc = (b.label || b.icon).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return [
+                    `<option value="badge_icon:${iconEsc}">${iconEsc} ${labelEsc} (Total)</option>`,
+                    `<option value="badge_icon_session:${iconEsc}">${iconEsc} ${labelEsc} / session</option>`
+                ];
+            }).join('');
+
+            tbody.innerHTML = tempFlagRules.map((r, idx) => {
+                const isFormula = r.metric === 'formula';
+                const isBottomOrTop = r.metric === 'bottomPercent' || r.metric === 'topPercent';
+                const presetColors = FLAG_PRESETS.map(p => `<option value="${p.key}" ${r.color === p.key ? 'selected' : ''}>🚩 ${p.name}</option>`).join('');
+
+                return `
+                <tr data-rule-idx="${idx}" style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px; text-align: center;">
+                        <input type="checkbox" class="af-rule-enabled" ${r.enabled !== false ? 'checked' : ''} onchange="tempFlagRules[${idx}].enabled = this.checked" style="width:16px;height:16px;cursor:pointer;">
+                    </td>
+                    <td style="padding: 6px;">
+                        <input type="text" class="af-rule-name" value="${(r.name || '').replace(/"/g, '&quot;')}" onchange="tempFlagRules[${idx}].name = this.value" placeholder="Rule Name" style="width: 100%; font-size: 0.82rem; padding: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </td>
+                    <td style="padding: 6px;">
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <select class="af-rule-color" onchange="_afRuleColorChange(${idx}, this)" style="font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;">
+                                ${presetColors}
+                                <option value="custom" ${!FLAG_PRESETS.some(p => p.key === r.color) ? 'selected' : ''}>🎨 Custom Color...</option>
+                            </select>
+                            <input type="color" class="af-rule-custom-color" value="${getFlagColorHex(r.color)}" onchange="tempFlagRules[${idx}].color = this.value" style="width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; ${!FLAG_PRESETS.some(p => p.key === r.color) ? '' : 'display:none;'}">
+                        </div>
+                    </td>
+                    <td style="padding: 6px;">
+                        <select class="af-rule-metric" onchange="_afMetricChange(${idx}, this)" style="width: 100%; font-size: 0.82rem; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+                            <optgroup label="Overall Performance">
+                                <option value="bottomPercent" ${r.metric === 'bottomPercent' ? 'selected' : ''}>Bottom % Net Score</option>
+                                <option value="topPercent" ${r.metric === 'topPercent' ? 'selected' : ''}>Top % Net Score</option>
+                                <option value="netPoints" ${r.metric === 'netPoints' ? 'selected' : ''}>Net Score (per session)</option>
+                                <option value="picks" ${r.metric === 'picks' ? 'selected' : ''}>Times Picked</option>
+                                <option value="attendanceRate" ${r.metric === 'attendanceRate' ? 'selected' : ''}>Attendance Rate (%)</option>
+                            </optgroup>
+                            <optgroup label="Point Metrics">
+                                <option value="pluses" ${r.metric === 'pluses' ? 'selected' : ''}>Individual Pluses (+)</option>
+                                <option value="minuses" ${r.metric === 'minuses' ? 'selected' : ''}>Individual Minuses (-)</option>
+                                <option value="teamPluses" ${r.metric === 'teamPluses' ? 'selected' : ''}>Team Pluses (T+)</option>
+                                <option value="teamMinuses" ${r.metric === 'teamMinuses' ? 'selected' : ''}>Team Minuses (T-)</option>
+                                <option value="badgePositive" ${r.metric === 'badgePositive' ? 'selected' : ''}>Positive Badges Total</option>
+                                <option value="badgePositiveSession" ${r.metric === 'badgePositiveSession' ? 'selected' : ''}>Positive Badges / session</option>
+                                <option value="badgeNegative" ${r.metric === 'badgeNegative' ? 'selected' : ''}>Negative Badges Total</option>
+                                <option value="badgeNegativeSession" ${r.metric === 'badgeNegativeSession' ? 'selected' : ''}>Negative Badges / session</option>
+                            </optgroup>
+                            <optgroup label="Badges (Total & Per Session)">
+                                ${badgeOpts.replace(`value="${r.metric}"`, `value="${r.metric}" selected`)}
+                            </optgroup>
+                            <optgroup label="Advanced">
+                                <option value="formula" ${isFormula ? 'selected' : ''}>Expression Formula</option>
+                            </optgroup>
+                        </select>
+                    </td>
+                    <td style="padding: 6px;">
+                        <select class="af-rule-op" onchange="tempFlagRules[${idx}].operator = this.value" style="font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px; ${isBottomOrTop || isFormula ? 'display:none;' : ''}">
+                            <option value="<=" ${r.operator === '<=' ? 'selected' : ''}>&le;</option>
+                            <option value=">=" ${r.operator === '>=' ? 'selected' : ''}>&ge;</option>
+                            <option value="<" ${r.operator === '<' ? 'selected' : ''}>&lt;</option>
+                            <option value=">" ${r.operator === '>' ? 'selected' : ''}>&gt;</option>
+                            <option value="==" ${r.operator === '==' ? 'selected' : ''}>=</option>
+                            <option value="!=" ${r.operator === '!=' ? 'selected' : ''}>!=</option>
+                        </select>
+                    </td>
+                    <td style="padding: 6px;">
+                        ${isFormula
+                            ? `<input type="text" class="af-rule-formula" value="${(r.formula || '').replace(/"/g, '&quot;')}" onchange="tempFlagRules[${idx}].formula = this.value" placeholder="e.g. minuses >= 2 and netPoints < 0" style="width:100%; font-size:0.8rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
+                            : `<input type="number" class="af-rule-thresh" value="${r.threshold ?? 25}" onchange="tempFlagRules[${idx}].threshold = parseFloat(this.value)" step="any" style="width:60px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
+                        }
+                    </td>
+                    <td style="padding: 6px;">
+                        <input type="number" class="af-rule-weight" value="${r.pickWeight ?? 2.0}" onchange="tempFlagRules[${idx}].pickWeight = parseFloat(this.value)" step="0.5" min="0.1" max="10" style="width:55px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;" title="Pick weight multiplier">
+                    </td>
+                    <td style="padding: 6px; text-align: center;">
+                        <button type="button" onclick="removeAutoFlagRule(${idx})" style="background:none; border:none; color:#c0392b; cursor:pointer; font-size:1.1rem; padding:0;" title="Delete Rule">&times;</button>
+                    </td>
+                </tr>`;
+            }).join('');
         }
 
-        function _afSyncBadgeAll() {
-            const all = document.querySelectorAll('#af-el-badges-list .af-badge-icon');
-            const checked = [...all].filter(c => c.checked).length;
-            const allCb = document.getElementById('af-el-badges-all');
-            if (allCb) allCb.checked = checked === all.length;
+        function _afRuleColorChange(idx, selectEl) {
+            const val = selectEl.value;
+            const customInput = selectEl.nextElementSibling;
+            if (val === 'custom') {
+                if (customInput) customInput.style.display = 'inline-block';
+                tempFlagRules[idx].color = customInput ? customInput.value : '#e74c3c';
+            } else {
+                if (customInput) customInput.style.display = 'none';
+                tempFlagRules[idx].color = val;
+            }
+        }
+
+        function _afMetricChange(idx, selectEl) {
+            const val = selectEl.value;
+            tempFlagRules[idx].metric = val;
+            renderAutoFlagRulesTable();
+        }
+
+        function addAutoFlagRule() {
+            tempFlagRules.push({
+                id: 'rule_' + Date.now(),
+                name: 'New Flag Rule',
+                color: 'blue',
+                metric: 'minuses',
+                operator: '>=',
+                threshold: 2,
+                formula: '',
+                pickWeight: 2.0,
+                enabled: true
+            });
+            renderAutoFlagRulesTable();
+        }
+
+        function removeAutoFlagRule(idx) {
+            tempFlagRules.splice(idx, 1);
+            renderAutoFlagRulesTable();
         }
 
         async function saveAutoFlagSettings() {
-            const wasEnabled = participationSettings.autoFlagLowParticipation;
-
-            const percent = parseFloat(document.getElementById('af-percent').value);
             const tlMode = document.querySelector('input[name="af-timeline"]:checked')?.value || 'all';
             const tlWeeks = parseInt(document.getElementById('af-tl-weeks-value').value, 10);
             const tlDate = document.getElementById('af-tl-date-value').value;
@@ -7982,22 +8579,7 @@
             participationSettings = normalizeParticipationSettings({
                 ...participationSettings,
                 autoFlagLowParticipation: document.getElementById('af-enabled').checked,
-                autoFlagBottomPercent: Number.isFinite(percent) ? percent : 25,
-                autoFlagElements: {
-                    plus: document.getElementById('af-el-plus').checked,
-                    minus: document.getElementById('af-el-minus').checked,
-                    teamPlus: document.getElementById('af-el-teamplus').checked,
-                    teamMinus: document.getElementById('af-el-teamminus').checked,
-                    badges: (() => {
-                        const allCb = document.getElementById('af-el-badges-all');
-                        if (!allCb) return true; // no custom badges defined
-                        const indiv = [...document.querySelectorAll('#af-el-badges-list .af-badge-icon')];
-                        const checked = indiv.filter(c => c.checked).map(c => c.dataset.icon);
-                        const customBadges = badgeDefinitions.filter(d => !d.isBuiltin);
-                        if (checked.length === customBadges.length) return true;
-                        return checked;
-                    })()
-                },
+                flagRules: tempFlagRules,
                 autoFlagTimeline: {
                     mode: tlMode,
                     weeks: Number.isFinite(tlWeeks) && tlWeeks > 0 ? tlWeeks : 4,
@@ -8014,17 +8596,10 @@
             closeEditAutoflagModal();
 
             if (selectedGroupName) {
-                if (!participationSettings.autoFlagLowParticipation) {
-                    if (wasEnabled) {
-                        studentGroups[selectedGroupName]?.forEach(s => { s.isFlagged = false; });
-                        renderRoster();
-                    }
-                } else {
-                    applyAutoFlags(selectedGroupName);
-                }
+                applyAutoFlags(selectedGroupName);
             }
 
-            if (typeof mdbToast === 'function') mdbToast('🚩 Auto-flag settings saved');
+            if (typeof mdbToast === 'function') mdbToast('🚩 Auto-flag rules saved');
         }
 
         function pickStudent() {
@@ -8039,9 +8614,11 @@
                 });
                 return;
             }
-            // Flagged students get 3x weight so they are more likely to be picked first
-            const FLAG_PICK_WEIGHT = 3;
-            const weightedPool = pool.flatMap(s => s.isFlagged ? Array(FLAG_PICK_WEIGHT).fill(s) : [s]);
+            // Flagged students get weighted selection based on active flag rules
+            const weightedPool = pool.flatMap(s => {
+                const w = Math.round(getStudentPickWeight(s));
+                return Array(Math.max(1, w)).fill(s);
+            });
             const winner = weightedPool[Math.floor(Math.random() * weightedPool.length)];
             winner.isPicked = true;
             const dn = document.getElementById('display-name');
@@ -16517,7 +17094,7 @@ ${body}
 
                         li.innerHTML = `
                     <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-                        ${abbrev}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged">⚑</sup>' : ''}
+                        ${abbrev}${renderStudentFlagsHtml(student)}
                         ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
                     </span>
                     <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
@@ -16608,7 +17185,7 @@ ${body}
             const abbrev = getDisplayName(student);
             li.innerHTML = `
         <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-            ${abbrev}${student.isFlagged && autoFlagVisible ? '<sup class="flag-indicator" title="Flagged">⚑</sup>' : ''}
+            ${abbrev}${renderStudentFlagsHtml(student)}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
         </span>
         <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
