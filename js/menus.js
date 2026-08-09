@@ -39,7 +39,7 @@
     null,
     { href: 'general-config.html',   emoji: '⚙️', label: 'General Config'  },
     { href: 'launcher.html',         emoji: '🏠', label: 'Launcher'         },
-    { href: 'credits.html',          emoji: 'ℹ️', label: 'Credits'          },
+    { href: 'about.html',            emoji: 'ℹ️', label: 'About'            },
   ];
 
   // ── Nav brand ─────────────────────────────────────────────────────────────

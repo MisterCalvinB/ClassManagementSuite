@@ -23,7 +23,8 @@ const PAGE_FILES = {
   generalConfig: 'general-config.html',
   fileManager: 'file-manager.html',
   howTo: 'how-to.html',
-  credits: 'credits.html',
+  about: 'about.html',
+  credits: 'about.html',
   scheduleMaker: 'schedule-maker.html',
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
@@ -54,6 +55,8 @@ const PAGE_ARG_MAP = {
   recent: PAGE_FILES.fileManager,
   howto: PAGE_FILES.howTo,
   help: PAGE_FILES.howTo,
+  about: PAGE_FILES.about,
+  credits: PAGE_FILES.about,
   groupeditor: PAGE_FILES.groupEditor,
   groups: PAGE_FILES.groupEditor,
   schedulemaker: PAGE_FILES.scheduleMaker,
@@ -87,7 +90,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.generalConfig]: 'General Config',
   [PAGE_FILES.fileManager]: 'File Manager',
   [PAGE_FILES.howTo]: 'How To',
-  [PAGE_FILES.credits]: 'Credits',
+  [PAGE_FILES.about]: 'About',
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
@@ -223,7 +226,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps']),
-  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs']),
+  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };
 

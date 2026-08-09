@@ -233,6 +233,7 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
   if (row.dataset.renaming === '1') return;
   row.dataset.renaming = '1';
 
+  var resolvedTarget = target || (file ? file.target : null) || (typeof browseTarget !== 'undefined' ? browseTarget : 'user');
   var nameEl      = row.querySelector('.file-name');
   var renameBtn   = row.querySelector('.btn-rename');
   var oldFilename = file.filename;
@@ -252,8 +253,8 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
   warnEl.className = 'rename-warn';
   nameEl.appendChild(warnEl);
 
-  var origBtnText = renameBtn.textContent;
-  renameBtn.textContent = tt('fmSave', 'Save');
+  var origBtnText = renameBtn ? renameBtn.textContent : tt('fmRename', 'Rename');
+  if (renameBtn) renameBtn.textContent = tt('fmSave', 'Save');
 
   var done = false;
 
@@ -267,12 +268,19 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
     done = true;
     nameEl.textContent = onRenamed ? prettyName(oldFilename) : oldFilename;
     nameEl.classList.remove('editing');
-    renameBtn.textContent = origBtnText;
-    row.dataset.renaming = '';
-    renameBtn.onclick = function() { startInlineRename(row, file, target, onRenamed, siblings); };
+    if (renameBtn) {
+      renameBtn.textContent = origBtnText;
+      row.dataset.renaming = '';
+      renameBtn.onclick = function(e) {
+        if (e) e.stopPropagation();
+        startInlineRename(row, file, resolvedTarget, onRenamed, siblings);
+      };
+    } else {
+      row.dataset.renaming = '';
+    }
   }
 
-  function confirmRename() {
+  async function confirmRename() {
     if (done) return;
     var newBase = inp.value.trim();
     if (!newBase) { showWarn(tt('fmRenameEmpty', 'Name cannot be empty.')); return; }
@@ -298,27 +306,138 @@ function startInlineRename(row, file, target, onRenamed, siblings) {
 
     if (!window.Desktop || !Desktop.isElectron()) { cancelRename(); return; }
 
-    Desktop.renameByPath(target, oldRelPath, newRelPath).then(function(res) {
-      if (res && res.ok) {
+    try {
+      var pathParts = oldRelPath.split('/').filter(Boolean);
+      var isMindmapSession = resolvedTarget === 'mindmaps' && pathParts.length === 2;
+
+      if (isMindmapSession && typeof Desktop.listByPath === 'function') {
+        var oldFolder = pathParts[0];
+        var oldSessionBase = oldFilename.replace(/\.(js|json)$/i, '');
+        if (oldFolder === oldSessionBase && oldFolder !== newBase) {
+          var fr = await Desktop.renameByPath(resolvedTarget, oldFolder, newBase);
+          if (!fr || !fr.ok) throw new Error((fr && fr.error) ? fr.error : 'Rename directory failed.');
+
+          var innerFrom = newBase + '/' + oldFilename;
+          var innerTo   = newBase + '/' + newFilename;
+          if (innerFrom !== innerTo) {
+            await Desktop.renameByPath(resolvedTarget, innerFrom, innerTo).catch(function(){});
+          }
+
+          var histPath = newBase + '/history';
+          try {
+            var listed = await Desktop.listByPath(resolvedTarget, histPath, { extensions: ['.js', '.json'], recursive: false });
+            var vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+            for (var vi = 0; vi < vFiles.length; vi++) {
+              var vfname = (vFiles[vi].relativePath || '').split('/').pop() || vFiles[vi].filename || '';
+              if (vfname.startsWith(oldSessionBase + '.v')) {
+                var suffix = vfname.slice(oldSessionBase.length);
+                await Desktop.renameByPath(resolvedTarget, histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(function(){});
+              }
+            }
+          } catch(e) {}
+
+          if (window.Pins && typeof Pins.updatePinPath === 'function') {
+            await Pins.updatePinPath(resolvedTarget, oldFolder, newBase, prettyName(newFilename));
+          }
+
+          file.filename     = newFilename;
+          file.relativePath = newBase + '/' + newFilename;
+          file.target       = resolvedTarget;
+
+          browseAllFiles.forEach(function(f) {
+            var rel = normPath(f.relativePath || f.filename || '');
+            if (rel === oldFolder || rel.startsWith(oldFolder + '/')) {
+              f.relativePath = newBase + rel.slice(oldFolder.length);
+              if (f.filename === oldFilename) f.filename = newFilename;
+            }
+          });
+        } else {
+          var r = await Desktop.renameByPath(resolvedTarget, oldRelPath, newRelPath);
+          if (!r || !r.ok) throw new Error((r && r.error) ? r.error : 'Rename failed.');
+          file.filename     = newFilename;
+          file.relativePath = newRelPath;
+          file.target       = resolvedTarget;
+          if (window.Pins && typeof Pins.updatePinPath === 'function') {
+            await Pins.updatePinPath(resolvedTarget, oldRelPath, newRelPath, prettyName(newFilename));
+          }
+        }
+      } else {
+        var res = await Desktop.renameByPath(resolvedTarget, oldRelPath, newRelPath);
+        if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Rename failed.');
+
         file.filename     = newFilename;
         file.relativePath = newRelPath;
-        var displayName = onRenamed ? onRenamed(newFilename) : newFilename;
-        nameEl.textContent = displayName;
-        nameEl.classList.remove('editing');
+        file.target       = resolvedTarget;
+
+        if (window.Pins && typeof Pins.updatePinPath === 'function') {
+          await Pins.updatePinPath(resolvedTarget, oldRelPath, newRelPath, newFilename.replace(/\.(md|html)$/i, ''));
+        }
+      }
+
+      if (file._browseRel) {
+        var bDir = file._browseRel.includes('/') ? file._browseRel.slice(0, file._browseRel.lastIndexOf('/') + 1) : '';
+        file._browseRel = bDir + newFilename;
+      }
+
+      if (typeof browseAllFiles !== 'undefined' && Array.isArray(browseAllFiles)) {
+        browseAllFiles.forEach(function(s) {
+          var sRel = normPath(s.relativePath || s.filename || '');
+          if (sRel === oldRelPath) {
+            s.filename = newFilename;
+            s.relativePath = newRelPath;
+            if (s._browseRel) {
+              var bDir = s._browseRel.includes('/') ? s._browseRel.slice(0, s._browseRel.lastIndexOf('/') + 1) : '';
+              s._browseRel = bDir + newFilename;
+            }
+          }
+        });
+      }
+
+      if (row.dataset) {
+        row.dataset.fmTarget = resolvedTarget;
+        row.dataset.fmRelPath = normPath(file.relativePath);
+        row.dataset.fmKey = fmKeyFor({ kind: 'file', target: resolvedTarget, relativePath: file.relativePath });
+      }
+
+      var displayName = onRenamed ? onRenamed(newFilename) : newFilename;
+      nameEl.textContent = displayName;
+      nameEl.title = normPath(file._browseRel || file.relativePath);
+      nameEl.classList.remove('editing');
+
+      if (renameBtn) {
         renameBtn.textContent = origBtnText;
         row.dataset.renaming = '';
-        renameBtn.onclick = function() { startInlineRename(row, file, target, onRenamed, siblings); };
+        renameBtn.onclick = function(e) {
+          if (e) e.stopPropagation();
+          startInlineRename(row, file, resolvedTarget, onRenamed, siblings);
+        };
       } else {
-        showWarn(tt('fmRenameFailed','Rename failed.'));
-        done = false;
+        row.dataset.renaming = '';
       }
-    }).catch(function(e) {
+
+      if (document.getElementById('tab-browse') && document.getElementById('tab-browse').classList.contains('active')) {
+        await loadBrowse({ preservePath: true });
+      }
+      if (document.getElementById('tab-recent') && document.getElementById('tab-recent').classList.contains('active')) {
+        await loadRecent();
+      }
+    } catch(e) {
       showWarn(tt('fmRenameFailed','Rename failed:') + ' ' + (e && e.message ? e.message : String(e)));
       done = false;
-    });
+    }
   }
 
-  renameBtn.onclick = confirmRename;
+  if (renameBtn) {
+    renameBtn.onpointerdown = function(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      confirmRename();
+    };
+    renameBtn.onclick = function(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      confirmRename();
+    };
+  }
+
   inp.addEventListener('input', function() { showWarn(''); });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') confirmRename();
@@ -583,9 +702,10 @@ function makeRfRow(file, isSession, snippet, isArchived) {
     rnBtn.className = 'btn-rename';
     rnBtn.textContent = tt('fmRename', 'Rename');
     (function(f, ne, rb) {
-      rb.addEventListener('click', function() {
-        startInlineRename(row, f, f.target, prettyName, rfSessions.concat(rfArchivedSessions));
-      });
+      rb.onclick = function(e) {
+        if (e) e.stopPropagation();
+        startInlineRename(row, f, f.target || 'mindmaps', prettyName, rfSessions.concat(rfArchivedSessions));
+      };
     })(file, nameEl, rnBtn);
     acts.appendChild(rnBtn);
   }
@@ -1373,8 +1493,11 @@ function startFolderRename(row, folderName, nameEl, prefix) {
             }
           } catch(e) {}
         }
+        if (window.Pins && typeof Pins.updatePinPath === 'function') {
+          await Pins.updatePinPath(browseTarget, oldPath, newPath, newName);
+        }
         row.dataset.renaming = '';
-        renderBrowse();
+        await loadBrowse({ preservePath: true });
       } else {
         showWarn(tt('fmRenameFailed', 'Rename failed.'));
         done = false;
@@ -1385,7 +1508,16 @@ function startFolderRename(row, folderName, nameEl, prefix) {
     });
   }
 
-  if (rnBtn) rnBtn.onclick = function(e) { e.stopPropagation(); confirmFolderRename(); };
+  if (rnBtn) {
+    rnBtn.onpointerdown = function(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      confirmFolderRename();
+    };
+    rnBtn.onclick = function(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      confirmFolderRename();
+    };
+  }
   inp.addEventListener('input', function() { showWarn(''); });
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') confirmFolderRename();
@@ -1700,10 +1832,10 @@ function renderBrowse() {
             rnBtn.className = 'btn-rename';
             rnBtn.textContent = tt('fmRename', 'Rename');
             (function(folderName, ne) {
-              rnBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
+              rnBtn.onclick = function(e) {
+                if (e) e.stopPropagation();
                 startFolderRename(row, folderName, ne, prefix);
-              });
+              };
             })(folder, nameEl);
             acts.appendChild(rnBtn);
 
@@ -1925,9 +2057,10 @@ function makeBrowseRow(file) {
       rnBtn.className = 'btn-rename';
       rnBtn.textContent = tt('fmRename','Rename');
       (function(f, rb) {
-        rb.addEventListener('click', function() {
-          startInlineRename(row, f, f.target, null, browseAllFiles);
-        });
+        rb.onclick = function(e) {
+          if (e) e.stopPropagation();
+          startInlineRename(row, f, f.target || browseTarget, null, browseAllFiles);
+        };
       })(file, rnBtn);
       acts.appendChild(rnBtn);
     }
@@ -2340,7 +2473,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (isSession) {
         (function(row) {
           items.push({ label: tt('fmRename','Rename'), action: function() {
-            if (row) startInlineRename(row, file, file.target, prettyName, rfSessions.concat(rfArchivedSessions));
+            if (row) startInlineRename(row, file, file.target || 'mindmaps', prettyName, rfSessions.concat(rfArchivedSessions));
           }});
         })(rowEl);
       }
@@ -2504,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
         (function(row) {
           items.push({ label: tt('fmRename','Rename'), action: function() {
-            if (row) startInlineRename(row, file, file.target, null, browseAllFiles);
+            if (row) startInlineRename(row, file, file.target || browseTarget, null, browseAllFiles);
           }});
         })(rowEl);
         items.push('-');

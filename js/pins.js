@@ -119,12 +119,38 @@
     });
   }
 
+  async function updatePinPath(target, oldRelPath, newRelPath, newTitle) {
+    if (!oldRelPath || !newRelPath) return false;
+    const pins = await getPins();
+    let updated = false;
+    const normOld = String(oldRelPath || '').replace(/\\/g, '/');
+    const normNew = String(newRelPath || '').replace(/\\/g, '/');
+
+    pins.forEach(p => {
+      const pTarget = p.target || 'user';
+      const pRel = String(p.relativePath || '').replace(/\\/g, '/');
+      if ((pTarget === target || target === 'user') && (pRel === normOld || pRel.startsWith(normOld + '/'))) {
+        p.relativePath = normNew + pRel.slice(normOld.length);
+        if (pRel === normOld && newTitle) {
+          p.title = newTitle;
+        }
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      return await savePins(pins);
+    }
+    return true;
+  }
+
   // Expose to window
   window.Pins = {
     getPins,
     savePins,
     pinItem,
     unpinItem,
-    isPinned
+    isPinned,
+    updatePinPath
   };
 })();
