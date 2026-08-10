@@ -17,31 +17,32 @@
     '.hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}',
     '.hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}',
     '.hm-sep{border:none;border-top:1px solid #333;margin:4px 0}',
+    '.hm-icon-img{width:16px;height:16px;vertical-align:-3px;margin-right:8px;filter:invert(0.95)}',
   ].join('');
   document.head.appendChild(style);
 
   // ── App list ───────────────────────────────────────────────────────────────
   // null entries become <hr> separators.
   var _APPS = [
-    { href: 'class-management.html', emoji: '🏫', label: 'Class Management' },
-    { href: 'board.html',            emoji: '🖥️', label: 'Board'            },
-    { href: 'learning-tools.html',   emoji: '🎮', label: 'Learning Tools'   },
-    { href: 'manage-database.html',  emoji: '🗄️', label: 'Database'         },
-    { href: 'grade-sheet.html',      emoji: '📝', label: 'Grade Sheet'      },
-    { href: 'participation-tracker.html', emoji: '📊', label: 'Tracker'     },
-    { href: 'oral-marking.html',     emoji: '🎙️', label: 'Oral Marking'     },
+    { href: 'class-management.html', icon: 'class-management.svg', label: 'Class Management' },
+    { href: 'board.html',            icon: 'board.svg',            label: 'Board'            },
+    { href: 'learning-tools.html',   icon: 'learning-tools.svg',   label: 'Learning Tools'   },
+    { href: 'manage-database.html',  icon: 'manage-database.svg',  label: 'Database'         },
+    { href: 'grade-sheet.html',      icon: 'grade-sheet.svg',      label: 'Grade Sheet'      },
+    { href: 'participation-tracker.html', icon: 'participation-tracker.svg', label: 'Tracker' },
+    { href: 'oral-marking.html',     icon: 'oral-marking.svg',     label: 'Oral Marking'     },
     null,
-    { href: 'group-editor.html',     emoji: '✏️', label: 'Group Editor'     },
-    { href: 'class-plan.html',       emoji: '🪑', label: 'Class Plan'       },
-    { href: 'planner.html',          emoji: '📅', label: 'Planner'          },
-    { href: 'schedule-maker.html',   emoji: '🗓️', label: 'Schedule Maker'   },
-    { href: 'document-editor.html',  emoji: '✍️', label: 'Document Editor'  },
-    { href: 'file-manager.html',     emoji: '📂', label: 'File Manager'     },
-    { href: 'import-tool.html',      emoji: '📥', label: 'Import'           },
+    { href: 'group-editor.html',     icon: 'group-editor.svg',     label: 'Group Editor'     },
+    { href: 'class-plan.html',       icon: 'class-plan.svg',       label: 'Class Plan'       },
+    { href: 'planner.html',          icon: 'planner.svg',          label: 'Planner'          },
+    { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
+    { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
+    { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
+    { href: 'import-tool.html',      icon: 'import-tool.svg',      label: 'Import'           },
     null,
-    { href: 'general-config.html',   emoji: '⚙️', label: 'General Config'  },
-    { href: 'launcher.html',         emoji: '🏠', label: 'Launcher'         },
-    { href: 'about.html',            emoji: 'ℹ️', label: 'About'            },
+    { href: 'general-config.html',   icon: 'general-config.svg',   label: 'General Config'  },
+    { href: 'launcher.html',         icon: 'launcher.svg',         label: 'Launcher'         },
+    { href: 'about.html',            icon: 'about.svg',            label: 'About'            },
   ];
 
   // ── Nav brand ─────────────────────────────────────────────────────────────
@@ -91,8 +92,9 @@
     var wrap = document.getElementById(id);
     if (!wrap) return;
 
-    // Detect current page for nav-active highlight.
+    // Detect current page and base directory for assets/icons/ relative path.
     var current = location.pathname.split('/').pop() || '';
+    var baseDir = location.pathname.includes('/pages/') ? '../' : '';
 
     // Build menu HTML.
     var menu = wrap.querySelector('.hm-menu');
@@ -100,7 +102,8 @@
       var parts = _APPS.map(function (app) {
         if (!app) return '<hr class="hm-sep">';
         var cls = 'nav-link hm-item' + (app.href === current ? ' nav-active' : '');
-        return '<a href="' + app.href + '" class="' + cls + '">' + app.emoji + ' ' + app.label + '</a>';
+        var iconHtml = app.icon ? '<img src="' + baseDir + 'assets/icons/' + app.icon + '" class="hm-icon-img" alt="" />' : '';
+        return '<a href="' + app.href + '" class="' + cls + '">' + iconHtml + app.label + '</a>';
       });
       parts.push(
         '<hr class="hm-sep">',

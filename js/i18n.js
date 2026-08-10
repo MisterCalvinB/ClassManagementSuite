@@ -30,11 +30,11 @@
 
       // Launcher header
       launcherSubtitle: 'Select a tool to get started',
-      btnHeaderConfig: '⚙ Config',
+      btnHeaderConfig: 'Config',
       btnHeaderHowTo: '? How To',
       btnHeaderSync: '⟳ Sync',
-      btnHeaderCredits: 'ℹ️ About',
-      btnHeaderAbout: 'ℹ️ About',
+      btnHeaderCredits: 'About',
+      btnHeaderAbout: 'About',
       btnHeaderTutorial: '▶ Tour',
 
       // Tutorial – Launcher steps
@@ -2597,11 +2597,11 @@
 
       // Launcher header
       launcherSubtitle: 'Sélectionnez un outil pour commencer',
-      btnHeaderConfig: '⚙ Config',
+      btnHeaderConfig: 'Config',
       btnHeaderHowTo: '? Aide',
       btnHeaderSync: '⟳ Sync',
-      btnHeaderCredits: 'ℹ️ À propos',
-      btnHeaderAbout: 'ℹ️ À propos',
+      btnHeaderCredits: 'À propos',
+      btnHeaderAbout: 'À propos',
       btnHeaderTutorial: '▶ Visite',
 
       // Tutorial – Launcher steps
@@ -7651,7 +7651,15 @@
 
   window.applyTranslations = function () {
     document.querySelectorAll('[data-i18n]').forEach(function (el) {
-      el.textContent = t(el.getAttribute('data-i18n'));
+      var img = el.querySelector('img');
+      var txt = t(el.getAttribute('data-i18n'));
+      if (img) {
+        el.innerHTML = '';
+        el.appendChild(img);
+        el.appendChild(document.createTextNode(' ' + txt));
+      } else {
+        el.textContent = txt;
+      }
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
       el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
