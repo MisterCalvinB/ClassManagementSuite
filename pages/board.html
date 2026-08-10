@@ -333,6 +333,84 @@
   <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
   <style>
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+      vertical-align: -2px;
+      margin-right: 5px;
+      flex-shrink: 0;
+      display: inline-block;
+      transition: filter 0.12s ease;
+    }
+    .main-btn-icon {
+      width: 24px;
+      height: 24px;
+      vertical-align: -3px;
+      margin-right: 8px;
+      flex-shrink: 0;
+      display: inline-block;
+      transition: filter 0.12s ease;
+    }
+    .main-hdr-icon {
+      width: 22px;
+      height: 22px;
+      vertical-align: -3px;
+      margin-right: 8px;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+
+    /* Standard dark-background buttons (.action-btn without .btn-grey, active .bst-tab): icon defaults to white */
+    button.action-btn:not(.btn-grey) img,
+    .action-btn:not(.btn-grey) img,
+    .bst-tab.bst-active img {
+      filter: brightness(0) invert(1);
+    }
+
+    /* Light-background buttons (.btn-grey, .menu-btn, .ssm-item, inactive .bst-tab): icon defaults to black */
+    .btn-grey img,
+    .menu-btn img,
+    .ssm-item img,
+    .bst-tab img,
+    .history-actions-menu button img,
+    #con-board-ctx-menu .con-ctx-item img,
+    #con-board-ctx-menu button img,
+    #con-ctx-menu .con-ctx-icon-btn img,
+    #con-ctx-menu button img,
+    .con-sp-popup button img,
+    .wn-sp-action-btn img,
+    .wn-sp-style-toggle img {
+      filter: none;
+    }
+
+    /* Hover state: when light-background buttons turn dark (#111), invert icon to white */
+    .btn-grey:hover img,
+    .btn-back:hover img,
+    .menu-btn:hover img,
+    .menu-btn.btn-grey:hover img,
+    .action-btn.btn-grey:hover img,
+    .ssm-item:hover img,
+    .bst-tab:hover img,
+    .history-filter-clear-btn:hover img,
+    .history-actions-menu button:hover img,
+    .history-actions-menu.open button:hover img,
+    .history-actions-menu button.danger:hover img,
+    #con-board-ctx-menu .con-ctx-item:hover img,
+    #con-board-ctx-menu button:hover img,
+    #con-ctx-menu .con-ctx-icon-btn:hover img,
+    #con-ctx-menu button:hover img,
+    .con-sp-popup button:hover img,
+    .wn-sp-action-btn:hover img,
+    .wn-sp-style-toggle:hover img,
+    .wn-sp-style-toggle.active img {
+      filter: brightness(0) invert(1);
+    }
+
+    /* Hover state: when dark-background buttons turn light (#fff), restore icon to black */
+    button.action-btn:not(.btn-grey):hover img,
+    .action-btn:not(.btn-grey):hover img {
+      filter: none;
+    }
     #board-cms-timer-strip {
       display: none;
       align-items: center;
@@ -860,9 +938,9 @@
     <!-- Word relation & connection icon row -->
     <div class="con-ctx-icon-row">
       <button class="con-ctx-icon-btn" id="con-ctx-syn-btn" onclick="conCtxAddRelated('synonyms')"
-        title="Add Synonyms">🔗</button>
+        title="Add Synonyms"><img src="../assets/icons/syn.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-ant-btn" onclick="conCtxAddRelated('antonyms')"
-        title="Add Antonyms">⚡</button>
+        title="Add Antonyms"><img src="../assets/icons/ant.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-fmt-def" onclick="conCtxAddDefinition()"
         title="Add definition node">DEF</button>
       <button class="con-ctx-icon-btn" id="con-fmt-trans" onclick="conCtxToggleAnnotation('translation')"
@@ -1030,23 +1108,23 @@
     <div class="con-ctx-sep"></div>
     <!-- Bottom action icons -->
     <div class="con-ctx-icon-row">
-      <button class="con-ctx-icon-btn" id="con-ctx-mask-btn" onclick="conCtxToggleMask()" title="Mask word">👁</button>
-      <button class="con-ctx-icon-btn" onclick="conCtxAddNote()" title="Add Note">📌</button>
+      <button class="con-ctx-icon-btn" id="con-ctx-mask-btn" onclick="conCtxToggleMask()" title="Mask word"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" onclick="conCtxAddNote()" title="Add Note"><img src="../assets/icons/note.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-page-btn" onclick="conCtxSetPage()"
-        title="Set page number">📄</button>
+        title="Set page number"><img src="../assets/icons/page-number.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-lock-btn" onclick="conCtxToggleLock()"
-        title="Lock node position and size">🔓</button>
+        title="Lock node position and size"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /></button>
       <span class="con-ctx-icon-sep"></span>
-      <button class="con-ctx-icon-btn" onclick="conCtxDuplicate()" title="Duplicate word">⧉</button>
-      <button class="con-ctx-icon-btn" onclick="conCtxSplitNode()" title="Split word by spaces">✂</button>
+      <button class="con-ctx-icon-btn" onclick="conCtxDuplicate()" title="Duplicate word"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" onclick="conCtxSplitNode()" title="Split word by spaces"><img src="../assets/icons/split.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-star-btn" onclick="conCtxToggleStar()" title="Star in DB"
-        style="display:none">☆</button>
+        style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()"
-        title="View word card">📖</button>
-      <button class="con-ctx-icon-btn" id="con-ctx-db-btn" onclick="conCtxAddToDb()" title="Add to DB">➕</button>
-      <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word">✏️</button>
-      <button class="con-ctx-icon-btn" onclick="conCtxRemove()" style="color:#b94040;" title="Remove word">🗑</button>
-      <button class="con-ctx-icon-btn" onclick="conCtxClose()" style="color:#888;" title="Close">✕</button>
+        title="View word card"><img src="../assets/icons/word-card.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-db-btn" onclick="conCtxAddToDb()" title="Add to DB"><img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" onclick="conCtxRemove()" style="color:#b94040;" title="Remove word"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" onclick="conCtxClose()" style="color:#888;" title="Close"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
     </div>
   </div>
 
@@ -1073,14 +1151,14 @@
         onkeydown="if(event.key==='Enter'){conBoardCtxConfirmNote();}if(event.key==='Escape'){conBoardCtxClose();}"
         style="flex:1; padding:5px 8px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:16px; outline:none; min-width:0;">
       <button onclick="conBoardCtxConfirmNote()" title="Add note"
-        style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">📌</button>
+        style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;"><img src="../assets/icons/note.svg" class="btn-icon" alt="" /></button>
     </div>
     <div class="con-ctx-item" id="con-ctx-student-note-dev" onclick="conBoardCtxOpenStudentNote()"
-      style="display:none;">👥 Student Input Note</div>
-    <div class="con-ctx-item" onclick="conBoardCtxImportText()">📂 Import Text</div>
-    <div class="con-ctx-item" onclick="conBoardCtxAddMask()">▭ Add Mask</div>
+      style="display:none;"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /> Student Input Note</div>
+    <div class="con-ctx-item" onclick="conBoardCtxImportText()"><img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" /> Import Text</div>
+    <div class="con-ctx-item" onclick="conBoardCtxAddMask()"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Add Mask</div>
     <div style="padding:4px 10px 6px; display:flex; gap:5px; align-items:center;">
-      <span style="font-size:0.82rem; flex-shrink:0; color:#222;">⊞</span>
+      <span style="font-size:0.82rem; flex-shrink:0; color:#222;"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /></span>
       <input type="number" id="con-board-ctx-table-rows" min="1" max="20" value="2"
         onkeydown="if(event.key==='Enter'){conBoardCtxAddTable();}if(event.key==='Escape'){conBoardCtxClose();}"
         style="width:40px; padding:4px 5px; border:1.5px solid #ccc; border-radius:3px; font-family:inherit; font-size:14px; outline:none; text-align:center;">
@@ -1092,10 +1170,10 @@
         style="padding:5px 9px; background:#111; color:#fff; border:none; border-radius:3px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:inherit; flex-shrink:0;">Add
         Table</button>
     </div>
-    <div class="con-ctx-item" onclick="conBoardCtxCreateGroup()">⬡ Add Group</div>
+    <div class="con-ctx-item" onclick="conBoardCtxCreateGroup()"><img src="../assets/icons/group.svg" class="btn-icon" alt="" /> Add Group</div>
     <div class="con-ctx-sep"></div>
     <div style="padding:4px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
-      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;">🎨
+      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;"><img src="../assets/icons/general-config.svg" class="btn-icon" alt="" />
         Background</span>
       <div id="con-board-bg-preset-btns" style="display:flex; gap:4px; flex-wrap:wrap; flex:1; min-height:20px;"></div>
     </div>
@@ -1106,7 +1184,7 @@
         style="padding:2px 7px; border:1.5px solid #ccc; border-radius:3px; font-size:0.72rem; cursor:pointer; font-family:inherit; background:#f5f5f5; flex-shrink:0; margin-left:auto;">Presets…</button>
     </div>
     <div style="padding:2px 10px 3px; display:flex; gap:6px; align-items:flex-start;">
-      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;">📐 Layout</span>
+      <span style="font-size:0.78rem; font-weight:700; color:#444; white-space:nowrap; margin-top:1px;"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" /> Layout</span>
       <div id="con-board-layout-btns" style="display:flex; gap:4px; flex-wrap:wrap; flex:1; min-height:20px;"></div>
     </div>
     <div style="padding:0 10px 6px; display:flex; gap:6px; align-items:center;">
@@ -1115,30 +1193,30 @@
         Layout…</button>
     </div>
     <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();">⇢ Spread this region</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxCompactRegion();">⇠ Compact this region</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();"><img src="../assets/icons/spread.svg" class="btn-icon" alt="" /> Spread this region</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxCompactRegion();"><img src="../assets/icons/compact.svg" class="btn-icon" alt="" /> Compact this region</div>
     <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleDrawMode();">✎ Draw</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleEraserMode();">⌫ Erase</div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();laserToggle();">⬤ Laser</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleDrawMode();"><img src="../assets/icons/draw.svg" class="btn-icon" alt="" /> Draw</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose();conToggleEraserMode();"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Erase</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose();laserToggle();"><img src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Laser</div>
     <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxOpenRecord();" data-i18n="recordAudio">🎙 Record
+    <div class="con-ctx-item" onclick="conBoardCtxClose();conBoardCtxOpenRecord();" data-i18n="recordAudio"><img src="../assets/icons/mic.svg" class="btn-icon" alt="" /> Record
       Audio</div>
     <div class="con-ctx-sep"></div>
-    <div class="con-ctx-item" onclick="conBoardCtxClose()" style="color:#888;font-weight:600;">✕ Cancel</div>
+    <div class="con-ctx-item" onclick="conBoardCtxClose()" style="color:#888;font-weight:600;"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Cancel</div>
   </div>
 
   <!-- Table context menu -->
   <!-- Table style popup -->
   <div id="con-table-style-overlay" class="con-sp-overlay" onclick="conTableStyleClose(event)">
     <div id="con-table-style-popup" class="con-sp-popup">
-      <h4 id="con-table-ctx-title">Table style <button onclick="conTableCtxClose()">✕</button></h4>
+      <h4 id="con-table-ctx-title">Table style <button onclick="conTableCtxClose()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Row</span>
         <div class="wn-sp-style-btns">
           <button class="wn-sp-style-toggle" onclick="conTableCtxAddRowAbove()">↑ Above</button>
           <button class="wn-sp-style-toggle" onclick="conTableCtxAddRowBelow()">↓ Below</button>
-          <button class="wn-sp-style-toggle" id="con-table-ctx-del-row" onclick="conTableCtxRemoveRow()">✕ Del</button>
+          <button class="wn-sp-style-toggle" id="con-table-ctx-del-row" onclick="conTableCtxRemoveRow()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Del</button>
         </div>
       </div>
       <div class="wn-sp-row">
@@ -1146,7 +1224,7 @@
         <div class="wn-sp-style-btns">
           <button class="wn-sp-style-toggle" onclick="conTableCtxAddColLeft()">← Left</button>
           <button class="wn-sp-style-toggle" onclick="conTableCtxAddColRight()">→ Right</button>
-          <button class="wn-sp-style-toggle" id="con-table-ctx-del-col" onclick="conTableCtxRemoveCol()">✕ Del</button>
+          <button class="wn-sp-style-toggle" id="con-table-ctx-del-col" onclick="conTableCtxRemoveCol()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Del</button>
         </div>
       </div>
       <div class="wn-sp-row" style="align-items:flex-start;">
@@ -1170,13 +1248,13 @@
             <button class="wn-sp-style-toggle" onclick="conTableCtxCellAlign('left')" title="Left">≡←</button>
             <button class="wn-sp-style-toggle" onclick="conTableCtxCellAlign('center')" title="Center">≡</button>
             <button class="wn-sp-style-toggle" onclick="conTableCtxCellAlign('right')" title="Right">→≡</button>
-            <button class="wn-sp-style-toggle" onclick="conTableCtxClearCell()" title="Clear cell">🗑</button>
+            <button class="wn-sp-style-toggle" onclick="conTableCtxClearCell()" title="Clear cell"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
           </div>
         </div>
       </div>
       <div class="wn-sp-actions">
-        <button class="wn-sp-action-btn" id="con-table-ctx-lock-btn" onclick="conTableCtxToggleLock()">🔓 Lock</button>
-        <button class="wn-sp-action-btn danger" onclick="conTableCtxDelete()">🗑 Delete</button>
+        <button class="wn-sp-action-btn" id="con-table-ctx-lock-btn" onclick="conTableCtxToggleLock()"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
+        <button class="wn-sp-action-btn danger" onclick="conTableCtxDelete()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -1184,7 +1262,7 @@
   <!-- Mask rectangle context menu -->
   <div id="con-mask-style-overlay" class="con-sp-overlay" onclick="conMaskStyleClose(event)">
     <div id="con-mask-style-popup" class="con-sp-popup">
-      <h4>Mask style <button onclick="conMaskCtxClose()">✕</button></h4>
+      <h4>Mask style <button onclick="conMaskCtxClose()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Colour</span>
         <div class="wn-sp-swatches" id="con-mask-ctx-swatches"></div>
@@ -1206,7 +1284,7 @@
           style="font-size:0.72rem;color:#666;width:36px;text-align:right;flex-shrink:0;">95%</span>
       </div>
       <div class="wn-sp-actions">
-        <button class="wn-sp-action-btn danger" onclick="conMaskCtxDelete()">🗑 Delete</button>
+        <button class="wn-sp-action-btn danger" onclick="conMaskCtxDelete()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -1214,7 +1292,7 @@
   <!-- Shape / stroke style popup -->
   <div id="con-shape-style-overlay" class="con-sp-overlay" onclick="conShapeStyleClose(event)">
     <div id="con-shape-style-popup" class="con-sp-popup">
-      <h4>Shape style <button onclick="conShapeCtxClose()">✕</button></h4>
+      <h4>Shape style <button onclick="conShapeCtxClose()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Type</span>
         <div id="con-shape-ctx-type-btns" style="display:flex;gap:4px;flex-wrap:wrap;flex:1;"></div>
@@ -1261,7 +1339,7 @@
           style="font-size:0.72rem;color:#666;width:34px;text-align:right;flex-shrink:0;">20px</span>
       </div>
       <div class="wn-sp-actions">
-        <button class="wn-sp-action-btn danger" onclick="conShapeCtxDelete()">🗑 Delete</button>
+        <button class="wn-sp-action-btn danger" onclick="conShapeCtxDelete()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -1269,7 +1347,7 @@
   <!-- Drawing style popup -->
   <div id="con-drawing-style-overlay" class="con-sp-overlay" onclick="conDrawingStyleClose(event)">
     <div id="con-drawing-style-popup" class="con-sp-popup">
-      <h4>Drawing style <button onclick="conDrawingCtxClose()">✕</button></h4>
+      <h4>Drawing style <button onclick="conDrawingCtxClose()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row">
         <span class="wn-sp-label">Colour</span>
         <input type="color" id="con-drawing-ctx-color" value="#e53935"
@@ -1337,7 +1415,7 @@
       <div class="con-ctx-item" onclick="conGroupCtxToggleMask()"
         style="flex:1; justify-content:center; font-size:0.72rem; padding:5px 4px;">👁 Mask/Reveal Group</div>
       <div class="con-ctx-item" onclick="conGroupCtxDuplicate()"
-        style="flex:1; justify-content:center; font-size:0.72rem; color:#2563eb; padding:5px 4px;">⧉ Duplicate</div>
+        style="flex:1; justify-content:center; font-size:0.72rem; color:#2563eb; padding:5px 4px;"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate</div>
       <div class="con-ctx-item" id="con-group-ctx-resetsize-btn" onclick="conGroupCtxResetSize()"
         style="flex:1; justify-content:center; font-size:0.72rem; color:#2563eb; padding:5px 4px;">⇱ Auto-fit</div>
     </div>
@@ -1643,18 +1721,18 @@
   <h1 id="site-title" data-i18n="boardTitle">Board</h1>
 
   <div id="main-menu" class="game">
-    <h3 class="section-label" data-i18n="sectionVisualTools">🖥️ Visual Tools</h3>
+    <h3 class="section-label" data-i18n="sectionVisualTools"><img src="../assets/icons/visual-tools.svg" class="main-hdr-icon" alt="" /> Visual Tools</h3>
     <div class="menu-grid">
       <button class="menu-btn btn-grey" onclick="navTo('constellation-section')"
         style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
-        <span data-i18n="btnConstellation" style="font-size: 1.15rem; font-weight: 800; display: block;">🖥️ Board</span>
+        <span data-i18n="btnConstellation" style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; justify-content: center;"><img src="../assets/icons/board.svg" class="main-btn-icon" alt="" /> Board</span>
         <span data-i18n="btnConstellationDesc"
           style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Interactive
           visual board workspace to layout, group, link, and structure words.</span>
       </button>
       <button class="menu-btn btn-grey" onclick="navTo('search-section')"
         style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
-        <span data-i18n="btnSearch" style="font-size: 1.15rem; font-weight: 800; display: block;">🔍 Search</span>
+        <span data-i18n="btnSearch" style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; justify-content: center;"><img src="../assets/icons/search.svg" class="main-btn-icon" alt="" /> Search</span>
         <span data-i18n="btnSearchDesc"
           style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Search
           for words and view their context within loaded books and texts.</span>
@@ -1663,30 +1741,27 @@
 
     <!-- HISTORY SECTION MERGED -->
     <div id="history-section" style="margin-top: 32px; border-top: 2px solid #eee; padding-top: 24px;">
-      <h2 data-i18n="historySectionTitle">🕘 Save History</h2>
+      <h2 data-i18n="historySectionTitle" style="display:flex;align-items:center;"><img src="../assets/icons/history.svg" class="main-hdr-icon" alt="" /> Save History</h2>
 
       <div id="history-toolbar">
         <div id="history-status" data-i18n="historyStatusLoading">Loading saved files...</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()" data-i18n="historyExportSelected">⬇
-            Export Selected</button>
+          <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()" data-i18n="historyExportSelected"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Selected</button>
           <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyArchiveSelected()" data-i18n="historyArchiveSelected">🗄 Archive Selected</button>
+            onclick="historyArchiveSelected()" data-i18n="historyArchiveSelected"><img src="../assets/icons/archive.svg" class="btn-icon" alt="" /> Archive Selected</button>
           <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyUnarchiveSelected()" data-i18n="historyUnarchiveSelected">↩ Unarchive Selected</button>
+            onclick="historyUnarchiveSelected()" data-i18n="historyUnarchiveSelected"><img src="../assets/icons/unarchive.svg" class="btn-icon" alt="" /> Unarchive Selected</button>
           <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyDeleteSelected()" data-i18n="historyDeleteSelected">🗑 Delete Selected</button>
-          <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()" data-i18n="btnDeleteAll">🧹
-            Delete All</button>
-          <button class="action-btn btn-grey" onclick="historyRefreshList()" data-i18n="btnRefresh">↻ Refresh</button>
+            onclick="historyDeleteSelected()" data-i18n="historyDeleteSelected"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Selected</button>
+          <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()" data-i18n="btnDeleteAll"><img src="../assets/icons/delete-all.svg" class="btn-icon" alt="" /> Delete All</button>
+          <button class="action-btn btn-grey" onclick="historyRefreshList()" data-i18n="btnRefresh"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Refresh</button>
         </div>
       </div>
 
       <div id="history-view-tabs" style="display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap;">
-        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')" data-i18n="historyTabManual">Saved
-          files</button>
+        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')" data-i18n="historyTabManual"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Saved files</button>
         <button id="history-tab-archived" class="action-btn btn-grey" type="button"
-          onclick="historySetViewTab('archived')" data-i18n="historyTabArchived">🗄 Archived</button>
+          onclick="historySetViewTab('archived')" data-i18n="historyTabArchived"><img src="../assets/icons/archive.svg" class="btn-icon" alt="" /> Archived</button>
       </div>
 
       <div id="history-filter-bar">
@@ -1699,7 +1774,7 @@
             <option value="" data-i18n="historyAllClasses">All classes</option>
           </select>
         </label>
-        <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()" data-i18n="historyClearFilters">✕ Clear</button>
+        <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()" data-i18n="historyClearFilters"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Clear</button>
       </div>
       <div id="history-search-bar" style="margin-bottom:8px;">
         <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…" data-i18n-placeholder="historySearchPlaceholder"
@@ -1735,11 +1810,11 @@
   <div id="constellation-section" class="game hidden" style="max-width:100%;padding:22px;">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <div class="board-section-tabs">
-      <button class="bst-tab bst-active" title="Board">🖥️ Board</button>
-      <button class="bst-tab" onclick="navTo('search-section')" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History">🕘 History</button>
+      <button class="bst-tab bst-active" title="Board"><img src="../assets/icons/board.svg" class="btn-icon" alt="" /> Board</button>
+      <button class="bst-tab" onclick="navTo('search-section')" title="Search"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Search</button>
+      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History"><img src="../assets/icons/history.svg" class="btn-icon" alt="" /> History</button>
     </div>
-    <h2 data-i18n="titleConstellation">🖥️ Board</h2>
+    <h2 data-i18n="titleConstellation"><img src="../assets/icons/board.svg" class="main-hdr-icon" alt="" /> Board</h2>
 
     <div id="con-sticky-wrapper">
       <!-- Toolbar -->
@@ -1749,23 +1824,22 @@
           <span class="con-tb-group-label">File</span>
           <div class="con-tb-group-body">
             <button class="action-btn btn-grey" onclick="conClearAll()" data-i18n="btnClearAll"
-              title="Remove all words from the board">🗑 Clear</button>
+              title="Remove all words from the board"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Clear</button>
             <button class="action-btn btn-grey" onclick="conExport()"
-              title="Export words from the board as PNG, CSV or PDF">⬇ Export</button>
+              title="Export words from the board as PNG, CSV or PDF"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export</button>
             <button class="action-btn btn-grey" onclick="boardNewSession('constellation')"
-              title="Save current board and start a new one">✚ New</button>
-            <button class="action-btn btn-grey" onclick="conSaveSession()" title="Save board to a .js file">💾
-              Save</button>
+              title="Save current board and start a new one"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New</button>
+            <button class="action-btn btn-grey" onclick="conSaveSession()" title="Save board to a .js file"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save</button>
             <button class="action-btn btn-grey" onclick="conDuplicateCurrentFile()"
-              title="Duplicate the current board file">⧉ Duplicate</button>
+              title="Duplicate the current board file"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate</button>
             <button class="action-btn btn-grey" onclick="openSessionLoadPopup('constellation')"
-              title="Load a saved board .js file">📂 Load</button>
+              title="Load a saved board .js file"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /> Load</button>
             <button class="action-btn btn-grey" onclick="conCloseSession()"
-              title="Close the current file without saving">✕ Close</button>
+              title="Close the current file without saving"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Close</button>
             <button class="action-btn btn-grey" onclick="conOpenTemplatePopup()"
-              title="Save/load reusable board templates">📋 Templates</button>
+              title="Save/load reusable board templates"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Templates</button>
             <button class="action-btn btn-grey" id="con-manage-media-btn" onclick="conOpenManageMediaChooser(this)"
-              title="Attach, insert, remove from board, or delete media">🧩 Media</button>
+              title="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg" class="btn-icon" alt="" /> Media</button>
             <input type="file" id="con-load-input" accept=".js,.json" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
@@ -1780,19 +1854,17 @@
           <span class="con-tb-group-label">Board</span>
           <div class="con-tb-group-body">
             <button class="action-btn btn-grey" onclick="conCtxSpreadSelected()"
-              title="Spread selected words — remove overlaps">⇢ Spread</button>
+              title="Spread selected words — remove overlaps"><img src="../assets/icons/spread.svg" class="btn-icon" alt="" /> Spread</button>
             <button class="action-btn btn-grey" onclick="conCompactNodes()"
-              title="Compact words — pull closer together without overlapping">⇠ Compact</button>
+              title="Compact words — pull closer together without overlapping"><img src="../assets/icons/compact.svg" class="btn-icon" alt="" /> Compact</button>
             <button class="action-btn btn-grey" onclick="conToggleMaskAll()"
-              title="Hide all words (or reveal if already hidden)">👁 Hide/Show</button>
-            <button class="action-btn btn-grey" onclick="conAddMask()" title="Add a movable mask rectangle">▭
-              Mask</button>
-            <button class="action-btn btn-grey" id="con-add-table-btn" data-i18n="btnAddTable"
-              onclick="conAddTableDialog()" title="Add an editable table to the board">⊞ Table</button>
-            <button class="action-btn btn-grey" onclick="conBoardCtxCreateGroup(true)" title="Add an empty group">⬡
-              Group</button>
+              title="Hide all words (or reveal if already hidden)"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide/Show</button>
+            <button class="action-btn btn-grey" onclick="conAddMask()" title="Add a movable mask rectangle"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Mask</button>
+            <button class="action-btn btn-grey" id="con-add-table-btn"
+              onclick="conAddTableDialog()" title="Add an editable table to the board"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Table</button>
+            <button class="action-btn btn-grey" onclick="conBoardCtxCreateGroup(true)" title="Add an empty group"><img src="../assets/icons/group.svg" class="btn-icon" alt="" /> Group</button>
             <button class="action-btn btn-grey" id="con-snap-toggle-btn" onclick="conToggleSnap()"
-              title="Toggle snap-to-align when dragging nodes (hold Alt to bypass snap temporarily)">📐 Snap</button>
+              title="Toggle snap-to-align when dragging nodes (hold Alt to bypass snap temporarily)"><img src="../assets/icons/snap.svg" class="btn-icon" alt="" /> Snap</button>
           </div>
         </div>
 
@@ -1800,28 +1872,27 @@
           <span class="con-tb-group-label">Draw</span>
           <div class="con-tb-group-body">
             <button class="action-btn btn-grey" id="con-draw-btn" onclick="conToggleDrawMode()"
-              title="Draw freehand annotations with pen or touch (click again to exit)">✎ Draw</button>
+              title="Draw freehand annotations with pen or touch (click again to exit)"><img src="../assets/icons/draw.svg" class="btn-icon" alt="" /> Draw</button>
             <button class="action-btn btn-grey" id="con-eraser-toolbar-btn" onclick="conToggleEraserMode()"
-              title="Erase freehand drawings (click again to exit)">⌫ Erase</button>
+              title="Erase freehand drawings (click again to exit)"><img src="../assets/icons/eraser.svg" class="btn-icon" alt="" /> Erase</button>
             <button class="action-btn btn-grey" id="con-laser-btn" onclick="laserToggle()"
-              title="Laser pointer (Ctrl+L) — click: mark · hold &amp; drag: trail · double-click: pulse">⬤
-              Laser</button>
+              title="Laser pointer (Ctrl+L) — click: mark · hold &amp; drag: trail · double-click: pulse"><img src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Laser</button>
           </div>
         </div>
 
         <div class="con-tb-group" id="con-tb-vocab">
           <span class="con-tb-group-label">Vocab</span>
           <div class="con-tb-group-body">
-            <button class="action-btn btn-grey" onclick="conImportOpen()" data-i18n="btnImportBank"
-              title="Import words from the word bank">📥 Import</button>
+            <button class="action-btn btn-grey" onclick="conImportOpen()"
+              title="Import words from the word bank"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
             <button class="action-btn btn-grey" onclick="unknownWordsOpen('constellation')"
-              title="List all words on the board that are not in the word database">❓ Unknown</button>
+              title="List all words on the board that are not in the word database"><img src="../assets/icons/how-to.svg" class="btn-icon" alt="" /> Unknown</button>
             <button class="action-btn btn-grey" id="con-toggle-ipa-btn" onclick="conToggleAllIpa()"
-              title="Show/hide IPA for all words">[ ] IPA</button>
+              title="Show/hide IPA for all words"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" /> IPA</button>
             <button class="action-btn btn-grey" id="con-toggle-french-btn" onclick="conToggleAllFrench()"
-              title="Show/hide French translation for all words">( ) FR</button>
+              title="Show/hide French translation for all words"><img src="../assets/icons/french.svg" class="btn-icon" alt="" /> FR</button>
             <button class="action-btn btn-grey" onclick="conDbExportOpen()"
-              title="Export board words to a wordbank database">💾 DB</button>
+              title="Export board words to a wordbank database"><img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /> DB</button>
           </div>
         </div>
 
@@ -1830,36 +1901,34 @@
           <div class="con-tb-group-body">
             <span style="white-space:nowrap;display:inline-flex;align-items:center;gap:2px;">
               <button class="action-btn btn-grey" onclick="updateZoom(window.conCurrentZoom - 0.1)"
-                title="Decrease font size 10%">−</button>
+                title="Decrease font size 10%"><img src="../assets/icons/zoom-out.svg" class="btn-icon" alt="" /></button>
               <span id="zoom-level-display"
                 style="min-width:3.2em;text-align:center;display:inline-block;font-size:0.62rem;">100%</span>
               <button class="action-btn btn-grey" onclick="updateZoom(window.conCurrentZoom + 0.1)"
-                title="Increase font size 10%">+</button>
+                title="Increase font size 10%"><img src="../assets/icons/zoom-in.svg" class="btn-icon" alt="" /></button>
             </span>
             <span class="con-label">Size:</span>
             <input type="number" id="con-default-font-size-input" min="8" max="48" step="1" value="16"
               onchange="conSetDefaultWordFontSize(this.value)" title="Default font size for newly added words">
             <button class="action-btn btn-grey" id="con-mirror-btn" onclick="conOpenMirrorWindow()"
-              title="Open presentation mode on second monitor">📽️ Presentation Mode</button>
+              title="Open presentation mode on second monitor"><img src="../assets/icons/presentation.svg" class="btn-icon" alt="" /> Presentation Mode</button>
             <button class="action-btn btn-grey" id="con-close-presentation-btn" onclick="conCloseMirrorWindow()"
-              title="Close the presentation mode window">🛑 Close Presentation</button>
+              title="Close the presentation mode window"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Close Presentation</button>
             <button class="action-btn btn-grey" id="con-pointer-btn" onclick="conToggleMirrorPointer()"
-              title="Show mouse position as laser dot in presentation window">🖱 Mouse Pointer</button>
+              title="Show mouse position as laser dot in presentation window"><img src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Mouse Pointer</button>
             <button class="action-btn btn-grey" id="con-freeze-btn" onclick="conToggleMirrorFreeze()"
-              title="Freeze the presentation window — board changes won't update until unfrozen">❄️ Freeze
-              Board</button>
+              title="Freeze the presentation window — board changes won't update until unfrozen"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Freeze Board</button>
           </div>
         </div>
         <div class="con-tb-group" id="con-tb-pages">
           <span class="con-tb-group-label">Pages</span>
           <div class="con-tb-group-body" id="con-page-bar">
-            <button class="action-btn btn-grey" onclick="window.conAddPage()" title="Add a new page">&#xff0b;
-              Add</button>
-            <button class="action-btn btn-grey" onclick="window.conCopyPage()" title="Copy current page">⎘ Copy</button>
+            <button class="action-btn btn-grey" onclick="window.conAddPage()" title="Add a new page"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add</button>
+            <button class="action-btn btn-grey" onclick="window.conCopyPage()" title="Copy current page"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy</button>
             <button class="action-btn btn-grey" id="con-paste-page-btn" onclick="window.conPastePage()"
-              title="Paste copied page" disabled>⎗ Paste</button>
+              title="Paste copied page" disabled><img src="../assets/icons/paste.svg" class="btn-icon" alt="" /> Paste</button>
             <button class="action-btn btn-grey" onclick="conOpenPagePreview()"
-              title="Preview, reorder and delete pages">⊞ Preview</button>
+              title="Preview, reorder and delete pages"><img src="../assets/icons/page-number.svg" class="btn-icon" alt="" /> Preview</button>
           </div>
         </div>
         <div class="con-tb-group" id="con-title-group">
@@ -1890,16 +1959,16 @@
         </div>
 
         <div class="con-tb-group" id="con-tb-mode-toggle" style="margin-left: auto;">
-          <span class="con-tb-group-label" id="con-mode-group-label" style="font-weight: 800; color: #111; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">Mode: <span id="con-mode-label-text">🔤 Text</span> ▾</span>
+          <span class="con-tb-group-label" id="con-mode-group-label" style="font-weight: 800; color: #111; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">Mode: <span id="con-mode-label-text" style="display:inline-flex; align-items:center; gap:2px;"><img src="../assets/icons/text.svg" class="btn-icon" alt="" /> Text</span> ▾</span>
           <div class="con-tb-group-body" style="right: 0; left: auto; border-radius: 4px 0 4px 4px; min-width: 125px;">
             <button class="action-btn btn-grey con-mode-option-btn active-mode" id="con-mode-opt-text" type="button" onclick="setBoardMode('text')" title="Text & selection mode">
-              <span style="font-size:0.9rem;">🔤</span> Text
+              <img src="../assets/icons/text.svg" class="btn-icon" alt="" /> Text
             </button>
             <button class="action-btn btn-grey con-mode-option-btn" id="con-mode-opt-drawings" type="button" onclick="setBoardMode('drawings')" title="Freehand drawing annotations">
-              <span style="font-size:0.9rem;">✎</span> Drawings
+              <img src="../assets/icons/draw.svg" class="btn-icon" alt="" /> Drawings
             </button>
             <button class="action-btn btn-grey con-mode-option-btn" id="con-mode-opt-laser" type="button" onclick="setBoardMode('laser')" title="Laser pointer mode">
-              <span style="font-size:0.9rem;">⬤</span> Laser
+              <img src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Laser
             </button>
           </div>
         </div>
@@ -2199,7 +2268,7 @@
       <div class="wn-sp-actions">
         <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleClearSelectedFormat()">✕
           Clear</button>
-        <button class="wn-sp-action-btn" id="wn-sp-lock-btn" onclick="wnStyleToggleLock()">🔓 Lock</button>
+        <button class="wn-sp-action-btn" id="wn-sp-lock-btn" onclick="wnStyleToggleLock()"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
         <button class="wn-sp-action-btn" id="wn-sp-hide-btn" onclick="wnStyleToggleHide()">👁 Hide</button>
         <button class="wn-sp-action-btn" id="wn-sp-blink-btn" onclick="wnStyleBlink()">🔴 Blink</button>
         <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleFitText()"
@@ -2244,17 +2313,17 @@
   <div id="search-section" class="game hidden">
     <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
     <div class="board-section-tabs">
-      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">🖥️ Board</button>
-      <button class="bst-tab bst-active" title="Search">🔍 Search</button>
-      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History">🕘 History</button>
+      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board"><img src="../assets/icons/board.svg" class="btn-icon" alt="" /> Board</button>
+      <button class="bst-tab bst-active" title="Search"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Search</button>
+      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History"><img src="../assets/icons/history.svg" class="btn-icon" alt="" /> History</button>
     </div>
-    <h2>🔍 Search</h2>
+    <h2><img src="../assets/icons/search.svg" class="main-hdr-icon" alt="" /> Search</h2>
 
     <div id="search-toolbar">
       <input type="text" id="search-word" placeholder="Enter word to search"
         onkeydown="if(event.key==='Enter') searchPerform()">
-      <button class="action-btn" onclick="searchPerform()">🔍 Search</button>
-      <button class="action-btn btn-grey" onclick="searchClear()">✕ Clear</button>
+      <button class="action-btn" onclick="searchPerform()"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Search</button>
+      <button class="action-btn btn-grey" onclick="searchClear()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Clear</button>
       <div class="search-sep"></div>
       <button class="action-btn btn-grey" onclick="searchOpenImport()" title="Import book from HTML/EPUB">📂 Import
         Book</button>
@@ -4441,8 +4510,9 @@
     function bpUpdateBtn() {
       const btn = document.getElementById('con-bp-btn');
       if (!btn) return;
+      const iconHtml = '<img src="../assets/icons/planner.svg" class="btn-icon" alt="" />';
       if (!activePlannerEntryId) {
-        btn.textContent = t('bpBtn');
+        btn.innerHTML = iconHtml + ' ' + t('bpBtn');
         btn.title = t('bpPopTitle');
         btn.style.fontWeight = '';
         btn.style.borderColor = '';
@@ -4450,13 +4520,13 @@
       }
       const entry = bpGetAllEntries().find(e => e.id === activePlannerEntryId);
       if (!entry) {
-        btn.textContent = t('bpBtn') + ' ✓';
+        btn.innerHTML = iconHtml + ' ' + t('bpBtn') + ' ✓';
         btn.style.fontWeight = '900';
         btn.style.borderColor = '#111';
         return;
       }
       const label = bpBuildLabel(entry);
-      btn.textContent = '📅 ' + (label.length > 48 ? label.slice(0, 47) + '…' : label);
+      btn.innerHTML = iconHtml + ' ' + (label.length > 48 ? label.slice(0, 47) + '…' : label);
       btn.title = t('bpPopTitle') + ': ' + label;
       btn.style.fontWeight = '900';
       btn.style.borderColor = '#111';
@@ -5746,10 +5816,18 @@
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n');
         const v = t(k);
+        const img = el.querySelector('img');
         // Use innerHTML for keys that contain HTML tags
         const htmlKeys = ['whichCorrect', 'helpTipFilters1', 'helpTipFilters2', 'helpTipFilters3', 'helpCardHangmanDesc', 'helpCardScrambleDesc', 'helpCardFindErrorDesc', 'helpTipTeam1', 'helpTipTeam2', 'helpTipTimer'];
-        if (htmlKeys.includes(k)) { el.innerHTML = v; }
-        else { el.textContent = v; }
+        if (img) {
+          el.innerHTML = '';
+          el.appendChild(img);
+          el.appendChild(document.createTextNode(' ' + v));
+        } else if (htmlKeys.includes(k)) {
+          el.innerHTML = v;
+        } else {
+          el.textContent = v;
+        }
       });
 
       // Quote boxes (data-i18n-prefix: value stored dynamically)
@@ -10195,11 +10273,11 @@
           bar.appendChild(hdrLabel);
           const lockBtn = document.createElement('button');
           lockBtn.className = 'con-table-bar-btn'; lockBtn.title = 'Lock/unlock';
-          lockBtn.textContent = tbl.locked ? '🔒' : '🔓';
+          lockBtn.innerHTML = tbl.locked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />';
           lockBtn.addEventListener('click', function (e) {
             e.stopPropagation(); conPushUndo();
             tbl.locked = !tbl.locked;
-            lockBtn.textContent = tbl.locked ? '🔒' : '🔓';
+            lockBtn.innerHTML = tbl.locked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />';
             if (tbl.locked) el.classList.add('tbl-locked'); else el.classList.remove('tbl-locked');
           });
           bar.appendChild(lockBtn);
@@ -11929,13 +12007,13 @@
         }
 
         const modeDetails = {
-          text: { icon: '🔤', label: 'Text' },
-          drawings: { icon: '✎', label: 'Drawings' },
-          laser: { icon: '⬤', label: 'Laser' }
+          text: { icon: '../assets/icons/text.svg', label: 'Text' },
+          drawings: { icon: '../assets/icons/draw.svg', label: 'Drawings' },
+          laser: { icon: '../assets/icons/laser.svg', label: 'Laser' }
         };
 
         const curr = modeDetails[mode] || modeDetails.text;
-        labelText.textContent = curr.icon + ' ' + curr.label;
+        labelText.innerHTML = `<img src="${curr.icon}" class="btn-icon" alt="" /> ${curr.label}`;
 
         ['text', 'drawings', 'laser'].forEach(m => {
           const optBtn = document.getElementById('con-mode-opt-' + m);
@@ -15951,8 +16029,8 @@
         const hasAnt = dbWord && dbWord.antonyms && dbWord.antonyms.length > 0;
         synBtn.classList.toggle('disabled', !hasSyn);
         antBtn.classList.toggle('disabled', !hasAnt);
-        synBtn.innerHTML = hasSyn ? `🔗<span class="con-ctx-icon-label">syn·${dbWord.synonyms.length}</span>` : '🔗<span class="con-ctx-icon-label">syn</span>';
-        antBtn.innerHTML = hasAnt ? `⚡<span class="con-ctx-icon-label">ant·${dbWord.antonyms.length}</span>` : '⚡<span class="con-ctx-icon-label">ant</span>';
+        synBtn.innerHTML = hasSyn ? `<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn·${dbWord.synonyms.length}</span>` : '<img src="../assets/icons/syn.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">syn</span>';
+        antBtn.innerHTML = hasAnt ? `<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant·${dbWord.antonyms.length}</span>` : '<img src="../assets/icons/ant.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">ant</span>';
 
         const networkBtn = document.getElementById('con-ctx-network-btn');
         if (networkBtn) {
@@ -15978,8 +16056,8 @@
 
         // Show/hide Card button
         if (cardBtn) cardBtn.style.display = dbWord ? '' : 'none';
-        // DB button: show ✏️ if word already in vocabBank, ➕ if new
-        if (dbBtn) dbBtn.innerHTML = dbWord ? '✏️<span class="con-ctx-icon-label">edit</span>' : '➕<span class="con-ctx-icon-label">DB</span>';
+        // DB button: show edit icon if word already in vocabBank, add-db icon if new
+        if (dbBtn) dbBtn.innerHTML = dbWord ? '<img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">edit</span>' : '<img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">add</span>';
         // Star button: show only when node has a db entry
         const starBtn = document.getElementById('con-ctx-star-btn');
         if (starBtn) {
@@ -16090,12 +16168,12 @@
         }
         _conSyncPresetButtons();
         const maskBtn = document.getElementById('con-ctx-mask-btn');
-        if (maskBtn) maskBtn.innerHTML = (node && node.masked) ? '👁<span class="con-ctx-icon-label">show</span>' : '👁<span class="con-ctx-icon-label">hide</span>';
+        if (maskBtn) maskBtn.innerHTML = (node && node.masked) ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">show</span>' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">hide</span>';
 
         const lockBtn = document.getElementById('con-ctx-lock-btn');
         if (lockBtn) {
           const isLocked = !!(node && node.locked);
-          lockBtn.innerHTML = isLocked ? '🔒<span class="con-ctx-icon-label">lock</span>' : '🔓<span class="con-ctx-icon-label">free</span>';
+          lockBtn.innerHTML = isLocked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
           lockBtn.title = isLocked ? 'Unlock node position and size' : 'Lock node position and size';
         }
 
@@ -16424,7 +16502,7 @@
         });
         const lockBtn = document.getElementById('con-ctx-lock-btn');
         if (lockBtn) {
-          lockBtn.innerHTML = shouldLock ? '🔒<span class="con-ctx-icon-label">lock</span>' : '🔓<span class="con-ctx-icon-label">free</span>';
+          lockBtn.innerHTML = shouldLock ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
           lockBtn.title = shouldLock ? 'Unlock node position and size' : 'Lock node position and size';
         }
       };
@@ -22086,7 +22164,7 @@
         if (btn) btn.classList.toggle('active', _curAlign === a);
       });
       const lockBtn = document.getElementById('wn-sp-lock-btn');
-      if (lockBtn) { lockBtn.textContent = noteData.locked ? '🔒 Unlock' : '🔓 Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
+      if (lockBtn) { lockBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
       const hideBtn = document.getElementById('wn-sp-hide-btn');
       if (hideBtn) hideBtn.textContent = noteData.hidden ? '👁 Reveal note' : '👁 Hide note';
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
@@ -22692,7 +22770,7 @@
       if (!_wnActiveNote) return;
       _wnActiveNote.locked = !_wnActiveNote.locked;
       const lockBtn = document.getElementById('wn-sp-lock-btn');
-      if (lockBtn) lockBtn.textContent = _wnActiveNote.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (lockBtn) lockBtn.innerHTML = _wnActiveNote.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
     }
     function wnStyleToggleHide() {
       if (!_wnActiveNote) return;
@@ -23840,12 +23918,12 @@
         e.preventDefault();
         e.stopPropagation();
         noteData.locked = !noteData.locked;
-        lockQuickBtn.textContent = noteData.locked ? '🔒' : '🔓';
+        lockQuickBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />';
         lockQuickBtn.classList.toggle('active', !!noteData.locked);
         lockQuickBtn.title = noteData.locked ? 'Unlock note' : 'Lock note';
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const lockBtn = document.getElementById('wn-sp-lock-btn');
-          if (lockBtn) { lockBtn.textContent = noteData.locked ? '🔒 Unlock' : '🔓 Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
+          if (lockBtn) { lockBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
         }
       });
       miniActions.appendChild(lockQuickBtn);
@@ -29301,9 +29379,18 @@
         const menu = document.createElement('div');
         menu.className = 'history-actions-menu';
 
-        function menuItem(label, action, danger) {
+        function menuItem(label, action, danger, iconSvg) {
           const btn = document.createElement('button');
-          btn.textContent = label;
+          if (iconSvg) {
+            const img = document.createElement('img');
+            img.src = iconSvg;
+            img.className = 'btn-icon';
+            img.alt = '';
+            btn.appendChild(img);
+            btn.appendChild(document.createTextNode(' ' + label));
+          } else {
+            btn.textContent = label;
+          }
           if (danger) btn.className = 'danger';
           btn.onclick = (ev) => {
             if (ev) { ev.preventDefault(); ev.stopPropagation(); }
@@ -29313,31 +29400,31 @@
           menu.appendChild(btn);
         }
 
-        menuItem('Open', () => historyLoadSavedFile(entry));
-        menuItem('Open in New Window', () => boardOpenSessionInNewWindow({ type: 'file', entry }));
+        menuItem('Open', () => historyLoadSavedFile(entry), false, '../assets/icons/board.svg');
+        menuItem('Open in New Window', () => boardOpenSessionInNewWindow({ type: 'file', entry }), false, '../assets/icons/board.svg');
         if (window.Desktop && Desktop.isElectron()) {
-          menuItem('📂 Show in Folder', () => {
+          menuItem('Show in Folder', () => {
             const rel = historyEntryRelativePath(entry);
             const folderPath = historyEntryIsNestedPath(entry) ? rel.split('/')[0] : rel;
             Desktop.showInFolder(entry.target, folderPath);
-          });
+          }, false, '../assets/icons/file-manager.svg');
         }
 
         if (entry.source === 'archived') {
-          menuItem('↩ Unarchive', () => historyUnarchiveEntry(entry));
+          menuItem('Unarchive', () => historyUnarchiveEntry(entry), false, '../assets/icons/unarchive.svg');
         } else {
           if (entry.target === 'mindmaps') {
-            menuItem('Versions', () => conShowVersionHistory(entry));
+            menuItem('Versions', () => conShowVersionHistory(entry), false, '../assets/icons/history.svg');
           }
-          menuItem('👁 Preview', () => historyPreviewEntry(entry));
-          menuItem('✏️ Rename', () => historyRenameEntry(entry));
-          menuItem('⧉ Duplicate', () => historyDuplicateEntry(entry));
-          menuItem('🗄 Archive', () => historyArchiveEntry(entry));
+          menuItem('Preview', () => historyPreviewEntry(entry), false, '../assets/icons/search.svg');
+          menuItem('Rename', () => historyRenameEntry(entry), false, '../assets/icons/general-config.svg');
+          menuItem('Duplicate', () => historyDuplicateEntry(entry), false, '../assets/icons/duplicate.svg');
+          menuItem('Archive', () => historyArchiveEntry(entry), false, '../assets/icons/archive.svg');
         }
 
         const hr = document.createElement('hr');
         menu.appendChild(hr);
-        menuItem('🗑 Delete', () => historyDeleteEntry(entry), true);
+        menuItem('Delete', () => historyDeleteEntry(entry), true, '../assets/icons/delete.svg');
 
         actionsWrap.appendChild(actionsBtn);
         actionsWrap.appendChild(menu);
@@ -34968,7 +35055,7 @@
       var blinkBtn = document.getElementById('con-img-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-img-sp-lock-btn');
-      if (lockBtn) lockBtn.textContent = item.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
       var fullBtn = document.getElementById('con-img-sp-fullscreen-btn');
       if (fullBtn) fullBtn.classList.toggle('active', !!item._fullscreen);
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
@@ -35105,7 +35192,7 @@
       _conCtxItem.locked = !_conCtxItem.locked;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-img-sp-lock-btn');
-      if (btn) btn.textContent = _conCtxItem.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
     };
     window.conImgSpAddEmoji = function () {
       if (!_conCtxItem) return;
@@ -35169,7 +35256,7 @@
       var blinkBtn = document.getElementById('con-pdf-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-pdf-sp-lock-btn');
-      if (lockBtn) lockBtn.textContent = item.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
       var lockFitBtn = document.getElementById('con-pdf-sp-lockfit-btn');
       if (lockFitBtn) lockFitBtn.classList.toggle('active', !!item.pdfLockSize);
       var fullBtn = document.getElementById('con-pdf-sp-fullscreen-btn');
@@ -35332,7 +35419,7 @@
       _conCtxItem.locked = !_conCtxItem.locked;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-pdf-sp-lock-btn');
-      if (btn) btn.textContent = _conCtxItem.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
     };
     window.conPdfSpToggleLockFit = function () {
       if (!_conCtxItem) return;
@@ -35395,7 +35482,7 @@
       if (!overlay) return;
       _conSoundOverlayOpenTime = Date.now();
       var lockBtn = document.getElementById('con-sound-sp-lock-btn');
-      if (lockBtn) lockBtn.textContent = item.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
       var openFileBtn = document.getElementById('con-sound-sp-openfile-btn');
       var openFolderBtn = document.getElementById('con-sound-sp-openfolder-btn');
@@ -35424,7 +35511,7 @@
       var wrap = _conMediaGetWrap(_conCtxItem);
       if (wrap) wrap.classList.toggle('con-media-locked', !!_conCtxItem.locked);
       var btn = document.getElementById('con-sound-sp-lock-btn');
-      if (btn) btn.textContent = _conCtxItem.locked ? '🔒 Unlock' : '🔓 Lock';
+      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
     };
     window.conSoundSpOpenFile = function () {
       var item = _conCtxItem;
@@ -35803,7 +35890,7 @@
   <!-- Image style popup -->
   <div id="con-img-style-overlay" class="con-sp-overlay" onclick="conImgStyleClose(event)">
     <div id="con-img-style-popup" class="con-sp-popup">
-      <h4><span data-i18n="conImgStyleTitle">Image style</span> <button onclick="conImgStyleDismiss()">✕</button></h4>
+      <h4><span data-i18n="conImgStyleTitle">Image style</span> <button onclick="conImgStyleDismiss()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row" style="align-items:flex-start;">
         <span class="wn-sp-label" style="padding-top:3px;" data-i18n="conSpBorder">Border</span>
         <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
@@ -35854,15 +35941,15 @@
         <button class="wn-sp-action-btn" id="con-img-sp-blink-btn" onclick="conImgSpToggleBlink()" data-i18n="conSpBlink">🔴 Blink</button>
         <button class="wn-sp-action-btn" id="con-img-sp-fullscreen-btn" onclick="conImgSpToggleFullscreen()" data-i18n="conSpFullscreen">⛶
           Full</button>
-        <button class="wn-sp-action-btn" id="con-img-sp-lock-btn" onclick="conImgSpToggleLock()" data-i18n="conSpLock">🔓 Lock</button>
+        <button class="wn-sp-action-btn" id="con-img-sp-lock-btn" onclick="conImgSpToggleLock()" data-i18n="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
         <button class="wn-sp-action-btn" onclick="conImgSpAddEmoji()" data-i18n="conSpEmoji">😀 Emoji</button>
-        <button class="wn-sp-action-btn" onclick="conImgSpDuplicate()" data-i18n="conSpDup">⧉ Dup</button>
-        <button class="wn-sp-action-btn" onclick="conImgSpCrop()" data-i18n="conSpCrop">✂ Crop</button>
+        <button class="wn-sp-action-btn" onclick="conImgSpDuplicate()" data-i18n="conSpDup"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Dup</button>
+        <button class="wn-sp-action-btn" onclick="conImgSpCrop()" data-i18n="conSpCrop"><img src="../assets/icons/split.svg" class="btn-icon" alt="" /> Crop</button>
         <button class="wn-sp-action-btn" id="con-img-sp-openfile-btn" onclick="conImgSpOpenFile()"
-          style="display:none;" data-i18n="conSpOpen">📄 Open</button>
+          style="display:none;" data-i18n="conSpOpen"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Open</button>
         <button class="wn-sp-action-btn" id="con-img-sp-openfolder-btn" onclick="conImgSpOpenFolder()"
-          style="display:none;" data-i18n="conSpFolder">📂 Folder</button>
-        <button class="wn-sp-action-btn danger" onclick="conImgSpDelete()" data-i18n="conSpDelete">🗑 Delete</button>
+          style="display:none;" data-i18n="conSpFolder"><img src="../assets/icons/file-manager.svg" class="btn-icon" alt="" /> Folder</button>
+        <button class="wn-sp-action-btn danger" onclick="conImgSpDelete()" data-i18n="conSpDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -35870,7 +35957,7 @@
   <!-- PDF style popup -->
   <div id="con-pdf-style-overlay" class="con-sp-overlay" onclick="conPdfStyleClose(event)">
     <div id="con-pdf-style-popup" class="con-sp-popup">
-      <h4><span data-i18n="conPdfStyleTitle">PDF style</span> <button onclick="conPdfStyleDismiss()">✕</button></h4>
+      <h4><span data-i18n="conPdfStyleTitle">PDF style</span> <button onclick="conPdfStyleDismiss()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-row" style="align-items:flex-start;">
         <span class="wn-sp-label" style="padding-top:3px;" data-i18n="conSpBorder">Border</span>
         <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
@@ -35921,15 +36008,15 @@
         <button class="wn-sp-action-btn" id="con-pdf-sp-blink-btn" onclick="conPdfSpToggleBlink()" data-i18n="conSpBlink">🔴 Blink</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-fullscreen-btn" onclick="conPdfSpToggleFullscreen()" data-i18n="conSpFullscreen">⛶
           Full</button>
-        <button class="wn-sp-action-btn" id="con-pdf-sp-lock-btn" onclick="conPdfSpToggleLock()" data-i18n="conSpLock">🔓 Lock</button>
+        <button class="wn-sp-action-btn" id="con-pdf-sp-lock-btn" onclick="conPdfSpToggleLock()" data-i18n="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-lockfit-btn" onclick="conPdfSpToggleLockFit()" data-i18n="conSpFit">⧇ Fit</button>
         <button class="wn-sp-action-btn" onclick="conPdfSpAddEmoji()" data-i18n="conSpEmoji">😀 Emoji</button>
-        <button class="wn-sp-action-btn" onclick="conPdfSpDuplicate()" data-i18n="conSpDup">⧉ Dup</button>
+        <button class="wn-sp-action-btn" onclick="conPdfSpDuplicate()" data-i18n="conSpDup"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Dup</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-openfile-btn" onclick="conPdfSpOpenFile()"
-          style="display:none;" data-i18n="conSpOpen">📄 Open</button>
+          style="display:none;" data-i18n="conSpOpen"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Open</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-openfolder-btn" onclick="conPdfSpOpenFolder()"
-          style="display:none;" data-i18n="conSpFolder">📂 Folder</button>
-        <button class="wn-sp-action-btn danger" onclick="conPdfSpDelete()" data-i18n="conSpDelete">🗑 Delete</button>
+          style="display:none;" data-i18n="conSpFolder"><img src="../assets/icons/file-manager.svg" class="btn-icon" alt="" /> Folder</button>
+        <button class="wn-sp-action-btn danger" onclick="conPdfSpDelete()" data-i18n="conSpDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -35937,15 +36024,15 @@
   <!-- Sound style popup -->
   <div id="con-sound-style-overlay" class="con-sp-overlay" onclick="conSoundStyleClose(event)">
     <div id="con-sound-style-popup" class="con-sp-popup">
-      <h4><span data-i18n="conSoundStyleTitle">Sound style</span> <button onclick="conSoundStyleDismiss()">✕</button></h4>
+      <h4><span data-i18n="conSoundStyleTitle">Sound style</span> <button onclick="conSoundStyleDismiss()"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button></h4>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
-        <button class="wn-sp-action-btn" onclick="conSoundSpTrim()" data-i18n="conSpTrim">✂ Trim</button>
-        <button class="wn-sp-action-btn" id="con-sound-sp-lock-btn" onclick="conSoundSpToggleLock()" data-i18n="conSpLock">🔓 Lock</button>
+        <button class="wn-sp-action-btn" onclick="conSoundSpTrim()" data-i18n="conSpTrim"><img src="../assets/icons/split.svg" class="btn-icon" alt="" /> Trim</button>
+        <button class="wn-sp-action-btn" id="con-sound-sp-lock-btn" onclick="conSoundSpToggleLock()" data-i18n="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
         <button class="wn-sp-action-btn" id="con-sound-sp-openfile-btn" onclick="conSoundSpOpenFile()"
-          style="display:none;" data-i18n="conSpOpen">📄 Open</button>
+          style="display:none;" data-i18n="conSpOpen"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Open</button>
         <button class="wn-sp-action-btn" id="con-sound-sp-openfolder-btn" onclick="conSoundSpOpenFolder()"
-          style="display:none;" data-i18n="conSpFolder">📂 Folder</button>
-        <button class="wn-sp-action-btn danger" onclick="conSoundSpDelete()" data-i18n="conSpDelete">🗑 Delete</button>
+          style="display:none;" data-i18n="conSpFolder"><img src="../assets/icons/file-manager.svg" class="btn-icon" alt="" /> Folder</button>
+        <button class="wn-sp-action-btn danger" onclick="conSoundSpDelete()" data-i18n="conSpDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
@@ -35953,8 +36040,8 @@
   <div id="con-db-export-overlay">
     <div id="con-db-export-modal">
       <div id="con-db-export-header">
-        <h3 data-i18n="conExportWordsDbTitle">💾 Export Words to Database</h3>
-        <button id="con-db-export-close-btn" onclick="conDbExportClose()" title="Close" data-i18n-title="btnClose">✕</button>
+        <h3 data-i18n="conExportWordsDbTitle"><img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /> Export Words to Database</h3>
+        <button id="con-db-export-close-btn" onclick="conDbExportClose()" title="Close" data-i18n-title="btnClose"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
       </div>
       <div id="con-db-export-toolbar">
         <span class="cde-lbl" data-i18n="conDbExportSources">Sources:</span>
