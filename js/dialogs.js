@@ -234,8 +234,17 @@
       it: { dataSyncReload: 'Ricarica', dataSyncSaveReload: 'Salva e ricarica', dataSyncDismiss: 'Ignora', dataSyncMsg: '{source} ha aggiornato i dati condivisi.' }
     };
     var lm = map[lang] || map.en;
+    if (typeof window.i18nT === 'function') {
+      try {
+        var res = window.i18nT(key);
+        if (res && res !== key) return res;
+      } catch (e) {}
+    }
     if (typeof window.t === 'function') {
-      try { return window.t(key) || lm[key] || key; } catch (e) {}
+      try {
+        var res2 = window.t(key);
+        if (res2 && res2 !== key) return res2;
+      } catch (e) {}
     }
     return lm[key] || key;
   }
@@ -246,11 +255,11 @@
     syncBanner.id = 'cmt-sync-banner';
     syncBanner.innerHTML =
       '<span class="cmt-sync-icon">🔄</span>' +
-      '<span class="cmt-sync-msg"></span>' +
+      '<span class="cmt-sync-msg" data-i18n="dataSyncMsg"></span>' +
       '<div class="cmt-sync-btns">' +
-        '<button class="cmt-sync-save-reload" style="display:none"></button>' +
-        '<button class="cmt-sync-reload"></button>' +
-        '<button class="cmt-sync-dismiss"></button>' +
+        '<button class="cmt-sync-save-reload" data-i18n="dataSyncSaveReload" style="display:none"></button>' +
+        '<button class="cmt-sync-reload" data-i18n="dataSyncReload"></button>' +
+        '<button class="cmt-sync-dismiss" data-i18n="dataSyncDismiss"></button>' +
       '</div>';
     document.body.appendChild(syncBanner);
   }
@@ -266,6 +275,33 @@
     ensureSyncBanner();
 
     var source = (data && data.sourceTitle) || '?';
+    var pageTitleKeys = {
+      'Board': 'app_board_title',
+      'Class Management': 'app_classManagement_title',
+      'Group Editor': 'app_groupEditor_title',
+      'Grade Sheet': 'app_gradeSheet_title',
+      'Learning Tools': 'app_learningTools_title',
+      'Manage Database': 'app_manageDatabase_title',
+      'DB Manager v2': 'app_manageDatabase_title',
+      'Learning DB': 'app_manageDatabase_title',
+      'Participation Tracker': 'app_participationTracker_title',
+      'Launcher': 'app_launcher_title',
+      'General Config': 'app_generalConfig_title',
+      'File Manager': 'app_fileManager_title',
+      'How To': 'btnHeaderHowTo',
+      'About': 'btnHeaderAbout',
+      'Schedule Maker': 'app_scheduleMaker_title',
+      'Class Plan': 'app_classPlan_title',
+      'Document Editor': 'app_documentEditor_title',
+      'Planner': 'app_planner_title',
+      'Import Tool': 'app_importTool_title',
+      'Import': 'app_importTool_title',
+      'Oral Marking': 'app_oralMarking_title'
+    };
+    if (pageTitleKeys[source]) {
+      var trSource = _syncT(pageTitleKeys[source]);
+      if (trSource && trSource !== pageTitleKeys[source]) source = trSource;
+    }
     var msg = _syncT('dataSyncMsg').replace('{source}', source);
 
     syncBanner.querySelector('.cmt-sync-msg').textContent = msg;

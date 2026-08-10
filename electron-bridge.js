@@ -847,7 +847,7 @@
   // Uses event delegation so dynamically-injected menu links are handled.
   function wireAppNav() {
     if (!isElectron()) return;
-    const nav = document.getElementById('app-nav');
+    const nav = document.getElementById('app-nav') || document.getElementById('menu');
     if (!nav) return;
     nav.addEventListener('click', function (event) {
       const link = event.target.closest('a.nav-link[href]');

@@ -9,6 +9,7 @@
     <script src="../electron-bridge.js"></script>
     <script src="../js/dialogs.js"></script>
     <script src="../js/i18n.js"></script>
+    <script src="../js/menus.js"></script>
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
     <script>
@@ -140,26 +141,25 @@
         </div>
         <!-- Floating buttons -->
         <div class="floating-buttons">
-            <button class="cm-help-btn" onclick="toggleHelp()" data-i18n-title="help_title">?</button>
-            <button class="btn-objectives" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label">▶
+            <button class="tut-trigger-btn" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label">▶
                 Tour</button>
-            <button class="btn-objectives" onclick="toggleObjectivesBar()"
+            <button class="tut-trigger-btn" onclick="toggleObjectivesBar()"
                 data-i18n="btn_objectives">Objectives</button>
-            <button class="btn-db-hub" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title"
+            <button class="tut-trigger-btn" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title"
                 title="Database &amp; Time Machine">🗄 DB</button>
-            <button class="btn-objectives" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings"
+            <button class="tut-trigger-btn" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings"
                 data-i18n-title="settings_btn_title">⚙ Settings</button>
-            <button class="btn-objectives" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote"
+            <button class="tut-trigger-btn" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote"
                 data-i18n-title="remote_btn_title" style="display:none;align-items:center;gap:6px;">
                 <span>📱 Remote</span>
                 <span id="remote-connected-badge"
                     style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
             </button>
-            <button class="btn-objectives" onclick="toggleLinksPopup(event)" id="links-btn" title="Open another tool"
-                data-i18n-title="links_btn_title">☰</button>
+            <div id="app-hamburger" class="hm-wrap">
+                <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu" data-i18n-title="links_btn_title" title="Open another tool">☰</button>
+                <div class="hm-menu"></div>
+            </div>
 
-            <button class="btn-objectives" onclick="openCreditsModal()" title="Credits"
-                data-i18n-title="credits_btn_title">ℹ️ Credits</button>
             <button id="menu-minimize-btn" onclick="toggleMenuCollapse(event)" title="Minimise menu"
                 aria-label="Minimise menu" data-i18n-title="menu_minimize_title"
                 data-i18n-aria="menu_minimize_title">[-]</button>
@@ -368,35 +368,7 @@
             </span>
         </button>
     </div>
-    <!-- Links popup -->
-    <div id="links-popup">
-        <button class="hm-item" onclick="openAppLink('board.html')"><img src="../assets/icons/board.svg" class="hm-icon-img" alt="" /> Board</button>
-        <button class="hm-item" onclick="openAppLink('learning-tools.html')"><img src="../assets/icons/learning-tools.svg" class="hm-icon-img" alt="" /> Learning Tools</button>
-        <button class="hm-item" onclick="openAppLink('manage-database.html')"><img src="../assets/icons/manage-database.svg" class="hm-icon-img" alt="" /> Database</button>
-        <button class="hm-item" onclick="openAppLink('grade-sheet.html')"><img src="../assets/icons/grade-sheet.svg" class="hm-icon-img" alt="" /> Grade Sheet</button>
-        <button class="hm-item" onclick="openAppLink('participation-tracker.html')"><img src="../assets/icons/participation-tracker.svg" class="hm-icon-img" alt="" /> Tracker</button>
-        <button class="hm-item" onclick="openAppLink('oral-marking.html')"><img src="../assets/icons/oral-marking.svg" class="hm-icon-img" alt="" /> Oral Marking</button>
-        <hr class="hm-sep">
-        <button class="hm-item" onclick="openAppLink('import-tool.html')" data-i18n="importShortcutBtn"><img src="../assets/icons/import-tool.svg" class="hm-icon-img" alt="" /> Import</button>
-        <button class="hm-item" onclick="openAppLink('group-editor.html')"><img src="../assets/icons/group-editor.svg" class="hm-icon-img" alt="" /> Group Editor</button>
-        <button class="hm-item" onclick="openAppLink('class-plan.html')"><img src="../assets/icons/class-plan.svg" class="hm-icon-img" alt="" /> Class Plan</button>
-        <button class="hm-item" onclick="openAppLink('planner.html')"><img src="../assets/icons/planner.svg" class="hm-icon-img" alt="" /> Planner</button>
-        <button class="hm-item" onclick="openAppLink('schedule-maker.html')"><img src="../assets/icons/schedule-maker.svg" class="hm-icon-img" alt="" /> Schedule Maker</button>
-        <button class="hm-item" onclick="openAppLink('document-editor.html')"><img src="../assets/icons/document-editor.svg" class="hm-icon-img" alt="" /> Document Editor</button>
-        <button class="hm-item" onclick="openAppLink('file-manager.html')"><img src="../assets/icons/file-manager.svg" class="hm-icon-img" alt="" /> File Manager</button>
-        <hr class="hm-sep">
-        <button class="hm-item" onclick="openAppLink('general-config.html')"><img src="../assets/icons/general-config.svg" class="hm-icon-img" alt="" /> General Config</button>
-        <button class="hm-item" onclick="openAppLink('launcher.html')"><img src="../assets/icons/launcher.svg" class="hm-icon-img" alt="" /> Launcher</button>
-        <button class="hm-item" onclick="openCreditsModal()"><img src="../assets/icons/about.svg" class="hm-icon-img" alt="" /> Credits</button>
-        <hr class="hm-sep">
-        <div class="hm-lang-row">
-            <button class="hm-lang-btn" data-lang="auto" onclick="setLang(null)">Auto</button>
-            <button class="hm-lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
-            <button class="hm-lang-btn" data-lang="fr" onclick="setLang('fr')">FR</button>
-            <button class="hm-lang-btn" data-lang="de" onclick="setLang('de')">DE</button>
-            <button class="hm-lang-btn" data-lang="it" onclick="setLang('it')">IT</button>
-        </div>
-    </div>
+
     <div id="startup-load-banner">
         <span class="startup-banner-icon">📁</span>
         <div class="startup-banner-body">
@@ -425,8 +397,8 @@
             <!-- Top Right Controls (Class Selection & Settings) -->
             <div class="top-right-controls">
                 <div id="class-selection-anchor">
-                    <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)"
-                        title="Select class">Select Class</button>
+                    <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)" title="Select class"
+                        data-i18n="btn_select_class" data-i18n-title="btn_select_class_title">Select Class</button>
                     <div id="class-selection-popup" class="class-selection-popup">
                         <div class="class-selection-header">
                             <div class="class-filter-bar" id="class-filter-bar">
@@ -805,12 +777,16 @@
                 <div id="roster-context-menu" class="roster-context-menu">
                     <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
                         data-i18n="ctx_absent">Absent</button>
-                    <div style="padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafafa; margin: 3px 0;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <div
+                        style="padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafafa; margin: 3px 0;">
+                        <div
+                            style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
                             <span>🚩 Flags</span>
-                            <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)" style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
+                            <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
+                                style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
                         </div>
-                        <div id="ctx-flag-palette" style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                        <div id="ctx-flag-palette"
+                            style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
                             <!-- Flag color buttons dynamically generated -->
                         </div>
                     </div>
@@ -1288,36 +1264,52 @@
 
     <!-- EDIT AUTOFLAG MODAL -->
     <div class="modal-overlay" id="edit-autoflag-modal" onclick="closeEditAutoflagModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:820px; width:min(96vw,820px); max-height:88vh; overflow-y:auto;">
+        <div class="modal-content" onclick="event.stopPropagation()"
+            style="max-width:820px; width:min(96vw,820px); max-height:88vh; overflow-y:auto;">
             <button class="close-modal" onclick="closeEditAutoflagModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="af_title">Edit Auto-Flag Rules & Colors</h2>
+            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="af_title">Edit
+                Auto-Flag Rules & Colors</h2>
             <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="af_desc">
-                Configure automatic flag rules with customizable colors, metrics (including all badges), operators, and random picker weights.</p>
+                Configure automatic flag rules with customizable colors, metrics (including all badges), operators, and
+                random picker weights.</p>
 
             <!-- Enable toggle -->
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px 14px; background:#f7f9fc; border:1px solid #d0d7de; border-radius:8px;">
+            <div
+                style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px 14px; background:#f7f9fc; border:1px solid #d0d7de; border-radius:8px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <input type="checkbox" id="af-enabled" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-                    <label for="af-enabled" style="font-weight:700; font-size:0.95rem; cursor:pointer; margin:0;" data-i18n="af_enable">Enable auto-flag rules</label>
+                    <label for="af-enabled" style="font-weight:700; font-size:0.95rem; cursor:pointer; margin:0;"
+                        data-i18n="af_enable">Enable auto-flag rules</label>
                 </div>
                 <span style="font-size:0.8rem; color:#666;">Evaluation engine: Participation Tracker Metrics</span>
             </div>
 
             <!-- Timeline -->
-            <div style="margin-bottom:20px; background:#fff; padding:12px; border:1px solid #e1e4e8; border-radius:6px;">
-                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px; color:#333;" data-i18n="af_timeline">Timeline Range</div>
+            <div
+                style="margin-bottom:20px; background:#fff; padding:12px; border:1px solid #e1e4e8; border-radius:6px;">
+                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px; color:#333;" data-i18n="af_timeline">
+                    Timeline Range</div>
                 <div style="display:flex; gap:20px; flex-wrap:wrap;">
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="all" id="af-tl-all" style="width:15px;height:15px;">
+                        <input type="radio" name="af-timeline" value="all" id="af-tl-all"
+                            style="width:15px;height:15px;">
                         <span data-i18n="af_all_sessions">All sessions</span>
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks" style="width:15px;height:15px;">
-                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1" max="52" value="4" style="width:4em; font-size:0.9rem; padding:3px 5px; border:1px solid #ccc; border-radius:4px; text-align:center;" onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span data-i18n="af_weeks">weeks</span>
+                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks"
+                            style="width:15px;height:15px;">
+                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1"
+                            max="52" value="4"
+                            style="width:4em; font-size:0.9rem; padding:3px 5px; border:1px solid #ccc; border-radius:4px; text-align:center;"
+                            onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span
+                            data-i18n="af_weeks">weeks</span>
                     </label>
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="date" id="af-tl-date" style="width:15px;height:15px;">
-                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value" style="font-size:0.88rem; padding:3px 6px; border:1px solid #ccc; border-radius:4px;" onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
+                        <input type="radio" name="af-timeline" value="date" id="af-tl-date"
+                            style="width:15px;height:15px;">
+                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value"
+                            style="font-size:0.88rem; padding:3px 6px; border:1px solid #ccc; border-radius:4px;"
+                            onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
                     </label>
                 </div>
             </div>
@@ -1326,13 +1318,16 @@
             <div style="margin-bottom:20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <strong style="font-size:0.9rem; color:#222;">Flag Rules & Color Assignments</strong>
-                    <button type="button" onclick="addAutoFlagRule()" style="background:#2ecc71; color:#fff; border:none; border-radius:4px; padding:6px 12px; font-weight:700; font-size:0.78rem; cursor:pointer; text-transform:uppercase;">+ Add Rule</button>
+                    <button type="button" onclick="addAutoFlagRule()"
+                        style="background:#2ecc71; color:#fff; border:none; border-radius:4px; padding:6px 12px; font-weight:700; font-size:0.78rem; cursor:pointer; text-transform:uppercase;">+
+                        Add Rule</button>
                 </div>
-                
+
                 <div style="overflow-x:auto; border:1px solid #e1e4e8; border-radius:6px; background:#fff;">
                     <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
                         <thead>
-                            <tr style="background:#f6f8fa; border-bottom:1px solid #e1e4e8; text-align:left; color:#555;">
+                            <tr
+                                style="background:#f6f8fa; border-bottom:1px solid #e1e4e8; text-align:left; color:#555;">
                                 <th style="padding:8px 6px; width:30px; text-align:center;">On</th>
                                 <th style="padding:8px 6px; width:130px;">Rule Name</th>
                                 <th style="padding:8px 6px; width:150px;">Color</th>
@@ -1349,13 +1344,19 @@
                     </table>
                 </div>
                 <div style="font-size:0.75rem; color:#777; margin-top:6px;">
-                    Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>, <code>attendanceRate</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g. <code>💎</code>, <code>⭐</code>).
+                    Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>,
+                    <code>attendanceRate</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g.
+                    <code>💎</code>, <code>⭐</code>).
                 </div>
             </div>
 
             <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #eee; padding-top:14px;">
-                <button onclick="saveAutoFlagSettings()" style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="btn_save">Save Rules & Settings</button>
-                <button onclick="closeEditAutoflagModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="btn_cancel">Cancel</button>
+                <button onclick="saveAutoFlagSettings()"
+                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
+                    data-i18n="btn_save">Save Rules & Settings</button>
+                <button onclick="closeEditAutoflagModal()"
+                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
+                    data-i18n="btn_cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -1454,7 +1455,7 @@
                         Name</label>
                     <input type="text" id="mode-edit-name"
                         style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
-                        placeholder="e.g. Silent Reading">
+                        placeholder="e.g. Silent Reading" data-i18n-placeholder="mode_name_ph">
                 </div>
                 <div style="display:flex; gap:12px; margin-bottom:12px;">
                     <div style="flex:1;">
@@ -1481,14 +1482,14 @@
                         Title</label>
                     <input type="text" id="mode-edit-text-title"
                         style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
-                        placeholder="e.g. Quiet Work">
+                        placeholder="e.g. Quiet Work" data-i18n-placeholder="mode_disp_title_ph">
                 </div>
                 <div style="margin-bottom:12px;">
                     <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Subtitle /
                         Instructions</label>
                     <input type="text" id="mode-edit-text-subtitle"
                         style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;"
-                        placeholder="e.g. Read individually at your desk">
+                        placeholder="e.g. Read individually at your desk" data-i18n-placeholder="mode_subtitle_ph">
                 </div>
                 <div style="display:flex; gap:12px; margin-bottom:12px;">
                     <div style="flex:1;">
@@ -1557,7 +1558,8 @@
                     </select>
                 </div>
                 <div style="margin-bottom:12px;">
-                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Image Sizing &amp; Fit</label>
+                    <label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:4px;">Image Sizing
+                        &amp; Fit</label>
                     <select id="mode-edit-pic-fit"
                         style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
                         <option value="fit">Fit (Keep proportions, full image visible)</option>
@@ -1589,7 +1591,8 @@
                         <!-- Options populated dynamically from availableSoundFiles -->
                     </select>
                     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-                        <span style="font-size:0.8rem; color:#666;">Or upload custom audio file:</span>
+                        <span style="font-size:0.8rem; color:#666;" data-i18n="mode_custom_audio_label">Or upload custom
+                            audio file:</span>
                         <input type="file" id="mode-edit-sound-upload" accept="audio/*"
                             onchange="handleModeAudioUpload(event)" style="font-size:0.8rem;">
                     </div>
@@ -2001,7 +2004,7 @@
                     classBtn.innerHTML = `${displayName}${halfSuffix}`;
                     classBtn.classList.add('active');
                 } else {
-                    classBtn.innerHTML = 'Select Class';
+                    classBtn.innerHTML = t('btn_select_class'); classBtn.title = t('btn_select_class_title');
                     classBtn.classList.remove('active');
                 }
             }
@@ -2112,11 +2115,11 @@
                     + '<button type="button" id="btn-dismiss-second-pres" style="padding:6px 10px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#ccc;font-weight:600;font-size:0.8rem;cursor:pointer;transition:background 0.15s;">' + dismissBtnTxt + '</button>'
                     + '</div>';
                 document.body.appendChild(banner);
-                banner.querySelector('#btn-start-second-pres').onclick = function() {
+                banner.querySelector('#btn-start-second-pres').onclick = function () {
                     banner.remove();
                     onStartPresentation();
                 };
-                banner.querySelector('#btn-dismiss-second-pres').onclick = function() {
+                banner.querySelector('#btn-dismiss-second-pres').onclick = function () {
                     sessionStorage.setItem('dismissed_second_screen_prompt', '1');
                     banner.remove();
                 };
@@ -2132,7 +2135,7 @@
                     hasSecond = !!window.screen.isExtended;
                 }
                 if (hasSecond) {
-                    showSecondScreenBanner(function() {
+                    showSecondScreenBanner(function () {
                         if (typeof openCmsPresentation === 'function') openCmsPresentation();
                     });
                 }
@@ -2140,7 +2143,7 @@
 
             setTimeout(checkAndPrompt, 1500);
             if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.onDisplayChanged === 'function') {
-                window.Desktop.onDisplayChanged(function(data) {
+                window.Desktop.onDisplayChanged(function (data) {
                     if (data && data.hasSecond) {
                         checkAndPrompt();
                     } else {
@@ -2632,6 +2635,42 @@
             };
         }
 
+        function getSessionTeamCustomNames() {
+            const names = {};
+            teamColors.forEach((tc, idx) => {
+                if (tc.customName) names[idx + 1] = tc.customName;
+            });
+            return Object.keys(names).length ? names : null;
+        }
+
+        function applySessionTeamCustomNames(tNames) {
+            if (!tNames || typeof tNames !== 'object') return;
+            teamColors.forEach((tc, idx) => {
+                const teamId = idx + 1;
+                const val = tNames[teamId] !== undefined ? tNames[teamId] : tNames[String(teamId)];
+                if (val !== undefined) {
+                    tc.customName = String(val).trim();
+                }
+            });
+        }
+
+        function saveSessionTeamNames() {
+            try {
+                const names = getSessionTeamCustomNames() || {};
+                sessionStorage.setItem('cms-session-team-names', JSON.stringify(names));
+            } catch (e) {}
+        }
+
+        function applySessionTeamNames() {
+            try {
+                const raw = sessionStorage.getItem('cms-session-team-names');
+                if (raw) {
+                    const names = JSON.parse(raw);
+                    applySessionTeamCustomNames(names);
+                }
+            } catch (e) {}
+        }
+
         function applyUserConfig(config) {
             const savedTeams = Array.isArray(config?.teamColors) ? config.teamColors : [];
             const teamCount = savedTeams.length > 0 ? savedTeams.length : DEFAULT_TEAM_COLORS.length;
@@ -2647,6 +2686,7 @@
                 };
             });
             teamColors.splice(0, teamColors.length, ...restoredTeams);
+            applySessionTeamNames();
 
             const savedBadges = Array.isArray(config?.badgeDefinitions) ? config.badgeDefinitions : DEFAULT_BADGE_DEFINITIONS;
             badgeDefinitions = normalizeBadgeDefinitions(savedBadges && savedBadges.length ? savedBadges : DEFAULT_BADGE_DEFINITIONS);
@@ -3075,6 +3115,7 @@
         async function initApp() {
             await Promise.resolve(window.__cmUserBootstrapPromise).catch(function () { });
             await loadConfigFromDisk();
+            if (typeof initHamburger === 'function') initHamburger();
 
             let showDevFeatures = !!(getLoadedConfig()?.launcherSettings?.showDevFeatures);
             if (!showDevFeatures) {
@@ -3578,6 +3619,7 @@
                 return;
             }
 
+            try { sessionStorage.removeItem('cms-session-team-names'); } catch (e) {}
             closeEditTeamsModal();
             renderRoster();
             renderRanking();
@@ -3586,6 +3628,7 @@
 
         function resetTeamSettings() {
             teamColors.splice(0, teamColors.length, ...DEFAULT_TEAM_COLORS.map(entry => ({ ...entry })));
+            try { sessionStorage.removeItem('cms-session-team-names'); } catch (e) {}
             persistTeamSettings();
             renderEditTeamsModal();
             renderRoster();
@@ -6866,7 +6909,7 @@
                         pTeamMinuses += match.teamMinuses || 0;
                         const sBadges = match.badges || [];
                         pBadgesAccumulated = pBadgesAccumulated.concat(sBadges);
-                        
+
                         const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(s, selectedGroupName, student.name) : [];
                         pTeamRoleEvents += events.length;
 
@@ -6874,7 +6917,7 @@
                     });
 
                     const badgeSentiment = countBadgeSentimentForStudent(pBadgesAccumulated);
-                    
+
                     const mockOverviewData = {
                         picks: pPicks,
                         attendedSessions: Math.max(0, pTotal - pAbsent),
@@ -6895,7 +6938,7 @@
 
                     if (provGrade !== null) {
                         const maxText = config.scaleToMax ? ` / ${config.maxGrade}` : '';
-                        
+
                         const net = (pPluses + pTeamPluses + badgeSentiment.positive) - (pMinuses + pTeamMinuses + badgeSentiment.negative);
                         const attendanceRate = pTotal > 0 ? ((pTotal - pAbsent) / pTotal) * 100 : 0;
                         const attendedSessions = pTotal - pAbsent;
@@ -6920,7 +6963,7 @@
                             let label = '';
                             let rulePoints = 0;
                             let possiblePoints = 0;
-                            
+
                             if (rule.metric === 'formula') {
                                 let met = false;
                                 let maxPts = Number(rule.maxPts) ?? 0;
@@ -6993,10 +7036,10 @@
                                     studentValue = getStudentBadgeCounts(pBadgesAccumulated)[key] || 0;
                                     label = `${bLabel} (Total): ${studentValue}`;
                                 }
-                                
+
                                 rulePoints = calculateCriterionPoints(studentValue, rule);
                                 possiblePoints = Number(rule.maxPts) ?? 0;
-                                
+
                                 const isMet = rulePoints > (Number(rule.minPts) || 0);
                                 if (isMet) {
                                     achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
@@ -7136,7 +7179,7 @@
                     i = end + 1;
                     continue;
                 }
-                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i+1]))) {
+                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i + 1]))) {
                     let numStr = '';
                     while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
                         numStr += str[i]; i++;
@@ -7471,8 +7514,13 @@
             showPrompt(`Enter a new name for the ${currentName} team:`, currentName, function (newName) {
                 if (newName !== null && newName.trim() !== "") {
                     teamColors[teamIndex].customName = newName.trim();
-                    persistTeamSettings();
+                    saveSessionTeamNames();
                     renderRoster();
+                    if (typeof renderRanking === 'function') renderRanking();
+                    if (typeof autosaveToDb === 'function') {
+                        dbAutosaveLastFingerprint = '';
+                        autosaveToDb('team-rename');
+                    }
                 }
             });
         }
@@ -8015,7 +8063,7 @@
                     i = end + 1;
                     continue;
                 }
-                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i+1]))) {
+                if (/\d/.test(char) || (char === '.' && /\d/.test(str[i + 1]))) {
                     let numStr = '';
                     while (i < str.length && (/\d/.test(str[i]) || str[i] === '.')) {
                         numStr += str[i];
@@ -8519,9 +8567,9 @@
                     </td>
                     <td style="padding: 6px;">
                         ${isFormula
-                            ? `<input type="text" class="af-rule-formula" value="${(r.formula || '').replace(/"/g, '&quot;')}" onchange="tempFlagRules[${idx}].formula = this.value" placeholder="e.g. minuses >= 2 and netPoints < 0" style="width:100%; font-size:0.8rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
-                            : `<input type="number" class="af-rule-thresh" value="${r.threshold ?? 25}" onchange="tempFlagRules[${idx}].threshold = parseFloat(this.value)" step="any" style="width:60px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
-                        }
+                        ? `<input type="text" class="af-rule-formula" value="${(r.formula || '').replace(/"/g, '&quot;')}" onchange="tempFlagRules[${idx}].formula = this.value" placeholder="e.g. minuses >= 2 and netPoints < 0" style="width:100%; font-size:0.8rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
+                        : `<input type="number" class="af-rule-thresh" value="${r.threshold ?? 25}" onchange="tempFlagRules[${idx}].threshold = parseFloat(this.value)" step="any" style="width:60px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;">`
+                    }
                     </td>
                     <td style="padding: 6px;">
                         <input type="number" class="af-rule-weight" value="${r.pickWeight ?? 2.0}" onchange="tempFlagRules[${idx}].pickWeight = parseFloat(this.value)" step="0.5" min="0.1" max="10" style="width:55px; font-size:0.82rem; padding:4px; border:1px solid #ccc; border-radius:4px;" title="Pick weight multiplier">
@@ -12274,7 +12322,8 @@ syncState();
                 activeGroupTitle: activeGroupTitle,
                 groups: activeGroupSnapshot,
                 lessonObjectives: currentObjectives,
-                sessionHistory: activeGroupHistory
+                sessionHistory: activeGroupHistory,
+                teamCustomNames: getSessionTeamCustomNames()
             };
         }
 
@@ -12318,7 +12367,8 @@ syncState();
                     activeGroup: selectedGroupName,
                     groups: studentGroups,
                     sessionHistory: typeof sessionHistory !== 'undefined' ? sessionHistory : [],
-                    lessonObjectives: currentObjectives
+                    lessonObjectives: currentObjectives,
+                    teamCustomNames: getSessionTeamCustomNames()
                 });
             } catch (e) {
                 return null;
@@ -12514,6 +12564,11 @@ syncState();
                 restoreObjectivesFromSession(latestObjectivesSession);
             }
 
+            const latestTeamNamesSession = todaySessions.find(s => s && s.teamCustomNames);
+            if (latestTeamNamesSession && latestTeamNamesSession.teamCustomNames) {
+                applySessionTeamCustomNames(latestTeamNamesSession.teamCustomNames);
+            }
+
             if (restoredGroups === 0) return false;
 
             if (selectedGroupName && studentGroups[selectedGroupName]) {
@@ -12557,7 +12612,8 @@ syncState();
                 activeGroup: selectedGroupName,
                 groups: snapshot,
                 lessonObjectives: currentObjectives,
-                sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : []
+                sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
+                teamCustomNames: getSessionTeamCustomNames()
             };
 
             const sessions = getDb();
@@ -12638,7 +12694,8 @@ syncState();
                     activeGroup: gName,
                     groups: snapshot,
                     lessonObjectives: currentObjectives,
-                    sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : []
+                    sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
+                    teamCustomNames: getSessionTeamCustomNames()
                 };
 
                 const existingIdx = sessions.findIndex(s => {
@@ -12701,6 +12758,9 @@ syncState();
                     return sDate.toDateString() === todayStr && s.activeGroup === gName;
                 });
                 const existingObjectives = existingIdx !== -1 ? (sessions[existingIdx].lessonObjectives || '') : '';
+                const existingTeamNames = existingIdx !== -1 ? sessions[existingIdx].teamCustomNames : null;
+                const activeTeamNames = getSessionTeamCustomNames();
+                const sessionTeamNames = gName === selectedGroupName ? activeTeamNames : (existingTeamNames || activeTeamNames);
 
                 const session = {
                     id: existingIdx !== -1 ? sessions[existingIdx].id : isoKey,
@@ -12709,7 +12769,8 @@ syncState();
                     activeGroup: gName,
                     groups: { [gName]: JSON.parse(JSON.stringify(groupStudents)) },
                     lessonObjectives: gName === selectedGroupName ? currentObjectives : existingObjectives,
-                    sessionHistory: groupHistory
+                    sessionHistory: groupHistory,
+                    ...(sessionTeamNames ? { teamCustomNames: sessionTeamNames } : {})
                 };
 
                 if (existingIdx !== -1) {
@@ -13135,24 +13196,22 @@ syncState();
 
         function toggleLinksPopup(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
-            const popup = document.getElementById('links-popup');
-            const btn = document.getElementById('links-btn');
-            const isOpen = popup.classList.contains('open');
-            if (isOpen) {
-                closeLinksPopup();
-            } else {
-                closeDbPopup();
-                closeSettingsPopup();
-                popup.classList.add('open');
-                if (btn) btn.classList.add('active');
+            const wrap = document.getElementById('app-hamburger');
+            if (wrap) {
+                const isOpen = wrap.classList.contains('open');
+                if (isOpen) {
+                    closeLinksPopup();
+                } else {
+                    closeDbPopup();
+                    closeSettingsPopup();
+                    wrap.classList.add('open');
+                }
             }
         }
 
         function closeLinksPopup() {
-            const popup = document.getElementById('links-popup');
-            const btn = document.getElementById('links-btn');
-            if (popup) popup.classList.remove('open');
-            if (btn) btn.classList.remove('active');
+            const wrap = document.getElementById('app-hamburger');
+            if (wrap) wrap.classList.remove('open');
         }
 
         function openAppLink(pageFile) {
@@ -13874,1766 +13933,25 @@ syncState();
         // ═══════════════════════════════════════════════════════════════════════
         //  i18n — Language Switcher
         // ═══════════════════════════════════════════════════════════════════════
-        const I18N = {
-            en: {
-                // Menu buttons
-                btn_timer: '⏱ Timer',
-                btn_mode: 'Mode',
-                btn_objectives: 'Objectives',
-                btn_results: 'Results & Ranking',
-                btn_history: 'History',
-                btn_db_title: 'Database & Time Machine',
-                help_title: 'User Guide',
-
-                // Timer popup
-                timer_title: '⏱ Timer',
-                timer_mode_timer: '⏱ Timer',
-                timer_mode_stopwatch: '⏱ Stopwatch',
-                timer_duration: 'Duration',
-                timer_beeps: 'Beeps',
-                timer_start: '▶ Start',
-                timer_stop: '■ Stop',
-                timer_pause: '⏸ Pause',
-                timer_pause_title: 'Pause/Resume',
-                timer_class_mode: 'Class Mode',
-
-                // Class modes
-                mode_title: 'Class Mode',
-                mode_subtitle: 'Choose a working mode to display for students',
-                mode_quiet: 'Quiet',
-                mode_quiet_short: 'Quiet',
-                mode_quiet_title: 'Quiet Work (1)',
-                mode_conversation: 'Conversation',
-                mode_talk_short: 'Talk',
-                mode_conv_title: 'Conversation (2)',
-                mode_group: 'Group Work',
-                mode_group_short: 'Group',
-                mode_group_title: 'Group Work (3)',
-
-                // Noise
-                noise_volume: 'Volume',
-
-                // DB popup
-                db_title: '🗄 Database',
-                db_current_session: 'Current Session',
-                db_save: 'Save to DB',
-                db_save_small: "Snapshot today's class state",
-                db_save_all: 'Save Active Classes',
-                db_save_all_small: 'Snapshot only groups with interactions',
-                db_history_label: 'History',
-                db_time_machine: '⏪ Time Machine',
-                db_backup_restore: 'Backup & Restore',
-                db_export: 'Export DB',
-                db_export_small: 'Download active-group sessions as .js backup',
-                db_import: 'Import DB',
-                db_import_small: 'Load sessions from a .json, .js, or legacy .txt file',
-
-                // Objectives
-                objectives_label: 'Lesson Objectives',
-                objectives_placeholder: 'Click to set lesson objectives…',
-                objectives_edit: 'Edit',
-                objectives_hint: 'These will appear below the title and inside the fullscreen timer.',
-
-                // Roster
-                students_label: 'Students:',
-                btn_add_student: '+ Add',
-                btn_add_student_title: 'Add a new student to this group',
-                btn_badges: 'Badges',
-                btn_badges_title: 'Show/hide badge columns',
-                roster_select_group: 'Select a group...',
-                btn_pick: 'Random Student',
-                btn_pick_team: 'Random Team',
-
-                // Results & ranking
-                results_live_ranking: 'Live Ranking',
-                results_performance: 'Performance of the Day',
-
-                // History
-                history_title: 'Session History',
-                btn_export_csv: 'Export CSV',
-                btn_clear: 'Clear',
-                history_empty: 'No events yet this session.',
-
-                // Time Machine
-                tm_subtitle: 'Browse and restore past class sessions',
-                tm_viewing: 'Viewing session from …',
-                tm_return_live: '✕ Return to Live Session',
-
-                // Teams
-                team_maker_title: 'Team Maker',
-                team_option_a: 'Option A: Total Number of Teams',
-                team_option_b: 'Option B: Students Per Team',
-                team_option_c: 'Option C: Saved Setups',
-                btn_save_setup: '💾 Save Current Setup',
-
-                // Roles
-                roles_title: 'Choose Roles or Ranks',
-                roles_random_rank: 'Assign Random Ranks',
-                roles_distribute: 'Distribute Selected Roles',
-                roles_reset_all: 'Reset All Roles',
-                roles_option_c: 'Option C · Saved Setups',
-                btn_save_roles_setup: '💾 Save Current Roles',
-                roles_info_title: 'Assigned Role Descriptions',
-                roles_info_empty: 'No roles are currently assigned in this group.',
-                roles_info_missing: 'No description has been added for this role yet.',
-                roles_toggle_label: 'Option A · Choose roles to use (blue = active):',
-                roles_new_label: 'Add a New Role:',
-                roles_add_btn: 'Add',
-                roles_placeholder: 'e.g. Illustrator...',
-
-                // Utility buttons
-                btn_copy_data: 'Copy Data',
-                btn_export_csv2: 'Export CSV',
-                btn_create_teams: 'Create Teams',
-                btn_reshuffle_teams: 'Reshuffle Teams',
-                btn_clear_teams: 'Clear Teams',
-                btn_roles: 'Roles',
-                btn_role_info: 'Role Info',
-                btn_role_info_title: 'Show descriptions of assigned roles',
-                btn_reset_points: 'Reset Points',
-                btn_reset_strikes: 'Reset Strikes',
-
-                // Alerts / confirms
-                alert_select_group: 'Please select a group first!',
-                alert_no_present_ranks: 'No present students to rank.',
-                alert_select_role: 'Select at least one role!',
-                alert_select_role2: 'Please select at least one role from the list!',
-                confirm_clear_roles: 'Clear all assigned roles from students?',
-                confirm_delete_roles: 'This will delete all defined roles and remove assigned roles from all students. Continue?',
-                confirm_merge_teams: 'Merge all students from Team {a} into Team {b}?',
-                confirm_remove_student: 'Remove student?',
-                confirm_wipe_points: 'Wipe points?',
-                alert_data_copied: 'Data copied to clipboard!',
-                alert_everyone_called: 'Everyone has been called!',
-                alert_valid_time: 'Please set a valid time',
-                confirm_clear_history: 'Clear all session history?',
-                alert_save_error: 'Could not save to database: ',
-                alert_select_before_save: 'Please select a group first before saving.',
-                alert_no_sessions_export: 'No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.',
-                confirm_import: 'You already have {n} session(s) in your database.\n\nClick OK to MERGE (imported sessions added to existing ones).\nClick Cancel to REPLACE (overwrites your current database).',
-                alert_import_ok: '✓ Import successful!\n{n} session(s) now in database.',
-                alert_import_fail: 'Import failed: {e}\n\nMake sure you are importing a file exported from this app.',
-                alert_no_groups: 'No groups found to save.',
-                tm_no_sessions: 'No saved sessions yet.\nUse 💾 Save to DB to record a session.',
-                tm_readonly_badge: 'Read Only',
-
-                // Help modal sections
-                help_s_groups_title: 'Groups',
-                help_s_groups_p: 'Select a class group using the buttons at the top of the page. The roster updates immediately. You can switch groups at any time — scores and strikes are saved per group for the duration of the session.',
-                help_s_picker_title: 'Random Student Picker',
-                help_s_picker_p: 'Press <kbd>Pick Random Student</kbd> (or <kbd>Ctrl + Space</kbd>) to randomly select a student. Already-picked students are crossed out to prevent repeats. Click a student\'s name directly to manually strike them out — useful when a student is absent. Use <kbd>Reset Strikes</kbd> in the utility bar to start a new round. For added suspense, click <kbd>Drumroll</kbd> before picking — it plays a drum sound that builds tension before the reveal.',
-                help_s_points_title: 'Points',
-                help_s_points_p: 'Each student has <kbd>+</kbd> and <kbd>-</kbd> buttons. Plus awards a participation point; minus records a warning or missed task. The green and red score counters next to each student are clickable: clicking them decreases the respective tally by one, so you can correct accidental presses. Scores feed into the live ranking and end-of-session results.',
-                help_s_badges_title: 'Badges',
-                help_s_badges_p: 'Each student can receive emoji badges as rewards. Click the badge button on any student\'s row to open the badge picker, then click a badge to award it. Badges accumulate and are shown next to student names. Use the <kbd>Badges</kbd> toggle in the roster header to show or hide the badge column. To remove a badge, click the badge chip directly on the student\'s row.',
-                help_s_notes_title: 'Notes',
-                help_s_notes_p: 'Click the dot indicator on any student\'s row to open a private note popup. Type a short note (e.g. "needs help with task 3", "absent last week") and press Enter or <kbd>Save</kbd>. Notes are private — they do not appear on screen and are only visible when you reopen the popup. A filled dot indicates a note exists.',
-                help_s_timer_title: 'Timer',
-                help_s_timer_p: 'Click <kbd>⏱ Timer</kbd> in the menu to open the timer popup. Set the duration in hours and minutes, configure the number of end beeps, and press <kbd>▶ Start</kbd>. The live countdown appears in the menu bar and is clickable to reopen the popup. Press <kbd>⛶</kbd> to open a fullscreen coloured overlay — useful for projecting: it shifts from green to amber to red as time runs low. Use <kbd>Test</kbd> to preview the beep sound. Switch to <kbd>Stopwatch</kbd> mode to count up instead. The active timer also appears inside any Class Mode overlay launched while it is running.',
-                help_s_objectives_title: 'Lesson Objectives',
-                help_s_objectives_p: 'Click <kbd>Objectives</kbd> in the menu to open the objectives editor. Type one or more objectives and save — they appear in a bar below the title and inside the fullscreen timer overlay. Click the objectives bar text or the Edit button to update them at any point. Toggle the bar on and off using the Objectives button.',
-                help_s_mode_title: 'Class Mode',
-                help_s_mode_p: 'Press <kbd>Mode</kbd> in the menu (or <kbd>Ctrl + M</kbd>) to choose a working mode: Quiet Work, Conversation, or Group Work. Each mode opens a fullscreen animated overlay designed to be projected to the class. You can also launch any mode directly from the <kbd>⏱ Timer</kbd> popup using the three shortcut buttons (🤫 🗨️ 👥) at the bottom — handy for switching mode and starting the timer in one place. Press the close button or <kbd>Ctrl + M</kbd> again to dismiss the overlay.',
-                help_s_teams_title: 'Teams',
-                help_s_teams_p: 'Press <kbd>Create Teams</kbd> (or <kbd>Ctrl + Shift + K</kbd>) to open the Team Maker. Choose either a total number of teams or a number of students per team — the system distributes students randomly and assigns each team a colour. Teams are displayed in the right panel. You can drag and drop students between teams to rebalance them. Drag an entire team card onto another to merge them. The <kbd>+</kbd> and <kbd>-</kbd> buttons on a team apply a point to every member simultaneously. Use <kbd>Reshuffle</kbd> to randomise again, or <kbd>Clear Teams</kbd> to return to the standard roster view.',
-                help_s_roles_title: 'Team Roles',
-                help_s_roles_p: 'Once teams are created, click <kbd>Roles</kbd> to open the roles editor. Use the <kbd>+</kbd> button to add role names (e.g. Captain, Secretary, Timekeeper, Speaker). Click <kbd>Distribute to Students</kbd> to randomly assign one role per student across all teams. Roles appear in italics next to student names. Use <kbd>Reset All Roles</kbd> to clear them.',
-                help_s_results_title: 'Results and Ranking',
-                help_s_results_p: 'Click <kbd>Results &amp; Ranking</kbd> to open the live results panel. The top section shows a full live leaderboard sorted by score (pluses minus minuses). The lower section shows the Performance of the Day podium — Gold, Silver, and Bronze students — as well as team average scores if teams are active.',
-                help_s_history_title: 'Session History',
-                help_s_history_p: 'Click <kbd>History</kbd> to view a chronological log of every action taken during the session — points awarded, badges given, notes saved, and students picked. The most recent events appear first. Use <kbd>Export CSV</kbd> to download the full log as a timestamped spreadsheet. Use <kbd>Clear</kbd> to reset the log for the current session.',
-                help_s_db_title: 'Database &amp; Time Machine',
-                help_s_db_p1: 'Click <kbd>🗄 DB</kbd> in the menu to open the database panel. Use <kbd>💾 Save to DB</kbd> to snapshot the currently selected class, or <kbd>💾💾 Save Active Classes</kbd> to snapshot only groups with interactions — useful at the end of a day. If a class was already saved today, it is silently overwritten; otherwise a new entry is created.',
-                help_s_db_p2: 'Click <kbd>⏪ Time Machine</kbd> to browse all saved sessions. Press <kbd>👁 View</kbd> on any entry to load that snapshot — the whole app switches into read-only mode showing that day\'s scores, badges, and notes. A purple banner at the top shows which session you are viewing. Press <kbd>✕ Return to Live</kbd> to restore your current live session exactly as you left it.',
-                help_s_db_p3: 'Use <kbd>⬇ Export DB</kbd> to download active-group sessions as a date-stamped <code>.js</code> backup file. Use <kbd>⬆ Import DB</kbd> to restore from a previously exported file — you can choose to merge with existing data or replace it entirely.',
-                help_s_export_title: 'Exporting Data',
-                help_s_export_p: 'In the utility bar, use <kbd>Copy Data</kbd> to copy all student scores to the clipboard in a tab-separated format suitable for pasting into Excel or Google Sheets. Use <kbd>Export CSV</kbd> in the History panel for the full event log.',
-                help_s_shortcuts_title: 'Keyboard Shortcuts',
-                help_s_shortcuts_p: '<kbd>Ctrl + Space</kbd> — Pick a random student<br><kbd>Ctrl + Shift + K</kbd> — Open Team Maker<br><kbd>Ctrl + M</kbd> — Open Class Mode picker (or close active mode overlay)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Switch mode (Quiet / Conversation / Group) when Mode picker or fullscreen timer is open<br><kbd>W</kbd> — Toggle white noise on/off (when mode or timer overlay is open)<br><kbd>M</kbd> — Mute/unmute white noise (when mode or timer overlay is open)<br><kbd>[</kbd> / <kbd>]</kbd> — Decrease / increase white noise volume',
-                help_sc_sec_general: 'General',
-                help_sc_sec_modes: 'Timer & Modes',
-                help_sc_sec_noise: 'White Noise',
-                help_sc_random: 'Pick a random student',
-                help_sc_team: 'Open Team Maker',
-                help_sc_mode: 'Open Class Mode picker',
-                help_sc_switch: 'Switch mode — Quiet / Talk / Group (when picker or timer is open)',
-                help_sc_noise_on: 'Toggle white noise on / off (when mode or timer overlay is open)',
-                help_sc_noise_mute: 'Mute / unmute white noise (when mode or timer overlay is open)',
-                help_sc_noise_vol: 'Decrease / increase white noise volume',
-
-                btn_cancel: 'Cancel',
-                btn_ok: 'OK',
-                btn_save: 'Save',
-                btn_close: 'Close',
-                btn_skip: 'Skip',
-                btn_add: 'Add',
-
-                datetime_title: 'Click for fullscreen clock',
-                settings_btn_title: 'Settings',
-                remote_btn_title: 'Phone remote',
-                links_btn_title: 'Open another tool',
-                credits_btn_title: 'Credits',
-                cms_view_groups: '👥 Groups',
-                cms_view_slots: '🗓 Slots',
-                cms_tab_all: 'All',
-                cms_tab_no_slot: 'No Slot',
-                search_placeholder: 'Search class...',
-                cms_daySun: 'Sun', cms_dayMon: 'Mon', cms_dayTue: 'Tue', cms_dayWed: 'Wed',
-                cms_dayThu: 'Thu', cms_dayFri: 'Fri', cms_daySat: 'Sat',
-                menu_minimize_title: 'Minimise menu',
-
-                ambient_label: '🌊 Ambient Sound',
-                noise_white: 'White',
-                noise_white_title: 'White noise',
-                noise_pink: 'Pink',
-                noise_pink_title: 'Pink noise',
-                noise_brown: 'Brown',
-                noise_brown_title: 'Brown noise',
-                noise_mp3_title: 'Loop the selected timer audio file',
-                noise_mute_title: 'Mute/Unmute (M)',
-                noise_play: '▶ Play',
-                timer_sub30s_title: '-30 seconds',
-                timer_add30s_title: '+30 seconds',
-                timer_fullscreen_title: 'Fullscreen',
-                timer_stopwatch_btn: '⏱ Stopwatch',
-                timer_play_btn: '▶ Play',
-                timer_stop_btn: '■ Stop',
-
-                db_save_file: 'Save to File',
-                db_save_file_small: 'Save DB to a fixed file (no timestamp)',
-                db_download: 'Download Data',
-                db_download_small: 'Save log and user data as .zip backup',
-                db_upload: 'Upload Data',
-                db_upload_small: 'Restore data from a .zip file',
-                db_clear_local: 'Clear Local DB',
-                db_clear_local_small: 'Empty localStorage for this tool (cms-db)',
-                db_tm_title: 'View and restore past session snapshots',
-                db_history_btn_title: 'View session activity log',
-                db_copy_title: 'Copy current roster to clipboard',
-                db_csv_title: 'Download roster as CSV file',
-                db_save_all_title: 'Snapshot only groups with interactions',
-                db_save_file_title: 'Save DB to a fixed file (no timestamp)',
-                db_download_title: 'Save log and user data as .zip backup',
-                db_upload_title: 'Restore data from a .zip file',
-                db_export_title_attr: 'Download active-group sessions as .js backup',
-                db_import_title_attr: 'Load sessions from a .json, .js, or legacy .txt file',
-                db_clear_local_title: 'Empty localStorage for this tool (cms-db)',
-
-                settings_popup_title: '⚙ Settings',
-                settings_show_name: 'Show name',
-                settings_name_full: 'Full',
-                settings_name_first: 'First',
-                settings_name_last: 'Last',
-                settings_edit_groups: 'Edit Groups',
-                settings_edit_groups_small: 'Add, rename, or reorganise class groups',
-                settings_edit_teams: 'Edit Teams',
-                settings_edit_teams_small: 'Change team names and colours',
-                settings_edit_badges: 'Edit Badges',
-                settings_edit_badges_small: 'Customise badge names, meaning, tone, and logo',
-                settings_edit_sounds: 'Edit Sounds',
-                settings_edit_sounds_small: 'Timer alarm, +/− sounds, files, and JS tunes',
-                settings_edit_roles: 'Edit Roles',
-                settings_edit_roles_small: 'Manage role titles and descriptions',
-                settings_edit_autoflag: 'Edit Autoflag',
-                settings_edit_autoflag_small: 'Auto-flag low-participation students',
-                settings_class_plan: 'Class Plan',
-                settings_class_plan_small: 'Seating layouts with room and weekly schedule',
-
-                startup_title: 'Load your database?',
-                startup_sub: 'Pick one file, multiple files, or a folder with DB exports to restore sessions.',
-                startup_load_files: 'Load Files',
-                startup_load_folder: 'Load Folder',
-
-                role_change_label: 'Change role:',
-
-                comment_placeholder: 'Add a new note…',
-                comment_add_btn: 'Add Note',
-                comment_close_btn: 'Close',
-
-                objectives_save_btn: 'Save',
-                objectives_textarea_placeholder: 'e.g.\n1. Identify key vocabulary\n2. Discuss the main argument\n3. Write a structured response',
-
-                roles_option_intro: 'Choose one option: either distribute the selected role titles, or skip roles and give each student a random rank number.',
-                roles_choice_a_label: 'Option A · Roles',
-                roles_choice_a_text: 'Select the role chips above, then distribute those roles to the class or teams.',
-                roles_choice_b_label: 'Option B · Random Ranks',
-                roles_choice_b_text: 'Use numbers instead of role titles and assign a random rank to each student.',
-
-                eg_title: 'Edit Groups',
-                eg_desc: 'Students are comma-separated. Changes are applied in memory immediately; use Save to class-groups.js to persist them to disk.',
-                eg_add_section: 'Add new group',
-                eg_name_placeholder: 'Group name (e.g. 5ANdf-01)',
-                eg_year_placeholder: '2025-2026',
-                eg_sem_placeholder: 'Sem',
-                eg_add_btn: 'Add',
-                eg_save_btn: '💾 Save to class-groups.js',
-                eg_apply_btn: 'Apply (session only)',
-
-                as_title: 'Add Students',
-                as_type_label: 'Or type names (comma-separated)',
-                as_confirm_btn: '✓ Confirm & Save to class-groups.js',
-                as_skip_btn: 'Skip',
-
-                et_title: 'Edit Teams',
-                et_desc: 'Set display names and colours for the team palette, add or remove teams, and reorder them so the top ones are assigned first.',
-                et_add_btn: '+ Add Team',
-                et_save_btn: 'Save to config.js',
-                et_reset_btn: 'Reset Defaults',
-
-                eb_title: 'Edit Badges',
-                eb_desc: 'Update badge logo, name, connotation, and meaning. These changes affect the badge picker immediately.',
-                eb_add_btn: '+ Add Badge',
-                eb_save_btn: 'Save to config.js',
-                eb_reset_btn: 'Reset Defaults',
-
-                es_title: 'Edit Sounds',
-                es_desc: 'Choose built-in sounds, load audio files from the user/custom-data/sounds folder, or write your own tune in JS.',
-                es_btns_title: 'Sound Buttons',
-                es_btns_desc: 'Add one-tap sound buttons that appear in the main panel.',
-                es_import_btn: '⊕ Import Audio Files',
-                es_import_audio_filter: 'Audio files',
-                es_import_errors: 'Some files could not be imported',
-                es_refresh_btn: '↻ Refresh Sound Files',
-                es_save_btn: 'Save to config.js',
-                es_reset_btn: 'Reset Defaults',
-
-                af_title: 'Edit Autoflag',
-                af_desc: 'Automatically flag students with low participation so they are picked more often.',
-                af_enable: 'Enable auto-flag',
-                af_flag_bottom: 'Flag bottom',
-                af_pct_of_students: '% of students by score',
-                af_elements: 'Elements counted',
-                af_timeline: 'Timeline',
-                af_all_sessions: 'All sessions',
-                af_last: 'Last',
-                af_weeks: 'weeks',
-                af_since: 'Since',
-
-                rsp_roster_settings_title: 'Roster settings',
-                rsp_pin_title: 'Pin roster settings at the bottom of the roster panel',
-                rsp_unpin_title: 'Unpin roster settings from the roster panel',
-                rsp_pin_btn: 'Pin menu',
-                rsp_unpin_btn: 'Unpin menu',
-                rsp_decrease_title: 'Decrease name size',
-                rsp_reset_title: 'Reset name size',
-                rsp_increase_title: 'Increase name size',
-                rsp_mute_score_title: 'Mute/unmute score sounds',
-                rsp_toggle_roles_title: 'Toggle roles visibility',
-                rsp_toggle_badges_title: 'Toggle badges visibility',
-                rsp_toggle_autoflag_title: 'Toggle autoflag visibility (Ctrl+F)',
-                rsp_toggle_anim_title: 'Toggle visual animations',
-                rsp_toggle_plan_title: 'Toggle seating plan view',
-                rsp_in_presentation: 'In presentation:',
-                rsp_pres_decrease_title: 'Decrease name size in presentation',
-                rsp_pres_reset_title: 'Reset name size in presentation',
-                rsp_pres_increase_title: 'Increase name size in presentation',
-                rsp_pres_roles_title: 'Show roles in presentation window',
-                rsp_pres_badges_title: 'Show badges in presentation window',
-                rsp_pres_autoflag_title: 'Show autoflag in presentation window',
-                rsp_pres_anim_title: 'Play animations in presentation window',
-                rsp_pres_plan_title: 'Show plan view in presentation window',
-                rsp_pres_modes_title: 'Mirror modes overlay in presentation window',
-                rsp_assign_roles: 'Assign roles',
-                rsp_reassign_roles: 'Reassign roles',
-                rsp_clear_roles: 'Clear roles',
-                rsp_results_ranking: 'Results & Ranking',
-                rsp_copy_roster_title: 'Copy roster names (with teams and roles) to clipboard, without badges or scores',
-                rsp_present_title: 'Open a presentation window for the second screen (clean view, no menus)',
-                rsp_freeze_title: 'Freeze the presentation window so it stops updating',
-                rsp_close_pres_title: 'Close presentation window',
-                rsp_full_pres_title: 'Toggle fullscreen on presentation window',
-                rsp_max_pres_title: 'Maximise presentation window',
-                rsp_min_pres_title: 'Minimise presentation window',
-                rsp_right_pres_title: 'Move presentation window to the right (20% width)',
-                pres_menu_title: 'Presentation Menu',
-                pres_stop: 'Stop presentation',
-                pres_stop_title: 'Stop the presentation window',
-                pres_freeze: 'Freeze presentation',
-                pres_unfreeze: 'Unfreeze presentation',
-                pres_freeze_title: 'Freeze the presentation window',
-                pres_unfreeze_title: 'Unfreeze the presentation window',
-                pres_resize: 'Resize window',
-                pres_resize_title: 'Match the original window size',
-                pres_right: 'To the right',
-                pres_right_title: 'Dock the presentation window to the right',
-                pres_left: 'To the left',
-                pres_left_title: 'Dock the presentation window to the left',
-
-                rp_group_teams: '🎲 Group by teams',
-                rp_group_teams_title: 'Automatically fill seats grouping present students by team',
-                rp_reset_seats: '↩ Reset seats',
-                rp_reset_seats_title: 'Restore original seat arrangement',
-                rp_save_seats: '💾 Save seats',
-                rp_save_seats_title: 'Save current seat arrangement to file',
-
-                ctx_absent: 'Absent',
-                ctx_flag: '🚩 Flag',
-                ctx_add_role: 'Add Role',
-                ctx_stats: '📊 Stats',
-                ctx_stats_title: 'View participation stats',
-                ctx_grades: '🎓 Grades',
-                ctx_grades_title: 'View grades from Grade Sheet',
-                ctx_timer_title: 'Open timer',
-                ctx_quiet: '🤫 Quiet',
-                ctx_quiet_title: 'Activate Quiet Work mode',
-                ctx_conversation: '💬 Conversation',
-                ctx_conv_title: 'Activate Conversation mode',
-                ctx_group_mode: '👥 Group',
-                ctx_group_title: 'Activate Group mode',
-                ctx_copy_roster: '📋 Copy roster',
-                ctx_copy_roster_title: 'Copy roster names (with teams and roles) to clipboard, without badges or scores',
-
-                timer_pp_title: 'Play / Pause',
-                timer_stop_title: 'Stop',
-                timer_detach_title: 'Open timer in new window',
-                timer_resize_title: 'Drag to resize timer',
-
-                overlay_white_title: 'White noise',
-                overlay_pink_title: 'Pink noise',
-                overlay_brown_title: 'Brown noise',
-                overlay_file_title: 'Timer audio file',
-                overlay_file_mode_title: 'White noise (W)',
-
-                mp3_picker_title: '🎵 Pick a sound file',
-
-                tut_btn_label: '▶ Tour',
-                tutNext: 'Next →', tutPrev: '← Back', tutSkip: 'Skip', tutDone: 'Done ✓',
-                tut1_title: 'Class Groups',
-                tut1_text: 'Click to select or search a class group and load its roster. Filter classes by day of the week or manage active groups.',
-                tut2_title: 'Student Roster',
-                tut2_text: 'Click a student name to toggle attendance. Right-click for more: participation points, notes, badges, and role assignment.',
-                tut_action_btns_title: 'Sound & Action Buttons',
-                tut_action_btns_text: 'Trigger quick audio sound effects (such as applause, drumrolls, or custom sound clips) during lessons to engage students.',
-                tut_pick_title: 'Random Student Picker',
-                tut_pick_text: 'Click "Random Student" or "Random Team" to randomly select a present student with an animated reveal for fair cold-calling.',
-                tut_roster_settings_title: 'Roster Settings',
-                tut_roster_settings_text: 'Adjust board font size, toggle roles, badges, and autoflag visibility, switch to Seating Plan mode, or project fullscreen Presentation view for secondary screens.',
-                tut3_title: 'Timer & Class Modes',
-                tut3_text: 'Open countdown timers or stopwatches, play ambient background audio, and switch quick class activity modes (Quiet, Talk, Group).',
-                tut_general_settings_title: 'General Settings',
-                tut_general_settings_text: 'Customize student name display formats (Full, First, Last), edit teams and badges, configure sound effects, manage roles, autoflag triggers, and class work modes.',
-                tut4_title: 'Database & History',
-                tut4_text: 'Save session data, export participation logs, and restore any past roster state using the Time Machine snapshots.',
-
-                // Remote control panel
-                remote_mode_local: 'Local network',
-                remote_mode_external: 'External server',
-                remote_host_secret_label: 'Host secret',
-                remote_server_url_label: 'Server URL',
-                remote_secret_hint: 'Password protecting your host connection',
-                remote_url_hint: 'e.g. https://your-server.com',
-            },
-
-            fr: {
-                btn_timer: '⏱ Minuteur',
-                btn_mode: 'Mode',
-                btn_objectives: 'Objectifs',
-                btn_results: 'Résultats & Classement',
-                btn_history: 'Historique',
-                btn_db_title: 'Base de données & Machine à remonter le temps',
-                help_title: 'Guide utilisateur',
-
-                timer_title: '⏱ Minuteur',
-                timer_mode_timer: '⏱ Minuteur',
-                timer_mode_stopwatch: '⏱ Chronomètre',
-                timer_duration: 'Durée',
-                timer_beeps: 'Bips',
-                timer_start: '▶ Démarrer',
-                timer_stop: '■ Arrêter',
-                timer_pause: '⏸ Pause',
-                timer_pause_title: 'Pause / Reprendre',
-                timer_class_mode: 'Mode classe',
-
-                mode_title: 'Mode classe',
-                mode_subtitle: 'Choisissez un mode de travail à afficher pour les élèves',
-                mode_quiet: 'Silence',
-                mode_quiet_short: 'Silence',
-                mode_quiet_title: 'Travail silencieux (1)',
-                mode_conversation: 'Discussion',
-                mode_talk_short: 'Parler',
-                mode_conv_title: 'Discussion (2)',
-                mode_group: 'Travail en groupe',
-                mode_group_short: 'Groupe',
-                mode_group_title: 'Travail en groupe (3)',
-
-                noise_volume: 'Volume',
-
-                db_title: '🗄 Base de données',
-                db_current_session: 'Session en cours',
-                db_save: 'Enregistrer',
-                db_save_small: "Sauvegarder l'état de la classe aujourd'hui",
-                db_save_all: 'Tout enregistrer',
-                db_save_all_small: 'Sauvegarder tous les groupes en une fois',
-                db_history_label: 'Historique',
-                db_time_machine: '⏪ Machine à remonter le temps',
-                db_backup_restore: 'Sauvegarde & Restauration',
-                db_export: 'Exporter',
-                db_export_small: 'Télécharger toutes les sessions en fichier .js',
-                db_import: 'Importer',
-                db_import_small: 'Charger des sessions depuis un fichier .json, .js ou .txt',
-
-                objectives_label: 'Objectifs de la leçon',
-                objectives_placeholder: 'Cliquez pour définir les objectifs…',
-                objectives_edit: 'Modifier',
-                objectives_hint: 'Ils apparaîtront sous le titre et dans le minuteur plein écran.',
-
-                students_label: 'Élèves :',
-                btn_add_student: '+ Ajouter un élève',
-                btn_add_student_title: 'Ajouter un nouvel élève au groupe',
-                btn_badges: 'Badges',
-                btn_badges_title: 'Afficher/masquer la colonne badges',
-                roster_select_group: 'Sélectionnez un groupe…',
-                btn_pick: 'Élève aléatoire',
-                btn_pick_team: 'Équipe aléatoire',
-
-                results_live_ranking: 'Classement en direct',
-                results_performance: 'Performance du jour',
-
-                history_title: 'Historique de la session',
-                btn_export_csv: 'Exporter CSV',
-                btn_clear: 'Effacer',
-                history_empty: 'Aucun événement pour cette session.',
-
-                tm_subtitle: 'Parcourir et restaurer les sessions passées',
-                tm_viewing: 'Session affichée : ',
-                tm_return_live: '✕ Retour à la session en direct',
-
-                team_maker_title: 'Créateur d\'équipes',
-                team_option_a: 'Option A : Nombre total d\'équipes',
-                team_option_b: 'Option B : Élèves par équipe',
-                team_option_c: 'Option C : Configurations sauvegardées',
-                btn_save_setup: '💾 Sauvegarder la config actuelle',
-
-                roles_title: 'Choisir rôles ou rangs',
-                roles_random_rank: 'Attribuer des rangs aléatoires',
-                roles_distribute: 'Distribuer les rôles sélectionnés',
-                roles_reset_all: 'Réinitialiser tous les rôles',
-                roles_option_c: 'Option C · Configurations sauvegardées',
-                btn_save_roles_setup: '💾 Sauvegarder les rôles actuels',
-                roles_info_title: 'Descriptions des rôles attribués',
-                roles_info_empty: 'Aucun rôle n’est actuellement attribué dans ce groupe.',
-                roles_info_missing: 'Aucune description n’a encore été ajoutée pour ce rôle.',
-                roles_toggle_label: 'Option A · Choisissez les rôles à utiliser (bleu = actif) :',
-                roles_new_label: 'Ajouter un nouveau rôle :',
-                roles_add_btn: 'Ajouter',
-                roles_placeholder: 'ex. Illustrateur...',
-
-                btn_copy_data: 'Copier les données',
-                btn_export_csv2: 'Exporter CSV',
-                btn_create_teams: 'Créer des équipes',
-                btn_reshuffle_teams: 'Remélanger les équipes',
-                btn_clear_teams: 'Supprimer les équipes',
-                btn_roles: 'Rôles',
-                btn_role_info: 'Infos rôles',
-                btn_role_info_title: 'Afficher la description des rôles attribués',
-                btn_reset_points: 'Réinitialiser les points',
-                btn_reset_strikes: 'Réinitialiser les barres',
-
-                alert_select_group: 'Veuillez d\'abord sélectionner un groupe !',
-                alert_no_present_ranks: 'Aucun élève présent à classer.',
-                alert_select_role: 'Sélectionnez au moins un rôle !',
-                alert_select_role2: 'Veuillez sélectionner au moins un rôle dans la liste !',
-                confirm_clear_roles: 'Effacer tous les rôles attribués aux élèves ?',
-                confirm_delete_roles: 'Cela supprimera tous les rôles définis et retirera les rôles attribués. Continuer ?',
-                confirm_merge_teams: 'Fusionner tous les élèves de l\'équipe {a} dans l\'équipe {b} ?',
-                confirm_remove_student: 'Supprimer cet élève ?',
-                confirm_wipe_points: 'Effacer les points ?',
-                alert_data_copied: 'Données copiées dans le presse-papiers !',
-                alert_everyone_called: 'Tout le monde a été appelé !',
-                alert_valid_time: 'Veuillez définir une durée valide',
-                confirm_clear_history: 'Effacer tout l\'historique de la session ?',
-                alert_save_error: 'Impossible d\'enregistrer dans la base de données : ',
-                alert_select_before_save: 'Veuillez sélectionner un groupe avant de sauvegarder.',
-                alert_no_sessions_export: 'Aucune session à exporter.\nUtilisez 💾 Enregistrer d\'abord.',
-                confirm_import: 'Vous avez déjà {n} session(s) dans votre base de données.\n\nCliquez sur OK pour FUSIONNER (les sessions importées s\'ajoutent).\nCliquez sur Annuler pour REMPLACER (écrase vos données actuelles).',
-                alert_import_ok: '✓ Importation réussie !\n{n} session(s) dans la base de données.',
-                alert_import_fail: 'Échec de l\'importation : {e}\n\nAssurez-vous d\'importer un fichier exporté depuis cette application.',
-                alert_no_groups: 'Aucun groupe trouvé.',
-                tm_no_sessions: 'Aucune session enregistrée.\nUtilisez 💾 Enregistrer pour créer une entrée.',
-                tm_readonly_badge: 'Lecture seule',
-
-                help_s_groups_title: 'Groupes',
-                help_s_groups_p: 'Sélectionnez un groupe de classe à l\'aide des boutons en haut de la page. La liste se met à jour immédiatement. Vous pouvez changer de groupe à tout moment — les points et les barres sont sauvegardés par groupe pour toute la durée de la session.',
-                help_s_picker_title: 'Tirage aléatoire',
-                help_s_picker_p: 'Appuyez sur <kbd>Élève aléatoire</kbd> (ou <kbd>Ctrl + Espace</kbd>) pour sélectionner un élève au hasard. Les élèves déjà tirés sont barrés pour éviter les répétitions. Cliquez directement sur le nom d\'un élève pour le barrer manuellement — utile en cas d\'absence. Utilisez <kbd>Réinitialiser les barres</kbd> dans la barre utilitaire pour recommencer un tour. Pour plus de suspense, cliquez sur <kbd>Roulement de tambour</kbd> avant le tirage.',
-                help_s_points_title: 'Points',
-                help_s_points_p: 'Chaque élève dispose de boutons <kbd>+</kbd> et <kbd>-</kbd>. Le plus attribue un point de participation ; le moins enregistre un avertissement ou une tâche non effectuée. Les compteurs vert et rouge à côté de chaque élève sont cliquables : cliquer dessus diminue le compteur d\'un point, pour corriger une erreur. Les scores alimentent le classement en direct et les résultats de fin de session.',
-                help_s_badges_title: 'Badges',
-                help_s_badges_p: 'Chaque élève peut recevoir des badges emoji en récompense. Cliquez sur le bouton badge d\'une ligne pour ouvrir le sélecteur, puis cliquez sur un badge pour l\'attribuer. Les badges s\'accumulent et apparaissent à côté des noms. Utilisez le bouton <kbd>Badges</kbd> dans l\'en-tête pour afficher ou masquer la colonne. Pour retirer un badge, cliquez directement sur la puce badge de la ligne de l\'élève.',
-                help_s_notes_title: 'Notes',
-                help_s_notes_p: 'Cliquez sur l\'indicateur de point d\'une ligne pour ouvrir un popup de note privée. Saisissez une courte note (ex. "a besoin d\'aide pour la tâche 3", "absent la semaine dernière") et appuyez sur Entrée ou <kbd>Enregistrer</kbd>. Les notes sont privées — elles n\'apparaissent pas à l\'écran et ne sont visibles que dans le popup. Un point rempli indique qu\'une note existe.',
-                help_s_timer_title: 'Minuteur',
-                help_s_timer_p: 'Cliquez sur <kbd>⏱ Minuteur</kbd> dans le menu pour ouvrir le popup. Définissez la durée en heures et minutes, configurez le nombre de bips de fin, puis appuyez sur <kbd>▶ Démarrer</kbd>. Le compte à rebours apparaît dans la barre de menu et est cliquable pour rouvrir le popup. Appuyez sur <kbd>⛶</kbd> pour ouvrir un écran plein couleur — utile pour le vidéoprojecteur : il passe du vert à l\'orange au rouge lorsque le temps est presque écoulé.',
-                help_s_objectives_title: 'Objectifs de la leçon',
-                help_s_objectives_p: 'Cliquez sur <kbd>Objectifs</kbd> dans le menu pour ouvrir l\'éditeur. Saisissez un ou plusieurs objectifs et enregistrez — ils apparaissent dans une barre sous le titre et dans le minuteur plein écran. Cliquez sur le texte de la barre ou sur le bouton Modifier pour les mettre à jour. Activez ou désactivez la barre avec le bouton Objectifs.',
-                help_s_mode_title: 'Mode classe',
-                help_s_mode_p: 'Appuyez sur <kbd>Mode</kbd> dans le menu (ou <kbd>Ctrl + M</kbd>) pour choisir un mode de travail : Silence, Discussion ou Travail en groupe. Chaque mode ouvre un écran plein animé conçu pour être projeté à la classe. Vous pouvez aussi lancer un mode directement depuis le popup <kbd>⏱ Minuteur</kbd> via les trois boutons raccourcis (🤫 🗨️ 👥) en bas. Appuyez sur le bouton de fermeture ou <kbd>Ctrl + M</kbd> pour quitter.',
-                help_s_teams_title: 'Équipes',
-                help_s_teams_p: 'Appuyez sur <kbd>Créer des équipes</kbd> (ou <kbd>Ctrl + Shift + K</kbd>) pour ouvrir le créateur d\'équipes. Choisissez un nombre total d\'équipes ou un nombre d\'élèves par équipe — le système répartit aléatoirement et attribue une couleur à chaque équipe. Vous pouvez glisser-déposer des élèves entre les équipes pour les rééquilibrer. Faites glisser une carte d\'équipe sur une autre pour les fusionner. Utilisez <kbd>Remélanger</kbd> pour redistribuer, ou <kbd>Supprimer les équipes</kbd> pour revenir à la liste standard.',
-                help_s_roles_title: 'Rôles dans les équipes',
-                help_s_roles_p: 'Une fois les équipes créées, cliquez sur <kbd>Rôles</kbd> pour ouvrir l\'éditeur. Utilisez le bouton <kbd>+</kbd> pour ajouter des noms de rôles (ex. Capitaine, Secrétaire, Chronomètre, Porte-parole). Cliquez sur <kbd>Distribuer aux élèves</kbd> pour attribuer aléatoirement un rôle par élève dans toutes les équipes. Les rôles apparaissent en italique. Utilisez <kbd>Réinitialiser tous les rôles</kbd> pour les effacer.',
-                help_s_results_title: 'Résultats et classement',
-                help_s_results_p: 'Cliquez sur <kbd>Résultats &amp; Classement</kbd> pour ouvrir le panneau de résultats en direct. La partie supérieure affiche le classement complet trié par score. La partie inférieure montre le podium Performance du jour — élèves Or, Argent et Bronze — ainsi que les scores moyens des équipes si des équipes sont actives.',
-                help_s_history_title: 'Historique de la session',
-                help_s_history_p: 'Cliquez sur <kbd>Historique</kbd> pour consulter le journal chronologique de toutes les actions — points attribués, badges, notes et élèves tirés. Les événements les plus récents apparaissent en premier. Utilisez <kbd>Exporter CSV</kbd> pour télécharger le journal. Utilisez <kbd>Effacer</kbd> pour réinitialiser le journal.',
-                help_s_db_title: 'Base de données &amp; Machine à remonter le temps',
-                help_s_db_p1: 'Cliquez sur <kbd>🗄 DB</kbd> dans le menu pour ouvrir le panneau. Utilisez <kbd>💾 Enregistrer</kbd> pour sauvegarder la classe sélectionnée, ou <kbd>💾💾 Tout enregistrer</kbd> pour sauvegarder tous les groupes en une fois. Si une classe a déjà été sauvegardée aujourd\'hui, elle est silencieusement écrasée ; sinon, une nouvelle entrée est créée.',
-                help_s_db_p2: 'Cliquez sur <kbd>⏪ Machine à remonter le temps</kbd> pour parcourir les sessions. Appuyez sur <kbd>👁 Afficher</kbd> sur une entrée pour charger ce snapshot — l\'application passe en mode lecture seule. Une bannière violette indique quelle session est affichée. Appuyez sur <kbd>✕ Retour en direct</kbd> pour restaurer votre session.',
-                help_s_db_p3: 'Utilisez <kbd>⬇ Exporter</kbd> pour télécharger toutes les sessions en fichier <code>.js</code>. Utilisez <kbd>⬆ Importer</kbd> pour restaurer depuis un fichier exporté — vous pouvez choisir de fusionner ou remplacer les données.',
-                help_s_export_title: 'Exporter les données',
-                help_s_export_p: 'Dans la barre utilitaire, utilisez <kbd>Copier les données</kbd> pour copier tous les scores dans le presse-papiers en format tabulé (pour Excel ou Google Sheets). Utilisez <kbd>Exporter CSV</kbd> dans le panneau Historique pour le journal complet.',
-                help_s_shortcuts_title: 'Raccourcis clavier',
-                help_s_shortcuts_p: '<kbd>Ctrl + Espace</kbd> — Tirer un élève aléatoire<br><kbd>Ctrl + Shift + K</kbd> — Ouvrir le créateur d\'équipes<br><kbd>Ctrl + M</kbd> — Ouvrir le sélecteur de mode (ou fermer le mode actif)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Changer de mode (Silence / Discussion / Groupe) quand le sélecteur ou le minuteur plein écran est ouvert<br><kbd>W</kbd> — Activer/désactiver le bruit blanc<br><kbd>M</kbd> — Couper/rétablir le son du bruit blanc<br><kbd>[</kbd> / <kbd>]</kbd> — Diminuer / augmenter le volume du bruit blanc',
-                help_sc_sec_general: 'Général',
-                help_sc_sec_modes: 'Minuteur &amp; Modes',
-                help_sc_sec_noise: 'Bruit blanc',
-                help_sc_random: 'Tirer un élève aléatoire',
-                help_sc_team: 'Ouvrir le créateur d\'équipes',
-                help_sc_mode: 'Ouvrir le sélecteur de mode',
-                help_sc_switch: 'Changer de mode — Silence / Discussion / Groupe (quand le sélecteur ou minuteur est ouvert)',
-                help_sc_noise_on: 'Activer/désactiver le bruit blanc (quand mode ou minuteur est ouvert)',
-                help_sc_noise_mute: 'Couper/rétablir le son du bruit blanc (quand mode ou minuteur est ouvert)',
-                help_sc_noise_vol: 'Diminuer / augmenter le volume du bruit blanc',
-
-                btn_cancel: 'Annuler',
-                btn_ok: 'OK',
-                btn_save: 'Enregistrer',
-                btn_close: 'Fermer',
-                btn_skip: 'Ignorer',
-                btn_add: 'Ajouter',
-
-                datetime_title: 'Cliquez pour l\'horloge en plein écran',
-                settings_btn_title: 'Paramètres',
-                remote_btn_title: 'Télécommande',
-                links_btn_title: 'Ouvrir un autre outil',
-                credits_btn_title: 'Crédits',
-                cms_view_groups: '👥 Groupes',
-                cms_view_slots: '🗓 Créneaux',
-                cms_tab_all: 'Tous',
-                cms_tab_no_slot: 'Sans créneau',
-                search_placeholder: 'Ouvrir ou chercher...',
-                cms_daySun: 'Dim', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
-                cms_dayThu: 'Jeu', cms_dayFri: 'Ven', cms_daySat: 'Sam',
-                menu_minimize_title: 'Réduire le menu',
-
-                ambient_label: '🌊 Son d\'ambiance',
-                noise_white: 'Blanc',
-                noise_white_title: 'Bruit blanc',
-                noise_pink: 'Rose',
-                noise_pink_title: 'Bruit rose',
-                noise_brown: 'Brun',
-                noise_brown_title: 'Bruit brun',
-                noise_mp3_title: 'Boucler le fichier audio du minuteur',
-                noise_mute_title: 'Muet / Activer (M)',
-                noise_play: '▶ Jouer',
-                timer_sub30s_title: '-30 secondes',
-                timer_add30s_title: '+30 secondes',
-                timer_fullscreen_title: 'Plein écran',
-                timer_stopwatch_btn: '⏱ Chronomètre',
-                timer_play_btn: '▶ Démarrer',
-                timer_stop_btn: '■ Arrêter',
-
-                db_save_file: 'Enregistrer dans un fichier',
-                db_save_file_small: 'Enregistrer la BD dans un fichier fixe (sans horodatage)',
-                db_download: 'Télécharger les données',
-                db_download_small: 'Enregistrer le journal et les données en .zip',
-                db_upload: 'Importer des données',
-                db_upload_small: 'Restaurer les données depuis un fichier .zip',
-                db_clear_local: 'Vider la BD locale',
-                db_clear_local_small: 'Vider le localStorage de cet outil (cms-db)',
-                db_tm_title: 'Afficher et restaurer les captures de sessions passées',
-                db_history_btn_title: 'Afficher le journal d\'activité de la session',
-                db_copy_title: 'Copier la liste dans le presse-papiers',
-                db_csv_title: 'Télécharger la liste en CSV',
-                db_save_all_title: 'Sauvegarder uniquement les groupes avec des interactions',
-                db_save_file_title: 'Enregistrer la BD dans un fichier fixe (sans horodatage)',
-                db_download_title: 'Enregistrer le journal et les données en .zip',
-                db_upload_title: 'Restaurer les données depuis un fichier .zip',
-                db_export_title_attr: 'Télécharger les sessions des groupes actifs en .js',
-                db_import_title_attr: 'Charger des sessions depuis un fichier .json, .js ou .txt',
-                db_clear_local_title: 'Vider le localStorage de cet outil (cms-db)',
-
-                settings_popup_title: '⚙ Paramètres',
-                settings_show_name: 'Afficher le nom',
-                settings_name_full: 'Complet',
-                settings_name_first: 'Prénom',
-                settings_name_last: 'Nom',
-                settings_edit_groups: 'Modifier les groupes',
-                settings_edit_groups_small: 'Ajouter, renommer ou réorganiser les groupes',
-                settings_edit_teams: 'Modifier les équipes',
-                settings_edit_teams_small: 'Modifier les noms et couleurs des équipes',
-                settings_edit_badges: 'Modifier les badges',
-                settings_edit_badges_small: 'Personnaliser les noms, signification, ton et logo',
-                settings_edit_sounds: 'Modifier les sons',
-                settings_edit_sounds_small: 'Alarme minuteur, sons +/−, fichiers et mélodies JS',
-                settings_edit_roles: 'Modifier les rôles',
-                settings_edit_roles_small: 'Gérer les titres et descriptions des rôles',
-                settings_edit_autoflag: 'Modifier l\'automarquage',
-                settings_edit_autoflag_small: 'Marquer automatiquement les élèves peu participatifs',
-                settings_class_plan: 'Plan de classe',
-                settings_class_plan_small: 'Plans de placement avec salle et emploi du temps',
-
-                startup_title: 'Charger votre base de données ?',
-                startup_sub: 'Choisissez un fichier, plusieurs fichiers ou un dossier d\'exports pour restaurer les sessions.',
-                startup_load_files: 'Charger des fichiers',
-                startup_load_folder: 'Charger un dossier',
-
-                role_change_label: 'Changer le rôle :',
-
-                comment_placeholder: 'Ajouter une note…',
-                comment_add_btn: 'Ajouter une note',
-                comment_close_btn: 'Fermer',
-
-                objectives_save_btn: 'Enregistrer',
-                objectives_textarea_placeholder: 'ex.\n1. Identifier le vocabulaire clé\n2. Discuter l\'argument principal\n3. Rédiger une réponse structurée',
-
-                roles_option_intro: 'Choisissez une option : distribuez les rôles sélectionnés ou donnez un rang aléatoire à chaque élève.',
-                roles_choice_a_label: 'Option A · Rôles',
-                roles_choice_a_text: 'Sélectionnez les puces de rôles ci-dessus, puis distribuez ces rôles à la classe ou aux équipes.',
-                roles_choice_b_label: 'Option B · Rangs aléatoires',
-                roles_choice_b_text: 'Utilisez des numéros à la place des titres de rôles et attribuez un rang aléatoire à chaque élève.',
-
-                eg_title: 'Modifier les groupes',
-                eg_desc: 'Les élèves sont séparés par des virgules. Les modifications sont appliquées immédiatement ; utilisez Enregistrer dans class-groups.js pour les conserver.',
-                eg_add_section: 'Ajouter un nouveau groupe',
-                eg_name_placeholder: 'Nom du groupe (ex. 5ANdf-01)',
-                eg_year_placeholder: '2025-2026',
-                eg_sem_placeholder: 'Sem',
-                eg_add_btn: 'Ajouter',
-                eg_save_btn: '💾 Enregistrer dans class-groups.js',
-                eg_apply_btn: 'Appliquer (session seulement)',
-
-                as_title: 'Ajouter des élèves',
-                as_type_label: 'Ou saisissez des noms (séparés par des virgules)',
-                as_confirm_btn: '✓ Confirmer & Enregistrer dans class-groups.js',
-                as_skip_btn: 'Ignorer',
-
-                et_title: 'Modifier les équipes',
-                et_desc: 'Définissez les noms et couleurs des équipes, ajoutez ou supprimez des équipes, et réorganisez-les.',
-                et_add_btn: '+ Ajouter une équipe',
-                et_save_btn: 'Enregistrer dans config.js',
-                et_reset_btn: 'Réinitialiser',
-
-                eb_title: 'Modifier les badges',
-                eb_desc: 'Mettez à jour le logo, le nom, la connotation et la signification des badges.',
-                eb_add_btn: '+ Ajouter un badge',
-                eb_save_btn: 'Enregistrer dans config.js',
-                eb_reset_btn: 'Réinitialiser',
-
-                es_title: 'Modifier les sons',
-                es_desc: 'Choisissez des sons intégrés, chargez des fichiers audio depuis user/custom-data/sounds, ou écrivez votre propre mélodie en JS.',
-                es_btns_title: 'Boutons sonores',
-                es_btns_desc: 'Ajoutez des boutons sonores en un clic qui apparaissent dans le panneau principal.',
-                es_import_btn: '⊕ Importer des fichiers audio',
-                es_import_audio_filter: 'Fichiers audio',
-                es_import_errors: 'Certains fichiers n\'ont pas pu être importés',
-                es_refresh_btn: '↻ Actualiser les fichiers',
-                es_save_btn: 'Enregistrer dans config.js',
-                es_reset_btn: 'Réinitialiser',
-
-                af_title: 'Modifier l\'automarquage',
-                af_desc: 'Marquer automatiquement les élèves peu participatifs pour qu\'ils soient tirés plus souvent.',
-                af_enable: 'Activer l\'automarquage',
-                af_flag_bottom: 'Marquer les',
-                af_pct_of_students: '% des élèves par score',
-                af_elements: 'Éléments comptés',
-                af_timeline: 'Période',
-                af_all_sessions: 'Toutes les sessions',
-                af_last: 'Dernières',
-                af_weeks: 'semaines',
-                af_since: 'Depuis le',
-
-                rsp_roster_settings_title: 'Paramètres de la liste',
-                rsp_pin_title: 'Épingler les paramètres de la liste en bas du panneau',
-                rsp_unpin_title: 'Désépingler les paramètres de la liste du panneau',
-                rsp_pin_btn: 'Épingler le menu',
-                rsp_unpin_btn: 'Désépingler le menu',
-                rsp_decrease_title: 'Réduire la taille du nom',
-                rsp_reset_title: 'Réinitialiser la taille',
-                rsp_increase_title: 'Augmenter la taille du nom',
-                rsp_mute_score_title: 'Activer/désactiver les sons de score',
-                rsp_toggle_roles_title: 'Afficher/masquer les rôles',
-                rsp_toggle_badges_title: 'Afficher/masquer les badges',
-                rsp_toggle_autoflag_title: 'Afficher/masquer l\'automarquage (Ctrl+F)',
-                rsp_toggle_anim_title: 'Activer/désactiver les animations visuelles',
-                rsp_toggle_plan_title: 'Activer/désactiver la vue du plan de classe',
-                rsp_in_presentation: 'En présentation :',
-                rsp_pres_decrease_title: 'Réduire la taille du nom en présentation',
-                rsp_pres_reset_title: 'Réinitialiser la taille en présentation',
-                rsp_pres_increase_title: 'Augmenter la taille du nom en présentation',
-                rsp_pres_roles_title: 'Afficher les rôles en présentation',
-                rsp_pres_badges_title: 'Afficher les badges en présentation',
-                rsp_pres_autoflag_title: 'Afficher l\'automarquage en présentation',
-                rsp_pres_anim_title: 'Jouer les animations en présentation',
-                rsp_pres_plan_title: 'Afficher la vue plan en présentation',
-                rsp_pres_modes_title: 'Miroir des modes en présentation',
-                rsp_assign_roles: 'Assigner les rôles',
-                rsp_reassign_roles: 'Réassigner les rôles',
-                rsp_clear_roles: 'Effacer les rôles',
-                rsp_results_ranking: 'Résultats & Classement',
-                rsp_copy_roster_title: 'Copier les noms (avec équipes et rôles) dans le presse-papiers',
-                rsp_present_title: 'Ouvrir une fenêtre de présentation pour le second écran',
-                rsp_freeze_title: 'Figer la fenêtre de présentation',
-                rsp_close_pres_title: 'Fermer la fenêtre de présentation',
-                rsp_full_pres_title: 'Plein écran pour la présentation',
-                rsp_max_pres_title: 'Maximiser la fenêtre de présentation',
-                rsp_min_pres_title: 'Minimiser la fenêtre de présentation',
-                rsp_right_pres_title: 'Déplacer la présentation à droite (20% de largeur)',
-                pres_menu_title: 'Menu de présentation',
-                pres_stop: 'Arrêter la présentation',
-                pres_stop_title: 'Arrêter la fenêtre de présentation',
-                pres_freeze: 'Figer la présentation',
-                pres_unfreeze: 'Défiger la présentation',
-                pres_freeze_title: 'Figer la fenêtre de présentation',
-                pres_unfreeze_title: 'Défiger la fenêtre de présentation',
-                pres_resize: 'Redimensionner la fenêtre',
-                pres_resize_title: 'Ajuster à la taille de la fenêtre d’origine',
-                pres_right: 'Vers la droite',
-                pres_right_title: 'Ancrer la fenêtre de présentation à droite',
-                pres_left: 'Vers la gauche',
-                pres_left_title: 'Ancrer la fenêtre de présentation à gauche',
-
-                rp_group_teams: '🎲 Regrouper par équipes',
-                rp_group_teams_title: 'Remplir les places en regroupant les élèves par équipe',
-                rp_reset_seats: '↩ Réinitialiser les places',
-                rp_reset_seats_title: 'Restaurer le plan de classe original',
-                rp_save_seats: '💾 Enregistrer les places',
-                rp_save_seats_title: 'Enregistrer la disposition actuelle dans le fichier',
-
-                ctx_absent: 'Absent',
-                ctx_flag: '🚩 Signaler',
-                ctx_add_role: 'Ajouter un rôle',
-                ctx_stats: '📊 Stats',
-                ctx_stats_title: 'Voir les statistiques de participation',
-                ctx_grades: '🎓 Notes',
-                ctx_grades_title: 'Voir les notes depuis Feuille de notes',
-                ctx_timer_title: 'Ouvrir le minuteur',
-                ctx_quiet: '🤫 Silence',
-                ctx_quiet_title: 'Activer le mode Travail silencieux',
-                ctx_conversation: '💬 Discussion',
-                ctx_conv_title: 'Activer le mode Discussion',
-                ctx_group_mode: '👥 Groupe',
-                ctx_group_title: 'Activer le mode Groupe',
-                ctx_copy_roster: '📋 Copier la liste',
-                ctx_copy_roster_title: 'Copier les noms (avec équipes et rôles) dans le presse-papiers',
-
-                timer_pp_title: 'Démarrer / Pause',
-                timer_stop_title: 'Arrêter',
-                timer_detach_title: 'Ouvrir le minuteur dans une nouvelle fenêtre',
-                timer_resize_title: 'Glisser pour redimensionner le minuteur',
-
-                overlay_white_title: 'Bruit blanc',
-                overlay_pink_title: 'Bruit rose',
-                overlay_brown_title: 'Bruit brun',
-                overlay_file_title: 'Fichier audio du minuteur',
-                overlay_file_mode_title: 'Bruit blanc (W)',
-
-                mp3_picker_title: '🎵 Choisir un fichier audio',
-
-                tut_btn_label: '▶ Visite',
-                tutNext: 'Suivant →', tutPrev: '← Précédent', tutSkip: 'Passer', tutDone: 'Terminé ✓',
-                tut1_title: 'Groupes de classe',
-                tut1_text: 'Cliquez pour choisir ou chercher un groupe et charger sa liste d\'élèves. Filtrez par jour de la semaine ou gérez les classes actives.',
-                tut2_title: 'Liste des élèves',
-                tut2_text: 'Cliquez sur un nom pour basculer présence/absence. Faites un clic droit pour plus d\'options : participation, notes, badges, rôles.',
-                tut_action_btns_title: 'Boutons d\'action & Sons',
-                tut_action_btns_text: 'Déclenchez des effets sonores rapides (applaudissements, roulements de tambour, sons personnalisés) pour animer la classe.',
-                tut_pick_title: 'Tirage au sort',
-                tut_pick_text: 'Cliquez sur "Élève au hasard" ou "Équipe au hasard" pour désigner aléatoirement un élève présent avec une animation.',
-                tut_roster_settings_title: 'Paramètres d\'affichage',
-                tut_roster_settings_text: 'Ajustez la taille du texte, affichez ou masquez les rôles, badges et autoflag, basculez vers le plan de classe ou ouvrez la vue Présentation pour un second écran.',
-                tut3_title: 'Minuteur & Modes de classe',
-                tut3_text: 'Ouvrez un compte à rebours ou chronomètre, jouez des sons d\'ambiance et activez les modes de travail rapides (Silence, Discussion, Groupe).',
-                tut_general_settings_title: 'Paramètres généraux',
-                tut_general_settings_text: 'Personnalisez l\'affichage des noms (Complet, Prénom, Nom), éditez les équipes, badges, effets sonores, rôles, seuils d\'autoflag et modes de travail.',
-                tut4_title: 'Base de données & Historique',
-                tut4_text: 'Sauvegardez les données de session, exportez les logs de participation et restaurez un état précédent via la Machine à remonter le temps.',
-
-                // Remote control panel
-                remote_mode_local: 'Réseau local',
-                remote_mode_external: 'Serveur externe',
-                remote_host_secret_label: 'Clé hôte',
-                remote_server_url_label: 'URL du serveur',
-                remote_secret_hint: 'Mot de passe protégeant votre connexion hôte',
-                remote_url_hint: 'ex. https://votre-serveur.com',
-            },
-
-            de: {
-                btn_timer: '⏱ Timer',
-                btn_mode: 'Modus',
-                btn_objectives: 'Ziele',
-                btn_results: 'Ergebnisse & Ranking',
-                btn_history: 'Verlauf',
-                btn_db_title: 'Datenbank & Zeitmaschine',
-                help_title: 'Benutzerhandbuch',
-
-                timer_title: '⏱ Timer',
-                timer_mode_timer: '⏱ Timer',
-                timer_mode_stopwatch: '⏱ Stoppuhr',
-                timer_duration: 'Dauer',
-                timer_beeps: 'Signaltöne',
-                timer_start: '▶ Starten',
-                timer_stop: '■ Stoppen',
-                timer_pause: '⏸ Pause',
-                timer_pause_title: 'Pause / Fortsetzen',
-                timer_class_mode: 'Klassenmodus',
-
-                mode_title: 'Klassenmodus',
-                mode_subtitle: 'Wählen Sie einen Arbeitsmodus für die Klasse',
-                mode_quiet: 'Stille',
-                mode_quiet_short: 'Stille',
-                mode_quiet_title: 'Stille Arbeit (1)',
-                mode_conversation: 'Gespräch',
-                mode_talk_short: 'Reden',
-                mode_conv_title: 'Gespräch (2)',
-                mode_group: 'Gruppenarbeit',
-                mode_group_short: 'Gruppe',
-                mode_group_title: 'Gruppenarbeit (3)',
-
-                noise_volume: 'Lautstärke',
-
-                db_title: '🗄 Datenbank',
-                db_current_session: 'Aktuelle Sitzung',
-                db_save: 'Speichern',
-                db_save_small: 'Heutigen Klassenstand sichern',
-                db_save_all: 'Alle Klassen speichern',
-                db_save_all_small: 'Alle Gruppen auf einmal sichern',
-                db_history_label: 'Verlauf',
-                db_time_machine: '⏪ Zeitmaschine',
-                db_backup_restore: 'Sichern & Wiederherstellen',
-                db_export: 'Exportieren',
-                db_export_small: 'Alle Sitzungen als .js-Datei herunterladen',
-                db_import: 'Importieren',
-                db_import_small: 'Sitzungen aus einer .json-, .js- oder .txt-Datei laden',
-
-                objectives_label: 'Lernziele',
-                objectives_placeholder: 'Klicken, um Lernziele festzulegen…',
-                objectives_edit: 'Bearbeiten',
-                objectives_hint: 'Diese erscheinen unter dem Titel und im Vollbild-Timer.',
-
-                students_label: 'Schüler:',
-                btn_add_student: '+ Schüler hinzufügen',
-                btn_add_student_title: 'Neuen Schüler zur Gruppe hinzufügen',
-                btn_badges: 'Abzeichen',
-                btn_badges_title: 'Abzeichenspalte ein-/ausblenden',
-                roster_select_group: 'Gruppe auswählen…',
-                btn_pick: 'Zufälliger Schüler',
-                btn_pick_team: 'Zufälliges Team',
-
-                results_live_ranking: 'Live-Rangliste',
-                results_performance: 'Leistung des Tages',
-
-                history_title: 'Sitzungsverlauf',
-                btn_export_csv: 'CSV exportieren',
-                btn_clear: 'Löschen',
-                history_empty: 'Noch keine Ereignisse in dieser Sitzung.',
-
-                tm_subtitle: 'Vergangene Sitzungen durchsuchen und wiederherstellen',
-                tm_viewing: 'Angezeigte Sitzung: ',
-                tm_return_live: '✕ Zurück zur Live-Sitzung',
-
-                team_maker_title: 'Team-Ersteller',
-                team_option_a: 'Option A: Gesamtzahl der Teams',
-                team_option_b: 'Option B: Schüler pro Team',
-                team_option_c: 'Option C: Gespeicherte Setups',
-                btn_save_setup: '💾 Aktuelles Setup speichern',
-
-                roles_title: 'Rollen zuweisen',
-                roles_random_rank: 'Zufälligen Rang vergeben',
-                roles_distribute: 'An Schüler verteilen',
-                roles_reset_all: 'Alle Rollen zurücksetzen',
-                roles_option_c: 'Option C · Gespeicherte Setups',
-                btn_save_roles_setup: '💾 Aktuelle Rollen speichern',
-                roles_info_title: 'Beschreibungen der zugewiesenen Rollen',
-                roles_info_empty: 'Dieser Gruppe sind derzeit keine Rollen zugewiesen.',
-                roles_info_missing: 'Für diese Rolle wurde noch keine Beschreibung hinzugefügt.',
-                roles_toggle_label: '1. Zu verwendende Rollen auswählen (Blau = aktiv):',
-                roles_new_label: '2. Neue Rolle erstellen:',
-                roles_add_btn: 'Hinzufügen',
-                roles_placeholder: 'z.B. Illustrator...',
-
-                btn_copy_data: 'Daten kopieren',
-                btn_export_csv2: 'CSV exportieren',
-                btn_create_teams: 'Teams erstellen',
-                btn_reshuffle_teams: 'Teams neu mischen',
-                btn_clear_teams: 'Teams löschen',
-                btn_roles: 'Rollen',
-                btn_role_info: 'Rolleninfo',
-                btn_role_info_title: 'Beschreibungen der zugewiesenen Rollen anzeigen',
-                btn_reset_points: 'Punkte zurücksetzen',
-                btn_reset_strikes: 'Striche zurücksetzen',
-
-                alert_select_group: 'Bitte zuerst eine Gruppe auswählen!',
-                alert_no_present_ranks: 'Keine anwesenden Schüler zum Einordnen.',
-                alert_select_role: 'Mindestens eine Rolle auswählen!',
-                alert_select_role2: 'Bitte mindestens eine Rolle aus der Liste auswählen!',
-                confirm_clear_roles: 'Alle zugewiesenen Rollen der Schüler löschen?',
-                confirm_delete_roles: 'Alle definierten Rollen werden gelöscht und zugewiesene Rollen entfernt. Fortfahren?',
-                confirm_merge_teams: 'Alle Schüler von Team {a} in Team {b} zusammenführen?',
-                confirm_remove_student: 'Schüler entfernen?',
-                confirm_wipe_points: 'Punkte löschen?',
-                alert_data_copied: 'Daten in die Zwischenablage kopiert!',
-                alert_everyone_called: 'Alle Schüler wurden aufgerufen!',
-                alert_valid_time: 'Bitte eine gültige Zeit eingeben',
-                confirm_clear_history: 'Den gesamten Sitzungsverlauf löschen?',
-                alert_save_error: 'Speichern in der Datenbank fehlgeschlagen: ',
-                alert_select_before_save: 'Bitte vor dem Speichern eine Gruppe auswählen.',
-                alert_no_sessions_export: 'Keine Sitzungen zum Exportieren.\nBitte zuerst 💾 Speichern verwenden.',
-                confirm_import: 'Sie haben bereits {n} Sitzung(en) in Ihrer Datenbank.\n\nOK = ZUSAMMENFÜHREN (importierte Sitzungen werden hinzugefügt).\nAbbrechen = ERSETZEN (überschreibt Ihre aktuellen Daten).',
-                alert_import_ok: '✓ Import erfolgreich!\n{n} Sitzung(en) in der Datenbank.',
-                alert_import_fail: 'Import fehlgeschlagen: {e}\n\nStellen Sie sicher, dass Sie eine aus dieser App exportierte Datei importieren.',
-                alert_no_groups: 'Keine Gruppen gefunden.',
-                tm_no_sessions: 'Noch keine gespeicherten Sitzungen.\nVerwenden Sie 💾 Speichern, um eine Sitzung zu erfassen.',
-                tm_readonly_badge: 'Nur lesen',
-
-                help_s_groups_title: 'Gruppen',
-                help_s_groups_p: 'Wählen Sie eine Klasse mit den Schaltflächen oben auf der Seite aus. Die Liste wird sofort aktualisiert. Sie können jederzeit die Gruppe wechseln — Punkte und Striche werden pro Gruppe für die Dauer der Sitzung gespeichert.',
-                help_s_picker_title: 'Zufälliger Schüler',
-                help_s_picker_p: 'Drücken Sie <kbd>Zufälliger Schüler</kbd> (oder <kbd>Strg + Leertaste</kbd>), um einen Schüler zufällig auszuwählen. Bereits ausgewählte Schüler werden durchgestrichen. Klicken Sie direkt auf einen Schülernamen, um ihn manuell durchzustreichen — nützlich bei Abwesenheit. Verwenden Sie <kbd>Striche zurücksetzen</kbd> in der Utility-Leiste, um eine neue Runde zu starten. Klicken Sie auf <kbd>Trommelwirbel</kbd> für mehr Spannung.',
-                help_s_points_title: 'Punkte',
-                help_s_points_p: 'Jeder Schüler hat <kbd>+</kbd>- und <kbd>-</kbd>-Schaltflächen. Plus vergibt einen Teilnahmepunkt; Minus erfasst eine Warnung oder eine verpasste Aufgabe. Die grünen und roten Punktzähler sind anklickbar: Ein Klick verringert den jeweiligen Zähler um eins, um Fehleingaben zu korrigieren. Punkte fließen in das Live-Ranking und die Abschlussergebnisse ein.',
-                help_s_badges_title: 'Abzeichen',
-                help_s_badges_p: 'Jeder Schüler kann Emoji-Abzeichen als Belohnung erhalten. Klicken Sie auf die Abzeichen-Schaltfläche einer Zeile, um die Auswahl zu öffnen. Abzeichen häufen sich an und werden neben den Namen angezeigt. Verwenden Sie den <kbd>Abzeichen</kbd>-Schalter im Listenkopf zum Ein-/Ausblenden der Spalte. Um ein Abzeichen zu entfernen, klicken Sie direkt auf den Abzeichen-Chip.',
-                help_s_notes_title: 'Notizen',
-                help_s_notes_p: 'Klicken Sie auf den Punkt-Indikator einer Zeile, um ein privates Notiz-Popup zu öffnen. Geben Sie eine kurze Notiz ein und drücken Sie Enter oder <kbd>Speichern</kbd>. Notizen sind privat — sie werden nicht auf dem Bildschirm angezeigt. Ein ausgefüllter Punkt zeigt an, dass eine Notiz vorhanden ist.',
-                help_s_timer_title: 'Timer',
-                help_s_timer_p: 'Klicken Sie auf <kbd>⏱ Timer</kbd> im Menü, um das Popup zu öffnen. Stellen Sie die Dauer in Stunden und Minuten ein, konfigurieren Sie die Anzahl der Schlusssignale und drücken Sie <kbd>▶ Starten</kbd>. Der Countdown erscheint in der Menüleiste. Drücken Sie <kbd>⛶</kbd> für eine farbige Vollbildanzeige — nützlich für den Projektor: wechselt von Grün über Orange zu Rot. Schalten Sie auf den <kbd>Stoppuhr</kbd>-Modus um, um aufwärts zu zählen.',
-                help_s_objectives_title: 'Lernziele',
-                help_s_objectives_p: 'Klicken Sie auf <kbd>Ziele</kbd> im Menü, um den Editor zu öffnen. Geben Sie ein oder mehrere Ziele ein und speichern Sie — sie erscheinen in einer Leiste unter dem Titel und im Vollbild-Timer. Klicken Sie auf den Leistentext oder die Schaltfläche Bearbeiten, um sie jederzeit zu aktualisieren.',
-                help_s_mode_title: 'Klassenmodus',
-                help_s_mode_p: 'Drücken Sie <kbd>Modus</kbd> im Menü (oder <kbd>Strg + M</kbd>), um einen Arbeitsmodus zu wählen: Stille Arbeit, Gespräch oder Gruppenarbeit. Jeder Modus öffnet eine animierte Vollbildanzeige für den Projektor. Sie können Modi auch direkt aus dem <kbd>⏱ Timer</kbd>-Popup über die drei Schnellzugriff-Schaltflächen (🤫 🗨️ 👥) starten. Drücken Sie die Schließen-Schaltfläche oder <kbd>Strg + M</kbd>, um die Anzeige zu schließen.',
-                help_s_teams_title: 'Teams',
-                help_s_teams_p: 'Drücken Sie <kbd>Teams erstellen</kbd> (oder <kbd>Strg + Umschalt + K</kbd>), um den Team-Ersteller zu öffnen. Wählen Sie entweder eine Gesamtzahl von Teams oder eine Anzahl von Schülern pro Team. Sie können Schüler per Drag & Drop zwischen Teams verschieben oder eine Team-Karte auf eine andere ziehen, um sie zusammenzuführen. Verwenden Sie <kbd>Neu mischen</kbd> oder <kbd>Teams löschen</kbd>.',
-                help_s_roles_title: 'Team-Rollen',
-                help_s_roles_p: 'Sobald Teams erstellt sind, klicken Sie auf <kbd>Rollen</kbd>, um den Editor zu öffnen. Verwenden Sie <kbd>+</kbd> zum Hinzufügen von Rollennamen (z.B. Kapitän, Schriftführer, Zeitnehmer, Sprecher). Klicken Sie auf <kbd>An Schüler verteilen</kbd>, um zufällig eine Rolle pro Schüler zuzuweisen. Rollen erscheinen kursiv. Verwenden Sie <kbd>Alle Rollen zurücksetzen</kbd> zum Löschen.',
-                help_s_results_title: 'Ergebnisse und Ranking',
-                help_s_results_p: 'Klicken Sie auf <kbd>Ergebnisse &amp; Ranking</kbd>, um das Live-Ergebnisfenster zu öffnen. Der obere Abschnitt zeigt eine vollständige Rangliste nach Punktzahl. Der untere Abschnitt zeigt das Podium des Tages — Gold, Silber und Bronze — sowie Team-Durchschnittswerte, wenn Teams aktiv sind.',
-                help_s_history_title: 'Sitzungsverlauf',
-                help_s_history_p: 'Klicken Sie auf <kbd>Verlauf</kbd>, um ein chronologisches Protokoll aller Aktionen der Sitzung anzuzeigen. Verwenden Sie <kbd>CSV exportieren</kbd> zum Herunterladen. Verwenden Sie <kbd>Löschen</kbd>, um das Protokoll zurückzusetzen.',
-                help_s_db_title: 'Datenbank &amp; Zeitmaschine',
-                help_s_db_p1: 'Klicken Sie auf <kbd>🗄 DB</kbd> im Menü. Verwenden Sie <kbd>💾 Speichern</kbd>, um die aktuell ausgewählte Klasse zu sichern, oder <kbd>💾💾 Alle speichern</kbd> für alle Gruppen auf einmal. Wurde eine Klasse heute bereits gespeichert, wird sie lautlos überschrieben.',
-                help_s_db_p2: 'Klicken Sie auf <kbd>⏪ Zeitmaschine</kbd>, um gespeicherte Sitzungen zu durchsuchen. Drücken Sie <kbd>👁 Anzeigen</kbd>, um einen Schnappschuss zu laden — die App wechselt in den Nur-Lese-Modus. Ein lila Banner zeigt die angezeigte Sitzung an. Drücken Sie <kbd>✕ Zurück zur Live-Sitzung</kbd>, um Ihre aktuelle Sitzung wiederherzustellen.',
-                help_s_db_p3: 'Verwenden Sie <kbd>⬇ Exportieren</kbd>, um alle Sitzungen als <code>.js</code>-Datei herunterzuladen. Verwenden Sie <kbd>⬆ Importieren</kbd>, um aus einer exportierten Datei wiederherzustellen.',
-                help_s_export_title: 'Daten exportieren',
-                help_s_export_p: 'Verwenden Sie in der Utility-Leiste <kbd>Daten kopieren</kbd>, um alle Schülerpunkte in die Zwischenablage zu kopieren (tabulatorgetrennt, für Excel oder Google Sheets). Verwenden Sie <kbd>CSV exportieren</kbd> im Verlaufs-Panel für das vollständige Protokoll.',
-                help_s_shortcuts_title: 'Tastaturkürzel',
-                help_s_shortcuts_p: '<kbd>Strg + Leertaste</kbd> — Zufälligen Schüler auswählen<br><kbd>Strg + Umschalt + K</kbd> — Team-Ersteller öffnen<br><kbd>Strg + M</kbd> — Modusauswahl öffnen (oder aktiven Modus schließen)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Modus wechseln (Stille / Gespräch / Gruppe)<br><kbd>W</kbd> — Weißes Rauschen ein-/ausschalten<br><kbd>M</kbd> — Weißes Rauschen stummschalten/aufheben<br><kbd>[</kbd> / <kbd>]</kbd> — Lautstärke verringern / erhöhen',
-                help_sc_sec_general: 'Allgemein',
-                help_sc_sec_modes: 'Timer &amp; Modi',
-                help_sc_sec_noise: 'Weißes Rauschen',
-                help_sc_random: 'Zufälligen Schüler auswählen',
-                help_sc_team: 'Team-Ersteller öffnen',
-                help_sc_mode: 'Modusauswahl öffnen',
-                help_sc_switch: 'Modus wechseln — Stille / Gespräch / Gruppe (wenn Auswahl oder Timer offen)',
-                help_sc_noise_on: 'Weißes Rauschen ein-/ausschalten (wenn Modus oder Timer offen)',
-                help_sc_noise_mute: 'Weißes Rauschen stummschalten/aufheben (wenn Modus oder Timer offen)',
-                help_sc_noise_vol: 'Lautstärke verringern / erhöhen',
-
-                btn_cancel: 'Abbrechen',
-                btn_ok: 'OK',
-                btn_save: 'Speichern',
-                btn_close: 'Schließen',
-                btn_skip: 'Überspringen',
-                btn_add: 'Hinzufügen',
-
-                datetime_title: 'Klicken für Vollbild-Uhr',
-                settings_btn_title: 'Einstellungen',
-                remote_btn_title: 'Fernsteuerung',
-                links_btn_title: 'Anderes Tool öffnen',
-                credits_btn_title: 'Credits',
-                cms_view_groups: '👥 Gruppen',
-                cms_view_slots: '🗓 Zeitfenster',
-                cms_tab_all: 'Alle',
-                cms_tab_no_slot: 'Ohne Zeitfenster',
-                search_placeholder: 'Klasse suchen...',
-                cms_daySun: 'So', cms_dayMon: 'Mo', cms_dayTue: 'Di', cms_dayWed: 'Mi',
-                cms_dayThu: 'Do', cms_dayFri: 'Fr', cms_daySat: 'Sa',
-                menu_minimize_title: 'Menü minimieren',
-
-                ambient_label: '🌊 Umgebungsklang',
-                noise_white: 'Weiß',
-                noise_white_title: 'Weißes Rauschen',
-                noise_pink: 'Rosa',
-                noise_pink_title: 'Rosa Rauschen',
-                noise_brown: 'Braun',
-                noise_brown_title: 'Braunes Rauschen',
-                noise_mp3_title: 'Timer-Audiodatei in Schleife abspielen',
-                noise_mute_title: 'Stummschalten/Reaktivieren (M)',
-                noise_play: '▶ Abspielen',
-                timer_sub30s_title: '-30 Sekunden',
-                timer_add30s_title: '+30 Sekunden',
-                timer_fullscreen_title: 'Vollbild',
-                timer_stopwatch_btn: '⏱ Stoppuhr',
-                timer_play_btn: '▶ Starten',
-                timer_stop_btn: '■ Stoppen',
-
-                db_save_file: 'In Datei speichern',
-                db_save_file_small: 'DB in feste Datei speichern (ohne Zeitstempel)',
-                db_download: 'Daten herunterladen',
-                db_download_small: 'Protokoll und Daten als .zip-Backup speichern',
-                db_upload: 'Daten hochladen',
-                db_upload_small: 'Daten aus einer .zip-Datei wiederherstellen',
-                db_clear_local: 'Lokale DB leeren',
-                db_clear_local_small: 'localStorage dieses Tools leeren (cms-db)',
-                db_tm_title: 'Vergangene Sitzungsschnappschüsse anzeigen und wiederherstellen',
-                db_history_btn_title: 'Sitzungsaktivitätsprotokoll anzeigen',
-                db_copy_title: 'Aktuelle Liste in die Zwischenablage kopieren',
-                db_csv_title: 'Liste als CSV-Datei herunterladen',
-                db_save_all_title: 'Nur Gruppen mit Interaktionen sichern',
-                db_save_file_title: 'DB in feste Datei speichern (ohne Zeitstempel)',
-                db_download_title: 'Protokoll und Daten als .zip-Backup speichern',
-                db_upload_title: 'Daten aus einer .zip-Datei wiederherstellen',
-                db_export_title_attr: 'Aktive-Gruppen-Sitzungen als .js herunterladen',
-                db_import_title_attr: 'Sitzungen aus einer .json-, .js- oder .txt-Datei laden',
-                db_clear_local_title: 'localStorage dieses Tools leeren (cms-db)',
-
-                settings_popup_title: '⚙ Einstellungen',
-                settings_show_name: 'Name anzeigen',
-                settings_name_full: 'Vollständig',
-                settings_name_first: 'Vorname',
-                settings_name_last: 'Nachname',
-                settings_edit_groups: 'Gruppen bearbeiten',
-                settings_edit_groups_small: 'Klassengruppen hinzufügen, umbenennen oder neu anordnen',
-                settings_edit_teams: 'Teams bearbeiten',
-                settings_edit_teams_small: 'Teamnamen und -farben ändern',
-                settings_edit_badges: 'Abzeichen bearbeiten',
-                settings_edit_badges_small: 'Abzeichen-Namen, Bedeutung, Ton und Logo anpassen',
-                settings_edit_sounds: 'Sounds bearbeiten',
-                settings_edit_sounds_small: 'Timer-Alarm, +/−-Töne, Dateien und JS-Melodien',
-                settings_edit_roles: 'Rollen bearbeiten',
-                settings_edit_roles_small: 'Rollentitel und -beschreibungen verwalten',
-                settings_edit_autoflag: 'Autoflag bearbeiten',
-                settings_edit_autoflag_small: 'Schüler mit geringer Beteiligung automatisch markieren',
-                settings_class_plan: 'Klassenplan',
-                settings_class_plan_small: 'Sitzordnung mit Raum und Wochenplan',
-
-                startup_title: 'Datenbank laden?',
-                startup_sub: 'Wählen Sie eine Datei, mehrere Dateien oder einen Ordner mit DB-Exporten aus.',
-                startup_load_files: 'Dateien laden',
-                startup_load_folder: 'Ordner laden',
-
-                role_change_label: 'Rolle ändern:',
-
-                comment_placeholder: 'Neue Notiz hinzufügen…',
-                comment_add_btn: 'Notiz hinzufügen',
-                comment_close_btn: 'Schließen',
-
-                objectives_save_btn: 'Speichern',
-                objectives_textarea_placeholder: 'z.B.\n1. Schlüsselvokabular identifizieren\n2. Das Hauptargument besprechen\n3. Eine strukturierte Antwort schreiben',
-
-                roles_option_intro: 'Wählen Sie eine Option: verteilen Sie die ausgewählten Rollentitel oder geben Sie jedem Schüler eine zufällige Rangnummer.',
-                roles_choice_a_label: 'Option A · Rollen',
-                roles_choice_a_text: 'Wählen Sie die Rollen-Chips oben aus, dann verteilen Sie diese Rollen an die Klasse oder Teams.',
-                roles_choice_b_label: 'Option B · Zufällige Ränge',
-                roles_choice_b_text: 'Verwenden Sie Zahlen statt Rollentiteln und weisen Sie jedem Schüler einen zufälligen Rang zu.',
-
-                eg_title: 'Gruppen bearbeiten',
-                eg_desc: 'Schüler werden durch Kommas getrennt. Änderungen werden sofort angewendet; verwenden Sie In class-groups.js speichern, um sie dauerhaft zu speichern.',
-                eg_add_section: 'Neue Gruppe hinzufügen',
-                eg_name_placeholder: 'Gruppenname (z.B. 5ANdf-01)',
-                eg_year_placeholder: '2025-2026',
-                eg_sem_placeholder: 'Sem',
-                eg_add_btn: 'Hinzufügen',
-                eg_save_btn: '💾 In class-groups.js speichern',
-                eg_apply_btn: 'Anwenden (nur Sitzung)',
-
-                as_title: 'Schüler hinzufügen',
-                as_type_label: 'Oder Namen eingeben (kommagetrennt)',
-                as_confirm_btn: '✓ Bestätigen & In class-groups.js speichern',
-                as_skip_btn: 'Überspringen',
-
-                et_title: 'Teams bearbeiten',
-                et_desc: 'Anzeigenamen und Farben für die Team-Palette festlegen, Teams hinzufügen oder entfernen.',
-                et_add_btn: '+ Team hinzufügen',
-                et_save_btn: 'In config.js speichern',
-                et_reset_btn: 'Standardwerte',
-
-                eb_title: 'Abzeichen bearbeiten',
-                eb_desc: 'Logo, Name, Konnotation und Bedeutung der Abzeichen aktualisieren.',
-                eb_add_btn: '+ Abzeichen hinzufügen',
-                eb_save_btn: 'In config.js speichern',
-                eb_reset_btn: 'Standardwerte',
-
-                es_title: 'Sounds bearbeiten',
-                es_desc: 'Integrierte Sounds wählen, Audiodateien aus user/custom-data/sounds laden oder eigene JS-Melodien schreiben.',
-                es_btns_title: 'Sound-Schaltflächen',
-                es_btns_desc: 'Fügen Sie Ein-Tipp-Sound-Schaltflächen hinzu, die im Hauptbereich erscheinen.',
-                es_import_btn: '⊕ Audiodateien importieren',
-                es_import_audio_filter: 'Audiodateien',
-                es_import_errors: 'Einige Dateien konnten nicht importiert werden',
-                es_refresh_btn: '↻ Dateien aktualisieren',
-                es_save_btn: 'In config.js speichern',
-                es_reset_btn: 'Standardwerte',
-
-                af_title: 'Autoflag bearbeiten',
-                af_desc: 'Schüler mit geringer Beteiligung automatisch markieren, damit sie häufiger ausgewählt werden.',
-                af_enable: 'Autoflag aktivieren',
-                af_flag_bottom: 'Markiere unten',
-                af_pct_of_students: '% der Schüler nach Punktzahl',
-                af_elements: 'Berücksichtigte Elemente',
-                af_timeline: 'Zeitraum',
-                af_all_sessions: 'Alle Sitzungen',
-                af_last: 'Letzte',
-                af_weeks: 'Wochen',
-                af_since: 'Seit dem',
-
-                rsp_roster_settings_title: 'Listeneinstellungen',
-                rsp_pin_title: 'Listeneinstellungen unten im Listenbereich anheften',
-                rsp_unpin_title: 'Listeneinstellungen vom Listenbereich lösen',
-                rsp_pin_btn: 'Menü anheften',
-                rsp_unpin_btn: 'Menü lösen',
-                rsp_decrease_title: 'Namensgröße verringern',
-                rsp_reset_title: 'Namensgröße zurücksetzen',
-                rsp_increase_title: 'Namensgröße erhöhen',
-                rsp_mute_score_title: 'Score-Sounds ein-/ausschalten',
-                rsp_toggle_roles_title: 'Rollensichtbarkeit umschalten',
-                rsp_toggle_badges_title: 'Abzeichen-Sichtbarkeit umschalten',
-                rsp_toggle_autoflag_title: 'Autoflag-Sichtbarkeit umschalten (Strg+F)',
-                rsp_toggle_anim_title: 'Visuelle Animationen umschalten',
-                rsp_toggle_plan_title: 'Sitzplan-Ansicht umschalten',
-                rsp_in_presentation: 'In der Präsentation:',
-                rsp_pres_decrease_title: 'Namensgröße in der Präsentation verringern',
-                rsp_pres_reset_title: 'Namensgröße in der Präsentation zurücksetzen',
-                rsp_pres_increase_title: 'Namensgröße in der Präsentation erhöhen',
-                rsp_pres_roles_title: 'Rollen im Präsentationsfenster anzeigen',
-                rsp_pres_badges_title: 'Abzeichen im Präsentationsfenster anzeigen',
-                rsp_pres_autoflag_title: 'Autoflag im Präsentationsfenster anzeigen',
-                rsp_pres_anim_title: 'Animationen im Präsentationsfenster abspielen',
-                rsp_pres_plan_title: 'Planansicht im Präsentationsfenster anzeigen',
-                rsp_pres_modes_title: 'Modi-Overlay im Präsentationsfenster spiegeln',
-                rsp_assign_roles: 'Rollen zuweisen',
-                rsp_reassign_roles: 'Rollen neu zuweisen',
-                rsp_clear_roles: 'Rollen löschen',
-                rsp_results_ranking: 'Ergebnisse & Ranking',
-                rsp_copy_roster_title: 'Namen (mit Teams und Rollen) in Zwischenablage kopieren',
-                rsp_present_title: 'Präsentationsfenster für den zweiten Bildschirm öffnen',
-                rsp_freeze_title: 'Präsentationsfenster einfrieren',
-                rsp_close_pres_title: 'Präsentationsfenster schließen',
-                rsp_full_pres_title: 'Vollbild für die Präsentation',
-                rsp_max_pres_title: 'Präsentationsfenster maximieren',
-                rsp_min_pres_title: 'Präsentationsfenster minimieren',
-                rsp_right_pres_title: 'Präsentation rechts positionieren (20% Breite)',
-                pres_menu_title: 'Präsentationsmenü',
-                pres_stop: 'Präsentation beenden',
-                pres_stop_title: 'Das Präsentationsfenster beenden',
-                pres_freeze: 'Präsentation einfrieren',
-                pres_unfreeze: 'Präsentation auftauen',
-                pres_freeze_title: 'Das Präsentationsfenster einfrieren',
-                pres_unfreeze_title: 'Das Präsentationsfenster auftauen',
-                pres_resize: 'Fenstergröße anpassen',
-                pres_resize_title: 'An die Größe des Originalfensters anpassen',
-                pres_right: 'Nach rechts',
-                pres_right_title: 'Präsentationsfenster rechts andocken',
-                pres_left: 'Nach links',
-                pres_left_title: 'Präsentationsfenster links andocken',
-
-                rp_group_teams: '🎲 Nach Teams gruppieren',
-                rp_group_teams_title: 'Plätze automatisch nach Teams besetzen',
-                rp_reset_seats: '↩ Plätze zurücksetzen',
-                rp_reset_seats_title: 'Ursprüngliche Sitzordnung wiederherstellen',
-                rp_save_seats: '💾 Plätze speichern',
-                rp_save_seats_title: 'Aktuelle Sitzordnung in der Datei speichern',
-
-                ctx_absent: 'Abwesend',
-                ctx_flag: '🚩 Markieren',
-                ctx_add_role: 'Rolle hinzufügen',
-                ctx_stats: '📊 Statistiken',
-                ctx_stats_title: 'Teilnahmestatistiken anzeigen',
-                ctx_grades: '🎓 Noten',
-                ctx_grades_title: 'Noten aus dem Notenblatt anzeigen',
-                ctx_timer_title: 'Timer öffnen',
-                ctx_quiet: '🤫 Stille',
-                ctx_quiet_title: 'Modus Stille Arbeit aktivieren',
-                ctx_conversation: '💬 Gespräch',
-                ctx_conv_title: 'Gesprächsmodus aktivieren',
-                ctx_group_mode: '👥 Gruppe',
-                ctx_group_title: 'Gruppenarbeitsmodus aktivieren',
-                ctx_copy_roster: '📋 Liste kopieren',
-                ctx_copy_roster_title: 'Namen (mit Teams und Rollen) in Zwischenablage kopieren',
-
-                timer_pp_title: 'Starten / Pause',
-                timer_stop_title: 'Stoppen',
-                timer_detach_title: 'Timer in neuem Fenster öffnen',
-                timer_resize_title: 'Zum Vergrößern/Verkleinern ziehen',
-
-                overlay_white_title: 'Weißes Rauschen',
-                overlay_pink_title: 'Rosa Rauschen',
-                overlay_brown_title: 'Braunes Rauschen',
-                overlay_file_title: 'Timer-Audiodatei',
-                overlay_file_mode_title: 'Weißes Rauschen (W)',
-
-                mp3_picker_title: '🎵 Audiodatei auswählen',
-
-                tut_btn_label: '▶ Tour',
-                tutNext: 'Weiter →', tutPrev: '← Zurück', tutSkip: 'Überspringen', tutDone: 'Fertig ✓',
-                tut1_title: 'Klassengruppen',
-                tut1_text: 'Klicken Sie hier, um eine Klassengruppe auszuwählen oder zu suchen und die Schülerliste zu laden. Filtern Sie nach Wochentagen oder verwalten Sie aktive Gruppen.',
-                tut2_title: 'Schülerliste',
-                tut2_text: 'Klicken Sie auf einen Namen, um An-/Abwesenheit umzuschalten. Rechtsklick für mehr: Teilnahme, Notizen, Abzeichen, Rollen.',
-                tut_action_btns_title: 'Aktions-Buttons & Soundeffekte',
-                tut_action_btns_text: 'Lösen Sie schnelle Soundeffekte (wie Applaus, Trommelwirbel oder eigene Audioclips) während des Unterrichts aus.',
-                tut_pick_title: 'Zufallsauswahl',
-                tut_pick_text: 'Klicken Sie auf "Zufälliger Schüler" oder "Zufälliges Team", um einen anwesenden Schüler per Zufall auszuwählen.',
-                tut_roster_settings_title: 'Anzeigeeinstellungen',
-                tut_roster_settings_text: 'Schriftgröße anpassen, Rollen, Abzeichen und Autoflag ein-/ausblenden, zum Sitzplan wechseln oder die Präsentationsansicht für Zweitbildschirme öffnen.',
-                tut3_title: 'Timer & Klassen-Modi',
-                tut3_text: 'Öffnen Sie Countdowns oder Stoppuhren, spielen Sie Umgebungsgeräusche ab und wechseln Sie Schnellmodi (Ruhe, Gespräch, Gruppe).',
-                tut_general_settings_title: 'Allgemeine Einstellungen',
-                tut_general_settings_text: 'Namenanzeige anpassen (Vollständig, Vorname, Nachname), Teams, Abzeichen, Soundeffekte, Rollen, Autoflag-Schwellenwerte und Arbeitsmodi bearbeiten.',
-                tut4_title: 'Datenbank & Verlauf',
-                tut4_text: 'Sitzungsdaten speichern, Teilnahmeprotokolle exportieren und frühere Zustände über die Zeitmaschine wiederherstellen.',
-
-                // Remote control panel
-                remote_mode_local: 'Lokales Netzwerk',
-                remote_mode_external: 'Externer Server',
-                remote_host_secret_label: 'Host-Schlüssel',
-                remote_server_url_label: 'Server-URL',
-                remote_secret_hint: 'Passwort zum Schutz Ihrer Host-Verbindung',
-                remote_url_hint: 'z. B. https://ihr-server.com',
-            },
-
-            it: {
-                btn_timer: '⏱ Timer',
-                btn_mode: 'Modalità',
-                btn_objectives: 'Obiettivi',
-                btn_results: 'Risultati & Classifica',
-                btn_history: 'Cronologia',
-                btn_db_title: 'Database & Macchina del tempo',
-                help_title: 'Guida utente',
-
-                timer_title: '⏱ Timer',
-                timer_mode_timer: '⏱ Timer',
-                timer_mode_stopwatch: '⏱ Cronometro',
-                timer_duration: 'Durata',
-                timer_beeps: 'Segnali',
-                timer_start: '▶ Avvia',
-                timer_stop: '■ Ferma',
-                timer_pause: '⏸ Pausa',
-                timer_pause_title: 'Pausa / Riprendi',
-                timer_class_mode: 'Modalità classe',
-
-                mode_title: 'Modalità classe',
-                mode_subtitle: 'Scegli una modalità di lavoro da mostrare agli studenti',
-                mode_quiet: 'Silenzio',
-                mode_quiet_short: 'Silenzio',
-                mode_quiet_title: 'Lavoro silenzioso (1)',
-                mode_conversation: 'Conversazione',
-                mode_talk_short: 'Parla',
-                mode_conv_title: 'Conversazione (2)',
-                mode_group: 'Lavoro di gruppo',
-                mode_group_short: 'Gruppo',
-                mode_group_title: 'Lavoro di gruppo (3)',
-
-                noise_volume: 'Volume',
-
-                db_title: '🗄 Database',
-                db_current_session: 'Sessione corrente',
-                db_save: 'Salva',
-                db_save_small: "Salva lo stato odierno della classe",
-                db_save_all: 'Salva tutte le classi',
-                db_save_all_small: 'Salva tutti i gruppi in una volta',
-                db_history_label: 'Cronologia',
-                db_time_machine: '⏪ Macchina del tempo',
-                db_backup_restore: 'Backup & Ripristino',
-                db_export: 'Esporta',
-                db_export_small: 'Scarica tutte le sessioni come file .js',
-                db_import: 'Importa',
-                db_import_small: 'Carica sessioni da un file .json, .js o .txt',
-
-                objectives_label: 'Obiettivi della lezione',
-                objectives_placeholder: 'Clicca per impostare gli obiettivi…',
-                objectives_edit: 'Modifica',
-                objectives_hint: 'Appariranno sotto il titolo e nel timer a schermo intero.',
-
-                students_label: 'Studenti:',
-                btn_add_student: '+ Aggiungi studente',
-                btn_add_student_title: 'Aggiungi un nuovo studente al gruppo',
-                btn_badges: 'Badge',
-                btn_badges_title: 'Mostra/nascondi colonna badge',
-                roster_select_group: 'Seleziona un gruppo…',
-                btn_pick: 'Studente casuale',
-                btn_pick_team: 'Squadra casuale',
-
-                results_live_ranking: 'Classifica in diretta',
-                results_performance: 'Prestazione del giorno',
-
-                history_title: 'Cronologia sessione',
-                btn_export_csv: 'Esporta CSV',
-                btn_clear: 'Cancella',
-                history_empty: 'Nessun evento in questa sessione.',
-
-                tm_subtitle: 'Sfoglia e ripristina le sessioni passate',
-                tm_viewing: 'Sessione visualizzata: ',
-                tm_return_live: '✕ Torna alla sessione live',
-
-                team_maker_title: 'Creatore di squadre',
-                team_option_a: 'Opzione A: Numero totale di squadre',
-                team_option_b: 'Opzione B: Studenti per squadra',
-                team_option_c: 'Opzione C: Configurazioni salvate',
-                btn_save_setup: '💾 Salva configurazione attuale',
-
-                roles_title: 'Scegli ruoli o ranghi',
-                roles_random_rank: 'Assegna ranghi casuali',
-                roles_distribute: 'Distribuisci i ruoli selezionati',
-                roles_reset_all: 'Reimposta tutti i ruoli',
-                roles_option_c: 'Opzione C · Configurazioni salvate',
-                btn_save_roles_setup: '💾 Salva ruoli attuali',
-                roles_toggle_label: 'Opzione A · Seleziona i ruoli da usare (blu = attivo):',
-                roles_new_label: 'Aggiungi un nuovo ruolo:',
-                roles_add_btn: 'Aggiungi',
-                roles_placeholder: 'es. Illustratore...',
-
-                btn_copy_data: 'Copia dati',
-                btn_export_csv2: 'Esporta CSV',
-                btn_create_teams: 'Crea squadre',
-                btn_reshuffle_teams: 'Rimescola squadre',
-                btn_clear_teams: 'Elimina squadre',
-                btn_roles: 'Ruoli',
-                btn_reset_points: 'Azzera punti',
-                btn_reset_strikes: 'Azzera eliminazioni',
-
-                alert_select_group: 'Seleziona prima un gruppo!',
-                alert_no_present_ranks: 'Nessuno studente presente da classificare.',
-                alert_select_role: 'Seleziona almeno un ruolo!',
-                alert_select_role2: 'Seleziona almeno un ruolo dalla lista!',
-                confirm_clear_roles: 'Rimuovere tutti i ruoli assegnati agli studenti?',
-                confirm_delete_roles: 'Tutti i ruoli definiti verranno eliminati e quelli assegnati rimossi. Continuare?',
-                confirm_merge_teams: 'Unire tutti gli studenti del Team {a} nel Team {b}?',
-                confirm_remove_student: 'Rimuovere lo studente?',
-                confirm_wipe_points: 'Azzerare i punti?',
-                alert_data_copied: 'Dati copiati negli appunti!',
-                alert_everyone_called: 'Tutti gli studenti sono stati chiamati!',
-                alert_valid_time: 'Imposta un tempo valido',
-                confirm_clear_history: 'Cancellare tutta la cronologia della sessione?',
-                alert_save_error: 'Impossibile salvare nel database: ',
-                alert_select_before_save: 'Seleziona un gruppo prima di salvare.',
-                alert_no_sessions_export: 'Nessuna sessione da esportare.\nUsa prima 💾 Salva.',
-                confirm_import: 'Hai già {n} sessione/i nel database.\n\nOK = UNISCI (le sessioni importate vengono aggiunte).\nAnnulla = SOSTITUISCI (sovrascrive i dati attuali).',
-                alert_import_ok: '✓ Importazione riuscita!\n{n} sessione/i nel database.',
-                alert_import_fail: 'Importazione non riuscita: {e}\n\nAssicurati di importare un file esportato da questa app.',
-                alert_no_groups: 'Nessun gruppo trovato.',
-                tm_no_sessions: 'Nessuna sessione salvata.\nUsa 💾 Salva per registrare una sessione.',
-                tm_readonly_badge: 'Sola lettura',
-
-                help_s_groups_title: 'Gruppi',
-                help_s_groups_p: 'Seleziona un gruppo di classe usando i pulsanti in cima alla pagina. L\'elenco si aggiorna immediatamente. Puoi cambiare gruppo in qualsiasi momento — i punti e le eliminazioni vengono salvati per gruppo per tutta la durata della sessione.',
-                help_s_picker_title: 'Studente casuale',
-                help_s_picker_p: 'Premi <kbd>Studente casuale</kbd> (o <kbd>Ctrl + Spazio</kbd>) per selezionare casualmente uno studente. Gli studenti già selezionati vengono barrati per evitare ripetizioni. Clicca direttamente sul nome di uno studente per barrarlo manualmente — utile in caso di assenza. Usa <kbd>Azzera eliminazioni</kbd> nella barra degli strumenti per iniziare un nuovo giro. Per maggiore suspense, clicca su <kbd>Rullo di tamburi</kbd> prima del sorteggio.',
-                help_s_points_title: 'Punti',
-                help_s_points_p: 'Ogni studente ha i pulsanti <kbd>+</kbd> e <kbd>-</kbd>. Il più assegna un punto di partecipazione; il meno registra un avvertimento o un compito non svolto. I contatori verde e rosso accanto a ogni studente sono cliccabili: cliccandoli si diminuisce il conteggio di uno, per correggere errori accidentali. I punteggi alimentano la classifica live e i risultati finali.',
-                help_s_badges_title: 'Badge',
-                help_s_badges_p: 'Ogni studente può ricevere badge emoji come ricompensa. Clicca sul pulsante badge di una riga per aprire il selettore, poi clicca su un badge per assegnarlo. I badge si accumulano e vengono mostrati accanto ai nomi. Usa il pulsante <kbd>Badge</kbd> nell\'intestazione per mostrare/nascondere la colonna. Per rimuovere un badge, clicca direttamente sul chip badge nella riga dello studente.',
-                help_s_notes_title: 'Note',
-                help_s_notes_p: 'Clicca sull\'indicatore a punto di una riga per aprire un popup di nota privata. Scrivi una breve nota e premi Invio o <kbd>Salva</kbd>. Le note sono private — non appaiono sullo schermo. Un punto pieno indica che esiste una nota.',
-                help_s_timer_title: 'Timer',
-                help_s_timer_p: 'Clicca su <kbd>⏱ Timer</kbd> nel menu per aprire il popup. Imposta la durata in ore e minuti, configura il numero di segnali finali e premi <kbd>▶ Avvia</kbd>. Il conto alla rovescia appare nella barra del menu. Premi <kbd>⛶</kbd> per aprire uno schermo a tutto schermo colorato — utile per il proiettore: passa da verde ad arancione a rosso. Passa alla modalità <kbd>Cronometro</kbd> per contare in avanti.',
-                help_s_objectives_title: 'Obiettivi della lezione',
-                help_s_objectives_p: 'Clicca su <kbd>Obiettivi</kbd> nel menu per aprire l\'editor. Scrivi uno o più obiettivi e salva — appariranno in una barra sotto il titolo e nel timer a schermo intero. Clicca sul testo della barra o sul pulsante Modifica per aggiornarli in qualsiasi momento.',
-                help_s_mode_title: 'Modalità classe',
-                help_s_mode_p: 'Premi <kbd>Modalità</kbd> nel menu (o <kbd>Ctrl + M</kbd>) per scegliere una modalità di lavoro: Silenzio, Conversazione o Lavoro di gruppo. Ogni modalità apre uno schermo animato a tutto schermo per il proiettore. Puoi anche avviare una modalità direttamente dal popup <kbd>⏱ Timer</kbd> tramite i tre pulsanti rapidi (🤫 🗨️ 👥). Premi il pulsante di chiusura o <kbd>Ctrl + M</kbd> per chiudere.',
-                help_s_teams_title: 'Squadre',
-                help_s_teams_p: 'Premi <kbd>Crea squadre</kbd> (o <kbd>Ctrl + Shift + K</kbd>) per aprire il creatore di squadre. Scegli il numero totale di squadre o il numero di studenti per squadra. Puoi trascinare gli studenti tra le squadre per riequilibrarle. Trascina una scheda squadra su un\'altra per unirle. Usa <kbd>Rimescola</kbd> o <kbd>Elimina squadre</kbd>.',
-                help_s_roles_title: 'Ruoli nelle squadre',
-                help_s_roles_p: 'Una volta create le squadre, clicca su <kbd>Ruoli</kbd> per aprire l\'editor. Usa <kbd>+</kbd> per aggiungere nomi di ruoli (es. Capitano, Segretario, Cronometrista, Portavoce). Clicca su <kbd>Distribuisci agli studenti</kbd> per assegnare casualmente un ruolo per studente. I ruoli appaiono in corsivo. Usa <kbd>Reimposta tutti i ruoli</kbd> per eliminarli.',
-                help_s_results_title: 'Risultati e classifica',
-                help_s_results_p: 'Clicca su <kbd>Risultati &amp; Classifica</kbd> per aprire il pannello live. La sezione superiore mostra la classifica completa ordinata per punteggio. La sezione inferiore mostra il podio della giornata — Oro, Argento e Bronzo — e i punteggi medi delle squadre se attive.',
-                help_s_history_title: 'Cronologia sessione',
-                help_s_history_p: 'Clicca su <kbd>Cronologia</kbd> per visualizzare il registro cronologico di tutte le azioni. Usa <kbd>Esporta CSV</kbd> per scaricare il registro. Usa <kbd>Cancella</kbd> per azzerare il registro.',
-                help_s_db_title: 'Database &amp; Macchina del tempo',
-                help_s_db_p1: 'Clicca su <kbd>🗄 DB</kbd> nel menu. Usa <kbd>💾 Salva</kbd> per salvare la classe selezionata, o <kbd>💾💾 Salva tutte</kbd> per tutti i gruppi contemporaneamente. Se una classe è già stata salvata oggi, viene sovrascritta silenziosamente.',
-                help_s_db_p2: 'Clicca su <kbd>⏪ Macchina del tempo</kbd> per sfogliare le sessioni. Premi <kbd>👁 Visualizza</kbd> su una voce per caricare quel snapshot — l\'app passa in modalità sola lettura. Un banner viola mostra quale sessione stai visualizzando. Premi <kbd>✕ Torna alla sessione live</kbd> per ripristinare la tua sessione.',
-                help_s_db_p3: 'Usa <kbd>⬇ Esporta</kbd> per scaricare tutte le sessioni come file <code>.js</code>. Usa <kbd>⬆ Importa</kbd> per ripristinare da un file esportato.',
-                help_s_export_title: 'Esportare i dati',
-                help_s_export_p: 'Nella barra degli strumenti, usa <kbd>Copia dati</kbd> per copiare tutti i punteggi negli appunti in formato separato da tabulazioni (per Excel o Google Sheets). Usa <kbd>Esporta CSV</kbd> nel pannello Cronologia per il registro completo.',
-                help_s_shortcuts_title: 'Scorciatoie da tastiera',
-                help_s_shortcuts_p: '<kbd>Ctrl + Spazio</kbd> — Seleziona uno studente casuale<br><kbd>Ctrl + Shift + K</kbd> — Apri il creatore di squadre<br><kbd>Ctrl + M</kbd> — Apri il selettore di modalità (o chiudi la modalità attiva)<br><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> — Cambia modalità (Silenzio / Conversazione / Gruppo)<br><kbd>W</kbd> — Attiva/disattiva il rumore bianco<br><kbd>M</kbd> — Silenzia/riattiva il rumore bianco<br><kbd>[</kbd> / <kbd>]</kbd> — Diminuisci / aumenta il volume del rumore bianco',
-                help_sc_sec_general: 'Generale',
-                help_sc_sec_modes: 'Timer &amp; Modalità',
-                help_sc_sec_noise: 'Rumore bianco',
-                help_sc_random: 'Seleziona uno studente casuale',
-                help_sc_team: 'Apri il creatore di squadre',
-                help_sc_mode: 'Apri il selettore di modalità',
-                help_sc_switch: 'Cambia modalità — Silenzio / Conversazione / Gruppo (quando il selettore o il timer è aperto)',
-                help_sc_noise_on: 'Attiva/disattiva il rumore bianco (quando la modalità o il timer è aperto)',
-                help_sc_noise_mute: 'Silenzia/riattiva il rumore bianco (quando la modalità o il timer è aperto)',
-                help_sc_noise_vol: 'Diminuisci / aumenta il volume del rumore bianco',
-
-                btn_cancel: 'Annulla',
-                btn_ok: 'OK',
-                btn_save: 'Salva',
-                btn_close: 'Chiudi',
-                btn_skip: 'Salta',
-                btn_add: 'Aggiungi',
-
-                datetime_title: 'Clicca per l\'orologio a schermo intero',
-                settings_btn_title: 'Impostazioni',
-                remote_btn_title: 'Telecomando',
-                links_btn_title: 'Apri un altro strumento',
-                credits_btn_title: 'Crediti',
-                cms_view_groups: '👥 Gruppi',
-                cms_view_slots: '🗓 Slot',
-                cms_tab_all: 'Tutti',
-                cms_tab_no_slot: 'Senza slot',
-                search_placeholder: 'Cerca classe...',
-                cms_daySun: 'Dom', cms_dayMon: 'Lun', cms_dayTue: 'Mar', cms_dayWed: 'Mer',
-                cms_dayThu: 'Gio', cms_dayFri: 'Ven', cms_daySat: 'Sab',
-                menu_minimize_title: 'Riduci il menu',
-
-                ambient_label: '🌊 Suono ambientale',
-                noise_white: 'Bianco',
-                noise_white_title: 'Rumore bianco',
-                noise_pink: 'Rosa',
-                noise_pink_title: 'Rumore rosa',
-                noise_brown: 'Marrone',
-                noise_brown_title: 'Rumore marrone',
-                noise_mp3_title: 'Riprodurre in loop il file audio del timer',
-                noise_mute_title: 'Disattiva/attiva audio (M)',
-                noise_play: '▶ Riproduci',
-                timer_sub30s_title: '-30 secondi',
-                timer_add30s_title: '+30 secondi',
-                timer_fullscreen_title: 'Schermo intero',
-                timer_stopwatch_btn: '⏱ Cronometro',
-                timer_play_btn: '▶ Avvia',
-                timer_stop_btn: '■ Ferma',
-
-                db_save_file: 'Salva in file',
-                db_save_file_small: 'Salva DB in un file fisso (senza timestamp)',
-                db_download: 'Scarica dati',
-                db_download_small: 'Salva registro e dati come backup .zip',
-                db_upload: 'Carica dati',
-                db_upload_small: 'Ripristina dati da un file .zip',
-                db_clear_local: 'Svuota DB locale',
-                db_clear_local_small: 'Svuota localStorage di questo strumento (cms-db)',
-                db_tm_title: 'Visualizza e ripristina snapshot di sessioni passate',
-                db_history_btn_title: 'Visualizza il registro attività della sessione',
-                db_copy_title: 'Copia la lista corrente negli appunti',
-                db_csv_title: 'Scarica la lista come file CSV',
-                db_save_all_title: 'Snapshot solo dei gruppi con interazioni',
-                db_save_file_title: 'Salva DB in un file fisso (senza timestamp)',
-                db_download_title: 'Salva registro e dati come backup .zip',
-                db_upload_title: 'Ripristina dati da un file .zip',
-                db_export_title_attr: 'Scarica le sessioni dei gruppi attivi come .js',
-                db_import_title_attr: 'Carica sessioni da un file .json, .js o .txt',
-                db_clear_local_title: 'Svuota localStorage di questo strumento (cms-db)',
-
-                settings_popup_title: '⚙ Impostazioni',
-                settings_show_name: 'Mostra nome',
-                settings_name_full: 'Completo',
-                settings_name_first: 'Nome',
-                settings_name_last: 'Cognome',
-                settings_edit_groups: 'Modifica gruppi',
-                settings_edit_groups_small: 'Aggiungi, rinomina o riorganizza i gruppi',
-                settings_edit_teams: 'Modifica squadre',
-                settings_edit_teams_small: 'Modifica nomi e colori delle squadre',
-                settings_edit_badges: 'Modifica badge',
-                settings_edit_badges_small: 'Personalizza nomi, significato, tono e logo dei badge',
-                settings_edit_sounds: 'Modifica suoni',
-                settings_edit_sounds_small: 'Allarme timer, suoni +/−, file e melodie JS',
-                settings_edit_roles: 'Modifica ruoli',
-                settings_edit_roles_small: 'Gestisci titoli e descrizioni dei ruoli',
-                settings_edit_autoflag: 'Modifica autoflag',
-                settings_edit_autoflag_small: 'Contrassegna automaticamente gli studenti a bassa partecipazione',
-                settings_class_plan: 'Piano classe',
-                settings_class_plan_small: 'Disposizione posti con aula e orario settimanale',
-
-                startup_title: 'Caricare il database?',
-                startup_sub: 'Scegli un file, più file o una cartella con esportazioni DB per ripristinare le sessioni.',
-                startup_load_files: 'Carica file',
-                startup_load_folder: 'Carica cartella',
-
-                role_change_label: 'Cambia ruolo:',
-
-                comment_placeholder: 'Aggiungi una nota…',
-                comment_add_btn: 'Aggiungi nota',
-                comment_close_btn: 'Chiudi',
-
-                objectives_save_btn: 'Salva',
-                objectives_textarea_placeholder: 'es.\n1. Identificare il vocabolario chiave\n2. Discutere l\'argomento principale\n3. Scrivere una risposta strutturata',
-
-                roles_option_intro: 'Scegli un\'opzione: distribuisci i titoli di ruolo selezionati o assegna un numero di rango casuale a ogni studente.',
-                roles_choice_a_label: 'Opzione A · Ruoli',
-                roles_choice_a_text: 'Seleziona le tessere ruolo sopra, poi distribuisci quei ruoli alla classe o alle squadre.',
-                roles_choice_b_label: 'Opzione B · Ranghi casuali',
-                roles_choice_b_text: 'Usa numeri invece di titoli di ruolo e assegna un rango casuale a ogni studente.',
-
-                eg_title: 'Modifica gruppi',
-                eg_desc: 'Gli studenti sono separati da virgole. Le modifiche vengono applicate subito in memoria; usa Salva in class-groups.js per renderle permanenti.',
-                eg_add_section: 'Aggiungi nuovo gruppo',
-                eg_name_placeholder: 'Nome gruppo (es. 5ANdf-01)',
-                eg_year_placeholder: '2025-2026',
-                eg_sem_placeholder: 'Sem',
-                eg_add_btn: 'Aggiungi',
-                eg_save_btn: '💾 Salva in class-groups.js',
-                eg_apply_btn: 'Applica (solo sessione)',
-
-                as_title: 'Aggiungi studenti',
-                as_type_label: 'Oppure digita i nomi (separati da virgola)',
-                as_confirm_btn: '✓ Conferma & Salva in class-groups.js',
-                as_skip_btn: 'Salta',
-
-                et_title: 'Modifica squadre',
-                et_desc: 'Imposta nomi e colori per la palette delle squadre, aggiungi o rimuovi squadre e riordinale.',
-                et_add_btn: '+ Aggiungi squadra',
-                et_save_btn: 'Salva in config.js',
-                et_reset_btn: 'Ripristina predefiniti',
-
-                eb_title: 'Modifica badge',
-                eb_desc: 'Aggiorna logo, nome, connotazione e significato dei badge.',
-                eb_add_btn: '+ Aggiungi badge',
-                eb_save_btn: 'Salva in config.js',
-                eb_reset_btn: 'Ripristina predefiniti',
-
-                es_title: 'Modifica suoni',
-                es_desc: 'Scegli suoni integrati, carica file audio da user/custom-data/sounds o scrivi le tue melodie in JS.',
-                es_btns_title: 'Pulsanti sonori',
-                es_btns_desc: 'Aggiungi pulsanti sonori a un tocco che appaiono nel pannello principale.',
-                es_import_btn: '⊕ Importa file audio',
-                es_import_audio_filter: 'File audio',
-                es_import_errors: 'Alcuni file non hanno potuto essere importati',
-                es_refresh_btn: '↻ Aggiorna file',
-                es_save_btn: 'Salva in config.js',
-                es_reset_btn: 'Ripristina predefiniti',
-
-                af_title: 'Modifica autoflag',
-                af_desc: 'Contrassegna automaticamente gli studenti a bassa partecipazione per farli selezionare più spesso.',
-                af_enable: 'Abilita autoflag',
-                af_flag_bottom: 'Contrassegna il fondo',
-                af_pct_of_students: '% degli studenti per punteggio',
-                af_elements: 'Elementi conteggiati',
-                af_timeline: 'Periodo',
-                af_all_sessions: 'Tutte le sessioni',
-                af_last: 'Ultime',
-                af_weeks: 'settimane',
-                af_since: 'Dal',
-
-                rsp_roster_settings_title: 'Impostazioni lista',
-                rsp_pin_title: 'Fissa le impostazioni lista in basso nel pannello elenco',
-                rsp_unpin_title: 'Sblocca le impostazioni lista dal pannello elenco',
-                rsp_pin_btn: 'Fissa menu',
-                rsp_unpin_btn: 'Sblocca menu',
-                rsp_decrease_title: 'Riduci dimensione nome',
-                rsp_reset_title: 'Reimposta dimensione nome',
-                rsp_increase_title: 'Aumenta dimensione nome',
-                rsp_mute_score_title: 'Silenzia/riattiva i suoni del punteggio',
-                rsp_toggle_roles_title: 'Attiva/disattiva visibilità ruoli',
-                rsp_toggle_badges_title: 'Attiva/disattiva visibilità badge',
-                rsp_toggle_autoflag_title: 'Attiva/disattiva visibilità autoflag (Ctrl+F)',
-                rsp_toggle_anim_title: 'Attiva/disattiva animazioni visive',
-                rsp_toggle_plan_title: 'Attiva/disattiva vista piano posti',
-                rsp_in_presentation: 'Nella presentazione:',
-                rsp_pres_decrease_title: 'Riduci dimensione nome nella presentazione',
-                rsp_pres_reset_title: 'Reimposta dimensione nome nella presentazione',
-                rsp_pres_increase_title: 'Aumenta dimensione nome nella presentazione',
-                rsp_pres_roles_title: 'Mostra ruoli nella finestra di presentazione',
-                rsp_pres_badges_title: 'Mostra badge nella finestra di presentazione',
-                rsp_pres_autoflag_title: 'Mostra autoflag nella finestra di presentazione',
-                rsp_pres_anim_title: 'Riproduci animazioni nella finestra di presentazione',
-                rsp_pres_plan_title: 'Mostra vista piano nella finestra di presentazione',
-                rsp_pres_modes_title: 'Specchia i modi nella finestra di presentazione',
-                rsp_assign_roles: 'Assegna ruoli',
-                rsp_reassign_roles: 'Riassegna ruoli',
-                rsp_clear_roles: 'Elimina ruoli',
-                rsp_results_ranking: 'Risultati & Classifica',
-                rsp_copy_roster_title: 'Copia nomi (con squadre e ruoli) negli appunti',
-                rsp_present_title: 'Apri una finestra di presentazione per il secondo schermo',
-                rsp_freeze_title: 'Blocca la finestra di presentazione',
-                rsp_close_pres_title: 'Chiudi la finestra di presentazione',
-                rsp_full_pres_title: 'Schermo intero per la presentazione',
-                rsp_max_pres_title: 'Massimizza la finestra di presentazione',
-                rsp_min_pres_title: 'Minimizza la finestra di presentazione',
-                rsp_right_pres_title: 'Sposta la presentazione a destra (20% larghezza)',
-                pres_menu_title: 'Menu presentazione',
-                pres_stop: 'Ferma presentazione',
-                pres_stop_title: 'Ferma la finestra di presentazione',
-                pres_freeze: 'Blocca presentazione',
-                pres_unfreeze: 'Sblocca presentazione',
-                pres_freeze_title: 'Blocca la finestra di presentazione',
-                pres_unfreeze_title: 'Sblocca la finestra di presentazione',
-                pres_resize: 'Ridimensiona finestra',
-                pres_resize_title: 'Allinea alla dimensione della finestra originale',
-                pres_right: 'A destra',
-                pres_right_title: 'Aggancia la finestra di presentazione a destra',
-                pres_left: 'A sinistra',
-                pres_left_title: 'Aggancia la finestra di presentazione a sinistra',
-
-                rp_group_teams: '🎲 Raggruppa per squadre',
-                rp_group_teams_title: 'Riempi i posti raggruppando gli studenti per squadra',
-                rp_reset_seats: '↩ Reimposta posti',
-                rp_reset_seats_title: 'Ripristina la disposizione originale dei posti',
-                rp_save_seats: '💾 Salva posti',
-                rp_save_seats_title: 'Salva la disposizione attuale nel file',
-
-                ctx_absent: 'Assente',
-                ctx_flag: '🚩 Segna',
-                ctx_add_role: 'Aggiungi ruolo',
-                ctx_stats: '📊 Statistiche',
-                ctx_stats_title: 'Vedi statistiche di partecipazione',
-                ctx_grades: '🎓 Voti',
-                ctx_grades_title: 'Vedi i voti dalla Scheda voti',
-                ctx_timer_title: 'Apri il timer',
-                ctx_quiet: '🤫 Silenzio',
-                ctx_quiet_title: 'Attiva la modalità Lavoro silenzioso',
-                ctx_conversation: '💬 Conversazione',
-                ctx_conv_title: 'Attiva la modalità Conversazione',
-                ctx_group_mode: '👥 Gruppo',
-                ctx_group_title: 'Attiva la modalità Lavoro di gruppo',
-                ctx_copy_roster: '📋 Copia lista',
-                ctx_copy_roster_title: 'Copia nomi (con squadre e ruoli) negli appunti',
-
-                timer_pp_title: 'Avvia / Pausa',
-                timer_stop_title: 'Ferma',
-                timer_detach_title: 'Apri il timer in una nuova finestra',
-                timer_resize_title: 'Trascina per ridimensionare il timer',
-
-                overlay_white_title: 'Rumore bianco',
-                overlay_pink_title: 'Rumore rosa',
-                overlay_brown_title: 'Rumore marrone',
-                overlay_file_title: 'File audio del timer',
-                overlay_file_mode_title: 'Rumore bianco (W)',
-
-                mp3_picker_title: '🎵 Scegli un file audio',
-
-                tut_btn_label: '▶ Tour',
-                tutNext: 'Avanti →', tutPrev: '← Indietro', tutSkip: 'Salta', tutDone: 'Fine ✓',
-                tut1_title: 'Gruppi classe',
-                tut1_text: 'Clicca per selezionare o cercare un gruppo classe e caricare il registro. Filtra le classi per giorno della settimana o gestisci i gruppi attivi.',
-                tut2_title: 'Registro studenti',
-                tut2_text: 'Clicca su un nome per cambiare presenza/assenza. Clic destro per altre opzioni: partecipazione, note, badge, ruoli.',
-                tut_action_btns_title: 'Pulsanti d\'azione & Effetti sonori',
-                tut_action_btns_text: 'Attiva veloci effetti sonori (come applausi, rulli di tamburi o clip audio personalizzate) durante la lezione.',
-                tut_pick_title: 'Estrazione casuale',
-                tut_pick_text: 'Clicca su "Studente casuale" o "Squadra casuale" per selezionare casualmente uno studente presente.',
-                tut_roster_settings_title: 'Impostazioni registro',
-                tut_roster_settings_text: 'Regola la dimensione del testo, attiva/disattiva ruoli, badge e autoflag, passa alla vista Piano classe o apri la Presentazione per un secondo schermo.',
-                tut3_title: 'Timer & Modalità classe',
-                tut3_text: 'Apri timer per il conto alla rovescia o cronometri, riproduci audio ambientali e attiva le modalità rapide (Silenzio, Conversazione, Gruppo).',
-                tut_general_settings_title: 'Impostazioni generali',
-                tut_general_settings_text: 'Personalizza la visualizzazione dei nomi (Completo, Nome, Cognome), modifica squadre, badge, effetti sonori, ruoli, soglie di autoflag e modalità di lavoro.',
-                tut4_title: 'Database & Cronologia',
-                tut4_text: 'Salva le sessioni attive, esporta i log di partecipazione, crea backup e ripristina uno stato precedente con la Macchina del Tempo.',
-
-                // Remote control panel
-                remote_mode_local: 'Rete locale',
-                remote_mode_external: 'Server esterno',
-                remote_host_secret_label: 'Chiave host',
-                remote_server_url_label: 'URL server',
-                remote_secret_hint: 'Password per proteggere la connessione host',
-                remote_url_hint: 'es. https://il-tuo-server.com',
-            }
-        };
-
         let currentLang = (function () { try { var ov = localStorage.getItem('cmt-lang-class-management'); if (ov) return ov; var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch (e) { return 'en'; } })();
 
         function t(key, vars) {
             const dict = I18N[currentLang] || I18N.en;
-            let str = dict[key] || I18N.en[key] || key;
+            let str = dict[key] !== undefined ? dict[key] : (I18N.en && I18N.en[key] !== undefined ? I18N.en[key] : undefined);
+            if (str === undefined && typeof window.i18nT === 'function') {
+                try {
+                    const fallback = window.i18nT(key);
+                    if (fallback && fallback !== key) str = fallback;
+                } catch (e) { }
+            }
+            if (str === undefined) str = key;
             if (vars) {
                 Object.keys(vars).forEach(k => { str = str.replace('{' + k + '}', vars[k]); });
             }
             return str;
         }
 
-        function setLang(lang) {
+        window.setLang = function setLang(lang) {
             if (lang === null || lang === 'auto') {
                 try { localStorage.removeItem('cmt-lang-class-management'); } catch (e) { }
                 try { var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); currentLang = c.language || 'en'; } catch (e) { currentLang = 'en'; }
@@ -15644,7 +13962,7 @@ syncState();
             }
             _updateCMLangBtns();
             applyLang();
-        }
+        };
 
         function _updateCMLangBtns() {
             const override = localStorage.getItem('cmt-lang-class-management');
@@ -15804,6 +14122,7 @@ syncState();
             // Dynamic utility buttons (re-render)
             if (typeof renderUtilityButtons === 'function') renderUtilityButtons();
             if (typeof updateRosterSettingsPinUi === 'function') updateRosterSettingsPinUi();
+            if (typeof syncRosterInlineToggleButtonStates === 'function') syncRosterInlineToggleButtonStates();
 
             // Roles modal (re-render if open)
             if (typeof renderRolesLibrary === 'function') {
@@ -15827,6 +14146,12 @@ syncState();
 
             // Keep user-defined labels/files for action buttons after i18n text updates.
             if (typeof renderCustomActionButtons === 'function') renderCustomActionButtons();
+
+            const classBtn = document.getElementById('class-selection-btn');
+            if (classBtn && (typeof selectedGroupName === 'undefined' || !selectedGroupName)) {
+                classBtn.textContent = dict['btn_select_class'] || t('btn_select_class');
+                classBtn.title = dict['btn_select_class_title'] || t('btn_select_class_title');
+            }
         }
 
         // Override renderUtilityButtons after DOM is ready

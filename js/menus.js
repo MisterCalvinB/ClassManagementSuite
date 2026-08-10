@@ -42,6 +42,7 @@
     null,
     { href: 'general-config.html',   icon: 'general-config.svg',   label: 'General Config'  },
     { href: 'launcher.html',         icon: 'launcher.svg',         label: 'Launcher'         },
+    { href: 'how-to.html',           icon: 'how-to.svg',           label: 'How-To'           },
     { href: 'about.html',            icon: 'about.svg',            label: 'About'            },
   ];
 
@@ -80,8 +81,8 @@
   // ── Lang shim ──────────────────────────────────────────────────────────────
   // Works for pages using i18n.js (setPageLang) and pages with a local setLang.
   window._cmtMenuLang = function (lang) {
+    if (typeof window.setLang === 'function') window.setLang(lang);
     if (typeof window.setPageLang === 'function') window.setPageLang(lang);
-    else if (typeof window.setLang === 'function') window.setLang(lang);
   };
 
   // ── initHamburger ──────────────────────────────────────────────────────────
