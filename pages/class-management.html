@@ -119,6 +119,496 @@
         })();
     </script>
     <link rel="stylesheet" href="../css/stylesheet.css">
+    <style>
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+            vertical-align: -2px;
+            margin-right: 5px;
+            flex-shrink: 0;
+            display: inline-block;
+            transition: filter 0.12s ease;
+        }
+        .db-popup-btn-icon .btn-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 0;
+            vertical-align: middle;
+        }
+
+        /* ------------------------------------------------------------
+           1. FIXED TOP MENU (#menu)
+           ------------------------------------------------------------ */
+        #menu {
+            background: #111111 !important;
+            color: #ffffff !important;
+        }
+        #datetime {
+            color: #e2e8f0 !important;
+            font-weight: 700;
+        }
+        #datetime:hover {
+            color: #ffffff !important;
+        }
+
+        /* Menu buttons & floating triggers */
+        #menu .floating-buttons button,
+        #menu .floating-buttons .tut-trigger-btn,
+        #menu .floating-buttons .hm-btn {
+            background: #222222 !important;
+            color: #ffffff !important;
+            border: 1px solid #444444 !important;
+            border-radius: 6px;
+            padding: 5px 11px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+        #menu .floating-buttons button .btn-icon,
+        #menu .floating-buttons .tut-trigger-btn .btn-icon,
+        #menu .floating-buttons .hm-btn .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #menu .floating-buttons button:hover,
+        #menu .floating-buttons .tut-trigger-btn:hover,
+        #menu .floating-buttons .hm-btn:hover {
+            background: #111111 !important;
+            border-color: #444444 !important;
+            color: #ffffff !important;
+        }
+        #menu .floating-buttons button:hover .btn-icon,
+        #menu .floating-buttons .tut-trigger-btn:hover .btn-icon,
+        #menu .floating-buttons .hm-btn:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        #menu-minimize-btn {
+            background: #222222 !important;
+            color: #ffffff !important;
+            border: 1px solid #444444 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        #menu-minimize-btn .btn-icon {
+            filter: brightness(0) invert(1) !important;
+            margin-right: 0 !important;
+        }
+        #menu-minimize-btn:hover {
+            background: #111111 !important;
+            border-color: #444444 !important;
+            color: #ffffff !important;
+        }
+
+        /* ------------------------------------------------------------
+           2. TOP RIGHT CONTROLS (.top-right-controls)
+           ------------------------------------------------------------ */
+        .top-right-controls #class-selection-btn,
+        .top-right-controls #timer-open-btn,
+        .top-right-controls #roster-settings-btn {
+            background: #ffffff !important;
+            color: #111111 !important;
+            border: 2px solid #111111 !important;
+            border-radius: 8px;
+            font-weight: 700;
+            box-shadow: 2px 2px 0 #111111;
+            transition: all 0.15s ease;
+            transform: none !important;
+        }
+        .top-right-controls #class-selection-btn .btn-icon,
+        .top-right-controls #timer-open-btn .btn-icon,
+        .top-right-controls #roster-settings-btn .btn-icon {
+            filter: none !important;
+        }
+        .top-right-controls #class-selection-btn .btn-icon,
+        .top-right-controls #timer-open-btn .btn-icon,
+        .top-right-controls #roster-settings-btn .btn-icon {
+            margin-right: 0 !important;
+        }
+
+        /* Hover on top-right controls */
+        .top-right-controls #class-selection-btn:hover,
+        .top-right-controls #timer-open-btn:hover {
+            background: #111111 !important;
+            color: #ffffff !important;
+            border-color: #111111 !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #111111 !important;
+        }
+        .top-right-controls #roster-settings-btn:hover {
+            background: #111111 !important;
+            color: #ffffff !important;
+            border-color: #111111 !important;
+            transform: translate(-1px, -1px) !important; /* No rotation */
+            box-shadow: 3px 3px 0 #111111 !important;
+        }
+        .top-right-controls #class-selection-btn:hover .btn-icon,
+        .top-right-controls #timer-open-btn:hover .btn-icon,
+        .top-right-controls #roster-settings-btn:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* Active state on top-right controls */
+        .top-right-controls #class-selection-btn.active,
+        .top-right-controls #timer-open-btn.active,
+        .top-right-controls #roster-settings-btn.active {
+            background: #111111 !important;
+            color: #ffffff !important;
+            border-color: #111111 !important;
+            transform: none !important; /* No rotation */
+        }
+        .top-right-controls #roster-settings-btn:active {
+            transform: translate(1px, 1px) !important; /* No rotation */
+            box-shadow: 1px 1px 0 #111111 !important;
+        }
+
+        /* Active state icon filter inversion across all buttons */
+        button.active .btn-icon,
+        .btn.active .btn-icon,
+        .top-right-controls #class-selection-btn.active .btn-icon,
+        .top-right-controls #timer-open-btn.active .btn-icon,
+        .top-right-controls #roster-settings-btn.active .btn-icon,
+        #group-view-toggle.active .btn-icon,
+        #rsp-pin-btn.active .btn-icon,
+        .rsp-tab-btn.active .btn-icon,
+        .rsp-inline-btn.active .btn-icon,
+        .rsp-inline-btn:not(.is-off) .btn-icon,
+        .rsp-item.active .btn-icon,
+        .btn-group.active .btn-icon,
+        .timer-mode-btn.active .btn-icon,
+        .timer-overlay-mode-btn.active .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #group-view-toggle {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            background: #ffffff !important;
+            color: #111111 !important;
+            border: 2px solid #111111 !important;
+            border-radius: 6px !important;
+            padding: 5px 10px !important;
+            font-size: 0.72rem !important;
+            font-weight: 800 !important;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 2px 2px 0 #111111 !important;
+        }
+        #group-view-toggle .btn-icon {
+            filter: none !important;
+        }
+        #group-view-toggle:hover {
+            background: #111111 !important;
+            color: #ffffff !important;
+            border-color: #111111 !important;
+        }
+        #group-view-toggle:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* ------------------------------------------------------------
+           3. SETTINGS POPUP (#settings-popup)
+           ------------------------------------------------------------ */
+        #settings-popup {
+            background: #ffffff !important;
+            border: 2px solid #111111 !important;
+            box-shadow: 4px 4px 0 #111111;
+            color: #111111 !important;
+        }
+        #settings-popup .db-popup-header {
+            border-bottom: 2px solid #111111 !important;
+        }
+        #settings-popup .db-popup-title {
+            color: #111111 !important;
+            font-weight: 800;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+        }
+        #settings-popup .db-popup-title .btn-icon {
+            filter: none !important;
+        }
+        #settings-popup .db-popup-close {
+            background: #f1f5f9 !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #111111 !important;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #settings-popup .db-popup-close .btn-icon {
+            filter: none !important;
+        }
+        #settings-popup .db-popup-close:hover {
+            background: #111111 !important;
+            border-color: #111111 !important;
+            color: #ffffff !important;
+        }
+        #settings-popup .db-popup-close:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        #settings-popup .db-popup-btn {
+            background: #f8fafc !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        #settings-popup .db-popup-btn-icon .btn-icon {
+            filter: none !important;
+        }
+        #settings-popup .db-popup-btn-text strong {
+            color: #0f172a !important;
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        #settings-popup .db-popup-btn-text small {
+            color: #64748b !important;
+            font-size: 0.72rem;
+        }
+
+        /* Settings button hover */
+        #settings-popup .db-popup-btn:hover {
+            background: #0f172a !important;
+            border-color: #0f172a !important;
+        }
+        #settings-popup .db-popup-btn:hover .db-popup-btn-icon .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #settings-popup .db-popup-btn:hover .db-popup-btn-text strong {
+            color: #ffffff !important;
+        }
+        #settings-popup .db-popup-btn:hover .db-popup-btn-text small {
+            color: #cbd5e1 !important;
+            opacity: 0.95;
+        }
+
+        /* ------------------------------------------------------------
+           4. ROSTER SETTINGS POPUP (#roster-settings-popup)
+           ------------------------------------------------------------ */
+        #roster-settings-popup {
+            background: #ffffff !important;
+            border: 2px solid #111111 !important;
+            box-shadow: 4px 4px 0 #111111;
+            color: #111111 !important;
+        }
+        #roster-settings-popup .rsp-header {
+            border-bottom: 2px solid #111111 !important;
+        }
+        #roster-settings-popup .rsp-header-title {
+            color: #111111 !important;
+            font-weight: 800;
+        }
+
+        /* Pin button */
+        #rsp-pin-btn {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 6px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #rsp-pin-btn .btn-icon {
+            filter: none !important;
+        }
+        #rsp-pin-btn:hover,
+        #rsp-pin-btn.active,
+        #rsp-pin-btn:not(.is-off) {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+        }
+        #rsp-pin-btn:hover .btn-icon,
+        #rsp-pin-btn.active .btn-icon,
+        #rsp-pin-btn:not(.is-off) .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* Navigation Tabs */
+        #roster-settings-popup .rsp-tabs-nav {
+            border-bottom: 2px solid #111111 !important;
+        }
+        #roster-settings-popup .rsp-tab-btn {
+            background: #f8fafc !important;
+            color: #475569 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-bottom: none !important;
+            border-radius: 6px 6px 0 0;
+            font-weight: 700;
+            padding: 6px 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        #roster-settings-popup .rsp-tab-btn .btn-icon {
+            filter: none !important;
+        }
+        #roster-settings-popup .rsp-tab-btn:hover {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        #roster-settings-popup .rsp-tab-btn.active {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+        }
+        #roster-settings-popup .rsp-tab-btn.active .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* Section Labels */
+        #roster-settings-popup .rsp-row-label {
+            color: #334155 !important;
+            font-weight: 800;
+            font-size: 0.68rem;
+        }
+
+        /* Interface toggles (.rsp-inline-btn) */
+        #roster-settings-popup .rsp-inline-btn {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            border: 2px solid #0f172a !important;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        #roster-settings-popup .rsp-inline-btn .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #roster-settings-popup .rsp-inline-btn:hover {
+            background: #334155 !important;
+            border-color: #334155 !important;
+            color: #ffffff !important;
+        }
+
+        #roster-settings-popup .rsp-inline-btn.is-off {
+            background: #f8fafc !important;
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+        }
+        #roster-settings-popup .rsp-inline-btn.is-off .btn-icon {
+            filter: none !important;
+        }
+        #roster-settings-popup .rsp-inline-btn.is-off:hover {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+        }
+        #roster-settings-popup .rsp-inline-btn.is-off:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* RSP items */
+        #roster-settings-popup .rsp-item {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 2px solid #0f172a !important;
+            border-radius: 6px;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #roster-settings-popup .rsp-item .btn-icon {
+            filter: none !important;
+        }
+        #roster-settings-popup .rsp-item:hover {
+            background: #0f172a !important;
+            border-color: #0f172a !important;
+            color: #ffffff !important;
+        }
+        #roster-settings-popup .rsp-item:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        /* RSP Item Variants */
+        #roster-settings-popup .rsp-item-blue {
+            background: rgb(0, 200, 0) !important;
+            color: #ffffff !important;
+            border-color: rgb(0, 170, 0) !important;
+        }
+        #roster-settings-popup .rsp-item-blue .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #roster-settings-popup .rsp-item-blue:hover {
+            background: rgb(0, 170, 0) !important;
+            border-color: rgb(0, 150, 0) !important;
+            color: #ffffff !important;
+        }
+
+        #roster-settings-popup .rsp-item-orange {
+            background: #ea580c !important;
+            color: #ffffff !important;
+            border-color: #c2410c !important;
+        }
+        #roster-settings-popup .rsp-item-orange .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #roster-settings-popup .rsp-item-orange:hover {
+            background: #c2410c !important;
+            color: #ffffff !important;
+        }
+
+        #roster-settings-popup .rsp-item-danger {
+            background: #dc2626 !important;
+            color: #ffffff !important;
+            border-color: #b91c1c !important;
+        }
+        #roster-settings-popup .rsp-item-danger .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #roster-settings-popup .rsp-item-danger:hover {
+            background: #b91c1c !important;
+            color: #ffffff !important;
+        }
+
+        #roster-settings-popup .rsp-item-results {
+            background: #eab308 !important;
+            color: #0f172a !important;
+            border-color: #ca8a04 !important;
+        }
+        #roster-settings-popup .rsp-item-results .btn-icon {
+            filter: none !important;
+        }
+        #roster-settings-popup .rsp-item-results:hover {
+            background: #ca8a04 !important;
+            color: #ffffff !important;
+        }
+        #roster-settings-popup .rsp-item-results:hover .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+
+        #roster-settings-popup .rsp-item-black {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            border-color: #0f172a !important;
+        }
+        #roster-settings-popup .rsp-item-black .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        #roster-settings-popup .rsp-item-black:hover {
+            background: #334155 !important;
+            border-color: #334155 !important;
+            color: #ffffff !important;
+        }
+    </style>
 </head>
 
 <body>
@@ -141,28 +631,27 @@
         </div>
         <!-- Floating buttons -->
         <div class="floating-buttons">
-            <button class="tut-trigger-btn" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label">▶
-                Tour</button>
+            <button class="tut-trigger-btn" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
             <button class="tut-trigger-btn" onclick="toggleObjectivesBar()"
                 data-i18n="btn_objectives">Objectives</button>
             <button class="tut-trigger-btn" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title"
-                title="Database &amp; Time Machine">🗄 DB</button>
+                title="Database &amp; Time Machine"><img src="../assets/icons/manage-database.svg" class="btn-icon" alt="" /> DB</button>
             <button class="tut-trigger-btn" onclick="toggleSettingsPopup(event)" id="settings-btn" title="Settings"
-                data-i18n-title="settings_btn_title">⚙ Settings</button>
+                data-i18n-title="settings_btn_title"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Settings</button>
             <button class="tut-trigger-btn" id="remote-settings-btn" onclick="openRemoteModal()" title="Phone remote"
                 data-i18n-title="remote_btn_title" style="display:none;align-items:center;gap:6px;">
-                <span>📱 Remote</span>
+                <span><img src="../assets/icons/phone.svg" class="btn-icon" alt="" /> Remote</span>
                 <span id="remote-connected-badge"
                     style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
             </button>
             <div id="app-hamburger" class="hm-wrap">
-                <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu" data-i18n-title="links_btn_title" title="Open another tool">☰</button>
+                <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu" data-i18n-title="links_btn_title" title="Open another tool"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
                 <div class="hm-menu"></div>
             </div>
 
             <button id="menu-minimize-btn" onclick="toggleMenuCollapse(event)" title="Minimise menu"
                 aria-label="Minimise menu" data-i18n-title="menu_minimize_title"
-                data-i18n-aria="menu_minimize_title">[-]</button>
+                data-i18n-aria="menu_minimize_title"><img src="../assets/icons/minimize.svg" class="btn-icon" alt="" /></button>
             <div id="utility-section" style="display: contents;"></div>
         </div>
     </div>
@@ -171,8 +660,8 @@
     <!-- MP3 Picker Popup -->
     <div id="mp3-picker-popup">
         <div id="mp3-picker-header">
-            <span data-i18n="mp3_picker_title">🎵 Pick a sound file</span>
-            <button id="mp3-picker-close" onclick="closeMp3Picker()">✕</button>
+            <span data-i18n="mp3_picker_title"><img src="../assets/icons/media.svg" class="btn-icon" alt="" /> Pick a sound file</span>
+            <button id="mp3-picker-close" onclick="closeMp3Picker()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
         <div id="mp3-picker-list"></div>
     </div>
@@ -180,13 +669,13 @@
     <!-- DB Hub Popup -->
     <div id="db-hub-popup">
         <div class="db-popup-header">
-            <span class="db-popup-title" data-i18n="db_title">🗄 Database</span>
-            <button class="db-popup-close" onclick="closeDbPopup()">✕</button>
+            <span class="db-popup-title" data-i18n="db_title"><img src="../assets/icons/manage-database.svg" class="btn-icon" alt="" /> Database</span>
+            <button class="db-popup-close" onclick="closeDbPopup()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
 
         <button class="db-popup-btn db-popup-btn-tm" onclick="openTimeMachine(); closeDbPopup();"
             title="View and restore past session snapshots" data-i18n-title="db_tm_title">
-            <span class="db-popup-btn-icon">⏪</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/rewind.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_time_machine">Time Machine</strong>
                 <small id="db-session-count-label">Loading…</small>
@@ -196,28 +685,28 @@
         </button>
         <button class="db-popup-btn" onclick="openHistoryModal(); closeDbPopup();" title="View session activity log"
             data-i18n-title="db_history_btn_title">
-            <span class="db-popup-btn-icon">📜</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/history.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="btn_history">History</strong>
             </span>
         </button>
         <button class="db-popup-btn" onclick="copyData()" title="Copy current roster to clipboard"
             data-i18n-title="db_copy_title">
-            <span class="db-popup-btn-icon">📋</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="btn_copy_data">Copy Data</strong>
             </span>
         </button>
         <button class="db-popup-btn" onclick="exportToCSV()" title="Download roster as CSV file"
             data-i18n-title="db_csv_title">
-            <span class="db-popup-btn-icon">🧾</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="btn_export_csv2">Export CSV</strong>
             </span>
         </button>
         <button class="db-popup-btn db-popup-btn-save-all" onclick="saveAllToDb()" id="save-all-db-btn"
             title="Snapshot only groups with interactions" data-i18n-title="db_save_all_title">
-            <span class="db-popup-btn-icon">💾💾</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_save_all">Save Active Classes</strong>
                 <small id="save-all-classes-label" data-i18n="db_save_all_small">Snapshot only groups with
@@ -226,7 +715,7 @@
         </button>
         <button class="db-popup-btn db-popup-btn-savefile" onclick="saveDbToFile()" id="save-file-btn"
             title="Save DB to a fixed file (no timestamp)" data-i18n-title="db_save_file_title">
-            <span class="db-popup-btn-icon">📁</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_save_file">Save to File</strong>
                 <small data-i18n="db_save_file_small">Save DB to a fixed file (no timestamp)</small>
@@ -234,7 +723,7 @@
         </button>
         <button class="db-popup-btn db-popup-btn-export" onclick="downloadData()"
             title="Save log and user data as .zip backup" data-i18n-title="db_download_title">
-            <span class="db-popup-btn-icon">⬇️</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_download">Download Data</strong>
                 <small data-i18n="db_download_small">Save log and user data as .zip backup</small>
@@ -243,7 +732,7 @@
         <button class="db-popup-btn db-popup-btn-import" onclick="uploadData()"
             style="text-decoration: none; display: flex;" title="Restore data from a .zip file"
             data-i18n-title="db_upload_title">
-            <span class="db-popup-btn-icon">⬆️</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/upload.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_upload">Upload Data</strong>
                 <small data-i18n="db_upload_small">Restore data from a .zip file</small>
@@ -251,7 +740,7 @@
         </button>
         <button class="db-popup-btn db-popup-btn-export" id="export-db-btn" onclick="exportDb()"
             title="Download active-group sessions as .js backup" data-i18n-title="db_export_title_attr">
-            <span class="db-popup-btn-icon">⬇</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_export">Export DB</strong>
                 <small data-i18n="db_export_small">Download active-group sessions as .js backup</small>
@@ -259,7 +748,7 @@
         </button>
         <label class="db-popup-btn db-popup-btn-import" id="import-db-btn"
             title="Load sessions from a .json, .js, or legacy .txt file" data-i18n-title="db_import_title_attr">
-            <span class="db-popup-btn-icon">⬆</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="db_import">Import DB</strong>
                 <small data-i18n="db_import_small">Load sessions from a .json, .js, or legacy .txt file</small>
@@ -279,8 +768,8 @@
 
     <div id="settings-popup">
         <div class="db-popup-header">
-            <span class="db-popup-title" data-i18n="settings_popup_title">⚙ Settings</span>
-            <button class="db-popup-close" onclick="closeSettingsPopup()">✕</button>
+            <span class="db-popup-title" data-i18n="settings_popup_title"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Settings</span>
+            <button class="db-popup-close" onclick="closeSettingsPopup()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
         <div style="display:flex; align-items:center; gap:10px; padding:10px 14px 6px; flex-wrap:wrap;">
             <span
@@ -305,63 +794,63 @@
             </div>
         </div>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('import-tool.html');">
-            <span class="db-popup-btn-icon">📥</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
-                <strong data-i18n="importShortcutBtn">📥 Import</strong>
+                <strong data-i18n="importShortcutBtn">Import</strong>
                 <small data-i18n="importDestClassGroupsDesc">Import students and assign them to a class group</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('group-editor.html');">
-            <span class="db-popup-btn-icon">👥</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_groups">Edit Groups</strong>
                 <small data-i18n="settings_edit_groups_small">Add, rename, or reorganise class groups</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditTeamsModal();">
-            <span class="db-popup-btn-icon">🎨</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/palette.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_teams">Edit Teams</strong>
                 <small data-i18n="settings_edit_teams_small">Change team names and colours</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditBadgesModal();">
-            <span class="db-popup-btn-icon">🏅</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_badges">Edit Badges</strong>
                 <small data-i18n="settings_edit_badges_small">Customise badge names, meaning, tone, and logo</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditSoundsModal();">
-            <span class="db-popup-btn-icon">🔊</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_sounds">Edit Sounds</strong>
                 <small data-i18n="settings_edit_sounds_small">Timer alarm, +/− sounds, files, and JS tunes</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openRolesModal('settings');">
-            <span class="db-popup-btn-icon">📝</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_roles">Edit Roles</strong>
                 <small data-i18n="settings_edit_roles_small">Manage role titles and descriptions</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditAutoflagModal();">
-            <span class="db-popup-btn-icon">🚩</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_autoflag">Edit Autoflag</strong>
                 <small data-i18n="settings_edit_autoflag_small">Auto-flag low-participation students</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openModeManager();">
-            <span class="db-popup-btn-icon">🎭</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/theater.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_modes">Edit Modes</strong>
                 <small data-i18n="settings_edit_modes_small">Customise working modes (sound, picture, text)</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html');">
-            <span class="db-popup-btn-icon">📐</span>
+            <span class="db-popup-btn-icon"><img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_class_plan">Class Plan</strong>
                 <small data-i18n="settings_class_plan_small">Seating layouts with room and weekly schedule</small>
@@ -370,7 +859,7 @@
     </div>
 
     <div id="startup-load-banner">
-        <span class="startup-banner-icon">📁</span>
+        <span class="startup-banner-icon"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /></span>
         <div class="startup-banner-body">
             <div class="startup-banner-title" data-i18n="startup_title">Load your database?</div>
             <div class="startup-banner-sub" data-i18n="startup_sub">Pick one file, multiple files, or a folder with DB
@@ -398,7 +887,7 @@
             <div class="top-right-controls">
                 <div id="class-selection-anchor">
                     <button id="class-selection-btn" onclick="toggleClassSelectionPopup(event)" title="Select class"
-                        data-i18n="btn_select_class" data-i18n-title="btn_select_class_title">Select Class</button>
+                        data-i18n-title="btn_select_class_title"><img src="../assets/icons/class-management.svg" class="btn-icon" alt="" /></button>
                     <div id="class-selection-popup" class="class-selection-popup">
                         <div class="class-selection-header">
                             <div class="class-filter-bar" id="class-filter-bar">
@@ -416,16 +905,15 @@
                 </div>
 
                 <div id="timer-anchor">
-                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer" data-i18n="btn_timer">⏱
-                        Timer</button>
+                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer" data-i18n-title="btn_timer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /></button>
                     <div id="timer-popup">
-                        <h3 id="timer-popup-title" data-i18n="timer_title">⏱ Timer</h3>
+                        <h3 id="timer-popup-title" data-i18n="timer_title"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer</h3>
                         <!-- Mode toggle -->
                         <div class="timer-mode-toggle">
                             <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
-                                data-i18n="timer_mode_timer">⏱ Timer</button>
+                                data-i18n="timer_mode_timer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer</button>
                             <button class="timer-mode-btn" id="mode-btn-stopwatch" onclick="setTimerMode('stopwatch')"
-                                data-i18n="timer_mode_stopwatch">⏱ Stopwatch</button>
+                                data-i18n="timer_mode_stopwatch"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Stopwatch</button>
                         </div>
                         <!-- Time inputs (shown only for timer mode) -->
                         <div id="timer-inputs-section">
@@ -447,7 +935,7 @@
                         </div>
                         <hr class="timer-popup-divider">
                         <!-- Ambient audio -->
-                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label">🌊
+                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label"><img src="../assets/icons/wave.svg" class="btn-icon" alt="" />
                                 Ambient
                                 Sound</span> <span
                                 style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
@@ -468,22 +956,22 @@
                         </div>
                         <div class="timer-popup-whitenoise-row">
                             <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()"
-                                title="Mute/Unmute (M)" data-i18n-title="noise_mute_title">🔇</button>
+                                title="Mute/Unmute (M)" data-i18n-title="noise_mute_title"><img src="../assets/icons/mute.svg" class="btn-icon" alt="" /></button>
                             <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30"
                                 value="5" oninput="setWhiteNoiseVolume(this.value)" title="Volume"
                                 data-i18n-title="noise_volume">
                             <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()"
-                                data-i18n="noise_play">▶
+                                data-i18n="noise_play"><img src="../assets/icons/play.svg" class="btn-icon" alt="" />
                                 Play</button>
                         </div>
                         <hr class="timer-popup-divider">
                         <div class="timer-popup-actions">
-                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start">▶
+                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start"><img src="../assets/icons/play.svg" class="btn-icon" alt="" />
                                 Start</button>
                             <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()"
-                                style="display:none;" data-i18n="timer_stop">■ Stop</button>
+                                style="display:none;" data-i18n="timer_stop"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop</button>
                             <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()"
-                                style="display:none;" data-i18n="timer_pause" data-i18n-title="timer_pause_title">⏸
+                                style="display:none;" data-i18n="timer_pause" data-i18n-title="timer_pause_title"><img src="../assets/icons/pause.svg" class="btn-icon" alt="" />
                                 Pause</button>
                             <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()"
                                 title="-30 seconds" data-i18n-title="timer_sub30s_title"
@@ -491,23 +979,23 @@
                             <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()"
                                 title="+30 seconds" data-i18n-title="timer_add30s_title">+30s</button>
                             <button class="btn-fullscreen-timer" onclick="openTimerFullscreen()" title="Fullscreen"
-                                data-i18n-title="timer_fullscreen_title">⛶</button>
+                                data-i18n-title="timer_fullscreen_title"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /></button>
                         </div>
                         <hr class="timer-popup-divider">
                         <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class
                             Mode</div>
                         <div class="timer-mode-shortcuts" id="timer-mode-shortcuts-container">
                             <button class="timer-mode-shortcut" onclick="activateMode('quiet')"
-                                data-i18n-title="mode_quiet_title" title="Quiet Work (1)">🤫<span
+                                data-i18n-title="mode_quiet_title" title="Quiet Work (1)"><img src="../assets/icons/quiet.svg" class="btn-icon" alt="" /><span
                                     data-i18n="mode_quiet_short">Quiet</span></button>
                             <button class="timer-mode-shortcut" onclick="activateMode('conversation')"
-                                data-i18n-title="mode_conv_title" title="Conversation (2)">💬<span
+                                data-i18n-title="mode_conv_title" title="Conversation (2)"><img src="../assets/icons/chat.svg" class="btn-icon" alt="" /><span
                                     data-i18n="mode_talk_short">Talk</span></button>
                             <button class="timer-mode-shortcut" onclick="activateMode('group')"
-                                data-i18n-title="mode_group_title" title="Group Work (3)">👥<span
+                                data-i18n-title="mode_group_title" title="Group Work (3)"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /><span
                                     data-i18n="mode_group_short">Group</span></button>
                             <button class="timer-mode-shortcut timer-mode-edit-btn" onclick="openModeManager()"
-                                title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;">⚙️<span
+                                title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /><span
                                     data-i18n="btn_edit_short">Edit</span></button>
                         </div>
                     </div>
@@ -515,21 +1003,21 @@
 
                 <div id="roster-settings-anchor">
                     <button id="roster-settings-btn" onclick="toggleRosterSettingsPopup(event)" title="Roster settings"
-                        data-i18n-title="rsp_roster_settings_title">⚙</button>
+                        data-i18n-title="rsp_roster_settings_title"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /></button>
                     <div id="roster-settings-popup" class="roster-settings-popup">
                         <div class="rsp-header">
                             <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
                             <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn"
                                 onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings"
-                                data-i18n-title="rsp_pin_title">📌 Pin menu</button>
+                                data-i18n-title="rsp_pin_title"><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> Pin menu</button>
                         </div>
 
                         <div class="rsp-tabs-nav">
-                            <button class="rsp-tab-btn active" onclick="switchRosterSettingsTab(event, 'display')">🖥️
+                            <button class="rsp-tab-btn active" onclick="switchRosterSettingsTab(event, 'display')"><img src="../assets/icons/monitor.svg" class="btn-icon" alt="" />
                                 Display</button>
-                            <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'grouping')">👥
+                            <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'grouping')"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" />
                                 Grouping</button>
-                            <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'tools')">⚡
+                            <button class="rsp-tab-btn" onclick="switchRosterSettingsTab(event, 'tools')"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
                                 Tools</button>
                         </div>
 
@@ -553,27 +1041,27 @@
                                 <div class="rsp-row-label" data-i18n="rsp_interface_toggles">Interface Toggles</div>
                                 <div class="rsp-grid-toggles">
                                     <button class="rsp-inline-btn" id="rsp-score-mute-btn" onclick="toggleScoreMute()"
-                                        title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">🔇
+                                        title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title"><img src="../assets/icons/mute.svg" class="btn-icon" alt="" />
                                         Sounds</button>
                                     <button class="rsp-inline-btn" id="rsp-toggle-roles-btn"
                                         onclick="closeRosterSettingsPopup(); toggleRolesVisibility()"
-                                        title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title">👁
+                                        title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
                                         Roles</button>
                                     <button class="rsp-inline-btn" id="rsp-toggle-badges-btn"
                                         onclick="closeRosterSettingsPopup(); toggleBadgesVisibility()"
-                                        title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title">👁
+                                        title="Toggle badges visibility" data-i18n-title="rsp_toggle_badges_title"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
                                         Badges</button>
                                     <button class="rsp-inline-btn" id="rsp-toggle-autoflag-btn"
                                         onclick="closeRosterSettingsPopup(); toggleAutoFlagVisibility()"
                                         title="Toggle autoflag visibility (Ctrl+F)"
-                                        data-i18n-title="rsp_toggle_autoflag_title">🚩 Autoflag</button>
+                                        data-i18n-title="rsp_toggle_autoflag_title"><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /> Autoflag</button>
                                     <button class="rsp-inline-btn" id="rsp-toggle-animations-btn"
                                         onclick="toggleAnimations()"
                                         title="Toggle visual animations (badge awards, team reveal)"
-                                        data-i18n-title="rsp_toggle_anim_title">✨ Anim</button>
+                                        data-i18n-title="rsp_toggle_anim_title"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Anim</button>
                                     <button class="rsp-inline-btn" id="roster-plan-view-btn"
                                         onclick="closeRosterSettingsPopup(); toggleRosterPlanView()"
-                                        title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title">📐
+                                        title="Toggle seating plan view" data-i18n-title="rsp_toggle_plan_title"><img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" />
                                         Plan</button>
                                 </div>
                             </div>
@@ -584,30 +1072,30 @@
                                 <div class="rsp-button-group">
                                     <button class="rsp-item rsp-item-blue" onclick="openCmsPresentation()"
                                         title="Open a presentation window for the second screen (clean view, no menus)"
-                                        data-i18n-title="rsp_present_title">📺 Present</button>
+                                        data-i18n-title="rsp_present_title"><img src="../assets/icons/presentation.svg" class="btn-icon" alt="" /> Present</button>
                                     <button class="rsp-item" id="rsp-pres-freeze-btn"
                                         onclick="toggleFreezePresentation()"
                                         title="Freeze the presentation window so it stops updating"
-                                        data-i18n-title="rsp_freeze_title">❄ Freeze</button>
+                                        data-i18n-title="rsp_freeze_title"><img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> Freeze</button>
                                 </div>
 
                                 <div id="rsp-pres-controls" class="rsp-inline-row"
                                     style="display:none; margin-top:4px;">
                                     <button class="rsp-inline-btn" onclick="cmsPresentationClose()"
-                                        title="Close presentation window" data-i18n-title="rsp_close_pres_title">✕
+                                        title="Close presentation window" data-i18n-title="rsp_close_pres_title"><img src="../assets/icons/close.svg" class="btn-icon" alt="" />
                                         Close</button>
                                     <button class="rsp-inline-btn" onclick="cmsPresentationFullscreen()"
                                         title="Toggle fullscreen on presentation window"
-                                        data-i18n-title="rsp_full_pres_title">⛶ Full</button>
+                                        data-i18n-title="rsp_full_pres_title"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /> Full</button>
                                     <button class="rsp-inline-btn" onclick="cmsPresentationMaximize()"
-                                        title="Maximise presentation window" data-i18n-title="rsp_max_pres_title">🗖
+                                        title="Maximise presentation window" data-i18n-title="rsp_max_pres_title"><img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
                                         Max</button>
                                     <button class="rsp-inline-btn" onclick="cmsPresentationMinimize()"
-                                        title="Minimise presentation window" data-i18n-title="rsp_min_pres_title">🗕
+                                        title="Minimise presentation window" data-i18n-title="rsp_min_pres_title"><img src="../assets/icons/minimize.svg" class="btn-icon" alt="" />
                                         Min</button>
                                     <button class="rsp-inline-btn" onclick="cmsPresentationDockRight()"
                                         title="Move presentation window to the right (20% width)"
-                                        data-i18n-title="rsp_right_pres_title">▶ Right</button>
+                                        data-i18n-title="rsp_right_pres_title"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /> Right</button>
                                 </div>
                             </div>
 
@@ -633,26 +1121,25 @@
                                 <div class="rsp-grid-toggles">
                                     <button class="rsp-inline-btn" id="rsp-pres-roles-btn"
                                         onclick="togglePresSetting('roles')" title="Show roles in presentation window"
-                                        data-i18n-title="rsp_pres_roles_title">👤 Roles</button>
+                                        data-i18n-title="rsp_pres_roles_title"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" /> Roles</button>
                                     <button class="rsp-inline-btn" id="rsp-pres-badges-btn"
                                         onclick="togglePresSetting('badges')" title="Show badges in presentation window"
-                                        data-i18n-title="rsp_pres_badges_title">🏅 Badges</button>
-                                    <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn"
+                                        data-i18n-title="rsp_pres_badges_title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /> Badges                                     <button class="rsp-inline-btn" id="rsp-pres-autoflag-btn"
                                         onclick="togglePresSetting('autoflag')"
                                         title="Show autoflag in presentation window"
-                                        data-i18n-title="rsp_pres_autoflag_title">🚩 Autoflag</button>
+                                        data-i18n-title="rsp_pres_autoflag_title"><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /> Autoflag</button>
                                     <button class="rsp-inline-btn" id="rsp-pres-anim-btn"
                                         onclick="togglePresSetting('anim')"
                                         title="Play animations in presentation window"
-                                        data-i18n-title="rsp_pres_anim_title">✨ Anim</button>
+                                        data-i18n-title="rsp_pres_anim_title"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Anim</button>
                                     <button class="rsp-inline-btn" id="rsp-pres-plan-btn"
                                         onclick="togglePresSetting('plan')"
                                         title="Show plan view in presentation window"
-                                        data-i18n-title="rsp_pres_plan_title">📐 Plan</button>
+                                        data-i18n-title="rsp_pres_plan_title"><img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" /> Plan</button>
                                     <button class="rsp-inline-btn" id="rsp-pres-modes-btn"
                                         onclick="togglePresSetting('modes')"
                                         title="Mirror modes overlay in presentation window"
-                                        data-i18n-title="rsp_pres_modes_title">🎭 Modes</button>
+                                        data-i18n-title="rsp_pres_modes_title"><img src="../assets/icons/theater.svg" class="btn-icon" alt="" /> Modes</button>
                                 </div>
                             </div>
 
@@ -698,7 +1185,7 @@
                                     data-i18n="btn_add_student">Add student</button>
                                 <button class="rsp-item" onclick="copyRosterPlainText()"
                                     title="Copy roster names (with teams and roles) to clipboard, without badges or scores"
-                                    data-i18n-title="rsp_copy_roster_title">📋 Copy roster</button>
+                                    data-i18n-title="rsp_copy_roster_title"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy roster</button>
                             </div>
 
                             <div class="rsp-tab-section">
@@ -728,11 +1215,11 @@
                 <div id="timer-active-display" onclick="toggleTimerPopup()">--:--</div>
                 <div id="timer-inline-controls">
                     <button id="timer-inline-pp-btn" title="Play / Pause" data-i18n-title="timer_pp_title"
-                        onclick="overlayPlayPauseTimer()">▶</button>
+                        onclick="overlayPlayPauseTimer()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /></button>
                     <button id="timer-inline-stop-btn" title="Stop" data-i18n-title="timer_stop_title"
-                        onclick="overlayStopTimer()">⏹</button>
+                        onclick="overlayStopTimer()"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /></button>
                     <button id="timer-inline-detach-btn" title="Open timer in new window"
-                        data-i18n-title="timer_detach_title" onclick="detachTimerWindow()">⧉</button>
+                        data-i18n-title="timer_detach_title" onclick="detachTimerWindow()"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /></button>
                 </div>
                 <div id="timer-resize-handle" title="Drag to resize timer" data-i18n-title="timer_resize_title"></div>
             </div>
@@ -755,20 +1242,20 @@
                 </div>
                 <div id="cms-plan-chip"
                     style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px;">
-                    📋 <button id="cms-plan-chip-btn"
+                    <img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <button id="cms-plan-chip-btn"
                         style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:0.76rem;font-weight:600;padding:0;text-decoration:underline;"
                         onclick="Desktop && Desktop.openTool('class-plan.html')"></button>
                 </div>
                 <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; flex-wrap:wrap; gap:2px;">
                     <button class="rsp-item rsp-item-black" onclick="cpAutoGroupByTeams()"
                         title="Automatically fill seats grouping present students by team" data-i18n="rp_group_teams"
-                        data-i18n-title="rp_group_teams_title">🎲 Group by teams</button>
+                        data-i18n-title="rp_group_teams_title"><img src="../assets/icons/dice.svg" class="btn-icon" alt="" /> Group by teams</button>
                     <button id="roster-plan-reset-btn" class="rsp-item rsp-item-black" onclick="cpResetToOriginalPlan()"
                         title="Restore original seat arrangement" data-i18n="rp_reset_seats"
-                        data-i18n-title="rp_reset_seats_title" style="display:none">↩ Reset seats</button>
+                        data-i18n-title="rp_reset_seats_title" style="display:none"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Reset seats</button>
                     <button id="roster-plan-save-btn" class="rsp-item rsp-item-black" onclick="cpSavePlanSeats()"
                         title="Save current seat arrangement to file" data-i18n="rp_save_seats"
-                        data-i18n-title="rp_save_seats_title" style="display:none">💾 Save seats</button>
+                        data-i18n-title="rp_save_seats_title" style="display:none"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save seats</button>
                 </div>
                 <ul id="roster-list" class="roster-list">
                     <li style="color:#999; padding: 20px; text-align: center;" data-i18n="roster_select_group">Select a
@@ -781,7 +1268,7 @@
                         style="padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafafa; margin: 3px 0;">
                         <div
                             style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            <span>🚩 Flags</span>
+                            <span><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /> Flags</span>
                             <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
                                 style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
                         </div>
@@ -793,27 +1280,27 @@
                     <button type="button" data-action="role" onclick="openRoleChangePopup()"
                         data-i18n="ctx_add_role">Add Role</button>
                     <button type="button" data-action="stats" onclick="openStudentStatsPopup(rosterContextStudentId)"
-                        title="View participation stats" data-i18n="ctx_stats" data-i18n-title="ctx_stats_title">📊
+                        title="View participation stats" data-i18n="ctx_stats" data-i18n-title="ctx_stats_title"><img src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
                         Stats</button>
                     <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
                         title="View grades from Grade Sheet" data-i18n="ctx_grades"
-                        data-i18n-title="ctx_grades_title">🎓 Grades</button>
+                        data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Grades</button>
                     <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;" title="Shortcuts"></div>
                     <button type="button" data-action="timer" onclick="handleRosterContextAction('timer')"
-                        title="Open timer" data-i18n-title="ctx_timer_title">⏱ Timer</button>
+                        title="Open timer" data-i18n-title="ctx_timer_title"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer</button>
                     <button type="button" data-action="quiet-mode" onclick="handleRosterContextAction('quiet-mode')"
-                        title="Activate Quiet Work mode" data-i18n="ctx_quiet" data-i18n-title="ctx_quiet_title">🤫
+                        title="Activate Quiet Work mode" data-i18n="ctx_quiet" data-i18n-title="ctx_quiet_title"><img src="../assets/icons/quiet.svg" class="btn-icon" alt="" />
                         Quiet</button>
                     <button type="button" data-action="conversation-mode"
                         onclick="handleRosterContextAction('conversation-mode')" title="Activate Conversation mode"
-                        data-i18n="ctx_conversation" data-i18n-title="ctx_conv_title">💬 Conversation</button>
+                        data-i18n="ctx_conversation" data-i18n-title="ctx_conv_title"><img src="../assets/icons/chat.svg" class="btn-icon" alt="" /> Conversation</button>
                     <button type="button" data-action="group-mode" onclick="handleRosterContextAction('group-mode')"
-                        title="Activate Group mode" data-i18n="ctx_group_mode" data-i18n-title="ctx_group_title">👥
+                        title="Activate Group mode" data-i18n="ctx_group_mode" data-i18n-title="ctx_group_title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" />
                         Group</button>
                     <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;"></div>
                     <button type="button" data-action="copy-roster" onclick="copyRosterPlainText()"
                         title="Copy roster names (with teams and roles) to clipboard, without badges or scores"
-                        data-i18n-title="ctx_copy_roster_title">📋 Copy roster</button>
+                        data-i18n-title="ctx_copy_roster_title"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy roster</button>
                 </div>
                 <div id='drumroll-and-pick'>
                     <div id="custom-action-buttons"></div>
@@ -872,13 +1359,13 @@
                     max="20" onchange="syncOverlaySettingsToPopup()" style="width: 40px;">
             </div>
             <button class="timer-overlay-mode-toggle-btn" id="overlay-stopwatch-btn"
-                onclick="toggleOverlayStopwatchMode()" style="margin-left: auto;" data-i18n="timer_stopwatch_btn">⏱
+                onclick="toggleOverlayStopwatchMode()" style="margin-left: auto;" data-i18n="timer_stopwatch_btn"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" />
                 Stopwatch</button>
             <div class="timer-overlay-transport">
                 <button class="timer-overlay-transport-btn" id="overlay-playpause-btn" onclick="overlayPlayPauseTimer()"
-                    data-i18n="timer_play_btn">▶ Play</button>
+                    data-i18n="timer_play_btn"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Play</button>
                 <button class="timer-overlay-transport-btn" id="overlay-stop-main-btn" onclick="overlayStopTimer()"
-                    data-i18n="timer_stop_btn">■ Stop</button>
+                    data-i18n="timer_stop_btn"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop</button>
                 <button class="timer-overlay-transport-btn" id="overlay-sub30s-btn" onclick="timerSubtract30s()"
                     title="-30 seconds" data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
                 <button class="timer-overlay-transport-btn" id="overlay-add30s-btn" onclick="timerAdd30s()"
@@ -893,21 +1380,21 @@
             <div id="timer-overlay-objective"></div>
             <div id="timer-overlay-mode-btns">
                 <button class="timer-overlay-mode-btn" onclick="activateMode('quiet')"
-                    title="Quiet Work (1)">🤫<span>1</span></button>
+                    title="Quiet Work (1)"><img src="../assets/icons/quiet.svg" class="btn-icon" alt="" /><span>1</span></button>
                 <button class="timer-overlay-mode-btn" onclick="activateMode('conversation')"
-                    title="Conversation (2)">💬<span>2</span></button>
+                    title="Conversation (2)"><img src="../assets/icons/chat.svg" class="btn-icon" alt="" /><span>2</span></button>
                 <button class="timer-overlay-mode-btn" onclick="activateMode('group')"
-                    title="Group Work (3)">👥<span>3</span></button>
+                    title="Group Work (3)"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /><span>3</span></button>
             </div>
             <div class="overlay-noise-panel" id="timer-overlay-noise-panel" style="margin-top:8px;">
                 <button class="overlay-noise-type-btn" id="timer-noise-btn-white" onclick="overlaySetNoise('white')"
-                    title="White noise" data-i18n-title="overlay_white_title">🌬</button>
+                    title="White noise" data-i18n-title="overlay_white_title"><img src="../assets/icons/wave.svg" class="btn-icon" alt="" /></button>
                 <button class="overlay-noise-type-btn" id="timer-noise-btn-pink" onclick="overlaySetNoise('pink')"
-                    title="Pink noise" data-i18n-title="overlay_pink_title">🌸</button>
+                    title="Pink noise" data-i18n-title="overlay_pink_title"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /></button>
                 <button class="overlay-noise-type-btn" id="timer-noise-btn-brown" onclick="overlaySetNoise('brown')"
-                    title="Brown noise" data-i18n-title="overlay_brown_title">🌊</button>
+                    title="Brown noise" data-i18n-title="overlay_brown_title"><img src="../assets/icons/wave.svg" class="btn-icon" alt="" /></button>
                 <button class="overlay-noise-type-btn" id="timer-noise-btn-file" onclick="overlaySetNoise('file')"
-                    title="Timer audio file" data-i18n-title="overlay_file_title">🎵</button>
+                    title="Timer audio file" data-i18n-title="overlay_file_title"><img src="../assets/icons/media.svg" class="btn-icon" alt="" /></button>
                 <div class="overlay-noise-vol-wrap">
                     <span class="overlay-noise-vol-label" data-i18n="noise_volume">Volume</span>
                     <input class="overlay-noise-vol-slider" id="timer-noise-volume" type="range" min="0" max="100"
@@ -915,7 +1402,7 @@
                     <span class="overlay-noise-vol-value" id="timer-noise-volume-val">10</span>
                 </div>
             </div>
-            <button id="timer-overlay-close">✕</button>
+            <button id="timer-overlay-close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         </div>
     </div>
     <div class="modal-overlay" id="team-modal" onclick="closeTeamModal()">
@@ -964,7 +1451,7 @@
                 <div style="display: flex; gap: 8px; justify-content: center;">
                     <button id="save-current-teams-btn" class="btn-pick"
                         style="flex: 1; padding: 6px 12px; font-size: 0.8rem; margin: 0;"
-                        onclick="saveCurrentTeamSetup()" data-i18n="btn_save_setup">💾 Save Current Setup</button>
+                        onclick="saveCurrentTeamSetup()" data-i18n="btn_save_setup"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save Current Setup</button>
                 </div>
             </div>
 
@@ -1026,7 +1513,10 @@
                     <div style="display: flex; gap: 8px;">
                         <button id="save-current-roles-btn" class="btn-pick"
                             style="flex: 1; padding: 6px 12px; font-size: 0.8rem; margin: 0;"
-                            onclick="saveCurrentRolesSetup()" data-i18n="btn_save_roles_setup">💾 Save Current
+                            onclick="saveCurrentRolesSetup()" data-i18n="btn_save_roles_setup"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save Current
+                            Roles</button>
+                    </div>
+                </div>ve Current
                             Roles</button>
                     </div>
                 </div>
@@ -1996,18 +2486,7 @@
             }
             if (data.groupName !== undefined) selectedGroupName = data.groupName;
             if (data.halfGroup !== undefined) selectedHalfGroup = data.halfGroup;
-            const classBtn = document.getElementById('class-selection-btn');
-            if (classBtn) {
-                if (selectedGroupName) {
-                    const displayName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
-                    const halfSuffix = selectedHalfGroup ? ' ½' + selectedHalfGroup : '';
-                    classBtn.innerHTML = `${displayName}${halfSuffix}`;
-                    classBtn.classList.add('active');
-                } else {
-                    classBtn.innerHTML = t('btn_select_class'); classBtn.title = t('btn_select_class_title');
-                    classBtn.classList.remove('active');
-                }
-            }
+            if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
             if (typeof renderGroupButtons === 'function') {
                 try { renderGroupButtons(); } catch (_) { }
             }
@@ -2202,13 +2681,13 @@
         function syncPresentationFreezeButtons() {
             const btn = document.getElementById('rsp-pres-freeze-btn');
             if (btn) {
-                btn.textContent = _presFrozen ? '❄ Frozen' : '❄ Freeze';
+                btn.innerHTML = _presFrozen ? '<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> Frozen' : '<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> Freeze';
                 btn.style.background = _presFrozen ? '#4a90d9' : '';
                 btn.style.color = _presFrozen ? '#fff' : '';
             }
             const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="freeze"]');
             if (popupBtn) {
-                popupBtn.textContent = _presFrozen ? t('pres_unfreeze') : t('pres_freeze');
+                popupBtn.innerHTML = _presFrozen ? `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_unfreeze')}` : `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_freeze')}`;
                 popupBtn.title = _presFrozen ? t('pres_unfreeze_title') : t('pres_freeze_title');
             }
         }
@@ -3154,7 +3633,7 @@
             const _rolesToggleBtn = document.getElementById('roles-toggle-btn');
             if (_rolesToggleBtn) { _rolesToggleBtn.classList.toggle('badges-hidden', !rolesVisible); _rolesToggleBtn.innerHTML = rolesVisible ? 'Roles' : '<s>Roles</s>'; }
             const _scoreMuteBtn = document.getElementById('score-mute-btn');
-            if (_scoreMuteBtn) { _scoreMuteBtn.textContent = scoreMuted ? '🔇' : '🔔'; _scoreMuteBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)'; _scoreMuteBtn.style.color = scoreMuted ? '#bbb' : '#111'; }
+            if (_scoreMuteBtn) { _scoreMuteBtn.innerHTML = scoreMuted ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />'; _scoreMuteBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)'; _scoreMuteBtn.style.color = scoreMuted ? '#bbb' : '#111'; }
             _applyAppTitle();
             const _planAbbrevIn = document.getElementById('settings-plan-abbrev-len');
             if (_planAbbrevIn) _planAbbrevIn.value = planAbbrevLen;
@@ -4573,7 +5052,9 @@
             const toggleBtn = document.getElementById('group-view-toggle');
             if (toggleBtn) {
                 toggleBtn.style.display = anySlots ? '' : 'none';
-                toggleBtn.textContent = slotViewActive ? t('cms_view_groups') : t('cms_view_slots');
+                const iconSrc = slotViewActive ? '../assets/icons/groups.svg' : '../assets/icons/planner.svg';
+                const labelTxt = slotViewActive ? t('cms_view_groups') : t('cms_view_slots');
+                toggleBtn.innerHTML = `<img src="${iconSrc}" class="btn-icon" alt="" /> ${labelTxt}`;
             }
 
             // Render weekday tabs
@@ -4730,6 +5211,22 @@
             renderGroupButtons();
         }
 
+        function _updateClassBtnLabel() {
+            const classBtn = document.getElementById('class-selection-btn');
+            if (!classBtn) return;
+            classBtn.innerHTML = `<img src="../assets/icons/class-management.svg" class="btn-icon" alt="" />`;
+            if (selectedGroupName) {
+                const displayName = (typeof rawMeta !== 'undefined' && rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+                const halfSuffix = selectedHalfGroup ? ' ½' + selectedHalfGroup : '';
+                classBtn.title = `${displayName}${halfSuffix}`;
+                classBtn.classList.add('active');
+            } else {
+                const titleTxt = (typeof dict !== 'undefined' && dict['btn_select_class_title']) ? dict['btn_select_class_title'] : (t('btn_select_class_title') || 'Select class');
+                classBtn.title = titleTxt;
+                classBtn.classList.remove('active');
+            }
+        }
+
         function selectGroup(groupName, halfGroup, activeBtn) {
             selectedGroupName = groupName;
             selectedHalfGroup = (halfGroup !== undefined) ? halfGroup : null;
@@ -4761,13 +5258,7 @@
             updateDbAutosaveStatusLabel();
             applyAutoFlags(groupName);
 
-            const classBtn = document.getElementById('class-selection-btn');
-            if (classBtn && selectedGroupName) {
-                const displayName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
-                const halfSuffix = selectedHalfGroup ? ' ½' + selectedHalfGroup : '';
-                classBtn.innerHTML = `${displayName}${halfSuffix}`;
-                classBtn.classList.add('active');
-            }
+            if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
             closeClassSelectionPopup();
         }
 
@@ -8752,7 +9243,7 @@
             if (!pinBtn) return;
             const labelKey = rosterSettingsPinned ? 'rsp_unpin_btn' : 'rsp_pin_btn';
             const titleKey = rosterSettingsPinned ? 'rsp_unpin_title' : 'rsp_pin_title';
-            pinBtn.textContent = `📌 ${t(labelKey)}`;
+            pinBtn.innerHTML = `<img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> ${t(labelKey)}`;
             pinBtn.title = t(titleKey);
             pinBtn.classList.toggle('is-off', !rosterSettingsPinned);
         }
@@ -8828,7 +9319,7 @@
             function syncMenuButton() {
                 if (!minimizeBtn) return;
                 const collapsed = menu.classList.contains('menu-collapsed');
-                minimizeBtn.textContent = collapsed ? '[+]' : '[-]';
+                minimizeBtn.innerHTML = collapsed ? '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/minimize.svg" class="btn-icon" alt="" />';
                 minimizeBtn.title = collapsed ? 'Expand menu' : 'Minimise menu';
                 minimizeBtn.setAttribute('aria-label', minimizeBtn.title);
             }
@@ -9333,13 +9824,13 @@
             scoreMuted = !scoreMuted;
             const btn = document.getElementById('score-mute-btn');
             if (btn) {
-                btn.textContent = scoreMuted ? '🔇' : '🔔';
+                btn.innerHTML = scoreMuted ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />';
                 btn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)';
                 btn.style.color = scoreMuted ? '#bbb' : '#111';
             }
             const rspBtn = document.getElementById('rsp-score-mute-btn');
             if (rspBtn) {
-                rspBtn.textContent = scoreMuted ? '🔇' : '🔔';
+                rspBtn.innerHTML = scoreMuted ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" /> Sounds' : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Sounds';
                 rspBtn.style.color = scoreMuted ? '' : '#2d6a4f';
             }
             syncRosterInlineToggleButtonStates();
@@ -9805,12 +10296,12 @@
             const slider = document.getElementById('wn-volume-slider');
 
             if (muteBtn) {
-                muteBtn.textContent = whiteNoiseMuted ? '🔇' : '🔊';
+                muteBtn.innerHTML = whiteNoiseMuted ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />';
                 muteBtn.title = whiteNoiseMuted ? 'Unmute noise (M)' : 'Mute noise (M)';
                 muteBtn.classList.toggle('muted', whiteNoiseMuted);
             }
             if (playBtn) {
-                playBtn.textContent = whiteNoisePlaying ? '■ Stop' : '▶ Play';
+                playBtn.innerHTML = whiteNoisePlaying ? '<img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop' : '<img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Play';
                 playBtn.classList.toggle('playing', whiteNoisePlaying);
             }
             if (slider) slider.value = Math.round(whiteNoiseVolume * 100);
@@ -9968,7 +10459,7 @@
             document.getElementById('mode-btn-timer').classList.toggle('active', mode === 'timer');
             document.getElementById('mode-btn-stopwatch').classList.toggle('active', mode === 'stopwatch');
             document.getElementById('timer-inputs-section').style.display = mode === 'timer' ? 'block' : 'none';
-            document.getElementById('timer-popup-title').textContent = mode === 'timer' ? '⏱ Timer' : '⏱ Stopwatch';
+            document.getElementById('timer-popup-title').innerHTML = mode === 'timer' ? '<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer' : '<img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Stopwatch';
             syncOverlayTimerModeState();
             updateOverlayTransportControls();
         }
@@ -9980,7 +10471,7 @@
 
             const isStopwatch = timerMode === 'stopwatch';
             btn.classList.toggle('active', isStopwatch);
-            btn.textContent = isStopwatch ? '⏱ Timer' : '⏱ Stopwatch';
+            btn.innerHTML = isStopwatch ? '<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer' : '<img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Stopwatch';
             durationWrap.style.opacity = isStopwatch ? '0.4' : '1';
             durationWrap.style.pointerEvents = isStopwatch ? 'none' : 'auto';
         }
@@ -10001,14 +10492,16 @@
                 paused = !!timerPaused;
             }
 
-            const label = (!running && !paused) ? '▶ Play' : (paused ? '▶ Resume' : '⏸ Pause');
-            if (ppBtn) { ppBtn.textContent = label; ppBtn.classList.toggle('paused', paused); }
-            if (moPPBtn) { moPPBtn.textContent = label; moPPBtn.classList.toggle('paused', paused); }
+            const iconSrc = (!running && !paused) ? '../assets/icons/play.svg' : (paused ? '../assets/icons/play.svg' : '../assets/icons/pause.svg');
+            const labelTxt = (!running && !paused) ? 'Play' : (paused ? 'Resume' : 'Pause');
+            const labelHtml = `<img src="${iconSrc}" class="btn-icon" alt="" /> ${labelTxt}`;
+            if (ppBtn) { ppBtn.innerHTML = labelHtml; ppBtn.classList.toggle('paused', paused); }
+            if (moPPBtn) { moPPBtn.innerHTML = labelHtml; moPPBtn.classList.toggle('paused', paused); }
             if (stopBtn) stopBtn.disabled = !(running || paused);
             if (moStopBtn) moStopBtn.disabled = !(running || paused);
             const inlinePP = document.getElementById('timer-inline-pp-btn');
             const inlineStop = document.getElementById('timer-inline-stop-btn');
-            if (inlinePP) inlinePP.textContent = paused ? '▶' : (running ? '⏸' : '▶');
+            if (inlinePP) inlinePP.innerHTML = paused ? '<img src="../assets/icons/play.svg" class="btn-icon" alt="" />' : (running ? '<img src="../assets/icons/pause.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/play.svg" class="btn-icon" alt="" />');
             if (inlineStop) inlineStop.disabled = !(running || paused);
         }
 
@@ -14140,18 +14633,17 @@ syncState();
             // Don't overwrite dynamic count; only reset if it matches a known loading string
             // (handled by the DB loading code which calls t() directly)
 
-            // Timer popup open btn label (in menu bar) — kept as icon-only but update tooltip
+            // Timer popup open btn label (in menu bar) — kept icon-only with localized title
             const timerBtn = document.getElementById('timer-open-btn');
-            if (timerBtn) timerBtn.textContent = dict['btn_timer'];
+            if (timerBtn) {
+                timerBtn.innerHTML = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" />`;
+                timerBtn.title = dict['btn_timer'] || t('btn_timer') || 'Timer';
+            }
 
             // Keep user-defined labels/files for action buttons after i18n text updates.
             if (typeof renderCustomActionButtons === 'function') renderCustomActionButtons();
 
-            const classBtn = document.getElementById('class-selection-btn');
-            if (classBtn && (typeof selectedGroupName === 'undefined' || !selectedGroupName)) {
-                classBtn.textContent = dict['btn_select_class'] || t('btn_select_class');
-                classBtn.title = dict['btn_select_class_title'] || t('btn_select_class_title');
-            }
+            if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
         }
 
         // Override renderUtilityButtons after DOM is ready
