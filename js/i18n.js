@@ -159,7 +159,7 @@
       tutChoiceDesc: 'Which tour would you like to take?',
       tutChoiceMain: '🏠 Main View Tour',
       tutChoiceHistory: '🕘 History Tour',
-      tutChoiceBoard: '🌐 Board Tour',
+      tutChoiceBoard: '🖥️ Board Tour',
 
       // Tutorial – History tab steps
       tutHi1Title: 'Save History',
@@ -1935,7 +1935,7 @@
       btnFlashCards: '🎴 Flash Cards',
       btnQuoteAnalyser: '📜 Quote Analyser',
       btnViewWords: '📋 View All Words',
-      btnConstellation: '🌐 Board',
+      btnConstellation: '🖥️ Board',
       btnAddWords: '➕ Add Words to DB',
       btnHelp: '❓ How does everything work?',
       teamModeTitle: '👥 Team Mode',
@@ -1971,7 +1971,7 @@
       titleAddWords: '➕ Add Words to Database',
       titleGrammarPractice: '📐 Grammar Practice',
       titleDictation: '📝 Dictation',
-      titleConstellation: '🌐 Board',
+      titleConstellation: '🖥️ Board',
       btnShuffle: 'Shuffle New Words',
       btnNewCards: 'Get 6 New Cards',
       btnSubmitAnswer: 'Submit Answer',

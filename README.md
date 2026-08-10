@@ -89,9 +89,9 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
 | [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool | Links directly to [Board](#boardhtml) & [Document Editor](#document-editorhtml) |
-| [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, modes, scoring, badges, random picker, phone remote) | Broadcasts to [Board](#boardhtml) & Presentation screens |
-| [`board.html`](#boardhtml) | Infinite mind-map canvas, voice recordings, student input notes, and live timer overlay | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
-| [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host, and team mode | Sourced from [Manage Database](#manage-databasehtml) |
+| [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, modes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
+| [`board.html`](#boardhtml) | Infinite mind-map canvas, voice recordings, student input notes (beta), and live timer overlay | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
+| [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
 | [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor, and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
 | [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with PDF/DOCX export | Linked from [Planner](#plannerhtml) & [Oral Marking](#oral-markinghtml) |
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard sourced from Class Management sessions | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
@@ -234,7 +234,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
     - *Separate*: Opens each app in its own window.
     - *Maximized*: Opens apps full-screen.
     - *Split screen*: Opens two apps side-by-side. Includes dropdown selection for Left/Right windows and a slider to adjust width split ratio (e.g. 50/50).
-  - **Show features in development**: Toggle switch to show/hide beta features (**Phone Remote**, **Student Input Note**, **Multiplayer Quiz Host**).
+  - **Show features in development**: Toggle switch to show/hide beta features (**Phone Remote (beta)**, **Student Input Note (beta)**, **Multiplayer Quiz Host (beta)**).
 
 #### 2. Storage & Sync Tab (`data-tab="storage"`)
 
@@ -245,16 +245,16 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 - **Local Backup**: Select target directory and backup format (*Folder*, *ZIP Archive (.zip)*, or *TAR.GZ Archive (.tar.gz)*), then click **Backup Now**.
 - **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), enable **Keep target up to date automatically**, reset baseline, or trigger manual **Sync Now**.
 - **Cloud & Server Sync (Dev)**:
-  - **FTP / FTPS Sync**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).
-  - **Google Drive Sync**: OAuth 2.0 Client ID & Secret configuration, Google login authentication, and selective folder upload/download.
   - **WebDAV Sync**: Compatible with kDrive, Nextcloud, ownCloud. Server URL, username, app password, remote path, and interval sync.
+  - **FTP / FTPS Sync (beta)**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).
+  - **Google Drive Sync (beta)**: OAuth 2.0 Client ID & Secret configuration, Google login authentication, and selective folder upload/download.
 - **Backup Files Manager**: Open modal to browse, inspect, and batch delete saved backup files.
 - **Reset App**: Safety wizard to permanently erase selected app data folders. Requires typing `ERASE` to confirm and offers a compulsory backup ZIP creation first.
 
 #### 3. Remote Server Tab (`data-tab="remote"`)
 
 - **Remote Classroom Server**: Configure central **Server URL** (e.g., `https://classroom.example.com`) and **Host Secret**.
-- Automatically utilized by mobile integration features: [Phone Remote](#phone-remote), [Multiplayer Quiz Host](#multiplayer-quiz), and [Student Input Note](#student-input-note).
+- Automatically utilized by mobile integration features: [Phone Remote (beta)](#phone-remote-beta), [Multiplayer Quiz Host (beta)](#multiplayer-quiz-beta), and [Student Input Note (beta)](#student-input-note-beta).
 
 #### 4. App Notes Tab (`data-tab="notes"`)
 
@@ -380,7 +380,7 @@ Active classroom control panel for student scoring, timers, class working modes,
 - **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. Context menu for attendance, flagging, and role assignment.
 - **Team Maker & Picker**: Random student picker with drumroll sound, team auto-balancer, and role generator.
 - **Presentation View**: Projects roster state, active badges, and points onto a second screen with independent freeze controls.
-- **Phone Remote**:
+- **Phone Remote (beta)**:
   - *Local Mode*: Node server on port `8787` for local WiFi mobile scoring.
   - *External Mode*: Connects via WebSocket relay (`js/classroom-server.js`) for internet access.
 
@@ -406,9 +406,9 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 #### Features
 - **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches.
 - **Voice Recordings**: Record microphone audio directly into companion folders (`audio/`) and attach sound nodes to the board with built-in audio trimming (`✂ Trim`).
-- **Student Input Note**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
 - **Live Sync**: Displays floating timer widgets streamed live from [Class Management](#class-managementhtml).
+- **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
 
 <details>
 <summary><strong>Keyboard Shortcuts</strong></summary>
@@ -432,8 +432,8 @@ Student-facing activity suite featuring 12 vocabulary and grammar games powered 
 #### Games & Modes
 - **Vocabulary Games**: Definition Match 🧩, Hangman 😵, Scrambled Word 🔠, Word Quest 🔍, Phonetic Guess 🔉, Synonyms & Antonyms 🔗.
 - **Grammar Games**: Sentence Builder ✍️, Gap Fill 🕳️, Find the Error 🔴, Dictation 📝.
-- **Multiplayer Quiz**: Live classroom quiz host (Local WiFi or External relay) where students answer synchronously on their mobile devices.
 - **Team Mode & Timer**: Score tracking across custom teams with progressive point deduction timers.
+- **Multiplayer Quiz (beta)**: Live classroom quiz host (Local WiFi or External relay) where students answer synchronously on their mobile devices.
 
 ---
 
