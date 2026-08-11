@@ -1264,19 +1264,30 @@
                 <div id="roster-context-menu" class="roster-context-menu">
                     <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
                         data-i18n="ctx_absent">Absent</button>
-                    <div
-                        style="padding: 6px 10px; border-bottom: 1px solid #e0e0e0; background: #fafafa; margin: 3px 0;">
-                        <div
-                            style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            <span><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /> Flags</span>
-                            <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
-                                style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
+                    <details id="ctx-flags-details" class="ctx-flags-details"
+                        style="border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
+                        <summary
+                            style="padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: #222; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; list-style: none; outline: none; border-radius: 6px; transition: background 0.1s ease;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                <img src="../assets/icons/flag.svg" class="btn-icon" alt="" />
+                                <span data-i18n="ctx_flags">Flags</span>
+                                <span id="ctx-flags-summary-count" style="font-size: 0.75rem; color: #e11d48; font-weight: 700;"></span>
+                            </span>
+                            <span class="ctx-flags-arrow" style="font-size: 0.7rem; color: #777; transition: transform 0.15s ease;">▼</span>
+                        </summary>
+                        <div style="padding: 6px 10px; background: #fafafa; border-top: 1px solid #eee;">
+                            <div
+                                style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                                <span data-i18n="ctx_select_flags">Select flags:</span>
+                                <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
+                                    style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;">Clear</button>
+                            </div>
+                            <div id="ctx-flag-palette"
+                                style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                                <!-- Flag color buttons dynamically generated -->
+                            </div>
                         </div>
-                        <div id="ctx-flag-palette"
-                            style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                            <!-- Flag color buttons dynamically generated -->
-                        </div>
-                    </div>
+                    </details>
                     <button type="button" data-action="role" onclick="openRoleChangePopup()"
                         data-i18n="ctx_add_role">Add Role</button>
                     <button type="button" data-action="stats" onclick="openStudentStatsPopup(rosterContextStudentId)"
@@ -6832,41 +6843,56 @@
             const absentBtn = menu.querySelector('[data-action="absent"]');
             if (absentBtn) absentBtn.textContent = student && student.isAbsent ? 'Present' : 'Absent';
 
+            // Collapse flags details on fresh open
+            const flagsDetails = document.getElementById('ctx-flags-details');
+            if (flagsDetails && event !== null) {
+                flagsDetails.removeAttribute('open');
+            }
+
             // Populate multi-color flag palette
             const paletteEl = document.getElementById('ctx-flag-palette');
-            if (paletteEl && student) {
+            const summaryCountEl = document.getElementById('ctx-flags-summary-count');
+            if (student) {
                 const manualFlags = Array.isArray(student.manualFlags) ? student.manualFlags : (student.isFlagged ? ['red'] : []);
-                let html = FLAG_PRESETS.map(p => {
-                    const isActive = manualFlags.includes(p.key);
-                    return `<button type="button" onclick="toggleStudentManualFlag(${student.id}, '${p.key}')" title="Toggle ${p.name}" style="padding:4px 8px; border-radius:4px; background:${isActive ? p.hex : '#f5f5f5'}; color:${isActive ? '#fff' : '#333'}; border:1.5px solid ${p.hex}; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; transition:all 0.1s;">
-                        ${getFlagIconSvg(isActive ? '#fff' : p.hex, 12)}
-                        <span>${p.name.replace(' Flag', '')}</span>
-                    </button>`;
-                }).join('');
+                if (summaryCountEl) {
+                    summaryCountEl.textContent = manualFlags.length > 0 ? ` (${manualFlags.length})` : '';
+                }
 
-                // Custom color picker button
-                html += `<label title="Add Custom Color Flag" style="padding:4px 8px; border-radius:4px; background:#fff; color:#555; border:1.5px dashed #ccc; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; position:relative; overflow:hidden;">
-                    <input type="color" onchange="toggleStudentManualFlag(${student.id}, this.value)" style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
-                    <span>🎨 Custom...</span>
-                </label>`;
+                if (paletteEl) {
+                    let html = FLAG_PRESETS.map(p => {
+                        const isActive = manualFlags.includes(p.key);
+                        return `<button type="button" onclick="toggleStudentManualFlag(${student.id}, '${p.key}')" title="Toggle ${p.name}" style="padding:4px 8px; border-radius:4px; background:${isActive ? p.hex : '#f5f5f5'}; color:${isActive ? '#fff' : '#333'}; border:1.5px solid ${p.hex}; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; transition:all 0.1s;">
+                            ${getFlagIconSvg(isActive ? '#fff' : p.hex, 12)}
+                            <span>${p.name.replace(' Flag', '')}</span>
+                        </button>`;
+                    }).join('');
 
-                paletteEl.innerHTML = html;
+                    // Custom color picker button
+                    html += `<label title="Add Custom Color Flag" style="padding:4px 8px; border-radius:4px; background:#fff; color:#555; border:1.5px dashed #ccc; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; position:relative; overflow:hidden;">
+                        <input type="color" onchange="toggleStudentManualFlag(${student.id}, this.value)" style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
+                        <span>🎨 Custom...</span>
+                    </label>`;
+
+                    paletteEl.innerHTML = html;
+                }
             }
 
             menu.classList.add('open');
 
-            const pad = 8;
-            const x = event.clientX;
-            const y = event.clientY;
+            if (event) {
+                const pad = 8;
+                const x = event.clientX;
+                const y = event.clientY;
 
-            requestAnimationFrame(function () {
-                const w = menu.offsetWidth;
-                const h = menu.offsetHeight;
-                const left = Math.min(x, window.innerWidth - w - pad);
-                const top = Math.min(y, window.innerHeight - h - pad);
-                menu.style.left = Math.max(pad, left) + 'px';
-                menu.style.top = Math.max(pad, top) + 'px';
-            });
+                requestAnimationFrame(function () {
+                    const w = menu.offsetWidth;
+                    const h = menu.offsetHeight;
+                    const left = Math.min(x, window.innerWidth - w - pad);
+                    const top = Math.min(y, window.innerHeight - h - pad);
+                    menu.style.left = Math.max(pad, left) + 'px';
+                    menu.style.top = Math.max(pad, top) + 'px';
+                });
+            }
         }
 
         function closeRosterContextMenu() {
@@ -11443,14 +11469,14 @@ syncState();
         }
 
         // Close badge popups when clicking elsewhere
-        document.addEventListener('click', () => {
+        document.addEventListener('click', (e) => {
             if (_openBadgePopupKey) {
                 _closeBadgePopupByKey(_openBadgePopupKey);
                 _openBadgePopupKey = null;
             }
 
             const rosterMenu = document.getElementById('roster-context-menu');
-            if (rosterMenu && rosterMenu.classList.contains('open')) {
+            if (rosterMenu && rosterMenu.classList.contains('open') && !rosterMenu.contains(e.target)) {
                 rosterMenu.classList.remove('open');
                 rosterContextStudentId = null;
             }
