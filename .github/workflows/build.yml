@@ -34,11 +34,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Bump version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
-
       - name: Package (Windows portable & zipped directory)
         run: npx electron-builder --win portable zip --x64 --config.directories.output=dist/win
         env:
@@ -116,10 +111,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Bump version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
 
       - name: Package (macOS DMG — x64 & arm64)
         run: npx electron-builder --mac dmg --x64 --arm64 --config.directories.output=dist/mac
