@@ -179,12 +179,28 @@
               and saved session files.</p>
             <p class="path-label" data-i18n="gcCurrentDataFolder">Current data folder</p>
             <div class="path-box" id="dataPathBox" data-i18n="loading">Loading…</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <p class="path-label" style="margin-top:8px;" data-i18n="gcDatabaseSubfolderLabel">Active database subfolder</p>
+            <div class="path-box" id="userSubfolderPathBox" style="font-size:0.83rem;color:var(--muted);background:rgba(0,0,0,0.03);" data-i18n="loading">Loading…</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
               <button class="btn btn-outline" id="changeDataBtn" data-i18n="gcChangeFolder">Change folder…</button>
               <button class="btn btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
               <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
             </div>
             <div class="status" style="margin-top:8px;" id="dataStatus"></div>
+
+            <details class="info-callout">
+              <summary>
+                <svg class="info-callout-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span data-i18n="gcDataFolderInfoTitle">How Data Locations &amp; the 'user/' Subfolder Work</span>
+              </summary>
+              <div>
+                <p data-i18n="gcDataFolderInfoBody1">All dynamic database files (student rosters, grades, lesson plans, board maps, and settings) are stored inside a dedicated subfolder named 'user/' beneath your selected Data Location.</p>
+                <ul>
+                  <li data-i18n="gcDataFolderInfoItem1">Selecting a 'user' folder directly: If you select a folder named 'user', the suite automatically sets its parent directory as the root location.</li>
+                  <li data-i18n="gcDataFolderInfoItem2">Selecting a folder with loose data files: If you select a folder containing loose data files (like class-groups.js or config.js), the suite automatically moves them into the 'user/' subfolder so they are recognized immediately.</li>
+                </ul>
+              </div>
+            </details>
 
             <!-- migrate section -->
             <div id="migrateSection" class="migrate-section">
@@ -225,8 +241,9 @@
           </section>
           <section class="config-section">
             <h2 data-i18n="gcSyncLocation">Local Sync</h2>
-            <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcSyncDesc">Synchronize the current data
+            <p class="section-desc" style="margin-bottom:4px;" data-i18n="gcSyncDesc">Synchronize the current data
               folder with another saved location.</p>
+            <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;" data-i18n="gcSyncUserFolderNote">Sync mirrors the contents of your active user database folder (user/).</p>
             <div class="path-box" id="syncPath" data-i18n="notSet">Not set</div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-outline" id="pickSyncBtn" type="button" data-i18n="gcChooseFolder">Choose
@@ -249,6 +266,20 @@
               <ul id="syncAddedList"
                 style="margin:6px 0 0 0;padding:0 0 0 18px;font-family:Consolas,'Courier New',monospace;font-size:0.8rem;line-height:1.7;max-height:220px;overflow-y:auto;">
               </ul>
+            </details>
+
+            <details class="info-callout">
+              <summary>
+                <svg class="info-callout-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M21 19c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                <span data-i18n="gcSyncInfoTitle">How Local Sync Mirrors Your Database</span>
+              </summary>
+              <div>
+                <p data-i18n="gcSyncInfoBody1">Local Sync synchronizes the contents of your active 'user/' database folder with your chosen target location.</p>
+                <ul>
+                  <li data-i18n="gcSyncInfoItem1">If your sync target already contains a 'user/' subfolder, files are synced into [Target]/user/.</li>
+                  <li data-i18n="gcSyncInfoItem2">Otherwise, the contents of your 'user/' folder are mirrored directly into the root of the target directory.</li>
+                </ul>
+              </div>
             </details>
 
             <!-- ── FTP Sync ─────────────────────────────────── -->
@@ -1066,7 +1097,12 @@
         setDataStatus(t('gcCouldNotLoadPath'), 'err');
         return;
       }
-      dataPathBox.textContent = res.resolvedWritableRoot || t('notSet');
+      var rootPath = res.resolvedWritableRoot || t('notSet');
+      dataPathBox.textContent = rootPath;
+      var userBox = document.getElementById('userSubfolderPathBox');
+      if (userBox) {
+        userBox.textContent = rootPath !== t('notSet') ? rootPath + (rootPath.indexOf('/') !== -1 ? '/user' : '\\user') : t('notSet');
+      }
       setDataStatus('', '');
     }
 
@@ -1175,7 +1211,13 @@
         } else if (!res.ok) {
           setDataStatus(res.error || t('gcCouldNotSetFolder'), 'err');
         } else {
-          setDataStatus(t('gcDataFolderUpdated'), 'ok');
+          if (res.wasNormalized) {
+            setDataStatus(t('gcFolderNormalized'), 'ok');
+          } else if (res.adoptedLooseFiles) {
+            setDataStatus(t('gcLooseFilesAdopted'), 'ok');
+          } else {
+            setDataStatus(t('gcDataFolderUpdated'), 'ok');
+          }
           if (res.previousRoot && res.resolvedWritableRoot &&
             res.previousRoot.toLowerCase().replace(/[\\/]+$/g, '') !==
             res.resolvedWritableRoot.toLowerCase().replace(/[\\/]+$/g, '')) {

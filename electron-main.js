@@ -1353,8 +1353,12 @@ async function ensureWritableSeedData() {
     return;
   }
 
-  const saveTargets = getSaveTargets();
   const writableRoot = getWritableRootDir();
+  try {
+    await normalizeAndAdoptDataLocation(writableRoot);
+  } catch {}
+
+  const saveTargets = getSaveTargets();
   const legacyDataRoot = path.join(writableRoot, 'data');
   const legacyCustomDataRoot = path.join(writableRoot, 'user/log/custom-data');
   // Create all writable target folders up front so portable builds mirror Linux behavior.
@@ -3298,6 +3302,94 @@ function reloadOtherWindows(senderWebContents) {
   }
 }
 
+async function normalizeAndAdoptDataLocation(selectedPath) {
+  let effectivePath = path.resolve(selectedPath);
+  let wasNormalized = false;
+  let adoptedLooseFiles = false;
+
+  const keyMarkers = [
+    'class-groups.js',
+    'config.js',
+    'students.js',
+    'planner-config.js',
+    'board-config.js',
+    'ui-prefs.json',
+    'remote-config.js',
+    'roles.js',
+    'sync-baseline.json',
+    'board-sessions-backup.json',
+    'grades',
+    'planner',
+    'custom-data',
+    'constellations',
+    'doceditor',
+    'document-editor',
+    'group-participation',
+    'class-plans',
+    'mindmaps',
+    'game-results',
+    'to-print'
+  ];
+
+  // 1. Check if user selected the "user" folder directly
+  const basename = path.basename(effectivePath).toLowerCase();
+  if (basename === 'user') {
+    let hasUserFiles = false;
+    for (const marker of keyMarkers) {
+      if (fsSync.existsSync(path.join(effectivePath, marker))) {
+        hasUserFiles = true;
+        break;
+      }
+    }
+    if (hasUserFiles) {
+      effectivePath = path.dirname(effectivePath);
+      wasNormalized = true;
+    }
+  }
+
+  // 2. Check if the effectivePath contains loose user data files in its root
+  const userSubdir = path.join(effectivePath, 'user');
+  let looseMarkers = [];
+  for (const marker of keyMarkers) {
+    const loosePath = path.join(effectivePath, marker);
+    if (fsSync.existsSync(loosePath)) {
+      looseMarkers.push(marker);
+    }
+  }
+
+  if (looseMarkers.length > 0) {
+    await fs.mkdir(userSubdir, { recursive: true });
+    for (const marker of looseMarkers) {
+      const src = path.join(effectivePath, marker);
+      const dest = path.join(userSubdir, marker);
+      if (!fsSync.existsSync(dest)) {
+        try {
+          await fs.rename(src, dest);
+          adoptedLooseFiles = true;
+        } catch {
+          try {
+            const stat = await fs.stat(src);
+            if (stat.isDirectory()) {
+              await copyTreeForBackup(src, dest);
+              await fs.rm(src, { recursive: true, force: true });
+            } else {
+              await fs.copyFile(src, dest);
+              await fs.unlink(src);
+            }
+            adoptedLooseFiles = true;
+          } catch {}
+        }
+      }
+    }
+  }
+
+  return {
+    effectivePath,
+    wasNormalized,
+    adoptedLooseFiles
+  };
+}
+
 ipcMain.handle('app:pick-data-location', async (event) => {
   const previousRoot = getWritableRootDir();
 
@@ -3323,8 +3415,10 @@ ipcMain.handle('app:pick-data-location', async (event) => {
     };
   }
 
-  process.env.PORTABLE_ROOT = selected;
-  await savePortableRoot(selected);
+  const { effectivePath, wasNormalized, adoptedLooseFiles } = await normalizeAndAdoptDataLocation(selected);
+
+  process.env.PORTABLE_ROOT = effectivePath;
+  await savePortableRoot(effectivePath);
 
   try {
     await ensureWritableSeedData();
@@ -3332,7 +3426,7 @@ ipcMain.handle('app:pick-data-location', async (event) => {
     return {
       ok: false,
       canceled: false,
-      error: `Could not initialize app data folders in: ${selected}`,
+      error: `Could not initialize app data folders in: ${effectivePath}`,
       details: String(error?.message || error)
     };
   }
@@ -3345,7 +3439,9 @@ ipcMain.handle('app:pick-data-location', async (event) => {
   return {
     ok: true,
     canceled: false,
-    selected,
+    selected: effectivePath,
+    wasNormalized,
+    adoptedLooseFiles,
     previousRoot,
     resolvedWritableRoot: getWritableRootDir()
   };
