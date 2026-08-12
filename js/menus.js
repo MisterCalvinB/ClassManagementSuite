@@ -17,7 +17,7 @@
     '.hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}',
     '.hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}',
     '.hm-sep{border:none;border-top:1px solid #333;margin:4px 0}',
-    '.hm-icon-img{width:16px;height:16px;vertical-align:-3px;margin-right:8px;filter:invert(0.95)}',
+    '.hm-icon-img{width:16px;height:16px;vertical-align:-3px;margin-right:8px;filter:invert(1) brightness(10) grayscale(1)}',
   ].join('');
   document.head.appendChild(style);
 

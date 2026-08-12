@@ -7,6 +7,7 @@
   <title>Board</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
+  <link rel="stylesheet" href="../css/stylesheet.css">
   <script>
     let boardCmsTimerChannel = null;
     const boardCmsTimerPrefsKey = 'board-cms-timer-widget-v2';
@@ -3893,26 +3894,28 @@
 
     function navTo(sectionId) {
       const oldSection = document.getElementById(activeSection);
-      const lvls = oldSection.querySelector('.level-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.level-picker-wrap')) : ['all'];
-      const thms = oldSection.querySelector('.theme-picker-wrap:not(.level-picker-wrap):not(.pos-picker-wrap):not(.letter-picker-wrap):not(.length-picker-wrap)') ? themePickerGetSelected(oldSection.querySelector('.theme-picker-wrap:not(.level-picker-wrap):not(.pos-picker-wrap):not(.letter-picker-wrap):not(.length-picker-wrap)')) : ['all'];
-      const poss = oldSection.querySelector('.pos-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.pos-picker-wrap')) : ['all'];
-      const letts = oldSection.querySelector('.letter-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.letter-picker-wrap')) : ['all'];
-      const lens = oldSection.querySelector('.length-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.length-picker-wrap')) : ['all'];
+      if (oldSection) {
+        const lvls = oldSection.querySelector('.level-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.level-picker-wrap')) : ['all'];
+        const thms = oldSection.querySelector('.theme-picker-wrap:not(.level-picker-wrap):not(.pos-picker-wrap):not(.letter-picker-wrap):not(.length-picker-wrap)') ? themePickerGetSelected(oldSection.querySelector('.theme-picker-wrap:not(.level-picker-wrap):not(.pos-picker-wrap):not(.letter-picker-wrap):not(.length-picker-wrap)')) : ['all'];
+        const poss = oldSection.querySelector('.pos-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.pos-picker-wrap')) : ['all'];
+        const letts = oldSection.querySelector('.letter-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.letter-picker-wrap')) : ['all'];
+        const lens = oldSection.querySelector('.length-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.length-picker-wrap')) : ['all'];
 
-      // Autosave when leaving a board content section
-      const _boardSaveSections = { 'constellation-section': 'constellation' };
-      if (_boardSaveSections[activeSection] && activeSection !== sectionId && typeof boardAutosaveSection === 'function') {
-        boardAutosaveSection(_boardSaveSections[activeSection], { force: true });
-        // Save a real PNG snapshot of the current constellation page when navigating away
-        if (activeSection === 'constellation-section' && typeof conSaveCurrentPageSnapshotPng === 'function') {
-          conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+        // Autosave when leaving a board content section
+        const _boardSaveSections = { 'constellation-section': 'constellation' };
+        if (_boardSaveSections[activeSection] && activeSection !== sectionId && typeof boardAutosaveSection === 'function') {
+          boardAutosaveSection(_boardSaveSections[activeSection], { force: true });
+          // Save a real PNG snapshot of the current constellation page when navigating away
+          if (activeSection === 'constellation-section' && typeof conSaveCurrentPageSnapshotPng === 'function') {
+            conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+          }
         }
-      }
 
-      // Clear team background from the section we're leaving
-      oldSection.style.background = '';
-      oldSection.style.borderColor = '';
-      oldSection.style.boxShadow = '';
+        // Clear team background from the section we're leaving
+        oldSection.style.background = '';
+        oldSection.style.borderColor = '';
+        oldSection.style.boxShadow = '';
+      }
 
       activeSection = sectionId;
       if (typeof wfaClose === 'function') wfaClose();
@@ -3920,9 +3923,9 @@
       document.querySelectorAll('.game').forEach(s => s.classList.add('hidden'));
 
       const target = document.getElementById(sectionId);
-      target.classList.remove('hidden');
+      if (target) target.classList.remove('hidden');
 
-      if (sectionId !== 'main-menu') {
+      if (sectionId !== 'main-menu' && target) {
         const mount = target.querySelector('.filter-mount');
         if (mount && !mount.innerHTML) {
           mount.appendChild(document.getElementById('filter-template').content.cloneNode(true));
@@ -6986,6 +6989,8 @@
     function conApplyBoardBgColor() {
       const board = document.getElementById('constellation-board');
       if (board) board.style.backgroundColor = _conBoardBgColor || '';
+      const clip = document.getElementById('con-mirror-clip');
+      if (clip) clip.style.backgroundColor = _conBoardBgColor || '#ffffff';
       conRenderBoardBgPresetsInContextMenu();
     }
 
@@ -14124,11 +14129,12 @@
           if (brd) {
             const r = brd.getBoundingClientRect();
             const vp = {
-              vW: brd.clientWidth,
+              vW: window.innerWidth,
               vH: window.innerHeight,
               sx: brd.scrollLeft + Math.max(0, -r.left),
               sy: brd.scrollTop + Math.max(0, -r.top)
             };
+            console.log('[BoardPresenter] Broadcasting board-zoom:', { zoom: zoom, viewport: vp });
             window._conMirrorSend({
               type: 'board-zoom',
               zoom: zoom,
@@ -14210,9 +14216,9 @@
         }
         function _mirrorGetViewport() {
           var brd = document.getElementById('constellation-board');
-          if (!brd) return { vW: 0, vH: 0, sx: 0, sy: 0 };
+          if (!brd) return { vW: window.innerWidth, vH: window.innerHeight, sx: 0, sy: 0 };
           var r = brd.getBoundingClientRect();
-          var vW = brd.clientWidth;
+          var vW = window.innerWidth;
           // Use window.innerHeight as a fixed height so aspect ratio stays stable
           // when the toolbar scrolls off-screen and the board fills more of the window.
           var vH = window.innerHeight;
@@ -14298,6 +14304,13 @@
               }
               if (bgUrl) attachmentDataUrls[_bg.attachmentId] = bgUrl;
             }
+            console.log('[BoardPresenter] Broadcasting board-state:', {
+              viewport: vp,
+              zoom: conCurrentZoom || 1,
+              nodes: (snap.nodes || []).length,
+              drawings: (snap.drawings || []).length,
+              hasBoardBg: !!(_bg || (_conBoardBg && _conBoardBg._cachedDataUrl))
+            });
             _mirrorCh.postMessage({
               type: 'board-state',
               snapshot: snap,
@@ -14334,15 +14347,17 @@
               pointerOn: window._mirrorPointerOn || false,
               frozen: _mirrorFrozen
             });
-          } catch (e) { }
+          } catch (e) { console.error('[BoardPresenter] Error in _mirrorDoSend:', e); }
         }
         _mirrorCh.onmessage = function (e) {
           if (!e.data) return;
           if (e.data.type === 'request-state') {
+            console.log('[BoardPresenter] Received request-state from mirror window');
             _mirrorBroadcast();
             return;
           }
           if (e.data.type === 'mirror-control') {
+            console.log('[BoardPresenter] Received mirror-control:', e.data.command);
             if (e.data.command === 'close') {
               window.conCloseMirrorWindow();
             } else if (e.data.command === 'freeze') {
@@ -14360,6 +14375,7 @@
             const mirrorId = String(e.data.id || 'default');
             if (e.data.online) _mirrorPeers.add(mirrorId);
             else _mirrorPeers.delete(mirrorId);
+            console.log('[BoardPresenter] Mirror presence changed:', { mirrorId, online: e.data.online, activePeers: _mirrorPeers.size });
             _setPresentationActive(_mirrorPeers.size > 0);
           }
         };
@@ -14432,10 +14448,9 @@
             var brd = _mirrorBoard;
             if (!brd) return { nx: cx / window.innerWidth, ny: cy / window.innerHeight };
             var r = brd.getBoundingClientRect();
-            // Offset from the visible top of the board (max(r.top,0) when board is below viewport top,
-            // or 0 when board is scrolled above it), divided by innerHeight — must match _mirrorGetViewport vH.
+            // Offset relative to visible viewport width/height — matching _mirrorGetViewport
             return {
-              nx: (cx - r.left) / Math.max(1, brd.clientWidth),
+              nx: (cx - Math.max(r.left, 0)) / Math.max(1, window.innerWidth),
               ny: (cy - Math.max(r.top, 0)) / Math.max(1, window.innerHeight)
             };
           }
@@ -25883,6 +25898,13 @@
 
     // Restore a page snapshot to the live board, preserving the current title and session date.
     function _conRestorePageToBoard(snapshot, opts = {}) {
+      const isMirror = !!(opts && opts.mirrorSync);
+      console.log('[Board] _conRestorePageToBoard' + (isMirror ? ' (Mirror Sync)' : '') + ':', {
+        nodeCount: (snapshot && snapshot.nodes || []).length,
+        drawingCount: (snapshot && snapshot.drawings || []).length,
+        groupCount: (snapshot && snapshot.groups || []).length,
+        hasBoardBg: !!(snapshot && snapshot.boardBg)
+      });
       const title = window.conGetTitle ? window.conGetTitle() : '';
       const dateCreated = boardSessionDateCreated.constellation;
       _conRestoreSession({
@@ -34576,7 +34598,15 @@
       function _mirrorApplyViewport() {
         var brd = document.getElementById('constellation-board');
         var wrap = document.getElementById('con-mirror-clip');
-        if (!brd || !wrap || !_mvpW || !_mvpH) return;
+        if (!brd || !wrap || !_mvpW || !_mvpH) {
+          console.warn('[BoardMirror] _mirrorApplyViewport skipped:', {
+            hasBrd: !!brd,
+            hasWrap: !!wrap,
+            mvpW: _mvpW,
+            mvpH: _mvpH
+          });
+          return;
+        }
         var mW = window.innerWidth;
         var mH = window.innerHeight;
         var s = Math.min(mW / _mvpW, mH / _mvpH);
@@ -34593,6 +34623,12 @@
         // Board: scale then pan so content at (_msx,_msy) appears at (0,0) of wrapper
         // transform: scale(s) translate(-sx,-sy) — translate is in pre-scale coords
         brd.style.transform = 'scale(' + s + ') translate(' + (-_msx) + 'px, ' + (-_msy) + 'px)';
+        console.log('[BoardMirror] _mirrorApplyViewport updated:', {
+          windowSize: { w: mW, h: mH },
+          presenterViewport: { w: _mvpW, h: _mvpH, sx: _msx, sy: _msy },
+          computedScale: s,
+          clipBounds: { left: _mirrorWrapOx, top: _mirrorWrapOy, w: displayW, h: displayH }
+        });
       }
 
       // Force-restart group blink animation synced to current clock phase (3.6 s period).
@@ -34749,6 +34785,17 @@
         var d = e.data;
 
         if (d.type === 'board-state') {
+          console.log('[BoardMirror] Received board-state:', {
+            boardViewW: d.boardViewW,
+            boardViewH: d.boardViewH,
+            sx: d.sx,
+            sy: d.sy,
+            zoom: d.zoom,
+            snapshotNodes: d.snapshot ? (d.snapshot.nodes || []).length : 0,
+            snapshotDrawings: d.snapshot ? (d.snapshot.drawings || []).length : 0,
+            hasBoardBgRender: !!d.boardBgRender,
+            frozen: d.frozen
+          });
           if (d.boardViewW) { _mvpW = d.boardViewW; _mvpH = d.boardViewH; }
           if (d.sx !== undefined) { _msx = d.sx; _msy = d.sy; }
           // Pre-populate attachment data URLs so media items render correctly in mirror
@@ -34822,6 +34869,7 @@
 
         if (d.type === 'board-scroll') {
           if (_mirrorIsFrozen) return;
+          console.log('[BoardMirror] Received board-scroll:', { sx: d.sx, sy: d.sy, boardViewW: d.boardViewW, boardViewH: d.boardViewH });
           if (typeof d.zoom === 'number' && typeof window.updateZoom === 'function') {
             window.updateZoom(d.zoom);
           }
@@ -34833,6 +34881,7 @@
 
         if (d.type === 'board-zoom') {
           if (_mirrorIsFrozen) return;
+          console.log('[BoardMirror] Received board-zoom:', { zoom: d.zoom, sx: d.sx, sy: d.sy, boardViewW: d.boardViewW, boardViewH: d.boardViewH });
           if (typeof d.zoom === 'number' && typeof window.updateZoom === 'function') {
             window.updateZoom(d.zoom);
           }
@@ -34999,15 +35048,21 @@
       };
 
       // Request initial state; retry in case the main window is slow to respond
-      function _req() { try { ch.postMessage({ type: 'request-state' }); } catch (e) { } }
+      function _req() {
+        console.log('[BoardMirror] Sending request-state message to presenter window');
+        try { ch.postMessage({ type: 'request-state' }); } catch (e) { }
+      }
       document.addEventListener('DOMContentLoaded', function () {
+        console.log('[BoardMirror] DOMContentLoaded — initializing mirror presentation window');
         _sendMirrorPresence(true);
-        // Wrap the board in a fixed clip container
+        var sec = document.getElementById('constellation-section');
+        if (sec) sec.classList.remove('hidden');
+        // Wrap the board in a fixed clip container attached directly to body
         var brd = document.getElementById('constellation-board');
         if (brd && !document.getElementById('con-mirror-clip')) {
           var wrap = document.createElement('div');
           wrap.id = 'con-mirror-clip';
-          brd.parentNode.insertBefore(wrap, brd);
+          document.body.appendChild(wrap);
           wrap.appendChild(brd);
         }
         if (typeof navTo === 'function') navTo('constellation-section');

@@ -2171,3 +2171,133 @@ body {
     padding-left: 16px !important;
   }
 }
+
+/* ── Drag-to-copy ─────────────────────────────────────────────────────────── */
+
+/* Drag handle shown on filled entries */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  flex-shrink: 0;
+  align-self: stretch;
+  color: #bbb;
+  font-size: 1rem;
+  cursor: grab;
+  user-select: none;
+  transition: color 0.12s;
+  padding: 0 2px;
+}
+
+.entry-row[data-entry-id]:hover .drag-handle {
+  color: #888;
+}
+
+/* Draggable cursor on filled entry rows / table cells */
+.entry-row[data-entry-id],
+.at-cell[data-entry-id] {
+  cursor: grab;
+}
+
+/* Prevent child text/badge spans from initiating their own drag gestures,
+   ensuring dragstart always fires on the parent entry-row / at-cell */
+.entry-row[data-entry-id] .entry-time,
+.entry-row[data-entry-id] .entry-topic,
+.entry-row[data-entry-id] .entry-type-badge,
+.entry-row[data-entry-id] .entry-class-pill,
+.entry-row[data-entry-id] .recur-badge,
+.entry-row[data-entry-id] .gs-badge,
+.entry-row[data-entry-id] .part-dot,
+.at-cell[data-entry-id] .at-class-title,
+.at-cell[data-entry-id] .at-topic,
+.at-cell[data-entry-id] .at-cell-detail,
+.at-cell[data-entry-id] .entry-type-badge {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Visual feedback while dragging a source entry */
+.entry-row.drag-source,
+.at-cell.drag-source {
+  opacity: 0.42;
+  outline: 2px dashed var(--accent-blue, #3b82f6);
+  outline-offset: -2px;
+}
+
+/* Highlight when a valid drop target is hovered */
+.entry-row.drag-over-target,
+.at-cell.drag-over-target,
+.at-cell-empty.drag-over-target {
+  outline: 2.5px dashed var(--accent-blue, #3b82f6);
+  outline-offset: -2px;
+  background: rgba(59, 130, 246, 0.10) !important;
+  transition: background 0.1s;
+}
+
+/* Drag-copy confirmation popover */
+#drag-copy-popover {
+  display: none;
+  position: fixed;
+  z-index: 10010;
+  background: var(--modal-bg, #fff);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  padding: 12px 15px 10px;
+  min-width: 220px;
+  max-width: 320px;
+  font-family: 'Lexend', system-ui, sans-serif;
+  animation: dcp-in 0.12s ease;
+}
+
+@keyframes dcp-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#drag-copy-popover p {
+  margin: 0 0 10px;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.dcp-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#dcp-yes {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+#dcp-yes:hover {
+  background: #2563eb;
+}
+
+#dcp-cancel {
+  background: transparent;
+  border: 1.5px solid #94a3b8;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #475569;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+#dcp-cancel:hover {
+  border-color: #64748b;
+  color: #1e293b;
+}

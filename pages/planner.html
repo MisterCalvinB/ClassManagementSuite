@@ -880,6 +880,10 @@
     var multiSelectMode = false;
     var selectedEntryIds = new Set();
 
+    // ── Drag-to-copy state ──────────────────────────────────────────────────────
+    var _dragSourceEntryId = null;
+    var _dragTargetEl = null;
+
     function isEntryEmpty(e) {
       if (!e) return true;
       if (e.type && e.type !== 'lesson') return false;
@@ -1189,6 +1193,117 @@
       navigateToPending();
       navigateToPendingTodo();
       _plannerBooted = true;
+
+      // ── Drag-to-copy: set up delegated listeners on #agenda ────────────
+      (function initAgendaDragListeners() {
+        var agendaEl = document.getElementById('agenda');
+        console.log('[DragCopy] initAgendaDragListeners — #agenda found:', !!agendaEl, 'already bound:', !!(agendaEl && agendaEl._dragCopyBound));
+        if (!agendaEl || agendaEl._dragCopyBound) return;
+        agendaEl._dragCopyBound = true;
+        console.log('[DragCopy] Attaching drag listeners to #agenda');
+
+        agendaEl.addEventListener('dragstart', function (e) {
+          console.log('[DragCopy] dragstart fired — target:', e.target && e.target.tagName, e.target && e.target.className, 'multiSelectMode:', multiSelectMode);
+          if (multiSelectMode) return;
+          var src = null;
+          var el = e.target;
+          while (el && el !== agendaEl) {
+            if (el.getAttribute && el.getAttribute('data-entry-id') &&
+                (el.classList.contains('entry-row') || el.classList.contains('at-cell'))) {
+              src = el;
+              break;
+            }
+            el = el.parentElement;
+          }
+          console.log('[DragCopy] dragstart — src found:', !!src, src && src.getAttribute('data-entry-id'));
+          if (!src) { e.preventDefault(); return; }
+          _dragSourceEntryId = src.getAttribute('data-entry-id');
+          e.dataTransfer.effectAllowed = 'copy';
+          try {
+            var ghost = document.createElement('div');
+            ghost.style.cssText = 'position:fixed;top:-9999px;opacity:0.01';
+            ghost.textContent = '\u00a0';
+            document.body.appendChild(ghost);
+            e.dataTransfer.setDragImage(ghost, 0, 0);
+            setTimeout(function () { document.body.removeChild(ghost); }, 100);
+          } catch (_) {}
+          src.classList.add('drag-source');
+          _clearDragPopover();
+          console.log('[DragCopy] dragstart OK — _dragSourceEntryId:', _dragSourceEntryId);
+        });
+
+        agendaEl.addEventListener('dragend', function (e) {
+          console.log('[DragCopy] dragend fired — _dragSourceEntryId was:', _dragSourceEntryId);
+          _dragSourceEntryId = null;
+          agendaEl.querySelectorAll('.drag-source').forEach(function (el) { el.classList.remove('drag-source'); });
+          agendaEl.querySelectorAll('.drag-over-target').forEach(function (el) { el.classList.remove('drag-over-target'); });
+          _dragTargetEl = null;
+        });
+
+        agendaEl.addEventListener('dragover', function (e) {
+          if (!_dragSourceEntryId || multiSelectMode) return;
+          var tgt = e.target && e.target.closest
+            ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
+            : null;
+          if (!tgt) return;
+          if (tgt.getAttribute('data-entry-id') === _dragSourceEntryId) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          if (_dragTargetEl && _dragTargetEl !== tgt) {
+            _dragTargetEl.classList.remove('drag-over-target');
+          }
+          tgt.classList.add('drag-over-target');
+          _dragTargetEl = tgt;
+        });
+
+        agendaEl.addEventListener('dragleave', function (e) {
+          var tgt = e.target && e.target.closest
+            ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
+            : null;
+          if (!tgt) return;
+          if (!tgt.contains(e.relatedTarget)) {
+            tgt.classList.remove('drag-over-target');
+          }
+        });
+
+        agendaEl.addEventListener('drop', function (e) {
+          console.log('[DragCopy] drop fired — _dragSourceEntryId:', _dragSourceEntryId, 'target:', e.target && e.target.className);
+          if (!_dragSourceEntryId || multiSelectMode) return;
+          var tgt = e.target && e.target.closest
+            ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
+            : null;
+          console.log('[DragCopy] drop — tgt found:', !!tgt, tgt && tgt.getAttribute('data-entry-id'));
+          if (!tgt) return;
+          var srcId = _dragSourceEntryId;
+          if (tgt.getAttribute('data-entry-id') === srcId) return;
+          e.preventDefault();
+          tgt.classList.remove('drag-over-target');
+          _dragTargetEl = null;
+
+          var targetEntryId = tgt.getAttribute('data-entry-id') || '';
+          console.log('[DragCopy] drop — targetEntryId:', targetEntryId, 'srcId:', srcId);
+          if (targetEntryId) {
+            _showDragCopyPopover(srcId, { entryId: targetEntryId }, tgt, e);
+          } else {
+            var slotInfo = {
+              classId: tgt.getAttribute('data-classid') || '',
+              date:    tgt.getAttribute('data-date')    || '',
+              time:    tgt.getAttribute('data-time')    || '',
+              timeEnd: tgt.getAttribute('data-timeend') || ''
+            };
+            console.log('[DragCopy] drop — empty slot:', slotInfo);
+            _showDragCopyPopover(srcId, slotInfo, tgt, e);
+          }
+        });
+
+        // Also log any raw dragstart on the document to confirm the browser sees it
+        if (!document._dragCopyRawBound) {
+          document._dragCopyRawBound = true;
+          document.addEventListener('dragstart', function (e) {
+            console.log('[DragCopy] RAW document dragstart — target:', e.target && e.target.tagName, e.target && (e.target.className || '').toString().slice(0, 60), 'draggable attr:', e.target && e.target.getAttribute && e.target.getAttribute('draggable'));
+          }, true);
+        }
+      })();
     });
 
     // When the window is already open and focused from launcher, process any pending nav keys.
@@ -1892,10 +2007,11 @@
       var timeLabel = s.time || '';
       if (s.timeEnd) timeLabel += '–' + s.timeEnd;
       var isSelected = entry && selectedEntryIds.has(entry.id);
-      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '" draggable="true"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
         esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' +
         esc(s.timeEnd || '') + '\',\'' + (entry ? entry.id : '') + '\')">';
       r += '<div class="entry-color-bar"></div>';
+      if (entry) r += '<span class="drag-handle" title="Drag to copy content" draggable="false">&#8942;</span>';
       if (multiSelectMode && entry) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
@@ -3819,6 +3935,67 @@
       closeModal('exportModal');
     }
 
+    function cleanPart(p) {
+      if (p == null) return '';
+      var s = String(p).trim();
+      return s.replace(/\.+$/, '');
+    }
+
+    function getExportRowDateAndSlot(row) {
+      var dateLabel = formatExportDate(row.date);
+      if (row.kind === 'holiday') {
+        if (row.dateTo) {
+          var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+          dateLabel += ' – ' + d2;
+        }
+        return dateLabel;
+      }
+      if (row.kind === 'slot') {
+        var s = row.slot || {};
+        var slotTime = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+        return dateLabel + (slotTime ? ' · ' + slotTime : '');
+      }
+      var e = row.entry || {};
+      var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
+      return dateLabel + (timeLabel ? ' · ' + timeLabel : '');
+    }
+
+    function formatExportRowDetails(row, fi, customNames) {
+      fi = fi || {};
+      if (row.kind === 'holiday') {
+        var holStr = row.label || t('pl_typeHoliday');
+        if (row.dateTo) {
+          var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+          var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+          holStr += ' (' + d1 + ' – ' + d2 + ')';
+        }
+        var hParts = [t('pl_typeHoliday'), holStr];
+        return hParts.map(cleanPart).filter(Boolean).join('. ');
+      }
+      if (row.kind === 'slot') {
+        var s = row.slot || {};
+        var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+        var sParts = [slotClass, t('pl_exportLessonSlotLabel')];
+        return sParts.map(cleanPart).filter(Boolean).join('. ');
+      }
+
+      var e = row.entry || {};
+      var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
+      var tLabel = typeLabel(e.type || 'lesson');
+
+      var parts = [clsLabel, tLabel];
+      if (fi.topic && e.topic) parts.push(e.topic);
+      if (fi.objective && e.objective) parts.push(e.objective);
+      if (fi.notes && e.notes) parts.push(e.notes);
+      if (fi.custom && e.customFields) {
+        (customNames || []).forEach(function (n) {
+          if (e.customFields[n]) parts.push(e.customFields[n]);
+        });
+      }
+
+      return parts.map(cleanPart).filter(Boolean).join('. ');
+    }
+
     // ── HTML table export ───────────────────────────────────────────────────────
     function doExportHtml() {
       var clsFilter = document.getElementById('exp-cls').value;
@@ -3829,11 +4006,7 @@
       var sem = data.sem;
       var title = sem ? (sem.label || 'Planner') : 'Planner';
       var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
-      var headers = [t('pl_entryDate'), t('pl_entryClass'), t('pl_entryTime'), t('pl_entryType')];
-      if (fi.topic) headers.push(t('pl_entryTopic'));
-      if (fi.objective) headers.push(t('pl_entryObjective'));
-      if (fi.notes) headers.push(t('pl_entryNotes'));
-      customNames.forEach(function (n) { headers.push(n); });
+      var headers = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
 
       function rowCellsHtml(cells) {
         return '<tr>' + cells.map(function (v, idx) {
@@ -3842,57 +4015,18 @@
       }
 
       var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var prevWeekKey = null;
       var rows = [];
 
       data.rows.forEach(function (row) {
         var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-        if (weekInfo.key !== prevWeekKey) {
-          prevWeekKey = weekInfo.key;
-          rows.push('<tr class="week-header-row"><td colspan="' + headers.length + '">' + esc(weekInfo.label) + '</td></tr>');
-        }
-
-        if (row.kind === 'holiday') {
-          var holStr = row.label || t('pl_typeHoliday');
-          if (row.dateTo) {
-            var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-            var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-            holStr += ' (' + d1 + ' - ' + d2 + ')';
-          }
-          var holidayCells = [formatExportDate(row.date), t('pl_noClass'), '', t('pl_typeHoliday')];
-          if (fi.topic) holidayCells.push(holStr);
-          if (fi.objective) holidayCells.push('');
-          if (fi.notes) holidayCells.push('');
-          customNames.forEach(function () { holidayCells.push(''); });
-          rows.push(rowCellsHtml(holidayCells));
-          return;
-        }
-        if (row.kind === 'slot') {
-          var s = row.slot || {};
-          var slotTime = (s.time || '') + (s.timeEnd ? '-' + s.timeEnd : '');
-          var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
-          var slotCells = [formatExportDate(row.date), slotClass, slotTime, t('pl_exportLessonSlotLabel')];
-          if (fi.topic) slotCells.push(t('pl_exportLessonSlotLabel'));
-          if (fi.objective) slotCells.push('');
-          if (fi.notes) slotCells.push('');
-          customNames.forEach(function () { slotCells.push(''); });
-          rows.push(rowCellsHtml(slotCells));
-          return;
-        }
-
-        var e = row.entry;
-        var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-        var timeLabel = (e.time || '') + (e.timeEnd ? '-' + e.timeEnd : '');
-        var rowCells = [formatExportDate(e.date), clsLabel, timeLabel, typeLabel(e.type || 'lesson')];
-        if (fi.topic) rowCells.push(e.topic || '');
-        if (fi.objective) rowCells.push(e.objective || '');
-        if (fi.notes) rowCells.push(e.notes || '');
-        customNames.forEach(function (n) { rowCells.push((e.customFields && e.customFields[n]) || ''); });
-        rows.push(rowCellsHtml(rowCells));
+        var weekLabel = weekInfo ? weekInfo.label : '';
+        var dateLabel = getExportRowDateAndSlot(row);
+        var details = formatExportRowDetails(row, fi, customNames);
+        rows.push(rowCellsHtml([weekLabel, dateLabel, details]));
       });
 
       if (!rows.length) {
-        rows.push('<tr><td data-col="0" colspan="' + headers.length + '">' + esc(t('pl_noEntries')) + '</td></tr>');
+        rows.push('<tr><td data-col="0" colspan="3">' + esc(t('pl_noEntries')) + '</td></tr>');
       }
 
       var colControls = headers.map(function (h, idx) {
@@ -3923,8 +4057,6 @@
         '.col-resizer{position:absolute;top:0;right:-3px;width:8px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:2}' +
         '.col-resizer::after{content:"";position:absolute;right:3px;top:20%;bottom:20%;width:1px;background:#b8bcc4}' +
         'tbody tr:nth-child(even){background:#fafafa}' +
-        '.week-header-row{background:#e8f4fd!important;font-weight:700;color:#1e3a8a;font-size:13.5px}' +
-        '.week-header-row td{padding:10px 8px;border:1px solid #b8daff;text-align:left}' +
         '</style></head><body>' +
         '<h1>' + esc(title) + '</h1>' +
         '<p class="meta">' + esc(formatExportDate(new Date().toISOString().slice(0, 10))) + '</p>' +
@@ -3971,52 +4103,26 @@
       var fi = filters.fields;
       var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
       var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
-      var header = ['Date', 'EndDate', 'Class', 'StartTime', 'EndTime', 'Type'];
-      if (fi.topic) header.push('Topic');
-      if (fi.objective) header.push('Objective');
-      if (fi.notes) header.push('Notes');
-      customNames.forEach(function (n) { header.push(n); });
+      var header = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
       var sem = data.sem;
       var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var prevWeekKey = null;
       var rows = [header];
+
       data.rows.forEach(function (row) {
         var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-        if (weekInfo.key !== prevWeekKey) {
-          prevWeekKey = weekInfo.key;
-          var weekRow = [weekInfo.label];
-          for (var i = 1; i < header.length; i++) {
-            weekRow.push('');
-          }
-          rows.push(weekRow);
-        }
-
-        if (row.kind === 'slot') {
-          var s = row.slot;
-          var slotCells = [formatExportDate(row.date), '', s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass'), s.time || '', s.timeEnd || '', 'lesson-slot'];
-          if (fi.topic) slotCells.push(t('pl_exportLessonSlotLabel'));
-          if (fi.objective) slotCells.push('');
-          if (fi.notes) slotCells.push('');
-          customNames.forEach(function () { slotCells.push(''); });
-          rows.push(slotCells);
-          return;
-        }
-        if (row.kind !== 'entry') return;
-        var e = row.entry;
-        var clsCell = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-        var cells = [formatExportDate(e.date), e.dateTo ? formatExportDate(e.dateTo) : '', clsCell, e.time || '', e.timeEnd || '', e.type || ''];
-        if (fi.topic) cells.push(e.topic || '');
-        if (fi.objective) cells.push(e.objective || '');
-        if (fi.notes) cells.push(e.notes || '');
-        customNames.forEach(function (n) { cells.push((e.customFields && e.customFields[n]) || ''); });
-        rows.push(cells);
+        var weekLabel = weekInfo ? weekInfo.label : '';
+        var dateLabel = getExportRowDateAndSlot(row);
+        var details = formatExportRowDetails(row, fi, customNames);
+        rows.push([weekLabel, dateLabel, details]);
       });
+
       var csv = rows.map(function (row) {
         return row.map(function (cell) {
           var s = String(cell).replace(/"/g, '""');
           return /[,"\n\r]/.test(s) ? '"' + s + '"' : s;
         }).join(',');
       }).join('\r\n');
+
       downloadText('﻿' + csv,
         fileBase + '.csv', 'text/csv;charset=utf-8');
       closeModal('exportModal');
@@ -4063,82 +4169,34 @@
       var sem = data.sem;
       var title = sem ? (sem.label || 'Planner') : 'Planner';
       var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var byDate = {};
+      var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
 
-      data.rows.forEach(function (row) {
-        if (!byDate[row.date]) byDate[row.date] = [];
-        byDate[row.date].push(row);
-      });
-
-      function rowActivityText(row) {
-        if (row.kind === 'holiday') {
-          var holStr = row.label || t('pl_typeHoliday');
-          if (row.dateTo) {
-            var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-            var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-            holStr += ' (' + d1 + ' – ' + d2 + ')';
-          }
-          return '🏖 ' + holStr;
-        }
-        if (row.kind === 'slot') {
-          var s = row.slot || {};
-          var slotTime = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
-          var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
-          return (slotTime ? slotTime + ' · ' : '') + slotClass + ' · ' + t('pl_exportLessonSlotLabel');
-        }
-
-        var e = row.entry;
-        var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
-        var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-        var parts = [];
-        if (timeLabel) parts.push(timeLabel);
-        parts.push(clsLabel);
-        if (e.type) parts.push(typeLabel(e.type));
-        if (fi.topic && e.topic) parts.push(e.topic);
-
-        var extra = [];
-        if (fi.objective && e.objective) extra.push(t('pl_entryObjective') + ': ' + e.objective);
-        if (fi.notes && e.notes) extra.push(t('pl_entryNotes') + ': ' + e.notes);
-        if (fi.custom && e.customFields) {
-          Object.keys(e.customFields).forEach(function (k) {
-            if (e.customFields[k]) extra.push(k + ': ' + e.customFields[k]);
-          });
-        }
-        if (extra.length) parts.push('(' + extra.join('; ') + ')');
-        return parts.join(' · ');
-      }
-
-      var dateKeys = Object.keys(byDate).sort();
       var lines = [];
       lines.push('# ' + title);
       lines.push('');
       lines.push(formatExportDate(new Date().toISOString().slice(0, 10)));
       lines.push('');
 
-      if (!dateKeys.length) {
-        lines.push('| ' + mdEscCell(t('pl_noEntries')) + ' | |');
+      var weekColHeader = t('pl_weeksTitle') || 'Week';
+      var dateColHeader = (t('pl_entryDate') || 'Date') + ' / Time';
+      var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
+
+      if (!data.rows.length) {
+        lines.push('| ' + mdEscCell(weekColHeader) + ' | ' + mdEscCell(dateColHeader) + ' | ' + mdEscCell(detailsColHeader) + ' |');
+        lines.push('| --- | --- | --- |');
+        lines.push('| ' + mdEscCell(t('pl_noEntries')) + ' | | |');
         return lines.join('\n');
       }
 
-      var prevWeekKey = null;
-      dateKeys.forEach(function (date) {
-        var weekInfo = getWeekGroupInfo(date, sem, totalWeeks);
-        if (weekInfo.key !== prevWeekKey) {
-          prevWeekKey = weekInfo.key;
-          lines.push('');
-          lines.push('## ' + weekInfo.label);
-          lines.push('');
-          lines.push('| ' + mdEscCell(t('pl_entryDate')) + ' | ' + mdEscCell(t('pl_exportActivitiesCol')) + ' |');
-          lines.push('| --- | --- |');
-        }
+      lines.push('| ' + mdEscCell(weekColHeader) + ' | ' + mdEscCell(dateColHeader) + ' | ' + mdEscCell(detailsColHeader) + ' |');
+      lines.push('| --- | --- | --- |');
 
-        var dateLabel = formatExportDate(date);
-
-        var activities = byDate[date].map(function (row) {
-          return '• ' + rowActivityText(row);
-        }).join('<br>');
-
-        lines.push('| ' + mdEscCell(dateLabel) + ' | ' + mdEscCell(activities) + ' |');
+      data.rows.forEach(function (row) {
+        var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
+        var weekLabel = weekInfo ? weekInfo.label : '';
+        var dateLabel = getExportRowDateAndSlot(row);
+        var details = formatExportRowDetails(row, fi, customNames);
+        lines.push('| ' + mdEscCell(weekLabel) + ' | ' + mdEscCell(dateLabel) + ' | ' + mdEscCell(details) + ' |');
       });
 
       return lines.join('\n');
@@ -4184,74 +4242,29 @@
       var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
       var sem = data.sem;
       var title = sem ? (sem.label || 'Planner') : 'Planner';
-      var byDate = {};
-      data.rows.forEach(function (row) {
-        if (!byDate[row.date]) byDate[row.date] = [];
-        byDate[row.date].push(row);
-      });
-      var dateKeys = Object.keys(byDate).sort();
       var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+      var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
 
-      function formatActivity(row) {
-        if (row.kind === 'holiday') {
-          var holStr = row.label || t('pl_typeHoliday');
-          if (row.dateTo) {
-            var d1 = new Date(row.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-            var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-            holStr += ' (' + d1 + ' – ' + d2 + ')';
-          }
-          return '<li class="act holiday">🏖 ' + esc(holStr) + '</li>';
-        }
-        if (row.kind === 'slot') {
-          var s = row.slot;
-          var timeSlot = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
-          var clsSlot = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
-          return '<li class="act"><span class="main">' +
-            esc((timeSlot ? timeSlot + ' · ' : '') + clsSlot + ' · ' + t('pl_exportLessonSlotLabel')) +
-            '</span></li>';
-        }
+      var weekColHeader = t('pl_weeksTitle') || 'Week';
+      var dateColHeader = (t('pl_entryDate') || 'Date') + ' / Time';
+      var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
 
-        var e = row.entry;
-        var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
-        var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-        var mainParts = [];
-        if (timeLabel) mainParts.push(timeLabel);
-        mainParts.push(clsLabel);
-        if (e.type) mainParts.push(typeLabel(e.type));
-        if (fi.topic && e.topic) mainParts.push(e.topic);
+      var body = '<table class="exp-table"><thead><tr><th class="col-week">' +
+        esc(weekColHeader) + '</th><th class="col-date">' +
+        esc(dateColHeader) + '</th><th class="col-acts">' +
+        esc(detailsColHeader) + '</th></tr></thead><tbody>';
 
-        var extraParts = [];
-        if (fi.objective && e.objective) extraParts.push(t('pl_entryObjective') + ': ' + e.objective);
-        if (fi.notes && e.notes) extraParts.push(t('pl_entryNotes') + ': ' + e.notes);
-        if (fi.custom && e.customFields) {
-          Object.keys(e.customFields).forEach(function (k) {
-            if (e.customFields[k]) extraParts.push(k + ': ' + e.customFields[k]);
-          });
-        }
-
-        var out = '<li class="act"><span class="main">' + esc(mainParts.join(' · ')) + '</span>';
-        if (extraParts.length) out += '<span class="extra">' + esc(extraParts.join(' ; ')) + '</span>';
-        out += '</li>';
-        return out;
-      }
-
-      var body = '<table class="exp-table"><thead><tr><th>' +
-        esc(t('pl_entryDate')) + '</th><th>' + esc(t('pl_exportActivitiesCol')) + '</th></tr></thead><tbody>';
-
-      if (!dateKeys.length) {
-        body += '<tr><td colspan="2" class="empty-row">' + esc(t('pl_noEntries')) + '</td></tr>';
+      if (!data.rows.length) {
+        body += '<tr><td colspan="3" class="empty-row">' + esc(t('pl_noEntries')) + '</td></tr>';
       } else {
-        var prevWeekKey = null;
-        dateKeys.forEach(function (date) {
-          var weekInfo = getWeekGroupInfo(date, sem, totalWeeks);
-          if (weekInfo.key !== prevWeekKey) {
-            prevWeekKey = weekInfo.key;
-            body += '<tr class="week-header-row"><td colspan="2">' + esc(weekInfo.label) + '</td></tr>';
-          }
-          var dateLabel = formatExportDate(date);
-          var acts = byDate[date].map(formatActivity).filter(Boolean).join('');
-          body += '<tr><td class="col-date"><div class="date-main">' + esc(dateLabel) + '</div>' +
-            '</td><td class="col-acts"><ul>' + acts + '</ul></td></tr>';
+        data.rows.forEach(function (row) {
+          var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
+          var weekLabel = weekInfo ? weekInfo.label : '';
+          var dateLabel = getExportRowDateAndSlot(row);
+          var details = formatExportRowDetails(row, fi, customNames);
+          body += '<tr><td class="col-week"><div class="week-main">' + esc(weekLabel) + '</div></td>' +
+            '<td class="col-date"><div class="date-main">' + esc(dateLabel) + '</div></td>' +
+            '<td class="col-acts"><div class="act-main">' + esc(details) + '</div></td></tr>';
         });
       }
 
@@ -4265,11 +4278,9 @@
       var cellPad = fitOnePage ? '2px 3px' : '4px 6px';
       var thSize = fitOnePage ? '6.4pt' : '8pt';
       var dateMainSize = fitOnePage ? '6.6pt' : '8.8pt';
-      var weekSize = fitOnePage ? '6pt' : '7.6pt';
       var actMainSize = fitOnePage ? '6.4pt' : '8.6pt';
-      var actExtraSize = fitOnePage ? '5.8pt' : '7.6pt';
-      var colDateWidth = fitOnePage ? '24%' : '27%';
-      var rowGap = fitOnePage ? '1px' : '2px';
+      var colWeekWidth = fitOnePage ? '18%' : '20%';
+      var colDateWidth = fitOnePage ? '22%' : '24%';
 
       var css = '@page{size:A4 portrait;margin:' + pageMargin + '}'
         + '* {box-sizing:border-box;margin:0;padding:0}'
@@ -4280,17 +4291,11 @@
         + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed}'
         + '.exp-table th,.exp-table td{border:1px solid #d6d6d6;vertical-align:top;padding:' + cellPad + '}'
         + '.exp-table th{background:#f4f4f4;font-size:' + thSize + ';text-transform:uppercase;letter-spacing:.3px;text-align:left}'
+        + '.col-week{width:' + colWeekWidth + '}'
         + '.col-date{width:' + colDateWidth + '}'
-        + '.date-main{font-weight:700;font-size:' + dateMainSize + ';line-height:1.15}'
-        + '.date-week{font-size:' + weekSize + ';color:#666;margin-top:1px;line-height:1.1}'
-        + '.col-acts ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:' + rowGap + '}'
-        + '.act{line-height:1.25}'
-        + '.act .main{display:block;font-size:' + actMainSize + ';line-height:1.2}'
-        + '.act .extra{display:block;font-size:' + actExtraSize + ';color:#555;margin-top:1px;line-height:1.15}'
-        + '.act.holiday .main,.act.holiday{font-style:italic;color:#444}'
-        + '.empty-row{text-align:center;color:#666;font-style:italic}'
-        + '.week-header-row{background:#f0f4f8!important;font-weight:700;color:#1e3e6b}'
-        + '.week-header-row td{padding:' + (fitOnePage ? '3px 4px' : '6px 8px') + ';border:1px solid #d6d6d6;font-size:' + (fitOnePage ? '7pt' : '9.5pt') + ';text-align:left}';
+        + '.date-main,.week-main{font-weight:700;font-size:' + dateMainSize + ';line-height:1.15}'
+        + '.act-main{font-size:' + actMainSize + ';line-height:1.25}'
+        + '.empty-row{text-align:center;color:#666;font-style:italic}';
 
       return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
         + '<style>' + css + '</style></head><body>'
@@ -4376,6 +4381,96 @@
       };
     }
 
+    // ── Drag-to-copy helpers ────────────────────────────────────
+    function _clearDragPopover() {
+      var el = document.getElementById('drag-copy-popover');
+      if (el) el.style.display = 'none';
+    }
+
+    function _showDragCopyPopover(srcId, targetInfo, anchorEl, dropEvent) {
+      var srcEntry = entries.find(function (e) { return e.id === srcId; });
+      if (!srcEntry) return;
+      var srcLabel = srcEntry.topic ? srcEntry.topic.slice(0, 40) : t('pl_emptySlot');
+
+      var msg;
+      if (targetInfo.entryId) {
+        var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
+        var tgtLabel = tgtEntry && tgtEntry.topic ? tgtEntry.topic.slice(0, 40) : t('pl_emptySlot');
+        msg = tFmt('pl_dragCopyMsg', { src: srcLabel, tgt: tgtLabel });
+      } else {
+        msg = tFmt('pl_dragCopyMsgSlot', { src: srcLabel });
+      }
+
+      var popover = document.getElementById('drag-copy-popover');
+      if (!popover) return;
+      document.getElementById('dcp-msg').textContent = msg;
+      popover.style.display = 'block';
+
+      // Position near the drop target
+      var rect = anchorEl ? anchorEl.getBoundingClientRect() : null;
+      var px = rect ? Math.min(rect.left + 8, window.innerWidth - 340) : (dropEvent ? dropEvent.clientX : 100);
+      var py = rect ? (rect.bottom + 6) : (dropEvent ? dropEvent.clientY + 10 : 100);
+      if (py + 100 > window.innerHeight) py = (rect ? rect.top : py) - 90;
+      popover.style.left = Math.max(8, px) + 'px';
+      popover.style.top  = Math.max(8, py) + 'px';
+
+      // Capture for confirm/cancel
+      popover._pendingSrcId = srcId;
+      popover._pendingTargetInfo = targetInfo;
+    }
+
+    function _applyDragCopy(srcId, targetInfo) {
+      var srcEntry = entries.find(function (e) { return e.id === srcId; });
+      if (!srcEntry) return;
+
+      if (targetInfo && targetInfo.entryId) {
+        // ── Overwrite existing entry ──────────────────────────
+        var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
+        if (!tgtEntry || tgtEntry.id === srcId) return;
+        tgtEntry.type         = srcEntry.type;
+        tgtEntry.topic        = srcEntry.topic || '';
+        tgtEntry.objective    = srcEntry.objective || '';
+        tgtEntry.notes        = srcEntry.notes || '';
+        tgtEntry.customFields = srcEntry.customFields
+          ? Object.assign({}, srcEntry.customFields) : undefined;
+      } else if (targetInfo && targetInfo.date) {
+        // ── Create new entry in empty slot ───────────────────
+        entries.push({
+          id:           uid(),
+          classId:      targetInfo.classId  || '',
+          date:         targetInfo.date,
+          time:         targetInfo.time      || '',
+          timeEnd:      targetInfo.timeEnd   || '',
+          type:         srcEntry.type,
+          topic:        srcEntry.topic       || '',
+          objective:    srcEntry.objective   || '',
+          notes:        srcEntry.notes       || '',
+          customFields: srcEntry.customFields
+            ? Object.assign({}, srcEntry.customFields) : undefined,
+          gsLink: null
+        });
+      } else {
+        return;
+      }
+
+      persistEntries();
+      render();
+      showToast(t('pl_dragCopyDone'));
+    }
+
+    function dragCopyConfirm() {
+      var popover = document.getElementById('drag-copy-popover');
+      if (!popover) return;
+      var srcId = popover._pendingSrcId;
+      var targetInfo = popover._pendingTargetInfo;
+      _clearDragPopover();
+      _applyDragCopy(srcId, targetInfo);
+    }
+
+    function dragCopyCancel() {
+      _clearDragPopover();
+    }
+
     // ── Persist ────────────────────────────────────────────────────────────────
     async function persistCfg() {
       setStatus(t('loading'));
@@ -4429,9 +4524,8 @@
     // ── Toast ──────────────────────────────────────────────────────────────────
     var _toastTimer = null;
     function showToast(msg, isErrorOrDur) {
-      var isError = isErrorOrDur === true;
-      if (typeof window.showToast === 'function') {
-        window.showToast(msg, isError);
+      if (typeof window._dlgShowToast === 'function') {
+        window._dlgShowToast(msg, isErrorOrDur);
       } else {
         var el = document.getElementById('gs-toast');
         if (el) {
@@ -4442,6 +4536,7 @@
         }
       }
     }
+
 
     // ── Confirm popup ──────────────────────────────────────────────────────────
     var _confirmCb = null;
@@ -4719,7 +4814,7 @@
       }
 
       var isSelected = selectedEntryIds.has(entry.id);
-      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" draggable="true" style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
       if (multiSelectMode) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
@@ -5847,6 +5942,34 @@
       });
       return ids;
     }
+  </script>
+
+  <!-- Drag-to-copy confirmation popover -->
+  <div id="drag-copy-popover" role="dialog" aria-modal="true" aria-label="Copy lesson content">
+    <p id="dcp-msg"></p>
+    <div class="dcp-actions">
+      <button id="dcp-cancel" onclick="dragCopyCancel()">✕ Cancel</button>
+      <button id="dcp-yes" onclick="dragCopyConfirm()">✓ Copy</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          var pop = document.getElementById('drag-copy-popover');
+          if (pop && pop.style.display !== 'none') {
+            if (typeof dragCopyCancel === 'function') dragCopyCancel();
+          }
+        }
+      });
+      document.addEventListener('mousedown', function (e) {
+        var pop = document.getElementById('drag-copy-popover');
+        if (!pop || pop.style.display === 'none') return;
+        if (!pop.contains(e.target)) {
+          if (typeof dragCopyCancel === 'function') dragCopyCancel();
+        }
+      });
+    })();
   </script>
 </body>
 

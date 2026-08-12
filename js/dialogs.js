@@ -85,14 +85,18 @@
     document.body.appendChild(toastEl);
   }
 
-  window.showToast = function (msg, isError) {
+  window.showToast = function (msg, isErrorOrDur) {
     ensureToast();
     toastEl.textContent = msg;
-    toastEl.classList.toggle('error', !!isError);
+    var isErr = isErrorOrDur === true;
+    var dur = typeof isErrorOrDur === 'number' ? isErrorOrDur : 2500;
+    toastEl.classList.toggle('error', isErr);
     toastEl.classList.add('show');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2500);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, dur);
   };
+  window._dlgShowToast = window.showToast;
+
 
   // ── Confirm modal ──────────────────────────────────────────────────────────
   var confirmOverlay = null;
