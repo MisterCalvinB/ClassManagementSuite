@@ -8,6 +8,8 @@
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/import-utils.js"></script>
   <script src="../js/import-modules/students.js"></script>
@@ -27,9 +29,14 @@
   <link rel="stylesheet" href="../css/import-tool.css">
 </head>
 <body>
-  <nav>
-    <span class="nav-title" data-i18n="importToolTitle">Import Data</span>
-    <button onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('launcher.html')" data-i18n="btnBack">← Back</button>
+  <nav id="app-nav">
+    <span class="nav-brand"></span>
+    <div id="app-hamburger" class="hm-wrap">
+      <button id="skm-trigger" class="tut-trigger-btn" onclick="openImportShortcutsModal()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" onclick="startImportTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
+      <div class="hm-menu"></div>
+    </div>
   </nav>
 
   <div class="wizard-wrap">
@@ -263,22 +270,53 @@
     var currentStep = 1;
     var TOTAL_STEPS = 5;
 
-    var MODULES = [
-      window.IMPORT_MODULE_STUDENTS,
-      window.IMPORT_MODULE_CLASS_GROUPS,
-      window.IMPORT_MODULE_WORDBANK,
-      window.IMPORT_MODULE_QUIZ,
-      window.IMPORT_MODULE_GAPFILL,
-      window.IMPORT_MODULE_QUOTE,
-      window.IMPORT_MODULE_ERROR,
-      window.IMPORT_MODULE_DICTATION,
-      window.IMPORT_MODULE_GRAMMAR,
-      window.IMPORT_MODULE_SENTENCE,
-      window.IMPORT_MODULE_STORY,
-      window.IMPORT_MODULE_SOUNDS,
-      window.IMPORT_MODULE_DOCUMENTS,
-      window.IMPORT_MODULE_BOOKS
+    var MODULE_GROUPS = [
+      {
+        appI18nKey: 'app_groupEditor_title',
+        defaultTitle: 'Group Editor',
+        modules: [
+          window.IMPORT_MODULE_CLASS_GROUPS,
+          window.IMPORT_MODULE_STUDENTS
+        ]
+      },
+      {
+        appI18nKey: 'app_manageDatabase_title',
+        defaultTitle: 'Database Manager & Learning Tools',
+        modules: [
+          window.IMPORT_MODULE_WORDBANK,
+          window.IMPORT_MODULE_QUIZ,
+          window.IMPORT_MODULE_GAPFILL,
+          window.IMPORT_MODULE_DICTATION,
+          window.IMPORT_MODULE_GRAMMAR,
+          window.IMPORT_MODULE_SENTENCE,
+          window.IMPORT_MODULE_STORY,
+          window.IMPORT_MODULE_QUOTE,
+          window.IMPORT_MODULE_ERROR,
+          window.IMPORT_MODULE_SOUNDS
+        ]
+      },
+      {
+        appI18nKey: 'app_board_title',
+        defaultTitle: 'Board',
+        modules: [
+          window.IMPORT_MODULE_BOOKS
+        ]
+      },
+      {
+        appI18nKey: 'app_documentEditor_title',
+        defaultTitle: 'Document Editor',
+        modules: [
+          window.IMPORT_MODULE_DOCUMENTS
+        ]
+      }
     ];
+
+    var MODULES = [];
+    MODULE_GROUPS.forEach(function (grp) {
+      grp.modules.forEach(function (m) {
+        if (m) MODULES.push(m);
+      });
+    });
 
     var selectedModule = MODULES[0];
     var groupMode = 'new';     // 'new' | 'existing'
@@ -305,11 +343,14 @@
       updateProgressBar();
       updateFooterButtons();
       if (typeof applyI18n === 'function') applyI18n();
+      if (typeof initHamburger === 'function') initHamburger('app-hamburger');
+      if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
+      initKeyboardShortcuts();
     })();
 
     function buildDestCards() {
       var container = document.getElementById('dest-options');
-      var icons = { students: '👤', classGroups: '🏫', wordbank: '📚', quiz: '❓', gapfill: '✏️', quote: '💬', error: '🔴', dictation: '🎧', grammar: '📖', sentence: '🔀', story: '📗', sounds: '🔊', documents: '📄', books: '📖' };
+      container.innerHTML = '';
       var descs = {
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
@@ -326,17 +367,35 @@
         documents: tt('importDestDocumentsDesc', 'Copy document files into the Document Editor'),
         books: tt('importDestBooksDesc', 'Copy book and text files into user/custom-data/books')
       };
-      MODULES.forEach(function (mod, i) {
-        var card = document.createElement('label');
-        card.className = 'dest-card' + (i === 0 ? ' selected' : '');
-        card.dataset.modId = mod.id;
-        card.innerHTML =
-          '<input type="radio" name="dest" value="' + mod.id + '"' + (i === 0 ? ' checked' : '') + '>' +
-          '<span class="dest-card-icon">' + (icons[mod.id] || '📋') + '</span>' +
-          '<span><div class="dest-card-label">' + tt(mod.i18nKey, mod.id) + '</div>' +
-          '<div class="dest-card-desc">' + descs[mod.id] + '</div></span>';
-        card.addEventListener('click', function () { selectModule(mod); });
-        container.appendChild(card);
+
+      MODULE_GROUPS.forEach(function (grp) {
+        var groupEl = document.createElement('div');
+        groupEl.className = 'dest-group';
+
+        var titleEl = document.createElement('div');
+        titleEl.className = 'dest-group-title';
+        titleEl.textContent = tt(grp.appI18nKey, grp.defaultTitle);
+        groupEl.appendChild(titleEl);
+
+        var cardsGrid = document.createElement('div');
+        cardsGrid.className = 'dest-group-cards';
+
+        grp.modules.forEach(function (mod) {
+          if (!mod) return;
+          var isSelected = (selectedModule && selectedModule.id === mod.id);
+          var card = document.createElement('label');
+          card.className = 'dest-card' + (isSelected ? ' selected' : '');
+          card.dataset.modId = mod.id;
+          card.innerHTML =
+            '<input type="radio" name="dest" value="' + mod.id + '"' + (isSelected ? ' checked' : '') + '>' +
+            '<div><div class="dest-card-label">' + tt(mod.i18nKey, mod.id) + '</div>' +
+            '<div class="dest-card-desc">' + (descs[mod.id] || '') + '</div></div>';
+          card.addEventListener('click', function () { selectModule(mod); });
+          cardsGrid.appendChild(card);
+        });
+
+        groupEl.appendChild(cardsGrid);
+        container.appendChild(groupEl);
       });
     }
 
@@ -1224,6 +1283,64 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
+
+    // ── Keyboard Shortcuts & Tutorial ─────────────────────────
+    function openImportShortcutsModal() {
+      if (typeof ShortcutsModal === 'undefined') return;
+      ShortcutsModal.open({
+        title: tt('importShortcutsTitle', 'Import Wizard'),
+        rows: [
+          { section: tt('importShortcutsTitle', 'Import Wizard') },
+          { keys: ['Alt', '→'], alt: ['Ctrl', 'Enter'], desc: tt('importShortcutNextDesc', 'Go to next step / Import') },
+          { keys: ['Alt', '←'], desc: tt('importShortcutPrevDesc', 'Go to previous step') },
+          { keys: ['Esc'], desc: tt('importShortcutEscDesc', 'Close shortcuts modal / Cancel overlay') }
+        ],
+        noShortcutsText: tt('skmNone', 'No keyboard shortcuts')
+      });
+    }
+
+    function initKeyboardShortcuts() {
+      if (initKeyboardShortcuts._bound) return;
+      initKeyboardShortcuts._bound = true;
+      document.addEventListener('keydown', function (e) {
+        var tag = e.target && e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+
+        if ((e.altKey && e.key === 'ArrowRight') || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
+          e.preventDefault();
+          var btnNext = document.getElementById('btn-next');
+          if (btnNext && !btnNext.disabled && btnNext.offsetParent !== null) {
+            btnNext.click();
+          }
+        } else if (e.altKey && e.key === 'ArrowLeft') {
+          e.preventDefault();
+          var btnPrev = document.getElementById('btn-prev');
+          if (btnPrev && !btnPrev.disabled && btnPrev.offsetParent !== null) {
+            btnPrev.click();
+          }
+        }
+      });
+    }
+
+    function startImportTutorial() {
+      if (typeof Tutorial === 'undefined') return;
+      var steps = [
+        { selector: '#app-nav', title: tt('tutImp1Title', 'Navigation Menu'), text: tt('tutImp1Text', 'Access quick navigation between tools, change language, or view keyboard shortcuts.') },
+        { selector: '.progress-bar', title: tt('tutImp2Title', 'Import Wizard Progress'), text: tt('tutImp2Text', 'Track your progress across Destination selection, File upload, Column mapping, Preview, and Final import.') },
+        { selector: '#dest-options', title: tt('tutImp3Title', 'Destination Module'), text: tt('tutImp3Text', 'Choose what type of data you are importing: Students & Class Groups, Wordbank, Quizzes, Dictations, Stories, or Documents.') },
+        { selector: '#step-1', title: tt('tutImp4Title', 'Target File & Group Settings'), text: tt('tutImp4Text', 'Create a new group/file or select an existing database file to append your imported data.') },
+        { selector: '#wizard-footer', title: tt('tutImp5Title', 'Wizard Controls'), text: tt('tutImp5Text', 'Use Back and Next / Import buttons to advance through the step-by-step wizard.') }
+      ];
+      Tutorial.start(steps, {
+        next: tt('tutNext', 'Next'),
+        prev: tt('tutPrev', 'Prev'),
+        skip: tt('tutSkip', 'Skip'),
+        done: tt('tutDone', 'Done')
+      });
+    }
+
+    window.openImportShortcutsModal = openImportShortcutsModal;
+    window.startImportTutorial       = startImportTutorial;
 
   })();
   </script>

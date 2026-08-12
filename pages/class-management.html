@@ -693,8 +693,6 @@
         </div>
         <!-- Floating buttons -->
         <div class="floating-buttons">
-            <button class="tut-trigger-btn" id="cms-tour-btn" onclick="startCmsTutorial()"
-                data-i18n="tut_btn_label"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
             <button class="tut-trigger-btn" onclick="toggleObjectivesBar()"
                 data-i18n="btn_objectives">Objectives</button>
             <button class="tut-trigger-btn" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title"
@@ -710,6 +708,8 @@
                     style="display:none;background:#16a34a;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:999px;line-height:1;">0</span>
             </button>
             <div id="app-hamburger" class="hm-wrap">
+                <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+                <button class="tut-trigger-btn" id="cms-tour-btn" onclick="startCmsTutorial()" data-i18n="tut_btn_label" data-i18n-title="tut_btn_label" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"
                     data-i18n-title="links_btn_title" title="Open another tool"><img src="../assets/icons/menu.svg"
                         class="btn-icon" alt="" /></button>
@@ -14743,10 +14743,31 @@ syncState();
             // Re-render help modal content
             renderHelpModal();
 
-            // Apply data-i18n (textContent)
+            // Apply data-i18n (textContent or HTML with icon)
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
-                if (dict[key] !== undefined) el.textContent = dict[key];
+                if (dict[key] !== undefined) {
+                    const txt = dict[key];
+                    var iconPath = el.getAttribute('data-icon');
+                    var img = el.querySelector('img');
+                    if (img || iconPath) {
+                        if (!iconPath && img) {
+                            iconPath = img.getAttribute('src');
+                            if (iconPath) el.setAttribute('data-icon', iconPath);
+                        }
+                        if (!img && iconPath) {
+                            img = document.createElement('img');
+                            img.src = iconPath;
+                            img.className = 'btn-icon';
+                            img.alt = '';
+                        }
+                        el.innerHTML = '';
+                        if (img) el.appendChild(img);
+                        el.appendChild(document.createTextNode(' ' + txt));
+                    } else {
+                        el.textContent = txt;
+                    }
+                }
             });
 
             // Apply data-i18n-title (title attribute)

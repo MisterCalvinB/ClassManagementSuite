@@ -7,6 +7,7 @@
   <title>Learning Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -54,17 +55,110 @@
   <script src="../modules/wiktionary-lookup.js"></script>
 
   <link rel="stylesheet" href="../css/stylesheet.css">
+  <style>
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+      vertical-align: -2px;
+      margin-right: 6px;
+      flex-shrink: 0;
+      display: inline-block;
+      transition: filter 0.12s ease;
+    }
+
+    .main-btn-icon {
+      width: 22px;
+      height: 22px;
+      vertical-align: -3px;
+      margin-right: 8px;
+      flex-shrink: 0;
+      display: inline-block;
+      transition: filter 0.12s ease;
+    }
+
+    .main-hdr-icon {
+      width: 20px;
+      height: 20px;
+      vertical-align: -3px;
+      margin-right: 6px;
+      flex-shrink: 0;
+      display: inline-block;
+      filter: brightness(0) invert(1);
+    }
+
+    /* Dark menu buttons & dark action buttons: default white icon */
+    .menu-btn:not(.btn-grey) img,
+    .menu-btn:not(.btn-grey) .btn-icon,
+    .menu-btn:not(.btn-grey) .main-btn-icon,
+    .action-btn:not(.btn-grey) img,
+    .action-btn:not(.btn-grey) .btn-icon,
+    .tut-trigger-btn img,
+    .tut-trigger-btn .btn-icon {
+      filter: brightness(0) invert(1);
+    }
+
+    /* Dark menu buttons & dark action buttons hover: black icon */
+    .menu-btn:not(.btn-grey):hover img,
+    .menu-btn:not(.btn-grey):hover .btn-icon,
+    .menu-btn:not(.btn-grey):hover .main-btn-icon,
+    .action-btn:not(.btn-grey):hover img,
+    .action-btn:not(.btn-grey):hover .btn-icon {
+      filter: none;
+    }
+
+    /* Light menu buttons & light action buttons (btn-grey): default black icon */
+    .menu-btn.btn-grey img,
+    .menu-btn.btn-grey .btn-icon,
+    .menu-btn.btn-grey .main-btn-icon,
+    .action-btn.btn-grey img,
+    .action-btn.btn-grey .btn-icon {
+      filter: none;
+    }
+
+    /* Light menu buttons & light action buttons hover: white icon */
+    .menu-btn.btn-grey:hover img,
+    .menu-btn.btn-grey:hover .btn-icon,
+    .menu-btn.btn-grey:hover .main-btn-icon,
+    .action-btn.btn-grey:hover img,
+    .action-btn.btn-grey:hover .btn-icon {
+      filter: brightness(0) invert(1);
+    }
+
+    .help-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 22px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 5px;
+      margin-top: 24px;
+      cursor: pointer;
+    }
+
+    .help-card-title img,
+    .help-section-title img {
+      width: 18px;
+      height: 18px;
+      vertical-align: -2px;
+      margin-right: 6px;
+      flex-shrink: 0;
+      display: inline-block;
+      filter: none !important;
+    }
+  </style>
 </head>
 
 <body>
   <nav id="app-nav">
     <span class="nav-brand"></span>
-    <button id="lt-skm-trigger" class="tut-trigger-btn"
-      onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[{keys:['Enter'],desc:t('skmLtSubmit')}],noShortcutsText:t('skmNone')})"
-      data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-    <button id="lt-tut-trigger" class="tut-trigger-btn" onclick="startLtTutorial()" data-i18n="tourBtnLabel"
-      data-i18n-title="tourBtnLabel">▶ Tour</button>
     <div id="app-hamburger" class="hm-wrap">
+      <button id="lt-skm-trigger" class="tut-trigger-btn"
+        onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[{keys:['Enter'],desc:t('skmLtSubmit')}],noShortcutsText:t('skmNone')})"
+        data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+      <button id="lt-tut-trigger" class="tut-trigger-btn" onclick="startLtTutorial()" data-i18n="tourBtnLabel"
+        data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" aria-label="Open menu">☰</button>
       <div class="hm-menu"></div>
     </div>
@@ -288,11 +382,11 @@
   <div id="help-overlay" onclick="if(event.target===this)closeHelp()">
     <div id="help-panel">
       <button class="help-close" onclick="closeHelp()">✕</button>
-      <h2 data-i18n="helpTitle">📖 How It Works</h2>
+      <h2 data-i18n="helpTitle"><img src="../assets/icons/how-to.svg" class="main-hdr-icon" alt="" /> How It Works</h2>
       <p class="help-subtitle" data-i18n="helpSubtitle">A complete guide — filters, games, tools, and team mode.</p>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecFilters">🎛 Filters</div>
+        <div class="help-section-title" data-i18n="helpSecFilters"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Filters</div>
         <div class="help-tip" data-i18n="helpTipFilters1"><strong>Level, Theme, Type</strong> — use these filters to
           narrow the word pool before starting any game. Select multiple values from any picker; only words matching
           <em>all active filters</em> will appear.</div>
@@ -304,35 +398,35 @@
       </div>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecVocab">📖 Vocabulary Games</div>
+        <div class="help-section-title" data-i18n="helpSecVocab"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Vocabulary Games</div>
         <div class="help-cards">
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardDefMatchTitle">🧩 Definition Match</div>
+            <div class="help-card-title" data-i18n="helpCardDefMatchTitle"><img src="../assets/icons/match.svg" class="btn-icon" alt="" /> Definition Match</div>
             <div class="help-card-desc" data-i18n="helpCardDefMatchDesc">Flip cards to pair each word with its correct
               definition. Click a word card, then its matching definition card. All pairs must be found to win.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardHangmanTitle">😵 Hangman</div>
+            <div class="help-card-title" data-i18n="helpCardHangmanTitle"><img src="../assets/icons/hangman.svg" class="btn-icon" alt="" /> Hangman</div>
             <div class="help-card-desc" data-i18n="helpCardHangmanDesc">Guess the hidden word letter by letter. Choose
-              your number of allowed mistakes (4–12). Use <strong>💡 Clue</strong> to reveal the definition.</div>
+              your number of allowed mistakes (4–12). Use <strong>Clue</strong> to reveal the definition.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardScrambleTitle">🔠 Scrambled Word</div>
+            <div class="help-card-title" data-i18n="helpCardScrambleTitle"><img src="../assets/icons/scramble.svg" class="btn-icon" alt="" /> Scrambled Word</div>
             <div class="help-card-desc" data-i18n="helpCardScrambleDesc">The word's letters are shuffled. Click letters
-              to build your answer, use <strong>💡 Clue</strong> for a letter hint, then submit.</div>
+              to build your answer, use <strong>Clue</strong> for a letter hint, then submit.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardWordQuestTitle">🔍 Word Quest</div>
+            <div class="help-card-title" data-i18n="helpCardWordQuestTitle"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Word Quest</div>
             <div class="help-card-desc" data-i18n="helpCardWordQuestDesc">A definition is shown. Unlock up to 4
               progressive clues (synonyms, letter hints…) to narrow it down, then type your guess.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardPhoneticTitle">🔉 Phonetic Guess</div>
+            <div class="help-card-title" data-i18n="helpCardPhoneticTitle"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" /> Phonetic Guess</div>
             <div class="help-card-desc" data-i18n="helpCardPhoneticDesc">An IPA phonetic transcription is shown.
               Identify the word it represents — pick from 4 choices or type the answer directly.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardSynAntTitle">🔗 Synonyms &amp; Antonyms</div>
+            <div class="help-card-title" data-i18n="helpCardSynAntTitle"><img src="../assets/icons/syn.svg" class="btn-icon" alt="" /> Synonyms &amp; Antonyms</div>
             <div class="help-card-desc" data-i18n="helpCardSynAntDesc">A word is shown — find its synonym or antonym.
               Toggle between Synonym, Antonym, or Both modes. Multiple choice or free typing.</div>
           </div>
@@ -340,27 +434,27 @@
       </div>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecGrammar">📐 Grammar Games</div>
+        <div class="help-section-title" data-i18n="helpSecGrammar"><img src="../assets/icons/grammar.svg" class="btn-icon" alt="" /> Grammar Games</div>
         <div class="help-cards">
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardSentenceTitle">✍️ Sentence Builder</div>
+            <div class="help-card-title" data-i18n="helpCardSentenceTitle"><img src="../assets/icons/sentence.svg" class="btn-icon" alt="" /> Sentence Builder</div>
             <div class="help-card-desc" data-i18n="helpCardSentenceDesc">Reconstruct a scrambled sentence by clicking
-              words in the correct order. The target structure is shown; use <strong>💡 Clue</strong> to reveal the next
+              words in the correct order. The target structure is shown; use <strong>Clue</strong> to reveal the next
               word.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardGapFillTitle">🕳️ Gap Fill</div>
+            <div class="help-card-title" data-i18n="helpCardGapFillTitle"><img src="../assets/icons/gapfill.svg" class="btn-icon" alt="" /> Gap Fill</div>
             <div class="help-card-desc" data-i18n="helpCardGapFillDesc">A sentence has one word removed. Type the
               missing word. Filter by grammar type (Relatives, Conditionals…) for targeted practice.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardFindErrorTitle">🔴 Find the Error</div>
+            <div class="help-card-title" data-i18n="helpCardFindErrorTitle"><img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Find the Error</div>
             <div class="help-card-desc" data-i18n="helpCardFindErrorDesc">Spot the grammatical mistake in a sentence.
               Two modes: <strong>Spot</strong> (choose correct vs erroneous) or <strong>Rewrite</strong> (correct the
               sentence yourself).</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardDictationTitle">📝 Dictation</div>
+            <div class="help-card-title" data-i18n="helpCardDictationTitle"><img src="../assets/icons/dictation.svg" class="btn-icon" alt="" /> Dictation</div>
             <div class="help-card-desc" data-i18n="helpCardDictationDesc">A text is read aloud. Type what you hear, word
               by word. Choose Easy (10% words hidden), Medium (50%), or Hard (90%) difficulty.</div>
           </div>
@@ -368,35 +462,35 @@
       </div>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecTools">📚 Tools</div>
+        <div class="help-section-title" data-i18n="helpSecTools"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /> Tools</div>
         <div class="help-cards">
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardGrammarPracticeTitle">📐 Grammar Practice</div>
+            <div class="help-card-title" data-i18n="helpCardGrammarPracticeTitle"><img src="../assets/icons/grammar.svg" class="btn-icon" alt="" /> Grammar Practice</div>
             <div class="help-card-desc" data-i18n="helpCardGrammarPracticeDesc">A reference library of grammar rules —
               formulas, signals words, common mistakes, and tips. Filter by category or level.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardFlashCardsTitle">🎴 Flash Cards</div>
+            <div class="help-card-title" data-i18n="helpCardFlashCardsTitle"><img src="../assets/icons/word-card.svg" class="btn-icon" alt="" /> Flash Cards</div>
             <div class="help-card-desc" data-i18n="helpCardFlashCardsDesc">Hover over a card to flip it and reveal the
               French translation and definition. Great for passive review.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardQuoteTitle">📜 Quote Analyser</div>
+            <div class="help-card-title" data-i18n="helpCardQuoteTitle"><img src="../assets/icons/quote.svg" class="btn-icon" alt="" /> Quote Analyser</div>
             <div class="help-card-desc" data-i18n="helpCardQuoteDesc">A literary quote is displayed. Guess its theme and
               keywords; unlock clues one by one or request a full analysis.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardViewWordsTitle">📋 View All Words</div>
+            <div class="help-card-title" data-i18n="helpCardViewWordsTitle"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> View All Words</div>
             <div class="help-card-desc" data-i18n="helpCardViewWordsDesc">Browse the entire vocabulary bank filtered by
               your current settings. Click any word for full details. Export to CSV or TXT.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardConstellationTitle">🌐 Word Constellation</div>
+            <div class="help-card-title" data-i18n="helpCardConstellationTitle"><img src="../assets/icons/board.svg" class="btn-icon" alt="" /> Word Constellation</div>
             <div class="help-card-desc" data-i18n="helpCardConstellationDesc">Visual word-map showing connections
               between words by theme and meaning. Zoom, drag, and explore relationships.</div>
           </div>
           <div class="help-card">
-            <div class="help-card-title" data-i18n="helpCardAddWordsTitle">➕ Add Words to DB</div>
+            <div class="help-card-title" data-i18n="helpCardAddWordsTitle"><img src="../assets/icons/add-db.svg" class="btn-icon" alt="" /> Add Words to DB</div>
             <div class="help-card-desc" data-i18n="helpCardAddWordsDesc">Add custom vocabulary, quotes, gap-fill
               sentences, and error pairs. Saved in your browser; download an updated DB file to make them permanent.
             </div>
@@ -405,7 +499,7 @@
       </div>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecTeam">👥 Team Mode</div>
+        <div class="help-section-title" data-i18n="helpSecTeam"><img src="../assets/icons/group.svg" class="btn-icon" alt="" /> Team Mode</div>
         <div class="help-tip" data-i18n="helpTipTeam1"><strong>Add teams</strong> on the home screen — give each a name
           and colour. Teams take turns across all games; the current team's colour highlights the game panel.</div>
         <div class="help-tip" data-i18n="helpTipTeam2"><strong>Scoring</strong> — a correct answer awards points to the
@@ -414,14 +508,14 @@
       </div>
 
       <div class="help-section">
-        <div class="help-section-title" data-i18n="helpSecTimer">⏱ Timer</div>
+        <div class="help-section-title" data-i18n="helpSecTimer"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer</div>
         <div class="help-tip" data-i18n="helpTipTimer">Most games have a <strong>⏱ Timer</strong> button in the
           top-right. Click it to set a countdown; it runs independently of the game so you can use it for timed rounds
           or team challenges.</div>
       </div>
 
       <div style="text-align:center; margin-top:10px;">
-        <button class="action-btn" onclick="closeHelp()" data-i18n="btnGotIt">Got it — let's play!</button>
+        <button class="action-btn btn-grey" onclick="closeHelp()" data-i18n="btnGotIt">Got it — let's play!</button>
       </div>
     </div>
   </div>
@@ -952,7 +1046,7 @@
           class="action-btn btn-grey" onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
     </div>
     <div id="team-setup">
-      <h3 data-i18n="teamModeTitle">👥 Team Mode</h3>
+      <h3 data-i18n="teamModeTitle"><img src="../assets/icons/group.svg" class="main-hdr-icon" alt="" /> Team Mode</h3>
       <div class="team-inputs" id="team-inputs-container"></div>
       <div id="team-mode-controls">
         <button class="action-btn btn-blue" onclick="addTeam()" data-i18n="btnAddTeam">+ Add Team</button>
@@ -961,47 +1055,39 @@
       </div>
       <div id="team-scoreboard" style="margin-top:15px;"></div>
     </div>
-    <h3 class="section-label" data-i18n="secVocab">📖 Vocabulary Games</h3>
+    <h3 class="section-label" data-i18n="secVocab"><img src="../assets/icons/book.svg" class="main-hdr-icon" alt="" /> Vocabulary Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn" onclick="navTo('match-game-section')" data-i18n="btnDefMatch">🧩 Definition
-        Match</button>
-      <button class="menu-btn" onclick="navTo('hangman-game-section')" data-i18n="btnHangman">😵 Hangman</button>
-      <button class="menu-btn" onclick="navTo('scramble-game-section')" data-i18n="btnScramble">🔠 Scrambled
-        Word</button>
-      <button class="menu-btn" onclick="navTo('clue-game-section')" data-i18n="btnWordQuest">🔍 Word Quest</button>
-      <button class="menu-btn" onclick="navTo('ipa-game-section')" data-i18n="btnPhonetic">🔉 Phonetic Guess</button>
-      <button class="menu-btn" onclick="navTo('synonym-game-section')" data-i18n="btnSynAnt">🔗 Synonyms &amp;
-        Antonyms</button>
-      <button class="menu-btn" onclick="navTo('wordsearch-game-section')">🔎 Word Search</button>
+      <button class="menu-btn" onclick="navTo('match-game-section')" data-i18n="btnDefMatch"><img src="../assets/icons/match.svg" class="main-btn-icon" alt="" /> Definition Match</button>
+      <button class="menu-btn" onclick="navTo('hangman-game-section')" data-i18n="btnHangman"><img src="../assets/icons/hangman.svg" class="main-btn-icon" alt="" /> Hangman</button>
+      <button class="menu-btn" onclick="navTo('scramble-game-section')" data-i18n="btnScramble"><img src="../assets/icons/scramble.svg" class="main-btn-icon" alt="" /> Scrambled Word</button>
+      <button class="menu-btn" onclick="navTo('clue-game-section')" data-i18n="btnWordQuest"><img src="../assets/icons/search.svg" class="main-btn-icon" alt="" /> Word Quest</button>
+      <button class="menu-btn" onclick="navTo('ipa-game-section')" data-i18n="btnPhonetic"><img src="../assets/icons/ipa.svg" class="main-btn-icon" alt="" /> Phonetic Guess</button>
+      <button class="menu-btn" onclick="navTo('synonym-game-section')" data-i18n="btnSynAnt"><img src="../assets/icons/syn.svg" class="main-btn-icon" alt="" /> Synonyms &amp; Antonyms</button>
+      <button class="menu-btn" onclick="navTo('wordsearch-game-section')"><img src="../assets/icons/wordsearch.svg" class="main-btn-icon" alt="" /> Word Search</button>
     </div>
-    <h3 class="section-label" data-i18n="secGrammar">📐 Grammar Games</h3>
+    <h3 class="section-label" data-i18n="secGrammar"><img src="../assets/icons/grammar.svg" class="main-hdr-icon" alt="" /> Grammar Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn" onclick="navTo('sentence-game-section')" data-i18n="btnSentence">✍️ Sentence
-        Builder</button>
-      <button class="menu-btn" onclick="navTo('gap-game-section')" data-i18n="btnGapFill">🕳️ Gap Fill</button>
-      <button class="menu-btn" onclick="navTo('error-game-section')" data-i18n="btnFindError">🔴 Find the Error</button>
-      <button class="menu-btn" onclick="navTo('dictation-section')" data-i18n="btnDictation">📝 Dictation</button>
-      <button class="menu-btn" onclick="navTo('order-sentences-section')">🔢 Order Sentences</button>
+      <button class="menu-btn" onclick="navTo('sentence-game-section')" data-i18n="btnSentence"><img src="../assets/icons/sentence.svg" class="main-btn-icon" alt="" /> Sentence Builder</button>
+      <button class="menu-btn" onclick="navTo('gap-game-section')" data-i18n="btnGapFill"><img src="../assets/icons/gapfill.svg" class="main-btn-icon" alt="" /> Gap Fill</button>
+      <button class="menu-btn" onclick="navTo('error-game-section')" data-i18n="btnFindError"><img src="../assets/icons/error.svg" class="main-btn-icon" alt="" /> Find the Error</button>
+      <button class="menu-btn" onclick="navTo('dictation-section')" data-i18n="btnDictation"><img src="../assets/icons/dictation.svg" class="main-btn-icon" alt="" /> Dictation</button>
+      <button class="menu-btn" onclick="navTo('order-sentences-section')"><img src="../assets/icons/order.svg" class="main-btn-icon" alt="" /> Order Sentences</button>
     </div>
-    <h3 class="section-label" data-i18n="secOtherGames">🎲 Other Games</h3>
+    <h3 class="section-label" data-i18n="secOtherGames"><img src="../assets/icons/dice.svg" class="main-hdr-icon" alt="" /> Other Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('quiz-section')">🎯 Quiz</button>
-      <button class="menu-btn btn-grey" onclick="navTo('werewolf-section')">🐺 Werewolf</button>
+      <button class="menu-btn btn-grey" onclick="navTo('quiz-section')"><img src="../assets/icons/quiz.svg" class="main-btn-icon" alt="" /> Quiz</button>
+      <button class="menu-btn btn-grey" onclick="navTo('werewolf-section')"><img src="../assets/icons/werewolf.svg" class="main-btn-icon" alt="" /> Werewolf</button>
     </div>
-    <h3 class="section-label" data-i18n="secTools">📚 Tools</h3>
+    <h3 class="section-label" data-i18n="secTools"><img src="../assets/icons/learning-tools.svg" class="main-hdr-icon" alt="" /> Tools</h3>
     <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('grammar-practice-section')" data-i18n="btnGrammarPractice">📐
-        Grammar Practice</button>
-      <button class="menu-btn btn-grey" onclick="navTo('words-seen-today-section')" data-i18n="btnWordsSeenToday">🗓
-        Words Seen Today</button>
-      <button class="menu-btn btn-grey" onclick="navTo('flip-game-section')" data-i18n="btnFlashCards">🎴 Flash
-        Cards</button>
-      <button class="menu-btn btn-grey" onclick="navTo('quote-game-section')" data-i18n="btnQuoteAnalyser">📜 Quote
-        Analyser</button>
-      <button class="menu-btn btn-grey" onclick="navTo('story-section')">📖 Choose Your Story</button>
+      <button class="menu-btn btn-grey" onclick="navTo('grammar-practice-section')" data-i18n="btnGrammarPractice"><img src="../assets/icons/grammar.svg" class="main-btn-icon" alt="" /> Grammar Practice</button>
+      <button class="menu-btn btn-grey" onclick="navTo('words-seen-today-section')" data-i18n="btnWordsSeenToday"><img src="../assets/icons/clock.svg" class="main-btn-icon" alt="" /> Words Seen Today</button>
+      <button class="menu-btn btn-grey" onclick="navTo('flip-game-section')" data-i18n="btnFlashCards"><img src="../assets/icons/word-card.svg" class="main-btn-icon" alt="" /> Flash Cards</button>
+      <button class="menu-btn btn-grey" onclick="navTo('quote-game-section')" data-i18n="btnQuoteAnalyser"><img src="../assets/icons/quote.svg" class="main-btn-icon" alt="" /> Quote Analyser</button>
+      <button class="menu-btn btn-grey" onclick="navTo('story-section')"><img src="../assets/icons/book.svg" class="main-btn-icon" alt="" /> Choose Your Story</button>
     </div>
     <div style="text-align:center; margin-top:24px;">
-      <button class="help-btn" onclick="openHelp()" data-i18n="btnHelp">❓ How does everything work?</button>
+      <button class="action-btn btn-grey help-btn" onclick="openHelp()" data-i18n="btnHelp" data-icon="../assets/icons/how-to.svg"><img src="../assets/icons/how-to.svg" class="main-btn-icon" alt="" /> How does everything work?</button>
     </div>
   </div>
   <template id="filter-template">
@@ -1111,7 +1197,7 @@
     </div>
     <div id="hangman-feedback" class="feedback hidden"></div>
     <div class="center-container">
-      <button class="action-btn btn-blue" id="hangman-clue-btn" onclick="revealHangmanClue()">💡 Clue</button>
+      <button class="action-btn btn-blue" id="hangman-clue-btn" onclick="revealHangmanClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
       <button class="action-btn btn-orange" onclick="revealHangmanAnswer()" data-i18n="btnRevealAnswer">Reveal
         Answer</button>
       <button class="action-btn" onclick="selectRandomWord()">Next Word</button>
@@ -1136,7 +1222,7 @@
     </div>
     <div class="center-container">
       <button class="action-btn" onclick="initScrambleGame()" data-i18n="btnNewWord">New Word</button>
-      <button class="action-btn btn-blue" id="scramble-clue-btn" onclick="revealScrambleClue()">💡 Clue</button>
+      <button class="action-btn btn-blue" id="scramble-clue-btn" onclick="revealScrambleClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
       <button class="action-btn btn-blue" onclick="checkScramble()" data-i18n="btnSubmitAnswer">Submit Answer</button>
       <button class="action-btn btn-orange" onclick="revealScrambleAnswer()">Reveal Answer</button>
     </div>
@@ -1159,7 +1245,7 @@
         style="width: 70%; font-size: 1.3rem; margin-bottom: 20px;" placeholder="Type your guess here...">
       <div class="clue-actions">
         <button class="action-btn" onclick="checkClueGuess()">Submit Answer</button>
-        <button class="action-btn btn-blue" id="clue-unlock-btn" onclick="unlockClue()">💡 Clue</button>
+        <button class="action-btn btn-blue" id="clue-unlock-btn" onclick="unlockClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
         <button class="action-btn btn-orange" id="clue-reveal-btn" onclick="revealClueAnswer()">Reveal Answer</button>
         <button class="action-btn btn-grey" onclick="initClueGame()">New Word</button>
       </div>
@@ -1179,7 +1265,7 @@
     <div id="sentence-hint-display" class="hint-display"></div>
     <div class="center-container">
       <button class="action-btn" id="check-sentence">Submit Answer</button>
-      <button class="action-btn btn-orange" id="get-sentence-hint" onclick="getWordHint()">💡 Clue</button>
+      <button class="action-btn btn-orange" id="get-sentence-hint" onclick="getWordHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
       <button class="action-btn btn-grey" onclick="revealSentenceAnswer()">Reveal Answer</button>
       <button class="action-btn btn-blue" onclick="selectRandomSentence()" data-i18n="btnNewSentence">New
         Sentence</button>
@@ -1256,7 +1342,7 @@
         placeholder="Start typing the missing word...">
       <div class="clue-actions">
         <button class="action-btn" onclick="checkGap()" data-i18n="btnSubmit">Submit</button>
-        <button class="action-btn btn-blue" id="gap-clue-btn" onclick="revealGapClue()">💡 Clue</button>
+        <button class="action-btn btn-blue" id="gap-clue-btn" onclick="revealGapClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
         <button class="action-btn btn-orange" onclick="revealGap()">Reveal Answer</button>
         <button class="action-btn btn-grey" onclick="initGapGame()">New Sentence</button>
       </div>
@@ -1299,7 +1385,7 @@
         placeholder="Type the corrected sentence here..."></textarea>
       <div class="clue-actions">
         <button class="action-btn" onclick="checkRewrite()" data-i18n="btnCheck" data-i18n="btnCheck">✔ Check</button>
-        <button class="action-btn btn-blue" id="error-hint-btn" onclick="showErrorHint()">💡 Clue</button>
+        <button class="action-btn btn-blue" id="error-hint-btn" onclick="showErrorHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
         <button class="action-btn btn-orange" onclick="revealError()">Reveal Answer</button>
       </div>
       <div id="error-rewrite-explanation" class="error-explanation-box"></div>
@@ -1356,8 +1442,7 @@
         autocorrect="off" spellcheck="false">
       <div class="clue-actions" style="margin-top:10px;">
         <button class="action-btn" onclick="ipaCheckType()">✔ Check</button>
-        <button class="action-btn btn-blue" id="ipa-hint-btn" onclick="ipaRevealHint()" data-i18n="btnHint"
-          data-i18n="btnHint">💡 Hint</button>
+        <button class="action-btn btn-blue" id="ipa-hint-btn" onclick="ipaRevealHint()" data-i18n="btnHint" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
         <button class="action-btn btn-orange" onclick="ipaRevealAnswer()" data-i18n="btnReveal">Reveal</button>
       </div>
     </div>
@@ -1434,7 +1519,7 @@
         autocorrect="off" spellcheck="false">
       <div class="clue-actions" style="margin-top:10px;">
         <button class="action-btn" onclick="synCheckType()">✔ Check</button>
-        <button class="action-btn btn-blue" id="syn-hint-btn" onclick="synRevealHint()">💡 Hint</button>
+        <button class="action-btn btn-blue" id="syn-hint-btn" onclick="synRevealHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
         <button class="action-btn btn-orange" onclick="synRevealAnswer()">Reveal</button>
       </div>
     </div>
@@ -1617,7 +1702,7 @@
         <div id="gp-hints-container" style="margin-bottom:12px;"></div>
         <div class="gp-actions">
           <button class="action-btn btn-purple" onclick="gpCheckAnswer()">✔ Check</button>
-          <button class="action-btn btn-blue" id="gp-hint-btn" onclick="gpShowHint()">💡 Hint</button>
+          <button class="action-btn btn-blue" id="gp-hint-btn" onclick="gpShowHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
           <button class="action-btn btn-orange" onclick="gpRevealAnswer()" data-i18n="btnGpReveal">👁 Reveal</button>
           <button class="action-btn btn-grey" onclick="gpNextQuiz()" data-i18n="btnNext">Next →</button>
         </div>
@@ -4343,7 +4428,7 @@
         const dd = wrap.querySelector('.theme-picker-dropdown');
         if (!dd) return;
         const current = themePickerGetSelected(wrap);
-        buildThemePickerDropdown(wrap, letters, current, null, t('allLetters'));
+        buildThemePickerDropdown(wrap, letters, current, null, t('All letters'));
       });
     }
 
@@ -4354,7 +4439,7 @@
         const dd = wrap.querySelector('.theme-picker-dropdown');
         if (!dd) return;
         const current = themePickerGetSelected(wrap);
-        buildThemePickerDropdown(wrap, lengths, current, labelMap, t('allLengths'));
+        buildThemePickerDropdown(wrap, lengths, current, labelMap, t('All Lengths'));
       });
     }
 
@@ -4364,7 +4449,7 @@
         const dd = wrap.querySelector('.theme-picker-dropdown');
         if (!dd) return;
         const current = themePickerGetSelected(wrap);
-        buildThemePickerDropdown(wrap, keywords, current, null, t('allKeywords'));
+        buildThemePickerDropdown(wrap, keywords, current, null, t('All Keywords'));
       });
     }
 
@@ -4377,7 +4462,7 @@
         const current = themePickerGetSelected(wrap);
         buildThemePickerDropdown(wrap, sources, current,
           sources.map(s => ({ value: s, label: SOURCE_LABELS[s] || s.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })),
-          t('allSources'));
+          t('All Sources'));
       });
     }
 
@@ -5114,7 +5199,7 @@
         fb.classList.add('hidden');
         fb.innerHTML = '';
       }
-      btn.textContent = hangmanClueRevealed ? t('clueShown') : '💡 Clue';
+      btn.innerHTML = hangmanClueRevealed ? t('clueShown') : '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + t('btnClue');
       btn.disabled = !!hangmanClueRevealed;
     }
 
@@ -5140,7 +5225,7 @@
       const inp = document.getElementById('hangman-type-input');
       if (inp) { inp.value = ''; inp.style.borderColor = '#bbb'; inp.disabled = false; }
       const clueBtn = document.getElementById('hangman-clue-btn');
-      if (clueBtn) { clueBtn.disabled = false; clueBtn.textContent = '💡 Clue'; }
+      if (clueBtn) { clueBtn.disabled = false; clueBtn.innerHTML = '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + t('btnClue'); }
       hangmanRenderPresenterPreview();
       renderH();
     }
@@ -5470,7 +5555,7 @@
         unlockBtn.textContent = (clueProjectionRevealCount >= hints.length) ? '✅ Clues revealed' : '🔓 Reveal clue';
         unlockBtn.disabled = clueProjectionRevealCount >= hints.length;
       } else {
-        unlockBtn.textContent = '💡 Clue';
+        unlockBtn.innerHTML = '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + t('btnClue');
         unlockBtn.disabled = clueIdx >= hints.length;
       }
     }
@@ -5939,7 +6024,7 @@
       const show = errorHintRevealed || presenterPreview;
       if (show) {
         expBox.className = 'error-explanation-box visible';
-        expBox.innerHTML = `💡 <strong>${t('clueLabel')}</strong> ${currentErrorObj.explanation.split('.')[0]}.`;
+        expBox.innerHTML = `<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> <strong>${t('clueLabel')}</strong> ${currentErrorObj.explanation.split('.')[0]}.`;
         expBox.classList.toggle('lt-presenter-grey', presenterPreview);
       } else {
         expBox.className = 'error-explanation-box';
@@ -5950,7 +6035,7 @@
           hintBtn.textContent = errorProjectionRevealAll ? '✅ Clues revealed' : '🔓 Reveal clues';
           hintBtn.disabled = !!errorProjectionRevealAll;
         } else {
-          hintBtn.textContent = errorHintRevealed ? t('clueShown') : t('btnHintShort');
+          hintBtn.innerHTML = errorHintRevealed ? t('clueShown') : '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + t('btnHintShort');
           hintBtn.disabled = !!errorHintRevealed;
         }
       }
@@ -11292,7 +11377,7 @@
       }
       const chip = document.createElement('span');
       chip.className = 'gp-hint-chip';
-      chip.textContent = '💡 ' + hints[gpHintsShown];
+      chip.innerHTML = '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + hints[gpHintsShown];
       document.getElementById('gp-hints-container').appendChild(chip);
       gpHintsShown++;
       awardPoints(POINTS_CLUE_PENALTY);
@@ -11385,7 +11470,7 @@
         + '<div id="gp-detail-quiz-hints" style="margin-bottom:10px;"></div>'
         + '<div class="gp-actions" style="justify-content:flex-start;">'
         + '<button class="action-btn btn-purple" onclick="gpDetailCheckAnswer(\'' + g.id + '\')">✔ Check</button>'
-        + '<button class="action-btn btn-blue" onclick="gpDetailHint(\'' + g.id + '\',0)">💡 Hint 1</button>'
+        + '<button class="action-btn btn-blue" onclick="gpDetailHint(\'' + g.id + '\',0)"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint 1</button>'
         + '<button class="action-btn btn-orange" onclick="gpDetailReveal(\'' + g.id + '\')">👁 Reveal</button>'
         + '</div>'
         + '<div class="gp-quiz-explanation" id="gp-detail-explanation" style="margin-top:12px;"></div>'
@@ -11474,7 +11559,7 @@
       for (let i = 0; i <= Math.min(idx, hints.length - 1); i++) {
         const chip = document.createElement('span');
         chip.className = 'gp-hint-chip';
-        chip.textContent = '💡 ' + hints[i];
+        chip.innerHTML = '<img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> ' + hints[i];
         container.appendChild(chip);
       }
       awardPoints(POINTS_CLUE_PENALTY);
@@ -13443,9 +13528,8 @@
     }
 
     // ================================================================
-    // i18n — EN / DE / IT
-    // ================================================================
-    let currentLang = (function () { try { var ov = localStorage.getItem('cmt-lang-learning-tools'); if (ov) return ov; var c = JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); return c.language || 'en'; } catch (e) { return 'en'; } })();
+    // i18n — backed by shared js/i18n.js
+    let currentLang = (function () { try { return (window.getLang && window.getLang()) || (window.i18n && i18n.getLang()) || localStorage.getItem('cmt-lang-learning-tools') || JSON.parse(localStorage.getItem('cmt-general-config') || '{}').language || 'en'; } catch (e) { return 'en'; } })();
 
     function getTranslation(w, lang) {
       const l = lang || currentLang;
@@ -13453,583 +13537,17 @@
       return w[l] || w.french || w.translation || '';
     }
 
-    const I18N = {
-      en: {
-        siteTitle: 'Learning Tools',
-        secVocab: '📖 Vocabulary Games', secGrammar: '📐 Grammar Games', secOtherGames: '🎲 Other Games', secTools: '📚 Tools',
-        btnDefMatch: '🧩 Definition Match', btnHangman: '😵 Hangman', btnScramble: '🔠 Scrambled Word',
-        btnWordQuest: '🔍 Word Quest', btnPhonetic: '🔉 Phonetic Guess', btnSynAnt: '🔗 Synonyms & Antonyms',
-        btnSentence: '✍️ Sentence Builder', btnGapFill: '🕳️ Gap Fill', btnFindError: '🔴 Find the Error',
-        btnDictation: '📝 Dictation', btnGrammarPractice: '📐 Grammar Practice', btnWordsSeenToday: '🗓 Words Seen Today', btnFlashCards: '🎴 Flash Cards',
-        btnQuoteAnalyser: '📜 Quote Analyser', btnViewWords: '📋 View All Words',
-        btnConstellation: '🌐 Word Constellation', btnAddWords: '➕ Add Words to DB',
-        btnHelp: '❓ How does everything work?',
-        teamModeTitle: '👥 Team Mode', btnAddTeam: '+ Add Team', btnResetScores: 'Reset Scores', btnClearTeams: 'Clear Teams',
-        filterLevel: 'Level', filterTheme: 'Theme', filterKeyword: 'Keywords', filterType: 'Type', filterLetter: 'Letter', filterLength: 'Length', filterSource: 'Source', filterStarred: 'Starred', btnStarredAll: '☆ All', btnReset: 'Reset', btnWordsActive: 'Words Active',
-        btnBack: '← Back',
-        excellent: 'Excellent!', pointsAwarded: 'Points Awarded',
-        btnNextWord: 'Next Word →', btnTryAgain: 'Try Again',
-        notQuite: 'Not Quite!', betterLuck: 'Better luck next time', btnClose: 'Close',
-        presMenuTitle: 'Presentation Menu', presStop: 'Stop presentation', presFreeze: 'Freeze presentation', presUnfreeze: 'Unfreeze presentation',
-        presResize: 'Resize window', presRight: 'To the right', presLeft: 'To the left',
-        titleDefMatch: 'Definition Match', titleFlashCards: 'Flash Cards', titleHangman: 'Hangman',
-        titleScramble: 'Scrambled Word', titleWordQuest: 'Word Quest', titleSentence: 'Sentence Builder',
-        titleQuote: 'Quote Analyser', titleGapFill: 'Gap Fill Challenge', titleFindError: '🔴 Find the Error',
-        titlePhonetic: '🔉 Phonetic Guess', titleSynAnt: '🔗 Synonyms & Antonyms',
-        titleVocabBank: 'Complete Vocabulary Bank', titleAddWords: '➕ Add Words to Database',
-        titleGrammarPractice: '📐 Grammar Practice', titleWordsSeenToday: '🗓 Words Seen Today', titleDictation: '📝 Dictation',
-        titleWordSearch: 'Word Search',
-        titleConstellation: '🌐 Word Constellation',
-        btnShuffle: 'Shuffle New Words', btnNewCards: 'Get 6 New Cards',
-        btnSubmitAnswer: 'Submit Answer', btnSubmit: 'Submit', btnSubmitGuess: 'Submit Guess',
-        btnNewWord: 'New Word', btnRevealAnswer: 'Reveal Answer', btnReveal: 'Reveal',
-        btnNewSentence: 'New Sentence', btnFullReveal: 'Full Reveal', btnNewQuote: 'New Quote',
-        btnNextSentence: 'Next Sentence →', btnCheck: '✔ Check', btnHint: '💡 Hint',
-        btnHintShort: '💡 Clue', btnGpReveal: '👁 Reveal', btnNext: 'Next →', btnClue: 'Clue',
-        tries: 'Tries:',
-        clue1: 'Clue 1: ?????', clue2: 'Clue 2: ?????', clue3: 'Clue 3: ?????', clue4: 'Clue 4: ?????',
-        clue2Btn: '💡 Clue 2',
-        ipaSubtitle: 'Read the IPA pronunciation — which word does it represent?',
-        btnMCQ: '🎯 Multiple Choice', btnTypeIt: '⌨️ Type It',
-        statScore: 'Score', statStreak: '🔥 Streak', statSeen: 'Seen',
-        statCorrect: '✔ Correct', statWrong: '✖ Wrong', statTotalGaps: 'Total Gaps',
-        findSynonym: 'Find a synonym →', findSynonymOf: '🔗 Find a synonym of this word',
-        findAntonymOf: '⚡ Find an antonym of this word',
-        btnSynonym: '🔗 Synonym', btnAntonym: '⚡ Antonym', btnBoth: '🔀 Both',
-        synonymLabel: 'Synonym', antonymLabel: 'Antonym',
-        btnSpotError: '🎯 Spot the Error', btnRewriteIt: '✏️ Rewrite It',
-        whichCorrect: 'Which sentence is grammatically <strong>correct</strong>?',
-        correctError: 'Correct the error in the sentence below:',
-        targetGrammar: 'Target Grammar:', allGrammar: 'All Grammar',
-        dictSubtitle: 'Choose a text and a difficulty. Students fill in the hidden words while the teacher can see ghosted hints.',
-        selectDifficulty: 'Select difficulty',
-        btnStartDictation: '▶ Start Dictation', btnCheckAll: '✔ Check All',
-        btnRevealAll: '👁 Reveal All', btnRehide: '🙈 Re-hide All', btnNewText: '↺ New Text',
-        btnExportCSV: '⬇ Export CSV', btnExportTXT: '⬇ Export JSON',
-        clickWord: 'Click a word to see its full details and example sentence.',
-        groupSelectorLabel: 'Class', groupSelectorNone: 'No class selected',
-        wordsSeenTodaySubtitle: 'Words shown in the vocabulary games today.',
-        wordsSeenTodayTracked: 'words tracked today',
-        wordsSeenTodayEmpty: 'No words have been shown in the vocabulary games yet today.',
-        wordsSeenHistoryShow: '📋 Show History', wordsSeenHistoryHide: '📋 Hide History', wordsSeenHistoryTitle: 'Past Sessions', wordsSeenHistoryEmpty: 'No past sessions recorded yet.',
-        btnReference: '📖 Reference', btnQuiz: '✏️ Quiz', btnBrowse: '🗂️ Browse by Topic',
-        btnClearAll: 'Clear All', btnImportBank: '📥 Import from Bank', btnExportPNG: '🖼 Export PNG',
-        conInstructions: 'Move: drag words · Connect: click two words to link them · Delete: click a word or line to remove it',
-        helpTitle: '📖 How It Works',
-        helpSubtitle: 'A complete guide — filters, games, tools, and team mode.',
-        btnGotIt: "Got it — let's play!",
-        helpSecFilters: '🎛 Filters',
-        helpTipFilters1: '<strong>Level, Theme, Type</strong> — use these filters to narrow the word pool before starting any game. Select multiple values from any picker; only words matching <em>all active filters</em> will appear.',
-        helpTipFilters2: '<strong>Filters carry over</strong> — when you navigate from game to game, your filter selections stay in place. Use <strong>Reset</strong> to clear everything back to "All".',
-        helpTipFilters3: '<strong>Multiple themes per word</strong> — a word can belong to several themes (e.g. "Emotions, Character"). It will appear whenever any of its themes is selected.',
-        helpSecVocab: '📖 Vocabulary Games',
-        matchPairsLabel: 'Pairs:',
-        helpCardDefMatchTitle: '🧩 Definition Match',
-        helpCardDefMatchDesc: 'Flip cards to pair each word with its correct definition. Click a word card, then its matching definition card. All pairs must be found to win.',
-        helpCardHangmanTitle: '😵 Hangman',
-        helpCardHangmanDesc: 'Guess the hidden word letter by letter. Choose your number of allowed mistakes (4–12). Use <strong>💡 Clue</strong> to reveal the definition.',
-        helpCardScrambleTitle: '🔠 Scrambled Word',
-        helpCardScrambleDesc: 'The word\'s letters are shuffled. Click letters to build your answer, use <strong>💡 Clue</strong> for a letter hint, then submit.',
-        helpCardWordQuestTitle: '🔍 Word Quest',
-        helpCardWordQuestDesc: 'A definition is shown. Unlock up to 4 progressive clues (synonyms, letter hints…) to narrow it down, then type your guess.',
-        helpCardPhoneticTitle: '🔉 Phonetic Guess',
-        helpCardPhoneticDesc: 'An IPA phonetic transcription is shown. Identify the word it represents — pick from 4 choices or type the answer directly.',
-        helpCardSynAntTitle: '🔗 Synonyms & Antonyms',
-        helpCardSynAntDesc: 'A word is shown — find its synonym or antonym. Toggle between Synonym, Antonym, or Both modes. Multiple choice or free typing.',
-        helpSecGrammar: '📐 Grammar Games',
-        helpCardSentenceTitle: '✍️ Sentence Builder',
-        helpCardSentenceDesc: 'Reconstruct a scrambled sentence by clicking words in the correct order. The target structure is shown; use <strong>💡 Clue</strong> to reveal the next word.',
-        helpCardGapFillTitle: '🕳️ Gap Fill',
-        helpCardGapFillDesc: 'A sentence has one word removed. Type the missing word. Filter by grammar type (Relatives, Conditionals…) for targeted practice.',
-        helpCardFindErrorTitle: '🔴 Find the Error',
-        helpCardFindErrorDesc: 'Spot the grammatical mistake in a sentence. Two modes: <strong>Spot</strong> (choose correct vs erroneous) or <strong>Rewrite</strong> (correct the sentence yourself).',
-        helpCardDictationTitle: '📝 Dictation',
-        helpCardDictationDesc: 'A text is read aloud. Type what you hear, word by word. Choose Easy (10% words hidden), Medium (50%), or Hard (90%) difficulty.',
-        helpSecTools: '📚 Tools',
-        helpCardGrammarPracticeTitle: '📐 Grammar Practice',
-        helpCardGrammarPracticeDesc: 'A reference library of grammar rules — formulas, signals words, common mistakes, and tips. Filter by category or level.',
-        helpCardFlashCardsTitle: '🎴 Flash Cards',
-        helpCardFlashCardsDesc: 'Hover over a card to flip it and reveal the French translation and definition. Great for passive review.',
-        helpCardQuoteTitle: '📜 Quote Analyser',
-        helpCardQuoteDesc: 'A literary quote is displayed. Guess its theme and keywords; unlock clues one by one or request a full analysis.',
-        helpCardViewWordsTitle: '📋 View All Words',
-        helpCardViewWordsDesc: 'Browse the entire vocabulary bank filtered by your current settings. Click any word for full details. Export to CSV or TXT.',
-        helpCardConstellationTitle: '🌐 Word Constellation',
-        helpCardConstellationDesc: 'Visual word-map showing connections between words by theme and meaning. Zoom, drag, and explore relationships.',
-        helpCardAddWordsTitle: '➕ Add Words to DB',
-        helpCardAddWordsDesc: 'Add custom vocabulary, quotes, gap-fill sentences, and error pairs. Saved in your browser; download an updated DB file to make them permanent.',
-        helpSecTeam: '👥 Team Mode',
-        helpTipTeam1: '<strong>Add teams</strong> on the home screen — give each a name and colour. Teams take turns across all games; the current team\'s colour highlights the game panel.',
-        helpTipTeam2: '<strong>Scoring</strong> — a correct answer awards points to the active team. Use <strong>Reset Scores</strong> to zero everything, or <strong>Clear Teams</strong> to remove all teams.',
-        helpSecTimer: '⏱ Timer',
-        helpTipTimer: 'Most games have a <strong>⏱ Timer</strong> button in the top-right. Click it to set a countdown; it runs independently of the game so you can use it for timed rounds or team challenges.',
-        // dynamic
-        noExample: 'No example sentence available.',
-        gameOver: 'Game over! The word was:',
-        theWordWas: 'The word was:',
-        clueShown: '💡 Clue shown', hintShown: '💡 Hint shown',
-        clueLabel: 'Clue:', defLabel: 'Definition:', hintLabel: 'Hint:',
-        perfectSyntax: 'Perfect Syntax!', incorrectOrder: 'Incorrect order.',
-        answerRevealed: 'Answer revealed', answerLabel: 'Answer:',
-        themeLabel: 'Theme:', keywordsLabel: 'Keywords:',
-        noMoreClues: 'No more clues', notQuiteGuess: 'Not quite — keep guessing...',
-        correctTheme: '✅ Correct! The theme is:',
-        noSynData: 'No words with synonym/antonym data found for the current filters.',
-        noQuizItems: 'No quiz items match your current filters.',
-        noMoreHints: '💡 No more hints', relatedTopics: 'Related topics:',
-        topicsFound: 'topics found', topicFound: 'topic found',
-        passTo: '→ Pass to',
-        perfectScore: '🎉 Perfect score! All', wordsCorrect: 'words correct.',
-        goodEffort: '👍 Good effort!', correct: 'correct',
-        keepPractising: '%. Keep practising!', reviewLabel: '📖', tryAgainSuffix: '%. Review the answers and try again.',
-        customItems: 'custom item', customItemsPlural: 'custom items', inBrowser: 'in browser storage',
-        saveChanges: '💾 Save Changes', addWordBtn: '➕ Add Word', addQuoteBtn: '➕ Add Quote',
-        addGapBtn: '➕ Add Gap Fill', addErrorBtn: '➕ Add Error Pair',
-        allLevels: 'All Levels', allThemes: 'All Themes', allTypes: 'All Types', allLetters: 'All Letters', allLengths: 'All Lengths', allKeywords: 'All Keywords', allSources: 'All Sources',
-        tutBtnLabel: '▶ Tour',
-        tourBtnLabel: '▶ Tour',
-        skmTitle: '⌨ Keyboard Shortcuts',
-        skmNone: 'No keyboard shortcuts yet.',
-        skmTourSoon: 'Interactive tour coming soon.',
-        skmLtSubmit: 'Submit answer',
-        tutNext: 'Next →', tutPrev: '← Back', tutSkip: 'Skip', tutDone: 'Done ✓',
-        tutLt1Title: 'Word Filters', tutLt1Text: 'Narrow the word bank by level, theme, part of speech, or keyword. Every game uses only the words that match all active filters.',
-        tutLt2Title: 'Team Mode', tutLt2Text: 'Add teams here for competitive sessions. Points are awarded to the active team when a student answers correctly.',
-        tutLt3Title: 'Activities', tutLt3Text: 'Choose a vocabulary or grammar activity. Each game uses the word selection from your current filters — change filters before launching to change the word set.',
-        tutLt4Title: 'Help', tutLt4Text: 'Click here for step-by-step instructions on every activity.',
-      },
-      de: {
-        siteTitle: 'Learning Tools',
-        secVocab: '📖 Vokabelspiele', secGrammar: '📐 Grammatikspiele', secOtherGames: '🎲 Andere Spiele', secTools: '📚 Werkzeuge',
-        btnDefMatch: '🧩 Definition zuordnen', btnHangman: '😵 Galgenmännchen', btnScramble: '🔠 Buchstabensalat',
-        btnWordQuest: '🔍 Wortsuche', btnPhonetic: '🔉 Phonetik-Quiz', btnSynAnt: '🔗 Synonyme & Antonyme',
-        btnSentence: '✍️ Satzbausteine', btnGapFill: '🕳️ Lückentext', btnFindError: '🔴 Fehler finden',
-        btnDictation: '📝 Diktat', btnGrammarPractice: '📐 Grammatikübung', btnWordsSeenToday: '🗓 Heute gesehene Wörter', btnFlashCards: '🎴 Lernkarten',
-        btnQuoteAnalyser: '📜 Zitat-Analyse', btnViewWords: '📋 Alle Wörter',
-        btnConstellation: '🌐 Wortkonstellation', btnAddWords: '➕ Wörter hinzufügen',
-        btnHelp: '❓ Wie funktioniert alles?',
-        teamModeTitle: '👥 Team-Modus', btnAddTeam: '+ Team hinzufügen', btnResetScores: 'Punkte zurücksetzen', btnClearTeams: 'Teams löschen',
-        filterLevel: 'Niveau', filterTheme: 'Thema', filterKeyword: 'Schlagworte', filterType: 'Wortart', filterLetter: 'Buchstabe', filterLength: 'Länge', filterSource: 'Quelle', filterStarred: 'Favoriten', btnStarredAll: '☆ Alle', btnReset: 'Zurücksetzen', btnWordsActive: 'Aktive Wörter',
-        btnBack: '← Zurück',
-        excellent: 'Ausgezeichnet!', pointsAwarded: 'Punkte vergeben',
-        btnNextWord: 'Nächstes Wort →', btnTryAgain: 'Nochmal',
-        notQuite: 'Nicht ganz!', betterLuck: 'Beim nächsten Mal mehr Glück', btnClose: 'Schließen',
-        presMenuTitle: 'Präsentationsmenü', presStop: 'Präsentation beenden', presFreeze: 'Präsentation einfrieren', presUnfreeze: 'Präsentation auftauen',
-        presResize: 'Fenstergröße anpassen', presRight: 'Nach rechts', presLeft: 'Nach links',
-        titleDefMatch: 'Definition zuordnen', titleFlashCards: 'Lernkarten', titleHangman: 'Galgenmännchen',
-        titleScramble: 'Buchstabensalat', titleWordQuest: 'Wortsuche', titleSentence: 'Satzbausteine',
-        titleQuote: 'Zitat-Analyse', titleGapFill: 'Lückentext-Aufgabe', titleFindError: '🔴 Fehler finden',
-        titlePhonetic: '🔉 Phonetik-Quiz', titleSynAnt: '🔗 Synonyme & Antonyme',
-        titleVocabBank: 'Vollständige Vokabelliste', titleAddWords: '➕ Wörter zur Datenbank hinzufügen',
-        titleGrammarPractice: '📐 Grammatikübung', titleWordsSeenToday: '🗓 Heute gesehene Wörter', titleDictation: '📝 Diktat',
-        titleWordSearch: 'Wortsuche',
-        titleConstellation: '🌐 Wortkonstellation',
-        btnShuffle: 'Wörter mischen', btnNewCards: '6 neue Karten holen',
-        btnSubmitAnswer: 'Antwort abschicken', btnSubmit: 'Abschicken', btnSubmitGuess: 'Tipp abschicken',
-        btnNewWord: 'Neues Wort', btnRevealAnswer: 'Antwort zeigen', btnReveal: 'Zeigen',
-        btnNewSentence: 'Neuer Satz', btnFullReveal: 'Alles zeigen', btnNewQuote: 'Neues Zitat',
-        btnNextSentence: 'Nächster Satz →', btnCheck: '✔ Prüfen', btnHint: '💡 Tipp',
-        btnHintShort: '💡 Hinweis', btnGpReveal: '👁 Aufdecken', btnNext: 'Weiter →', btnClue: 'Hinweis',
-        tries: 'Versuche:',
-        clue1: 'Hinweis 1: ?????', clue2: 'Hinweis 2: ?????', clue3: 'Hinweis 3: ?????', clue4: 'Hinweis 4: ?????',
-        clue2Btn: '💡 Hinweis 2',
-        ipaSubtitle: 'Lies die IPA-Aussprache – welches Wort wird dargestellt?',
-        btnMCQ: '🎯 Multiple Choice', btnTypeIt: '⌨️ Eintippen',
-        statScore: 'Punkte', statStreak: '🔥 Serie', statSeen: 'Gesehen',
-        statCorrect: '✔ Richtig', statWrong: '✖ Falsch', statTotalGaps: 'Lücken gesamt',
-        findSynonym: 'Synonym finden →', findSynonymOf: '🔗 Finde ein Synonym für dieses Wort',
-        findAntonymOf: '⚡ Finde ein Antonym für dieses Wort',
-        btnSynonym: '🔗 Synonym', btnAntonym: '⚡ Antonym', btnBoth: '🔀 Beide',
-        synonymLabel: 'Synonym', antonymLabel: 'Antonym',
-        btnSpotError: '🎯 Fehler erkennen', btnRewriteIt: '✏️ Umschreiben',
-        whichCorrect: 'Welcher Satz ist grammatikalisch <strong>korrekt</strong>?',
-        correctError: 'Korrigiere den Fehler im folgenden Satz:',
-        targetGrammar: 'Grammatikziel:', allGrammar: 'Alle Grammatik',
-        dictSubtitle: 'Wähle einen Text und einen Schwierigkeitsgrad. Die Schüler füllen die versteckten Wörter aus.',
-        selectDifficulty: 'Schwierigkeitsgrad wählen',
-        btnStartDictation: '▶ Diktat starten', btnCheckAll: '✔ Alles prüfen',
-        btnRevealAll: '👁 Alles zeigen', btnRehide: '🙈 Alles verbergen', btnNewText: '↺ Neuer Text',
-        btnExportCSV: '⬇ CSV exportieren', btnExportTXT: '⬇ JSON exportieren',
-        clickWord: 'Klicke ein Wort für Details und einen Beispielsatz.',
-        groupSelectorLabel: 'Klasse', groupSelectorNone: 'Keine Klasse ausgewählt',
-        wordsSeenTodaySubtitle: 'Wörter, die heute in den Vokabelspielen angezeigt wurden.',
-        wordsSeenTodayTracked: 'Wörter heute erfasst',
-        wordsSeenTodayEmpty: 'Heute wurden in den Vokabelspielen noch keine Wörter angezeigt.',
-        wordsSeenHistoryShow: '📋 Verlauf anzeigen', wordsSeenHistoryHide: '📋 Verlauf ausblenden', wordsSeenHistoryTitle: 'Vergangene Sitzungen', wordsSeenHistoryEmpty: 'Noch keine vergangenen Sitzungen gespeichert.',
-        btnReference: '📖 Referenz', btnQuiz: '✏️ Quiz', btnBrowse: '🗂️ Nach Thema',
-        btnClearAll: 'Alles löschen', btnImportBank: '📥 Aus Wortbank importieren', btnExportPNG: '🖼 PNG exportieren',
-        conInstructions: 'Bewegen: Wörter ziehen · Verbinden: zwei Wörter anklicken · Löschen: Wort oder Linie anklicken',
-        helpTitle: '📖 Wie es funktioniert',
-        helpSubtitle: 'Eine vollständige Anleitung — Filter, Spiele, Werkzeuge und Team-Modus.',
-        btnGotIt: "Verstanden — los geht's!",
-        helpSecFilters: '🎛 Filter',
-        helpTipFilters1: '<strong>Niveau, Thema, Wortart</strong> — verwende diese Filter, um den Wortpool vor einem Spiel einzugrenzen. Wähle mehrere Werte aus; nur Wörter, die <em>allen aktiven Filtern</em> entsprechen, werden angezeigt.',
-        helpTipFilters2: '<strong>Filter bleiben erhalten</strong> — beim Wechsel zwischen Spielen bleiben deine Filterauswahlen aktiv. Nutze <strong>Zurücksetzen</strong>, um alles auf „Alle" zurückzusetzen.',
-        helpTipFilters3: '<strong>Mehrere Themen pro Wort</strong> — ein Wort kann mehreren Themen angehören (z. B. „Emotionen, Charakter"). Es erscheint, sobald eines seiner Themen ausgewählt ist.',
-        helpSecVocab: '📖 Vokabelspiele',
-        matchPairsLabel: 'Paare:',
-        helpCardDefMatchTitle: '🧩 Definition zuordnen',
-        helpCardDefMatchDesc: 'Ordne jedes Wort seiner richtigen Definition zu. Klicke eine Wortkarte, dann die passende Definitionskarte. Alle Paare müssen gefunden werden, um zu gewinnen.',
-        helpCardHangmanTitle: '😵 Galgenmännchen',
-        helpCardHangmanDesc: 'Errate das versteckte Wort Buchstabe für Buchstabe. Wähle die erlaubte Anzahl von Fehlern (4–12). Nutze <strong>💡 Hinweis</strong>, um die Definition zu enthüllen.',
-        helpCardScrambleTitle: '🔠 Buchstabensalat',
-        helpCardScrambleDesc: 'Die Buchstaben des Wortes sind durchgemischt. Klicke die Buchstaben in der richtigen Reihenfolge, nutze <strong>💡 Hinweis</strong> für einen Buchstabentipp und sende ab.',
-        helpCardWordQuestTitle: '🔍 Wortsuche',
-        helpCardWordQuestDesc: 'Eine Definition wird angezeigt. Schalte bis zu 4 progressive Hinweise frei (Synonyme, Buchstabentipps…), um das Wort einzugrenzen, dann tippe deine Antwort.',
-        helpCardPhoneticTitle: '🔉 Phonetik-Quiz',
-        helpCardPhoneticDesc: 'Eine IPA-Lautumschrift wird angezeigt. Erkenne das dargestellte Wort — wähle aus 4 Optionen oder tippe die Antwort direkt ein.',
-        helpCardSynAntTitle: '🔗 Synonyme & Antonyme',
-        helpCardSynAntDesc: 'Ein Wort wird angezeigt — finde sein Synonym oder Antonym. Wechsle zwischen den Modi Synonym, Antonym oder Beide. Multiple Choice oder freies Tippen.',
-        helpSecGrammar: '📐 Grammatikspiele',
-        helpCardSentenceTitle: '✍️ Satzbausteine',
-        helpCardSentenceDesc: 'Rekonstruiere einen durchgemischten Satz, indem du die Wörter in der richtigen Reihenfolge anklickst. Die Zielstruktur wird angezeigt; nutze <strong>💡 Hinweis</strong>, um das nächste Wort zu enthüllen.',
-        helpCardGapFillTitle: '🕳️ Lückentext',
-        helpCardGapFillDesc: 'Ein Wort wurde aus einem Satz entfernt. Tippe das fehlende Wort. Filtere nach Grammatiktyp (Relativsätze, Konditionalsätze…) für gezielte Übungen.',
-        helpCardFindErrorTitle: '🔴 Fehler finden',
-        helpCardFindErrorDesc: 'Erkenne den Grammatikfehler in einem Satz. Zwei Modi: <strong>Erkennen</strong> (korrekt oder fehlerhaft auswählen) oder <strong>Umschreiben</strong> (den Satz selbst korrigieren).',
-        helpCardDictationTitle: '📝 Diktat',
-        helpCardDictationDesc: 'Ein Text wird vorgelesen. Tippe was du hörst, Wort für Wort. Wähle Leicht (10% versteckte Wörter), Mittel (50%) oder Schwer (90%).',
-        helpSecTools: '📚 Werkzeuge',
-        helpCardGrammarPracticeTitle: '📐 Grammatikübung',
-        helpCardGrammarPracticeDesc: 'Eine Referenzbibliothek mit Grammatikregeln — Formeln, Signalwörter, häufige Fehler und Tipps. Filtern nach Kategorie oder Niveau.',
-        helpCardFlashCardsTitle: '🎴 Lernkarten',
-        helpCardFlashCardsDesc: 'Bewege die Maus über eine Karte, um sie umzudrehen und die französische Übersetzung sowie Definition zu enthüllen. Ideal zur passiven Wiederholung.',
-        helpCardQuoteTitle: '📜 Zitat-Analyse',
-        helpCardQuoteDesc: 'Ein literarisches Zitat wird angezeigt. Errate Thema und Schlüsselwörter; schalte Hinweise einzeln frei oder fordere eine vollständige Analyse an.',
-        helpCardViewWordsTitle: '📋 Alle Wörter',
-        helpCardViewWordsDesc: 'Durchsuche die gesamte Vokabelliste nach deinen aktuellen Einstellungen. Klicke ein Wort für alle Details. Exportiere als CSV oder TXT.',
-        helpCardConstellationTitle: '🌐 Wortkonstellation',
-        helpCardConstellationDesc: 'Visuelle Wortkarte mit Verbindungen zwischen Wörtern nach Thema und Bedeutung. Zoomen, ziehen und Beziehungen erkunden.',
-        helpCardAddWordsTitle: '➕ Wörter hinzufügen',
-        helpCardAddWordsDesc: 'Füge eigene Vokabeln, Zitate, Lückentextsätze und Fehlerpaare hinzu. Im Browser gespeichert; lade eine aktualisierte DB-Datei herunter, um sie dauerhaft zu speichern.',
-        helpSecTeam: '👥 Team-Modus',
-        helpTipTeam1: '<strong>Teams hinzufügen</strong> auf dem Startbildschirm — gib jedem einen Namen und eine Farbe. Teams wechseln sich in allen Spielen ab; die Farbe des aktiven Teams hebt das Spielfeld hervor.',
-        helpTipTeam2: '<strong>Punktestand</strong> — eine richtige Antwort vergibt Punkte an das aktive Team. Nutze <strong>Punkte zurücksetzen</strong> zum Nullsetzen oder <strong>Teams löschen</strong> zum Entfernen aller Teams.',
-        helpSecTimer: '⏱ Timer',
-        helpTipTimer: 'Die meisten Spiele haben einen <strong>⏱ Timer</strong>-Knopf oben rechts. Klicke ihn, um einen Countdown zu starten; er läuft unabhängig vom Spiel für Zeitrunden oder Team-Herausforderungen.',
-        noExample: 'Kein Beispielsatz verfügbar.',
-        gameOver: 'Spiel vorbei! Das Wort war:',
-        theWordWas: 'Das Wort war:',
-        clueShown: '💡 Hinweis angezeigt', hintShown: '💡 Tipp angezeigt',
-        clueLabel: 'Hinweis:', defLabel: 'Definition:', hintLabel: 'Tipp:',
-        perfectSyntax: 'Perfekte Syntax!', incorrectOrder: 'Falsche Reihenfolge.',
-        answerRevealed: 'Antwort angezeigt', answerLabel: 'Antwort:',
-        themeLabel: 'Thema:', keywordsLabel: 'Schlüsselwörter:',
-        noMoreClues: 'Keine weiteren Hinweise', notQuiteGuess: 'Nicht ganz — weiter raten...',
-        correctTheme: '✅ Richtig! Das Thema ist:',
-        noSynData: 'Keine Wörter mit Synonym-/Antonym-Daten für aktuelle Filter.',
-        noQuizItems: 'Keine Quiz-Fragen für aktuelle Filter.',
-        noMoreHints: '💡 Keine weiteren Tipps', relatedTopics: 'Verwandte Themen:',
-        topicsFound: 'Themen gefunden', topicFound: 'Thema gefunden',
-        passTo: '→ Weitergeben an',
-        perfectScore: '🎉 Perfekte Punktzahl! Alle', wordsCorrect: 'Wörter richtig.',
-        goodEffort: '👍 Gute Leistung!', correct: 'richtig',
-        keepPractising: '%. Weiter üben!', reviewLabel: '📖', tryAgainSuffix: '%. Antworten prüfen und erneut versuchen.',
-        customItems: 'eigenes Element', customItemsPlural: 'eigene Elemente', inBrowser: 'im Browser gespeichert',
-        saveChanges: '💾 Änderungen speichern', addWordBtn: '➕ Wort hinzufügen', addQuoteBtn: '➕ Zitat hinzufügen',
-        addGapBtn: '➕ Lückentext hinzufügen', addErrorBtn: '➕ Fehlerpaar hinzufügen',
-        allLevels: 'Alle Niveaus', allThemes: 'Alle Themen', allTypes: 'Alle Wortarten', allLetters: 'Alle Buchstaben', allLengths: 'Alle Längen', allKeywords: 'Alle Schlagworte', allSources: 'Alle Quellen',
-        tutBtnLabel: '▶ Tour',
-        tourBtnLabel: '▶ Tour',
-        skmTitle: '⌨ Tastaturkürzel',
-        skmNone: 'Noch keine Tastaturkürzel.',
-        skmTourSoon: 'Interaktive Tour demnächst verfügbar.',
-        skmLtSubmit: 'Antwort absenden',
-        tutNext: 'Weiter →', tutPrev: '← Zurück', tutSkip: 'Überspringen', tutDone: 'Fertig ✓',
-        tutLt1Title: 'Wortfilter', tutLt1Text: 'Grenzen Sie die Wortdatenbank nach Niveau, Thema, Wortart oder Schlüsselwort ein. Jedes Spiel verwendet nur die Wörter, die allen aktiven Filtern entsprechen.',
-        tutLt2Title: 'Team-Modus', tutLt2Text: 'Fügen Sie hier Teams für Wettbewerbe hinzu. Das aktive Team erhält Punkte, wenn ein Schüler richtig antwortet.',
-        tutLt3Title: 'Aktivitäten', tutLt3Text: 'Wählen Sie eine Vokabel- oder Grammatikaktivität. Jedes Spiel verwendet die durch Ihre Filter ausgewählten Wörter.',
-        tutLt4Title: 'Hilfe', tutLt4Text: 'Klicken Sie hier für Schritt-für-Schritt-Anleitungen zu jeder Aktivität.',
-      },
-      it: {
-        siteTitle: 'Learning Tools',
-        secVocab: '📖 Giochi di Vocabolario', secGrammar: '📐 Giochi di Grammatica', secOtherGames: '🎲 Altri Giochi', secTools: '📚 Strumenti',
-        btnDefMatch: '🧩 Abbina la Definizione', btnHangman: "😵 L'Impiccato", btnScramble: '🔠 Parola Mescolata',
-        btnWordQuest: '🔍 Caccia alla Parola', btnPhonetic: '🔉 Fonetica', btnSynAnt: '🔗 Sinonimi & Contrari',
-        btnSentence: '✍️ Costruisci la Frase', btnGapFill: '🕳️ Riempi il Vuoto', btnFindError: "🔴 Trova l'Errore",
-        btnDictation: '📝 Dettato', btnGrammarPractice: '📐 Esercizi di Grammatica', btnWordsSeenToday: '🗓 Parole viste oggi', btnFlashCards: '🎴 Flashcard',
-        btnQuoteAnalyser: '📜 Analisi Citazione', btnViewWords: '📋 Tutti i Vocaboli',
-        btnConstellation: '🌐 Costellazione Parole', btnAddWords: '➕ Aggiungi Parole al DB',
-        btnHelp: '❓ Come funziona tutto?',
-        teamModeTitle: '👥 Modalità a Squadre', btnAddTeam: '+ Aggiungi Squadra', btnResetScores: 'Azzera Punteggi', btnClearTeams: 'Elimina Squadre',
-        filterLevel: 'Livello', filterTheme: 'Tema', filterKeyword: 'Parole chiave', filterType: 'Tipo', filterLetter: 'Lettera', filterLength: 'Lunghezza', filterSource: 'Fonte', filterStarred: 'Preferiti', btnStarredAll: '☆ Tutti', btnReset: 'Reimposta', btnWordsActive: 'Parole Attive',
-        btnBack: '← Indietro',
-        excellent: 'Eccellente!', pointsAwarded: 'Punti assegnati',
-        btnNextWord: 'Parola successiva →', btnTryAgain: 'Riprova',
-        notQuite: 'Non proprio!', betterLuck: 'Meglio la prossima volta', btnClose: 'Chiudi',
-        presMenuTitle: 'Menu presentazione', presStop: 'Ferma presentazione', presFreeze: 'Blocca presentazione', presUnfreeze: 'Sblocca presentazione',
-        presResize: 'Ridimensiona finestra', presRight: 'A destra', presLeft: 'A sinistra',
-        titleDefMatch: 'Abbina la Definizione', titleFlashCards: 'Flashcard', titleHangman: "L'Impiccato",
-        titleScramble: 'Parola Mescolata', titleWordQuest: 'Caccia alla Parola', titleSentence: 'Costruisci la Frase',
-        titleQuote: 'Analisi Citazione', titleGapFill: 'Sfida del Riempimento', titleFindError: "🔴 Trova l'Errore",
-        titlePhonetic: '🔉 Fonetica', titleSynAnt: '🔗 Sinonimi & Contrari',
-        titleVocabBank: 'Banca Vocaboli Completa', titleAddWords: '➕ Aggiungi Parole al Database',
-        titleGrammarPractice: '📐 Esercizi di Grammatica', titleWordsSeenToday: '🗓 Parole viste oggi', titleDictation: '📝 Dettato',
-        titleWordSearch: 'Word Search',
-        titleConstellation: '🌐 Costellazione Parole',
-        btnShuffle: 'Mescola le Parole', btnNewCards: 'Ottieni 6 Nuove Carte',
-        btnSubmitAnswer: 'Invia Risposta', btnSubmit: 'Invia', btnSubmitGuess: 'Invia Ipotesi',
-        btnNewWord: 'Nuova Parola', btnRevealAnswer: 'Mostra Risposta', btnReveal: 'Mostra',
-        btnNewSentence: 'Nuova Frase', btnFullReveal: 'Mostra Tutto', btnNewQuote: 'Nuova Citazione',
-        btnNextSentence: 'Frase successiva →', btnCheck: '✔ Controlla', btnHint: '💡 Suggerimento',
-        btnHintShort: '💡 Indizio', btnGpReveal: '👁 Rivela', btnNext: 'Avanti →', btnClue: 'Indizio',
-        tries: 'Tentativi:',
-        clue1: 'Indizio 1: ?????', clue2: 'Indizio 2: ?????', clue3: 'Indizio 3: ?????', clue4: 'Indizio 4: ?????',
-        clue2Btn: '💡 Indizio 2',
-        ipaSubtitle: 'Leggi la pronuncia IPA — quale parola rappresenta?',
-        btnMCQ: '🎯 Scelta Multipla', btnTypeIt: '⌨️ Scrivi',
-        statScore: 'Punteggio', statStreak: '🔥 Serie', statSeen: 'Viste',
-        statCorrect: '✔ Corrette', statWrong: '✖ Errate', statTotalGaps: 'Spazi Totali',
-        findSynonym: 'Trova un sinonimo →', findSynonymOf: '🔗 Trova un sinonimo di questa parola',
-        findAntonymOf: '⚡ Trova un contrario di questa parola',
-        btnSynonym: '🔗 Sinonimo', btnAntonym: '⚡ Contrario', btnBoth: '🔀 Entrambi',
-        synonymLabel: 'Sinonimo', antonymLabel: 'Contrario',
-        btnSpotError: "🎯 Individua l'Errore", btnRewriteIt: '✏️ Riscrivi',
-        whichCorrect: 'Quale frase è grammaticalmente <strong>corretta</strong>?',
-        correctError: "Correggi l'errore nella frase seguente:",
-        targetGrammar: 'Grammatica Obiettivo:', allGrammar: 'Tutta la Grammatica',
-        dictSubtitle: 'Scegli un testo e una difficoltà. Gli studenti riempiono le parole nascoste.',
-        selectDifficulty: 'Seleziona la difficoltà',
-        btnStartDictation: '▶ Inizia il Dettato', btnCheckAll: '✔ Controlla Tutto',
-        btnRevealAll: '👁 Mostra Tutto', btnRehide: '🙈 Nascondi di Nuovo', btnNewText: '↺ Nuovo Testo',
-        btnExportCSV: '⬇ Esporta CSV', btnExportTXT: '⬇ Esporta JSON',
-        clickWord: 'Clicca una parola per vedere tutti i dettagli e un esempio.',
-        groupSelectorLabel: 'Classe', groupSelectorNone: 'Nessuna classe selezionata',
-        wordsSeenTodaySubtitle: 'Parole mostrate oggi nei giochi di vocabolario.',
-        wordsSeenTodayTracked: 'parole registrate oggi',
-        wordsSeenTodayEmpty: 'Oggi non sono ancora state mostrate parole nei giochi di vocabolario.',
-        wordsSeenHistoryShow: '📋 Mostra Storico', wordsSeenHistoryHide: '📋 Nascondi Storico', wordsSeenHistoryTitle: 'Sessioni Passate', wordsSeenHistoryEmpty: 'Nessuna sessione precedente registrata.',
-        btnReference: '📖 Riferimento', btnQuiz: '✏️ Quiz', btnBrowse: '🗂️ Per Argomento',
-        btnClearAll: 'Elimina Tutto', btnImportBank: '📥 Importa dalla Banca', btnExportPNG: '🖼 Esporta PNG',
-        conInstructions: 'Sposta: trascina le parole · Collega: clicca due parole · Elimina: clicca una parola o linea',
-        helpTitle: '📖 Come Funziona',
-        helpSubtitle: 'Una guida completa — filtri, giochi, strumenti e modalità a squadre.',
-        btnGotIt: 'Capito — giochiamo!',
-        helpSecFilters: '🎛 Filtri',
-        helpTipFilters1: '<strong>Livello, Tema, Tipo</strong> — usa questi filtri per restringere il pool di parole prima di iniziare un gioco. Seleziona più valori da qualsiasi selettore; appariranno solo le parole che corrispondono a <em>tutti i filtri attivi</em>.',
-        helpTipFilters2: '<strong>I filtri si mantengono</strong> — quando navighi da un gioco all\'altro, le tue selezioni rimangono attive. Usa <strong>Reimposta</strong> per tornare a "Tutti".',
-        helpTipFilters3: '<strong>Temi multipli per parola</strong> — una parola può appartenere a più temi (es. "Emozioni, Carattere"). Apparirà ogni volta che uno dei suoi temi è selezionato.',
-        helpSecVocab: '📖 Giochi di Vocabolario',
-        matchPairsLabel: 'Coppie:',
-        helpCardDefMatchTitle: '🧩 Abbina la Definizione',
-        helpCardDefMatchDesc: 'Abbina ogni parola alla sua definizione corretta. Clicca una carta-parola, poi la carta-definizione corrispondente. Devi trovare tutte le coppie per vincere.',
-        helpCardHangmanTitle: "😵 L'Impiccato",
-        helpCardHangmanDesc: 'Indovina la parola nascosta lettera per lettera. Scegli il numero di errori consentiti (4–12). Usa <strong>💡 Indizio</strong> per rivelare la definizione.',
-        helpCardScrambleTitle: '🔠 Parola Mescolata',
-        helpCardScrambleDesc: 'Le lettere della parola sono mescolate. Clicca le lettere per comporre la risposta, usa <strong>💡 Indizio</strong> per un suggerimento, poi invia.',
-        helpCardWordQuestTitle: '🔍 Caccia alla Parola',
-        helpCardWordQuestDesc: 'Viene mostrata una definizione. Sblocca fino a 4 indizi progressivi (sinonimi, suggerimenti di lettere…) per restringere le possibilità, poi digita la tua risposta.',
-        helpCardPhoneticTitle: '🔉 Fonetica',
-        helpCardPhoneticDesc: 'Viene mostrata una trascrizione fonetica IPA. Identifica la parola che rappresenta — scegli tra 4 opzioni o digita la risposta direttamente.',
-        helpCardSynAntTitle: '🔗 Sinonimi & Contrari',
-        helpCardSynAntDesc: 'Viene mostrata una parola — trova il suo sinonimo o contrario. Alterna tra le modalità Sinonimo, Contrario o Entrambi. Scelta multipla o digitazione libera.',
-        helpSecGrammar: '📐 Giochi di Grammatica',
-        helpCardSentenceTitle: '✍️ Costruisci la Frase',
-        helpCardSentenceDesc: 'Ricostruisci una frase mescolata cliccando le parole nell\'ordine corretto. La struttura target è mostrata; usa <strong>💡 Indizio</strong> per rivelare la parola successiva.',
-        helpCardGapFillTitle: '🕳️ Riempi il Vuoto',
-        helpCardGapFillDesc: 'Una parola è stata rimossa da una frase. Digita la parola mancante. Filtra per tipo grammaticale (Relative, Condizionali…) per esercizi mirati.',
-        helpCardFindErrorTitle: "🔴 Trova l'Errore",
-        helpCardFindErrorDesc: 'Individua l\'errore grammaticale in una frase. Due modalità: <strong>Individua</strong> (scegli tra corretta ed errata) o <strong>Riscrivi</strong> (correggi la frase tu stesso).',
-        helpCardDictationTitle: '📝 Dettato',
-        helpCardDictationDesc: 'Un testo viene letto ad alta voce. Digita quello che senti, parola per parola. Scegli Facile (10% parole nascoste), Medio (50%) o Difficile (90%).',
-        helpSecTools: '📚 Strumenti',
-        helpCardGrammarPracticeTitle: '📐 Esercizi di Grammatica',
-        helpCardGrammarPracticeDesc: 'Una biblioteca di riferimento per le regole grammaticali — formule, parole segnale, errori comuni e consigli. Filtra per categoria o livello.',
-        helpCardFlashCardsTitle: '🎴 Flashcard',
-        helpCardFlashCardsDesc: 'Passa il mouse su una carta per girarla e scoprire la traduzione francese e la definizione. Ottimo per la revisione passiva.',
-        helpCardQuoteTitle: '📜 Analisi Citazione',
-        helpCardQuoteDesc: 'Viene visualizzata una citazione letteraria. Indovina il tema e le parole chiave; sblocca gli indizi uno alla volta o richiedi un\'analisi completa.',
-        helpCardViewWordsTitle: '📋 Tutti i Vocaboli',
-        helpCardViewWordsDesc: 'Sfoglia l\'intera banca vocaboli filtrata dalle impostazioni correnti. Clicca una parola per tutti i dettagli. Esporta in CSV o TXT.',
-        helpCardConstellationTitle: '🌐 Costellazione Parole',
-        helpCardConstellationDesc: 'Mappa visiva delle parole che mostra le connessioni per tema e significato. Zoom, trascina ed esplora le relazioni.',
-        helpCardAddWordsTitle: '➕ Aggiungi Parole al DB',
-        helpCardAddWordsDesc: 'Aggiungi vocaboli personalizzati, citazioni, frasi con lacune e coppie di errori. Salvati nel browser; scarica un file DB aggiornato per renderli permanenti.',
-        helpSecTeam: '👥 Modalità a Squadre',
-        helpTipTeam1: '<strong>Aggiungi squadre</strong> dalla schermata principale — assegna a ciascuna un nome e un colore. Le squadre si alternano in tutti i giochi; il colore della squadra attiva evidenzia il pannello di gioco.',
-        helpTipTeam2: '<strong>Punteggio</strong> — una risposta corretta assegna punti alla squadra attiva. Usa <strong>Azzera Punteggi</strong> per azzerare tutto, o <strong>Elimina Squadre</strong> per rimuovere tutte le squadre.',
-        helpSecTimer: '⏱ Timer',
-        helpTipTimer: 'La maggior parte dei giochi ha un pulsante <strong>⏱ Timer</strong> in alto a destra. Cliccalo per impostare un conto alla rovescia; funziona indipendentemente dal gioco per round a tempo o sfide a squadre.',
-        noExample: 'Nessun esempio disponibile.',
-        gameOver: 'Partita finita! La parola era:',
-        theWordWas: 'La parola era:',
-        clueShown: '💡 Indizio mostrato', hintShown: '💡 Suggerimento mostrato',
-        clueLabel: 'Indizio:', defLabel: 'Definizione:', hintLabel: 'Suggerimento:',
-        perfectSyntax: 'Sintassi perfetta!', incorrectOrder: 'Ordine non corretto.',
-        answerRevealed: 'Risposta rivelata', answerLabel: 'Risposta:',
-        themeLabel: 'Tema:', keywordsLabel: 'Parole chiave:',
-        noMoreClues: 'Nessun altro indizio', notQuiteGuess: 'Non proprio — continua a indovinare...',
-        correctTheme: '✅ Corretto! Il tema è:',
-        noSynData: 'Nessuna parola con dati di sinonimi/contrari per i filtri correnti.',
-        noQuizItems: 'Nessun elemento del quiz per i filtri correnti.',
-        noMoreHints: '💡 Nessun altro suggerimento', relatedTopics: 'Argomenti correlati:',
-        topicsFound: 'argomenti trovati', topicFound: 'argomento trovato',
-        passTo: '→ Passa a',
-        perfectScore: '🎉 Punteggio perfetto! Tutte le', wordsCorrect: 'parole corrette.',
-        goodEffort: '👍 Buon lavoro!', correct: 'corretti',
-        keepPractising: '%. Continua ad esercitarti!', reviewLabel: '📖', tryAgainSuffix: '%. Rivedi le risposte e riprova.',
-        customItems: 'elemento personalizzato', customItemsPlural: 'elementi personalizzati', inBrowser: 'nella memoria del browser',
-        saveChanges: '💾 Salva Modifiche', addWordBtn: '➕ Aggiungi Parola', addQuoteBtn: '➕ Aggiungi Citazione',
-        addGapBtn: '➕ Aggiungi Esercizio', addErrorBtn: '➕ Aggiungi Coppia di Errori',
-        allLevels: 'Tutti i Livelli', allThemes: 'Tutti i Temi', allTypes: 'Tutti i Tipi', allLetters: 'Tutte le lettere', allLengths: 'Tutte le lunghezze', allKeywords: 'Tutte le parole chiave', allSources: 'Tutte le fonti',
-        tutBtnLabel: '▶ Tour',
-        tourBtnLabel: '▶ Tour',
-        skmTitle: '⌨ Scorciatoie da tastiera',
-        skmNone: 'Nessuna scorciatoia da tastiera per ora.',
-        skmTourSoon: 'Tour interattivo disponibile a breve.',
-        skmLtSubmit: 'Invia risposta',
-        tutNext: 'Avanti →', tutPrev: '← Indietro', tutSkip: 'Salta', tutDone: 'Fine ✓',
-        tutLt1Title: 'Filtri Parole', tutLt1Text: 'Restringi la banca dati per livello, tema, tipo o parola chiave. Ogni gioco usa solo le parole che corrispondono a tutti i filtri attivi.',
-        tutLt2Title: 'Modalità a Squadre', tutLt2Text: 'Aggiungi squadre qui per sessioni competitive. La squadra attiva riceve punti quando uno studente risponde correttamente.',
-        tutLt3Title: 'Attività', tutLt3Text: 'Scegli un\'attività di vocabolario o grammatica. Ogni gioco usa la selezione di parole dei filtri correnti.',
-        tutLt4Title: 'Aiuto', tutLt4Text: 'Clicca qui per istruzioni passo passo su ogni attività.',
-      },
-      fr: {
-        siteTitle: 'Learning Tools',
-        secVocab: '📖 Jeux de Vocabulaire', secGrammar: '📐 Jeux de Grammaire', secOtherGames: '🎲 Autres Jeux', secTools: '📚 Outils',
-        btnDefMatch: '🧩 Associer la Définition', btnHangman: '😵 Le Pendu', btnScramble: '🔠 Mot Mélangé',
-        btnWordQuest: '🔍 Chasse aux Mots', btnPhonetic: '🔉 Quiz Phonétique', btnSynAnt: '🔗 Synonymes & Antonymes',
-        btnSentence: '✍️ Construction de Phrases', btnGapFill: '🕳️ Texte à Trous', btnFindError: '🔴 Trouver l\'Erreur',
-        btnDictation: '📝 Dictée', btnGrammarPractice: '📐 Exercices de Grammaire', btnWordsSeenToday: '🗓 Mots vus aujourd\'hui', btnFlashCards: '🎴 Cartes Flash',
-        btnQuoteAnalyser: '📜 Analyse de Citation', btnViewWords: '📋 Tous les Mots',
-        btnConstellation: '🌐 Constellation de Mots', btnAddWords: '➕ Ajouter des Mots à la BD',
-        btnHelp: '❓ Comment ça fonctionne ?',
-        teamModeTitle: '👥 Mode Équipe', btnAddTeam: '+ Ajouter une Équipe', btnResetScores: 'Réinitialiser les Scores', btnClearTeams: 'Supprimer les Équipes',
-        filterLevel: 'Niveau', filterTheme: 'Thème', filterKeyword: 'Mots-clés', filterType: 'Type', filterLetter: 'Lettre', filterLength: 'Longueur', filterSource: 'Source', filterStarred: 'Favoris', btnStarredAll: '☆ Tous', btnReset: 'Réinitialiser', btnWordsActive: 'Mots Actifs',
-        btnBack: '← Retour',
-        excellent: 'Excellent !', pointsAwarded: 'Points attribués',
-        btnNextWord: 'Mot suivant →', btnTryAgain: 'Réessayer',
-        notQuite: 'Pas tout à fait !', betterLuck: 'Bonne chance la prochaine fois', btnClose: 'Fermer',
-        presMenuTitle: 'Menu de présentation', presStop: 'Arrêter la présentation', presFreeze: 'Figer la présentation', presUnfreeze: 'Défiger la présentation',
-        presResize: 'Redimensionner la fenêtre', presRight: 'Vers la droite', presLeft: 'Vers la gauche',
-        titleDefMatch: 'Associer la Définition', titleFlashCards: 'Cartes Flash', titleHangman: 'Le Pendu',
-        titleScramble: 'Mot Mélangé', titleWordQuest: 'Chasse aux Mots', titleSentence: 'Construction de Phrases',
-        titleQuote: 'Analyse de Citation', titleGapFill: 'Texte à Trous', titleFindError: '🔴 Trouver l\'Erreur',
-        titlePhonetic: '🔉 Quiz Phonétique', titleSynAnt: '🔗 Synonymes & Antonymes',
-        titleVocabBank: 'Banque de Vocabulaire Complète', titleAddWords: '➕ Ajouter des Mots à la Base de Données',
-        titleGrammarPractice: '📐 Exercices de Grammaire', titleWordsSeenToday: '🗓 Mots vus aujourd\'hui', titleDictation: '📝 Dictée',
-        titleWordSearch: 'Mots mêlés',
-        titleConstellation: '🌐 Constellation de Mots',
-        btnShuffle: 'Mélanger les Mots', btnNewCards: '6 Nouvelles Cartes',
-        btnSubmitAnswer: 'Soumettre la Réponse', btnSubmit: 'Soumettre', btnSubmitGuess: 'Soumettre la Réponse',
-        btnNewWord: 'Nouveau Mot', btnRevealAnswer: 'Révéler la Réponse', btnReveal: 'Révéler',
-        btnNewSentence: 'Nouvelle Phrase', btnFullReveal: 'Tout Révéler', btnNewQuote: 'Nouvelle Citation',
-        btnNextSentence: 'Phrase suivante →', btnCheck: '✔ Vérifier', btnHint: '💡 Indice',
-        btnHintShort: '💡 Indice', btnGpReveal: '👁 Révéler', btnNext: 'Suivant →', btnClue: 'Indice',
-        tries: 'Essais :',
-        clue1: 'Indice 1 : ?????', clue2: 'Indice 2 : ?????', clue3: 'Indice 3 : ?????', clue4: 'Indice 4 : ?????',
-        clue2Btn: '💡 Indice 2',
-        ipaSubtitle: 'Lisez la prononciation API — quel mot représente-t-elle ?',
-        btnMCQ: '🎯 Choix Multiple', btnTypeIt: '⌨️ Saisir',
-        statScore: 'Score', statStreak: '🔥 Série', statSeen: 'Vu',
-        statCorrect: '✔ Correct', statWrong: '✖ Incorrect', statTotalGaps: 'Total des Trous',
-        findSynonym: 'Trouver un synonyme →', findSynonymOf: '🔗 Trouver un synonyme de ce mot',
-        findAntonymOf: '⚡ Trouver un antonyme de ce mot',
-        btnSynonym: '🔗 Synonyme', btnAntonym: '⚡ Antonyme', btnBoth: '🔀 Les deux',
-        synonymLabel: 'Synonyme', antonymLabel: 'Antonyme',
-        btnSpotError: '🎯 Repérer l\'Erreur', btnRewriteIt: '✏️ Réécrire',
-        whichCorrect: 'Quelle phrase est grammaticalement <strong>correcte</strong> ?',
-        correctError: 'Corrigez l\'erreur dans la phrase ci-dessous :',
-        targetGrammar: 'Grammaire ciblée :', allGrammar: 'Toute la Grammaire',
-        dictSubtitle: 'Choisissez un texte et un niveau de difficulté. Les élèves remplissent les mots cachés.',
-        selectDifficulty: 'Choisir la difficulté',
-        btnStartDictation: '▶ Démarrer la Dictée', btnCheckAll: '✔ Tout Vérifier',
-        btnRevealAll: '👁 Tout Révéler', btnRehide: '🙈 Tout Cacher', btnNewText: '↺ Nouveau Texte',
-        btnExportCSV: '⬇ Exporter CSV', btnExportTXT: '⬇ Exporter JSON',
-        clickWord: 'Cliquez sur un mot pour voir ses détails complets et sa phrase d\'exemple.',
-        groupSelectorLabel: 'Classe', groupSelectorNone: 'Aucune classe sélectionnée',
-        wordsSeenTodaySubtitle: 'Mots affichés aujourd\'hui dans les jeux de vocabulaire.',
-        wordsSeenTodayTracked: 'mots suivis aujourd\'hui',
-        wordsSeenTodayEmpty: 'Aucun mot n\'a encore été affiché aujourd\'hui dans les jeux de vocabulaire.',
-        wordsSeenHistoryShow: '📋 Voir l\'historique', wordsSeenHistoryHide: '📋 Masquer l\'historique', wordsSeenHistoryTitle: 'Sessions Passées', wordsSeenHistoryEmpty: 'Aucune session passée enregistrée.',
-        btnReference: '📖 Référence', btnQuiz: '✏️ Quiz', btnBrowse: '🗂️ Par Thème',
-        btnClearAll: 'Tout Effacer', btnImportBank: '📥 Importer de la Banque', btnExportPNG: '🖼 Exporter PNG',
-        conInstructions: 'Déplacer : glisser les mots · Connecter : cliquer deux mots · Supprimer : cliquer un mot ou une ligne',
-        helpTitle: '📖 Comment ça Fonctionne',
-        helpSubtitle: 'Un guide complet — filtres, jeux, outils et mode équipe.',
-        btnGotIt: 'Compris — jouons !',
-        helpSecFilters: '🎛 Filtres',
-        helpTipFilters1: '<strong>Niveau, Thème, Type</strong> — utilisez ces filtres pour réduire le pool de mots avant de commencer un jeu. Sélectionnez plusieurs valeurs ; seuls les mots correspondant à <em>tous les filtres actifs</em> apparaîtront.',
-        helpTipFilters2: '<strong>Les filtres se maintiennent</strong> — lorsque vous naviguez d\'un jeu à l\'autre, vos sélections restent actives. Utilisez <strong>Réinitialiser</strong> pour tout remettre à « Tous ».',
-        helpTipFilters3: '<strong>Thèmes multiples par mot</strong> — un mot peut appartenir à plusieurs thèmes (ex. « Émotions, Caractère »). Il apparaîtra dès qu\'un de ses thèmes est sélectionné.',
-        helpSecVocab: '📖 Jeux de Vocabulaire',
-        matchPairsLabel: 'Paires :',
-        helpCardDefMatchTitle: '🧩 Associer la Définition',
-        helpCardDefMatchDesc: 'Associez chaque mot à sa définition correcte. Cliquez une carte-mot, puis la carte-définition correspondante. Toutes les paires doivent être trouvées pour gagner.',
-        helpCardHangmanTitle: '😵 Le Pendu',
-        helpCardHangmanDesc: 'Devinez le mot caché lettre par lettre. Choisissez le nombre d\'erreurs autorisées (4–12). Utilisez <strong>💡 Indice</strong> pour révéler la définition.',
-        helpCardScrambleTitle: '🔠 Mot Mélangé',
-        helpCardScrambleDesc: 'Les lettres du mot sont mélangées. Cliquez les lettres pour former votre réponse, utilisez <strong>💡 Indice</strong> pour un conseil, puis soumettez.',
-        helpCardWordQuestTitle: '🔍 Chasse aux Mots',
-        helpCardWordQuestDesc: 'Une définition est affichée. Débloquez jusqu\'à 4 indices progressifs (synonymes, indices de lettres…) pour cerner le mot, puis saisissez votre réponse.',
-        helpCardPhoneticTitle: '🔉 Quiz Phonétique',
-        helpCardPhoneticDesc: 'Une transcription phonétique API est affichée. Identifiez le mot qu\'elle représente — choisissez parmi 4 options ou saisissez directement la réponse.',
-        helpCardSynAntTitle: '🔗 Synonymes & Antonymes',
-        helpCardSynAntDesc: 'Un mot est affiché — trouvez son synonyme ou son antonyme. Basculez entre les modes Synonyme, Antonyme ou Les deux. Choix multiple ou saisie libre.',
-        helpSecGrammar: '📐 Jeux de Grammaire',
-        helpCardSentenceTitle: '✍️ Construction de Phrases',
-        helpCardSentenceDesc: 'Reconstituez une phrase mélangée en cliquant les mots dans le bon ordre. La structure cible est affichée ; utilisez <strong>💡 Indice</strong> pour révéler le mot suivant.',
-        helpCardGapFillTitle: '🕳️ Texte à Trous',
-        helpCardGapFillDesc: 'Un mot a été retiré d\'une phrase. Saisissez le mot manquant. Filtrez par type grammatical (Relatives, Conditionnelles…) pour des exercices ciblés.',
-        helpCardFindErrorTitle: '🔴 Trouver l\'Erreur',
-        helpCardFindErrorDesc: 'Repérez l\'erreur grammaticale dans une phrase. Deux modes : <strong>Repérer</strong> (choisir entre correct et erroné) ou <strong>Réécrire</strong> (corriger la phrase vous-même).',
-        helpCardDictationTitle: '📝 Dictée',
-        helpCardDictationDesc: 'Un texte est lu à voix haute. Saisissez ce que vous entendez, mot par mot. Choisissez Facile (10 % de mots cachés), Moyen (50 %) ou Difficile (90 %).',
-        helpSecTools: '📚 Outils',
-        helpCardGrammarPracticeTitle: '📐 Exercices de Grammaire',
-        helpCardGrammarPracticeDesc: 'Une bibliothèque de référence des règles grammaticales — formules, mots-signaux, erreurs courantes et conseils. Filtrez par catégorie ou niveau.',
-        helpCardFlashCardsTitle: '🎴 Cartes Flash',
-        helpCardFlashCardsDesc: 'Survolez une carte pour la retourner et révéler la traduction française et la définition. Idéal pour la révision passive.',
-        helpCardQuoteTitle: '📜 Analyse de Citation',
-        helpCardQuoteDesc: 'Une citation littéraire est affichée. Devinez son thème et ses mots-clés ; débloquez les indices un par un ou demandez une analyse complète.',
-        helpCardViewWordsTitle: '📋 Tous les Mots',
-        helpCardViewWordsDesc: 'Parcourez toute la banque de vocabulaire filtrée par vos paramètres actuels. Cliquez un mot pour tous les détails. Exportez en CSV ou TXT.',
-        helpCardConstellationTitle: '🌐 Constellation de Mots',
-        helpCardConstellationDesc: 'Carte visuelle des mots montrant les connexions par thème et signification. Zoom, glisser et explorer les relations.',
-        helpCardAddWordsTitle: '➕ Ajouter des Mots à la BD',
-        helpCardAddWordsDesc: 'Ajoutez du vocabulaire personnalisé, des citations, des phrases à trous et des paires d\'erreurs. Sauvegardés dans le navigateur ; téléchargez un fichier BD mis à jour pour les rendre permanents.',
-        helpSecTeam: '👥 Mode Équipe',
-        helpTipTeam1: '<strong>Ajoutez des équipes</strong> sur l\'écran d\'accueil — donnez à chacune un nom et une couleur. Les équipes se relaient dans tous les jeux ; la couleur de l\'équipe active met en évidence le panneau de jeu.',
-        helpTipTeam2: '<strong>Score</strong> — une bonne réponse attribue des points à l\'équipe active. Utilisez <strong>Réinitialiser les Scores</strong> pour tout remettre à zéro, ou <strong>Supprimer les Équipes</strong> pour retirer toutes les équipes.',
-        helpSecTimer: '⏱ Minuteur',
-        helpTipTimer: 'La plupart des jeux ont un bouton <strong>⏱ Minuteur</strong> en haut à droite. Cliquez-le pour régler un compte à rebours ; il fonctionne indépendamment du jeu pour des tours chronométrés ou des défis en équipe.',
-        noExample: 'Aucun exemple disponible.',
-        gameOver: 'Partie terminée ! Le mot était :',
-        theWordWas: 'Le mot était :',
-        clueShown: '💡 Indice affiché', hintShown: '💡 Suggestion affichée',
-        clueLabel: 'Indice :', defLabel: 'Définition :', hintLabel: 'Suggestion :',
-        perfectSyntax: 'Syntaxe parfaite !', incorrectOrder: 'Ordre incorrect.',
-        answerRevealed: 'Réponse révélée', answerLabel: 'Réponse :',
-        themeLabel: 'Thème :', keywordsLabel: 'Mots-clés :',
-        noMoreClues: 'Plus d\'indices', notQuiteGuess: 'Pas tout à fait — continuez à deviner...',
-        correctTheme: '✅ Correct ! Le thème est :',
-        noSynData: 'Aucun mot avec des données de synonymes/antonymes pour les filtres actuels.',
-        noQuizItems: 'Aucun élément de quiz pour les filtres actuels.',
-        noMoreHints: '💡 Plus de suggestions', relatedTopics: 'Sujets connexes :',
-        topicsFound: 'sujets trouvés', topicFound: 'sujet trouvé',
-        passTo: '→ Passer à',
-        perfectScore: '🎉 Score parfait ! Tous les', wordsCorrect: 'mots corrects.',
-        goodEffort: '👍 Bon effort !', correct: 'corrects',
-        keepPractising: '%. Continuez à pratiquer !', reviewLabel: '📖', tryAgainSuffix: '%. Révisez les réponses et réessayez.',
-        customItems: 'élément personnalisé', customItemsPlural: 'éléments personnalisés', inBrowser: 'dans la mémoire du navigateur',
-        saveChanges: '💾 Enregistrer les Modifications', addWordBtn: '➕ Ajouter un Mot', addQuoteBtn: '➕ Ajouter une Citation',
-        addGapBtn: '➕ Ajouter un Exercice', addErrorBtn: '➕ Ajouter une Paire d\'Erreurs',
-        allLevels: 'Tous les Niveaux', allThemes: 'Tous les Thèmes', allTypes: 'Tous les Types', allLetters: 'Toutes les Lettres', allLengths: 'Toutes les Longueurs', allKeywords: 'Tous les Mots-clés', allSources: 'Toutes les Sources',
-        tutBtnLabel: '▶ Visite',
-        tourBtnLabel: '▶ Visite',
-        skmTitle: '⌨ Raccourcis clavier',
-        skmNone: 'Pas encore de raccourcis clavier.',
-        skmTourSoon: 'Visite interactive bientôt disponible.',
-        skmLtSubmit: 'Soumettre la réponse',
-        tutNext: 'Suivant →', tutPrev: '← Précédent', tutSkip: 'Passer', tutDone: 'Terminé ✓',
-        tutLt1Title: 'Filtres Vocabulaire', tutLt1Text: 'Restreignez la banque de mots par niveau, thème, type ou mot-clé. Chaque jeu utilise uniquement les mots correspondant à tous les filtres actifs.',
-        tutLt2Title: 'Mode Équipes', tutLt2Text: 'Ajoutez des équipes ici pour des sessions compétitives. L\'équipe active gagne des points lorsqu\'un élève répond correctement.',
-        tutLt3Title: 'Activités', tutLt3Text: 'Choisissez une activité de vocabulaire ou de grammaire. Chaque jeu utilise la sélection de mots de vos filtres actuels.',
-        tutLt4Title: 'Aide', tutLt4Text: 'Cliquez ici pour des instructions étape par étape sur chaque activité.',
-      }
-    };
+    const I18N = (typeof window.I18N !== 'undefined') ? window.I18N : ((typeof i18n !== 'undefined' && i18n.STRINGS) ? i18n.STRINGS : {});
 
-    function t(k) { return (I18N[currentLang] || I18N.en)[k] || I18N.en[k] || k; }
+    function t(k) {
+      if (typeof window.t === 'function' && window.t !== t) {
+        return window.t(k);
+      }
+      if (typeof i18n !== 'undefined' && typeof i18n.t === 'function') {
+        return i18n.t(k);
+      }
+      return k;
+    }
 
     // --- Font size control ---
     const FS_DEFAULT = 16;
@@ -14075,16 +13593,34 @@
     function applyLang() {
       // Site title
       const st = document.getElementById('site-title');
-      if (st) st.textContent = t('siteTitle');
+      if (st) st.textContent = t('ltSiteTitle');
 
       // All data-i18n elements
       document.querySelectorAll('[data-i18n]').forEach(el => {
         if (el.id === 'failure-msg') return;
         const k = el.getAttribute('data-i18n');
         const v = t(k);
+        var iconPath = el.getAttribute('data-icon');
+        var img = el.querySelector('img');
+        var existingClass = img ? img.className : (el.getAttribute('data-icon-class') || 'btn-icon');
         // Use innerHTML for keys that contain HTML tags
         const htmlKeys = ['whichCorrect', 'helpTipFilters1', 'helpTipFilters2', 'helpTipFilters3', 'helpCardHangmanDesc', 'helpCardScrambleDesc', 'helpCardFindErrorDesc', 'helpTipTeam1', 'helpTipTeam2', 'helpTipTimer'];
-        if (htmlKeys.includes(k)) { el.innerHTML = v; }
+        if (img || iconPath) {
+          if (!iconPath && img) {
+            iconPath = img.getAttribute('src');
+            if (iconPath) el.setAttribute('data-icon', iconPath);
+          }
+          if (!img && iconPath) {
+            img = document.createElement('img');
+            img.src = iconPath;
+            img.className = existingClass;
+            img.alt = '';
+          }
+          const cleanText = String(v || '').replace(/^(?:[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]|[\p{Extended_Pictographic}\u200d\ufe0f])+\s*/u, '').trim();
+          el.innerHTML = '';
+          if (img) el.appendChild(img);
+          el.appendChild(document.createTextNode(' ' + cleanText));
+        } else if (htmlKeys.includes(k)) { el.innerHTML = v; }
         else { el.textContent = v; }
       });
       if (typeof populateAllThemeMenus === 'function' && typeof vocabBank !== 'undefined' && vocabBank.length > 0) {

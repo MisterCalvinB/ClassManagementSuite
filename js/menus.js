@@ -9,15 +9,21 @@
   // ── Injected CSS ───────────────────────────────────────────────────────────
   var style = document.createElement('style');
   style.textContent = [
-    '.hm-wrap{position:relative;margin-left:auto}',
-    '.hm-btn{background:none;border:1px solid #555;color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:1.1rem;line-height:1;transition:border-color .12s}',
-    '.hm-btn:hover{border-color:#fff}',
+    '#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{background:#111;color:#fff;border:1px solid #555;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:all 0.12s ease;line-height:1.2;box-sizing:border-box}',
+    '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#222;border-color:#888;color:#fff}',
+    '.btn-primary img.btn-icon,.btn-success img.btn-icon,.btn-danger img.btn-icon,.btn-primary .btn-icon,.btn-success .btn-icon,.btn-danger .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{filter:brightness(0) invert(1) !important}',
+    '.dropdown-item:hover img.btn-icon,.dropdown-item:hover .btn-icon,.menu-item:hover img.btn-icon,.menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
+    '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',
     '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1e1e1e;border:1px solid #444;border-radius:6px;min-width:200px;z-index:9999;padding:4px 0;box-shadow:0 4px 16px rgba(0,0,0,.45)}',
     '.hm-wrap.open .hm-menu{display:block}',
     '.hm-item{display:block;padding:7px 16px;color:#ccc;text-decoration:none;font-size:.85rem;font-weight:600;white-space:nowrap;background:none;border:none;cursor:pointer;font-family:inherit;width:100%;text-align:left;box-sizing:border-box}',
     '.hm-item:hover,.hm-item.nav-active{background:#2d2d2d;color:#fff}',
     '.hm-sep{border:none;border-top:1px solid #333;margin:4px 0}',
-    '.hm-icon-img{width:16px;height:16px;vertical-align:-3px;margin-right:8px;filter:invert(1) brightness(10) grayscale(1)}',
+    '.hm-icon-img{width:16px;height:16px;vertical-align:-3px;margin-right:8px;filter:invert(1) brightness(10) grayscale(1)!important}',
+    '.hm-lang-row{display:flex;gap:4px;padding:6px 12px}',
+    '.hm-lang-btn{flex:1;background:none;border:1px solid #444;color:#aaa;padding:3px 2px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}',
+    '.hm-lang-btn:hover{border-color:#999;color:#eee}',
+    '.hm-lang-btn.active{background:#3a3a3a;color:#fff;border-color:#888}'
   ].join('');
   document.head.appendChild(style);
 

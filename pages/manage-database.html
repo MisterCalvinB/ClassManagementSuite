@@ -10,7 +10,9 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/menus.js"></script>
+  <script src="../js/tutorial.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -59,13 +61,15 @@
     style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;flex-wrap:wrap;box-sizing:border-box;flex-shrink:0;">
     <span class="nav-brand"
       style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
-    <div id="app-hamburger" class="hm-wrap">
-      <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
-      <div class="hm-menu"></div>
-    </div>
     <button onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html')"
       data-i18n="importShortcutBtn"
       style="margin-left:auto;background:#222;border:1.5px solid #444;color:#ddd;padding:5px 13px;border-radius:5px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
+    <div id="app-hamburger" class="hm-wrap">
+      <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" onclick="startMdbTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
+      <div class="hm-menu"></div>
+    </div>
   </nav>
   <div id="mdb-row">
     <aside id="sidebar">
@@ -3017,6 +3021,37 @@ Rules:
       renderTable();
 
       openEdit(fi, recordIndex);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TUTORIAL
+    // ─────────────────────────────────────────────────────────────────────
+    async function startMdbTutorial() {
+      if (!S.typeKey && typeof DATA_TYPES !== 'undefined' && DATA_TYPES.length > 0) {
+        await selectType(DATA_TYPES[0].key);
+      }
+      Tutorial.start([
+        { selector: '#app-nav', title: t('tutMdb1Title'), text: t('tutMdb1Text') },
+        { selector: '#sidebar', title: t('tutMdb2Title'), text: t('tutMdb2Text') },
+        { selector: '#pills-row', title: t('tutMdb4Title'), text: t('tutMdb4Text') },
+        { selector: '#actions-row', title: t('tutMdb5Title'), text: t('tutMdb5Text') },
+        { selector: '#filter-bar', title: t('tutMdb6Title'), text: t('tutMdb6Text') },
+        { selector: '#table-wrap', title: t('tutMdb7Title'), text: t('tutMdb7Text') },
+        {
+          selector: '#actions-row',
+          title: t('tutMdb8Title'),
+          text: t('tutMdb8Text'),
+          onShow: function () {
+            const exp = $('export-dropdown');
+            if (exp && exp.style.display === 'none') exp.style.display = 'inline-block';
+          }
+        }
+      ], {
+        next: t('tutNext'),
+        prev: t('tutPrev'),
+        skip: t('tutSkip'),
+        done: t('tutDone')
+      });
     }
 
     // ─────────────────────────────────────────────────────────────────────

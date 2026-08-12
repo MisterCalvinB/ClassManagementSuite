@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../js/menus.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,9 +18,36 @@
       font-family: 'Lexend', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #fff;
       color: #000;
+      height: 100vh;
       min-height: 100vh;
       overflow: hidden;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #app-nav {
+      background: #111;
+      color: #fff;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      height: 44px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+    }
+
+    #app-nav .nav-brand {
+      color: #fff;
+      font-weight: 900;
+      font-size: 1rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    @media print {
+      #app-nav { display: none !important; }
     }
 
     .hidden { display: none !important; }
@@ -93,7 +123,8 @@
     #om-app {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      flex: 1;
+      min-height: 0;
       overflow: hidden;
     }
 
@@ -907,6 +938,17 @@
   <div class="pres-idle-text hidden" id="pres-idle-text"></div>
 </div>
 
+<!-- ── NAV ── -->
+<nav id="app-nav">
+  <span class="nav-brand"></span>
+  <div id="app-hamburger" class="hm-wrap">
+    <button id="skm-trigger" class="tut-trigger-btn" onclick="openOmShortcutsModal()" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+    <button id="tut-trigger" class="tut-trigger-btn" onclick="startOmTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
+    <div class="hm-menu"></div>
+  </div>
+</nav>
+
 <!-- ── MARKING MODE ───────────────────────────────────── -->
 <div id="om-app" class="hidden">
 
@@ -1114,6 +1156,9 @@
     document.getElementById('om-app').classList.remove('hidden');
     initResize();
     loadCoreData();
+    if (typeof initHamburger === 'function') initHamburger('app-hamburger');
+    if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
+    initKeyboardShortcuts();
     const saved = tryRestoreSession();
     if (!saved) {
       showSetup();
@@ -2566,6 +2611,69 @@
     }
   }
 
+  // ── Keyboard Shortcuts & Tutorial ──────────────────────
+  function openOmShortcutsModal() {
+    if (typeof ShortcutsModal === 'undefined') return;
+    ShortcutsModal.open({
+      title: t('skmTitle') || 'Keyboard Shortcuts',
+      rows: [
+        { section: t('omShortcutsSession') || 'Oral Marking Session' },
+        { keys: ['Space'], desc: t('omShortcutSpaceDesc') || 'Pause / Resume timer' },
+        { keys: ['P'], desc: t('omShortcutPDesc') || 'Toggle presenter view' },
+        { keys: ['Ctrl', 'S'], alt: ['Cmd', 'S'], desc: t('omShortcutSaveDesc') || 'Save grades to Grade Sheet' },
+        { keys: ['Esc'], desc: t('omShortcutEscDesc') || 'Exit presenter or close dialog' }
+      ],
+      noShortcutsText: t('skmNone')
+    });
+  }
+
+  function initKeyboardShortcuts() {
+    if (initKeyboardShortcuts._bound) return;
+    initKeyboardShortcuts._bound = true;
+    document.addEventListener('keydown', (e) => {
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+
+      if (e.code === 'Space') {
+        if (sessionStarted && phase !== 'idle' && phase !== 'done-all') {
+          e.preventDefault();
+          togglePause();
+        }
+      } else if (e.key === 'p' || e.key === 'P') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          togglePresenter();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        saveGrades();
+      } else if (e.key === 'Escape') {
+        if (presenterOpen) {
+          togglePresenter();
+        }
+      }
+    });
+  }
+
+  function startOmTutorial() {
+    if (typeof Tutorial === 'undefined') return;
+    const steps = [
+      { selector: '#app-nav', title: t('tutOm1Title'), text: t('tutOm1Text') },
+      { selector: '#om-load-btn', title: t('tutOm2Title'), text: t('tutOm2Text') },
+      { selector: '#om-setup-configured', title: t('tutOm3Title'), text: t('tutOm3Text') },
+      { selector: '#om-sidebar', title: t('tutOm4Title'), text: t('tutOm4Text') },
+      { selector: '#om-timer-bar', title: t('tutOm5Title'), text: t('tutOm5Text') },
+      { selector: '#om-presenter-btn', title: t('tutOm6Title'), text: t('tutOm6Text') },
+      { selector: '#om-save-gs-btn', title: t('tutOm7Title'), text: t('tutOm7Text') }
+    ];
+    Tutorial.start(steps, {
+      next: t('tutNext') || 'Next',
+      prev: t('tutPrev') || 'Prev',
+      skip: t('tutSkip') || 'Skip',
+      done: t('tutDone') || 'Done'
+    });
+  }
+
   // ── Public surface ───────────────────────────────────────
   window.goBack             = goBack;
   window.openScheduleModal  = openScheduleModal;
@@ -2577,6 +2685,8 @@
   window.saveGrades         = saveGrades;
   window.saveTemplate       = saveTemplate;
   window.beginSession       = beginSession;
+  window.openOmShortcutsModal = openOmShortcutsModal;
+  window.startOmTutorial       = startOmTutorial;
 
   // ── Panel resize ─────────────────────────────────────────
   function initResize() {

@@ -363,6 +363,23 @@
       display: inline-block;
     }
 
+    /* Specific rule for Tour & Shortcut buttons (.tut-trigger-btn) to have dark background */
+    .tut-trigger-btn {
+      background: #111111 !important;
+      color: #ffffff !important;
+      border: 1px solid #555555 !important;
+    }
+
+    .tut-trigger-btn:hover {
+      background: #222222 !important;
+      color: #ffffff !important;
+      border-color: #888888 !important;
+    }
+
+    .tut-trigger-btn img {
+      filter: brightness(0) invert(1) !important;
+    }
+
     /* Standard dark-background buttons (.action-btn without .btn-grey, active .bst-tab): icon defaults to white */
     button.action-btn:not(.btn-grey) img,
     .action-btn:not(.btn-grey) img,
@@ -835,12 +852,12 @@
       </div>
       <button id="board-customise-btn" class="action-btn btn-grey" onclick="boardCustomiseOpen()"
         title="Customise board defaults">Customise</button>
-      <button class="action-btn btn-grey tut-trigger-btn" onclick="openBoardShortcuts()" data-i18n-title="skmTitle"
-        title="Keyboard Shortcuts">?</button>
-      <button class="action-btn btn-grey tut-trigger-btn" onclick="showBoardTour()" data-i18n-title="tourBtnLabel"
-        data-i18n="tourBtnLabel">▶ Tour</button>
     </div>
     <div id="app-hamburger" class="hm-wrap">
+      <button class="tut-trigger-btn" onclick="openBoardShortcuts()" data-i18n-title="skmTitle"
+        title="Keyboard Shortcuts">?</button>
+      <button class="tut-trigger-btn" onclick="showBoardTour()" data-i18n-title="tourBtnLabel"
+        data-i18n="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" aria-label="Open menu">☰</button>
       <div class="hm-menu"></div>
     </div>
@@ -5954,12 +5971,23 @@
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n');
         const v = t(k);
-        const img = el.querySelector('img');
+        var iconPath = el.getAttribute('data-icon');
+        var img = el.querySelector('img');
         // Use innerHTML for keys that contain HTML tags
         const htmlKeys = ['whichCorrect', 'helpTipFilters1', 'helpTipFilters2', 'helpTipFilters3', 'helpCardHangmanDesc', 'helpCardScrambleDesc', 'helpCardFindErrorDesc', 'helpTipTeam1', 'helpTipTeam2', 'helpTipTimer'];
-        if (img) {
+        if (img || iconPath) {
+          if (!iconPath && img) {
+            iconPath = img.getAttribute('src');
+            if (iconPath) el.setAttribute('data-icon', iconPath);
+          }
+          if (!img && iconPath) {
+            img = document.createElement('img');
+            img.src = iconPath;
+            img.className = 'btn-icon';
+            img.alt = '';
+          }
           el.innerHTML = '';
-          el.appendChild(img);
+          if (img) el.appendChild(img);
           el.appendChild(document.createTextNode(' ' + v));
         } else if (htmlKeys.includes(k)) {
           el.innerHTML = v;
