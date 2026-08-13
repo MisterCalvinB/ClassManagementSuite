@@ -8045,89 +8045,120 @@
 
     // Canvas-based PDF renderer: full control of zoom, rotation, scroll — can be synced to mirror.
     async function conRenderPdfForItem(item, canvas, scrollDiv, contentEl) {
-      let pdfjsLib;
-      try { pdfjsLib = await conEnsurePdfjsLib(); } catch (e) { return; }
-      if (!item._pdfDoc) {
-        const buf = await conGetAttachmentArrayBuffer(item);
-        if (!buf) return;
-        try {
-          item._pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
-        } catch (e) { return; }
-      }
-      const pageNum = Math.max(1, Math.min(item._pdfDoc.numPages, Number(item.pageNumber) || 1));
-      let page;
-      try { page = await item._pdfDoc.getPage(pageNum); } catch (e) { return; }
-      const rotation = (((Number(item.pdfRotation) || 0) % 360) + 360) % 360;
-      let contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
-      let contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
-      const baseVp = page.getViewport({ scale: 1, rotation });
+      if (!item) return;
+      const renderTask = (async () => {
+        let pdfjsLib;
+        try { pdfjsLib = await conEnsurePdfjsLib(); } catch (e) { return; }
+        if (!item._pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(item);
+          if (!buf) return;
+          try {
+            item._pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          } catch (e) { return; }
+        }
+        const pageNum = Math.max(1, Math.min(item._pdfDoc.numPages, Number(item.pageNumber) || 1));
+        let page;
+        try { page = await item._pdfDoc.getPage(pageNum); } catch (e) { return; }
+        const rotation = (((Number(item.pdfRotation) || 0) % 360) + 360) % 360;
+        let contentW = contentEl ? Math.max(10, contentEl.clientWidth || item.w) : item.w;
+        let contentH = contentEl ? Math.max(10, contentEl.clientHeight || item.h) : item.h;
+        const baseVp = page.getViewport({ scale: 1, rotation });
 
-      if (baseVp && baseVp.width > 0 && baseVp.height > 0) {
-        if (!item._ratioInitialized) {
-          item._ratioInitialized = true;
-          const pdfAspect = baseVp.height / baseVp.width;
-          const board = document.getElementById('constellation-board');
-          const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
-          const targetH = Math.max(100, Math.min(boardH - 24, Math.round(item.w * pdfAspect)));
-          if (Math.abs((item.h || 0) - targetH) > 2) {
-            item.h = targetH;
-            contentH = targetH;
-            if (contentEl) {
-              const wrapEl = contentEl.closest('.con-media-item');
-              if (wrapEl) wrapEl.style.height = targetH + 'px';
+        if (baseVp && baseVp.width > 0 && baseVp.height > 0) {
+          if (!item._ratioInitialized) {
+            item._ratioInitialized = true;
+            const pdfAspect = baseVp.height / baseVp.width;
+            const board = document.getElementById('constellation-board');
+            const boardH = board ? Math.max(320, board.clientHeight || 0) : 1400;
+            const targetH = Math.max(100, Math.min(boardH - 24, Math.round(item.w * pdfAspect)));
+            if (Math.abs((item.h || 0) - targetH) > 2) {
+              item.h = targetH;
+              contentH = targetH;
+              if (contentEl) {
+                const wrapEl = contentEl.closest('.con-media-item');
+                if (wrapEl) wrapEl.style.height = targetH + 'px';
+              }
             }
           }
         }
-      }
-      const fitScale = baseVp.width > 0 ? contentW / baseVp.width : 1;
+        const fitScale = baseVp.width > 0 ? contentW / baseVp.width : 1;
 
-      let scale;
-      if (item.pdfLockSize) {
-        const fitScaleH = baseVp.height > 0 ? contentH / baseVp.height : 1;
-        scale = Math.min(fitScale, fitScaleH);
-        item.pdfZoom = scale / fitScale;
-      } else {
-        const zoom = item.pdfZoom != null ? Number(item.pdfZoom) : 1;
-        scale = Math.max(0.05, fitScale * zoom);
-      }
-
-      const viewport = page.getViewport({ scale, rotation });
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(viewport.width * dpr);
-      canvas.height = Math.round(viewport.height * dpr);
-      canvas.style.width = Math.round(viewport.width) + 'px';
-      canvas.style.height = Math.round(viewport.height) + 'px';
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      try {
-        await page.render({
-          canvasContext: ctx,
-          viewport,
-          transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
-        }).promise;
-      } catch (e) { /* ignore render abort */ }
-      if (scrollDiv) {
+        let scale;
         if (item.pdfLockSize) {
-          scrollDiv.style.overflow = 'hidden';
-          canvas.style.position = 'absolute';
-          canvas.style.top = '0';
-          canvas.style.bottom = '0';
-          canvas.style.left = '0';
-          canvas.style.right = '0';
-          canvas.style.margin = 'auto';
-          scrollDiv.scrollLeft = 0;
-          scrollDiv.scrollTop = 0;
+          const fitScaleH = baseVp.height > 0 ? contentH / baseVp.height : 1;
+          scale = Math.min(fitScale, fitScaleH);
+          item.pdfZoom = scale / fitScale;
         } else {
-          scrollDiv.style.overflow = '';
-          canvas.style.position = '';
-          canvas.style.top = '';
-          canvas.style.bottom = '';
-          canvas.style.left = '';
-          canvas.style.right = '';
-          canvas.style.margin = '';
-          scrollDiv.scrollLeft = Math.round(Number(item.pdfScrollX) || 0);
-          scrollDiv.scrollTop = Math.round(Number(item.pdfScrollY) || 0);
+          const zoom = item.pdfZoom != null ? Number(item.pdfZoom) : 1;
+          scale = Math.max(0.05, fitScale * zoom);
         }
+
+        const viewport = page.getViewport({ scale, rotation });
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(viewport.width * dpr);
+        canvas.height = Math.round(viewport.height * dpr);
+        canvas.style.width = Math.round(viewport.width) + 'px';
+        canvas.style.height = Math.round(viewport.height) + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        try {
+          await page.render({
+            canvasContext: ctx,
+            viewport,
+            transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
+          }).promise;
+        } catch (e) { /* ignore render abort */ }
+        if (scrollDiv) {
+          if (item.pdfLockSize) {
+            scrollDiv.style.overflow = 'hidden';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.bottom = '0';
+            canvas.style.left = '0';
+            canvas.style.right = '0';
+            canvas.style.margin = 'auto';
+            scrollDiv.scrollLeft = 0;
+            scrollDiv.scrollTop = 0;
+          } else {
+            scrollDiv.style.overflow = '';
+            canvas.style.position = '';
+            canvas.style.top = '';
+            canvas.style.bottom = '';
+            canvas.style.left = '';
+            canvas.style.right = '';
+            canvas.style.margin = '';
+            scrollDiv.scrollLeft = Math.round(Number(item.pdfScrollX) || 0);
+            scrollDiv.scrollTop = Math.round(Number(item.pdfScrollY) || 0);
+          }
+        }
+      })();
+      item._renderPromise = renderTask;
+      if (canvas) canvas._renderPromise = renderTask;
+      return renderTask;
+    }
+
+    async function conAwaitAllPdfRendersOnBoard() {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      const pdfWraps = Array.from(board.querySelectorAll('.con-media-kind-pdf'));
+      const promises = [];
+      pdfWraps.forEach(wrap => {
+        const canvas = wrap.querySelector('canvas');
+        const itemId = wrap.dataset.id;
+        const item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(m => String(m.id) === String(itemId)) : null;
+        if (item && item._renderPromise) {
+          promises.push(item._renderPromise);
+        } else if (canvas && canvas._renderPromise) {
+          promises.push(canvas._renderPromise);
+        } else if (item && typeof conRenderPdfForItem === 'function' && canvas) {
+          const scrollDiv = wrap.querySelector('.con-pdf-scroll-wrap');
+          const contentEl = wrap.querySelector('.con-media-content');
+          item._renderPromise = conRenderPdfForItem(item, canvas, scrollDiv, contentEl);
+          promises.push(item._renderPromise);
+        }
+      });
+      if (promises.length > 0) {
+        try { await Promise.all(promises); } catch (e) { console.warn('[PDF Export] Error awaiting PDF renders:', e); }
       }
     }
 
@@ -8265,7 +8296,7 @@
         }, { passive: true });
 
         item._lastRenderSignature = [item.pageNumber, item.w, item.h, item.pdfZoom || 1, item.pdfRotation || 0].join('|');
-        requestAnimationFrame(() => conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content));
+        item._renderPromise = conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
       }
 
       if (mediaEl) {
@@ -27519,6 +27550,9 @@
         if (img.complete || !img.src) return Promise.resolve();
         return new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 600); });
       }));
+      if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
+        try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+      }
 
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
 
@@ -27805,13 +27839,50 @@
       function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
       const displayTitle = escapeHtml(titleVal);
       const origIndex = conCurrentPageIndex; const dataUrls = [];
-      for (let i = 0; i < allPages.length; i++) {
-        _conRestorePageToBoard(allPages[i]);
-        await new Promise(r => setTimeout(r, 80));
-        const res = await _conBuildBoardCanvas();
-        if (res) dataUrls.push(res.canvas.toDataURL('image/png'));
+
+      let overlay = document.getElementById('con-pdf-export-loading-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'con-pdf-export-loading-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.85);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:sans-serif;transition:opacity 0.2s ease;';
+        overlay.innerHTML = `
+          <div style="background:rgba(30,41,59,0.9);padding:24px 36px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);display:flex;flex-direction:column;align-items:center;gap:12px;">
+            <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top-color:#3b82f6;border-radius:50%;animation:con-pdf-spin 0.8s linear infinite;"></div>
+            <div id="con-pdf-export-loading-title" style="font-weight:600;font-size:15px;letter-spacing:0.3px;">📄 Generating PDF...</div>
+            <div id="con-pdf-export-loading-progress" style="font-size:13px;color:#94a3b8;">Preparing pages...</div>
+          </div>
+          <style>@keyframes con-pdf-spin { to { transform: rotate(360deg); } }</style>
+        `;
+        document.body.appendChild(overlay);
       }
-      _conRestorePageToBoard(allPages[origIndex]);
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '1';
+
+      const boardEl = document.getElementById('constellation-board');
+      const prevVisibility = boardEl ? boardEl.style.visibility : '';
+      if (boardEl) boardEl.style.visibility = 'hidden';
+
+      try {
+        const progressEl = document.getElementById('con-pdf-export-loading-progress');
+        for (let i = 0; i < allPages.length; i++) {
+          if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${allPages.length}...`;
+          _conRestorePageToBoard(allPages[i]);
+          if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
+            try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+          }
+          await new Promise(r => setTimeout(r, 60));
+          const res = await _conBuildBoardCanvas();
+          if (res) dataUrls.push(res.canvas.toDataURL('image/png'));
+        }
+      } finally {
+        _conRestorePageToBoard(allPages[origIndex]);
+        if (boardEl) boardEl.style.visibility = prevVisibility;
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => { overlay.style.display = 'none'; }, 200);
+        }
+      }
+
       const imgTags = dataUrls.map((url, i) => `<div class="pg"><img src="${url}" alt="Page ${i + 1}"></div>`).join('\n');
       const html = `<!doctype html><html><head><meta charset="utf-8"><title>${displayTitle}</title><style>@page{margin:0}html,body{margin:0;padding:0;background:#fff}.pg{width:100vw;height:100vh;page-break-after:always;display:flex;align-items:center;justify-content:center;overflow:hidden;box-sizing:border-box}.pg:last-child{page-break-after:auto}img{max-width:100%;max-height:100%;object-fit:contain;display:block}</style></head><body>\n${imgTags}\n</body></html>`;
       const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'constellation';
