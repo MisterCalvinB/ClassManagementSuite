@@ -168,6 +168,9 @@ const exposedApi = {
   saveToDisk(request) {
     return invoke('app:save-to-disk', request);
   },
+  pickFolder(request) {
+    return invoke('app:pick-folder', request);
+  },
   pickAndReadFile(request) {
     return invoke('app:pick-and-read-file', request);
   },

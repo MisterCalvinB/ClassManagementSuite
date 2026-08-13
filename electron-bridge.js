@@ -329,6 +329,11 @@
     return getDesktopApi().saveToDisk(request || {});
   }
 
+  async function pickFolder(options) {
+    if (!isElectron()) return { ok: false, canceled: true };
+    return getDesktopApi().pickFolder(options || {});
+  }
+
   async function pickAndCopyFiles(target, options) {
     if (!isElectron()) return null;
     return getDesktopApi().pickAndCopyFiles({
@@ -834,6 +839,7 @@
     onDataChanged,
     learningToolsPresentationCommand,
     saveToDisk,
+    pickFolder,
     pickAndReadFile,
     pickAndCopyFiles,
     reloadPlannerReminders() {

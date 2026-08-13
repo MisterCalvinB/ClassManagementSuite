@@ -729,6 +729,24 @@
     </div>
   </div>
 
+  <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
+  <div class="modal-overlay" id="pdfExportModal" onclick="if(event.target===this)closePdfExportModal(null)">
+    <div class="modal-box" style="max-width:420px;width:420px" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="pdf-export-modal-title" data-i18n="deExportPdfDestinationTitle">Export PDF</h2>
+        <button class="modal-close" onclick="closePdfExportModal(null)">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+        <p id="pdf-export-modal-text" style="margin:0 0 4px;font-size:0.92rem;line-height:1.4;color:var(--text-color, #333);" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</p>
+        <button class="tb-btn primary" id="btn-pdf-export-to-print" onclick="closePdfExportModal('to-print')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
+        <button class="tb-btn" id="btn-pdf-export-picker" onclick="closePdfExportModal('picker')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
+      </div>
+      <div class="modal-footer" style="padding:12px 16px;">
+        <button class="tb-btn" onclick="closePdfExportModal(null)" data-i18n="btnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════ ICS IMPORT MODAL ════ -->
   <div class="modal-overlay" id="icsImportModal" onclick="if(event.target===this)closeModal('icsImportModal')">
     <div class="modal-box wide" onclick="event.stopPropagation()" style="width:700px">
@@ -4855,6 +4873,33 @@
     }
 
     // ── PDF export ─────────────────────────────────────────────────────────────
+    var pdfExportModalCallback = null;
+
+    function closePdfExportModal(choice) {
+      closeModal('pdfExportModal');
+      var cb = pdfExportModalCallback;
+      pdfExportModalCallback = null;
+      if (cb) cb(choice);
+    }
+
+    function openPdfExportModal() {
+      var titleEl = document.getElementById('pdf-export-modal-title');
+      var textEl = document.getElementById('pdf-export-modal-text');
+      var toPrintBtn = document.getElementById('btn-pdf-export-to-print');
+      var pickerBtn = document.getElementById('btn-pdf-export-picker');
+
+      if (titleEl) titleEl.textContent = t('deExportPdfDestinationTitle') || 'Export PDF';
+      if (textEl) textEl.textContent = t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?';
+      if (toPrintBtn) toPrintBtn.textContent = t('deExportPdfToPrintFolder') || 'Export to Print folder';
+      if (pickerBtn) pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
+
+      if (pdfExportModalCallback) pdfExportModalCallback(null);
+      return new Promise(function (resolve) {
+        pdfExportModalCallback = resolve;
+        openModal('pdfExportModal');
+      });
+    }
+
     async function doExportPdf() {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
@@ -4862,38 +4907,123 @@
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
 
+      const destination = await openPdfExportModal();
+      if (!destination) return;
+
+      closeModal('exportModal');
+
       if (filters.separateClassFiles) {
         var classes = getSeparateExportClassList();
-        closeModal('exportModal');
-        for (var i = 0; i < classes.length; i++) {
-          var cf = classes[i];
-          var fileBase = getExportFilenameBase(cf);
-          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
-          var html = buildExportHtml(cf, singleFilters);
-          const result = await Desktop.printPdf({
-            html: html,
-            defaultName: fileBase + '.pdf'
+        if (classes.length === 0) return;
+
+        if (destination === 'to-print') {
+          let successCount = 0;
+          let lastPath = '';
+          let lastName = '';
+          for (var i = 0; i < classes.length; i++) {
+            var cf = classes[i];
+            var fileBase = getExportFilenameBase(cf);
+            var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+            var html = buildExportHtml(cf, singleFilters);
+            const result = await Desktop.printPdf({
+              html: html,
+              target: 'toPrint',
+              filename: fileBase + '.pdf'
+            });
+            if (result && result.ok) {
+              successCount++;
+              lastPath = result.path;
+              lastName = result.name || (fileBase + '.pdf');
+            }
+          }
+          if (successCount > 0) {
+            showToast((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (successCount === 1 ? lastName : (successCount + ' PDFs')));
+            if (window.showExportSuccessPopup && lastPath) {
+              showExportSuccessPopup(lastPath, successCount === 1 ? lastName : (successCount + ' PDFs'));
+            }
+          }
+          return;
+        }
+
+        // Multiple files with file/folder picker: Ask ONCE for destination directory
+        if (classes.length > 1) {
+          const folderRes = await Desktop.pickFolder({
+            title: t('pl_exportChooseFolder') || 'Export PDFs – choose destination folder',
+            buttonLabel: t('btnExport') || 'Export here'
           });
-          if (result && result.ok && window.showExportSuccessPopup && result.path) {
+          if (!folderRes || !folderRes.ok || folderRes.canceled || !folderRes.folderPath) return;
+
+          const destDir = folderRes.folderPath;
+          let successCount = 0;
+          let lastPath = '';
+          let lastName = '';
+          for (var i = 0; i < classes.length; i++) {
+            var cf = classes[i];
+            var fileBase = getExportFilenameBase(cf);
+            var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+            var html = buildExportHtml(cf, singleFilters);
+            var absPath = destDir.replace(/[\\/]+$/, '') + '/' + fileBase + '.pdf';
+            const result = await Desktop.printPdf({
+              html: html,
+              absolutePath: absPath
+            });
+            if (result && result.ok) {
+              successCount++;
+              lastPath = result.path || absPath;
+              lastName = result.name || (fileBase + '.pdf');
+            }
+          }
+          if (successCount > 0) {
+            showToast(t('deExportPdfSuccess') || 'PDF exported');
+            if (window.showExportSuccessPopup && lastPath) {
+              showExportSuccessPopup(lastPath, successCount === 1 ? lastName : (successCount + ' PDFs'));
+            }
+          }
+          return;
+        }
+
+        // Single class separate file fallback
+        var cf = classes[0];
+        var fileBase = getExportFilenameBase(cf);
+        var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+        var html = buildExportHtml(cf, singleFilters);
+        const result = await Desktop.printPdf({
+          html: html,
+          defaultName: fileBase + '.pdf'
+        });
+        if (result && result.ok) {
+          showToast(t('deExportPdfSuccess') || 'PDF exported');
+          if (window.showExportSuccessPopup && result.path) {
             showExportSuccessPopup(result.path, result.name || (fileBase + '.pdf'));
           }
+        } else if (result && !result.ok && !result.canceled) {
+          showToast((t('deExportPdfFailed') || 'PDF export failed: ') + (result.error || 'unknown'), true);
         }
         return;
       }
 
+      // Combined single PDF file export
       var fileBase = getExportFilenameBase(clsFilter);
       var html = buildExportHtml(clsFilter, filters);
-      closeModal('exportModal');
-      const result = await Desktop.printPdf({
-        html: html,
-        defaultName: fileBase + '.pdf'
-      });
+      var pdfReq = { html: html };
+      if (destination === 'to-print') {
+        pdfReq.target = 'toPrint';
+        pdfReq.filename = fileBase + '.pdf';
+      } else {
+        pdfReq.defaultName = fileBase + '.pdf';
+      }
+      const result = await Desktop.printPdf(pdfReq);
       if (result && result.ok) {
+        showToast(
+          destination === 'to-print'
+            ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (result.name || (fileBase + '.pdf')))
+            : (t('deExportPdfSuccess') || 'PDF exported')
+        );
         if (window.showExportSuccessPopup && result.path) {
           showExportSuccessPopup(result.path, result.name || (fileBase + '.pdf'));
         }
       } else if (result && !result.ok && !result.canceled) {
-        showToast('PDF export failed: ' + (result.error || 'unknown'), true);
+        showToast((t('deExportPdfFailed') || 'PDF export failed: ') + (result.error || 'unknown'), true);
       }
     }
 

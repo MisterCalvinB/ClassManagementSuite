@@ -225,7 +225,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
-  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps']),
+  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
   [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };
@@ -5001,6 +5001,16 @@ ipcMain.handle('app:delete-by-path', async (event, request = {}) => {
     relativePath: request.relativePath
   });
   return { ok: true, deleted };
+});
+
+ipcMain.handle('app:pick-folder', async (_event, request = {}) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: String(request.title || 'Choose destination folder'),
+    properties: ['openDirectory', 'createDirectory'],
+    buttonLabel: String(request.buttonLabel || 'Select folder')
+  });
+  if (canceled || !filePaths?.[0]) return { ok: false, canceled: true };
+  return { ok: true, canceled: false, folderPath: path.resolve(filePaths[0]) };
 });
 
 ipcMain.handle('app:export-files', async (event, request = {}) => {
