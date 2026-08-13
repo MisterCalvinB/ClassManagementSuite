@@ -1330,6 +1330,8 @@
 
     const editableAttr = isContentEditable ? ' contenteditable="true"' : '';
 
+    const esc = s => String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
     let rowsHtml = '';
     const rows = computeSchedule();
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
@@ -1338,18 +1340,18 @@
 
     rows.forEach(row => {
       if (row.type === 'gap') {
-        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">⚠ ${gapLabel} (${row.duration} min)</td></tr>`;
+        rowsHtml += `<tr class="sm-gap-tr"><td colspan="6">⚠ ${esc(gapLabel)} (${row.duration} min)</td></tr>`;
         return;
       }
       if (row.type === 'break') {
-        rowsHtml += `<tr class="sm-break-tr"><td colspan="6">— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+        rowsHtml += `<tr class="sm-break-tr"><td colspan="6">— ${esc(breakLabel)} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
         return;
       }
       rowsHtml += `
         <tr>
           <td class="sm-col-num">${row.num}</td>
-          <td>${row.name}</td>
-          <td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${senLabel}</span>` : ''}</td>
+          <td class="sm-col-student">${esc(row.name)}</td>
+          <td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>
           <td class="sm-col-time">${minutesToTime(row.prepStart)}</td>
           <td class="sm-col-time">${minutesToTime(row.examStart)}</td>
           <td class="sm-col-time">${minutesToTime(row.examEnd)}</td>
@@ -1358,60 +1360,116 @@
     });
 
     if (rows.length === 0) {
-      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">No schedule generated.</td></tr>`;
+      rowsHtml = `<tr><td colspan="6" style="text-align:center;color:#888;padding:24px;">No schedule generated.</td></tr>`;
     }
 
     const metaItems = [];
-    if (subject) metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</strong> ${subject}</span>`);
-    if (teacher) metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</strong> ${teacher}</span>`);
-    if (room)    metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</strong> ${room}</span>`);
-    if (date)    metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</strong> ${date}</span>`);
-    if (group)   metaItems.push(`<span><strong>${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</strong> ${group}</span>`);
+    if (subject) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</span> <span class="meta-val">${esc(subject)}</span></div>`);
+    if (teacher) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</span> <span class="meta-val">${esc(teacher)}</span></div>`);
+    if (room)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</span> <span class="meta-val">${esc(room)}</span></div>`);
+    if (date)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</span> <span class="meta-val">${esc(date)}</span></div>`);
+    if (group)   metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</span> <span class="meta-val">${esc(group)}</span></div>`);
 
-    const metaHtml = metaItems.length ? `<div class="meta-row">${metaItems.join('')}</div>` : '';
-    const footerHtml = metaText ? `<p style="font-size:0.82rem;color:#555;margin-top:12px;text-align:right;">${metaText}</p>` : '';
+    const metaHtml = metaItems.length ? `<div class="meta-box">${metaItems.join('')}</div>` : '';
+    const footerHtml = metaText ? `<div class="schedule-footer">${esc(metaText)}</div>` : '';
+
+    const columns = [
+      { name: '#', width: '50px', class: 'sm-col-num' },
+      { name: typeof t === 'function' ? t('smColStudent') || 'Student' : 'Student', width: '', class: 'sm-col-student' },
+      { name: senLabel, width: '60px', class: 'sm-col-sen' },
+      { name: typeof t === 'function' ? t('smColPrepStart') || 'Prep starts' : 'Prep starts', width: '110px', class: 'sm-col-time' },
+      { name: typeof t === 'function' ? t('smColExamStart') || 'Exam starts' : 'Exam starts', width: '110px', class: 'sm-col-time' },
+      { name: typeof t === 'function' ? t('smColExamEnd') || 'Exam ends' : 'Exam ends', width: '110px', class: 'sm-col-time' }
+    ];
+
+    const colGroup = columns.map((col, i) => `<col data-col="${i}"${col.width ? ` style="width:${col.width}"` : ''}>`).join('');
+    const headerCells = columns.map((col, i) => `<th class="${col.class}"><span class="th-wrap">${esc(col.name)}<span class="col-resizer" data-col="${i}"></span></span></th>`).join('');
+
+    const css = `
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; line-height: 1.4; }
+      h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+      .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
+      .meta-item { display: flex; gap: 6px; align-items: center; }
+      .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+      .meta-val { font-weight: 600; color: #111; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111; margin-top: 4px; background: #fff; }
+      th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+      th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; }
+      tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td) { background: #fafafa; }
+      .sm-col-num { width: 50px; text-align: center; font-weight: 800; background: #f8f9fa; }
+      .sm-col-student { text-align: left; font-weight: 600; }
+      .sm-col-sen { width: 60px; text-align: center; }
+      .sm-col-time { width: 110px; text-align: center; font-weight: 700; white-space: nowrap; }
+      th.sm-col-num, th.sm-col-sen, th.sm-col-time { text-align: center; }
+      .sm-sen-badge { display: inline-block; background: #ffe8cc; color: #111; border: 2px solid #111; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; box-shadow: 1.5px 1.5px 0 #111; text-transform: uppercase; }
+      tr.sm-break-tr td { background: #f0f0f0; color: #111; font-weight: 800; text-align: center; border: 2px solid #111; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+      tr.sm-gap-tr td { background: #fff3e0; color: #b45309; font-weight: 800; text-align: center; border: 2px solid #111; font-size: 11px; }
+      .th-wrap { position: relative; display: block; padding-right: 8px; }
+      .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
+      .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #111; }
+      .schedule-footer { font-size: 11px; font-weight: 600; color: #555; margin-top: 14px; text-align: right; border-top: 2px solid #111; padding-top: 6px; }
+      [contenteditable="true"]:focus { outline: 2px solid #111; background: #fffbe6; }
+      @media print {
+        body { padding: 0; }
+        .meta-box { box-shadow: none; }
+        .sm-sen-badge { box-shadow: none; }
+      }
+    `;
+
+    const resizeScript = `(function(){
+      const table = document.getElementById("schedule-export-table");
+      if (!table) return;
+      const minW = 40;
+      let active = null, startX = 0, startW = 0;
+      function onMove(e) {
+        if (!active) return;
+        const w = Math.max(minW, startW + (e.clientX - startX));
+        active.col.style.width = w + 'px';
+      }
+      function onUp() {
+        if (!active) return;
+        active = null;
+        document.body.style.cursor = '';
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      }
+      table.querySelectorAll('.col-resizer').forEach(handle => {
+        handle.addEventListener('mousedown', e => {
+          e.preventDefault(); e.stopPropagation();
+          const idx = handle.getAttribute('data-col');
+          const col = table.querySelector('col[data-col="' + idx + '"]');
+          if (!col) return;
+          active = { col }; startX = e.clientX; startW = col.getBoundingClientRect().width;
+          document.body.style.cursor = 'col-resize';
+          window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+        });
+      });
+    })();`;
+
+    const editableScript = isContentEditable ? `(function(){ document.querySelectorAll("body *").forEach(function(el){ if(!el.classList.contains("col-resizer")) el.contentEditable = "true"; }); })();` : '';
 
     return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${title}</title>
-  <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; color: #000; line-height: 1.4; }
-    h2 { font-size: 1.4rem; font-weight: 800; margin-bottom: 6px; margin-top: 0; }
-    .meta-row { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.85rem; color: #333; border-bottom: 1.5px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
-    .meta-row span { display: flex; gap: 5px; }
-    .meta-row strong { font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 12px; }
-    th { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: #000; border-bottom: 2px solid #000; padding: 6px 10px; text-align: left; }
-    td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
-    .sm-col-num { width: 36px; color: #aaa; font-size: 0.78rem; }
-    .sm-col-sen { width: 48px; text-align: center; }
-    .sm-col-time { width: 90px; white-space: nowrap; }
-    .sm-sen-badge { display: inline-block; background: #fff3e0; color: #c05000; border: 1px solid #e8c080; border-radius: 3px; padding: 1px 5px; font-size: 0.7rem; font-weight: 800; }
-    tr.sm-break-tr td { background: #f5f5f5; color: #777; font-style: italic; font-weight: 600; }
-    tr.sm-gap-tr td { background: #fff8f0; color: #c06000; font-size: 0.75rem; font-style: italic; padding: 3px 10px; }
-  </style>
+  <title>${esc(title)}</title>
+  <style>${css}</style>
 </head>
 <body${editableAttr}>
-  <h2>${title}</h2>
+  <h1>${esc(title)}</h1>
   ${metaHtml}
-  <table>
+  <table id="schedule-export-table">
+    <colgroup>${colGroup}</colgroup>
     <thead>
-      <tr>
-        <th class="sm-col-num">#</th>
-        <th>Student</th>
-        <th class="sm-col-sen">${senLabel}</th>
-        <th class="sm-col-time">Prep starts</th>
-        <th class="sm-col-time">Exam starts</th>
-        <th class="sm-col-time">Exam ends</th>
-      </tr>
+      <tr>${headerCells}</tr>
     </thead>
     <tbody>
       ${rowsHtml}
     </tbody>
   </table>
   ${footerHtml}
+  ${'<script>' + resizeScript + '; ' + editableScript + '</' + 'script>'}
 </body>
 </html>`;
   }

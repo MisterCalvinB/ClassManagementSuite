@@ -4918,18 +4918,29 @@
     <meta charset="UTF-8">
     <title>${escHtml(data.title)}</title>
     <style>
-        body { font-family: 'Lexend', system-ui, sans-serif; padding: 20px; color: #111; }
-        h1 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: 6px; }
-        .meta { font-size: 0.85rem; color: #555; margin-bottom: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
-        th, td { border: 1px solid #111; padding: 8px; text-align: left; }
-        th { background: #f0f0f0; font-weight: bold; }
-        tr:nth-child(even) td { background: #fdfdfd; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; line-height: 1.4; }
+        h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
+        .meta-item { display: flex; gap: 6px; align-items: center; }
+        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+        .meta-val { font-weight: 600; color: #111; }
+        table { width: 100%; border-collapse: collapse; border: 2px solid #111; margin-top: 4px; background: #fff; }
+        th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; vertical-align: middle; overflow-wrap: break-word; }
+        th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; white-space: nowrap; }
+        tr:nth-child(even) td { background: #fafafa; }
+        @media print {
+            body { padding: 0; }
+            .meta-box { box-shadow: none !important; }
+        }
     </style>
 </head>
 <body>
     <h1>${escHtml(data.title)}</h1>
-    <div class="meta">${escHtml(data.description)} · Date: ${new Date().toLocaleString()}</div>
+    <div class="meta-box">
+        <div class="meta-item"><span class="meta-label">Description:</span> <span class="meta-val">${escHtml(data.description)}</span></div>
+        <div class="meta-item"><span class="meta-label">Generated:</span> <span class="meta-val">${new Date().toLocaleString()}</span></div>
+    </div>
     <table>
         <thead><tr>${tableHeadersHtml}</tr></thead>
         <tbody>${tableRowsHtml}</tbody>
@@ -4961,79 +4972,7 @@
                 return `<tr>${cells}</tr>`;
             }).join('\n');
 
-            const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${escHtml(data.title)}</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; background: #f5f5f5; color: #111; padding: 24px; }
-        .report-card { max-width: 1300px; margin: 0 auto; background: #fff; border: 3px solid #111; border-radius: 8px; box-shadow: 6px 6px 0 #111; padding: 24px; }
-        .report-header { border-bottom: 3px solid #111; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
-        .report-title { font-size: 1.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #111; margin-bottom: 6px; }
-        .report-meta { font-size: 0.85rem; color: #555; font-weight: 600; }
-        .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .btn { font-family: inherit; font-weight: 800; font-size: 0.8rem; padding: 8px 14px; border: 2px solid #111; border-radius: 5px; background: #fff; cursor: pointer; box-shadow: 2px 2px 0 #111; text-transform: uppercase; }
-        .btn:hover { background: #111; color: #fff; }
-        .btn-primary { background: #111; color: #fff; }
-        .btn-primary:hover { background: #333; }
-        .search-box { padding: 7px 12px; border: 2px solid #111; border-radius: 5px; font-family: inherit; font-size: 0.85rem; width: 240px; box-shadow: 2px 2px 0 #111; }
-        .table-wrap { overflow-x: auto; border: 2px solid #111; border-radius: 6px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
-        th { background: #f0f4ff; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 10px; border-bottom: 2px solid #111; border-right: 1px solid #ddd; cursor: pointer; user-select: none; position: relative; }
-        th:hover { background: #e0ebff; }
-        th.sorted-asc, th.sorted-desc { background: #dbeafe; }
-        .th-content { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
-        .th-label { flex: 1; outline: none; border-radius: 3px; cursor: text; }
-        .th-label:focus { background: #ffffd8; box-shadow: 0 0 0 2px #0066cc; }
-        .th-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.7; transition: opacity 0.15s ease; }
-        th:hover .th-actions { opacity: 1; }
-        .col-btn { background: #fff; border: 1px solid #111; border-radius: 4px; color: #111; cursor: pointer; font-size: 0.75rem; padding: 2px 6px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; box-shadow: 1px 1px 0 #111; transition: all 0.1s; }
-        .col-btn:hover { background: #111; color: #fff; }
-        .col-remove-btn:hover { background: #e11d48; color: #fff; border-color: #111; }
-        .sort-icon { font-weight: bold; font-size: 0.75rem; }
-        td { padding: 9px 12px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; transition: background 0.1s; }
-        tr:nth-child(even) td { background: #fafafa; }
-        tr:hover td { background: #f0f7ff; }
-        [contenteditable="true"]:focus { outline: 2px solid #0066cc; background: #ffffd8 !important; }
-        .editable-badge { display: inline-block; font-size: 0.7rem; font-weight: 800; background: #e6fffa; color: #047857; border: 1px solid #10b981; padding: 2px 6px; border-radius: 4px; margin-left: 8px; text-transform: uppercase; }
-        @media print { .toolbar, .search-box, .th-actions, #resetColsBtn { display: none !important; } body { background: #fff; padding: 0; } .report-card { border: none; box-shadow: none; padding: 0; } }
-    </style>
-</head>
-<body>
-    <div class="report-card">
-        <div class="report-header">
-            <div>
-                <h1 class="report-title">${escHtml(data.title)} <span class="editable-badge">Editable HTML</span></h1>
-                <div class="report-meta">${escHtml(data.description)} · Generated on ${new Date().toLocaleString()}</div>
-            </div>
-            <div>
-                <input type="text" class="search-box" id="tableFilterInput" placeholder="Search records..." onkeyup="filterTable()">
-            </div>
-        </div>
-
-        <div class="toolbar">
-            <button class="btn btn-primary" onclick="window.print()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print Report</button>
-            <button class="btn" onclick="exportEditedHtml()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save HTML Copy</button>
-            <button class="btn" onclick="exportTableToCsv()"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> Export CSV</button>
-            <button class="btn" id="resetColsBtn" style="display: none;" onclick="restoreColumns()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Restore Columns</button>
-        </div>
-
-        <div class="table-wrap">
-            <table id="reportTable">
-                <thead>
-                    <tr>${tableHeadersHtml}</tr>
-                </thead>
-                <tbody>
-                    ${tableRowsHtml}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <script>
+            const scriptContent = `
         window._initialTableMarkup = document.getElementById('reportTable').outerHTML;
 
         function filterTable() {
@@ -5161,7 +5100,77 @@
             a.download = '${data.filenameBase}.csv';
             a.click();
         }
-    <\/script>
+`;
+
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escHtml(data.title)}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; background: #fff; color: #111; padding: 16mm 14mm; line-height: 1.4; }
+        h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
+        .meta-item { display: flex; gap: 6px; align-items: center; }
+        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+        .meta-val { font-weight: 600; color: #111; }
+        .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+        .btn { font-family: inherit; font-weight: 800; font-size: 12px; padding: 8px 14px; border: 2px solid #111; border-radius: 6px; background: #fff; color: #111; cursor: pointer; box-shadow: 2px 2px 0 #111; text-transform: uppercase; transition: transform 0.1s, box-shadow 0.1s; }
+        .btn:hover { background: #f0f0f0; transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #111; }
+        .btn-primary { background: #111; color: #fff; }
+        .btn-primary:hover { background: #333; }
+        .search-box { padding: 8px 12px; border: 2px solid #111; border-radius: 6px; font-family: inherit; font-size: 12px; font-weight: 600; width: 260px; box-shadow: 2px 2px 0 #111; outline: none; }
+        .search-box:focus { background: #fffbe6; }
+        .table-wrap { overflow-x: auto; border: 2px solid #111; background: #fff; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+        th { background: #f0f0f0; color: #111; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 10px; border: 2px solid #111; cursor: pointer; user-select: none; position: sticky; top: 0; white-space: nowrap; }
+        th:hover { background: #e8e8e8; }
+        th.sorted-asc, th.sorted-desc { background: #ffe8cc; }
+        .th-content { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+        .th-label { flex: 1; outline: none; border-radius: 3px; cursor: text; }
+        .th-label:focus { background: #fffbe6; outline: 2px solid #111; }
+        .th-actions { display: inline-flex; align-items: center; gap: 4px; opacity: 0.7; transition: opacity 0.15s ease; }
+        th:hover .th-actions { opacity: 1; }
+        .col-btn { background: #fff; border: 1.5px solid #111; border-radius: 4px; color: #111; cursor: pointer; font-size: 11px; padding: 1px 5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; box-shadow: 1px 1px 0 #111; transition: all 0.1s; }
+        .col-btn:hover { background: #f0f0f0; }
+        .col-remove-btn:hover { background: #fee2e2; color: #991b1b; }
+        .sort-icon { font-weight: bold; font-size: 11px; }
+        td { padding: 8px 10px; border: 2px solid #111; font-size: 11px; color: #111; vertical-align: middle; }
+        tr:nth-child(even) td { background: #fafafa; }
+        [contenteditable="true"]:focus { outline: 2px solid #111; background: #fffbe6 !important; }
+        .editable-badge { display: inline-block; font-size: 10px; font-weight: 800; background: #ffe8cc; color: #111; border: 2px solid #111; padding: 2px 6px; border-radius: 4px; box-shadow: 1.5px 1.5px 0 #111; text-transform: uppercase; margin-left: 8px; }
+        @media print { .toolbar, .search-box, .th-actions, #resetColsBtn { display: none !important; } body { padding: 0; } .meta-box, .btn, .search-box { box-shadow: none !important; } }
+    </style>
+</head>
+<body>
+    <h1>${escHtml(data.title)} <span class="editable-badge">Editable HTML</span></h1>
+    <div class="meta-box">
+        <div class="meta-item"><span class="meta-label">Description:</span> <span class="meta-val">${escHtml(data.description)}</span></div>
+        <div class="meta-item"><span class="meta-label">Generated:</span> <span class="meta-val">${new Date().toLocaleString()}</span></div>
+    </div>
+
+    <div class="toolbar">
+        <input type="text" class="search-box" id="tableFilterInput" placeholder="Search records..." onkeyup="filterTable()">
+        <button class="btn btn-primary" onclick="window.print()">Print Report</button>
+        <button class="btn" onclick="exportEditedHtml()">Save HTML Copy</button>
+        <button class="btn" onclick="exportTableToCsv()">Export CSV</button>
+        <button class="btn" id="resetColsBtn" style="display: none;" onclick="restoreColumns()">Restore Columns</button>
+    </div>
+
+    <div class="table-wrap">
+        <table id="reportTable">
+            <thead>
+                <tr>${tableHeadersHtml}</tr>
+            </thead>
+            <tbody>
+                ${tableRowsHtml}
+            </tbody>
+        </table>
+    </div>
+
+    ${'<script>' + scriptContent + '</' + 'script>'}
 </body>
 </html>`;
 
