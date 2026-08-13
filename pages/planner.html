@@ -135,6 +135,18 @@
         <span class="cls-chip all-chip active" data-i18n="pl_allClasses" onclick="clearClassFilter()">All</span>
         <span class="cls-chip" data-i18n="pl_unassigned" onclick="toggleUnassignedFilter()">Unassigned</span>
       </div>
+      <div class="toolbar-sep"></div>
+      <div class="search-wrap">
+        <input type="search" id="entry-search-input" class="tb-input" data-i18n-placeholder="pl_searchPlaceholder" placeholder="Search entries…" oninput="onSearchInput(this.value)">
+      </div>
+      <select id="type-filter-select" class="tb-select" onchange="onTypeFilterChange(this.value)">
+        <option value="" data-i18n="pl_allTypes">All types</option>
+        <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
+        <option value="test" data-i18n="pl_typeTest">Test</option>
+        <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
+        <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
+        <option value="no-class" data-i18n="pl_typeNoclass">No Class</option>
+      </select>
     </div>
   </div>
 
@@ -435,8 +447,16 @@
         <button class="modal-close" onclick="closeModal('entryModal')">✕</button>
       </div>
       <div class="modal-body">
+        <div class="field-group" id="dup-slot-picker-group" style="display:none;margin-bottom:12px;padding:10px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px">
+          <label style="font-weight:700;font-size:0.82rem;color:#1e293b;display:block;margin-bottom:4px" data-i18n="pl_targetSlot">Target Slot & Date</label>
+          <div style="font-size:0.75rem;color:#64748b;margin-bottom:8px" data-i18n="pl_targetSlotHint">Choose an upcoming schedule slot and date to duplicate this entry to:</div>
+          <select id="dup-slot-select" class="field-select" onchange="onDupSlotSelectChange(this.value)" style="width:100%">
+            <option value="" data-i18n="pl_selectTargetSlot">— Select target slot & date —</option>
+          </select>
+          <div id="dup-slot-summary" style="margin-top:6px;font-size:0.78rem;font-weight:600;color:#2563eb"></div>
+        </div>
         <div class="field-row">
-          <div class="field-group" style="flex:2">
+          <div class="field-group" id="e-class-field-group" style="flex:2">
             <label data-i18n="pl_entryClass">Class</label>
             <div id="e-class-pills" class="entry-cls-pills"></div>
           </div>
@@ -620,7 +640,8 @@
       <div class="modal-body">
         <div class="field-group">
           <label data-i18n="pl_icsFilter">Filter by class (optional)</label>
-          <select id="exp-cls" class="field-select">
+          <div id="exp-class-chips" class="export-class-chips"></div>
+          <select id="exp-cls" class="field-select" style="display:none">
             <option value="" data-i18n="pl_icsAllClasses">All classes</option>
             <option value="__no_class__" data-i18n="pl_icsUnassignedClass">No assigned class</option>
           </select>
@@ -661,7 +682,18 @@
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
             <label class="cb-label"><input type="checkbox" id="exp-pdf-fit-page"> <span
                 data-i18n="pl_exportPdfFitOnePage">PDF: fit on one page</span></label>
+            <label class="cb-label" id="exp-sep-tables-group" style="display:none"><input type="checkbox" id="exp-sep-classes"> <span
+                data-i18n="pl_exportSeparateClassTables">Separate table per class (page break)</span></label>
+            <label class="cb-label" id="exp-sep-files-group" style="display:none"><input type="checkbox" id="exp-sep-files"> <span
+                data-i18n="pl_exportSeparateClassFiles">Export each class to a separate file</span></label>
           </div>
+        </div>
+        <div class="field-group">
+          <div class="modal-section-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span data-i18n="pl_exportElementStyles">Element Styling Options</span>
+            <button class="tb-btn small" type="button" onclick="resetExportStyles()" style="font-size:0.7rem;padding:2px 6px">Reset Styles</button>
+          </div>
+          <div class="exp-style-accordion" id="exp-style-accordion"></div>
         </div>
         <div class="export-grid">
           <button class="export-card" onclick="doExportIcs()">
@@ -865,6 +897,8 @@
     window.__plannerDeletedClassFiles = plannerDeletedClassFiles;
     var filterClasses = new Set();
     var filterUnassigned = false;
+    var searchQuery = '';
+    var filterType = '';
     var showPast = false;
     var showOutsideTerm = false;
     var tableView = false;
@@ -1103,12 +1137,18 @@
           if (stored.showPast !== undefined) showPast = !!stored.showPast;
           if (stored.showOutsideTerm !== undefined) showOutsideTerm = !!stored.showOutsideTerm;
           if (stored.filterUnassigned !== undefined) filterUnassigned = !!stored.filterUnassigned;
+          if (stored.searchQuery !== undefined) searchQuery = stored.searchQuery || '';
+          if (stored.filterType !== undefined) filterType = stored.filterType || '';
         }
       } catch (e) { }
       document.getElementById('vo-badges').checked = viewOpts.badges;
       document.getElementById('vo-topic').checked = viewOpts.topic;
       document.getElementById('vo-details').checked = viewOpts.details;
       document.getElementById('vo-custom').checked = viewOpts.custom;
+      var si = document.getElementById('entry-search-input');
+      if (si) si.value = searchQuery;
+      var tf = document.getElementById('type-filter-select');
+      if (tf) tf.value = filterType;
       var pb = document.getElementById('pastBtn');
       if (pb) { pb.classList.toggle('active', showPast); pb.textContent = showPast ? t('pl_hidePast') : t('pl_showPast'); }
       var ob = document.getElementById('outsideBtn');
@@ -1121,6 +1161,8 @@
         stored.showPast = showPast;
         stored.showOutsideTerm = showOutsideTerm;
         stored.filterUnassigned = filterUnassigned;
+        stored.searchQuery = searchQuery;
+        stored.filterType = filterType;
         localStorage.setItem('cmt-planner-viewopts', JSON.stringify(stored));
       } catch (e) { }
     }
@@ -1753,6 +1795,8 @@
       document.getElementById('no-cls-msg').style.display = ids.length ? 'none' : '';
       renderClassSetupChips(ids, activeClsSetup);
       rebuildFilterChips(ids);
+      renderExportClassChips();
+      populateFilterTypeSelect();
     }
 
     function rebuildFilterChips(ids) {
@@ -1926,6 +1970,7 @@
       }
 
       var slots = buildSlots(activeSem);
+      slots = filterSlots(slots);
       if (!slots.length) {
         el.innerHTML =
           '<div class="empty-state"><span class="es-icon">✓</span>' +
@@ -2002,7 +2047,7 @@
 
       var topicText = entry && entry.topic ? entry.topic : '';
       var topicCls = topicText ? 'entry-topic' : 'entry-topic empty-topic';
-      var topicDisp = isNoclass ? topicText : (topicText || t('pl_emptySlot'));
+      var topicDisp = topicText;
 
       var timeLabel = s.time || '';
       if (s.timeEnd) timeLabel += '–' + s.timeEnd;
@@ -2483,7 +2528,82 @@
       cfg.customFields = names;
       cfg.customTypes = types;
       persistCfg();
+      populateFilterTypeSelect();
       closeModal('fieldsModal');
+    }
+
+    // ── Search & Filter helpers ─────────────────────────────────────────────
+    function onSearchInput(val) {
+      searchQuery = val || '';
+      saveViewFlags();
+      render();
+    }
+
+    function onTypeFilterChange(val) {
+      filterType = val || '';
+      saveViewFlags();
+      render();
+    }
+
+    function populateFilterTypeSelect() {
+      var sel = document.getElementById('type-filter-select');
+      if (!sel) return;
+      var current = filterType;
+      for (var i = sel.options.length - 1; i >= 0; i--) {
+        if (sel.options[i].dataset.custom) sel.remove(i);
+      }
+      (cfg.customTypes || []).forEach(function (name) {
+        var o = new Option(name, name);
+        o.dataset.custom = '1';
+        sel.add(o);
+      });
+      sel.value = current || '';
+    }
+
+    function filterSlots(slots) {
+      var q = searchQuery ? searchQuery.trim().toLowerCase() : '';
+      var tf = filterType ? filterType.trim() : '';
+      if (!q && !tf) return slots;
+
+      return slots.filter(function (s) {
+        // 1. Type Filter
+        if (tf) {
+          if (s.isGlobalHoliday) {
+            if (tf !== 'holiday') return false;
+          } else if (s.entry) {
+            if ((s.entry.type || 'lesson') !== tf) return false;
+          } else {
+            // Empty schedule slot
+            if (tf !== 'lesson') return false;
+          }
+        }
+
+        // 2. Search Query
+        if (q) {
+          if (s.isGlobalHoliday) {
+            var hLabel = (s.holidayLabel || t('pl_typeHoliday')).toLowerCase();
+            if (!hLabel.includes(q)) return false;
+          } else if (s.entry) {
+            var e = s.entry;
+            var clsName = s.classId ? plannerClassDisplayName(s.classId).toLowerCase() : '';
+            var topic = (e.topic || '').toLowerCase();
+            var notes = (e.notes || '').toLowerCase();
+            var obj = (e.objective || (Array.isArray(e.objectives) ? e.objectives.join(' ') : '') || '').toLowerCase();
+            var typeTxt = typeLabel(e.type || 'lesson').toLowerCase();
+            var customTxt = e.customFields ? Object.values(e.customFields).join(' ').toLowerCase() : '';
+
+            var match = clsName.includes(q) || topic.includes(q) || notes.includes(q) ||
+                        obj.includes(q) || typeTxt.includes(q) || customTxt.includes(q);
+            if (!match) return false;
+          } else {
+            var clsName = s.classId ? plannerClassDisplayName(s.classId).toLowerCase() : '';
+            var match = clsName.includes(q);
+            if (!match) return false;
+          }
+        }
+
+        return true;
+      });
     }
 
     // ── Class setup modal ──────────────────────────────────────────────────────
@@ -2801,6 +2921,10 @@
       document.getElementById('entry-modal-title').textContent = t('pl_entryModalAdd');
       document.getElementById('del-entry-btn').style.display = 'none';
       document.getElementById('dup-entry-btn').style.display = 'none';
+      var classGrp = document.getElementById('e-class-field-group');
+      if (classGrp) classGrp.style.display = '';
+      var slotGrp = document.getElementById('dup-slot-picker-group');
+      if (slotGrp) slotGrp.style.display = 'none';
       var defaultClass = classId || (filterClasses.size === 1 ? [...filterClasses][0] : '') || '';
       populateEntryClassPills(defaultClass ? [defaultClass] : []);
       document.getElementById('e-date').value = date || new Date().toISOString().slice(0, 10);
@@ -2900,6 +3024,10 @@
       document.getElementById('entry-modal-title').textContent = t('pl_entryModalEdit');
       document.getElementById('del-entry-btn').style.display = '';
       document.getElementById('dup-entry-btn').style.display = '';
+      var classGrp = document.getElementById('e-class-field-group');
+      if (classGrp) classGrp.style.display = '';
+      var slotGrp = document.getElementById('dup-slot-picker-group');
+      if (slotGrp) slotGrp.style.display = 'none';
       populateEntryClassPills(entryClassIds(e));
       document.getElementById('e-date').value = e.date || '';
       document.getElementById('e-date-to').value = e.dateTo || '';
@@ -3470,18 +3598,133 @@
       }
     }
 
+    function getUpcomingTargetSlots(srcEntry) {
+      var sem = getActiveSem();
+      if (!sem || !sem.semesterStart || !sem.semesterEnd) return [];
+
+      var prevShowPast = showPast;
+      var prevShowOutsideTerm = showOutsideTerm;
+      var prevFilterClasses = filterClasses;
+      var prevFilterUnassigned = filterUnassigned;
+
+      try {
+        showPast = true;
+        showOutsideTerm = true;
+        filterUnassigned = false;
+        filterClasses = new Set();
+
+        var allSlots = buildSlots(sem) || [];
+        var today = new Date().toISOString().slice(0, 10);
+
+        var upcoming = allSlots.filter(function (s) {
+          if (s.isGlobalHoliday) return false;
+          return s.date >= today;
+        });
+
+        upcoming.sort(function (a, b) {
+          if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+          var at = a.time || '';
+          var bt = b.time || '';
+          return at < bt ? -1 : at > bt ? 1 : 0;
+        });
+
+        return upcoming.slice(0, 80);
+      } finally {
+        showPast = prevShowPast;
+        showOutsideTerm = prevShowOutsideTerm;
+        filterUnassigned = prevFilterUnassigned;
+        filterClasses = prevFilterClasses;
+      }
+    }
+
+    function populateDupSlotPicker(srcEntry) {
+      var sel = document.getElementById('dup-slot-select');
+      var summaryEl = document.getElementById('dup-slot-summary');
+      if (!sel) return;
+
+      sel.innerHTML = '<option value="">' + esc(t('pl_selectTargetSlot')) + '</option>';
+      if (summaryEl) summaryEl.textContent = '';
+
+      var slots = getUpcomingTargetSlots(srcEntry);
+      var selectedVal = '';
+
+      slots.forEach(function (s) {
+        var clsName = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+        var dObj = new Date(s.date + 'T12:00:00');
+        var dateFmt = isNaN(dObj.getTime()) ? s.date : dObj.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        var timeFmt = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+        var statusTxt = s.entry ? (' (' + t('pl_slotOccupied') + ': ' + (s.entry.topic || t('pl_typeLesson')).slice(0, 25) + ')') : (' (' + t('pl_slotEmpty') + ')');
+
+        var label = dateFmt + (timeFmt ? ' · ' + timeFmt : '') + ' · ' + clsName + statusTxt;
+        var valObj = {
+          classId: s.classId || '',
+          date: s.date,
+          time: s.time || '',
+          timeEnd: s.timeEnd || ''
+        };
+        var valStr = JSON.stringify(valObj);
+
+        var opt = document.createElement('option');
+        opt.value = valStr;
+        opt.textContent = label;
+
+        if (!selectedVal && !s.entry && (s.date !== srcEntry.date || s.classId !== srcEntry.classId)) {
+          selectedVal = valStr;
+        }
+
+        sel.appendChild(opt);
+      });
+
+      if (selectedVal) {
+        sel.value = selectedVal;
+        onDupSlotSelectChange(selectedVal);
+      }
+    }
+
+    function onDupSlotSelectChange(valStr) {
+      var summaryEl = document.getElementById('dup-slot-summary');
+      if (!valStr) {
+        if (summaryEl) summaryEl.textContent = '';
+        return;
+      }
+      try {
+        var info = JSON.parse(valStr);
+        if (info.classId) populateEntryClassPills([info.classId]);
+        else populateEntryClassPills([]);
+        document.getElementById('e-date').value = info.date || '';
+        document.getElementById('e-date-to').value = '';
+        document.getElementById('e-time').value = info.time || '';
+        document.getElementById('e-time-end').value = info.timeEnd || '';
+
+        if (summaryEl) {
+          var clsName = info.classId ? plannerClassDisplayName(info.classId) : t('pl_noClass');
+          var dObj = new Date(info.date + 'T12:00:00');
+          var dateFmt = isNaN(dObj.getTime()) ? info.date : dObj.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+          summaryEl.textContent = '→ Target: ' + clsName + ' on ' + dateFmt + (info.time ? (' (' + info.time + (info.timeEnd ? '–' + info.timeEnd : '') + ')') : '');
+        }
+      } catch (e) { }
+    }
+
     function duplicateCurrentEntry() {
       if (!editingId) return;
       var src = entries.find(function (e) { return e.id === editingId; });
       if (!src) return;
       _editingRecurScope = null;
 
-      // Switch to add-mode with all fields cloned (no gsLink or recurrence on the copy)
+      // Switch to add-mode with all fields cloned (no gsLink or recurrence on copy)
       editingId = null;
       document.getElementById('entry-modal-title').textContent = t('pl_entryModalDuplicate');
       document.getElementById('del-entry-btn').style.display = 'none';
       document.getElementById('dup-entry-btn').style.display = 'none';
-      populateEntryClassPills(entryClassIds(src));
+
+      // Hide class selector pills and show Target Slot & Date picker
+      var classGrp = document.getElementById('e-class-field-group');
+      if (classGrp) classGrp.style.display = 'none';
+      var slotGrp = document.getElementById('dup-slot-picker-group');
+      if (slotGrp) slotGrp.style.display = 'block';
+
+      populateDupSlotPicker(src);
+
       document.getElementById('e-date').value = src.date || '';
       document.getElementById('e-date-to').value = src.dateTo || '';
       document.getElementById('e-time').value = src.time || '';
@@ -3521,21 +3764,40 @@
 
     async function findGradeSheetClass(classId) {
       if (!window.Desktop || !Desktop.isElectron()) return null;
+      if (!classId || isUnassignedExportClassFilter(classId)) return null;
+
       var listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
-      if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) return null;
-      var classFiles = listResult.files.filter(function (f) { return f.filename === '_class.js'; });
-      var displayName = plannerClassDisplayName(classId);
-      for (var i = 0; i < classFiles.length; i++) {
-        var cf = classFiles[i];
-        var res = await Desktop.readByPath('grades', cf.relativePath);
-        if (!res || !res.content) continue;
-        var meta = parseGradeFileContent(res.content);
-        if (meta && (meta.groupId === classId || meta.className === displayName)) {
-          var classSlug = cf.relativePath.split('/')[0];
-          return { meta: meta, classSlug: classSlug };
+      if (listResult && listResult.ok && Array.isArray(listResult.files)) {
+        var classFiles = listResult.files.filter(function (f) { return f.filename === '_class.js'; });
+        var displayName = plannerClassDisplayName(classId);
+        for (var i = 0; i < classFiles.length; i++) {
+          var cf = classFiles[i];
+          var res = await Desktop.readByPath('grades', cf.relativePath);
+          if (res && res.content) {
+            var meta = parseGradeFileContent(res.content);
+            if (meta && (meta.groupId === classId || meta.className === displayName || meta.classId === classId)) {
+              var classSlug = cf.relativePath.split('/')[0];
+              return { meta: meta, classSlug: classSlug };
+            }
+          }
         }
       }
-      return null;
+
+      // Auto-create Grade Sheet _class.js if not yet present
+      var cName = plannerClassDisplayName(classId);
+      if (!cName) return null;
+      var cSlug = slugifyForPath(cName);
+      var newMeta = {
+        _savedAt: Date.now(),
+        classId: classId,
+        groupId: classId,
+        className: cName,
+        testCounts: { sem1: 0, sem2: 0 },
+        students: []
+      };
+      var content = '// _savedAt: ' + newMeta._savedAt + '\nwindow.GRADE_CLASS = ' + JSON.stringify(newMeta, null, 2) + ';\n';
+      await Desktop.saveText('grades', '_class.js', content, cSlug);
+      return { meta: newMeta, classSlug: cSlug };
     }
 
     // Determine which GS semester (sem1/sem2) a date belongs to, based on planner semester order
@@ -3660,22 +3922,122 @@
         var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0');
         var relPath = link.classSlug + '/' + testLabel + '.js';
         var existing = await Desktop.readByPath('grades', relPath);
-        if (!existing || !existing.content) return;
-        var data = parseGradeFileContent(existing.content);
-        var hasScores = data && (data.results || []).some(function (r) { return r.score !== null; });
-        if (hasScores) {
-          // Scores already entered — just clear the metadata, don't delete
-          data.testConfig.testName = '';
-          data.testConfig.testDate = '';
-          var content = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
-          await Desktop.saveText('grades', testLabel + '.js', content, link.classSlug);
-        } else {
-          await Desktop.deleteByPath('grades', relPath, { force: true });
+        if (existing && existing.content) {
+          var data = parseGradeFileContent(existing.content);
+          var hasScores = data && (data.results || []).some(function (r) { return r.score !== null; });
+          if (hasScores) {
+            // Scores already entered — clear metadata, keep scores
+            data.testConfig.testName = '';
+            data.testConfig.testDate = '';
+            var content = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
+            await Desktop.saveText('grades', testLabel + '.js', content, link.classSlug);
+          } else {
+            await Desktop.deleteByPath('grades', relPath, { force: true });
+          }
         }
+
+        // Recalculate testCounts in Grade Sheet's _class.js so the column is completely deleted
+        try {
+          var classRes = await Desktop.readByPath('grades', link.classSlug + '/_class.js');
+          if (classRes && classRes.content) {
+            var classMeta = parseGradeFileContent(classRes.content);
+            if (classMeta) {
+              if (!classMeta.testCounts) classMeta.testCounts = { sem1: 0, sem2: 0 };
+              var listRes = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+              var maxIndex = -1;
+              (listRes.files || []).forEach(function (f) {
+                if (f.relativePath.startsWith(link.classSlug + '/') && f.filename !== '_class.js' && f.filename.startsWith(link.semester + '-test-')) {
+                  var m = f.filename.match(/test-(\d+)\.js$/);
+                  if (m) {
+                    var idxVal = parseInt(m[1], 10) - 1;
+                    if (idxVal > maxIndex) maxIndex = idxVal;
+                  }
+                }
+              });
+              classMeta.testCounts[link.semester] = maxIndex + 1;
+              classMeta._savedAt = Date.now();
+              var classContent = '// _savedAt: ' + classMeta._savedAt + '\nwindow.GRADE_CLASS = ' + JSON.stringify(classMeta, null, 2) + ';\n';
+              await Desktop.saveText('grades', '_class.js', classContent, link.classSlug);
+            }
+          }
+        } catch (e) { console.warn('removeTestFromGradeSheet _class.js update error:', e); }
+
       } catch (e) { console.warn('removeTestFromGradeSheet error:', e); }
     }
 
     // ── Export ─────────────────────────────────────────────────────────────────
+    var selectedExportClasses = new Set();
+
+    function renderExportClassChips() {
+      var container = document.getElementById('exp-class-chips');
+      if (!container) return;
+      container.innerHTML = '';
+
+      var ids = getPlannerClassIds();
+
+      // "All Classes" chip
+      var isAll = selectedExportClasses.size === 0;
+      var allChip = document.createElement('div');
+      allChip.className = 'exp-chip' + (isAll ? ' active' : '');
+      allChip.textContent = t('pl_allClasses') || 'All Classes';
+      allChip.onclick = function () {
+        selectedExportClasses.clear();
+        syncExpClsSelect();
+        renderExportClassChips();
+      };
+      container.appendChild(allChip);
+
+      // "No assigned class" chip
+      var isUnassignedSel = selectedExportClasses.has(EXPORT_CLASS_FILTER_UNASSIGNED);
+      var unassignedChip = document.createElement('div');
+      unassignedChip.className = 'exp-chip' + (isUnassignedSel ? ' active' : '');
+      unassignedChip.textContent = t('pl_unassigned') || 'Unassigned';
+      unassignedChip.onclick = function () {
+        if (selectedExportClasses.has(EXPORT_CLASS_FILTER_UNASSIGNED)) {
+          selectedExportClasses.delete(EXPORT_CLASS_FILTER_UNASSIGNED);
+        } else {
+          selectedExportClasses.add(EXPORT_CLASS_FILTER_UNASSIGNED);
+        }
+        syncExpClsSelect();
+        renderExportClassChips();
+      };
+      container.appendChild(unassignedChip);
+
+      // Individual class chips
+      ids.forEach(function (cid) {
+        var isSel = selectedExportClasses.has(cid);
+        var chip = document.createElement('div');
+        chip.className = 'exp-chip' + (isSel ? ' active' : '');
+        chip.textContent = plannerClassDisplayName(cid);
+        chip.onclick = function () {
+          if (selectedExportClasses.has(cid)) {
+            selectedExportClasses.delete(cid);
+          } else {
+            selectedExportClasses.add(cid);
+          }
+          syncExpClsSelect();
+          renderExportClassChips();
+        };
+        container.appendChild(chip);
+      });
+
+      var count = selectedExportClasses.size === 0 ? (ids.length + 1) : selectedExportClasses.size;
+      var sepGrp = document.getElementById('exp-sep-tables-group');
+      var sepFilesGrp = document.getElementById('exp-sep-files-group');
+      if (sepGrp) sepGrp.style.display = count >= 2 ? 'inline-flex' : 'none';
+      if (sepFilesGrp) sepFilesGrp.style.display = count >= 2 ? 'inline-flex' : 'none';
+    }
+
+    function syncExpClsSelect() {
+      var clsSel = document.getElementById('exp-cls');
+      if (!clsSel) return;
+      if (selectedExportClasses.size === 1) {
+        clsSel.value = Array.from(selectedExportClasses)[0];
+      } else {
+        clsSel.value = '';
+      }
+    }
+
     function openExportModal() {
       var wrap = document.getElementById('exp-custom-types');
       wrap.innerHTML = '';
@@ -3685,11 +4047,16 @@
         lbl.innerHTML = '<input type="checkbox" id="' + esc(id) + '" checked data-custom-type="' + esc(name) + '"> <span>' + esc(name) + '</span>';
         wrap.appendChild(lbl);
       });
-      var clsSel = document.getElementById('exp-cls');
-      if (clsSel) {
-        var onlyClass = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
-        clsSel.value = onlyClass;
+
+      selectedExportClasses.clear();
+      if (filterClasses && filterClasses.size > 0) {
+        filterClasses.forEach(function (cid) { selectedExportClasses.add(cid); });
+      } else if (filterUnassigned) {
+        selectedExportClasses.add(EXPORT_CLASS_FILTER_UNASSIGNED);
       }
+      syncExpClsSelect();
+      renderExportClassChips();
+      renderExportStyleControls();
       openModal('exportModal');
     }
 
@@ -3697,9 +4064,20 @@
       var datePart = new Date().toISOString().slice(0, 10);
       if (clsFilter && !isUnassignedExportClassFilter(clsFilter)) {
         var classTitle = plannerClassDisplayName(clsFilter) || clsFilter;
-        return slugifyForPath(classTitle);
+        return classTitle + ' - Planner';
       }
-      return 'planner-' + datePart;
+      if (isUnassignedExportClassFilter(clsFilter)) {
+        return (t('pl_unassigned') || 'Unassigned') + ' - Planner';
+      }
+      return 'Planner - ' + datePart;
+    }
+
+    function getSeparateExportClassList() {
+      if (selectedExportClasses.size > 0) {
+        return Array.from(selectedExportClasses);
+      }
+      var ids = getPlannerClassIds();
+      return ids.length ? ids : [''];
     }
 
     function getExportFilters() {
@@ -3716,6 +4094,8 @@
         types: types,
         includeLessonSlots: chk('exp-include-slots'),
         pdfFitOnePage: chk('exp-pdf-fit-page'),
+        separateClassTables: chk('exp-sep-classes'),
+        separateClassFiles: chk('exp-sep-files'),
         fields: {
           topic: chk('exp-f-topic'), objective: chk('exp-f-objective'),
           notes: chk('exp-f-notes'),
@@ -3941,26 +4321,209 @@
       return s.replace(/\.+$/, '');
     }
 
-    function getExportRowDateAndSlot(row) {
+    function slugifyForClass(str) {
+      return String(str || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+    }
+
+    function getExportStyle(key) {
+      if (!cfg.exportStyles) cfg.exportStyles = {};
+      return cfg.exportStyles[key] || { color: '', weight: 'normal', underline: false, italic: false };
+    }
+
+    function setExportStyle(key, prop, val) {
+      if (!cfg.exportStyles) cfg.exportStyles = {};
+      if (!cfg.exportStyles[key]) cfg.exportStyles[key] = { color: '', weight: 'normal', underline: false, italic: false };
+      cfg.exportStyles[key][prop] = val;
+      persistCfg();
+      renderExportStyleControls();
+    }
+
+    function toggleExportStyle(key, prop) {
+      var st = getExportStyle(key);
+      setExportStyle(key, prop, !st[prop]);
+    }
+
+    function resetExportStyleItem(key) {
+      if (!cfg.exportStyles) return;
+      delete cfg.exportStyles[key];
+      persistCfg();
+      renderExportStyleControls();
+    }
+
+    function resetExportStyles() {
+      cfg.exportStyles = {};
+      persistCfg();
+      renderExportStyleControls();
+    }
+
+    function getExportStyleCss() {
+      var styles = cfg.exportStyles || {};
+      var rules = [];
+
+      Object.keys(styles).forEach(function (key) {
+        var st = styles[key];
+        if (!st) return;
+        var cssProps = [];
+        if (st.color) cssProps.push('color:' + st.color + ' !important');
+        if (st.weight && st.weight !== 'normal') cssProps.push('font-weight:' + st.weight + ' !important');
+        if (st.underline) cssProps.push('text-decoration:underline !important');
+        if (st.italic) cssProps.push('font-style:italic !important');
+
+        if (!cssProps.length) return;
+
+        var selector = '';
+        if (key.indexOf('type_') === 0) {
+          var tName = slugifyForClass(key.replace('type_', ''));
+          selector = '.exp-type-' + tName;
+        } else if (key.indexOf('field_') === 0) {
+          var fName = key.replace('field_', '');
+          selector = '.exp-' + fName;
+        } else if (key.indexOf('custom_') === 0) {
+          var cName = slugifyForClass(key.replace('custom_', ''));
+          selector = '.exp-custom-field-' + cName;
+        } else if (key.indexOf('class_') === 0) {
+          var clsId = slugifyForClass(key.replace('class_', ''));
+          selector = '.exp-class-' + clsId;
+        } else if (key === 'sched_week') {
+          selector = '.exp-week';
+        } else if (key === 'sched_date') {
+          selector = '.exp-date';
+        } else if (key === 'sched_time') {
+          selector = '.exp-time';
+        }
+
+        if (selector) {
+          rules.push(selector + '{' + cssProps.join(';') + '}');
+        }
+      });
+
+      return rules.join('\n');
+    }
+
+    function renderExportStyleControls() {
+      var acc = document.getElementById('exp-style-accordion');
+      if (!acc) return;
+
+      var categories = [
+        {
+          title: 'Entry Types',
+          items: [
+            { key: 'type_lesson', label: t('pl_typeLesson') },
+            { key: 'type_test', label: t('pl_typeTest') },
+            { key: 'type_assignment', label: t('pl_typeAssignment') },
+            { key: 'type_holiday', label: t('pl_typeHoliday') },
+            { key: 'type_noclass', label: t('pl_typeNoclass') }
+          ].concat((cfg.customTypes || []).map(function (name) {
+            return { key: 'type_custom_' + name, label: name };
+          }))
+        },
+        {
+          title: 'Entry Fields',
+          items: [
+            { key: 'field_topic', label: t('pl_exportFieldTopic') },
+            { key: 'field_objective', label: t('pl_exportFieldObjective') },
+            { key: 'field_notes', label: t('pl_exportFieldNotes') }
+          ]
+        },
+        {
+          title: 'Custom Fields',
+          items: (cfg.customFields || []).map(function (name) {
+            return { key: 'custom_' + name, label: name };
+          })
+        },
+        {
+          title: 'Class Groups',
+          items: [
+            { key: 'class_default', label: 'Default Class' }
+          ].concat(getPlannerClassIds().map(function (cid) {
+            return { key: 'class_' + cid, label: plannerClassDisplayName(cid) };
+          }))
+        },
+        {
+          title: 'Schedule & Date/Time',
+          items: [
+            { key: 'sched_week', label: t('pl_weeksTitle') },
+            { key: 'sched_date', label: t('pl_entryDate') },
+            { key: 'sched_time', label: t('pl_time') }
+          ]
+        }
+      ];
+
+      var html = '';
+      categories.forEach(function (cat, catIdx) {
+        if (!cat.items.length) return;
+        html += '<div class="exp-style-group">' +
+          '<div class="exp-style-group-header" onclick="this.nextElementSibling.style.display = (this.nextElementSibling.style.display === \'none\' ? \'flex\' : \'none\')">' +
+          '<span>' + esc(cat.title) + ' (' + cat.items.length + ')</span><span>▾</span>' +
+          '</div>' +
+          '<div class="exp-style-group-body" style="display:' + (catIdx === 0 ? 'flex' : 'none') + '">';
+
+        cat.items.forEach(function (it) {
+          var st = getExportStyle(it.key);
+          var colorVal = st.color || '#000000';
+          var isBold = st.weight === 'bold';
+          var isUnderline = !!st.underline;
+          var isItalic = !!st.italic;
+
+          var previewStyle = '';
+          if (st.color) previewStyle += 'color:' + st.color + ';';
+          if (st.weight) previewStyle += 'font-weight:' + st.weight + ';';
+          if (st.underline) previewStyle += 'text-decoration:underline;';
+          if (st.italic) previewStyle += 'font-style:italic;';
+
+          html += '<div class="exp-style-row">' +
+            '<div class="exp-style-label">' +
+            '<span>' + esc(it.label) + '</span>' +
+            '<span class="exp-preview-pill" style="' + esc(previewStyle) + '">' + esc(it.label) + '</span>' +
+            '</div>' +
+            '<div class="exp-style-controls">' +
+            '<input type="color" class="exp-style-color" value="' + esc(colorVal) + '" onchange="setExportStyle(\'' + esc(it.key) + '\', \'color\', this.value)" title="Color">' +
+            '<select class="exp-style-select" onchange="setExportStyle(\'' + esc(it.key) + '\', \'weight\', this.value)">' +
+            '<option value="normal"' + (isBold ? '' : ' selected') + '>Normal</option>' +
+            '<option value="bold"' + (isBold ? ' selected' : '') + '>Bold</option>' +
+            '</select>' +
+            '<button type="button" class="style-toggle-btn ' + (isUnderline ? 'active' : '') + '" onclick="toggleExportStyle(\'' + esc(it.key) + '\', \'underline\')" title="Underline"><u>U</u></button>' +
+            '<button type="button" class="style-toggle-btn ' + (isItalic ? 'active' : '') + '" onclick="toggleExportStyle(\'' + esc(it.key) + '\', \'italic\')" title="Italics"><i>I</i></button>' +
+            '<button type="button" class="style-reset-btn" onclick="resetExportStyleItem(\'' + esc(it.key) + '\')" title="Reset item">✕</button>' +
+            '</div></div>';
+        });
+
+        html += '</div></div>';
+      });
+
+      acc.innerHTML = html;
+    }
+
+    function getExportRowDateAndSlot(row, isHtml) {
       var dateLabel = formatExportDate(row.date);
       if (row.kind === 'holiday') {
         if (row.dateTo) {
           var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
           dateLabel += ' – ' + d2;
         }
-        return dateLabel;
+        return isHtml ? '<span class="exp-date">' + esc(dateLabel) + '</span>' : dateLabel;
       }
       if (row.kind === 'slot') {
         var s = row.slot || {};
         var slotTime = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
+        if (isHtml) {
+          var h = '<span class="exp-date">' + esc(dateLabel) + '</span>';
+          if (slotTime) h += ' <span class="exp-time">· ' + esc(slotTime) + '</span>';
+          return h;
+        }
         return dateLabel + (slotTime ? ' · ' + slotTime : '');
       }
       var e = row.entry || {};
       var timeLabel = (e.time || '') + (e.timeEnd ? '–' + e.timeEnd : '');
+      if (isHtml) {
+        var h = '<span class="exp-date">' + esc(dateLabel) + '</span>';
+        if (timeLabel) h += ' <span class="exp-time">· ' + esc(timeLabel) + '</span>';
+        return h;
+      }
       return dateLabel + (timeLabel ? ' · ' + timeLabel : '');
     }
 
-    function formatExportRowDetails(row, fi, customNames) {
+    function formatExportRowDetails(row, fi, customNames, isHtml, hideClass) {
       fi = fi || {};
       if (row.kind === 'holiday') {
         var holStr = row.label || t('pl_typeHoliday');
@@ -3969,21 +4532,60 @@
           var d2 = new Date(row.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
           holStr += ' (' + d1 + ' – ' + d2 + ')';
         }
+        if (isHtml) {
+          return '<span class="exp-type exp-type-holiday">' + esc(t('pl_typeHoliday')) + '</span>. <span class="exp-topic">' + esc(holStr) + '</span>';
+        }
         var hParts = [t('pl_typeHoliday'), holStr];
         return hParts.map(cleanPart).filter(Boolean).join('. ');
       }
       if (row.kind === 'slot') {
         var s = row.slot || {};
         var slotClass = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
-        var sParts = [slotClass, t('pl_exportLessonSlotLabel')];
+        var clsIdClass = s.classId ? ('exp-class-' + slugifyForClass(s.classId)) : 'exp-class-noclass';
+        if (isHtml) {
+          if (hideClass) return '';
+          return '<span class="exp-class exp-class-default ' + clsIdClass + '">' + esc(slotClass) + '</span>';
+        }
+        var sParts = hideClass ? [] : [slotClass];
         return sParts.map(cleanPart).filter(Boolean).join('. ');
       }
 
       var e = row.entry || {};
-      var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || t('pl_noClass');
-      var tLabel = typeLabel(e.type || 'lesson');
+      var cids = entryClassIds(e);
+      var rawType = e.type || 'lesson';
+      var typeClass = 'exp-type-' + slugifyForClass(rawType);
+      var tLabel = typeLabel(rawType);
 
-      var parts = [clsLabel, tLabel];
+      if (isHtml) {
+        var htmlParts = [];
+        if (!hideClass) {
+          if (cids.length) {
+            var clsHtml = cids.map(function (cid) {
+              return '<span class="exp-class exp-class-default exp-class-' + slugifyForClass(cid) + '">' + esc(plannerClassDisplayName(cid)) + '</span>';
+            }).join(', ');
+            htmlParts.push(clsHtml);
+          } else {
+            htmlParts.push('<span class="exp-class exp-class-default exp-class-noclass">' + esc(t('pl_noClass')) + '</span>');
+          }
+        }
+        htmlParts.push('<span class="exp-type ' + typeClass + '">' + esc(tLabel) + '</span>');
+
+        if (fi.topic && e.topic) htmlParts.push('<span class="exp-topic">' + esc(e.topic) + '</span>');
+        if (fi.objective && e.objective) htmlParts.push('<span class="exp-objective">' + esc(e.objective) + '</span>');
+        if (fi.notes && e.notes) htmlParts.push('<span class="exp-notes">' + esc(e.notes) + '</span>');
+        if (fi.custom && e.customFields) {
+          (customNames || []).forEach(function (n) {
+            if (e.customFields[n]) {
+              var cKey = slugifyForClass(n);
+              htmlParts.push('<span class="exp-custom exp-custom-field-' + cKey + '">' + esc(n + ': ' + e.customFields[n]) + '</span>');
+            }
+          });
+        }
+        return htmlParts.join('. ');
+      }
+
+      var clsLabel = cids.map(plannerClassDisplayName).join(', ') || t('pl_noClass');
+      var parts = hideClass ? [tLabel] : [clsLabel, tLabel];
       if (fi.topic && e.topic) parts.push(e.topic);
       if (fi.objective && e.objective) parts.push(e.objective);
       if (fi.notes && e.notes) parts.push(e.notes);
@@ -3996,38 +4598,83 @@
       return parts.map(cleanPart).filter(Boolean).join('. ');
     }
 
+    function getExportClassList(clsFilter, separateTables) {
+      if (!separateTables) {
+        return [clsFilter];
+      }
+      if (selectedExportClasses.size > 0) {
+        return Array.from(selectedExportClasses);
+      }
+      var ids = getPlannerClassIds();
+      return ids.length ? ids : [''];
+    }
+
+    function getExportTitle(clsFilter, sem) {
+      var semLabel = sem ? (sem.label || 'Planner') : 'Planner';
+      if (clsFilter) {
+        var clsName = isUnassignedExportClassFilter(clsFilter)
+          ? (t('pl_unassigned') || 'Unassigned')
+          : (plannerClassDisplayName(clsFilter) || clsFilter);
+        return clsName + ' – ' + semLabel;
+      }
+      return semLabel;
+    }
+
+    function getPreparedExportRows(data, sem, totalWeeks, fi, customNames, clsFilter) {
+      var prepared = [];
+      (data.rows || []).forEach(function (row) {
+        var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
+        prepared.push({
+          row: row,
+          weekLabel: weekInfo ? weekInfo.label : '',
+          dateHtml: getExportRowDateAndSlot(row, true),
+          dateText: getExportRowDateAndSlot(row, false),
+          detailsHtml: formatExportRowDetails(row, fi, customNames, true, !!clsFilter),
+          detailsText: formatExportRowDetails(row, fi, customNames, false, !!clsFilter)
+        });
+      });
+
+      var groups = [];
+      var cur = null;
+      prepared.forEach(function (item) {
+        if (!cur || cur.weekLabel !== item.weekLabel) {
+          cur = { weekLabel: item.weekLabel, count: 1, items: [item] };
+          groups.push(cur);
+        } else {
+          cur.count++;
+          cur.items.push(item);
+        }
+      });
+      return groups;
+    }
+
     // ── HTML table export ───────────────────────────────────────────────────────
     function doExportHtml() {
       var clsFilter = document.getElementById('exp-cls').value;
-      var fileBase = getExportFilenameBase(clsFilter);
       var filters = getExportFilters();
-      var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+
+      if (filters.separateClassFiles) {
+        var classes = getSeparateExportClassList();
+        classes.forEach(function (cf) {
+          var fileBase = getExportFilenameBase(cf);
+          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+          var html = buildExportHtml(cf, singleFilters);
+          downloadText(html, fileBase + '.html', 'text/html;charset=utf-8');
+        });
+        closeModal('exportModal');
+        return;
+      }
+
+      var fileBase = getExportFilenameBase(clsFilter);
       var fi = filters.fields;
-      var sem = data.sem;
-      var title = sem ? (sem.label || 'Planner') : 'Planner';
-      var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+      var separateTables = !!filters.separateClassTables;
+      var classList = getExportClassList(clsFilter, separateTables);
+      var mainSem = getActiveSem();
+      var title = (separateTables && classList.length > 1)
+        ? (mainSem ? (mainSem.label || 'Planner') : 'Planner')
+        : getExportTitle(clsFilter, mainSem);
+
       var headers = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
-
-      function rowCellsHtml(cells) {
-        return '<tr>' + cells.map(function (v, idx) {
-          return '<td contenteditable="true" data-col="' + idx + '">' + esc(v || '') + '</td>';
-        }).join('') + '</tr>';
-      }
-
-      var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var rows = [];
-
-      data.rows.forEach(function (row) {
-        var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-        var weekLabel = weekInfo ? weekInfo.label : '';
-        var dateLabel = getExportRowDateAndSlot(row);
-        var details = formatExportRowDetails(row, fi, customNames);
-        rows.push(rowCellsHtml([weekLabel, dateLabel, details]));
-      });
-
-      if (!rows.length) {
-        rows.push('<tr><td data-col="0" colspan="3">' + esc(t('pl_noEntries')) + '</td></tr>');
-      }
 
       var colControls = headers.map(function (h, idx) {
         return '<label class="col-opt"><input type="checkbox" class="col-toggle" data-col="' + idx + '" checked> ' + esc(h) + '</label>';
@@ -4041,6 +4688,46 @@
         return '<th contenteditable="true" data-col="' + idx + '"><span class="th-label">' + esc(h) + '</span><span class="col-resizer" data-col="' + idx + '" title="Drag to resize"></span></th>';
       }).join('');
 
+      var sectionsHtml = '';
+
+      classList.forEach(function (cf, cIdx) {
+        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+        var cSem = data.sem;
+        var classTitle = getExportTitle(cf, cSem);
+        var totalWeeks = cSem && cSem.semesterStart && cSem.semesterEnd ? getTotalWeeks(cSem) : 0;
+        var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+        var groups = getPreparedExportRows(data, cSem, totalWeeks, fi, customNames, cf);
+        var rows = [];
+
+        groups.forEach(function (grp) {
+          grp.items.forEach(function (item, idx) {
+            var r = '<tr>';
+            if (idx === 0) {
+              r += '<td contenteditable="true" data-col="0" rowspan="' + grp.count + '"><span class="exp-week">' + esc(item.weekLabel) + '</span></td>';
+            }
+            r += '<td contenteditable="true" data-col="1">' + item.dateHtml + '</td>';
+            r += '<td contenteditable="true" data-col="2">' + item.detailsHtml + '</td>';
+            r += '</tr>';
+            rows.push(r);
+          });
+        });
+
+        if (!rows.length) {
+          rows.push('<tr><td data-col="0" colspan="3">' + esc(t('pl_noEntries')) + '</td></tr>');
+        }
+
+        var breakStyle = (separateTables && cIdx > 0) ? ' class="class-page-break"' : '';
+        var secHeading = (separateTables && classList.length > 1) ? ('<h2 style="margin:18px 0 8px;font-size:20px">' + esc(classTitle) + '</h2>') : '';
+
+        sectionsHtml += '<div' + breakStyle + '>' + secHeading +
+          '<table id="planner-export-table-' + cIdx + '" class="planner-export-table">' + colGroup + '<thead><tr>' + tableHead + '</tr></thead>' +
+          '<tbody>' + rows.join('') + '</tbody></table></div>';
+      });
+
+      var topHeaderHtml = (separateTables && classList.length > 1)
+        ? ''
+        : ('<h1>' + esc(title) + '</h1><p class="meta">' + esc(formatExportDate(new Date().toISOString().slice(0, 10))) + '</p>');
+
       var html = '' +
         '<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
         '<style>' +
@@ -4050,41 +4737,32 @@
         '.tb-label{font-size:12px;color:#444;font-weight:700;line-height:1.9}' +
         '.col-options{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center}' +
         '.col-opt{font-size:12px;color:#333;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;user-select:none}' +
-        'table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}' +
+        'table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;margin-bottom:20px}' +
         'th,td{border:1px solid #d7d7d7;padding:7px 8px;vertical-align:top;text-align:left;word-break:break-word}' +
         'thead th{background:#f2f4f7;font-weight:700;position:relative}' +
         '.th-label{display:block;padding-right:10px}' +
         '.col-resizer{position:absolute;top:0;right:-3px;width:8px;height:100%;cursor:col-resize;user-select:none;touch-action:none;z-index:2}' +
         '.col-resizer::after{content:"";position:absolute;right:3px;top:20%;bottom:20%;width:1px;background:#b8bcc4}' +
-        'tbody tr:nth-child(even){background:#fafafa}' +
+        'tbody tr:nth-child(even){background:#fafafa}\n' +
+        '.class-page-break{page-break-before:always;break-before:page;margin-top:24px}\n' +
+        getExportStyleCss() +
         '</style></head><body>' +
-        '<h1>' + esc(title) + '</h1>' +
-        '<p class="meta">' + esc(formatExportDate(new Date().toISOString().slice(0, 10))) + '</p>' +
+        topHeaderHtml +
         '<div class="table-toolbar"><span class="tb-label">Columns</span><div class="col-options">' + colControls + '</div></div>' +
-        '<table id="planner-export-table">' + colGroup + '<thead><tr>' + tableHead + '</tr></thead>' +
-        '<tbody>' + rows.join('') + '</tbody></table>' +
+        sectionsHtml +
         '<script>(function(){' +
-        'var table=document.getElementById("planner-export-table");if(!table)return;' +
+        'var tables=document.querySelectorAll(".planner-export-table");if(!tables.length)return;' +
         'function setColVisible(colIndex,visible){' +
+        'tables.forEach(function(table){' +
         'var colEl=table.querySelector("col[data-col=\'"+colIndex+"\']");if(colEl)colEl.style.display=visible?"":"none";' +
         'var cells=table.querySelectorAll("th[data-col=\'"+colIndex+"\'],td[data-col=\'"+colIndex+"\']");' +
         'for(var i=0;i<cells.length;i++)cells[i].style.display=visible?"":"none";' +
+        '});' +
         '}' +
         'var toggles=document.querySelectorAll(".col-toggle");' +
         'for(var t=0;t<toggles.length;t++){' +
         'toggles[t].addEventListener("change",function(e){' +
         'var col=e.target.getAttribute("data-col");setColVisible(col,!!e.target.checked);' +
-        '});' +
-        '}' +
-        'var active=null,startX=0,startW=0,minW=56;' +
-        'function onMove(e){if(!active)return;var w=Math.max(minW,startW+(e.clientX-startX));active.col.style.width=w+"px";active.th.style.width=w+"px";}' +
-        'function onUp(){if(!active)return;active=null;document.body.style.cursor="";window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);}' +
-        'var handles=table.querySelectorAll(".col-resizer");' +
-        'for(var h=0;h<handles.length;h++){' +
-        'handles[h].addEventListener("mousedown",function(e){' +
-        'e.preventDefault();var idx=e.target.getAttribute("data-col");var th=e.target.parentNode;var col=table.querySelector("col[data-col=\'"+idx+"\']");' +
-        'if(!th||!col)return;active={th:th,col:col};startX=e.clientX;startW=th.getBoundingClientRect().width;document.body.style.cursor="col-resize";' +
-        'window.addEventListener("mousemove",onMove);window.addEventListener("mouseup",onUp);' +
         '});' +
         '}' +
         '})();<\/script>' +
@@ -4098,22 +4776,70 @@
     // ── CSV export ─────────────────────────────────────────────────────────────
     function doExportCsv() {
       var clsFilter = document.getElementById('exp-cls').value;
-      var fileBase = getExportFilenameBase(clsFilter);
       var filters = getExportFilters();
+
+      if (filters.separateClassFiles) {
+        var classes = getSeparateExportClassList();
+        var fi = filters.fields;
+        var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+        var header = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
+
+        classes.forEach(function (cf) {
+          var fileBase = getExportFilenameBase(cf);
+          var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+          var sem = data.sem;
+          var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+          var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
+          var rows = [header];
+
+          groups.forEach(function (grp) {
+            grp.items.forEach(function (item, idx) {
+              var wLabel = idx === 0 ? item.weekLabel : '';
+              rows.push([wLabel, item.dateText, item.detailsText]);
+            });
+          });
+
+          var csv = rows.map(function (row) {
+            return row.map(function (cell) {
+              var s = String(cell).replace(/"/g, '""');
+              return /[,"\n\r]/.test(s) ? '"' + s + '"' : s;
+            }).join(',');
+          }).join('\r\n');
+
+          downloadText('﻿' + csv, fileBase + '.csv', 'text/csv;charset=utf-8');
+        });
+        closeModal('exportModal');
+        return;
+      }
+
+      var fileBase = getExportFilenameBase(clsFilter);
       var fi = filters.fields;
-      var data = getExportData(clsFilter, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+      var separateTables = !!filters.separateClassTables;
+      var classList = getExportClassList(clsFilter, separateTables);
       var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
       var header = [t('pl_weeksTitle') || 'Week', (t('pl_entryDate') || 'Date') + ' / Time', t('pl_exportActivitiesCol') || 'Details'];
-      var sem = data.sem;
-      var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var rows = [header];
 
-      data.rows.forEach(function (row) {
-        var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-        var weekLabel = weekInfo ? weekInfo.label : '';
-        var dateLabel = getExportRowDateAndSlot(row);
-        var details = formatExportRowDetails(row, fi, customNames);
-        rows.push([weekLabel, dateLabel, details]);
+      var rows = [];
+
+      classList.forEach(function (cf, cIdx) {
+        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+        var sem = data.sem;
+        var classTitle = getExportTitle(cf, sem);
+        var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+        var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
+
+        if (separateTables && classList.length > 1) {
+          if (cIdx > 0) rows.push([]);
+          rows.push([classTitle]);
+        }
+        rows.push(header);
+
+        groups.forEach(function (grp) {
+          grp.items.forEach(function (item, idx) {
+            var wLabel = idx === 0 ? item.weekLabel : '';
+            rows.push([wLabel, item.dateText, item.detailsText]);
+          });
+        });
       });
 
       var csv = rows.map(function (row) {
@@ -4134,8 +4860,28 @@
         showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
       }
       var clsFilter = document.getElementById('exp-cls').value;
-      var fileBase = getExportFilenameBase(clsFilter);
       var filters = getExportFilters();
+
+      if (filters.separateClassFiles) {
+        var classes = getSeparateExportClassList();
+        closeModal('exportModal');
+        for (var i = 0; i < classes.length; i++) {
+          var cf = classes[i];
+          var fileBase = getExportFilenameBase(cf);
+          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+          var html = buildExportHtml(cf, singleFilters);
+          const result = await Desktop.printPdf({
+            html: html,
+            defaultName: fileBase + '.pdf'
+          });
+          if (result && result.ok && window.showExportSuccessPopup && result.path) {
+            showExportSuccessPopup(result.path, result.name || (fileBase + '.pdf'));
+          }
+        }
+        return;
+      }
+
+      var fileBase = getExportFilenameBase(clsFilter);
       var html = buildExportHtml(clsFilter, filters);
       closeModal('exportModal');
       const result = await Desktop.printPdf({
@@ -4165,11 +4911,12 @@
       };
 
       var fi = filters.fields || {};
-      var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
-      var sem = data.sem;
-      var title = sem ? (sem.label || 'Planner') : 'Planner';
-      var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+      var separateTables = !!filters.separateClassTables;
+      var classList = getExportClassList(clsFilter, separateTables);
+      var mainSem = getActiveSem();
+      var title = (separateTables && classList.length > 1)
+        ? (mainSem ? (mainSem.label || 'Planner') : 'Planner')
+        : getExportTitle(clsFilter, mainSem);
 
       var lines = [];
       lines.push('# ' + title);
@@ -4181,22 +4928,37 @@
       var dateColHeader = (t('pl_entryDate') || 'Date') + ' / Time';
       var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
 
-      if (!data.rows.length) {
+      classList.forEach(function (cf, cIdx) {
+        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
+        var sem = data.sem;
+        var classTitle = getExportTitle(cf, sem);
+        var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+        var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+
+        if (separateTables && classList.length > 1) {
+          if (cIdx > 0) {
+            lines.push('');
+            lines.push('<div style="page-break-before: always;"></div>');
+            lines.push('');
+          }
+          lines.push('## ' + classTitle);
+          lines.push('');
+        }
+
         lines.push('| ' + mdEscCell(weekColHeader) + ' | ' + mdEscCell(dateColHeader) + ' | ' + mdEscCell(detailsColHeader) + ' |');
         lines.push('| --- | --- | --- |');
-        lines.push('| ' + mdEscCell(t('pl_noEntries')) + ' | | |');
-        return lines.join('\n');
-      }
 
-      lines.push('| ' + mdEscCell(weekColHeader) + ' | ' + mdEscCell(dateColHeader) + ' | ' + mdEscCell(detailsColHeader) + ' |');
-      lines.push('| --- | --- | --- |');
-
-      data.rows.forEach(function (row) {
-        var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-        var weekLabel = weekInfo ? weekInfo.label : '';
-        var dateLabel = getExportRowDateAndSlot(row);
-        var details = formatExportRowDetails(row, fi, customNames);
-        lines.push('| ' + mdEscCell(weekLabel) + ' | ' + mdEscCell(dateLabel) + ' | ' + mdEscCell(details) + ' |');
+        if (!data.rows.length) {
+          lines.push('| ' + mdEscCell(t('pl_noEntries')) + ' | | |');
+        } else {
+          var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
+          groups.forEach(function (grp) {
+            grp.items.forEach(function (item, idx) {
+              var wLabel = idx === 0 ? item.weekLabel : '';
+              lines.push('| ' + mdEscCell(wLabel) + ' | ' + mdEscCell(item.dateText) + ' | ' + mdEscCell(item.detailsText) + ' |');
+            });
+          });
+        }
       });
 
       return lines.join('\n');
@@ -4207,8 +4969,37 @@
         showToast(t('pl_exportDocxLabel') + ': desktop only'); return;
       }
       var clsFilter = document.getElementById('exp-cls').value;
-      var fileBase = getExportFilenameBase(clsFilter);
       var filters = getExportFilters();
+
+      if (filters.separateClassFiles) {
+        var classes = getSeparateExportClassList();
+        closeModal('exportModal');
+        var fit = !!filters.pdfFitOnePage;
+        for (var i = 0; i < classes.length; i++) {
+          var cf = classes[i];
+          var fileBase = getExportFilenameBase(cf);
+          var singleFilters = Object.assign({}, filters, { separateClassTables: false, separateClassFiles: false });
+          var markdown = buildExportDocxMarkdown(cf, singleFilters);
+          var result = await Desktop.exportDocx({
+            markdown: markdown,
+            defaultName: fileBase,
+            fontFamily: 'Segoe UI',
+            fontSize: fit ? '8pt' : '10pt',
+            lineHeight: fit ? '1.1' : '1.25',
+            margins: fit
+              ? { top: 8, right: 8, bottom: 8, left: 8 }
+              : { top: 18, right: 16, bottom: 18, left: 16 },
+            size: 'A4',
+            orientation: 'portrait'
+          });
+          if (result && result.ok && window.showExportSuccessPopup && result.path) {
+            showExportSuccessPopup(result.path, result.name || (fileBase + '.docx'));
+          }
+        }
+        return;
+      }
+
+      var fileBase = getExportFilenameBase(clsFilter);
       var markdown = buildExportDocxMarkdown(clsFilter, filters);
       closeModal('exportModal');
       var fit = !!filters.pdfFitOnePage;
@@ -4239,36 +5030,54 @@
       filters = filters || { types: null, fields: { topic: true, objective: true, notes: true, custom: true } };
       var fi = filters.fields;
       var fitOnePage = !!filters.pdfFitOnePage;
-      var data = getExportData(clsFilter, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
-      var sem = data.sem;
-      var title = sem ? (sem.label || 'Planner') : 'Planner';
-      var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
-      var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
+      var separateTables = !!filters.separateClassTables;
+      var classList = getExportClassList(clsFilter, separateTables);
+      var mainSem = getActiveSem();
+      var title = (separateTables && classList.length > 1)
+        ? (mainSem ? (mainSem.label || 'Planner') : 'Planner')
+        : getExportTitle(clsFilter, mainSem);
 
-      var weekColHeader = t('pl_weeksTitle') || 'Week';
-      var dateColHeader = (t('pl_entryDate') || 'Date') + ' / Time';
-      var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
+      var tablesHtml = '';
 
-      var body = '<table class="exp-table"><thead><tr><th class="col-week">' +
-        esc(weekColHeader) + '</th><th class="col-date">' +
-        esc(dateColHeader) + '</th><th class="col-acts">' +
-        esc(detailsColHeader) + '</th></tr></thead><tbody>';
+      classList.forEach(function (cf, cIdx) {
+        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
+        var sem = data.sem;
+        var classTitle = getExportTitle(cf, sem);
+        var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
+        var customNames = (cfg.customFields || []).filter(function (n) { return fi.custom; });
 
-      if (!data.rows.length) {
-        body += '<tr><td colspan="3" class="empty-row">' + esc(t('pl_noEntries')) + '</td></tr>';
-      } else {
-        data.rows.forEach(function (row) {
-          var weekInfo = getWeekGroupInfo(row.date, sem, totalWeeks);
-          var weekLabel = weekInfo ? weekInfo.label : '';
-          var dateLabel = getExportRowDateAndSlot(row);
-          var details = formatExportRowDetails(row, fi, customNames);
-          body += '<tr><td class="col-week"><div class="week-main">' + esc(weekLabel) + '</div></td>' +
-            '<td class="col-date"><div class="date-main">' + esc(dateLabel) + '</div></td>' +
-            '<td class="col-acts"><div class="act-main">' + esc(details) + '</div></td></tr>';
-        });
-      }
+        var weekColHeader = t('pl_weeksTitle') || 'Week';
+        var dateColHeader = (t('pl_entryDate') || 'Date') + ' / Time';
+        var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
 
-      body += '</tbody></table>';
+        var breakStyle = (separateTables && cIdx > 0) ? ' class="class-page-break"' : '';
+        var secHeading = (separateTables && classList.length > 1) ? ('<h1 style="font-size:' + (fitOnePage ? '11pt' : '15pt') + ';font-weight:800;margin-bottom:4px">' + esc(classTitle) + '</h1>') : '';
+
+        var sectionHtml = '<div' + breakStyle + '>' + secHeading +
+          '<table class="exp-table"><thead><tr><th class="col-week">' +
+          esc(weekColHeader) + '</th><th class="col-date">' +
+          esc(dateColHeader) + '</th><th class="col-acts">' +
+          esc(detailsColHeader) + '</th></tr></thead><tbody>';
+
+        if (!data.rows.length) {
+          sectionHtml += '<tr><td colspan="3" class="empty-row">' + esc(t('pl_noEntries')) + '</td></tr>';
+        } else {
+          var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
+          groups.forEach(function (grp) {
+            grp.items.forEach(function (item, idx) {
+              sectionHtml += '<tr>';
+              if (idx === 0) {
+                sectionHtml += '<td class="col-week" rowspan="' + grp.count + '"><div class="week-main"><span class="exp-week">' + esc(item.weekLabel) + '</span></div></td>';
+              }
+              sectionHtml += '<td class="col-date"><div class="date-main">' + item.dateHtml + '</div></td>' +
+                '<td class="col-acts"><div class="act-main">' + item.detailsHtml + '</div></td></tr>';
+            });
+          });
+        }
+
+        sectionHtml += '</tbody></table></div>';
+        tablesHtml += sectionHtml;
+      });
 
       var pageMargin = fitOnePage ? '3mm' : '9mm';
       var bodyFont = fitOnePage ? '7pt' : '9pt';
@@ -4285,24 +5094,31 @@
       var css = '@page{size:A4 portrait;margin:' + pageMargin + '}'
         + '* {box-sizing:border-box;margin:0;padding:0}'
         + 'html,body{width:100%;height:100%}'
-        + 'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:' + bodyFont + ';color:#111;padding:' + bodyPad + ';overflow:hidden}'
+        + 'body{font-family:"Segoe UI",system-ui,sans-serif;font-size:' + bodyFont + ';color:#111;padding:' + bodyPad + (fitOnePage ? ';display:flex;flex-direction:column;overflow:hidden' : '') + '}'
         + 'h1{font-size:' + titleSize + ';font-weight:800;margin-bottom:1px;line-height:1.1}'
         + '.meta{font-size:' + metaSize + ';color:#666;margin-bottom:' + (fitOnePage ? '4px' : '8px') + ';line-height:1.1}'
-        + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed}'
-        + '.exp-table th,.exp-table td{border:1px solid #d6d6d6;vertical-align:top;padding:' + cellPad + '}'
-        + '.exp-table th{background:#f4f4f4;font-size:' + thSize + ';text-transform:uppercase;letter-spacing:.3px;text-align:left}'
+        + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed' + (fitOnePage ? ';flex:1;height:100%' : '') + '}'
+        + '.exp-table th,.exp-table td{border:1px solid #d6d6d6;vertical-align:middle;padding:' + cellPad + '}'
+        + '.exp-table th{background:#f4f4f4;font-size:' + thSize + ';text-transform:uppercase;letter-spacing:.3px;text-align:left;height:24px}'
+        + '.exp-table tbody tr{height:' + (fitOnePage ? '1%' : '32px') + '}'
         + '.col-week{width:' + colWeekWidth + '}'
         + '.col-date{width:' + colDateWidth + '}'
-        + '.date-main,.week-main{font-weight:700;font-size:' + dateMainSize + ';line-height:1.15}'
+        + '.date-main,.week-main{font-weight:400;font-size:' + dateMainSize + ';line-height:1.15}'
         + '.act-main{font-size:' + actMainSize + ';line-height:1.25}'
-        + '.empty-row{text-align:center;color:#666;font-style:italic}';
+        + '.empty-row{text-align:center;color:#666;font-style:italic}\n'
+        + '.class-page-break{page-break-before:always;break-before:page;margin-top:24px}\n'
+        + getExportStyleCss();
+
+      var topHeaderHtml = (separateTables && classList.length > 1)
+        ? ''
+        : ('<h1>' + esc(title) + '</h1><p class="meta">' + formatExportDate(new Date().toISOString().slice(0, 10)) + '</p>');
 
       return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
         + '<style>' + css + '</style></head><body>'
-        + '<h1>' + esc(title) + '</h1>'
-        + '<p class="meta">' + formatExportDate(new Date().toISOString().slice(0, 10)) + '</p>'
-        + body + '</body></html>';
+        + topHeaderHtml
+        + tablesHtml + '</body></html>';
     }
+
 
     // ── Download helper ────────────────────────────────────────────────────────
     function downloadText(content, filename, mime) {
@@ -4419,25 +5235,51 @@
       popover._pendingTargetInfo = targetInfo;
     }
 
-    function _applyDragCopy(srcId, targetInfo) {
+    async function _applyDragCopy(srcId, targetInfo) {
       var srcEntry = entries.find(function (e) { return e.id === srcId; });
       if (!srcEntry) return;
+
+      var updatedEntry = null;
 
       if (targetInfo && targetInfo.entryId) {
         // ── Overwrite existing entry ──────────────────────────
         var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
         if (!tgtEntry || tgtEntry.id === srcId) return;
+
+        var confirmMsg = (tgtEntry.type === 'test' || tgtEntry.gsLink)
+          ? (t('pl_confirmOverwriteTestEntry') || 'This slot contains a test linked to Grade Sheet. Overwriting it will affect the Grade Sheet test. Continue?')
+          : (t('pl_confirmOverwriteEntry') || 'An entry already exists in this slot. Overwrite it?');
+
+        var ok = await showConfirm(confirmMsg);
+        if (!ok) return;
+
+        if (tgtEntry.type === 'test' && srcEntry.type !== 'test' && tgtEntry.gsLink) {
+          await removeTestFromGradeSheet(tgtEntry);
+          tgtEntry.gsLink = null;
+        }
+
+        var activeCls = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
+        tgtEntry.classId      = targetInfo.classId || tgtEntry.classId || srcEntry.classId || activeCls;
         tgtEntry.type         = srcEntry.type;
         tgtEntry.topic        = srcEntry.topic || '';
         tgtEntry.objective    = srcEntry.objective || '';
         tgtEntry.notes        = srcEntry.notes || '';
         tgtEntry.customFields = srcEntry.customFields
           ? Object.assign({}, srcEntry.customFields) : undefined;
+
+        if (srcEntry.type !== 'test') {
+          tgtEntry.gsLink = null;
+        } else if (!tgtEntry.gsLink) {
+          tgtEntry.gsLink = null;
+        }
+
+        updatedEntry = tgtEntry;
       } else if (targetInfo && targetInfo.date) {
         // ── Create new entry in empty slot ───────────────────
-        entries.push({
+        var activeCls = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
+        var newEntry = {
           id:           uid(),
-          classId:      targetInfo.classId  || '',
+          classId:      targetInfo.classId || srcEntry.classId || activeCls,
           date:         targetInfo.date,
           time:         targetInfo.time      || '',
           timeEnd:      targetInfo.timeEnd   || '',
@@ -4447,24 +5289,38 @@
           notes:        srcEntry.notes       || '',
           customFields: srcEntry.customFields
             ? Object.assign({}, srcEntry.customFields) : undefined,
-          gsLink: null
-        });
+          gsLink:       null
+        };
+        entries.push(newEntry);
+        updatedEntry = newEntry;
       } else {
         return;
       }
 
-      persistEntries();
+      await persistEntries();
       render();
+
+      if (updatedEntry && updatedEntry.type === 'test') {
+        if (!updatedEntry.classId) {
+          updatedEntry.classId = srcEntry.classId || ((filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '');
+        }
+        if (updatedEntry.gsLink) {
+          await syncTestToGradeSheet(updatedEntry, true);
+        } else if (updatedEntry.classId) {
+          await syncTestToGradeSheet(updatedEntry, false);
+        }
+      }
+
       showToast(t('pl_dragCopyDone'));
     }
 
-    function dragCopyConfirm() {
+    async function dragCopyConfirm() {
       var popover = document.getElementById('drag-copy-popover');
       if (!popover) return;
       var srcId = popover._pendingSrcId;
       var targetInfo = popover._pendingTargetInfo;
       _clearDragPopover();
-      _applyDragCopy(srcId, targetInfo);
+      await _applyDragCopy(srcId, targetInfo);
     }
 
     function dragCopyCancel() {
@@ -4658,6 +5514,7 @@
       var slots = buildSlots(activeSem).filter(function (s) {
         return !s.isGlobalHoliday;
       });
+      slots = filterSlots(slots);
 
       if (!slots.length) {
         el.innerHTML = '<div class="empty-state"><span class="es-icon">✓</span>' +
@@ -4789,7 +5646,7 @@
       var blockPos = 'top:' + top + 'px;height:' + h + 'px;left:calc(' + leftPct.toFixed(4) + '% + 2px);width:calc(' + widthPct.toFixed(4) + '% - 4px)';
       if (!entry) {
         var emptyInfo = '';
-        if (viewOpts.details || viewOpts.custom) emptyInfo = '<span class="at-cell-detail">' + esc(dateLabel) + ' · ' + esc(t('pl_emptySlot')) + '</span>';
+        if (viewOpts.details || viewOpts.custom) emptyInfo = '<span class="at-cell-detail">' + esc(dateLabel) + '</span>';
         return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
           '<span class="at-class-title">' + esc(classLabel) + '</span>' +
           emptyInfo +
