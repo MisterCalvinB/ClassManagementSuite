@@ -14,6 +14,7 @@
   <script src="../js/import-utils.js"></script>
   <script src="../js/import-modules/students.js"></script>
   <script src="../js/import-modules/class-groups.js"></script>
+  <script src="../js/import-modules/admin-groups.js"></script>
   <script src="../js/import-modules/wordbank.js"></script>
   <script src="../js/import-modules/quiz.js"></script>
   <script src="../js/import-modules/gapfill.js"></script>
@@ -154,9 +155,9 @@
           <div class="drop-icon">📂</div>
           <div class="drop-main" data-i18n="importStep2Drop">Drop file here or</div>
           <button class="drop-browse" onclick="document.getElementById('file-input').click()" data-i18n="importStep2Browse">Browse</button>
-          <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON</div>
+          <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON, PDF</div>
         </div>
-        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json,.pdf">
 
         <div class="file-info" id="file-info">
           <span class="file-info-name" id="file-info-name"></span>
@@ -272,9 +273,10 @@
 
     var MODULE_GROUPS = [
       {
-        appI18nKey: 'app_groupEditor_title',
-        defaultTitle: 'Group Editor',
+        appI18nKey: 'app_adminGroups_title',
+        defaultTitle: 'Administrative Group Management',
         modules: [
+          window.IMPORT_MODULE_ADMIN_GROUPS,
           window.IMPORT_MODULE_CLASS_GROUPS,
           window.IMPORT_MODULE_STUDENTS
         ]
@@ -352,6 +354,7 @@
       var container = document.getElementById('dest-options');
       container.innerHTML = '';
       var descs = {
+        adminGroups: tt('importDestAdminGroupsDesc', 'Import students with full administrative details and assign to a group'),
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
         wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file'),
@@ -1012,8 +1015,8 @@
       }
       existingStudents = roster;
 
-      // If class groups module: save class-groups.js
-      if (selectedModule.id === 'classGroups') {
+      // If class groups or admin groups module: save class-groups.js
+      if (selectedModule.id === 'classGroups' || selectedModule.id === 'adminGroups') {
         var cg = existingGroups || { activeYear: '', activeSemester: null, activeSemesterStart: '', activeSemesterEnd: '', classGroupsMeta: {} };
         cg.classGroupsMeta = cg.classGroupsMeta || {};
 
@@ -1047,13 +1050,56 @@
         existingGroups = cg;
       }
 
+      // If adminGroups module: save extended administrative metadata
+      if (selectedModule.id === 'adminGroups') {
+        try {
+          var adminData = {};
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+            var adminRead = await Desktop.readText('user', 'administrative-groups.json');
+            if (adminRead && adminRead.ok && adminRead.content) {
+              adminData = JSON.parse(adminRead.content);
+            }
+          }
+          adminData.students = adminData.students || {};
+          mappedRows.forEach(function (row, i) {
+            var k = selectedModule.conflictKey(row);
+            var existing = existingByKey[k];
+            var uuid = existing ? existing.uuid : (rosterByUuid && roster.find(function (s) { return s.firstName === (row.firstName||'').trim().toUpperCase() && s.lastName === (row.lastName||'').trim().toUpperCase(); })?.uuid);
+            if (uuid) {
+              adminData.students[uuid] = Object.assign(adminData.students[uuid] || {}, {
+                gender: row.gender || '',
+                studentNumber: row.studentNumber || '',
+                regime: row.regime || '',
+                guardian1Name: row.guardian1Name || '',
+                guardian1Phone: row.guardian1Phone || '',
+                guardian1Email: row.guardian1Email || '',
+                address: row.address || '',
+                medicalNotes: row.medicalNotes || '',
+                updatedAt: new Date().toISOString()
+              });
+            }
+          });
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'administrative-groups.json', JSON.stringify(adminData, null, 2));
+          }
+        } catch (e) {
+          console.warn('Failed to save administrative-groups.json:', e);
+        }
+      }
+
       showSaving(false);
       document.getElementById('done-added').textContent = added;
       document.getElementById('done-updated').textContent = updated;
       document.getElementById('done-skipped').textContent = skipped;
 
       var doneBtn = document.getElementById('btn-done-action');
-      if (selectedModule.id === 'classGroups') {
+      if (selectedModule.id === 'adminGroups') {
+        doneBtn.textContent = tt('importBtnOpenAdminGroups', 'Open Administrative Groups');
+        doneBtn.style.display = '';
+        window.doneAction = function () {
+          if (window.Desktop && Desktop.isElectron()) Desktop.openTool('administrative-groups.html');
+        };
+      } else if (selectedModule.id === 'classGroups') {
         doneBtn.textContent = tt('importBtnOpenCms', 'Open Class Management');
         doneBtn.style.display = '';
         window.doneAction = function () {

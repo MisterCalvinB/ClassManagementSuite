@@ -36,6 +36,7 @@
     { href: 'manage-database.html',  icon: 'manage-database.svg',  label: 'Database'         },
     { href: 'grade-sheet.html',      icon: 'grade-sheet.svg',      label: 'Grade Sheet'      },
     { href: 'participation-tracker.html', icon: 'participation-tracker.svg', label: 'Tracker' },
+    { href: 'administrative-groups.html', icon: 'admin-groups.svg',        label: 'Administrative Groups' },
     { href: 'oral-marking.html',     icon: 'oral-marking.svg',     label: 'Oral Marking'     },
     null,
     { href: 'group-editor.html',     icon: 'group-editor.svg',     label: 'Group Editor'     },

@@ -47,6 +47,8 @@
     try {
       if (ext === 'json') {
         return await _parseJson(file);
+      } else if (ext === 'pdf') {
+        return await _parsePdf(file);
       } else {
         return await _parseXlsxOrCsv(file, ext);
       }
@@ -55,34 +57,146 @@
     }
   }
 
-  async function _parseJson(file) {
-    var text = await file.text();
-    var data = JSON.parse(text);
-    // Accept array of objects
-    if (!Array.isArray(data)) data = [data];
-    if (!data.length) return { ok: true, headers: [], rows: [] };
-    var headers = Object.keys(data[0]);
-    var rows = data.map(function (obj) {
-      return headers.map(function (h) { return obj[h] === undefined ? '' : obj[h]; });
-    });
-    return { ok: true, headers: headers, rows: rows };
+  async function _ensurePdfjsLib() {
+    if (window._cmtPdfjsLib) return window._cmtPdfjsLib;
+    var mod = await import('../modules/pdf.min.mjs');
+    mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
+    window._cmtPdfjsLib = mod;
+    return mod;
   }
 
-  async function _parseXlsxOrCsv(file, ext) {
-    if (!window.XLSX) throw new Error('SheetJS (XLSX) not loaded');
+  async function _parsePdf(file) {
+    var pdfjsLib = await _ensurePdfjsLib();
     var ab = await file.arrayBuffer();
-    var wb = window.XLSX.read(ab, { type: 'array', cellDates: true });
-    var sheet = wb.Sheets[wb.SheetNames[0]];
-    var raw = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-    if (!raw.length) return { ok: true, headers: [], rows: [] };
-    var headers = raw[0].map(function (h) { return String(h === null || h === undefined ? '' : h); });
-    var rows = raw.slice(1).filter(function (r) { return r.some(function (c) { return c !== '' && c !== null && c !== undefined; }); });
-    rows = rows.map(function (r) {
-      // Pad short rows
-      while (r.length < headers.length) r.push('');
-      return r.map(function (c) { return c === null || c === undefined ? '' : c; });
+    var doc = await pdfjsLib.getDocument({
+      data: ab,
+      standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+      disableFontFace: false,
+      useSystemFonts: false
+    }).promise;
+
+    var allRows = [];
+    var maxCols = 0;
+
+    for (var p = 1; p <= doc.numPages; p++) {
+      var page = await doc.getPage(p);
+      var textContent = await page.getTextContent();
+      var items = textContent.items || [];
+      if (!items.length) continue;
+
+      // Filter non-empty items
+      var validItems = items.filter(function (it) {
+        return it && it.str && it.str.trim() !== '';
+      });
+      if (!validItems.length) continue;
+
+      // Group into lines by Y coordinate (within 3.5px threshold)
+      var lines = [];
+      validItems.forEach(function (item) {
+        var x = item.transform[4];
+        var y = item.transform[5];
+        var text = item.str;
+        var width = item.width || (text.length * 6);
+
+        var line = lines.find(function (l) { return Math.abs(l.y - y) <= 3.8; });
+        if (!line) {
+          line = { y: y, items: [] };
+          lines.push(line);
+        }
+        line.items.push({ x: x, y: y, text: text, width: width });
+      });
+
+      // Sort lines top to bottom (descending Y in PDF)
+      lines.sort(function (a, b) { return b.y - a.y; });
+
+      // Determine column boundaries on this page by clustering X start positions
+      var xPositions = [];
+      lines.forEach(function (l) {
+        l.items.sort(function (a, b) { return a.x - b.x; });
+        l.items.forEach(function (it) { xPositions.push(it.x); });
+      });
+      xPositions.sort(function (a, b) { return a - b; });
+
+      // Cluster close X coordinates into column anchors (cluster radius ~ 14px)
+      var colAnchors = [];
+      xPositions.forEach(function (x) {
+        var anchor = colAnchors.find(function (a) { return Math.abs(a.center - x) <= 14; });
+        if (anchor) {
+          anchor.count++;
+          anchor.sum += x;
+          anchor.center = anchor.sum / anchor.count;
+        } else {
+          colAnchors.push({ center: x, sum: x, count: 1 });
+        }
+      });
+      // Keep anchors that appear across multiple lines/items
+      var significantAnchors = colAnchors.filter(function (a) { return a.count >= 2 || colAnchors.length <= 4; });
+      significantAnchors.sort(function (a, b) { return a.center - b.center; });
+
+      // Map line items to columns
+      lines.forEach(function (l) {
+        var rowCells = [];
+        if (significantAnchors.length > 1) {
+          // Put each item into nearest column anchor
+          for (var c = 0; c < significantAnchors.length; c++) rowCells.push([]);
+          l.items.forEach(function (item) {
+            var bestIdx = 0;
+            var bestDist = Infinity;
+            significantAnchors.forEach(function (anch, aIdx) {
+              var d = Math.abs(anch.center - item.x);
+              if (d < bestDist) { bestDist = d; bestIdx = aIdx; }
+            });
+            rowCells[bestIdx].push(item.text);
+          });
+          var flatRow = rowCells.map(function (cItems) { return cItems.join(' ').trim(); });
+          // Only push if row has at least one non-empty cell
+          if (flatRow.some(function (c) { return c !== ''; })) {
+            allRows.push(flatRow);
+            if (flatRow.length > maxCols) maxCols = flatRow.length;
+          }
+        } else {
+          // Fallback: merge tokens with space or split on wide gap
+          var rowText = l.items.map(function (it) { return it.text; }).join(' ').trim();
+          if (rowText) {
+            var tokens = rowText.split(/\s{2,}|\t/);
+            allRows.push(tokens);
+            if (tokens.length > maxCols) maxCols = tokens.length;
+          }
+        }
+      });
+    }
+
+    if (!allRows.length) return { ok: true, headers: [], rows: [] };
+
+    // Find best header row (first row with at least 2 non-empty cells)
+    var headerRowIdx = 0;
+    for (var i = 0; i < Math.min(allRows.length, 5); i++) {
+      var filled = allRows[i].filter(function (c) { return c && c.trim() !== ''; }).length;
+      if (filled >= 2) {
+        headerRowIdx = i;
+        break;
+      }
+    }
+
+    var rawHeaders = allRows[headerRowIdx] || [];
+    var headers = [];
+    for (var h = 0; h < maxCols; h++) {
+      var hText = String(rawHeaders[h] || '').trim();
+      headers.push(hText || ('Col ' + (h + 1)));
+    }
+
+    var dataRows = allRows.slice(headerRowIdx + 1);
+    var rows = dataRows.map(function (r) {
+      var cells = [];
+      for (var c = 0; c < headers.length; c++) {
+        cells.push(r[c] !== undefined ? String(r[c]).trim() : '');
+      }
+      return cells;
+    }).filter(function (r) {
+      return r.some(function (c) { return c !== ''; });
     });
-    return { ok: true, headers: headers, rows: rows };
+
+    return { ok: true, headers: headers, rows: rows, isPdf: true };
   }
 
   // Apply column mapping to raw rows → array of field-keyed objects

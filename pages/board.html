@@ -26830,9 +26830,45 @@
         });
       });
 
+      function getPdfExportSettings() {
+        const cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG)
+          ? CLASS_MANAGEMENT_CONFIG
+          : (window.CLASS_MANAGEMENT_CONFIG || {});
+        const exp = cfg.export || {};
+        
+        let margin = '16mm 14mm';
+        if (exp.pdfMargin) {
+          if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
+          else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
+          else if (typeof exp.pdfMargin === 'object') {
+            const t = exp.pdfMargin.top || '16mm';
+            const r = exp.pdfMargin.right || '14mm';
+            const b = exp.pdfMargin.bottom || '16mm';
+            const l = exp.pdfMargin.left || '14mm';
+            margin = `${t} ${r} ${b} ${l}`;
+          }
+        } else if (exp.margin) {
+          if (typeof exp.margin === 'string') margin = exp.margin;
+          else if (typeof exp.margin === 'number') margin = exp.margin + 'mm';
+        }
+
+        let orientation = (exp.orientation || exp.pdfOrientation || 'portrait').toLowerCase();
+        if (orientation !== 'landscape' && orientation !== 'portrait') orientation = 'portrait';
+
+        const pageSize = (exp.pageSize || exp.size || 'A4').trim();
+
+        return {
+          margin: margin,
+          orientation: orientation,
+          isLandscape: orientation === 'landscape',
+          pageSize: pageSize
+        };
+      }
+
       function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
       const titleVal = (document.getElementById('con-title-input')?.value || '').trim() || 'board';
       const displayTitle = escapeHtml(titleVal);
+      const pdfSettings = getPdfExportSettings();
 
       const headerCells = cols.map(c => '<th>' + escapeHtml(c.label) + '</th>').join('');
       let tableHtml = '<table><thead><tr>' + headerCells + '</tr></thead><tbody>';
@@ -26840,13 +26876,13 @@
       tableHtml += '</tbody></table>';
 
       const html = '<!doctype html><html><head><meta charset="utf-8"><title>' + displayTitle + '</title>'
-        + '<style>' + lexendFontsCss + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;margin:18px;}h1{font-size:18px;margin-bottom:8px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}th{background:#f7f7f7}@media print{button{display:none}}</style>'
+        + '<style>' + lexendFontsCss + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;margin:0;padding:0;}h1{font-size:18px;margin-bottom:8px;border-bottom:2.5px solid #111;padding-bottom:4px}table{border-collapse:collapse;width:100%;border:2px solid #111}thead{display:table-header-group}tr{page-break-inside:avoid;break-inside:avoid}th,td{border:2px solid #111;padding:6px;text-align:left;vertical-align:top}th{background:#f0f0f0;font-weight:800}@page{size:' + pdfSettings.pageSize + ' ' + pdfSettings.orientation + ';margin:' + pdfSettings.margin + ';}@media print{button{display:none};body{margin:0;padding:0;}}</style>'
         + '</head><body><h1>' + displayTitle + '</h1>' + tableHtml + '</body></html>';
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
         const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'vocabulary';
         const defaultName = safeTitle + '.pdf';
-        Desktop.printPdf({ html, defaultName }).then(result => {
+        Desktop.printPdf({ html, defaultName, landscape: pdfSettings.isLandscape, pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape } }).then(result => {
           if (result && result.ok) {
             if (window.showExportSuccessPopup && result.path) {
               showExportSuccessPopup(result.path, result.name || defaultName);

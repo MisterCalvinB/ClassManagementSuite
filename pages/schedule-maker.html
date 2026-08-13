@@ -1319,6 +1319,41 @@
     URL.revokeObjectURL(url);
   }
 
+  function getPdfExportSettings() {
+    const cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG)
+      ? CLASS_MANAGEMENT_CONFIG
+      : (window.CLASS_MANAGEMENT_CONFIG || {});
+    const exp = cfg.export || {};
+    
+    let margin = '16mm 14mm';
+    if (exp.pdfMargin) {
+      if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
+      else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
+      else if (typeof exp.pdfMargin === 'object') {
+        const t = exp.pdfMargin.top || '16mm';
+        const r = exp.pdfMargin.right || '14mm';
+        const b = exp.pdfMargin.bottom || '16mm';
+        const l = exp.pdfMargin.left || '14mm';
+        margin = `${t} ${r} ${b} ${l}`;
+      }
+    } else if (exp.margin) {
+      if (typeof exp.margin === 'string') margin = exp.margin;
+      else if (typeof exp.margin === 'number') margin = exp.margin + 'mm';
+    }
+
+    let orientation = (exp.orientation || exp.pdfOrientation || 'portrait').toLowerCase();
+    if (orientation !== 'landscape' && orientation !== 'portrait') orientation = 'portrait';
+
+    const pageSize = (exp.pageSize || exp.size || 'A4').trim();
+
+    return {
+      margin: margin,
+      orientation: orientation,
+      isLandscape: orientation === 'landscape',
+      pageSize: pageSize
+    };
+  }
+
   function generatePrintableHtml(isContentEditable) {
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
@@ -1329,6 +1364,7 @@
     const metaText = document.getElementById('sm-schedule-meta').textContent;
 
     const editableAttr = isContentEditable ? ' contenteditable="true"' : '';
+    const pdfSettings = getPdfExportSettings();
 
     const esc = s => String(s || '').replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
@@ -1387,7 +1423,7 @@
 
     const css = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; line-height: 1.4; }
+      body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; margin: 0; padding: 0; line-height: 1.4; }
       h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
       .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
       .meta-item { display: flex; gap: 6px; align-items: center; }
@@ -1395,7 +1431,7 @@
       .meta-val { font-weight: 600; color: #111; }
       table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #111; margin-top: 4px; background: #fff; }
       th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-      th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; }
+      th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
       tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td) { background: #fafafa; }
       .sm-col-num { width: 50px; text-align: center; font-weight: 800; background: #f8f9fa; }
       .sm-col-student { text-align: left; font-weight: 600; }
@@ -1409,9 +1445,13 @@
       .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
       .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1px; background: #111; }
       .schedule-footer { font-size: 11px; font-weight: 600; color: #555; margin-top: 14px; text-align: right; border-top: 2px solid #111; padding-top: 6px; }
-      [contenteditable="true"]:focus { outline: 2px solid #111; background: #fffbe6; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; break-inside: avoid; }
+      table { max-width: 100%; width: 100%; table-layout: auto; page-break-inside: auto; }
+      @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
       @media print {
-        body { padding: 0; }
+        body { margin: 0; padding: 0; }
+        table { max-width: 100% !important; width: 100% !important; }
         .meta-box { box-shadow: none; }
         .sm-sen-badge { box-shadow: none; }
       }
@@ -1486,10 +1526,11 @@
     const defaultName = `schedule_${safeTitle}_${stamp}.pdf`;
 
     const html = generatePrintableHtml(false);
+    const pdfSettings = getPdfExportSettings();
 
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
       try {
-        const result = await Desktop.printPdf({ html, defaultName });
+        const result = await Desktop.printPdf({ html, defaultName, landscape: pdfSettings.isLandscape, pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape } });
         if (result && result.ok) {
           if (window.showExportSuccessPopup && result.path) {
             showExportSuccessPopup(result.path, result.name || defaultName);

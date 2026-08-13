@@ -153,6 +153,42 @@
                 Input Note, Multiplayer Host).</p>
             </div>
           </section>
+
+          <!-- ── PDF Export Settings ────────────────────────── -->
+          <section class="config-section">
+            <h2 data-i18n="gcSecPdfExport">PDF Export Settings</h2>
+            <p class="section-desc" data-i18n="gcSecPdfExportDesc">Configure margin spacing and default page layout orientation for PDF documents generated across all tools.</p>
+
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
+              <div class="field" style="flex:1;min-width:160px;">
+                <label class="field-label" for="pdfPageSizeSelect" data-i18n="gcFieldPdfPageSize">Page Size</label>
+                <select id="pdfPageSizeSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1.5px solid var(--border-color,#ccc);font-size:0.88rem;background:var(--card-bg,#fff);color:var(--text-color,#111);">
+                  <option value="A4">A4</option>
+                  <option value="Letter">Letter</option>
+                  <option value="A5">A5</option>
+                  <option value="Legal">Legal</option>
+                  <option value="A3">A3</option>
+                </select>
+                <p class="field-hint" data-i18n="gcPdfPageSizeHint">Paper format (A4, Letter, A5...)</p>
+              </div>
+              <div class="field" style="flex:1;min-width:160px;">
+                <label class="field-label" for="pdfMarginInput" data-i18n="gcFieldPdfMargin">Margin Space</label>
+                <input type="text" id="pdfMarginInput" placeholder="16mm 14mm">
+                <p class="field-hint" data-i18n="gcPdfMarginHint">e.g. 15mm or 16mm 14mm (CSS margin syntax)</p>
+              </div>
+              <div class="field" style="flex:1;min-width:160px;">
+                <label class="field-label" for="pdfOrientationSelect" data-i18n="gcFieldPdfOrientation">Page Orientation</label>
+                <select id="pdfOrientationSelect" style="width:100%;padding:9px 12px;border-radius:6px;border:1.5px solid var(--border-color,#ccc);font-size:0.88rem;background:var(--card-bg,#fff);color:var(--text-color,#111);">
+                  <option value="portrait" data-i18n="gcPdfPortrait">Portrait</option>
+                  <option value="landscape" data-i18n="gcPdfLandscape">Landscape</option>
+                </select>
+                <p class="field-hint" data-i18n="gcPdfOrientationHint">Default page layout for PDF exports</p>
+              </div>
+            </div>
+            <p class="field-hint" style="margin-top:8px;">
+              <span class="save-status" id="pdfExportSaveStatus" data-i18n="saved">Saved</span>
+            </p>
+          </section>
         </div>
 
         <!-- Tab pane: Storage & Sync -->
@@ -912,6 +948,18 @@
         await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
       } catch (e) { console.warn('general-config: could not patch config.js:', e); }
     }
+
+    async function patchExportSettings(patch) {
+      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readJson !== 'function') return;
+      try {
+        const result = await Desktop.readJson('user', 'config.js');
+        if (!result || !result.ok || !result.data) return;
+        const data = result.data;
+        if (!data.export) data.export = {};
+        Object.assign(data.export, patch);
+        await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
+      } catch (e) { console.warn('general-config: could not patch export in config.js:', e); }
+    }
     function getCardConfig(id) {
       try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
     }
@@ -947,6 +995,33 @@
       document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
       flashSaved(titleStatus);
     });
+
+    /* ── PDF export ────────────────────────────────────────── */
+    var pdfPageSizeSelect = document.getElementById('pdfPageSizeSelect');
+    var pdfMarginInput = document.getElementById('pdfMarginInput');
+    var pdfOrientationSelect = document.getElementById('pdfOrientationSelect');
+    var pdfExportSaveStatus = document.getElementById('pdfExportSaveStatus');
+
+    if (pdfPageSizeSelect) {
+      pdfPageSizeSelect.addEventListener('change', function () {
+        patchExportSettings({ pageSize: pdfPageSizeSelect.value });
+        flashSaved(pdfExportSaveStatus);
+      });
+    }
+
+    if (pdfMarginInput) {
+      pdfMarginInput.addEventListener('input', function () {
+        patchExportSettings({ pdfMargin: pdfMarginInput.value.trim() });
+        flashSaved(pdfExportSaveStatus);
+      });
+    }
+
+    if (pdfOrientationSelect) {
+      pdfOrientationSelect.addEventListener('change', function () {
+        patchExportSettings({ orientation: pdfOrientationSelect.value });
+        flashSaved(pdfExportSaveStatus);
+      });
+    }
 
     /* ── language ──────────────────────────────────────── */
     var langStatus = document.getElementById('langSaveStatus');
@@ -2690,10 +2765,18 @@
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
           var cfgResult = await Desktop.readJson('user', 'config.js');
-          if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
-            // Populate localStorage from config.js so i18n.js and startup IIFE stay in sync
-            var merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
-            localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+          if (cfgResult && cfgResult.ok && cfgResult.data) {
+            if (cfgResult.data.launcherSettings) {
+              // Populate localStorage from config.js so i18n.js and startup IIFE stay in sync
+              var merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+              localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+            }
+            if (cfgResult.data.export) {
+              var expCfg = cfgResult.data.export;
+              if (expCfg.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, expCfg.pageSize);
+              if (expCfg.pdfMargin && pdfMarginInput) pdfMarginInput.value = expCfg.pdfMargin;
+              if (expCfg.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, expCfg.orientation);
+            }
           }
         } catch (e) { console.warn('general-config: could not read config.js:', e); }
       }

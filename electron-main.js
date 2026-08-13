@@ -30,6 +30,7 @@ const PAGE_FILES = {
   documentEditor: 'document-editor.html',
   planner: 'planner.html',
   importTool: 'import-tool.html',
+  administrativeGroups: 'administrative-groups.html',
   oralMarking: 'oral-marking.html'
 };
 
@@ -74,7 +75,11 @@ const PAGE_ARG_MAP = {
   planner: PAGE_FILES.planner,
   semplanner: PAGE_FILES.planner,
   importtool: PAGE_FILES.importTool,
-  import: PAGE_FILES.importTool
+  import: PAGE_FILES.importTool,
+  administrativegroups: PAGE_FILES.administrativeGroups,
+  admingroups: PAGE_FILES.administrativeGroups,
+  maitrisedegroupe: PAGE_FILES.administrativeGroups,
+  maitrise: PAGE_FILES.administrativeGroups
 };
 
 const PAGE_LABELS = {
@@ -96,6 +101,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.documentEditor]: 'Document Editor',
   [PAGE_FILES.planner]: 'Planner',
   [PAGE_FILES.importTool]: 'Import Tool',
+  [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
   [PAGE_FILES.oralMarking]: 'Oral Marking'
 };
 
@@ -227,6 +233,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
   [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks']),
+  [PAGE_FILES.administrativeGroups]: new Set(['user', 'grades', 'data', 'customData', 'toPrint']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };
 

@@ -4905,12 +4905,52 @@
             }
         }
 
+        function getPdfExportSettings() {
+            const cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG)
+                ? CLASS_MANAGEMENT_CONFIG
+                : (window.CLASS_MANAGEMENT_CONFIG || {});
+            const exp = cfg.export || {};
+            
+            let margin = '16mm 14mm';
+            if (exp.pdfMargin) {
+                if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
+                else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
+                else if (typeof exp.pdfMargin === 'object') {
+                    const t = exp.pdfMargin.top || '16mm';
+                    const r = exp.pdfMargin.right || '14mm';
+                    const b = exp.pdfMargin.bottom || '16mm';
+                    const l = exp.pdfMargin.left || '14mm';
+                    margin = `${t} ${r} ${b} ${l}`;
+                }
+            } else if (exp.margin) {
+                if (typeof exp.margin === 'string') margin = exp.margin;
+                else if (typeof exp.margin === 'number') margin = exp.margin + 'mm';
+            }
+
+            let orientation = (exp.orientation || exp.pdfOrientation || 'portrait').toLowerCase();
+            if (orientation !== 'landscape' && orientation !== 'portrait') orientation = 'portrait';
+
+            const pageSize = (exp.pageSize || exp.size || 'A4').trim();
+
+            return {
+                margin: margin,
+                orientation: orientation,
+                isLandscape: orientation === 'landscape',
+                pageSize: pageSize
+            };
+        }
+
         function generatePrintableHtmlReport(data) {
             let tableHeadersHtml = data.headers.map(h => `<th>${escHtml(h)}</th>`).join('');
             let tableRowsHtml = data.rows.map(row => {
                 const cells = row.map(cell => `<td>${escHtml(String(cell))}</td>`).join('');
                 return `<tr>${cells}</tr>`;
             }).join('\n');
+            const pdfSettings = getPdfExportSettings();
+            const colCount = data.headers ? data.headers.length : 4;
+            const thFontSize = colCount > 10 ? '9px' : (colCount > 6 ? '10px' : '11px');
+            const tdFontSize = colCount > 10 ? '9px' : (colCount > 6 ? '10px' : '11px');
+            const cellPadding = colCount > 10 ? '4px 6px' : (colCount > 6 ? '6px 8px' : '8px 10px');
 
             return `<!DOCTYPE html>
 <html>
@@ -4919,19 +4959,25 @@
     <title>${escHtml(data.title)}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 13px; color: #111; background: #fff; padding: 16mm 14mm; line-height: 1.4; }
-        h1 { font-size: 20px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
-        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #111; }
+        html, body { width: 100%; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 12px; color: #111; background: #fff; margin: 0; padding: 0; line-height: 1.4; }
+        h1 { font-size: 18px; font-weight: 800; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 11px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; box-shadow: 3px 3px 0 #111; }
         .meta-item { display: flex; gap: 6px; align-items: center; }
-        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
         .meta-val { font-weight: 600; color: #111; }
-        table { width: 100%; border-collapse: collapse; border: 2px solid #111; margin-top: 4px; background: #fff; }
-        th, td { border: 2px solid #111; padding: 8px 10px; font-size: 11px; color: #111; vertical-align: middle; overflow-wrap: break-word; }
-        th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; position: sticky; top: 0; white-space: nowrap; }
+        table { width: 100%; max-width: 100%; border-collapse: collapse; border: 2px solid #111; margin-top: 4px; background: #fff; page-break-inside: auto; table-layout: auto; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+        th, td { border: 2px solid #111; padding: ${cellPadding}; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
+        th { background: #f0f0f0; font-weight: 800; color: #111; text-align: left; text-transform: uppercase; font-size: ${thFontSize}; letter-spacing: 0.03em; }
+        td { font-size: ${tdFontSize}; }
         tr:nth-child(even) td { background: #fafafa; }
+        @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
         @media print {
-            body { padding: 0; }
+            body { margin: 0; padding: 0; }
             .meta-box { box-shadow: none !important; }
+            table { max-width: 100% !important; width: 100% !important; }
         }
     </style>
 </head>
@@ -4943,7 +4989,9 @@
     </div>
     <table>
         <thead><tr>${tableHeadersHtml}</tr></thead>
-        <tbody>${tableRowsHtml}</tbody>
+        <tbody>
+            ${tableRowsHtml}
+        </tbody>
     </table>
 </body>
 </html>`;
@@ -5141,7 +5189,7 @@
         tr:nth-child(even) td { background: #fafafa; }
         [contenteditable="true"]:focus { outline: 2px solid #111; background: #fffbe6 !important; }
         .editable-badge { display: inline-block; font-size: 10px; font-weight: 800; background: #ffe8cc; color: #111; border: 2px solid #111; padding: 2px 6px; border-radius: 4px; box-shadow: 1.5px 1.5px 0 #111; text-transform: uppercase; margin-left: 8px; }
-        @media print { .toolbar, .search-box, .th-actions, #resetColsBtn { display: none !important; } body { padding: 0; } .meta-box, .btn, .search-box { box-shadow: none !important; } }
+        @media print { .toolbar, .search-box, .th-actions, #resetColsBtn { display: none !important; } .meta-box, .btn, .search-box { box-shadow: none !important; } }
     </style>
 </head>
 <body>
@@ -5179,30 +5227,48 @@
         }
 
         async function exportCategoryAsPdf(category, data) {
-            if (window.Desktop && Desktop.isElectron() && typeof Desktop.exportPdf === 'function') {
-                const html = generatePrintableHtmlReport(data);
-                const result = await Desktop.exportPdf({
-                    html: html,
-                    title: data.title,
-                    defaultPath: `${data.filenameBase}.pdf`
-                });
-                if (result && result.ok) {
-                    showMessage('PDF report exported successfully!', 'success');
-                } else if (!result || !result.canceled) {
-                    showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
+            const html = generatePrintableHtmlReport(data);
+            const pdfSettings = getPdfExportSettings();
+            const defaultName = `${data.filenameBase}.pdf`;
+
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+                try {
+                    const result = await Desktop.printPdf({
+                        html: html,
+                        defaultName: defaultName,
+                        landscape: pdfSettings.isLandscape,
+                        pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
+                    });
+                    if (result && result.ok) {
+                        if (window.showExportSuccessPopup && result.path) {
+                            showExportSuccessPopup(result.path, result.name || defaultName);
+                        } else {
+                            showMessage('PDF report exported successfully!', 'success');
+                        }
+                    } else if (result && !result.ok && !result.canceled) {
+                        showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
+                    }
+                } catch (err) {
+                    showMessage('PDF export error: ' + (err?.message || String(err)), 'error');
                 }
             } else {
-                const printWin = window.open('', '_blank');
-                if (!printWin) {
-                    showMessage('Pop-up blocked. Please allow pop-ups to print PDF.', 'error');
-                    return;
-                }
-                printWin.document.write(generatePrintableHtmlReport(data));
-                printWin.document.close();
-                printWin.focus();
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(html);
+                doc.close();
+                iframe.contentWindow.focus();
                 setTimeout(() => {
-                    printWin.print();
-                }, 500);
+                    iframe.contentWindow.print();
+                    setTimeout(() => iframe.remove(), 1000);
+                }, 300);
             }
         }
 

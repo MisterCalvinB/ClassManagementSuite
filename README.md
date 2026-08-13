@@ -228,6 +228,10 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 
 - **App Identity**: Customize the global **App Title** displayed in launcher headers and tool window title bars.
 - **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Learning Tools](#learning-toolshtml).
+- **PDF Export Settings**:
+  - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
+  - **Margin Space**: Define page margins using standard CSS margin syntax (e.g., `16mm 14mm` or `15mm`).
+  - **Page Orientation**: Choose default layout orientation (**Portrait** or **Landscape**). Applied automatically across all suite export operations (Planner, Grade Sheet, Participation Tracker, Schedule Maker, Class Plan, Board).
 - **Startup & Launch**:
   - **Apps to open at startup**: Select tools to auto-launch when the app starts.
   - **Window arrangement**: Choose layout mode:

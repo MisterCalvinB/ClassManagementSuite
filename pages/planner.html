@@ -4916,6 +4916,9 @@
 
       closeModal('exportModal');
 
+      var pdfSettings = getPdfExportSettings();
+      var pdfOpts = { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape };
+
       if (filters.separateClassFiles) {
         var classes = getSeparateExportClassList();
         if (classes.length === 0) return;
@@ -4932,7 +4935,8 @@
             const result = await Desktop.printPdf({
               html: html,
               target: 'toPrint',
-              filename: fileBase + '.pdf'
+              filename: fileBase + '.pdf',
+              pdfOptions: pdfOpts
             });
             if (result && result.ok) {
               successCount++;
@@ -4969,7 +4973,8 @@
             var absPath = destDir.replace(/[\\/]+$/, '') + '/' + fileBase + '.pdf';
             const result = await Desktop.printPdf({
               html: html,
-              absolutePath: absPath
+              absolutePath: absPath,
+              pdfOptions: pdfOpts
             });
             if (result && result.ok) {
               successCount++;
@@ -4993,7 +4998,8 @@
         var html = buildExportHtml(cf, singleFilters);
         const result = await Desktop.printPdf({
           html: html,
-          defaultName: fileBase + '.pdf'
+          defaultName: fileBase + '.pdf',
+          pdfOptions: pdfOpts
         });
         if (result && result.ok) {
           showToast(t('deExportPdfSuccess') || 'PDF exported');
@@ -5009,7 +5015,7 @@
       // Combined single PDF file export
       var fileBase = getExportFilenameBase(clsFilter);
       var html = buildExportHtml(clsFilter, filters);
-      var pdfReq = { html: html };
+      var pdfReq = { html: html, pdfOptions: pdfOpts };
       if (destination === 'to-print') {
         pdfReq.target = 'toPrint';
         pdfReq.filename = fileBase + '.pdf';
@@ -5036,6 +5042,41 @@
         .replace(/\|/g, '\\|')
         .replace(/\r?\n/g, ' ')
         .trim();
+    }
+
+    function getPdfExportSettings() {
+      var cfg = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG)
+        ? CLASS_MANAGEMENT_CONFIG
+        : (window.CLASS_MANAGEMENT_CONFIG || {});
+      var exp = cfg.export || {};
+      
+      var margin = '16mm 14mm';
+      if (exp.pdfMargin) {
+        if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
+        else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
+        else if (typeof exp.pdfMargin === 'object') {
+          var t = exp.pdfMargin.top || '16mm';
+          var r = exp.pdfMargin.right || '14mm';
+          var b = exp.pdfMargin.bottom || '16mm';
+          var l = exp.pdfMargin.left || '14mm';
+          margin = t + ' ' + r + ' ' + b + ' ' + l;
+        }
+      } else if (exp.margin) {
+        if (typeof exp.margin === 'string') margin = exp.margin;
+        else if (typeof exp.margin === 'number') margin = exp.margin + 'mm';
+      }
+
+      var orientation = (exp.orientation || exp.pdfOrientation || 'portrait').toLowerCase();
+      if (orientation !== 'landscape' && orientation !== 'portrait') orientation = 'portrait';
+
+      var pageSize = (exp.pageSize || exp.size || 'A4').trim();
+
+      return {
+        margin: margin,
+        orientation: orientation,
+        isLandscape: orientation === 'landscape',
+        pageSize: pageSize
+      };
     }
 
     function buildExportDocxMarkdown(clsFilter, filters) {
@@ -5213,9 +5254,11 @@
         tablesHtml += sectionHtml;
       });
 
-      var pageMargin = fitOnePage ? '3mm' : '9mm';
+      var pdfSettings = getPdfExportSettings();
+      var pageMargin = fitOnePage ? '5mm' : pdfSettings.margin;
       var bodyFont = fitOnePage ? '7pt' : '9pt';
-      var bodyPad = fitOnePage ? '2mm 3mm' : '10mm 12mm';
+      var orientation = pdfSettings.orientation;
+      var pageSize = pdfSettings.pageSize || 'A4';
       var titleSize = fitOnePage ? '10pt' : '14pt';
       var metaSize = fitOnePage ? '6.4pt' : '8pt';
       var cellPad = fitOnePage ? '2px 3px' : '4px 6px';
@@ -5225,13 +5268,15 @@
       var colWeekWidth = fitOnePage ? '18%' : '20%';
       var colDateWidth = fitOnePage ? '22%' : '24%';
 
-      var css = '@page{size:A4 portrait;margin:' + pageMargin + '}'
+      var css = '@page{size:' + pageSize + ' ' + orientation + ';margin:' + pageMargin + '}'
         + '* {box-sizing:border-box;margin:0;padding:0}'
-        + 'html,body{width:100%;height:100%}'
-        + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;font-size:' + bodyFont + ';color:#111;background:#fff;padding:' + bodyPad + (fitOnePage ? ';display:flex;flex-direction:column;overflow:hidden' : '') + '}'
-        + 'h1{font-size:' + titleSize + ';font-weight:800;color:#111;border-bottom:2.5px solid #111;padding-bottom:4px;margin-bottom:4px;line-height:1.1}'
+        + 'html,body{width:100%;' + (fitOnePage ? 'height:100%' : '') + '}'
+        + 'body{font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif;font-size:' + bodyFont + ';color:#111;background:#fff;margin:0;padding:0' + (fitOnePage ? ';display:flex;flex-direction:column;overflow:hidden' : '') + '}'
+        + 'h1{font-size:' + titleSize + ';font-weight:800;color:#111;border-bottom:2.5px solid #111;padding-bottom:4px;margin-bottom:6px;line-height:1.1}'
         + '.meta{font-size:' + metaSize + ';color:#555;margin-bottom:' + (fitOnePage ? '4px' : '10px') + ';line-height:1.1}'
         + '.exp-table{width:100%;border-collapse:collapse;table-layout:fixed;border:2px solid #111' + (fitOnePage ? ';flex:1;height:100%' : '') + '}'
+        + '.exp-table thead{display:table-header-group}'
+        + '.exp-table tr{page-break-inside:avoid;break-inside:avoid}'
         + '.exp-table th,.exp-table td{border:2px solid #111;vertical-align:top;padding:' + cellPad + ';color:#111}'
         + '.exp-table th{background:#f0f0f0;font-size:' + thSize + ';font-weight:800;text-transform:uppercase;letter-spacing:.05em;text-align:left;height:24px;color:#111}'
         + '.exp-table tbody tr{height:' + (fitOnePage ? '1%' : 'auto') + '}'
@@ -5246,7 +5291,7 @@
 
       var topHeaderHtml = (separateTables && classList.length > 1)
         ? ''
-        : ('<h1>' + esc(title) + '</h1><p class="meta">' + formatExportDate(new Date().toISOString().slice(0, 10)) + '</p>');
+        : ('<h1>' + esc(title) + '</h1>');
 
       return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + esc(title) + '</title>'
         + '<style>' + css + '</style></head><body>'
