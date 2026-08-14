@@ -38,6 +38,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Manage Database (`manage-database.html`)](#manage-databasehtml)
   - [Grade Sheet (`grade-sheet.html`)](#grade-sheethtml)
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
+  - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
 
@@ -95,6 +96,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor, and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
 | [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with PDF/DOCX export | Linked from [Planner](#plannerhtml) & [Oral Marking](#oral-markinghtml) |
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard sourced from Class Management sessions | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
+| [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative & discipline tracking (demographics, medical/PAI, exam accommodations, infraction scoring, sanction rules, timeline, multi-format export) | Syncs with [Group Editor](#group-editorhtml) & master student roster |
 | [`document-editor.html`](#document-editorhtml) | Markdown + KaTeX editor with split live preview, custom CSS rules, and PDF/DOCX export | Edits `.md` / `.html` files suite-wide |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
@@ -117,6 +119,7 @@ Class Management Tools features deep cross-tool synchronisation. Data edited in 
 | **Learning Tools** | Populates Team Mode rosters |
 | **Schedule Maker** | Loads student lists and SEN accommodation flags |
 | **Class Plan** | Imports student lists for seat assignment |
+| **Administrative Groups** | Reads student rosters, UUIDs, classes, and synchronizes profile changes |
 
 <details>
 <summary><strong>Live Cross-App Sync Notifications</strong></summary>
@@ -459,6 +462,7 @@ Grade and assessment tracking spreadsheet supporting custom evaluation criteria 
 
 #### Features
 - **Class Summary & Test Sheets**: Track student grades across test slots (T1–T8). Auto-calculate averages based on weighted coefficients or fixed percentages.
+- **Drag & Drop Test Reordering**: Easily reorder tests (T1, T2, etc.) directly in the **All Tests** panel via drag-and-drop.
 - **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
 - **Export**: Export grade reports to PDF, DOCX, or HTML with draggable column layouts.
 
@@ -472,6 +476,24 @@ Analytics dashboard sourcing session data from [Class Management](#class-managem
 - **Visual Analytics**: Participation trend line charts, total pick counts, and positive/negative point distributions.
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
 - **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
+
+---
+
+### administrative-groups.html
+
+Comprehensive student administrative tracker, medical & SEN accommodation manager, and behavioral infraction scoring system.
+
+#### Features
+- **Master Administrative Spreadsheet**: Centralized student database tracking contact info, parent emails/phones, medical notices (PAI), exit authorizations, and special educational accommodations (PAP, PPRE, PPS, tiers-temps).
+- **Sub-Tabs & Filtering**: Dedicated views (*Master Roster*, *Demographics*, *Emergency & Medical*, *Accommodations & SEN*, *Discipline & Sanctions*, plus custom tabs). Filter by class group or active term/period, with live student search.
+- **Infraction Tracking & Point Weighting**: Configurable infraction categories (forgotten equipment, tardiness, classroom disruptions, incomplete homework, attitude, etc.) with custom point weights and icons.
+- **Automated Sanction Rules Engine**: Evaluates accumulated student points against customizable threshold tiers to display recommended disciplinary actions (1-on-1 talks, parent notifications, reflection homework, detentions, official contracts, CPE referrals).
+- **Flexible Period Scope**: Configure sanction rules to trigger cumulatively across the whole year, per period individually, or on specific selected terms via interactive Period Chips.
+- **Student Profile & Action Timeline**: Full modal profile per student displaying complete intervention history. Log new follow-up meetings and actions with type, title, date, notes, and student commitments.
+- **Direct Import & Wizard**: Import `.pdf`, `.xlsx`, `.xls`, `.csv`, or `.json` files with automatic column detection, period selection, and choice of merge mode (*Add / Accumulate* vs *Overwrite*).
+- **Multi-Category Export & Print**: Export specialized reports (*Master Roster*, *Emergency & Medical*, *Exam Accommodations Proctors Sheet*, *Discipline & Sanctions*) to **HTML** (editable), **XLSX** (Excel), **PDF** (print layout), **DOCX** (Word), or **CSV**.
+- **Rules & Discipline Settings (⚙)**: Customize navigation tabs, add/remove spreadsheet columns, adjust point weights, configure sanction tiers, and generate trimester/semester/custom period date ranges.
+- **Archiving & Safety Erasure**: Archive students while preserving historical disciplinary logs, erase administrative data only, or execute synchronized deletion across all master rosters.
 
 ---
 

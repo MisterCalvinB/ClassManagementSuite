@@ -324,6 +324,24 @@
           <button class="sidebar-child" data-accordion="acc-de-shortcuts" onclick="navToAccordion('document-editor','acc-de-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
         </div>
       </div>
+      <div class="sidebar-item" id="nav-administrative-groups">
+        <div class="sidebar-row">
+          <button class="sidebar-row-main" data-section="administrative-groups" onclick="navTo('administrative-groups')">
+            <span><img src="../assets/icons/admin-groups.svg" class="ht-icon-img" alt="" /></span> Administrative Groups
+          </button>
+          <button class="sidebar-caret" onclick="toggleSidebarChildren('nav-administrative-groups')" title="Toggle sub-items">▶</button>
+        </div>
+        <div class="sidebar-children">
+          <button class="sidebar-child" data-accordion="acc-ag-overview" onclick="navToAccordion('administrative-groups','acc-ag-overview')"><span class="sidebar-child-dot"></span>Overview &amp; Roster Sync</button>
+          <button class="sidebar-child" data-accordion="acc-ag-grid" onclick="navToAccordion('administrative-groups','acc-ag-grid')"><span class="sidebar-child-dot"></span>Spreadsheet Views &amp; Filters</button>
+          <button class="sidebar-child" data-accordion="acc-ag-discipline" onclick="navToAccordion('administrative-groups','acc-ag-discipline')"><span class="sidebar-child-dot"></span>Discipline &amp; Sanction Rules</button>
+          <button class="sidebar-child" data-accordion="acc-ag-timeline" onclick="navToAccordion('administrative-groups','acc-ag-timeline')"><span class="sidebar-child-dot"></span>Student Profile &amp; Action Timeline</button>
+          <button class="sidebar-child" data-accordion="acc-ag-import" onclick="navToAccordion('administrative-groups','acc-ag-import')"><span class="sidebar-child-dot"></span>Importing Administrative Data</button>
+          <button class="sidebar-child" data-accordion="acc-ag-export" onclick="navToAccordion('administrative-groups','acc-ag-export')"><span class="sidebar-child-dot"></span>Multi-Format Export &amp; Reports</button>
+          <button class="sidebar-child" data-accordion="acc-ag-settings" onclick="navToAccordion('administrative-groups','acc-ag-settings')"><span class="sidebar-child-dot"></span>Custom Tabs, Columns &amp; Rules</button>
+          <button class="sidebar-child" data-accordion="acc-ag-archive" onclick="navToAccordion('administrative-groups','acc-ag-archive')"><span class="sidebar-child-dot"></span>Archiving &amp; Erasure Options</button>
+        </div>
+      </div>
 
     </div>
   </nav>
@@ -383,6 +401,10 @@
         <button class="overview-card" onclick="navTo('planner')">
           <h3><img src="../assets/icons/planner.svg" class="ht-card-icon-img" alt="" /> Planner</h3>
           <p>Plan lessons, tests, and assignments week by week. Export to ICS, PDF, CSV, or HTML table.</p>
+        </button>
+        <button class="overview-card" onclick="navTo('administrative-groups')">
+          <h3><img src="../assets/icons/admin-groups.svg" class="ht-card-icon-img" alt="" /> Administrative Groups</h3>
+          <p>Demographics, medical/PAI, exam accommodations, infraction scoring, sanction rules, and action timelines.</p>
         </button>
       </div>
       <div class="tip">
@@ -584,6 +606,7 @@
             <div class="mini-card"><h4>📅 Planner</h4><p>Draws its class list from your group names.</p></div>
             <div class="mini-card"><h4>📖 Learning Tools</h4><p>Loads groups for Team Mode.</p></div>
             <div class="mini-card"><h4>🗓 Schedule Maker</h4><p>Reads students and SEN flags per group.</p></div>
+            <div class="mini-card"><h4>📋 Administrative Groups</h4><p>Syncs student rosters, UUIDs, classes, and accommodations.</p></div>
           </div>
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin:12px 0 4px;"><strong>Renaming a class</strong> — edit the name in Group Editor and click Save. Every tool picks up the new name on its next load. Historical data (grades, participation sessions, planner entries) is never affected because each class is tracked by a stable internal ID, not its name.</p>
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin:12px 0 4px;"><strong>Live cross-app notifications</strong> — when any tool saves shared data (groups, student names, class config, planner or class-plan data), all other open tool windows are notified instantly. A slide-in banner appears at the top of each affected window with three options: <em>Reload data</em> (refreshes data in place where possible, or reloads the page), <em>Save &amp; reload</em> (saves unsaved work first — available on Grade Sheet), or <em>Dismiss</em> (keep the current data and ignore the update). The banner auto-dismisses after 30 seconds.</p>
@@ -1608,6 +1631,7 @@
           <ol class="steps">
             <li>Click <strong>Add Test</strong> — give it a name, date, and maximum score.</li>
             <li>Click a test to open it, then enter each student's score directly in the table.</li>
+            <li><strong>Reorder Tests</strong> — in the <strong>All Tests</strong> panel on the classes screen, drag and drop test chips to reorder tests (T1, T2, etc.) within a class.</li>
             <li>Use <strong>Test Options</strong> to assign a <button class="xlink" onclick="openAccordionAndScroll('acc-gs-scale')">grading scale</button>, set criteria, or adjust configuration.</li>
             <li>Click <strong>Apply Criteria to Grades</strong> to auto-generate grade letters from the configured scale.</li>
           </ol>
@@ -2512,6 +2536,211 @@
 
     </section>
 
+    <hr class="divider">
+
+    <!-- ═══ ADMINISTRATIVE GROUPS ═════════════════════════════ -->
+    <section class="tool-section" id="administrative-groups">
+      <div class="tool-header">
+        <span class="tool-icon"><img src="../assets/icons/admin-groups.svg" class="ht-icon-img" alt="" /></span>
+        <h2>Administrative Groups</h2>
+      </div>
+      <p class="tool-overview">
+        Comprehensive student administrative tracker, medical &amp; SEN accommodation manager, and behavioral infraction scoring system. Track emergency contacts, medical notices, PAP/PPS plans, and log disciplinary follow-ups across custom school terms.
+      </p>
+
+      <div class="accordion" id="acc-ag-overview">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-overview')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Overview &amp; Roster Synchronization</span>
+          <span class="accordion-badge">core</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Administrative Groups centralizes demographic records, special educational accommodations, and disciplinary tracking into an interactive spreadsheet view.</p>
+          <ul>
+            <li><strong>Single Source of Truth</strong> — Automatically reads enrolled classes from <code>user/class-groups.js</code> and student records from <code>user/students.js</code>.</li>
+            <li><strong>Persistent UUID Linkage</strong> — Student records and historical infraction logs remain linked even if a student or group is renamed in Group Editor.</li>
+            <li><strong>Administrative Storage</strong> — Custom demographic details, contact numbers, PAI medical notes, accommodation checkboxes, infraction counts, and action logs are stored cleanly in <code>user/administrative-groups.json</code>.</li>
+          </ul>
+          <div class="tip">Click <strong>Manage Roster in Group Editor</strong> in the toolbar to quickly add or remove students from class groups.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-grid">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-grid')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Spreadsheet Views &amp; Filters</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>The main table offers multi-tab navigation and instant filtering options:</p>
+          <ul>
+            <li><strong>Sub-Tabs Bar</strong> — Switch between dedicated views:
+              <ul>
+                <li><em>Master Roster</em> — Displays all demographic, medical, accommodation, and disciplinary columns.</li>
+                <li><em>Demographics</em> — Focuses on student identifiers, date of birth, age, gender, and registration codes.</li>
+                <li><em>Emergency &amp; Medical</em> — Displays legal guardian contact numbers, parent emails, medical notes (PAI), and campus exit authorizations.</li>
+                <li><em>Accommodations &amp; SEN</em> — Special needs flags including PAP, PPRE, PPS, tiers-temps (+1/3 extra exam time), and specific accommodations.</li>
+                <li><em>Discipline &amp; Sanctions</em> — Infraction breakdown per category, cumulative point totals, and sanction status badges.</li>
+                <li><em>Custom Tabs</em> — Add your own custom tabs in Settings to group specific columns together.</li>
+              </ul>
+            </li>
+            <li><strong>Group Selector</strong> — Filter the spreadsheet to view a single class group or choose <em>All Students (All Groups)</em>.</li>
+            <li><strong>Period &amp; Term Filter</strong> — Toggle between <em>All Year (Cumulative)</em> or specific terms (Trimesters, Semesters, or Custom Periods) to review infraction points for that specific period.</li>
+            <li><strong>Search Bar</strong> — Type in the search box to filter rows in real time by student name, contact detail, or notes.</li>
+            <li><strong>Inline Editing</strong> — Double-click or click directly on editable cells to update notes, phone numbers, emails, or toggle checkboxes.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-discipline">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-discipline')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Discipline Tracking &amp; Automated Sanction Rules</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Track infractions with customizable weights and automatically calculate consequence tiers:</p>
+          <ul>
+            <li><strong>Infraction Categories</strong> — Record incidents for forgotten supplies/materials, homework missing, tardiness, classroom disruptions, cell phone violations, or inappropriate attitude.</li>
+            <li><strong>Point Weights</strong> — Each infraction column has a point value (e.g. 1 point for forgotten book, 2 points for disruptive behavior). Points accumulate dynamically per student.</li>
+            <li><strong>Sanction Rules Engine</strong> — The app evaluates total infraction points against configurable sanction thresholds:
+              <ul>
+                <li><em>5–9 Points</em> → Level 1: 1-on-1 Student Discussion (Yellow badge)</li>
+                <li><em>10–14 Points</em> → Level 2: Parent Phone Call / Email (Orange badge)</li>
+                <li><em>15–19 Points</em> → Level 3: Detention / Extra Homework (Red badge)</li>
+                <li><em>20–24 Points</em> → Level 4: Community Service / School Contract (Dark Red badge)</li>
+                <li><em>25+ Points</em> → Level 5: CPE / Principal Referral (Purple badge)</li>
+              </ul>
+            </li>
+            <li><strong>Period Chips Scope</strong> — Set whether a sanction rule applies cumulatively across the entire year, within each individual term, or only to specific designated periods.</li>
+          </ul>
+          <div class="tip">Configure sanction thresholds, consequence descriptions, and badge styles under <strong>⚙ Settings → 3. Sanction Rules &amp; Thresholds</strong>.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-timeline">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-timeline')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Student Profile &amp; Action Timeline</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Click on any student's name in the table to open their comprehensive profile modal and intervention timeline.</p>
+          <ul>
+            <li><strong>Disciplinary Action History</strong> — View a chronological timeline of all past meetings, discussions, detentions, and parent contacts logged for that student.</li>
+            <li><strong>+ Log New Action / Meeting</strong> — Click to record a new intervention:
+              <ul>
+                <li><em>Action Type</em> — 1-on-1 Discussion, Parent Call/Email, Parent Meeting, Extra Homework, Detention, Community Service (TIG), Official Warning / Contract, CPE Referral.</li>
+                <li><em>Date &amp; Motifs</em> — Date of the intervention and key reasons/infractions addressed.</li>
+                <li><em>Discussion Summary &amp; Agreement</em> — Record discussion notes, agreed targets, and student commitments.</li>
+              </ul>
+            </li>
+            <li><strong>Print &amp; Archive Access</strong> — Print the individual student profile or archive the student directly from the modal footer.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-import">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-import')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Importing Administrative Data</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Import student demographics, medical notes, or past infraction records from existing school files:</p>
+          <ul>
+            <li><strong>Supported Formats</strong> — Directly import <code>.pdf</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code>, or <code>.json</code> files.</li>
+            <li><strong>Smart Column Detection</strong> — Automatically matches student names, class groups, contact numbers, emails, SEN accommodations, and infraction tallies.</li>
+            <li><strong>Merge Modes</strong>:
+              <ul>
+                <li><em>Add / Accumulate (Sum with existing data)</em> — Adds new infraction counts on top of existing student points for the selected period.</li>
+                <li><em>Overwrite (Replace existing data)</em> — Replaces existing column values and counts with the data from the imported file.</li>
+              </ul>
+            </li>
+            <li><strong>Period Assignment</strong> — Assign imported records to the whole year or map them to a specific trimester, semester, or custom date range.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-export">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-export')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Multi-Format Export &amp; Reports</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Click <strong>Export ▾</strong> to open the multi-format export dialog with tailored report categories:</p>
+          <ul>
+            <li><strong>1. Select Report Category</strong>:
+              <ul>
+                <li><em>Master Roster</em> — Complete table with all demographic, accommodation, and disciplinary data.</li>
+                <li><em>Emergency &amp; Medical</em> — Guardian phone numbers, emails, PAI medical notes, and exit authorizations for school trips or administration.</li>
+                <li><em>Exam Accommodations</em> — Summary sheet for exam proctors detailing PAP, PPRE, PPS, tiers-temps (+1/3 time), and SEN accommodations.</li>
+                <li><em>Discipline &amp; Sanctions</em> — Infraction points breakdown, triggered sanction tiers, and logged action histories.</li>
+              </ul>
+            </li>
+            <li><strong>2. Select File Format</strong>:
+              <ul>
+                <li><strong>HTML (Editable)</strong> — Standalone styled web report ready for browser editing or archiving.</li>
+                <li><strong>XLSX (Excel)</strong> — Formatted spreadsheet workbook for Microsoft Excel or LibreOffice.</li>
+                <li><strong>PDF (Print)</strong> — Clean printable report formatted according to your global PDF page settings.</li>
+                <li><strong>DOCX (Word)</strong> — Editable Microsoft Word document table.</li>
+                <li><strong>CSV Data</strong> — Raw comma-separated data for external databases and SIS systems.</li>
+              </ul>
+            </li>
+            <li><strong>Print Button</strong> — Click <strong>Print</strong> in the header for an immediate print-optimized layout of the active table view.</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-settings">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-settings')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Custom Tabs, Columns &amp; Rules Settings</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Click <strong>⚙ Settings</strong> in the top toolbar to access the 4 configuration panes:</p>
+          <ul>
+            <li><strong>1. View Tabs</strong> — Create custom navigation tabs, rename tab titles in English and French, pick tab icons, or delete unwanted tabs.</li>
+            <li><strong>2. Spreadsheet Columns</strong> — Full control over table columns:
+              <ul>
+                <li>Add standard text, number, date, or checkbox columns.</li>
+                <li>Add custom infraction columns with designated point weights and icons.</li>
+                <li>Add special accommodation columns.</li>
+                <li>Assign columns to specific tabs, reorder headers, and toggle column visibility (Show All / Hide Optional).</li>
+              </ul>
+            </li>
+            <li><strong>3. Sanction Rules &amp; Thresholds</strong> — Define minimum and maximum point boundaries, consequence descriptions (EN/FR), badge color styles, and target period chips.</li>
+            <li><strong>4. Periods &amp; Terms</strong> — Set up school evaluation periods. Use one-click presets for <em>3 Trimesters</em>, <em>2 Semesters</em>, or generate <em>N Custom Periods</em> with start/end dates.</li>
+            <li><strong>Reset to Defaults</strong> — Restore built-in default settings safely at any time.</li>
+          </ul>
+          <div class="tip">Settings are saved locally to <code>user/admin-groups-config.js</code> and persist across all app launches.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-ag-archive">
+        <button class="accordion-header" onclick="toggleAccordion('acc-ag-archive')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Archiving &amp; Erasure Options</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Administrative Groups provides granular options for archiving and deleting student records:</p>
+          <ul>
+            <li><strong>Individual Student Erase Modal</strong> (accessed from the Student Profile modal):
+              <ul>
+                <li><em>Archive Student (Preserve History)</em> — Hides the student from the active list while securely preserving all infraction logs, medical notes, and timeline actions in <code>user/administrative-groups-archive.json</code>.</li>
+                <li><em>Erase only from Administrative Groups</em> — Clears administrative records and infractions for this student. The student remains in Group Editor and active class rosters.</li>
+                <li><em>Erase everywhere</em> — Permanently deletes the student from Administrative Groups, the master student roster (<code>students.js</code>), and all class groups (<code>class-groups.js</code>).</li>
+              </ul>
+            </li>
+            <li><strong>Reset / Erase All Students</strong> (top toolbar button):
+              <ul>
+                <li><em>Archive &amp; Clear All (Recommended)</em> — Creates a timestamped full backup snapshot before clearing active records.</li>
+                <li><em>Erase all only from Administrative Groups</em> — Resets all administrative data while preserving class groups in Group Editor.</li>
+                <li><em>Erase all from everywhere</em> — Clears administrative data and permanently deletes all students across the entire suite.</li>
+              </ul>
+            </li>
+          </ul>
+        </div></div>
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -2670,7 +2899,7 @@
 
   // ── Scroll spy ────────────────────────────────────────────
 
-  var SECTIONS = ['intro','how-to-begin','connected-tools','general-config','board','class-management','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','oral-marking','document-editor'];
+  var SECTIONS = ['intro','how-to-begin','connected-tools','general-config','board','class-management','group-editor','import-tool','planner','participation-tracker','grade-sheet','learning-tools','manage-database','file-manager','class-plan','schedule-maker','oral-marking','document-editor','administrative-groups'];
 
   function onScroll() {
     var y = window.scrollY + 80;
@@ -2895,6 +3124,13 @@
       { label: 'Legacy stylesheets', path: 'user/document-editor/stylesheets/', type: 'dir' },
       { label: 'Editor settings', path: 'user/document-editor/settings.js' },
       { label: 'Books library (read)', path: 'user/custom-data/books/', type: 'dir' }
+    ],
+    'administrative-groups': [
+      { label: 'Administrative data', path: 'user/administrative-groups.json' },
+      { label: 'Admin groups config', path: 'user/admin-groups-config.js' },
+      { label: 'Class groups (read)', path: 'user/class-groups.js' },
+      { label: 'Students roster (read)', path: 'user/students.js' },
+      { label: 'Archive backup', path: 'user/administrative-groups-archive.json' }
     ]
   };
 

@@ -283,11 +283,26 @@ tr.missing-student .student-name-link {
   margin-top: 18px;
 }
 
+.all-tests-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
 .all-tests-panel-title {
   font-weight: 700;
   font-size: 0.95rem;
-  margin-bottom: 14px;
   color: #222;
+  margin: 0;
+}
+
+.all-tests-panel-hint {
+  font-size: 0.78rem;
+  color: #666;
+  font-weight: 400;
 }
 
 .all-tests-class-group {
@@ -311,6 +326,14 @@ tr.missing-student .student-name-link {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-height: 36px;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 120ms ease;
+}
+
+.all-tests-rows.drag-over {
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .all-test-item {
@@ -323,14 +346,41 @@ tr.missing-student .student-name-link {
   border: 1px solid #e4e4e4;
   border-radius: 6px;
   padding: 5px 10px;
-  cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  cursor: grab;
+  user-select: none;
+  position: relative;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease, transform 120ms ease, opacity 120ms ease;
   min-width: 0;
 }
 
 .all-test-item:hover {
   border-color: #111;
   background: #fff;
+}
+
+.all-test-item:active {
+  cursor: grabbing;
+}
+
+.all-test-item.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+  border-color: #3b82f6;
+  background: #eff6ff;
+  cursor: grabbing;
+  transform: scale(0.97);
+}
+
+.all-test-item.drag-over-left {
+  box-shadow: -4px 0 0 0 #3b82f6;
+  border-color: #3b82f6;
+  transform: translateX(2px);
+}
+
+.all-test-item.drag-over-right {
+  box-shadow: 4px 0 0 0 #3b82f6;
+  border-color: #3b82f6;
+  transform: translateX(-2px);
 }
 
 .all-test-badge {
@@ -341,6 +391,7 @@ tr.missing-student .student-name-link {
   padding: 1px 5px;
   color: #555;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .all-test-name {
@@ -348,12 +399,14 @@ tr.missing-student .student-name-link {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .all-test-date {
   color: var(--muted);
   font-size: 0.75rem;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .all-tests-empty {

@@ -3011,6 +3011,106 @@
       }
     }
 
+    let _gsDraggedTestInfo = null;
+    let _gsIsDraggingTest = false;
+
+    function reorderClassTests(classObj, fromSem, fromIdx, toSem, toIdx) {
+      if (!classObj) return;
+      ensureClassStructures(classObj);
+
+      const fromCount = (classObj.testCounts && classObj.testCounts[fromSem]) || 0;
+      if (fromIdx < 0 || fromIdx >= fromCount) return;
+
+      if (fromSem === toSem) {
+        const toCount = fromCount;
+        toIdx = Math.max(0, Math.min(toCount - 1, toIdx));
+        if (fromIdx === toIdx) return;
+
+        // Reorder testConfigs
+        const [movedConfig] = classObj.testConfigs[fromSem].splice(fromIdx, 1);
+        classObj.testConfigs[fromSem].splice(toIdx, 0, movedConfig);
+
+        // Reorder student test data
+        classObj.students.forEach(student => {
+          const tests = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+          const [movedScore] = tests.splice(fromIdx, 1);
+          tests.splice(toIdx, 0, movedScore);
+
+          if (student.testNotes && Array.isArray(student.testNotes[fromSem])) {
+            const [movedNotes] = student.testNotes[fromSem].splice(fromIdx, 1);
+            student.testNotes[fromSem].splice(toIdx, 0, movedNotes);
+          }
+          if (student.criteriaResults && Array.isArray(student.criteriaResults[fromSem])) {
+            const [movedCrit] = student.criteriaResults[fromSem].splice(fromIdx, 1);
+            student.criteriaResults[fromSem].splice(toIdx, 0, movedCrit);
+          }
+          if (student.gradeOverrides && Array.isArray(student.gradeOverrides[fromSem])) {
+            const [movedOverride] = student.gradeOverrides[fromSem].splice(fromIdx, 1);
+            student.gradeOverrides[fromSem].splice(toIdx, 0, movedOverride);
+          }
+          if (student.correctionTime && Array.isArray(student.correctionTime[fromSem])) {
+            const [movedTime] = student.correctionTime[fromSem].splice(fromIdx, 1);
+            student.correctionTime[fromSem].splice(toIdx, 0, movedTime);
+          }
+        });
+      } else {
+        // Cross-semester reorder in same class
+        if ((classObj.testCounts[toSem] || 0) >= TEST_COUNT_PER_SEM) {
+          if (typeof showToast === 'function') showToast(t('gsErrMaxTestsReached') || 'Maximum tests reached for this semester', true);
+          return;
+        }
+        toIdx = Math.max(0, Math.min(classObj.testCounts[toSem] || 0, toIdx));
+
+        const [movedConfig] = classObj.testConfigs[fromSem].splice(fromIdx, 1);
+        classObj.testConfigs[fromSem].push(createDefaultTestConfig());
+        classObj.testConfigs[toSem].splice(toIdx, 0, movedConfig);
+        classObj.testConfigs[toSem].pop();
+
+        classObj.students.forEach(student => {
+          const fromTests = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+          const toTests = toSem === "sem1" ? student.sem1Tests : student.sem2Tests;
+          const [movedScore] = fromTests.splice(fromIdx, 1);
+          fromTests.push(null);
+          toTests.splice(toIdx, 0, movedScore);
+          toTests.pop();
+
+          if (student.testNotes) {
+            const [movedNotes] = (student.testNotes[fromSem] || []).splice(fromIdx, 1);
+            student.testNotes[fromSem].push([]);
+            (student.testNotes[toSem] || []).splice(toIdx, 0, movedNotes || []);
+            student.testNotes[toSem].pop();
+          }
+          if (student.criteriaResults) {
+            const [movedCrit] = (student.criteriaResults[fromSem] || []).splice(fromIdx, 1);
+            student.criteriaResults[fromSem].push({});
+            (student.criteriaResults[toSem] || []).splice(toIdx, 0, movedCrit || {});
+            student.criteriaResults[toSem].pop();
+          }
+          if (student.gradeOverrides) {
+            const [movedOverride] = (student.gradeOverrides[fromSem] || []).splice(fromIdx, 1);
+            student.gradeOverrides[fromSem].push(false);
+            (student.gradeOverrides[toSem] || []).splice(toIdx, 0, movedOverride || false);
+            student.gradeOverrides[toSem].pop();
+          }
+          if (student.correctionTime) {
+            const [movedTime] = (student.correctionTime[fromSem] || []).splice(fromIdx, 1);
+            student.correctionTime[fromSem].push(null);
+            (student.correctionTime[toSem] || []).splice(toIdx, 0, movedTime ?? null);
+            student.correctionTime[toSem].pop();
+          }
+        });
+
+        classObj.testCounts[fromSem] = Math.max(0, classObj.testCounts[fromSem] - 1);
+        classObj.testCounts[toSem] = (classObj.testCounts[toSem] || 0) + 1;
+      }
+
+      saveState();
+      renderClasses();
+      if (typeof showToast === 'function') {
+        showToast(t('gsToastTestReordered'));
+      }
+    }
+
     function renderAllTests() {
       const panel = document.getElementById("all-tests-panel");
       if (!panel) return;
@@ -3027,11 +3127,22 @@
       }
       panel.classList.remove("hidden");
 
+      const header = document.createElement("div");
+      header.className = "all-tests-panel-header";
+
       const title = document.createElement("div");
       title.className = "all-tests-panel-title";
       title.setAttribute("data-i18n", "gsAllTestsTitle");
       title.textContent = t('gsAllTestsTitle');
-      panel.appendChild(title);
+      header.appendChild(title);
+
+      const hint = document.createElement("span");
+      hint.className = "all-tests-panel-hint";
+      hint.setAttribute("data-i18n", "gsAllTestsHint");
+      hint.textContent = t('gsAllTestsHint');
+      header.appendChild(hint);
+
+      panel.appendChild(header);
 
       classesWithTests.forEach(c => {
         const testCounts = c.testCounts || { sem1: 0, sem2: 0 };
@@ -3052,6 +3163,35 @@
         const rows = document.createElement("div");
         rows.className = "all-tests-rows";
 
+        rows.addEventListener("dragover", (e) => {
+          if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          rows.classList.add("drag-over");
+        });
+
+        rows.addEventListener("dragleave", (e) => {
+          if (!rows.contains(e.relatedTarget)) {
+            rows.classList.remove("drag-over");
+          }
+        });
+
+        rows.addEventListener("drop", (e) => {
+          rows.classList.remove("drag-over");
+          if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+          if (e.target === rows) {
+            e.preventDefault();
+            e.stopPropagation();
+            const fromSem = _gsDraggedTestInfo.sem;
+            const fromIdx = _gsDraggedTestInfo.testIndex;
+            const targetSem = fromSem;
+            const targetIdx = Math.max(0, (c.testCounts[targetSem] || 1) - 1);
+            if (fromIdx !== targetIdx) {
+              reorderClassTests(c, fromSem, fromIdx, targetSem, targetIdx);
+            }
+          }
+        });
+
         const addTestChip = (sem, i) => {
           const cfg = (testConfigs[sem] || [])[i];
           const name = (cfg && cfg.testName) ? cfg.testName : `Test ${i + 1}`;
@@ -3061,8 +3201,80 @@
           const chip = document.createElement("button");
           chip.type = "button";
           chip.className = "all-test-item";
+          chip.draggable = true;
+          chip.setAttribute("title", t('gsDragToReorder'));
           chip.innerHTML = `<span class="all-test-badge">${escapeHtml(badge)}</span><span class="all-test-name">${escapeHtml(name)}</span>${date ? `<span class="all-test-date">${escapeHtml(date)}</span>` : ''}`;
+
+          chip.addEventListener("dragstart", (e) => {
+            _gsDraggedTestInfo = { classId: c.id, sem: sem, testIndex: i };
+            _gsIsDraggingTest = true;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", JSON.stringify(_gsDraggedTestInfo));
+            chip.classList.add("dragging");
+          });
+
+          chip.addEventListener("dragend", () => {
+            chip.classList.remove("dragging");
+            panel.querySelectorAll(".all-test-item").forEach(el => {
+              el.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+            });
+            panel.querySelectorAll(".all-tests-rows").forEach(r => r.classList.remove("drag-over"));
+            _gsDraggedTestInfo = null;
+            setTimeout(() => { _gsIsDraggingTest = false; }, 60);
+          });
+
+          chip.addEventListener("dragover", (e) => {
+            if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = "move";
+
+            const rect = chip.getBoundingClientRect();
+            const relX = e.clientX - rect.left;
+            const isRight = relX > rect.width / 2;
+
+            chip.classList.remove("drag-over-left", "drag-over-right");
+            if (isRight) {
+              chip.classList.add("drag-over-right");
+            } else {
+              chip.classList.add("drag-over-left");
+            }
+          });
+
+          chip.addEventListener("dragleave", () => {
+            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+          });
+
+          chip.addEventListener("drop", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            chip.classList.remove("drag-over-left", "drag-over-right", "drag-over");
+            rows.classList.remove("drag-over");
+
+            if (!_gsDraggedTestInfo || _gsDraggedTestInfo.classId !== c.id) return;
+
+            const rect = chip.getBoundingClientRect();
+            const relX = e.clientX - rect.left;
+            const isRight = relX > rect.width / 2;
+
+            const fromSem = _gsDraggedTestInfo.sem;
+            const fromIdx = _gsDraggedTestInfo.testIndex;
+            const toSem = sem;
+            let targetIdx = i;
+
+            if (fromSem === toSem) {
+              if (isRight && targetIdx < fromIdx) targetIdx++;
+              else if (!isRight && targetIdx > fromIdx) targetIdx--;
+              if (fromIdx === targetIdx) return;
+            } else {
+              if (isRight) targetIdx++;
+            }
+
+            reorderClassTests(c, fromSem, fromIdx, toSem, targetIdx);
+          });
+
           chip.addEventListener("click", () => {
+            if (_gsIsDraggingTest) return;
             appState.activeClassId = c.id;
             ensureClassStructures(c);
             renderSummary();
