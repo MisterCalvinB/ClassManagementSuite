@@ -101,9 +101,17 @@
         </div>
       </div>
       <div class="ag-toolbar-right">
+        <button type="button" class="btn btn-outline-primary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('group-editor.html');else window.location.href='group-editor.html';" title="Add, edit, or remove students in Group Editor">
+          <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <span data-i18n="agBtnManageInGroupEditor">Manage Roster in Group Editor</span>
+        </button>
         <button type="button" class="btn btn-secondary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html')">
           <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
           <span data-i18n="agBtnImportWizard">Import Wizard</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="window.openResetAllModal()" style="color:#b91c1c;">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <span data-i18n="agBtnResetAll">Reset / Erase All</span>
         </button>
       </div>
     </div>
@@ -135,7 +143,11 @@
         </div>
         <div id="studentTimelineContainer"></div>
       </div>
-      <div class="ag-modal-ft">
+      <div class="ag-modal-ft" style="justify-content:space-between;">
+        <button type="button" class="btn btn-danger" onclick="window.promptEraseStudent(state.selectedStudentId)">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <span data-i18n="agBtnEraseStudent">Erase Student</span>
+        </button>
         <button type="button" class="btn btn-secondary" onclick="window.closeStudentModal()" data-i18n="agBtnClose">Close</button>
       </div>
     </div>
@@ -536,6 +548,138 @@
           <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
           <span data-i18n="agBtnConfirmImport">Confirm & Import Data</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Erase / Archive Student Options ── -->
+  <div class="ag-modal-overlay" id="agEraseStudentModal" style="z-index: 10001;">
+    <div class="ag-modal-box" style="max-width:560px;">
+      <div class="ag-modal-hd">
+        <div class="ag-modal-title">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <span data-i18n="agEraseModalTitle">Erase / Archive Student</span> — <span id="eraseModalStudentTitle"></span>
+        </div>
+        <button type="button" class="ag-modal-close" onclick="window.closeEraseStudentModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+      </div>
+      <div class="ag-modal-body">
+        <p class="ag-erase-prompt" data-i18n="agEraseModalDesc">Where would you like to erase or archive this student?</p>
+
+        <div class="ag-erase-grid">
+          <!-- Option 1: Archive Student -->
+          <div class="ag-erase-card ag-erase-card-archive" onclick="window.executeEraseStudent('archive')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/history.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agEraseOptArchiveTitle">Archive Student (Preserve History)</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agEraseOptArchiveDesc">
+                Hides this student from the active list while preserving all their infractions, notes, and action timeline safely in archives.
+              </div>
+            </div>
+          </div>
+
+          <!-- Option 2: Erase only from Administrative Groups -->
+          <div class="ag-erase-card ag-erase-card-admin" onclick="window.executeEraseStudent('admin-only')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agEraseOptAdminTitle">Erase only from Administrative Groups</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agEraseOptAdminDesc">
+                Removes student demographics, discipline records, and follow-ups from Administrative Groups. The student remains in Group Editor and class rosters.
+              </div>
+            </div>
+          </div>
+
+          <!-- Option 3: Erase everywhere -->
+          <div class="ag-erase-card ag-erase-card-danger" onclick="window.executeEraseStudent('everywhere')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agEraseOptEverywhereTitle">Erase from everywhere (Administrative Groups & Group Editor)</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agEraseOptEverywhereDesc">
+                Permanently deletes this student from Administrative Groups, the master student roster, and all classes in Group Editor.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ag-modal-ft">
+        <button type="button" class="btn btn-secondary" onclick="window.closeEraseStudentModal()" data-i18n="agBtnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Reset / Erase All Students ── -->
+  <div class="ag-modal-overlay" id="agResetAllModal" style="z-index: 10001;">
+    <div class="ag-modal-box" style="max-width:580px;">
+      <div class="ag-modal-hd">
+        <div class="ag-modal-title">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <span data-i18n="agResetAllModalTitle">Reset & Erase All Students</span>
+        </div>
+        <button type="button" class="ag-modal-close" onclick="window.closeResetAllModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+      </div>
+      <div class="ag-modal-body">
+        <p class="ag-erase-prompt" data-i18n="agResetAllModalDesc">Choose what action you want to perform for all students in the roster:</p>
+
+        <div class="ag-erase-grid">
+          <!-- Option 1: Archive & Clear All -->
+          <div class="ag-erase-card ag-erase-card-archive" onclick="window.executeResetAll('archive')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/history.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agOptArchiveAllTitle">Archive & Clear All (Recommended)</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agOptArchiveAllDesc">
+                Saves a complete timestamped backup snapshot of all student records and actions to the archive before clearing them from active view.
+              </div>
+            </div>
+          </div>
+
+          <!-- Option 2: Erase all only from Administrative Groups -->
+          <div class="ag-erase-card ag-erase-card-admin" onclick="window.executeResetAll('admin-only')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agOptEraseAllAdminTitle">Erase all only from Administrative Groups</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agOptEraseAllAdminDesc">
+                Clears all administrative records, infractions, and action logs. Group Editor and class rosters remain completely untouched.
+              </div>
+            </div>
+          </div>
+
+          <!-- Option 3: Erase all from everywhere -->
+          <div class="ag-erase-card ag-erase-card-danger" onclick="window.executeResetAll('everywhere')">
+            <div class="ag-erase-card-icon">
+              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            </div>
+            <div class="ag-erase-card-content">
+              <div class="ag-erase-card-title">
+                <span data-i18n="agOptEraseAllEverywhereTitle">Erase all from everywhere (Admin Groups & Group Editor)</span>
+              </div>
+              <div class="ag-erase-card-desc" data-i18n="agOptEraseAllEverywhereDesc">
+                Permanently deletes all students from Administrative Groups, the master student roster, and all class groups in Group Editor.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ag-modal-ft">
+        <button type="button" class="btn btn-secondary" onclick="window.closeResetAllModal()" data-i18n="agBtnCancel">Cancel</button>
       </div>
     </div>
   </div>

@@ -179,6 +179,9 @@
     var rawStudents = window.STUDENTS_ROSTER || [];
     var classMeta = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) || window.CLASS_GROUPS_META || {};
     var adminStudents = (state.adminData && state.adminData.students) || {};
+    var excludedIds = (state.adminData && state.adminData.excludedStudentIds) || [];
+    var archivedIds = (state.adminData && state.adminData.archivedStudentIds) || [];
+    var hiddenIds = excludedIds.concat(archivedIds);
 
     // Group mapping & student collection
     var studentGroupMap = {};
@@ -186,14 +189,14 @@
 
     rawStudents.forEach(function (s) {
       var uuid = s.uuid || s.id;
-      if (uuid) knownStudentsMap[uuid] = s;
+      if (uuid && hiddenIds.indexOf(uuid) === -1) knownStudentsMap[uuid] = s;
     });
 
     Object.keys(classMeta).forEach(function (gId) {
       var grp = classMeta[gId];
       (grp.students || []).forEach(function (sItem) {
         var sUuid = typeof sItem === 'string' ? sItem : (sItem.uuid || sItem.id);
-        if (sUuid) {
+        if (sUuid && hiddenIds.indexOf(sUuid) === -1) {
           studentGroupMap[sUuid] = studentGroupMap[sUuid] || [];
           studentGroupMap[sUuid].push({ id: gId, name: grp.name || gId });
           if (!knownStudentsMap[sUuid]) {
@@ -209,7 +212,7 @@
 
     // Also include students stored directly in administrative-groups.json
     Object.keys(adminStudents).forEach(function (uuid) {
-      if (!knownStudentsMap[uuid]) {
+      if (hiddenIds.indexOf(uuid) === -1 && !knownStudentsMap[uuid]) {
         var adm = adminStudents[uuid];
         knownStudentsMap[uuid] = {
           uuid: uuid,
@@ -246,7 +249,7 @@
         adminClass: s.adminClass || adm.adminClass || (groups[0] ? groups[0].name : ''),
         sen: s.sen || adm.sen || false,
         senDetails: adm.senDetails || (s.sen ? 'SEN' : ''),
-        gender: adm.gender || '',
+        gender: s.gender || adm.gender || '',
         studentNumber: adm.studentNumber || '',
         regime: adm.regime || 'DP',
         exitPermission: adm.exitPermission || 'AUT',
@@ -552,7 +555,12 @@
           var key = col.key;
 
           if (type === 'student' || key === 'student') {
-            html += '<td class="col-sticky-name" onclick="window.openStudentProfileModal(\'' + s.uuid + '\')"><span style="color:#0284c7; cursor:pointer; font-weight:800;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span></td>';
+            var delTitle = typeof t === 'function' ? t('agBtnEraseStudent', 'Erase Student') : 'Erase Student';
+            html += '<td class="col-sticky-name">' +
+              '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+              '<span onclick="window.openStudentProfileModal(\'' + s.uuid + '\')" style="color:#0284c7; cursor:pointer; font-weight:800; flex:1;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span>' +
+              '<button type="button" class="ag-row-del-btn" title="' + escapeHtml(delTitle) + '" onclick="event.stopPropagation(); window.promptEraseStudent(\'' + s.uuid + '\')">' + svgIcon('delete') + '</button>' +
+              '</div></td>';
           } else if (type === 'infraction') {
             var val = pInfractions[key] || 0;
             html += '<td style="text-align:center;">';
@@ -588,13 +596,18 @@
           } else if (type === 'actionsHistory' || key === 'actionsHistory') {
             html += '<td><button type="button" class="badge badge-action" onclick="window.openStudentProfileModal(\'' + s.uuid + '\', \'actions\')">' + svgIcon('history') + ' ' + actionsCount + ' ' + t('agActionsCount', 'actions') + '</button></td>';
           } else if (type === 'manage' || key === 'manage') {
-            html += '<td><button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openQuickActionMenu(\'' + s.uuid + '\')">' + svgIcon('plus') + ' ' + t('agLogBtn', 'Log') + '</button></td>';
-          } else if (type === 'readonly' || key === 'age') {
+            var delTitle = typeof t === 'function' ? t('agBtnEraseStudent', 'Erase Student') : 'Erase Student';
+            html += '<td><div style="display:flex; align-items:center; gap:6px;">' +
+              '<button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openQuickActionMenu(\'' + s.uuid + '\')">' + svgIcon('plus') + ' ' + t('agLogBtn', 'Log') + '</button>' +
+              '<button type="button" class="ag-row-del-btn" title="' + escapeHtml(delTitle) + '" onclick="window.promptEraseStudent(\'' + s.uuid + '\')">' + svgIcon('delete') + '</button>' +
+              '</div></td>';
+          } else if (type === 'readonly' || key === 'age' || key === 'dob' || key === 'adminClass' || key === 'gender' || key === 'firstName' || key === 'lastName') {
             var val = (s[key] != null) ? s[key] : (s.customFields && s.customFields[key] != null ? s.customFields[key] : '');
-            html += '<td>' + escapeHtml(val) + '</td>';
+            var geHint = typeof t === 'function' ? t('agManagedInGroupEditor', 'Managed in Group Editor (Single Source of Truth)') : 'Managed in Group Editor (Single Source of Truth)';
+            html += '<td style="color:#334155; font-weight:600;" title="' + escapeHtml(geHint) + '">' + escapeHtml(val) + '</td>';
           } else {
-            // Editable text / custom cell
-            var isStandard = ['adminClass', 'dob', 'gender', 'regime', 'guardian1Name', 'guardian1Phone', 'guardian1Email', 'medicalNotes'].indexOf(key) !== -1;
+            // Editable text / custom cell for administrative data
+            var isStandard = ['regime', 'exitPermission', 'guardian1Name', 'guardian1Phone', 'guardian1Email', 'address', 'emergencyContact', 'medicalNotes'].indexOf(key) !== -1;
             var cellVal = isStandard ? (s[key] || '') : ((s.customFields && s.customFields[key]) || '');
             var onblurHandler = isStandard ? ('window.updateStudentField(\'' + s.uuid + '\', \'' + key + '\', this.textContent)') : ('window.updateStudentCustomField(\'' + s.uuid + '\', \'' + key + '\', this.textContent)');
             html += '<td class="ag-cell-editable" onblur="' + onblurHandler + '" contenteditable="true">' + escapeHtml(cellVal) + '</td>';
@@ -648,10 +661,14 @@
   };
 
   window.updateStudentField = function (uuid, field, val) {
+    if (['firstName', 'lastName', 'dob', 'gender', 'adminClass', 'sen'].indexOf(field) !== -1) {
+      if (window.showToast) window.showToast(t('agDemographicsInGroupEditor', 'Student demographic updates must be done in Group Editor.'));
+      renderTable();
+      return;
+    }
     var student = state.students.find(function (s) { return s.uuid === uuid; });
     if (!student) return;
     student[field] = (val || '').trim();
-    if (field === 'dob') student.age = calculateAge(student.dob);
 
     state.adminData.students = state.adminData.students || {};
     state.adminData.students[uuid] = state.adminData.students[uuid] || {};
@@ -788,6 +805,453 @@
     } catch (e) {
       console.warn('Failed to persist administrative data:', e);
     }
+  }
+
+  // ── Erase Student Handlers ──
+  state.targetEraseStudentId = null;
+
+  window.promptEraseStudent = function (uuid) {
+    if (!uuid) return;
+    state.targetEraseStudentId = uuid;
+    var s = state.students.find(function (st) { return st.uuid === uuid; });
+    var titleEl = document.getElementById('eraseModalStudentTitle');
+    if (titleEl && s) {
+      titleEl.textContent = s.lastName.toUpperCase() + ' ' + s.firstName + (s.adminClass ? ' (' + s.adminClass + ')' : '');
+    }
+    var modal = document.getElementById('agEraseStudentModal');
+    if (modal) modal.classList.add('active');
+  };
+
+  window.closeEraseStudentModal = function () {
+    var modal = document.getElementById('agEraseStudentModal');
+    if (modal) modal.classList.remove('active');
+    state.targetEraseStudentId = null;
+  };
+
+  window.executeEraseStudent = async function (mode) {
+    var uuid = state.targetEraseStudentId;
+    if (!uuid) return;
+
+    var s = state.students.find(function (st) { return st.uuid === uuid; });
+    var studentName = s ? (s.lastName.toUpperCase() + ' ' + s.firstName) : 'Student';
+
+    if (mode === 'archive') {
+      // 1. Archive student (preserve all records in archive list)
+      state.adminData.archivedStudents = state.adminData.archivedStudents || {};
+      state.adminData.archivedStudents[uuid] = {
+        student: JSON.parse(JSON.stringify(s || {})),
+        data: JSON.parse(JSON.stringify((state.adminData.students && state.adminData.students[uuid]) || {})),
+        actions: (state.adminData.actions || []).filter(function (a) { return a.studentId === uuid; }),
+        archivedAt: new Date().toISOString()
+      };
+      state.adminData.archivedStudentIds = state.adminData.archivedStudentIds || [];
+      if (state.adminData.archivedStudentIds.indexOf(uuid) === -1) {
+        state.adminData.archivedStudentIds.push(uuid);
+      }
+      if (state.adminData.students && state.adminData.students[uuid]) {
+        delete state.adminData.students[uuid];
+      }
+      state.adminData.actions = (state.adminData.actions || []).filter(function (a) {
+        return a.studentId !== uuid;
+      });
+
+      // Remove from local state
+      state.students = state.students.filter(function (st) { return st.uuid !== uuid; });
+
+      await saveAllData();
+      window.closeEraseStudentModal();
+      window.closeStudentModal();
+      renderAll();
+      if (window.showToast) window.showToast(t('agStudentArchived', 'Student archived successfully.'));
+    } else if (mode === 'admin-only') {
+      // 2. Erase only from Administrative Groups
+      state.adminData.excludedStudentIds = state.adminData.excludedStudentIds || [];
+      if (state.adminData.excludedStudentIds.indexOf(uuid) === -1) {
+        state.adminData.excludedStudentIds.push(uuid);
+      }
+      if (state.adminData.students && state.adminData.students[uuid]) {
+        delete state.adminData.students[uuid];
+      }
+      state.adminData.actions = (state.adminData.actions || []).filter(function (a) {
+        return a.studentId !== uuid;
+      });
+
+      // Remove from local state
+      state.students = state.students.filter(function (st) { return st.uuid !== uuid; });
+
+      await saveAllData();
+      window.closeEraseStudentModal();
+      window.closeStudentModal();
+      renderAll();
+      if (window.showToast) window.showToast(t('agStudentErasedAdmin', 'Student erased from Administrative Groups.'));
+    } else if (mode === 'everywhere') {
+      // 3. Erase everywhere (Administrative Groups & Group Editor / class-groups.js / students.js)
+      var confirmTemplate = typeof t === 'function' ? t('agEraseConfirmEverywhere', 'Are you sure you want to permanently delete {name} from all class groups and rosters?') : 'Are you sure you want to permanently delete {name} from all class groups and rosters?';
+      var confirmMsg = typeof tFmt === 'function'
+        ? tFmt('agEraseConfirmEverywhere', { name: studentName })
+        : confirmTemplate.replace('{name}', studentName);
+
+      var doDelete = async function () {
+        // Administrative data cleanup
+        if (state.adminData.excludedStudentIds) {
+          state.adminData.excludedStudentIds = state.adminData.excludedStudentIds.filter(function (id) { return id !== uuid; });
+        }
+        if (state.adminData.archivedStudentIds) {
+          state.adminData.archivedStudentIds = state.adminData.archivedStudentIds.filter(function (id) { return id !== uuid; });
+        }
+        if (state.adminData.students && state.adminData.students[uuid]) {
+          delete state.adminData.students[uuid];
+        }
+        state.adminData.actions = (state.adminData.actions || []).filter(function (a) {
+          return a.studentId !== uuid;
+        });
+
+        // Roster & Class groups file cleanup
+        await removeStudentFromRoster(uuid);
+        await removeStudentFromClassGroups(uuid);
+        await saveAllData();
+
+        // Local state
+        state.students = state.students.filter(function (st) { return st.uuid !== uuid; });
+
+        window.closeEraseStudentModal();
+        window.closeStudentModal();
+        populateGroupSelector();
+        renderAll();
+        if (window.showToast) window.showToast(t('agStudentErasedEverywhere', 'Student permanently erased from all groups and rosters.'));
+      };
+
+      if (window.showConfirm) {
+        window.showConfirm(confirmMsg, doDelete);
+      } else {
+        if (confirm(confirmMsg)) {
+          await doDelete();
+        }
+      }
+    }
+  };
+
+  // ── Reset & Erase All Students Handlers ──
+  window.openResetAllModal = function () {
+    var modal = document.getElementById('agResetAllModal');
+    if (modal) modal.classList.add('active');
+  };
+
+  window.closeResetAllModal = function () {
+    var modal = document.getElementById('agResetAllModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  window.executeResetAll = async function (mode) {
+    if (!state.students || !state.students.length) {
+      window.closeResetAllModal();
+      if (window.showToast) window.showToast('No students to reset.');
+      return;
+    }
+
+    if (mode === 'archive') {
+      // 1. Archive & clear all active students
+      var timestamp = new Date().toISOString();
+      var archiveEntry = {
+        id: 'arch-' + Date.now().toString(36),
+        archivedAt: timestamp,
+        studentCount: state.students.length,
+        students: JSON.parse(JSON.stringify(state.students)),
+        adminData: JSON.parse(JSON.stringify(state.adminData))
+      };
+      state.adminData.historyArchives = state.adminData.historyArchives || [];
+      state.adminData.historyArchives.push(archiveEntry);
+
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          var archFilename = 'administrative-groups-archive-' + timestamp.slice(0, 10) + '.json';
+          await Desktop.saveText('user', archFilename, JSON.stringify(archiveEntry, null, 2));
+        } catch (e) {}
+      }
+
+      // Mark all current student IDs as excluded so they don't reload from class-groups
+      state.adminData.excludedStudentIds = state.students.map(function (s) { return s.uuid; });
+      state.adminData.students = {};
+      state.adminData.actions = [];
+      state.students = [];
+
+      await saveAllData();
+      window.closeResetAllModal();
+      populateGroupSelector();
+      renderAll();
+      if (window.showToast) window.showToast(t('agAllStudentsArchived', 'All student records archived and active view reset.'));
+    } else if (mode === 'admin-only') {
+      // 2. Erase all only from Administrative Groups
+      state.adminData.excludedStudentIds = state.students.map(function (s) { return s.uuid; });
+      state.adminData.students = {};
+      state.adminData.actions = [];
+      state.students = [];
+
+      await saveAllData();
+      window.closeResetAllModal();
+      populateGroupSelector();
+      renderAll();
+      if (window.showToast) window.showToast(t('agAllStudentsErasedAdmin', 'All students erased from Administrative Groups.'));
+    } else if (mode === 'everywhere') {
+      // 3. Erase all from everywhere
+      var confirmMsg = typeof t === 'function' && t('agConfirmEraseAllEverywhere')
+        ? t('agConfirmEraseAllEverywhere')
+        : 'DANGER: This will permanently delete ALL students from the entire application (including Group Editor and master rosters). Are you sure?';
+
+      var doDeleteAll = async function () {
+        state.adminData.students = {};
+        state.adminData.actions = [];
+        state.adminData.excludedStudentIds = [];
+        state.adminData.archivedStudentIds = [];
+        state.students = [];
+
+        await removeAllStudentsFromRoster();
+        await removeAllStudentsFromClassGroups();
+        await saveAllData();
+
+        window.closeResetAllModal();
+        populateGroupSelector();
+        renderAll();
+        if (window.showToast) window.showToast(t('agAllStudentsErasedEverywhere', 'All students permanently erased from all groups and rosters.'));
+      };
+
+      if (window.showConfirm) {
+        window.showConfirm(confirmMsg, doDeleteAll);
+      } else {
+        if (confirm(confirmMsg)) {
+          await doDeleteAll();
+        }
+      }
+    }
+  };
+
+  async function removeAllStudentsFromRoster() {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.saveText !== 'function') {
+      window.STUDENTS_ROSTER = [];
+      return;
+    }
+    try {
+      var newContent = 'const STUDENTS_ROSTER = [];\n';
+      await Desktop.saveText('user', 'students.js', newContent);
+      window.STUDENTS_ROSTER = [];
+    } catch (err) {
+      console.warn('Error clearing student roster:', err);
+    }
+  }
+
+  async function removeAllStudentsFromClassGroups() {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') {
+      var classMeta = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) || window.CLASS_GROUPS_META || {};
+      Object.keys(classMeta).forEach(function (gId) {
+        classMeta[gId].students = [];
+        if (classMeta[gId].halfGroups) classMeta[gId].halfGroups = { A: [], B: [] };
+      });
+      return;
+    }
+    try {
+      var cgRes = await Desktop.readText('user', 'class-groups.js');
+      var activeYear = '';
+      var activeSemester = '';
+      var activeSemesterStart = '';
+      var activeSemesterEnd = '';
+      var classMeta = {};
+
+      if (cgRes && cgRes.ok && cgRes.content) {
+        var sandbox = {};
+        try {
+          var fn = new Function('window', cgRes.content + '\n; return typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || {});');
+          var data = fn(sandbox) || {};
+          activeYear = data.activeYear || '';
+          activeSemester = data.activeSemester || '';
+          activeSemesterStart = data.activeSemesterStart || '';
+          activeSemesterEnd = data.activeSemesterEnd || '';
+          classMeta = data.classGroupsMeta || (sandbox.CLASS_GROUPS_META || {});
+        } catch (e) {}
+      }
+
+      if (!classMeta || Object.keys(classMeta).length === 0) {
+        classMeta = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) || window.CLASS_GROUPS_META || {};
+      }
+
+      Object.keys(classMeta).forEach(function (gId) {
+        classMeta[gId].students = [];
+        if (classMeta[gId].halfGroups) {
+          classMeta[gId].halfGroups = { A: [], B: [] };
+        }
+      });
+
+      var metaLines = Object.keys(classMeta).map(function (gId) {
+        var m = classMeta[gId] || {};
+        var metaEntry = {
+          year: m.year != null ? m.year : '',
+          semester: m.semester === '' ? '' : m.semester,
+          level: m.level === '' ? '' : m.level
+        };
+        if (m.name) metaEntry.name = m.name;
+        if (m.isAdminGroup) metaEntry.isAdminGroup = true;
+        if (m.archived) metaEntry.archived = true;
+        metaEntry.students = [];
+        return '    ' + JSON.stringify(gId) + ': ' + JSON.stringify(metaEntry);
+      });
+
+      var newContent = [
+        'const CLASS_GROUPS_DATA = {',
+        '  "activeYear": ' + JSON.stringify(activeYear) + ',',
+        '  "activeSemester": ' + JSON.stringify(activeSemester) + ',',
+        '  "activeSemesterStart": ' + JSON.stringify(activeSemesterStart) + ',',
+        '  "activeSemesterEnd": ' + JSON.stringify(activeSemesterEnd) + ',',
+        '  "classGroupsMeta": {',
+        metaLines.join(',\n').split('\n').map(function (l) { return '  ' + l; }).join('\n'),
+        '  }',
+        '};',
+        '',
+        'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
+        ''
+      ].join('\n');
+
+      await Desktop.saveText('user', 'class-groups.js', newContent);
+
+      if (window.CLASS_GROUPS_DATA) {
+        window.CLASS_GROUPS_DATA.classGroupsMeta = classMeta;
+      }
+      window.CLASS_GROUPS_META = classMeta;
+    } catch (err) {
+      console.warn('Error clearing student class groups:', err);
+    }
+  }
+
+  async function removeStudentFromRoster(uuid) {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') {
+      if (window.STUDENTS_ROSTER) {
+        window.STUDENTS_ROSTER = window.STUDENTS_ROSTER.filter(function (s) { return s && (s.uuid || s.id) !== uuid; });
+      }
+      return;
+    }
+    try {
+      var stRes = await Desktop.readText('user', 'students.js');
+      var roster = window.STUDENTS_ROSTER || [];
+      if (stRes && stRes.ok && stRes.content) {
+        try {
+          var fn = new Function(stRes.content + '\n; return typeof STUDENTS_ROSTER !== "undefined" ? STUDENTS_ROSTER : [];');
+          roster = fn() || [];
+        } catch (e) {}
+      }
+
+      var updated = roster.filter(function (s) {
+        return s && (s.uuid || s.id) !== uuid;
+      });
+
+      var newContent = 'const STUDENTS_ROSTER = ' + JSON.stringify(updated, null, 2) + ';\n';
+      await Desktop.saveText('user', 'students.js', newContent);
+      window.STUDENTS_ROSTER = updated;
+    } catch (err) {
+      console.warn('Error removing student from roster:', err);
+    }
+  }
+
+  async function removeStudentFromClassGroups(uuid) {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') {
+      var classMeta = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) || window.CLASS_GROUPS_META || {};
+      filterClassMetaStudents(classMeta, uuid);
+      return;
+    }
+    try {
+      var cgRes = await Desktop.readText('user', 'class-groups.js');
+      var activeYear = '';
+      var activeSemester = '';
+      var activeSemesterStart = '';
+      var activeSemesterEnd = '';
+      var classMeta = {};
+
+      if (cgRes && cgRes.ok && cgRes.content) {
+        var sandbox = {};
+        try {
+          var fn = new Function('window', cgRes.content + '\n; return typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || {});');
+          var data = fn(sandbox) || {};
+          activeYear = data.activeYear || '';
+          activeSemester = data.activeSemester || '';
+          activeSemesterStart = data.activeSemesterStart || '';
+          activeSemesterEnd = data.activeSemesterEnd || '';
+          classMeta = data.classGroupsMeta || (sandbox.CLASS_GROUPS_META || {});
+        } catch (e) {
+          console.warn('Error reading CLASS_GROUPS_DATA:', e);
+        }
+      }
+
+      if (!classMeta || Object.keys(classMeta).length === 0) {
+        classMeta = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) || window.CLASS_GROUPS_META || {};
+      }
+
+      filterClassMetaStudents(classMeta, uuid);
+
+      var metaLines = Object.keys(classMeta).map(function (gId) {
+        var m = classMeta[gId] || {};
+        var metaEntry = {
+          year: m.year != null ? m.year : '',
+          semester: m.semester === '' ? '' : m.semester,
+          level: m.level === '' ? '' : m.level
+        };
+        if (m.name) metaEntry.name = m.name;
+        if (m.isAdminGroup) metaEntry.isAdminGroup = true;
+        if (m.halfGroups && ((m.halfGroups.A && m.halfGroups.A.length) || (m.halfGroups.B && m.halfGroups.B.length))) metaEntry.halfGroups = m.halfGroups;
+        if (m.students && m.students.length) metaEntry.students = m.students;
+        if (m.archived) metaEntry.archived = true;
+        return '    ' + JSON.stringify(gId) + ': ' + JSON.stringify(metaEntry);
+      });
+
+      var newContent = [
+        'const CLASS_GROUPS_DATA = {',
+        '  "activeYear": ' + JSON.stringify(activeYear) + ',',
+        '  "activeSemester": ' + JSON.stringify(activeSemester) + ',',
+        '  "activeSemesterStart": ' + JSON.stringify(activeSemesterStart) + ',',
+        '  "activeSemesterEnd": ' + JSON.stringify(activeSemesterEnd) + ',',
+        '  "classGroupsMeta": {',
+        metaLines.join(',\n').split('\n').map(function (l) { return '  ' + l; }).join('\n'),
+        '  }',
+        '};',
+        '',
+        'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
+        ''
+      ].join('\n');
+
+      await Desktop.saveText('user', 'class-groups.js', newContent);
+
+      if (window.CLASS_GROUPS_DATA) {
+        window.CLASS_GROUPS_DATA.classGroupsMeta = classMeta;
+      }
+      window.CLASS_GROUPS_META = classMeta;
+    } catch (err) {
+      console.warn('Error removing student from class groups:', err);
+    }
+  }
+
+  function filterClassMetaStudents(classMeta, uuid) {
+    Object.keys(classMeta).forEach(function (gId) {
+      var grp = classMeta[gId];
+      if (Array.isArray(grp.students)) {
+        grp.students = grp.students.filter(function (s) {
+          if (typeof s === 'string') return s !== uuid;
+          if (s && typeof s === 'object') return (s.uuid || s.id) !== uuid;
+          return true;
+        });
+      }
+      if (grp.halfGroups) {
+        if (Array.isArray(grp.halfGroups.A)) {
+          grp.halfGroups.A = grp.halfGroups.A.filter(function (s) {
+            if (typeof s === 'string') return s !== uuid;
+            if (s && typeof s === 'object') return (s.uuid || s.id) !== uuid;
+            return true;
+          });
+        }
+        if (Array.isArray(grp.halfGroups.B)) {
+          grp.halfGroups.B = grp.halfGroups.B.filter(function (s) {
+            if (typeof s === 'string') return s !== uuid;
+            if (s && typeof s === 'object') return (s.uuid || s.id) !== uuid;
+            return true;
+          });
+        }
+      }
+    });
   }
 
   // ── Export Modal (Modeled after Participation Tracker) ──

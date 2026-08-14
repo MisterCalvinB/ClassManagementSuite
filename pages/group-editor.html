@@ -169,7 +169,7 @@
     }
     .eg-student-header {
       display: grid;
-      grid-template-columns: 1fr 1fr 120px 80px 44px 28px;
+      grid-template-columns: 1fr 1fr 120px 80px 58px 44px 28px;
       gap: 4px;
       font-size: 0.68rem;
       font-weight: 800;
@@ -180,7 +180,7 @@
     }
     .eg-student-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 120px 80px 44px 28px;
+      grid-template-columns: 1fr 1fr 120px 80px 58px 44px 28px;
       gap: 4px;
       margin-bottom: 3px;
     }
@@ -964,7 +964,7 @@
     const newRoster = {};
 
     // Collect students from rawMeta (object format) and rawData (string format)
-    const processStudent = (firstName, lastName, dob, adminClass, sen) => {
+    const processStudent = (firstName, lastName, dob, adminClass, sen, gender) => {
       const fn = (firstName || '').trim().toUpperCase();
       const ln = (lastName || '').trim().toUpperCase();
       const key = _nameKey(fn, ln);
@@ -972,7 +972,7 @@
       if (!nameToUuid[key]) {
         const uuid = generateStudentUuid();
         nameToUuid[key] = uuid;
-        newRoster[uuid] = { uuid, firstName: fn, lastName: ln, dob: dob || '', adminClass: (adminClass || '').trim().toUpperCase(), sen: sen === true };
+        newRoster[uuid] = { uuid, firstName: fn, lastName: ln, dob: dob || '', adminClass: (adminClass || '').trim().toUpperCase(), gender: (gender || '').trim().toUpperCase(), sen: sen === true };
       }
     };
 
@@ -981,7 +981,7 @@
       if (meta.students.length > 0 && typeof meta.students[0] === 'string' && meta.students[0].startsWith('st-')) return;
       meta.students.forEach(s => {
         if (!s || typeof s !== 'object') return;
-        processStudent(s.firstName, s.lastName, s.dob, s.adminClass, s.sen);
+        processStudent(s.firstName, s.lastName, s.dob, s.adminClass, s.sen, s.gender);
       });
     });
 
@@ -1083,11 +1083,12 @@
       const ln = (row.querySelector('.eg-s-ln')?.value || '').trim().toUpperCase();
       const dob = (row.querySelector('.eg-s-dob')?.value || '').trim();
       const ac = (row.querySelector('.eg-s-class')?.value || '').trim().toUpperCase();
+      const gen = (row.querySelector('.eg-s-gender')?.value || '').trim().toUpperCase();
       const senCb = row.querySelector('.eg-s-sen');
       const sen = senCb ? senCb.checked : false;
       if (fn || ln) {
         const uuid = row.dataset.uuid || null;
-        const entry = { uuid, firstName: fn, lastName: ln, dob, adminClass: ac };
+        const entry = { uuid, firstName: fn, lastName: ln, dob, adminClass: ac, gender: gen };
         if (sen) entry.sen = true;
         results.push(entry);
       }
@@ -1670,7 +1671,11 @@
         adminData.students[sid].lastName = (s.lastName || '').trim().toUpperCase();
         if (s.dob) adminData.students[sid].dob = s.dob;
         adminData.students[sid].adminClass = groupName;
+        if (s.gender) adminData.students[sid].gender = s.gender;
         if (s.sen != null) adminData.students[sid].sen = s.sen === true;
+        if (Array.isArray(adminData.excludedStudentIds)) {
+          adminData.excludedStudentIds = adminData.excludedStudentIds.filter(id => id !== sid);
+        }
         importedCount++;
       });
 
@@ -1760,6 +1765,18 @@
     const dobInput = makeInput('eg-s-dob', student.dob, '', 'date');
     const acInput = makeInput('eg-s-class', student.adminClass, 'Class');
 
+    const genSelect = document.createElement('select');
+    genSelect.className = 'eg-s-input eg-s-gender';
+    genSelect.title = 'Gender';
+    [['', '—'], ['M', 'M'], ['F', 'F'], ['O', 'Other']].forEach(([val, lbl]) => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = lbl;
+      if ((student.gender || '').toUpperCase() === val) opt.selected = true;
+      genSelect.appendChild(opt);
+    });
+    if (isDisabled) genSelect.disabled = true;
+
     const senCell = document.createElement('div');
     senCell.className = 'eg-s-sen-cell';
     const senCb = document.createElement('input');
@@ -1785,6 +1802,7 @@
     row.appendChild(lnInput);
     row.appendChild(dobInput);
     row.appendChild(acInput);
+    row.appendChild(genSelect);
     row.appendChild(senCell);
     row.appendChild(delBtn);
     return row;
@@ -1797,7 +1815,7 @@
 
     const header = document.createElement('div');
     header.className = 'eg-student-header';
-    ['First Name', 'Last Name', 'Date of Birth', 'Class', 'SEN', ''].forEach(label => {
+    ['First Name', 'Last Name', 'Date of Birth', 'Class', 'Gender', 'SEN', ''].forEach(label => {
       const span = document.createElement('span');
       span.textContent = label;
       header.appendChild(span);
@@ -1814,7 +1832,7 @@
       addBtn.type = 'button';
       addBtn.className = 'eg-s-add';
       addBtn.textContent = '+ Student';
-      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', dob: '', adminClass: '' }, false));
+      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', dob: '', adminClass: '', gender: '' }, false));
       section.appendChild(addBtn);
     }
 
@@ -2202,7 +2220,15 @@
           const existing = _rosterLookupByName(s.firstName, s.lastName);
           sid = existing ? existing.uuid : generateStudentUuid();
         }
-        studentRoster[sid] = { uuid: sid, firstName: s.firstName || '', lastName: s.lastName || '', dob: s.dob || '', adminClass: s.adminClass || '', sen: s.sen === true };
+        studentRoster[sid] = {
+          uuid: sid,
+          firstName: s.firstName || '',
+          lastName: s.lastName || '',
+          dob: s.dob || '',
+          adminClass: s.adminClass || '',
+          gender: s.gender || '',
+          sen: s.sen === true
+        };
         return sid;
       }).filter(Boolean);
 
