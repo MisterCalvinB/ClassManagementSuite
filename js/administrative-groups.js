@@ -415,29 +415,6 @@
     renderTable();
   };
 
-  // ── Render KPI Cards ──
-  function renderKPIs(filtered) {
-    var total = filtered.length;
-    var senCount = filtered.filter(function (s) { return s.sen; }).length;
-    var withSanctions = filtered.filter(function (s) { return s.points >= 3; }).length;
-    var actionsCount = (state.adminData.actions || []).length;
-    var missingContacts = filtered.filter(function (s) { return !s.guardian1Phone && !s.guardian1Email; }).length;
-
-    var elTotal = document.getElementById('kpiTotalVal');
-    if (elTotal) elTotal.textContent = total;
-
-    var elSen = document.getElementById('kpiSenVal');
-    if (elSen) elSen.textContent = senCount;
-
-    var elDisc = document.getElementById('kpiDisciplineVal');
-    if (elDisc) elDisc.textContent = withSanctions;
-
-    var elAct = document.getElementById('kpiActionsVal');
-    if (elAct) elAct.textContent = actionsCount;
-
-    var elMiss = document.getElementById('kpiMissingVal');
-    if (elMiss) elMiss.textContent = missingContacts;
-  }
 
   // ── Helpers for Filtering & Values ──
   function getFilteredStudents() {
@@ -496,7 +473,6 @@
     if (!container) return;
 
     var list = getFilteredStudents();
-    renderKPIs(list);
 
     var isFr = isFrench();
     var activeTab = state.activeTab;
@@ -1581,15 +1557,35 @@
     }
 
     var mapped = state.pendingImport.rows;
+    var updatedCount = 0;
 
     mapped.forEach(function (row) {
       var firstName = (row.firstName || '').trim().toUpperCase();
       var lastName = (row.lastName || '').trim().toUpperCase();
-      if (!firstName && !lastName) return;
+      var studentNum = (row.studentNumber || '').trim();
+      var uuid = (row.uuid || '').trim();
+      if (!firstName && !lastName && !studentNum && !uuid) return;
 
       var match = state.students.find(function (s) {
-        return s.firstName.toUpperCase() === firstName && s.lastName.toUpperCase() === lastName;
+        if (uuid && s.uuid === uuid) return true;
+        if (studentNum && s.studentNumber && String(s.studentNumber).trim() === studentNum) return true;
+        var sFirst = (s.firstName || '').trim().toUpperCase();
+        var sLast = (s.lastName || '').trim().toUpperCase();
+        if (firstName && lastName) {
+          if (sFirst === firstName && sLast === lastName) return true;
+          if (sFirst === lastName && sLast === firstName) return true;
+        } else if (firstName && !lastName) {
+          if (sFirst === firstName || sLast === firstName || ((sFirst + ' ' + sLast) === firstName) || ((sLast + ' ' + sFirst) === firstName)) return true;
+        } else if (!firstName && lastName) {
+          if (sFirst === lastName || sLast === lastName) return true;
+        }
+        return false;
       });
+
+      if (!match) {
+        // Only actual existing students must be updated; do not add new students
+        return;
+      }
 
       var rowInfractions = {
         lates: parseInt(row.lates, 10) || 0,
@@ -1600,92 +1596,65 @@
         unexcusedAbsence: parseInt(row.unexcusedAbsence, 10) || 0
       };
 
-      if (match) {
-        if (row.dob) match.dob = row.dob;
-        if (row.gender) match.gender = row.gender;
-        if (row.regime) match.regime = row.regime;
-        if (row.guardian1Name) match.guardian1Name = row.guardian1Name;
-        if (row.guardian1Phone) match.guardian1Phone = row.guardian1Phone;
-        if (row.guardian1Email) match.guardian1Email = row.guardian1Email;
-        if (row.medicalNotes) match.medicalNotes = row.medicalNotes;
-        if (row.sen) match.sen = true;
-        if (row.senDetails) match.senDetails = row.senDetails;
-
-        match.periods = match.periods || {};
-        match.periods[periodId] = match.periods[periodId] || { infractions: {}, startDate: startDate, endDate: endDate };
-
-        if (mode === 'add') {
-          var existInf = match.periods[periodId].infractions || {};
-          Object.keys(rowInfractions).forEach(function (k) {
-            existInf[k] = (parseInt(existInf[k], 10) || 0) + (rowInfractions[k] || 0);
-          });
-          match.periods[periodId].infractions = existInf;
-        } else {
-          // Overwrite mode
-          match.periods[periodId].infractions = rowInfractions;
-        }
-
-        match.periods[periodId].startDate = startDate;
-        match.periods[periodId].endDate = endDate;
-        match.infractions = getStudentPeriodInfractions(match, 'all');
-        match.points = calculateDisciplinePoints(match.infractions);
-        match.sanction = determineSanctionTier(match.points);
-
-        state.adminData.students = state.adminData.students || {};
-        state.adminData.students[match.uuid] = state.adminData.students[match.uuid] || {};
-        state.adminData.students[match.uuid].periods = match.periods;
-        state.adminData.students[match.uuid].infractions = match.infractions;
-      } else {
-        var newUuid = 'st-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0');
-        var initialPeriods = {};
-        initialPeriods[periodId] = {
-          infractions: rowInfractions,
-          startDate: startDate,
-          endDate: endDate
-        };
-
-        var newSt = {
-          uuid: newUuid,
-          firstName: row.firstName || '',
-          lastName: row.lastName || '',
-          dob: row.dob || '',
-          age: calculateAge(row.dob),
-          adminClass: row.adminClass || state.currentGroupId || '',
-          sen: !!row.sen,
-          senDetails: row.senDetails || '',
-          gender: row.gender || '',
-          studentNumber: row.studentNumber || '',
-          regime: row.regime || 'DP',
-          exitPermission: row.exitPermission || 'AUT',
-          guardian1Name: row.guardian1Name || '',
-          guardian1Phone: row.guardian1Phone || '',
-          guardian1Email: row.guardian1Email || '',
-          address: row.address || '',
-          emergencyContact: row.emergencyContact || '',
-          medicalNotes: row.medicalNotes || '',
-          infractions: rowInfractions,
-          periods: initialPeriods,
-          points: calculateDisciplinePoints(rowInfractions),
-          sanction: determineSanctionTier(calculateDisciplinePoints(rowInfractions)),
-          groups: state.currentGroupId !== 'all' ? [{ id: state.currentGroupId, name: state.currentGroupId }] : [],
-          notes: '',
-          customFields: {}
-        };
-        state.students.push(newSt);
-
-        state.adminData.students = state.adminData.students || {};
-        state.adminData.students[newUuid] = {
-          periods: initialPeriods,
-          infractions: rowInfractions,
-          customFields: {}
-        };
+      if (row.dob) {
+        match.dob = row.dob;
+        match.age = calculateAge(row.dob);
       }
+      if (row.gender) match.gender = row.gender;
+      if (row.regime) match.regime = row.regime;
+      if (row.exitPermission) match.exitPermission = row.exitPermission;
+      if (row.studentNumber) match.studentNumber = row.studentNumber;
+      if (row.adminClass) match.adminClass = row.adminClass;
+      if (row.guardian1Name) match.guardian1Name = row.guardian1Name;
+      if (row.guardian1Phone) match.guardian1Phone = row.guardian1Phone;
+      if (row.guardian1Email) match.guardian1Email = row.guardian1Email;
+      if (row.address) match.address = row.address;
+      if (row.emergencyContact) match.emergencyContact = row.emergencyContact;
+      if (row.medicalNotes) match.medicalNotes = row.medicalNotes;
+      if (row.sen) match.sen = true;
+      if (row.senDetails) match.senDetails = row.senDetails;
+
+      match.periods = match.periods || {};
+      match.periods[periodId] = match.periods[periodId] || { infractions: {}, startDate: startDate, endDate: endDate };
+
+      if (mode === 'add') {
+        var existInf = match.periods[periodId].infractions || {};
+        Object.keys(rowInfractions).forEach(function (k) {
+          existInf[k] = (parseInt(existInf[k], 10) || 0) + (rowInfractions[k] || 0);
+        });
+        match.periods[periodId].infractions = existInf;
+      } else {
+        // Overwrite mode
+        match.periods[periodId].infractions = rowInfractions;
+      }
+
+      match.periods[periodId].startDate = startDate;
+      match.periods[periodId].endDate = endDate;
+      match.infractions = getStudentPeriodInfractions(match, 'all');
+      match.points = calculateDisciplinePoints(match.infractions);
+      match.sanction = determineSanctionTier(match.points);
+
+      state.adminData.students = state.adminData.students || {};
+      state.adminData.students[match.uuid] = state.adminData.students[match.uuid] || {};
+      state.adminData.students[match.uuid].periods = match.periods;
+      state.adminData.students[match.uuid].infractions = match.infractions;
+      if (match.sen !== undefined) state.adminData.students[match.uuid].sen = match.sen;
+      if (match.senDetails !== undefined) state.adminData.students[match.uuid].senDetails = match.senDetails;
+      if (match.medicalNotes !== undefined) state.adminData.students[match.uuid].medicalNotes = match.medicalNotes;
+
+      updatedCount++;
     });
 
     window.closeImportConfirmModal();
     renderTable();
     autoSave();
-    if (window.showToast) window.showToast(t('agImportSuccess', 'Imported data rows successfully'));
+    if (window.showToast) {
+      if (updatedCount > 0) {
+        window.showToast(isFrench() ? (updatedCount + ' élève(s) mis à jour avec succès') : ('Updated ' + updatedCount + ' student(s) successfully'));
+      } else {
+        window.showToast(isFrench() ? 'Aucun élève correspondant trouvé dans la liste.' : 'No matching students found in roster to update.', true);
+      }
+    }
   };
 
   // ── Settings Modal & Rules Config ──

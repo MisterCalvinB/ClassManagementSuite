@@ -29,6 +29,12 @@ window.IMPORT_MODULE_CLASS_GROUPS = {
       autoMatch: ['class', 'admin class', 'classe admin', 'adminclass', 'classe', 'klasse', 'admin', 'administrative class']
     },
     {
+      key: 'gender',
+      i18nKey: 'importFieldGender',
+      required: false,
+      autoMatch: ['gender', 'sexe', 'sex', 'genre', 'geschlecht', 'sesso', 'm/f', 'f/m']
+    },
+    {
       key: 'sen',
       i18nKey: 'importFieldSen',
       required: false,

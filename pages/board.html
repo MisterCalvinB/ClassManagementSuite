@@ -21872,6 +21872,31 @@
     let conNoteNextId = 0;
     let _conNoteCtxData = null; // note data for which wn-ctx-menu is open
     let conNoteSelected = new Set(); // IDs of notes currently selected
+    let _conNoteMirrorSyncTimer = null;
+
+    function conCancelNoteMirrorUpdate() {
+      if (_conNoteMirrorSyncTimer) {
+        clearTimeout(_conNoteMirrorSyncTimer);
+        _conNoteMirrorSyncTimer = null;
+      }
+    }
+
+    function conScheduleNoteMirrorUpdate(noteData, editor) {
+      conCancelNoteMirrorUpdate();
+      _conNoteMirrorSyncTimer = setTimeout(() => {
+        _conNoteMirrorSyncTimer = null;
+        if (noteData && editor) {
+          wnSyncNoteDataFromEditor(noteData, editor);
+          conNoteAutosize(editor, noteData);
+        }
+        if (typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast();
+        }
+      }, 2000);
+    }
+    window.conScheduleNoteMirrorUpdate = conScheduleNoteMirrorUpdate;
+    window.conCancelNoteMirrorUpdate = conCancelNoteMirrorUpdate;
+
     window.conNoteClearSelection = function () {
       conNoteSelected.clear();
       document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
@@ -21976,6 +22001,7 @@
 
     function wnDeleteNoteData(nd) {
       if (!nd) return;
+      conCancelNoteMirrorUpdate();
       if (_conNoteCtxData && _conNoteCtxData.id === nd.id) _conNoteCtxData = null;
       if (nd.id && nd.id.startsWith('cn')) {
         conNotes = conNotes.filter(n => n.id !== nd.id);
@@ -21997,6 +22023,7 @@
       if (_wnCtxNoteData && _wnCtxNoteData.id === nd.id) wnCtxClose();
       const noteEl = wnGetNoteElementById(nd.id);
       if (noteEl) noteEl.remove();
+      if (typeof window._conMirrorBroadcast === 'function') window._conMirrorBroadcast();
     }
 
     function wnFocusNoteData(nd) {
@@ -23063,7 +23090,14 @@
       if (!cb.style.verticalAlign) cb.style.verticalAlign = 'middle';
       cb.addEventListener('mousedown', e => e.stopPropagation());
       cb.addEventListener('click', e => e.stopPropagation());
-      cb.addEventListener('change', () => { if (noteData && editor) wnSyncNoteDataFromEditor(noteData, editor); });
+      cb.addEventListener('change', () => {
+        if (noteData && editor) {
+          wnSyncNoteDataFromEditor(noteData, editor);
+          if (typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast();
+          }
+        }
+      });
       cb.dataset.wnCbInit = '1';
       return cb;
     }
@@ -23985,16 +24019,24 @@
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
         conNoteAutosize(ta, noteData);
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
+        conScheduleNoteMirrorUpdate(noteData, ta);
       });
       ta.addEventListener('blur', () => {
+        conCancelNoteMirrorUpdate();
         const rendered = wnRenderMathHtml(ta.innerHTML);
         if (rendered !== ta.innerHTML) ta.innerHTML = rendered;
         wnSyncNoteDataFromEditor(noteData, ta);
         conNoteAutosize(ta, noteData);
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
+        if (typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast();
+        }
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
-      ta.addEventListener('keyup', () => wnRememberSelection(ta));
+      ta.addEventListener('keyup', () => {
+        wnRememberSelection(ta);
+        conScheduleNoteMirrorUpdate(noteData, ta);
+      });
       ta.addEventListener('focus', () => wnRememberSelection(ta));
       ta.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
@@ -24056,6 +24098,7 @@
         setTimeout(() => {
           wnNormalizeChecklistLists(ta, noteData);
           conNoteAutosize(ta, noteData);
+          conScheduleNoteMirrorUpdate(noteData, ta);
         }, 0);
       });
 
@@ -25809,6 +25852,17 @@
 
     // Capture the current live board state as a plain page-snapshot object.
     function conBuildPageSnapshot() {
+      try {
+        const _ae = document.activeElement;
+        if (_ae && _ae.classList && _ae.classList.contains('wn-note-editor')) {
+          const _noteEl = _ae.closest('.con-word-note');
+          if (_noteEl && _noteEl.dataset && _noteEl.dataset.id) {
+            const _currNotes = window.conGetNotes ? window.conGetNotes() : [];
+            const _nd = _currNotes.find(n => n.id === _noteEl.dataset.id);
+            if (_nd) wnSyncNoteDataFromEditor(_nd, _ae);
+          }
+        }
+      } catch (_) { }
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
       const edges = window.conGetEdges ? window.conGetEdges() : [];
       const groups = window.conGetGroups ? window.conGetGroups() : [];

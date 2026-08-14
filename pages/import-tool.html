@@ -354,7 +354,7 @@
       var container = document.getElementById('dest-options');
       container.innerHTML = '';
       var descs = {
-        adminGroups: tt('importDestAdminGroupsDesc', 'Import students with full administrative details and assign to a group'),
+        adminGroups: tt('importDestAdminGroupsDesc', 'Import student data to feed columns of Administrative Groups'),
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
         wordbank: tt('importDestWordbankDesc', 'Add vocabulary words to a custom wordbank file'),
@@ -982,6 +982,7 @@
             if (lastName !== undefined) s.lastName = lastName;
             if (row.dob !== undefined && row.dob !== '') s.dob = row.dob;
             if (row.adminClass !== undefined) s.adminClass = (row.adminClass || '').trim().toUpperCase();
+            if (row.gender !== undefined && row.gender !== '') s.gender = (row.gender || '').trim().toUpperCase();
             if (row.sen !== undefined) s.sen = row.sen;
           }
           newGroupUuids.push(existing.uuid);
@@ -996,6 +997,7 @@
             lastName: lastName,
             dob: row.dob || '',
             adminClass: (row.adminClass || '').trim().toUpperCase(),
+            gender: (row.gender || '').trim().toUpperCase(),
             sen: row.sen === true
           };
           roster.push(newStudent);
