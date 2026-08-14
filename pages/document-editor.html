@@ -663,7 +663,7 @@
       renderPreview();
     }
 
-    function renderPreview() {
+    async function renderPreview() {
       if (!mdEditor) return;
       try {
         let raw = mdEditor.getValue();
@@ -702,7 +702,7 @@
         const container = document.getElementById('preview-content');
         container.innerHTML = html;
         _deExpandPageBreakComments(container);
-        fixPreviewImages(container);
+        await fixPreviewImages(container);
         
         // Update page break rulers in live preview pane
         requestAnimationFrame(() => {
@@ -1517,14 +1517,28 @@
       });
     }
 
-    // ── Image insert ──────────────────────────────────────────
+    // ── Image insert & paste handling ─────────────────────────
     const IMAGE_MIME_MAP = {
       jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
       gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
       bmp: 'image/bmp', avif: 'image/avif'
     };
 
+    function getImageExtFromMime(mimeType) {
+      if (!mimeType) return 'png';
+      const m = mimeType.toLowerCase();
+      if (m.includes('jpeg') || m.includes('jpg')) return 'jpg';
+      if (m.includes('png')) return 'png';
+      if (m.includes('webp')) return 'webp';
+      if (m.includes('gif')) return 'gif';
+      if (m.includes('svg')) return 'svg';
+      if (m.includes('bmp')) return 'bmp';
+      if (m.includes('avif')) return 'avif';
+      return 'png';
+    }
+
     async function fixPreviewImages(container) {
+      if (!container) return;
       if (!window.Desktop || !Desktop.isElectron()) return;
       const imgs = container.querySelectorAll('img[src]');
       await Promise.all([...imgs].map(async (img) => {
@@ -1535,18 +1549,50 @@
         const filename = relativePath.split('/').pop();
         if (!filename) return;
         try {
-          const r = await Desktop.readByPath('docEditorDocs', relativePath, { encoding: 'base64' });
+          let r = await Desktop.readByPath('docEditorDocs', relativePath, { encoding: 'base64' });
+          if ((!r || !r.ok || !r.content) && currentDocSubdir && !relativePath.startsWith(currentDocSubdir + '/')) {
+            r = await Desktop.readByPath('docEditorDocs', currentDocSubdir + '/' + relativePath, { encoding: 'base64' });
+          }
           if (r && r.content) {
-            const ext = filename.split('.').pop().toLowerCase();
-            img.src = 'data:' + (IMAGE_MIME_MAP[ext] || 'image/jpeg') + ';base64,' + r.content;
+            const ext = (filename.split('.').pop() || 'png').toLowerCase();
+            img.src = 'data:' + (IMAGE_MIME_MAP[ext] || 'image/png') + ';base64,' + r.content;
           }
         } catch (e) { }
       }));
     }
 
+    async function deInlineAllImages(containerOrHtml) {
+      if (!containerOrHtml) return containerOrHtml;
+      let div;
+      let isHtmlString = false;
+      if (typeof containerOrHtml === 'string') {
+        div = document.createElement('div');
+        div.innerHTML = containerOrHtml;
+        isHtmlString = true;
+      } else {
+        div = containerOrHtml;
+      }
+      await fixPreviewImages(div);
+      return isHtmlString ? div.innerHTML : div;
+    }
+
     async function embedImageFile(file) {
-      if (!file || !file.type.startsWith('image/')) return;
-      const name = (file.name.replace(/\s+/g, '_').replace(/[^\w.\-]/g, '')) || 'image';
+      if (!file || !(file.type && file.type.startsWith('image/')) && !file.name) return;
+      const mimeExt = getImageExtFromMime(file.type);
+      
+      let rawName = (file.name || '').trim();
+      const isGenericName = !rawName || rawName === 'image.png' || rawName === 'image.jpg' ||
+        rawName === 'image.jpeg' || rawName === 'blob' || rawName === 'image' || !rawName.includes('.');
+
+      let name;
+      if (isGenericName) {
+        const now = new Date();
+        const stamp = now.toISOString().slice(0, 10).replace(/-/g, '') + '_' + Date.now().toString().slice(-6);
+        name = `pasted_image_${stamp}.${mimeExt}`;
+      } else {
+        name = rawName.replace(/\s+/g, '_').replace(/[^\w.\-]/g, '');
+        if (!name.includes('.')) name += `.${mimeExt}`;
+      }
 
       if (window.Desktop && Desktop.isElectron()) {
         try {
@@ -1554,20 +1600,24 @@
           if (r && r.ok) {
             const filename = (r.file && r.file.filename) ? r.file.filename : name;
             const imgPath = currentDocSubdir ? currentDocSubdir + '/' + filename : filename;
-            insertTextAtCursor('\n![' + name + '](' + imgPath + ')\n');
-            showToast('Image saved: ' + name);
+            const altText = filename.replace(/\.[^.]+$/, '');
+            insertTextAtCursor('\n![' + altText + '](' + imgPath + ')\n');
+            scheduleRender();
+            showToast((t('deImageSaved') || 'Image saved: ') + name);
           } else {
-            showToast('Image save failed: ' + (r && r.error ? r.error : 'unknown'), true);
+            showToast((t('deImageSaveFailed') || 'Image save failed: ') + (r && r.error ? r.error : 'unknown'), true);
           }
         } catch (e) {
-          showToast('Image error: ' + e.message, true);
+          showToast((t('deImageError') || 'Image error: ') + e.message, true);
         }
       } else {
-        // Non-Electron fallback: embed as base64
+        // Non-Electron fallback: embed as base64 data URL
         const reader = new FileReader();
         reader.onload = function (ev) {
-          insertTextAtCursor('\n![' + name + '](' + ev.target.result + ')\n');
-          showToast('Image embedded');
+          const altText = name.replace(/\.[^.]+$/, '') || 'image';
+          insertTextAtCursor('\n![' + altText + '](' + ev.target.result + ')\n');
+          scheduleRender();
+          showToast(t('deImageEmbedded') || 'Image embedded');
         };
         reader.readAsDataURL(file);
       }
@@ -1600,9 +1650,28 @@
         overlay.classList.remove('active');
         const files = e.dataTransfer && e.dataTransfer.files;
         if (!files || !files.length) return;
-        const imgFile = Array.from(files).find(f => f.type.startsWith('image/'));
+        const imgFile = Array.from(files).find(f => f.type && f.type.startsWith('image/'));
         if (imgFile) { e.preventDefault(); embedImageFile(imgFile); }
       });
+    }
+
+    function initImagePaste() {
+      window.addEventListener('paste', function (e) {
+        const cd = e.clipboardData || window.clipboardData;
+        if (!cd) return;
+
+        const items = Array.from(cd.items || []);
+        const files = Array.from(cd.files || []);
+
+        const imgItem = items.find(it => it.kind === 'file' && it.type && it.type.startsWith('image/'));
+        const imgFile = imgItem ? imgItem.getAsFile() : files.find(f => f.type && f.type.startsWith('image/'));
+
+        if (imgFile) {
+          e.preventDefault();
+          e.stopPropagation();
+          embedImageFile(imgFile);
+        }
+      }, true);
     }
 
     // ── Monaco init ──────────────────────────────────────────
@@ -3018,6 +3087,7 @@
       const _previewClone = document.getElementById('preview-content').cloneNode(true);
       _previewClone.querySelectorAll('.de-preview-footer').forEach(el => el.remove());
       _previewClone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+      await fixPreviewImages(_previewClone);
       const previewContent = _previewClone.innerHTML;
       const m = pageLayout.margins;
       const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
@@ -3157,26 +3227,60 @@
     }
 
     async function collectDocxImages(markdown) {
-      if (!window.Desktop || !Desktop.isElectron()) return {};
+      if (!window.Desktop || !Desktop.isElectron() || !markdown) return {};
       const map = {};
-      const re = /!\[[^\]]*\]\(([^)\s"']+)/g;
+      const mdRegex = /!\[[^\]]*\]\(([^)\s"']+)/g;
+      const htmlRegex = /<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi;
+      const sources = new Set();
       let m;
-      while ((m = re.exec(markdown)) !== null) {
-        const src = m[1];
-        if (!src || src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) continue;
+      while ((m = mdRegex.exec(markdown)) !== null) {
+        if (m[1]) sources.add(m[1]);
+      }
+      while ((m = htmlRegex.exec(markdown)) !== null) {
+        if (m[1]) sources.add(m[1]);
+      }
+
+      for (const src of sources) {
+        if (!src || src.startsWith('http://') || src.startsWith('https://')) continue;
         if (map[src]) continue;
         try {
-          const ext = src.split('.').pop().toLowerCase();
-          const mime = IMAGE_MIME_MAP[ext] || 'image/png';
-          const r = await Desktop.readByPath('docEditorDocs', src, { encoding: 'base64' });
-          if (!r || !r.content) continue;
-          const dims = await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-            img.onerror = () => resolve({ width: 600, height: 400 });
-            img.src = 'data:' + mime + ';base64,' + r.content;
-          });
-          map[src] = { data: r.content, width: dims.width, height: dims.height };
+          let base64Data = '';
+          let mime = 'image/png';
+
+          if (src.startsWith('data:')) {
+            const match = src.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              mime = match[1];
+              base64Data = match[2];
+            } else {
+              const comma = src.indexOf(',');
+              if (comma !== -1) base64Data = src.slice(comma + 1);
+            }
+          } else {
+            const relativePath = decodeURIComponent(src.replace(/\?.*$/, ''));
+            const filename = relativePath.split('/').pop() || '';
+            const ext = (filename.split('.').pop() || 'png').toLowerCase();
+            mime = IMAGE_MIME_MAP[ext] || 'image/png';
+
+            let r = await Desktop.readByPath('docEditorDocs', relativePath, { encoding: 'base64' });
+            if ((!r || !r.ok || !r.content) && currentDocSubdir && !relativePath.startsWith(currentDocSubdir + '/')) {
+              r = await Desktop.readByPath('docEditorDocs', currentDocSubdir + '/' + relativePath, { encoding: 'base64' });
+            }
+            if (r && r.content) {
+              base64Data = r.content;
+            }
+          }
+
+          if (base64Data) {
+            const dataUrl = 'data:' + mime + ';base64,' + base64Data;
+            const dims = await new Promise(resolve => {
+              const img = new Image();
+              img.onload = () => resolve({ width: img.naturalWidth || 600, height: img.naturalHeight || 400 });
+              img.onerror = () => resolve({ width: 600, height: 400 });
+              img.src = dataUrl;
+            });
+            map[src] = { data: base64Data, width: dims.width, height: dims.height };
+          }
         } catch (e) { }
       }
       return map;
@@ -5577,6 +5681,7 @@
             classMeta,
             currentDocType === 'html' ? null : marked.parse
           );
+          const inlinedCombinedHtml = await deInlineAllImages(combinedHtmlBody);
 
           const lexendFontsCss = await getEmbeddedLexendFontsCss();
           const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
@@ -5597,7 +5702,7 @@
             '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
             lexendFontsCss + '\n' +
             defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
-            combinedHtmlBody + '\n</div>\n</body>\n</html>';
+            inlinedCombinedHtml + '\n</div>\n</body>\n</html>';
 
           const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.pdf`;
           const pdfSize = pageLayout.orientation === 'landscape'
@@ -5654,12 +5759,14 @@
             })
           ).join('\n\n---\n\n');
 
+          const images = await collectDocxImages(combinedMarkdown);
           const result = await Desktop.exportDocx({
             markdown: combinedMarkdown,
             defaultName: `${classNameClean}_${docNameClean}_BatchCombined`,
             margins: pageLayout.margins,
             size: pageLayout.size,
-            orientation: pageLayout.orientation
+            orientation: pageLayout.orientation,
+            images
           });
 
           if (result && result.ok) {
@@ -5700,11 +5807,12 @@
               customCss;
 
             for (const d of docs) {
+              const inlinedDocContent = await deInlineAllImages(d.processedContent);
               const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
                 '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
                 lexendFontsCss + '\n' +
                 defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
-                d.processedContent + '\n</div>\n</body>\n</html>';
+                inlinedDocContent + '\n</div>\n</body>\n</html>';
 
               const res = await Desktop.printPdf({
                 html,
@@ -5717,12 +5825,14 @@
           } else if (format === 'docx') {
             let successCount = 0;
             for (const d of docs) {
+              const images = await collectDocxImages(d.rawRenderedText);
               const res = await Desktop.exportDocx({
                 markdown: d.rawRenderedText,
                 defaultName: d.filename,
                 margins: pageLayout.margins,
                 size: pageLayout.size,
-                orientation: pageLayout.orientation
+                orientation: pageLayout.orientation,
+                images
               });
               if (res && res.ok) successCount++;
             }
@@ -5930,6 +6040,7 @@
 
       initTablePicker();
       initImageDrop();
+      initImagePaste();
       deBookPopulateDropdown();
 
       if (typeof mpInit === 'function') {
