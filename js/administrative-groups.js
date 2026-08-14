@@ -58,15 +58,69 @@
 
   function initDefaults() {
     var defs = window.ADMIN_GROUPS_CONFIG || window.ADMIN_GROUPS_DEFAULTS || {};
+    var rawCols = Array.isArray(defs.columns) ? JSON.parse(JSON.stringify(defs.columns)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.columns) || []);
+
+    // Expand legacy single 'infractions' column if present
+    var expandedCols = [];
+    rawCols.forEach(function (col) {
+      if (col.type === 'infractions' || col.key === 'infractions') {
+        var infs = Array.isArray(defs.infractions) && defs.infractions.length ? defs.infractions : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.infractions) || []);
+        infs.forEach(function (inf) {
+          expandedCols.push({
+            key: inf.key,
+            name: inf.name,
+            nameFr: inf.nameFr || inf.name,
+            visible: col.visible !== false,
+            locked: false,
+            tab: col.tab || 'discipline',
+            type: 'infraction',
+            weight: inf.weight != null ? inf.weight : 1,
+            icon: inf.icon || 'note'
+          });
+        });
+      } else {
+        expandedCols.push(col);
+      }
+    });
+
     state.config = {
       acronyms: Array.isArray(defs.acronyms) ? JSON.parse(JSON.stringify(defs.acronyms)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.acronyms) || []),
       infractions: Array.isArray(defs.infractions) ? JSON.parse(JSON.stringify(defs.infractions)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.infractions) || []),
       sanctionTiers: Array.isArray(defs.sanctionTiers) ? JSON.parse(JSON.stringify(defs.sanctionTiers)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.sanctionTiers) || []),
       actionTypes: Array.isArray(defs.actionTypes) ? JSON.parse(JSON.stringify(defs.actionTypes)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.actionTypes) || []),
       tabs: Array.isArray(defs.tabs) ? JSON.parse(JSON.stringify(defs.tabs)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.tabs) || []),
-      columns: Array.isArray(defs.columns) ? JSON.parse(JSON.stringify(defs.columns)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.columns) || []),
+      columns: expandedCols,
       periods: Array.isArray(defs.periods) ? JSON.parse(JSON.stringify(defs.periods)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.periods) || [])
     };
+
+    syncInfractionsFromColumns(state.config);
+  }
+
+  function syncInfractionsFromColumns(cfg) {
+    if (!cfg || !Array.isArray(cfg.columns)) return;
+    var infCols = cfg.columns.filter(function (c) { return c.type === 'infraction'; });
+    if (infCols.length > 0) {
+      cfg.infractions = infCols.map(function (c) {
+        return {
+          key: c.key,
+          name: c.name,
+          nameFr: c.nameFr || c.name,
+          description: c.description || c.desc || '',
+          descriptionFr: c.descriptionFr || c.descFr || '',
+          weight: c.weight != null ? parseFloat(c.weight) : 1,
+          icon: c.icon || 'note'
+        };
+      });
+    }
+  }
+
+  function getInfractionsList() {
+    var cols = (state.config && state.config.columns) || [];
+    var infCols = cols.filter(function (c) { return c.type === 'infraction'; });
+    if (infCols.length > 0) {
+      return infCols;
+    }
+    return (state.config && state.config.infractions) || [];
   }
 
   async function loadAllData() {
@@ -226,9 +280,10 @@
   function calculateDisciplinePoints(infractions) {
     if (!infractions) return 0;
     var total = 0;
-    (state.config.infractions || []).forEach(function (inf) {
+    var infList = getInfractionsList();
+    infList.forEach(function (inf) {
       var count = parseInt(infractions[inf.key] || 0, 10);
-      var weight = parseFloat(inf.weight || 1);
+      var weight = parseFloat(inf.weight != null ? inf.weight : 1);
       total += count * weight;
     });
     return total;
@@ -456,17 +511,25 @@
 
     visibleCols.forEach(function (col) {
       var colTitle = isFr ? (col.nameFr || col.name) : col.name;
+      var colDesc = isFr ? (col.descriptionFr || col.descFr || col.description || col.desc || colTitle) : (col.description || col.desc || colTitle);
+      var titleAttr = colDesc ? ' title="' + escapeHtml(colDesc) + '"' : '';
+
       if (col.type === 'student' || col.key === 'student') {
-        html += '<th class="col-sticky-name">' + escapeHtml(colTitle) + '</th>';
+        html += '<th class="col-sticky-name"' + titleAttr + '>' + escapeHtml(colTitle) + '</th>';
+        totalColCount++;
+      } else if (col.type === 'infraction') {
+        html += '<th style="text-align:center;"' + titleAttr + '>' + svgIcon(col.icon || 'note') + ' ' + escapeHtml(colTitle) + '</th>';
         totalColCount++;
       } else if (col.type === 'infractions' || col.key === 'infractions') {
         (state.config.infractions || []).forEach(function (inf) {
           var infLabel = isFr ? (inf.nameFr || inf.name) : inf.name;
-          html += '<th style="text-align:center;">' + svgIcon(inf.icon || 'note') + ' ' + escapeHtml(infLabel) + '</th>';
+          var infDesc = isFr ? (inf.descriptionFr || inf.descFr || inf.description || inf.desc || infLabel) : (inf.description || inf.desc || infLabel);
+          var infTitleAttr = infDesc ? ' title="' + escapeHtml(infDesc) + '"' : '';
+          html += '<th style="text-align:center;"' + infTitleAttr + '>' + svgIcon(inf.icon || 'note') + ' ' + escapeHtml(infLabel) + '</th>';
           totalColCount++;
         });
       } else {
-        html += '<th>' + escapeHtml(colTitle) + '</th>';
+        html += '<th' + titleAttr + '>' + escapeHtml(colTitle) + '</th>';
         totalColCount++;
       }
     });
@@ -490,6 +553,15 @@
 
           if (type === 'student' || key === 'student') {
             html += '<td class="col-sticky-name" onclick="window.openStudentProfileModal(\'' + s.uuid + '\')"><span style="color:#0284c7; cursor:pointer; font-weight:800;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span></td>';
+          } else if (type === 'infraction') {
+            var val = pInfractions[key] || 0;
+            html += '<td style="text-align:center;">';
+            html += '<div class="ag-counter-cell">';
+            html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', -1)">-</button>';
+            html += '<span class="ag-counter-val">' + val + '</span>';
+            html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', 1)">+</button>';
+            html += '</div>';
+            html += '</td>';
           } else if (type === 'infractions' || key === 'infractions') {
             (state.config.infractions || []).forEach(function (inf) {
               var val = pInfractions[inf.key] || 0;
@@ -646,6 +718,7 @@
   }
 
   window.openQuickActionMenu = function (uuid) {
+    uuid = uuid || state.selectedStudentId;
     state.selectedStudentId = uuid;
     var s = state.students.find(function (st) { return st.uuid === uuid; });
     var modal = document.getElementById('agNewActionModal');
@@ -1152,11 +1225,11 @@
   };
 
   // ── Settings Modal & Rules Config ──
-  var activeSettingsTab = 'infractions';
+  var activeSettingsTab = 'tabs';
 
   window.openSettingsModal = function () {
     state.tempConfig = JSON.parse(JSON.stringify(state.config));
-    window.switchSettingsTab(activeSettingsTab || 'infractions');
+    window.switchSettingsTab(activeSettingsTab || 'tabs');
     var modal = document.getElementById('agSettingsModal');
     if (modal) modal.classList.add('active');
   };
@@ -1167,42 +1240,41 @@
   };
 
   window.switchSettingsTab = function (tab) {
-    activeSettingsTab = tab;
-    document.querySelectorAll('[data-cfg-tab]').forEach(function (btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-cfg-tab') === tab);
+    activeSettingsTab = tab || 'tabs';
+    var tabBtns = {
+      tabs: document.getElementById('tabBtnCfgTabs'),
+      columns: document.getElementById('tabBtnCfgColumns'),
+      sanctions: document.getElementById('tabBtnCfgSanctions'),
+      periods: document.getElementById('tabBtnCfgPeriods')
+    };
+    Object.keys(tabBtns).forEach(function (k) {
+      if (tabBtns[k]) tabBtns[k].classList.toggle('active', k === activeSettingsTab);
     });
+
     document.querySelectorAll('.cfg-tab-pane').forEach(function (pane) {
       pane.style.display = 'none';
     });
 
-    if (tab === 'infractions') {
-      var p = document.getElementById('cfgTabContentInfractions');
-      if (p) p.style.display = 'block';
-      renderSettingsInfractions();
-    } else if (tab === 'sanctions') {
-      var p = document.getElementById('cfgTabContentSanctions');
-      if (p) p.style.display = 'block';
-      renderSettingsSanctions();
-    } else if (tab === 'acronyms') {
-      var p = document.getElementById('cfgTabContentAcronyms');
-      if (p) p.style.display = 'block';
-      renderSettingsAcronyms();
-    } else if (tab === 'tabs') {
+    if (activeSettingsTab === 'tabs') {
       var p = document.getElementById('cfgTabContentTabs');
       if (p) p.style.display = 'block';
       renderSettingsTabs();
-    } else if (tab === 'columns') {
+    } else if (activeSettingsTab === 'columns') {
       var p = document.getElementById('cfgTabContentColumns');
       if (p) p.style.display = 'block';
       renderSettingsColumns();
-    } else if (tab === 'periods') {
+    } else if (activeSettingsTab === 'sanctions') {
+      var p = document.getElementById('cfgTabContentSanctions');
+      if (p) p.style.display = 'block';
+      renderSettingsSanctions();
+    } else if (activeSettingsTab === 'periods') {
       var p = document.getElementById('cfgTabContentPeriods');
       if (p) p.style.display = 'block';
       renderSettingsPeriods();
     }
   };
 
-  // ── Tab 4: View Tabs Manager ──
+  // ── Tab 1: View Tabs Manager ──
   function renderSettingsTabs() {
     var tbody = document.getElementById('cfgTabsBody');
     if (!tbody) return;
@@ -1246,7 +1318,7 @@
     }
   };
 
-  // ── Tab 5: Spreadsheet Columns Manager ──
+  // ── Tab 2: Spreadsheet Columns & Infractions Manager ──
   function renderSettingsColumns() {
     var tbody = document.getElementById('cfgColumnsBody');
     if (!tbody) return;
@@ -1258,12 +1330,16 @@
     list.forEach(function (col, idx) {
       var currentTab = col.tab || 'all';
       var currentType = col.type || 'text';
+      var isInfraction = currentType === 'infraction';
+      var currentIcon = col.icon || (isInfraction ? 'note' : (currentType === 'sen' ? 'award' : 'table'));
 
       html += '<tr>';
       html += '<td style="text-align:center;"><input type="checkbox" style="width:18px; height:18px; cursor:pointer;" ' + (col.visible !== false ? 'checked' : '') + ' onchange="window.toggleTempColumn(' + idx + ', this.checked)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:800;" value="' + escapeHtml(col.key || '') + '" onchange="window.updateTempColumn(' + idx + ', \'key\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:55px; text-align:center;" value="' + escapeHtml(currentIcon) + '" placeholder="icon" onchange="window.updateTempColumn(' + idx + ', \'icon\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100px; font-weight:800;" value="' + escapeHtml(col.key || '') + '" onchange="window.updateTempColumn(' + idx + ', \'key\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.name || '') + '" onchange="window.updateTempColumn(' + idx + ', \'name\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.nameFr || '') + '" onchange="window.updateTempColumn(' + idx + ', \'nameFr\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-size:0.8rem;" placeholder="Tooltip explanation on hover..." value="' + escapeHtml(col.description || col.desc || (isFr ? (col.descriptionFr || col.descFr) : '') || '') + '" onchange="window.updateTempColumn(' + idx + ', \'description\', this.value)"></td>';
 
       // Tab selector
       html += '<td><select class="ag-select" style="width:100%; font-weight:700;" onchange="window.updateTempColumn(' + idx + ', \'tab\', this.value)">';
@@ -1275,23 +1351,52 @@
       html += '</select></td>';
 
       // Column Type selector
-      html += '<td><select class="ag-select" style="width:100%; font-weight:700;" onchange="window.updateTempColumn(' + idx + ', \'type\', this.value)">' +
+      html += '<td><select class="ag-select" style="width:100%; font-weight:700;" onchange="window.onColumnTypeChange(' + idx + ', this.value)">' +
         '<option value="text"' + (currentType === 'text' ? ' selected' : '') + '>Text / Editable</option>' +
         '<option value="readonly"' + (currentType === 'readonly' ? ' selected' : '') + '>Read-only</option>' +
         '<option value="student"' + (currentType === 'student' ? ' selected' : '') + '>Student Name</option>' +
-        '<option value="sen"' + (currentType === 'sen' ? ' selected' : '') + '>Accommodations (SEN)</option>' +
-        '<option value="infractions"' + (currentType === 'infractions' ? ' selected' : '') + '>Infraction Counters</option>' +
+        '<option value="sen"' + (currentType === 'sen' ? ' selected' : '') + '>Accommodations (SEN / PAP)</option>' +
+        '<option value="infraction"' + (currentType === 'infraction' ? ' selected' : '') + '>Infraction Counter</option>' +
         '<option value="points"' + (currentType === 'points' ? ' selected' : '') + '>Discipline Points</option>' +
         '<option value="sanction"' + (currentType === 'sanction' ? ' selected' : '') + '>Sanction Badge</option>' +
         '<option value="actionsHistory"' + (currentType === 'actionsHistory' ? ' selected' : '') + '>Follow-up Log</option>' +
         '<option value="manage"' + (currentType === 'manage' ? ' selected' : '') + '>Log Action Button</option>' +
         '</select></td>';
 
+      // Points weight (for infraction columns)
+      if (isInfraction) {
+        html += '<td style="text-align:center;"><input type="number" class="ag-input" style="width:65px; text-align:center;" min="0" max="50" step="0.5" value="' + (col.weight != null ? col.weight : 1) + '" onchange="window.updateTempColumn(' + idx + ', \'weight\', parseFloat(this.value)||1)"></td>';
+      } else {
+        html += '<td style="text-align:center; color:#94a3b8; font-weight:bold;">—</td>';
+      }
+
       html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingColumn(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
       html += '</tr>';
     });
     tbody.innerHTML = html;
   }
+
+  window.onColumnTypeChange = function (idx, newType) {
+    if (state.tempConfig && state.tempConfig.columns && state.tempConfig.columns[idx]) {
+      state.tempConfig.columns[idx].type = newType;
+      if (newType === 'infraction') {
+        if (state.tempConfig.columns[idx].weight == null) {
+          state.tempConfig.columns[idx].weight = 1;
+        }
+        if (!state.tempConfig.columns[idx].icon || state.tempConfig.columns[idx].icon === 'table') {
+          state.tempConfig.columns[idx].icon = 'note';
+        }
+      } else if (newType === 'sen') {
+        if (!state.tempConfig.columns[idx].icon || state.tempConfig.columns[idx].icon === 'table') {
+          state.tempConfig.columns[idx].icon = 'award';
+        }
+        if (state.tempConfig.columns[idx].tab === 'all') {
+          state.tempConfig.columns[idx].tab = 'accommodations';
+        }
+      }
+      renderSettingsColumns();
+    }
+  };
 
   window.toggleTempColumn = function (idx, isChecked) {
     if (state.tempConfig && state.tempConfig.columns && state.tempConfig.columns[idx]) {
@@ -1313,8 +1418,50 @@
       key: id,
       name: 'New Column',
       nameFr: 'Nouvelle colonne',
+      description: 'Custom column description',
+      descriptionFr: 'Description de la colonne personnalisée',
       tab: 'all',
       type: 'text',
+      icon: 'table',
+      visible: true
+    });
+    renderSettingsColumns();
+  };
+
+  window.addSettingInfractionColumn = function () {
+    state.tempConfig = state.tempConfig || {};
+    state.tempConfig.columns = state.tempConfig.columns || [];
+    var count = state.tempConfig.columns.filter(function (c) { return c.type === 'infraction'; }).length + 1;
+    var id = 'infraction_' + count;
+    state.tempConfig.columns.push({
+      key: id,
+      name: 'New Infraction ' + count,
+      nameFr: 'Nouvelle infraction ' + count,
+      description: 'Infraction counter (1 point)',
+      descriptionFr: 'Compteur d\'infraction (1 point)',
+      tab: 'discipline',
+      type: 'infraction',
+      weight: 1,
+      icon: 'note',
+      visible: true
+    });
+    renderSettingsColumns();
+  };
+
+  window.addSettingAccommodationColumn = function () {
+    state.tempConfig = state.tempConfig || {};
+    state.tempConfig.columns = state.tempConfig.columns || [];
+    var count = state.tempConfig.columns.filter(function (c) { return c.type === 'sen' || c.tab === 'accommodations'; }).length + 1;
+    var id = 'sen_' + count;
+    state.tempConfig.columns.push({
+      key: id,
+      name: 'Accommodation Plan ' + count,
+      nameFr: 'Aménagement Plan ' + count,
+      description: 'Special Educational Needs / Accommodation notes',
+      descriptionFr: 'Notes d\'aménagements pédagogiques (PAP/PAI/PPRE)',
+      tab: 'accommodations',
+      type: 'sen',
+      icon: 'award',
       visible: true
     });
     renderSettingsColumns();
@@ -1334,6 +1481,91 @@
       });
       renderSettingsColumns();
     }
+  };
+
+  // ── Tab 6: Periods & Terms Manager ──
+  function renderSettingsPeriods() {
+    var tbody = document.getElementById('cfgPeriodsBody');
+    if (!tbody) return;
+    var list = (state.tempConfig && state.tempConfig.periods) || [];
+    var html = '';
+    list.forEach(function (p, idx) {
+      html += '<tr>';
+      html += '<td><input type="text" class="ag-input" style="width:90px; font-weight:800;" value="' + escapeHtml(p.id || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'id\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.name || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'name\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.nameFr || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'nameFr\', this.value)"></td>';
+      html += '<td><input type="date" class="ag-input" style="width:130px; text-align:center;" value="' + escapeHtml(p.startDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'startDate\', this.value)"></td>';
+      html += '<td><input type="date" class="ag-input" style="width:130px; text-align:center;" value="' + escapeHtml(p.endDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'endDate\', this.value)"></td>';
+      html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingPeriod(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
+      html += '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  window.updateTempPeriod = function (idx, field, val) {
+    if (state.tempConfig && state.tempConfig.periods && state.tempConfig.periods[idx]) {
+      state.tempConfig.periods[idx][field] = val;
+    }
+  };
+
+  window.addSettingPeriod = function () {
+    state.tempConfig = state.tempConfig || {};
+    state.tempConfig.periods = state.tempConfig.periods || [];
+    var num = state.tempConfig.periods.length + 1;
+    var now = new Date();
+    var y1 = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    var y2 = y1 + 1;
+    state.tempConfig.periods.push({
+      id: 'p' + num,
+      name: 'Period ' + num,
+      nameFr: 'Période ' + num,
+      startDate: y1 + '-09-01',
+      endDate: y2 + '-06-30'
+    });
+    renderSettingsPeriods();
+  };
+
+  window.removeSettingPeriod = function (idx) {
+    if (state.tempConfig && state.tempConfig.periods) {
+      state.tempConfig.periods.splice(idx, 1);
+      renderSettingsPeriods();
+    }
+  };
+
+  window.generatePeriodsPreset = function (type, customCount) {
+    state.tempConfig = state.tempConfig || {};
+    var now = new Date();
+    var y1 = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    var y2 = y1 + 1;
+
+    if (type === 'trimesters') {
+      state.tempConfig.periods = [
+        { id: 't1', name: 'Trimestre 1 (T1)', nameFr: 'Trimestre 1 (T1)', startDate: y1 + '-09-01', endDate: y1 + '-11-30' },
+        { id: 't2', name: 'Trimestre 2 (T2)', nameFr: 'Trimestre 2 (T2)', startDate: y1 + '-12-01', endDate: y2 + '-02-28' },
+        { id: 't3', name: 'Trimestre 3 (T3)', nameFr: 'Trimestre 3 (T3)', startDate: y2 + '-03-01', endDate: y2 + '-06-30' }
+      ];
+    } else if (type === 'semesters') {
+      state.tempConfig.periods = [
+        { id: 's1', name: 'Semester 1 (S1)', nameFr: 'Semestre 1 (S1)', startDate: y1 + '-09-01', endDate: y2 + '-01-31' },
+        { id: 's2', name: 'Semester 2 (S2)', nameFr: 'Semestre 2 (S2)', startDate: y2 + '-02-01', endDate: y2 + '-06-30' }
+      ];
+    } else if (type === 'custom') {
+      var cnt = parseInt(customCount, 10);
+      if (isNaN(cnt) || cnt < 1) cnt = 4;
+      if (cnt > 20) cnt = 20;
+      var generated = [];
+      for (var i = 1; i <= cnt; i++) {
+        generated.push({
+          id: 'p' + i,
+          name: 'Period ' + i + ' (P' + i + ')',
+          nameFr: 'Période ' + i + ' (P' + i + ')',
+          startDate: '',
+          endDate: ''
+        });
+      }
+      state.tempConfig.periods = generated;
+    }
+    renderSettingsPeriods();
   };
 
   window.updateStudentCustomField = function (uuid, key, val) {
@@ -1576,58 +1808,11 @@
     }
   };
 
-  function renderSettingsAcronyms() {
-    var tbody = document.getElementById('cfgAcronymsBody');
-    if (!tbody) return;
-    var list = (state.tempConfig && state.tempConfig.acronyms) || [];
-    var html = '';
-    list.forEach(function (ac, idx) {
-      html += '<tr>';
-      html += '<td><input type="text" class="ag-input" style="width:90px; font-weight:800;" value="' + escapeHtml(ac.code || '') + '" onchange="window.updateTempAcronym(' + idx + ', \'code\', this.value.toUpperCase())"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%;" value="' + escapeHtml(ac.label || '') + '" onchange="window.updateTempAcronym(' + idx + ', \'label\', this.value)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%;" value="' + escapeHtml(ac.labelFr || '') + '" onchange="window.updateTempAcronym(' + idx + ', \'labelFr\', this.value)"></td>';
-      html += '<td><select class="ag-select" style="width:100%;" onchange="window.updateTempAcronym(' + idx + ', \'category\', this.value)">' +
-        '<option value="pedagogy"' + (ac.category==='pedagogy'?' selected':'') + '>Pedagogy (SEN)</option>' +
-        '<option value="medical"' + (ac.category==='medical'?' selected':'') + '>Medical (PAI)</option>' +
-        '<option value="regime"' + (ac.category==='regime'?' selected':'') + '>Regimen (DP/EXT)</option>' +
-        '<option value="exit"' + (ac.category==='exit'?' selected':'') + '>Exit (AUT/ACC)</option>' +
-        '<option value="discipline"' + (ac.category==='discipline'?' selected':'') + '>Discipline</option>' +
-        '<option value="admin"' + (ac.category==='admin'?' selected':'') + '>Admin</option>' +
-        '</select></td>';
-      html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingAcronym(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
-      html += '</tr>';
-    });
-    tbody.innerHTML = html;
-  }
 
-  window.updateTempAcronym = function (idx, field, val) {
-    if (state.tempConfig && state.tempConfig.acronyms && state.tempConfig.acronyms[idx]) {
-      state.tempConfig.acronyms[idx][field] = val;
-    }
-  };
-
-  window.addSettingAcronym = function () {
-    state.tempConfig = state.tempConfig || {};
-    state.tempConfig.acronyms = state.tempConfig.acronyms || [];
-    state.tempConfig.acronyms.push({
-      code: 'NEW',
-      label: 'New Educational Plan',
-      labelFr: 'Nouvel aménagement',
-      category: 'pedagogy',
-      aliases: []
-    });
-    renderSettingsAcronyms();
-  };
-
-  window.removeSettingAcronym = function (idx) {
-    if (state.tempConfig && state.tempConfig.acronyms) {
-      state.tempConfig.acronyms.splice(idx, 1);
-      renderSettingsAcronyms();
-    }
-  };
 
   window.saveSettings = async function () {
     if (state.tempConfig) {
+      syncInfractionsFromColumns(state.tempConfig);
       state.config = JSON.parse(JSON.stringify(state.tempConfig));
       window.ADMIN_GROUPS_CONFIG = JSON.parse(JSON.stringify(state.tempConfig));
     }

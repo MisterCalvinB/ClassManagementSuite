@@ -102,22 +102,27 @@
   ];
 
   var DEFAULT_COLUMNS = [
-    { key: 'student', name: 'Student Name', nameFr: 'Nom de l\'élève', visible: true, locked: false, tab: 'all', type: 'student' },
-    { key: 'adminClass', name: 'Class / Group', nameFr: 'Classe / Groupe', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'dob', name: 'Date of Birth (DOB)', nameFr: 'Date de naissance', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'age', name: 'Age', nameFr: 'Âge', visible: true, locked: false, tab: 'demographics', type: 'readonly' },
-    { key: 'gender', name: 'Gender', nameFr: 'Sexe', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'regime', name: 'Regimen (DP/EXT/INT)', nameFr: 'Régime (DP/EXT/INT)', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'guardian1Name', name: 'Guardian 1 Name', nameFr: 'Nom Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'guardian1Phone', name: 'Guardian 1 Phone', nameFr: 'Téléphone Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'guardian1Email', name: 'Guardian 1 Email', nameFr: 'Courriel Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
-    { key: 'sen', name: 'Accommodations (SEN / PAP)', nameFr: 'Aménagements (PAP/PAI)', visible: true, locked: false, tab: 'accommodations', type: 'sen' },
-    { key: 'medicalNotes', name: 'Medical Notes / Protocol', nameFr: 'Remarques médicales / PAI', visible: true, locked: false, tab: 'accommodations', type: 'text' },
-    { key: 'infractions', name: 'Infraction Counters', nameFr: 'Compteurs d\'infractions', visible: true, locked: false, tab: 'discipline', type: 'infractions' },
-    { key: 'points', name: 'Total Discipline Points', nameFr: 'Points de discipline', visible: true, locked: false, tab: 'discipline', type: 'points' },
-    { key: 'sanction', name: 'Recommended Sanction', nameFr: 'Sanction recommandée', visible: true, locked: false, tab: 'discipline', type: 'sanction' },
-    { key: 'actionsHistory', name: 'Follow-up Log Count', nameFr: 'Journal des entretiens', visible: true, locked: false, tab: 'discipline', type: 'actionsHistory' },
-    { key: 'manage', name: 'Quick Action Button', nameFr: 'Bouton d\'action rapide', visible: true, locked: false, tab: 'discipline', type: 'manage' }
+    { key: 'student', name: 'Student Name', nameFr: 'Nom de l\'élève', description: 'Full student name - Click to open student profile', descriptionFr: 'Nom complet de l\'élève - Cliquez pour ouvrir la fiche', visible: true, locked: false, tab: 'all', type: 'student' },
+    { key: 'adminClass', name: 'Class / Group', nameFr: 'Classe / Groupe', description: 'Administrative class group or division', descriptionFr: 'Classe administrative ou division', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'dob', name: 'Date of Birth (DOB)', nameFr: 'Date de naissance', description: 'Date of birth (YYYY-MM-DD)', descriptionFr: 'Date de naissance', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'age', name: 'Age', nameFr: 'Âge', description: 'Calculated current age of the student', descriptionFr: 'Âge actuel calculé de l\'élève', visible: true, locked: false, tab: 'demographics', type: 'readonly' },
+    { key: 'gender', name: 'Gender', nameFr: 'Sexe', description: 'Student gender (F / M)', descriptionFr: 'Sexe de l\'élève (F / M)', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'regime', name: 'Regimen (DP/EXT/INT)', nameFr: 'Régime (DP/EXT/INT)', description: 'School regimen: DP (Half-boarder), EXT (Day-student), INT (Boarder)', descriptionFr: 'Régime scolaire : DP (Demi-pensionnaire), EXT (Externe), INT (Interne)', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Name', name: 'Guardian 1 Name', nameFr: 'Nom Responsable 1', description: 'Primary legal guardian full name', descriptionFr: 'Nom du représentant légal principal', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Phone', name: 'Guardian 1 Phone', nameFr: 'Téléphone Responsable 1', description: 'Emergency / primary contact phone number', descriptionFr: 'Numéro de téléphone du responsable', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Email', name: 'Guardian 1 Email', nameFr: 'Courriel Responsable 1', description: 'Primary guardian email address for communications', descriptionFr: 'Adresse courriel du responsable', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'sen', name: 'Accommodations (SEN / PAP)', nameFr: 'Aménagements (PAP/PAI)', description: 'Special Educational Needs & accommodations (PAP, PAI, PPRE, PPS, 1/3 Temps)', descriptionFr: 'Aménagements pédagogiques & santé (PAP, PAI, PPRE, PPS, Tiers-temps)', visible: true, locked: false, tab: 'accommodations', type: 'sen', icon: 'award' },
+    { key: 'medicalNotes', name: 'Medical Notes / Protocol', nameFr: 'Remarques médicales / PAI', description: 'Medical protocols, allergies, and health emergency notices', descriptionFr: 'Protocoles médicaux, allergies et remarques de santé', visible: true, locked: false, tab: 'accommodations', type: 'text', icon: 'book' },
+    { key: 'lates', name: 'Late Arrivals', nameFr: 'Retards', description: 'Late arrival counter (1 point)', descriptionFr: 'Compteur de retards (1 point)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 1, icon: 'clock' },
+    { key: 'missingHomework', name: 'Missing Homework', nameFr: 'Devoirs non faits', description: 'Unprepared / missing homework counter (2 points)', descriptionFr: 'Compteur de devoirs non faits (2 points)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 2, icon: 'note' },
+    { key: 'missingMaterial', name: 'Missing Supplies', nameFr: 'Oublis de matériel', description: 'Missing school supplies and equipment (1 point)', descriptionFr: 'Compteur d\'oublis de matériel (1 point)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 1, icon: 'edit-word' },
+    { key: 'disruptive', name: 'Disruptive Conduct', nameFr: 'Bavardages / Comportement', description: 'Disruptive conduct and chatting in class (2 points)', descriptionFr: 'Bavardages et perturbation de cours (2 points)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 2, icon: 'chat' },
+    { key: 'dismissals', name: 'Dismissed from Class', nameFr: 'Exclusions de cours', description: 'Class dismissals / temporary exclusions (5 points)', descriptionFr: 'Exclusions temporaires de cours (5 points)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 5, icon: 'error' },
+    { key: 'unexcusedAbsence', name: 'Unexcused Absences', nameFr: 'Absences non justifiées', description: 'Unexcused class absences (3 points)', descriptionFr: 'Absences non justifiées (3 points)', visible: true, locked: false, tab: 'discipline', type: 'infraction', weight: 3, icon: 'close' },
+    { key: 'points', name: 'Total Discipline Points', nameFr: 'Points de discipline', description: 'Cumulative discipline points for the selected period', descriptionFr: 'Total des points de barème pour la période sélectionnée', visible: true, locked: false, tab: 'discipline', type: 'points' },
+    { key: 'sanction', name: 'Recommended Sanction', nameFr: 'Sanction recommandée', description: 'Recommended sanction tier based on cumulative points threshold', descriptionFr: 'Mesure ou sanction recommandée selon le barème de points', visible: true, locked: false, tab: 'discipline', type: 'sanction' },
+    { key: 'actionsHistory', name: 'Follow-up Log Count', nameFr: 'Journal des entretiens', description: 'Total count of logged follow-up actions and meetings', descriptionFr: 'Nombre d\'entretiens et mesures enregistrés', visible: true, locked: false, tab: 'discipline', type: 'actionsHistory' },
+    { key: 'manage', name: 'Quick Action Button', nameFr: 'Bouton d\'action rapide', description: 'Quick button to log a new meeting, parent call, or action', descriptionFr: 'Bouton pour consigner rapidement un entretien ou une mesure', visible: true, locked: false, tab: 'discipline', type: 'manage' }
   ];
 
   var DEFAULT_PERIODS = [

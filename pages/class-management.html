@@ -2721,12 +2721,17 @@
 
         async function openCmsPresentation() {
             closeRosterSettingsPopup();
+            _presWindowOpen = true;
+            _updatePresWindowControls();
             if (window.Desktop && typeof Desktop.openCmsPresentation === 'function') {
                 const result = await Desktop.openCmsPresentation();
                 if (result && result.ok) {
                     _presWindowOpen = true;
                     _updatePresWindowControls();
                 }
+            } else {
+                window.open(location.pathname + '?presentation=1', '_blank',
+                    'width=1200,height=800,menubar=no,toolbar=no,location=no');
             }
         }
 
@@ -14562,7 +14567,11 @@ syncState();
                 // Main window: respond to state requests from the presentation window
                 if (_presChannel) {
                     _presChannel.addEventListener('message', (e) => {
-                        if (e.data && e.data.type === 'request-state') _broadcastPresentationState();
+                        if (e.data && e.data.type === 'request-state') {
+                            _presWindowOpen = true;
+                            _updatePresWindowControls();
+                            _broadcastPresentationState();
+                        }
                         if (e.data && e.data.type === 'pres-control') {
                             if (e.data.command === 'close') cmsPresentationClose();
                             else if (e.data.command === 'freeze') toggleFreezePresentation();

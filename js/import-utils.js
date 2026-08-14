@@ -57,6 +57,226 @@
     }
   }
 
+  async function _parseJson(file) {
+    var text = await file.text();
+    var data = JSON.parse(text);
+
+    if (Array.isArray(data)) {
+      if (!data.length) return { ok: true, headers: [], rows: [] };
+      if (Array.isArray(data[0])) {
+        return _formatAoaResult(data);
+      }
+      return _formatObjectArrayResult(data);
+    }
+
+    if (data && typeof data === 'object') {
+      var keys = Object.keys(data);
+      var arrayKey = keys.find(function (k) { return Array.isArray(data[k]) && data[k].length > 0; });
+      if (arrayKey) {
+        var arr = data[arrayKey];
+        if (Array.isArray(arr[0])) {
+          return _formatAoaResult(arr);
+        }
+        return _formatObjectArrayResult(arr);
+      }
+      return _formatObjectArrayResult([data]);
+    }
+
+    return { ok: false, error: 'Invalid JSON format: expected array or object' };
+  }
+
+  function _formatObjectArrayResult(arr) {
+    var headerSet = [];
+    arr.forEach(function (item) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        Object.keys(item).forEach(function (k) {
+          if (headerSet.indexOf(k) === -1) headerSet.push(k);
+        });
+      }
+    });
+    if (!headerSet.length) {
+      return { ok: true, headers: [], rows: [] };
+    }
+    var rows = arr.map(function (item) {
+      if (!item || typeof item !== 'object') return headerSet.map(function () { return ''; });
+      return headerSet.map(function (k) {
+        var v = item[k];
+        return v !== undefined && v !== null ? (typeof v === 'object' ? JSON.stringify(v) : v) : '';
+      });
+    });
+    return { ok: true, headers: headerSet, rows: rows };
+  }
+
+  function _formatAoaResult(rawRows) {
+    var nonBlank = (rawRows || []).filter(function (r) {
+      return Array.isArray(r) && r.some(function (c) {
+        return c !== null && c !== undefined && String(c).trim() !== '';
+      });
+    });
+    if (!nonBlank.length) {
+      return { ok: true, headers: [], rows: [] };
+    }
+
+    var maxCols = 0;
+    nonBlank.forEach(function (r) {
+      if (r.length > maxCols) maxCols = r.length;
+    });
+
+    var headerIdx = 0;
+    if (nonBlank.length > 1 && maxCols > 1) {
+      var row0Filled = nonBlank[0].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
+      var row1Filled = nonBlank[1].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
+      if (row0Filled === 1 && row1Filled > 1) {
+        headerIdx = 1;
+      }
+    }
+
+    var rawHeaders = nonBlank[headerIdx] || [];
+    var headers = [];
+    for (var h = 0; h < maxCols; h++) {
+      var val = rawHeaders[h];
+      var hText = (val !== null && val !== undefined) ? String(val).trim() : '';
+      headers.push(hText || ('Col ' + (h + 1)));
+    }
+
+    var dataRows = nonBlank.slice(headerIdx + 1);
+    var rows = dataRows.map(function (r) {
+      var cells = [];
+      for (var c = 0; c < headers.length; c++) {
+        var val = r[c];
+        if (val === undefined || val === null) {
+          cells.push('');
+        } else if (val instanceof Date) {
+          cells.push(val);
+        } else {
+          cells.push(typeof val === 'string' ? val.trim() : val);
+        }
+      }
+      return cells;
+    }).filter(function (r) {
+      return r.some(function (c) {
+        return c !== '' && c !== null && c !== undefined;
+      });
+    });
+
+    return { ok: true, headers: headers, rows: rows };
+  }
+
+  function _parseCsvText(text) {
+    if (!text) return [];
+    text = text.replace(/^\uFEFF/, '');
+
+    var sampleLines = text.split(/\r?\n/).slice(0, 5).filter(function (l) { return l.trim(); });
+    var counts = { ',': 0, ';': 0, '\t': 0 };
+    sampleLines.forEach(function (line) {
+      var inQuotes = false;
+      for (var i = 0; i < line.length; i++) {
+        var ch = line[i];
+        if (ch === '"') inQuotes = !inQuotes;
+        else if (!inQuotes && counts[ch] !== undefined) counts[ch]++;
+      }
+    });
+    var delim = ',';
+    if (counts[';'] > counts[','] && counts[';'] > counts['\t']) delim = ';';
+    else if (counts['\t'] > counts[','] && counts['\t'] > counts[';']) delim = '\t';
+
+    var rows = [];
+    var currentRow = [];
+    var currentCell = '';
+    var inQuotes = false;
+    var i = 0;
+    while (i < text.length) {
+      var ch = text[i];
+      var next = text[i + 1];
+
+      if (inQuotes) {
+        if (ch === '"') {
+          if (next === '"') {
+            currentCell += '"';
+            i += 2;
+            continue;
+          } else {
+            inQuotes = false;
+            i++;
+            continue;
+          }
+        } else {
+          currentCell += ch;
+          i++;
+          continue;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+          i++;
+          continue;
+        } else if (ch === delim) {
+          currentRow.push(currentCell);
+          currentCell = '';
+          i++;
+          continue;
+        } else if (ch === '\r') {
+          if (next === '\n') i++;
+          currentRow.push(currentCell);
+          rows.push(currentRow);
+          currentRow = [];
+          currentCell = '';
+          i++;
+          continue;
+        } else if (ch === '\n') {
+          currentRow.push(currentCell);
+          rows.push(currentRow);
+          currentRow = [];
+          currentCell = '';
+          i++;
+          continue;
+        } else {
+          currentCell += ch;
+          i++;
+          continue;
+        }
+      }
+    }
+    if (currentCell !== '' || currentRow.length > 0) {
+      currentRow.push(currentCell);
+      rows.push(currentRow);
+    }
+    return rows;
+  }
+
+  async function _parseCsvFile(file) {
+    var text = await file.text();
+    var rawRows = _parseCsvText(text);
+    return _formatAoaResult(rawRows);
+  }
+
+  async function _parseXlsxOrCsv(file, ext) {
+    if (typeof XLSX !== 'undefined') {
+      try {
+        var ab = await file.arrayBuffer();
+        var wb = XLSX.read(ab, { type: 'array', cellDates: true });
+        var firstSheetName = wb.SheetNames[0];
+        if (!firstSheetName) {
+          return { ok: true, headers: [], rows: [] };
+        }
+        var ws = wb.Sheets[firstSheetName];
+        var rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false, raw: true, cellDates: true });
+        return _formatAoaResult(rawRows);
+      } catch (xlsxErr) {
+        if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
+          return await _parseCsvFile(file);
+        }
+        throw xlsxErr;
+      }
+    }
+
+    if (ext === 'csv' || ext === 'tsv' || ext === 'txt') {
+      return await _parseCsvFile(file);
+    }
+
+    throw new Error('XLSX library not loaded');
+  }
+
   async function _ensurePdfjsLib() {
     if (window._cmtPdfjsLib) return window._cmtPdfjsLib;
     var mod = await import('../modules/pdf.min.mjs');
