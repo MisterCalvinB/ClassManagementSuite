@@ -13,6 +13,7 @@
       infractions: [],
       sanctionTiers: [],
       actionTypes: [],
+      tabs: [],
       columns: [],
       periods: []
     },
@@ -62,6 +63,7 @@
       infractions: Array.isArray(defs.infractions) ? JSON.parse(JSON.stringify(defs.infractions)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.infractions) || []),
       sanctionTiers: Array.isArray(defs.sanctionTiers) ? JSON.parse(JSON.stringify(defs.sanctionTiers)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.sanctionTiers) || []),
       actionTypes: Array.isArray(defs.actionTypes) ? JSON.parse(JSON.stringify(defs.actionTypes)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.actionTypes) || []),
+      tabs: Array.isArray(defs.tabs) ? JSON.parse(JSON.stringify(defs.tabs)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.tabs) || []),
       columns: Array.isArray(defs.columns) ? JSON.parse(JSON.stringify(defs.columns)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.columns) || []),
       periods: Array.isArray(defs.periods) ? JSON.parse(JSON.stringify(defs.periods)) : ((window.ADMIN_GROUPS_DEFAULTS && window.ADMIN_GROUPS_DEFAULTS.periods) || [])
     };
@@ -276,6 +278,28 @@
     sel.value = state.currentGroupId;
   }
 
+  function populatePeriodSelector() {
+    var sel = document.getElementById('agPeriodSelect');
+    if (!sel) return;
+    var isFr = isFrench();
+    var periods = (state.config && state.config.periods) || [];
+    var html = '<option value="all"' + (state.currentPeriodId === 'all' ? ' selected' : '') + '>' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '</option>';
+    periods.forEach(function (p) {
+      var pName = isFr ? (p.nameFr || p.name) : p.name;
+      var dateRange = '';
+      if (p.startDate && p.endDate) {
+        dateRange = ' (' + p.startDate + ' → ' + p.endDate + ')';
+      }
+      html += '<option value="' + escapeHtml(p.id) + '"' + (state.currentPeriodId === p.id ? ' selected' : '') + '>' + escapeHtml(pName + dateRange) + '</option>';
+    });
+    sel.innerHTML = html;
+  }
+
+  window.onPeriodFilterChanged = function (val) {
+    state.currentPeriodId = val || 'all';
+    renderTable();
+  };
+
   function setupEventListeners() {
     // Group select
     var sel = document.getElementById('groupSelect');
@@ -285,7 +309,6 @@
         renderAll();
       });
     }
-
     // Search
     var searchInput = document.getElementById('studentSearchInput');
     if (searchInput) {
@@ -295,16 +318,6 @@
       });
     }
 
-    // Tabs
-    document.querySelectorAll('.ag-tab-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.ag-tab-btn').forEach(function (b) { b.classList.remove('active'); });
-        btn.classList.add('active');
-        state.activeTab = btn.dataset.tab;
-        renderTable();
-      });
-    });
-
     // Shortcuts
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -313,6 +326,36 @@
       }
     });
   }
+
+  // ── Render Main Navigation Tabs ──
+  function renderMainTabs() {
+    var container = document.getElementById('agMainTabsBar');
+    if (!container) return;
+
+    var tabs = (state.config && state.config.tabs) || [];
+    var isFr = isFrench();
+    var html = '';
+
+    if (tabs.length && !tabs.some(function (t) { return t.id === state.activeTab; })) {
+      state.activeTab = tabs[0].id;
+    }
+
+    tabs.forEach(function (t) {
+      var isActive = state.activeTab === t.id;
+      var tName = isFr ? (t.nameFr || t.name) : t.name;
+      html += '<button type="button" class="ag-tab-btn' + (isActive ? ' active' : '') + '" onclick="window.switchMainTab(\'' + escapeHtml(t.id) + '\')">';
+      html += svgIcon(t.icon || 'table') + ' <span>' + escapeHtml(tName) + '</span>';
+      html += '</button>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  window.switchMainTab = function (tabId) {
+    state.activeTab = tabId || 'all';
+    renderMainTabs();
+    renderTable();
+  };
 
   // ── Render KPI Cards ──
   function renderKPIs(filtered) {
@@ -338,63 +381,34 @@
     if (elMiss) elMiss.textContent = missingContacts;
   }
 
-  // ── Filter Students ──
+  // ── Helpers for Filtering & Values ──
   function getFilteredStudents() {
-    return state.students.filter(function (s) {
-      // Group filter
-      if (state.currentGroupId !== 'all') {
-        var inGroup = s.groups.some(function (g) { return g.id === state.currentGroupId; });
-        if (!inGroup) return false;
-      }
-      // Text search
-      if (state.searchQuery) {
-        var full = (s.firstName + ' ' + s.lastName + ' ' + s.adminClass + ' ' + s.studentNumber).toLowerCase();
-        if (full.indexOf(state.searchQuery) === -1) return false;
-      }
-      return true;
-    });
+    var list = state.students || [];
+    if (state.currentGroupId && state.currentGroupId !== 'all') {
+      list = list.filter(function (s) {
+        return s.groups.some(function (g) { return g.id === state.currentGroupId; }) || s.adminClass === state.currentGroupId;
+      });
+    }
+    if (state.searchQuery) {
+      var q = state.searchQuery;
+      list = list.filter(function (s) {
+        var fn = (s.firstName || '').toLowerCase();
+        var ln = (s.lastName || '').toLowerCase();
+        var cl = (s.adminClass || '').toLowerCase();
+        return fn.indexOf(q) !== -1 || ln.indexOf(q) !== -1 || cl.indexOf(q) !== -1;
+      });
+    }
+    return list;
   }
 
-  function isColVisible(key) {
-    if (!state.config || !state.config.columns) return true;
-    var col = state.config.columns.find(function (c) { return c.key === key; });
-    return col ? col.visible !== false : true;
+  function getStudentActions(uuid) {
+    return (state.adminData.actions || []).filter(function (a) { return a.studentId === uuid; });
   }
-
-  function getColHeader(key, fallbackEn, fallbackFr) {
-    var isFr = isFrench();
-    if (!state.config || !state.config.columns) return isFr ? (fallbackFr || fallbackEn) : fallbackEn;
-    var col = state.config.columns.find(function (c) { return c.key === key; });
-    if (!col) return isFr ? (fallbackFr || fallbackEn) : fallbackEn;
-    return isFr ? (col.nameFr || fallbackFr || col.name || fallbackEn) : (col.name || fallbackEn);
-  }
-
-  function populatePeriodSelector() {
-    var sel = document.getElementById('agPeriodSelect');
-    if (!sel) return;
-    var isFr = isFrench();
-    var periods = (state.config && state.config.periods) || [];
-    var html = '<option value="all"' + (state.currentPeriodId === 'all' ? ' selected' : '') + '>' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '</option>';
-    periods.forEach(function (p) {
-      var pName = isFr ? (p.nameFr || p.name) : p.name;
-      var dateRange = '';
-      if (p.startDate && p.endDate) {
-        dateRange = ' (' + p.startDate + ' → ' + p.endDate + ')';
-      }
-      html += '<option value="' + escapeHtml(p.id) + '"' + (state.currentPeriodId === p.id ? ' selected' : '') + '>' + escapeHtml(pName + dateRange) + '</option>';
-    });
-    sel.innerHTML = html;
-  }
-
-  window.onPeriodFilterChanged = function (val) {
-    state.currentPeriodId = val || 'all';
-    renderTable();
-  };
 
   function getStudentPeriodInfractions(student, periodId) {
     if (!student) return {};
     if (!periodId || periodId === 'all') {
-      if (student.periods && Object.keys(student.periods).length > 0) {
+      if (student.periods) {
         var totals = {};
         (state.config.infractions || []).forEach(function (inf) {
           totals[inf.key] = 0;
@@ -427,51 +441,40 @@
     renderKPIs(list);
 
     var isFr = isFrench();
-    var tab = state.activeTab;
+    var activeTab = state.activeTab;
+    var allCols = (state.config && state.config.columns) || [];
+
+    // Filter columns visible in current view tab
+    var visibleCols = allCols.filter(function (col) {
+      if (col.visible === false) return false;
+      if (activeTab === 'all') return true;
+      return (col.tab === activeTab || col.tab === 'all' || col.key === 'student' || col.key === 'adminClass');
+    });
+
     var html = '<table class="ag-table" id="adminGroupsTable"><thead><tr>';
+    var totalColCount = 0;
 
-    // Sticky Name Column
-    html += '<th class="col-sticky-name">' + getColHeader('student', 'Student', 'Élève') + '</th>';
-    if (isColVisible('adminClass')) html += '<th>' + getColHeader('adminClass', 'Class', 'Classe') + '</th>';
-
-    if (tab === 'all' || tab === 'demographics') {
-      if (isColVisible('dob')) html += '<th>' + getColHeader('dob', 'DOB', 'Date naiss.') + '</th>';
-      if (isColVisible('age')) html += '<th>' + getColHeader('age', 'Age', 'Âge') + '</th>';
-      if (isColVisible('gender')) html += '<th>' + getColHeader('gender', 'Gender', 'Sexe') + '</th>';
-      if (isColVisible('regime')) html += '<th>' + getColHeader('regime', 'Regimen', 'Régime') + '</th>';
-      if (isColVisible('guardian1Name')) html += '<th>' + getColHeader('guardian1Name', 'Guardian 1', 'Responsable 1') + '</th>';
-      if (isColVisible('guardian1Phone')) html += '<th>' + getColHeader('guardian1Phone', 'Phone', 'Téléphone') + '</th>';
-      if (isColVisible('guardian1Email')) html += '<th>' + getColHeader('guardian1Email', 'Email', 'Courriel') + '</th>';
-    }
-
-    if (tab === 'all' || tab === 'accommodations') {
-      if (isColVisible('sen')) html += '<th>' + getColHeader('sen', 'SEN / Accomp.', 'Aménagements') + '</th>';
-      if (isColVisible('medicalNotes')) html += '<th>' + getColHeader('medicalNotes', 'Medical / PAI', 'Médical / PAI') + '</th>';
-    }
-
-    if (tab === 'all' || tab === 'discipline') {
-      if (isColVisible('infractions')) {
+    visibleCols.forEach(function (col) {
+      var colTitle = isFr ? (col.nameFr || col.name) : col.name;
+      if (col.type === 'student' || col.key === 'student') {
+        html += '<th class="col-sticky-name">' + escapeHtml(colTitle) + '</th>';
+        totalColCount++;
+      } else if (col.type === 'infractions' || col.key === 'infractions') {
         (state.config.infractions || []).forEach(function (inf) {
           var infLabel = isFr ? (inf.nameFr || inf.name) : inf.name;
           html += '<th style="text-align:center;">' + svgIcon(inf.icon || 'note') + ' ' + escapeHtml(infLabel) + '</th>';
+          totalColCount++;
         });
+      } else {
+        html += '<th>' + escapeHtml(colTitle) + '</th>';
+        totalColCount++;
       }
-      if (isColVisible('points')) html += '<th>' + getColHeader('points', 'Points', 'Points') + '</th>';
-      if (isColVisible('sanction')) html += '<th>' + getColHeader('sanction', 'Sanction', 'Sanction') + '</th>';
-    }
-
-    var customCols = (state.config.columns || []).filter(function (c) { return c.custom === true && c.visible !== false; });
-    customCols.forEach(function (c) {
-      var cTitle = isFr ? (c.nameFr || c.name) : c.name;
-      html += '<th>' + escapeHtml(cTitle) + '</th>';
     });
 
-    if (isColVisible('actionsHistory')) html += '<th>' + getColHeader('actionsHistory', 'Follow-up Log', 'Journal de suivi') + '</th>';
-    if (isColVisible('manage')) html += '<th>' + getColHeader('manage', 'Actions', 'Actions') + '</th>';
     html += '</tr></thead><tbody>';
 
     if (!list.length) {
-      html += '<tr><td colspan="20" style="text-align:center; padding: 24px; color:#94a3b8;">' + t('agNoStudentsFound', 'No students found matching current filters.') + '</td></tr>';
+      html += '<tr><td colspan="' + Math.max(1, totalColCount) + '" style="text-align:center; padding: 24px; color:#94a3b8;">' + t('agNoStudentsFound', 'No students found matching current filters.') + '</td></tr>';
     } else {
       list.forEach(function (s) {
         var actionsCount = getStudentActions(s.uuid).length;
@@ -480,28 +483,14 @@
         var pSanction = determineSanctionTier(pPoints);
 
         html += '<tr data-student-id="' + s.uuid + '">';
-        // Sticky name cell
-        html += '<td class="col-sticky-name" onclick="window.openStudentProfileModal(\'' + s.uuid + '\')"><span style="color:#0284c7; cursor:pointer; font-weight:800;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span></td>';
-        if (isColVisible('adminClass')) html += '<td>' + escapeHtml(s.adminClass) + '</td>';
 
-        if (tab === 'all' || tab === 'demographics') {
-          if (isColVisible('dob')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'dob\', this.textContent)" contenteditable="true">' + escapeHtml(s.dob) + '</td>';
-          if (isColVisible('age')) html += '<td>' + escapeHtml(s.age) + '</td>';
-          if (isColVisible('gender')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'gender\', this.textContent)" contenteditable="true">' + escapeHtml(s.gender) + '</td>';
-          if (isColVisible('regime')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'regime\', this.textContent)" contenteditable="true">' + escapeHtml(s.regime) + '</td>';
-          if (isColVisible('guardian1Name')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'guardian1Name\', this.textContent)" contenteditable="true">' + escapeHtml(s.guardian1Name) + '</td>';
-          if (isColVisible('guardian1Phone')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'guardian1Phone\', this.textContent)" contenteditable="true">' + escapeHtml(s.guardian1Phone) + '</td>';
-          if (isColVisible('guardian1Email')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'guardian1Email\', this.textContent)" contenteditable="true">' + escapeHtml(s.guardian1Email) + '</td>';
-        }
+        visibleCols.forEach(function (col) {
+          var type = col.type || 'text';
+          var key = col.key;
 
-        if (tab === 'all' || tab === 'accommodations') {
-          var senLabel = s.senDetails || (isFr ? 'PAP/PAI' : 'SEN');
-          if (isColVisible('sen')) html += '<td>' + (s.sen ? ('<span class="badge badge-sen">' + svgIcon('award') + ' ' + escapeHtml(senLabel) + '</span>') : '<span style="color:#cbd5e1;">—</span>') + '</td>';
-          if (isColVisible('medicalNotes')) html += '<td class="ag-cell-editable" onblur="window.updateStudentField(\'' + s.uuid + '\', \'medicalNotes\', this.textContent)" contenteditable="true">' + escapeHtml(s.medicalNotes) + '</td>';
-        }
-
-        if (tab === 'all' || tab === 'discipline') {
-          if (isColVisible('infractions')) {
+          if (type === 'student' || key === 'student') {
+            html += '<td class="col-sticky-name" onclick="window.openStudentProfileModal(\'' + s.uuid + '\')"><span style="color:#0284c7; cursor:pointer; font-weight:800;">' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span></td>';
+          } else if (type === 'infractions' || key === 'infractions') {
             (state.config.infractions || []).forEach(function (inf) {
               var val = pInfractions[inf.key] || 0;
               html += '<td style="text-align:center;">';
@@ -512,33 +501,33 @@
               html += '</div>';
               html += '</td>';
             });
-          }
-
-          // Points
-          if (isColVisible('points')) html += '<td><strong>' + pPoints + '</strong></td>';
-
-          // Sanction Tier Badge
-          if (isColVisible('sanction')) {
+          } else if (type === 'points' || key === 'points') {
+            html += '<td><strong>' + pPoints + '</strong></td>';
+          } else if (type === 'sanction' || key === 'sanction') {
             if (pSanction) {
               var sancName = isFr ? (pSanction.nameFr || pSanction.name) : pSanction.name;
               html += '<td><span class="badge ' + (pSanction.badgeClass || 'badge-tier1') + '">' + svgIcon(pSanction.icon || 'error') + ' ' + escapeHtml(sancName) + '</span></td>';
             } else {
               html += '<td><span class="badge badge-clean">' + svgIcon('check') + ' ' + t('agCleanRecord', 'Clean') + '</span></td>';
             }
+          } else if (type === 'sen' || key === 'sen') {
+            var senLabel = s.senDetails || (isFr ? 'PAP/PAI' : 'SEN');
+            html += '<td>' + (s.sen ? ('<span class="badge badge-sen">' + svgIcon('award') + ' ' + escapeHtml(senLabel) + '</span>') : '<span style="color:#cbd5e1;">—</span>') + '</td>';
+          } else if (type === 'actionsHistory' || key === 'actionsHistory') {
+            html += '<td><button type="button" class="badge badge-action" onclick="window.openStudentProfileModal(\'' + s.uuid + '\', \'actions\')">' + svgIcon('history') + ' ' + actionsCount + ' ' + t('agActionsCount', 'actions') + '</button></td>';
+          } else if (type === 'manage' || key === 'manage') {
+            html += '<td><button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openQuickActionMenu(\'' + s.uuid + '\')">' + svgIcon('plus') + ' ' + t('agLogBtn', 'Log') + '</button></td>';
+          } else if (type === 'readonly' || key === 'age') {
+            var val = (s[key] != null) ? s[key] : (s.customFields && s.customFields[key] != null ? s.customFields[key] : '');
+            html += '<td>' + escapeHtml(val) + '</td>';
+          } else {
+            // Editable text / custom cell
+            var isStandard = ['adminClass', 'dob', 'gender', 'regime', 'guardian1Name', 'guardian1Phone', 'guardian1Email', 'medicalNotes'].indexOf(key) !== -1;
+            var cellVal = isStandard ? (s[key] || '') : ((s.customFields && s.customFields[key]) || '');
+            var onblurHandler = isStandard ? ('window.updateStudentField(\'' + s.uuid + '\', \'' + key + '\', this.textContent)') : ('window.updateStudentCustomField(\'' + s.uuid + '\', \'' + key + '\', this.textContent)');
+            html += '<td class="ag-cell-editable" onblur="' + onblurHandler + '" contenteditable="true">' + escapeHtml(cellVal) + '</td>';
           }
-        }
-
-        // Custom columns data cells
-        customCols.forEach(function (c) {
-          var val = (s.customFields && s.customFields[c.key]) || '';
-          html += '<td class="ag-cell-editable" onblur="window.updateStudentCustomField(\'' + s.uuid + '\', \'' + c.key + '\', this.textContent)" contenteditable="true">' + escapeHtml(val) + '</td>';
         });
-
-        // Action log count badge
-        if (isColVisible('actionsHistory')) html += '<td><button type="button" class="badge badge-action" onclick="window.openStudentProfileModal(\'' + s.uuid + '\', \'actions\')">' + svgIcon('history') + ' ' + actionsCount + ' ' + t('agActionsCount', 'actions') + '</button></td>';
-
-        // Manage button
-        if (isColVisible('manage')) html += '<td><button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="window.openQuickActionMenu(\'' + s.uuid + '\')">' + svgIcon('plus') + ' ' + t('agLogBtn', 'Log') + '</button></td>';
 
         html += '</tr>';
       });
@@ -549,6 +538,7 @@
   }
 
   function renderAll() {
+    renderMainTabs();
     renderTable();
   }
 
@@ -1197,6 +1187,10 @@
       var p = document.getElementById('cfgTabContentAcronyms');
       if (p) p.style.display = 'block';
       renderSettingsAcronyms();
+    } else if (tab === 'tabs') {
+      var p = document.getElementById('cfgTabContentTabs');
+      if (p) p.style.display = 'block';
+      renderSettingsTabs();
     } else if (tab === 'columns') {
       var p = document.getElementById('cfgTabContentColumns');
       if (p) p.style.display = 'block';
@@ -1208,105 +1202,92 @@
     }
   };
 
-  function renderSettingsPeriods() {
-    var tbody = document.getElementById('cfgPeriodsBody');
+  // ── Tab 4: View Tabs Manager ──
+  function renderSettingsTabs() {
+    var tbody = document.getElementById('cfgTabsBody');
     if (!tbody) return;
-    var list = (state.tempConfig && state.tempConfig.periods) || [];
+    var list = (state.tempConfig && state.tempConfig.tabs) || [];
     var html = '';
-    list.forEach(function (p, idx) {
+    list.forEach(function (t, idx) {
       html += '<tr>';
-      html += '<td><input type="text" class="ag-input" style="width:80px; font-weight:800;" value="' + escapeHtml(p.id || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'id\', this.value)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.name || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'name\', this.value)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(p.nameFr || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'nameFr\', this.value)"></td>';
-      html += '<td><input type="date" class="ag-input" style="width:130px;" value="' + (p.startDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'startDate\', this.value)"></td>';
-      html += '<td><input type="date" class="ag-input" style="width:130px;" value="' + (p.endDate || '') + '" onchange="window.updateTempPeriod(' + idx + ', \'endDate\', this.value)"></td>';
-      html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingPeriod(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
+      html += '<td><input type="text" class="ag-input" style="width:70px; text-align:center;" value="' + escapeHtml(t.icon || 'table') + '" onchange="window.updateTempTab(' + idx + ', \'icon\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:110px; font-weight:800;" value="' + escapeHtml(t.id || '') + '" onchange="window.updateTempTab(' + idx + ', \'id\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(t.name || '') + '" onchange="window.updateTempTab(' + idx + ', \'name\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(t.nameFr || '') + '" onchange="window.updateTempTab(' + idx + ', \'nameFr\', this.value)"></td>';
+      html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingTab(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
       html += '</tr>';
     });
     tbody.innerHTML = html;
   }
 
-  window.updateTempPeriod = function (idx, field, val) {
-    if (state.tempConfig && state.tempConfig.periods && state.tempConfig.periods[idx]) {
-      state.tempConfig.periods[idx][field] = val;
+  window.updateTempTab = function (idx, field, val) {
+    if (state.tempConfig && state.tempConfig.tabs && state.tempConfig.tabs[idx]) {
+      state.tempConfig.tabs[idx][field] = val;
     }
   };
 
-  window.addSettingPeriod = function () {
+  window.addSettingTab = function () {
     state.tempConfig = state.tempConfig || {};
-    state.tempConfig.periods = state.tempConfig.periods || [];
-    var num = state.tempConfig.periods.length + 1;
-    state.tempConfig.periods.push({
-      id: 'p' + num,
-      name: 'Period ' + num,
-      nameFr: 'Période ' + num,
-      startDate: '',
-      endDate: ''
+    state.tempConfig.tabs = state.tempConfig.tabs || [];
+    var num = state.tempConfig.tabs.length + 1;
+    state.tempConfig.tabs.push({
+      id: 'tab_' + num,
+      name: 'Custom Tab ' + num,
+      nameFr: 'Onglet ' + num,
+      icon: 'table'
     });
-    renderSettingsPeriods();
+    renderSettingsTabs();
   };
 
-  window.removeSettingPeriod = function (idx) {
-    if (state.tempConfig && state.tempConfig.periods) {
-      state.tempConfig.periods.splice(idx, 1);
-      renderSettingsPeriods();
+  window.removeSettingTab = function (idx) {
+    if (state.tempConfig && state.tempConfig.tabs) {
+      state.tempConfig.tabs.splice(idx, 1);
+      renderSettingsTabs();
     }
   };
 
-  window.generatePeriodsPreset = function (type, customCount) {
-    state.tempConfig = state.tempConfig || {};
-    if (type === 'trimesters') {
-      state.tempConfig.periods = [
-        { id: 't1', name: 'Trimester 1 (T1)', nameFr: 'Trimestre 1 (T1)', startDate: '2025-09-01', endDate: '2025-11-28' },
-        { id: 't2', name: 'Trimester 2 (T2)', nameFr: 'Trimestre 2 (T2)', startDate: '2025-12-01', endDate: '2026-02-27' },
-        { id: 't3', name: 'Trimester 3 (T3)', nameFr: 'Trimestre 3 (T3)', startDate: '2026-03-02', endDate: '2026-07-04' }
-      ];
-    } else if (type === 'semesters') {
-      state.tempConfig.periods = [
-        { id: 's1', name: 'Semester 1 (S1)', nameFr: 'Semestre 1 (S1)', startDate: '2025-09-01', endDate: '2026-01-23' },
-        { id: 's2', name: 'Semester 2 (S2)', nameFr: 'Semestre 2 (S2)', startDate: '2026-01-26', endDate: '2026-07-04' }
-      ];
-    } else if (type === 'custom' || typeof type === 'number' || !isNaN(parseInt(type, 10))) {
-      var n = parseInt(customCount || type, 10) || 4;
-      n = Math.max(1, Math.min(20, n));
-      var periods = [];
-      for (var i = 1; i <= n; i++) {
-        periods.push({
-          id: 'p' + i,
-          name: 'Period ' + i + ' (P' + i + ')',
-          nameFr: 'Période ' + i + ' (P' + i + ')',
-          startDate: '',
-          endDate: ''
-        });
-      }
-      state.tempConfig.periods = periods;
-    }
-    renderSettingsPeriods();
-  };
-
+  // ── Tab 5: Spreadsheet Columns Manager ──
   function renderSettingsColumns() {
     var tbody = document.getElementById('cfgColumnsBody');
     if (!tbody) return;
     var list = (state.tempConfig && state.tempConfig.columns) || [];
+    var tabs = (state.tempConfig && state.tempConfig.tabs) || [];
+    var isFr = isFrench();
     var html = '';
+
     list.forEach(function (col, idx) {
-      var isLocked = col.locked === true;
-      var isCustom = col.custom === true;
+      var currentTab = col.tab || 'all';
+      var currentType = col.type || 'text';
+
       html += '<tr>';
-      html += '<td style="text-align:center;"><input type="checkbox" style="width:18px; height:18px; cursor:pointer;" ' + (col.visible !== false ? 'checked' : '') + (isLocked ? ' disabled' : '') + ' onchange="window.toggleTempColumn(' + idx + ', this.checked)"></td>';
-      if (isCustom) {
-        html += '<td><input type="text" class="ag-input" style="width:110px; font-weight:800;" value="' + escapeHtml(col.key || '') + '" onchange="window.updateTempColumnHeader(' + idx + ', \'key\', this.value)"></td>';
-      } else {
-        html += '<td><code style="font-size:0.8rem; font-weight:800;">' + escapeHtml(col.key) + '</code></td>';
-      }
-      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.name || '') + '" onchange="window.updateTempColumnHeader(' + idx + ', \'name\', this.value)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.nameFr || '') + '" onchange="window.updateTempColumnHeader(' + idx + ', \'nameFr\', this.value)"></td>';
-      html += '<td><span class="badge" style="background:' + (isCustom ? '#fef08a' : '#f1f5f9') + '; text-transform:uppercase;">' + escapeHtml(col.group || (isCustom ? 'custom' : 'general')) + '</span></td>';
-      if (isCustom) {
-        html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeCustomColumn(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
-      } else {
-        html += '<td style="text-align:center; color:#94a3b8;">—</td>';
-      }
+      html += '<td style="text-align:center;"><input type="checkbox" style="width:18px; height:18px; cursor:pointer;" ' + (col.visible !== false ? 'checked' : '') + ' onchange="window.toggleTempColumn(' + idx + ', this.checked)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:800;" value="' + escapeHtml(col.key || '') + '" onchange="window.updateTempColumn(' + idx + ', \'key\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.name || '') + '" onchange="window.updateTempColumn(' + idx + ', \'name\', this.value)"></td>';
+      html += '<td><input type="text" class="ag-input" style="width:100%; font-weight:700;" value="' + escapeHtml(col.nameFr || '') + '" onchange="window.updateTempColumn(' + idx + ', \'nameFr\', this.value)"></td>';
+
+      // Tab selector
+      html += '<td><select class="ag-select" style="width:100%; font-weight:700;" onchange="window.updateTempColumn(' + idx + ', \'tab\', this.value)">';
+      html += '<option value="all"' + (currentTab === 'all' ? ' selected' : '') + '>' + (isFr ? 'Tous les onglets' : 'All Tabs') + '</option>';
+      tabs.forEach(function (t) {
+        var tTitle = isFr ? (t.nameFr || t.name) : t.name;
+        html += '<option value="' + escapeHtml(t.id) + '"' + (currentTab === t.id ? ' selected' : '') + '>' + escapeHtml(tTitle) + '</option>';
+      });
+      html += '</select></td>';
+
+      // Column Type selector
+      html += '<td><select class="ag-select" style="width:100%; font-weight:700;" onchange="window.updateTempColumn(' + idx + ', \'type\', this.value)">' +
+        '<option value="text"' + (currentType === 'text' ? ' selected' : '') + '>Text / Editable</option>' +
+        '<option value="readonly"' + (currentType === 'readonly' ? ' selected' : '') + '>Read-only</option>' +
+        '<option value="student"' + (currentType === 'student' ? ' selected' : '') + '>Student Name</option>' +
+        '<option value="sen"' + (currentType === 'sen' ? ' selected' : '') + '>Accommodations (SEN)</option>' +
+        '<option value="infractions"' + (currentType === 'infractions' ? ' selected' : '') + '>Infraction Counters</option>' +
+        '<option value="points"' + (currentType === 'points' ? ' selected' : '') + '>Discipline Points</option>' +
+        '<option value="sanction"' + (currentType === 'sanction' ? ' selected' : '') + '>Sanction Badge</option>' +
+        '<option value="actionsHistory"' + (currentType === 'actionsHistory' ? ' selected' : '') + '>Follow-up Log</option>' +
+        '<option value="manage"' + (currentType === 'manage' ? ' selected' : '') + '>Log Action Button</option>' +
+        '</select></td>';
+
+      html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingColumn(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
       html += '</tr>';
     });
     tbody.innerHTML = html;
@@ -1318,29 +1299,28 @@
     }
   };
 
-  window.updateTempColumnHeader = function (idx, field, val) {
+  window.updateTempColumn = function (idx, field, val) {
     if (state.tempConfig && state.tempConfig.columns && state.tempConfig.columns[idx]) {
       state.tempConfig.columns[idx][field] = val;
     }
   };
 
-  window.addCustomColumn = function () {
+  window.addSettingColumn = function () {
     state.tempConfig = state.tempConfig || {};
     state.tempConfig.columns = state.tempConfig.columns || [];
-    var id = 'custom_' + Date.now().toString(36);
+    var id = 'col_' + Date.now().toString(36);
     state.tempConfig.columns.push({
       key: id,
-      name: 'Custom Field',
-      nameFr: 'Champ personnalisé',
-      visible: true,
-      locked: false,
-      custom: true,
-      group: 'custom'
+      name: 'New Column',
+      nameFr: 'Nouvelle colonne',
+      tab: 'all',
+      type: 'text',
+      visible: true
     });
     renderSettingsColumns();
   };
 
-  window.removeCustomColumn = function (idx) {
+  window.removeSettingColumn = function (idx) {
     if (state.tempConfig && state.tempConfig.columns) {
       state.tempConfig.columns.splice(idx, 1);
       renderSettingsColumns();
@@ -1350,7 +1330,7 @@
   window.toggleAllColumns = function (show) {
     if (state.tempConfig && state.tempConfig.columns) {
       state.tempConfig.columns.forEach(function (col) {
-        if (!col.locked) col.visible = show;
+        col.visible = show;
       });
       renderSettingsColumns();
     }
@@ -1674,6 +1654,7 @@
     });
 
     populatePeriodSelector();
+    renderMainTabs();
     renderTable();
     closeSettingsModal();
     if (window.showToast) window.showToast(t('agSettingsSaved', 'Settings and rules saved successfully.'));
@@ -1686,6 +1667,7 @@
       infractions: defs.infractions ? JSON.parse(JSON.stringify(defs.infractions)) : [],
       sanctionTiers: defs.sanctionTiers ? JSON.parse(JSON.stringify(defs.sanctionTiers)) : [],
       actionTypes: defs.actionTypes ? JSON.parse(JSON.stringify(defs.actionTypes)) : [],
+      tabs: defs.tabs ? JSON.parse(JSON.stringify(defs.tabs)) : [],
       columns: defs.columns ? JSON.parse(JSON.stringify(defs.columns)) : [],
       periods: defs.periods ? JSON.parse(JSON.stringify(defs.periods)) : []
     };

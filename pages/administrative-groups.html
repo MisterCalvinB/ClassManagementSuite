@@ -110,12 +110,7 @@
   </div>
 
   <!-- Sub-Tabs Navigation -->
-  <div class="ag-tabs-bar">
-    <button type="button" class="ag-tab-btn active" data-tab="all"><img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agTabAll">All Columns</span></button>
-    <button type="button" class="ag-tab-btn" data-tab="demographics"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agTabDemographics">Demographics & Admin</span></button>
-    <button type="button" class="ag-tab-btn" data-tab="accommodations"><img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agTabAccommodations">Health & Accommodations (SEN)</span></button>
-    <button type="button" class="ag-tab-btn" data-tab="discipline"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agTabDiscipline">Discipline & Sanctions</span></button>
-  </div>
+  <div class="ag-tabs-bar" id="agMainTabsBar"></div>
 
   <!-- Spreadsheet Grid Container -->
   <div class="ag-grid-wrapper" id="agGridContainer"></div>
@@ -319,13 +314,17 @@
             <img src="../assets/icons/book.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
             <span data-i18n="agTabCfgAcronyms">3. Acronyms & Accommodations</span>
           </button>
+          <button type="button" class="ag-tab-btn" id="tabBtnCfgTabs" onclick="window.switchSettingsTab('tabs')">
+            <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <span data-i18n="agTabCfgTabs">4. View Tabs</span>
+          </button>
           <button type="button" class="ag-tab-btn" id="tabBtnCfgColumns" onclick="window.switchSettingsTab('columns')">
             <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-            <span data-i18n="agTabCfgColumns">4. Spreadsheet Columns</span>
+            <span data-i18n="agTabCfgColumns">5. Spreadsheet Columns</span>
           </button>
           <button type="button" class="ag-tab-btn" id="tabBtnCfgPeriods" onclick="window.switchSettingsTab('periods')">
             <img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-            <span data-i18n="agTabCfgPeriods">5. Periods & Terms</span>
+            <span data-i18n="agTabCfgPeriods">6. Periods & Terms</span>
           </button>
         </div>
 
@@ -407,14 +406,39 @@
           </div>
         </div>
 
-        <!-- Tab 4: Spreadsheet Columns -->
+        <!-- Tab 4: View Tabs Manager -->
+        <div id="cfgTabContentTabs" class="cfg-tab-pane" style="display:none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+            <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgTabsDesc">Customize navigation tabs for the main spreadsheet view: add custom tabs, rename, change icons, or delete tabs.</p>
+            <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingTab()">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <span data-i18n="agBtnAddTab">+ Add Tab</span>
+            </button>
+          </div>
+          <div class="ag-grid-wrapper" style="max-height: 380px;">
+            <table class="ag-table" id="cfgTabsTable">
+              <thead>
+                <tr>
+                  <th style="width:75px; text-align:center;">Icon</th>
+                  <th style="width:130px;">Tab ID / Key</th>
+                  <th>Tab Title (English)</th>
+                  <th>Tab Title (French)</th>
+                  <th style="width:60px; text-align:center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="cfgTabsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 5: Spreadsheet Columns -->
         <div id="cfgTabContentColumns" class="cfg-tab-pane" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-            <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgColumnsDesc">Enable or disable columns in the spreadsheet grid, customize headers, and add custom fields.</p>
+            <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgColumnsDesc">Fully customize all spreadsheet columns: edit titles, assign to any tab, toggle visibility, and add or delete columns.</p>
             <div style="display:flex; gap:8px;">
-              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addCustomColumn()">
+              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingColumn()">
                 <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-                <span data-i18n="agBtnAddColumn">+ Add Custom Column</span>
+                <span data-i18n="agBtnAddColumn">+ Add Column</span>
               </button>
               <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.toggleAllColumns(true)">
                 <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Show All
@@ -428,11 +452,12 @@
             <table class="ag-table" id="cfgColumnsTable">
               <thead>
                 <tr>
-                  <th style="width:70px; text-align:center;">Visible</th>
-                  <th style="width:130px;">Column Key</th>
+                  <th style="width:65px; text-align:center;">Visible</th>
+                  <th style="width:120px;">Column Key</th>
                   <th>Header Title (English)</th>
                   <th>Header Title (French)</th>
-                  <th style="width:110px;">Category</th>
+                  <th style="width:160px;">Assigned Tab</th>
+                  <th style="width:130px;">Column Type</th>
                   <th style="width:60px; text-align:center;">Actions</th>
                 </tr>
               </thead>
@@ -441,7 +466,7 @@
           </div>
         </div>
 
-        <!-- Tab 5: Periods & Terms -->
+        <!-- Tab 6: Periods & Terms -->
         <div id="cfgTabContentPeriods" class="cfg-tab-pane" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
             <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgPeriodsDesc">Configure school periods, trimesters, or semesters with their date ranges to track infraction progress.</p>

@@ -94,23 +94,30 @@
     { id: 'cpe-referral', name: 'CPE / Principal Referral', nameFr: 'Signalement Vie scolaire / Direction', icon: 'flag' }
   ];
 
+  var DEFAULT_TABS = [
+    { id: 'all', name: 'All Columns', nameFr: 'Toutes les colonnes', icon: 'table' },
+    { id: 'demographics', name: 'Demographics & Admin', nameFr: 'Démographie & Contact', icon: 'group-editor' },
+    { id: 'accommodations', name: 'Health & Accommodations (SEN)', nameFr: 'Santé & Aménagements (PAP)', icon: 'award' },
+    { id: 'discipline', name: 'Discipline & Sanctions', nameFr: 'Discipline & Barème', icon: 'clock' }
+  ];
+
   var DEFAULT_COLUMNS = [
-    { key: 'student', name: 'Student Name', nameFr: 'Nom de l\'élève', visible: true, locked: true, group: 'general' },
-    { key: 'adminClass', name: 'Class / Group', nameFr: 'Classe / Groupe', visible: true, locked: false, group: 'general' },
-    { key: 'dob', name: 'Date of Birth (DOB)', nameFr: 'Date de naissance', visible: true, locked: false, group: 'demographics' },
-    { key: 'age', name: 'Age', nameFr: 'Âge', visible: true, locked: false, group: 'demographics' },
-    { key: 'gender', name: 'Gender', nameFr: 'Sexe', visible: true, locked: false, group: 'demographics' },
-    { key: 'regime', name: 'Regimen (DP/EXT/INT)', nameFr: 'Régime (DP/EXT/INT)', visible: true, locked: false, group: 'demographics' },
-    { key: 'guardian1Name', name: 'Guardian 1 Name', nameFr: 'Nom Responsable 1', visible: true, locked: false, group: 'contacts' },
-    { key: 'guardian1Phone', name: 'Guardian 1 Phone', nameFr: 'Téléphone Responsable 1', visible: true, locked: false, group: 'contacts' },
-    { key: 'guardian1Email', name: 'Guardian 1 Email', nameFr: 'Courriel Responsable 1', visible: true, locked: false, group: 'contacts' },
-    { key: 'sen', name: 'Accommodations (SEN / PAP)', nameFr: 'Aménagements (PAP/PAI)', visible: true, locked: false, group: 'accommodations' },
-    { key: 'medicalNotes', name: 'Medical Notes / Protocol', nameFr: 'Remarques médicales / PAI', visible: true, locked: false, group: 'accommodations' },
-    { key: 'infractions', name: 'Infraction Counters', nameFr: 'Compteurs d\'infractions', visible: true, locked: false, group: 'discipline' },
-    { key: 'points', name: 'Total Discipline Points', nameFr: 'Points de discipline', visible: true, locked: false, group: 'discipline' },
-    { key: 'sanction', name: 'Recommended Sanction', nameFr: 'Sanction recommandée', visible: true, locked: false, group: 'discipline' },
-    { key: 'actionsHistory', name: 'Follow-up Log Count', nameFr: 'Journal des entretiens', visible: true, locked: false, group: 'discipline' },
-    { key: 'manage', name: 'Quick Action Button', nameFr: 'Bouton d\'action rapide', visible: true, locked: false, group: 'general' }
+    { key: 'student', name: 'Student Name', nameFr: 'Nom de l\'élève', visible: true, locked: false, tab: 'all', type: 'student' },
+    { key: 'adminClass', name: 'Class / Group', nameFr: 'Classe / Groupe', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'dob', name: 'Date of Birth (DOB)', nameFr: 'Date de naissance', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'age', name: 'Age', nameFr: 'Âge', visible: true, locked: false, tab: 'demographics', type: 'readonly' },
+    { key: 'gender', name: 'Gender', nameFr: 'Sexe', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'regime', name: 'Regimen (DP/EXT/INT)', nameFr: 'Régime (DP/EXT/INT)', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Name', name: 'Guardian 1 Name', nameFr: 'Nom Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Phone', name: 'Guardian 1 Phone', nameFr: 'Téléphone Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'guardian1Email', name: 'Guardian 1 Email', nameFr: 'Courriel Responsable 1', visible: true, locked: false, tab: 'demographics', type: 'text' },
+    { key: 'sen', name: 'Accommodations (SEN / PAP)', nameFr: 'Aménagements (PAP/PAI)', visible: true, locked: false, tab: 'accommodations', type: 'sen' },
+    { key: 'medicalNotes', name: 'Medical Notes / Protocol', nameFr: 'Remarques médicales / PAI', visible: true, locked: false, tab: 'accommodations', type: 'text' },
+    { key: 'infractions', name: 'Infraction Counters', nameFr: 'Compteurs d\'infractions', visible: true, locked: false, tab: 'discipline', type: 'infractions' },
+    { key: 'points', name: 'Total Discipline Points', nameFr: 'Points de discipline', visible: true, locked: false, tab: 'discipline', type: 'points' },
+    { key: 'sanction', name: 'Recommended Sanction', nameFr: 'Sanction recommandée', visible: true, locked: false, tab: 'discipline', type: 'sanction' },
+    { key: 'actionsHistory', name: 'Follow-up Log Count', nameFr: 'Journal des entretiens', visible: true, locked: false, tab: 'discipline', type: 'actionsHistory' },
+    { key: 'manage', name: 'Quick Action Button', nameFr: 'Bouton d\'action rapide', visible: true, locked: false, tab: 'discipline', type: 'manage' }
   ];
 
   var DEFAULT_PERIODS = [
@@ -124,6 +131,7 @@
     infractions: DEFAULT_INFRACTIONS,
     sanctionTiers: DEFAULT_SANCTION_TIERS,
     actionTypes: DEFAULT_ACTION_TYPES,
+    tabs: DEFAULT_TABS,
     columns: DEFAULT_COLUMNS,
     periods: DEFAULT_PERIODS
   };

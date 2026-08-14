@@ -119,6 +119,46 @@
     .eg-students-toggle.active { border-color: #0891b2; background: #0891b2; color: #fff; }
     .eg-students-toggle:disabled { opacity: 0.5; cursor: default; }
 
+    /* ── Administrative Group toggle button ───────────────── */
+    .eg-admin-toggle {
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      border: 1.5px solid #000;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #fff;
+      color: #000;
+      flex-shrink: 0;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .eg-admin-toggle:hover { background: #f1f5f9; }
+    .eg-admin-toggle.active { background: #0284c7; color: #fff; border-color: #000; }
+    .eg-admin-toggle:disabled { opacity: 0.5; cursor: default; }
+
+    .ge-admin-toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 10px;
+      border: 2px solid #000;
+      border-radius: 4px;
+      background: #fff;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+    .ge-admin-toggle-label:hover { background: #f8fafc; }
+    .ge-admin-toggle-label input {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
     /* ── Student section ─────────────────────────────────── */
     .eg-student-section {
       background: #f7f7f7;
@@ -569,8 +609,8 @@
     <button class="ge-back-btn" onclick="goBack()" data-i18n="geBack">← Launcher</button>
     <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
     <div class="ge-csv-bar">
-      <button class="ge-csv-btn" onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('import-tool.html'); else window.open('../pages/import-tool.html')" title="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn">📥 Import</button>
-      <button class="ge-csv-btn" onclick="exportCsv()" title="Export all groups and students to a CSV file">⬇ Export CSV</button>
+      <button class="ge-csv-btn" onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('import-tool.html'); else window.open('../pages/import-tool.html')" title="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
+      <button class="ge-csv-btn" onclick="exportCsv()" title="Export all groups and students to a CSV file"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export CSV</button>
     </div>
     <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
   </header>
@@ -598,7 +638,7 @@
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
-      <button class="ge-csv-btn" onclick="syncFromPlanner()" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" title="Fill dates from Planner terms">↕ Planner</button>
+      <button class="ge-csv-btn" onclick="syncFromPlanner()" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" title="Fill dates from Planner terms"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> Planner</button>
     </div>
     <div id="ge-planner-hint" style="display:none;margin:6px 0 0;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
       <span id="ge-planner-hint-text" style="flex:1;color:#2563a8;"></span>
@@ -676,12 +716,17 @@
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
+      <label class="ge-admin-toggle-label" title="Administrative Group (Syncs students to Administrative Groups)">
+        <input type="checkbox" id="new-group-is-admin">
+        <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+        <span data-i18n="geAdminGroup">Admin</span>
+      </label>
       <button class="ge-add-btn" onclick="addNewGroupRow()" data-i18n="geAddBtn">Add</button>
     </div>
   </div>
 
   <div class="ge-save-bar">
-    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn">💾 Save to class-groups.js</button>
+    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save to class-groups.js</button>
   </div>
 </div>
 
@@ -1561,6 +1606,7 @@
       const m = meta[uuid] || {};
       const metaEntry = { year: m.year ?? '', semester: m.semester === '' ? '' : m.semester, level: m.level === '' ? '' : m.level };
       if (m.name) metaEntry.name = m.name;
+      if (m.isAdminGroup) metaEntry.isAdminGroup = true;
       if (m.halfGroups && (m.halfGroups.A?.length || m.halfGroups.B?.length)) metaEntry.halfGroups = m.halfGroups;
       if (m.students && m.students.length) metaEntry.students = m.students;
       if (m.archived) metaEntry.archived = true;
@@ -1581,6 +1627,60 @@
       'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
       ''
     ].join('\n');
+  }
+
+  // ── Sync group students to Administrative Groups ─────────────
+  async function syncGroupToAdministrativeGroups(groupId) {
+    if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') {
+      showNotice((typeof t === 'function' ? t('geAdminGroupSyncedNoDesktop') : 'Marked as administrative group.'), false);
+      return;
+    }
+    try {
+      let adminData = { students: {}, actions: [] };
+      const admRes = await Desktop.readText('user', 'administrative-groups.json');
+      if (admRes && admRes.ok && admRes.content) {
+        try { adminData = JSON.parse(admRes.content); } catch (e) {}
+      }
+      adminData.students = adminData.students || {};
+
+      // Get students for this group from DOM or meta
+      let groupStudents = [];
+      const row = document.querySelector(`.eg-row[data-group="${groupId}"]`);
+      if (row) {
+        const studentSection = row.nextElementSibling;
+        if (studentSection && studentSection.classList.contains('eg-student-section')) {
+          groupStudents = collectStudentsFromTable(studentSection);
+        }
+      }
+      if (!groupStudents.length) {
+        groupStudents = getStudentsForGroup(groupId);
+      }
+
+      const groupName = groupDisplayName(groupId);
+      let importedCount = 0;
+
+      groupStudents.forEach(s => {
+        let sid = s.uuid;
+        if (!sid) {
+          const existing = _rosterLookupByName(s.firstName, s.lastName);
+          sid = existing ? existing.uuid : generateStudentUuid();
+        }
+        adminData.students[sid] = adminData.students[sid] || {};
+        adminData.students[sid].firstName = (s.firstName || '').trim().toUpperCase();
+        adminData.students[sid].lastName = (s.lastName || '').trim().toUpperCase();
+        if (s.dob) adminData.students[sid].dob = s.dob;
+        adminData.students[sid].adminClass = groupName;
+        if (s.sen != null) adminData.students[sid].sen = s.sen === true;
+        importedCount++;
+      });
+
+      const writeRes = await Desktop.saveText('user', 'administrative-groups.json', JSON.stringify(adminData, null, 2));
+      if (writeRes && writeRes.ok) {
+        showNotice(typeof tFmt === 'function' ? tFmt('geAdminGroupSynced', { count: importedCount, group: groupName }) : `Imported ${importedCount} students from "${groupName}" into Administrative Groups.`);
+      }
+    } catch (err) {
+      console.warn('Error syncing to administrative groups:', err);
+    }
   }
 
   async function persistGroupsToUserFile(meta) {
@@ -1803,6 +1903,24 @@
     if (isArchived) studentsToggle.disabled = true;
 
     const { yearInput, semSelect, lvlSelect } = makeMetaInputs(rawMeta[groupId]);
+    const isAdminGroup = !!(rawMeta[groupId] && rawMeta[groupId].isAdminGroup);
+    const adminToggle = document.createElement('button');
+    adminToggle.type = 'button';
+    adminToggle.className = 'eg-admin-toggle' + (isAdminGroup ? ' active' : '');
+    adminToggle.innerHTML = '<img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + (typeof t === 'function' ? t('geAdminGroup') : 'Admin');
+    adminToggle.title = typeof t === 'function' ? t('geAdminGroupTitle') : 'Toggle Administrative Group (Syncs students to Administrative Groups)';
+    if (isArchived) adminToggle.disabled = true;
+
+    adminToggle.onclick = async () => {
+      const isNowAdmin = !adminToggle.classList.contains('active');
+      adminToggle.classList.toggle('active', isNowAdmin);
+      if (!rawMeta[groupId]) rawMeta[groupId] = {};
+      rawMeta[groupId].isAdminGroup = isNowAdmin;
+      if (isNowAdmin) {
+        await syncGroupToAdministrativeGroups(groupId);
+      }
+    };
+
     if (isArchived) {
       yearInput.disabled = true; semSelect.disabled = true; lvlSelect.disabled = true;
       [yearInput, semSelect, lvlSelect].forEach(el => el.style.opacity = '0.6');
@@ -1898,6 +2016,7 @@
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
+    row.appendChild(adminToggle);
     row.appendChild(halfToggle);
     row.appendChild(archiveBtn);
     row.appendChild(delBtn);
@@ -1998,40 +2117,41 @@
       empty.style.cssText = 'color:#aaa; font-size:0.88rem; padding:16px 0;';
       empty.textContent = typeof t === 'function' ? t('geNoActiveGroups') : 'No active groups yet. Add one below.';
       body.appendChild(empty);
-    } else {
-      const contextYear = (document.getElementById('ge-active-year')?.value.trim()) || _activeYear;
-      const byYearSem = {};
-      const noSemGroups = [];
-      activeGroups.forEach(g => {
-        const meta = rawMeta[g];
-        const sem = meta && meta.semester !== undefined && meta.semester !== ''
-          ? String(meta.semester)
-          : '';
-        if (!sem) { noSemGroups.push(g); return; }
-        const year = (meta && meta.year) ? meta.year : contextYear;
-        const key = year + '|' + sem;
-        if (!byYearSem[key]) byYearSem[key] = [];
-        byYearSem[key].push(g);
-      });
+      return;
+    }
 
-      const sortedKeys = Object.keys(byYearSem).sort((a, b) => {
-        const lastA = a.lastIndexOf('|'), lastB = b.lastIndexOf('|');
-        const yearA = a.substring(0, lastA), semA = a.substring(lastA + 1);
-        const yearB = b.substring(0, lastB), semB = b.substring(lastB + 1);
-        if (yearA !== yearB) return yearA < yearB ? -1 : 1;
-        return Number(semA) - Number(semB);
-      });
+    const contextYear = (document.getElementById('ge-active-year')?.value.trim()) || _activeYear;
+    const byYearSem = {};
+    const noSemGroups = [];
+    activeGroups.forEach(g => {
+      const meta = rawMeta[g];
+      const sem = meta && meta.semester !== undefined && meta.semester !== ''
+        ? String(meta.semester)
+        : '';
+      if (!sem) { noSemGroups.push(g); return; }
+      const year = (meta && meta.year) ? meta.year : contextYear;
+      const key = year + '|' + sem;
+      if (!byYearSem[key]) byYearSem[key] = [];
+      byYearSem[key].push(g);
+    });
 
-      sortedKeys.forEach(key => {
-        const lastPipe = key.lastIndexOf('|');
-        const year = key.substring(0, lastPipe);
-        const semNum = key.substring(lastPipe + 1);
-        body.appendChild(createSemesterGroupElement(semNum, year, byYearSem[key], false));
-      });
+    const sortedKeys = Object.keys(byYearSem).sort((a, b) => {
+      const lastA = a.lastIndexOf('|'), lastB = b.lastIndexOf('|');
+      const yearA = a.substring(0, lastA), semA = a.substring(lastA + 1);
+      const yearB = b.substring(0, lastB), semB = b.substring(lastB + 1);
+      if (yearA !== yearB) return yearA < yearB ? -1 : 1;
+      return Number(semA) - Number(semB);
+    });
 
-      if (noSemGroups.length > 0) {
-        body.appendChild(createNoSemGroupElement(noSemGroups));
-      }
+    sortedKeys.forEach(key => {
+      const lastPipe = key.lastIndexOf('|');
+      const year = key.substring(0, lastPipe);
+      const semNum = key.substring(lastPipe + 1);
+      body.appendChild(createSemesterGroupElement(semNum, year, byYearSem[key], false));
+    });
+
+    if (noSemGroups.length > 0) {
+      body.appendChild(createNoSemGroupElement(noSemGroups));
     }
 
     if (archivedGroups.length > 0) {
@@ -2089,12 +2209,16 @@
       const yearEl = row.querySelector('.eg-row-year');
       const semEl = row.querySelector('.eg-row-semester');
       const lvlEl = row.querySelector('.eg-row-level');
+      const adminToggle = row.querySelector('.eg-admin-toggle');
+      const isAdmin = adminToggle ? adminToggle.classList.contains('active') : false;
+
       updatedMeta[uuid] = {
         name,
         year: yearEl ? yearEl.value.trim() : '',
         semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
         level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
       };
+      if (isAdmin) updatedMeta[uuid].isAdminGroup = true;
       if (studentUuids.length > 0) updatedMeta[uuid].students = studentUuids;
 
       const halfSection = studentSection ? studentSection.nextElementSibling : null;
@@ -2168,6 +2292,22 @@
     halfSection.className = 'eg-half-section';
     halfSection.style.display = 'none';
 
+    const isAdminVal = document.getElementById('new-group-is-admin')?.checked || false;
+    const adminToggle = document.createElement('button');
+    adminToggle.type = 'button';
+    adminToggle.className = 'eg-admin-toggle' + (isAdminVal ? ' active' : '');
+    adminToggle.innerHTML = '<img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + (typeof t === 'function' ? t('geAdminGroup') : 'Admin');
+    adminToggle.title = typeof t === 'function' ? t('geAdminGroupTitle') : 'Toggle Administrative Group (Syncs students to Administrative Groups)';
+    adminToggle.onclick = async () => {
+      const isNowAdmin = !adminToggle.classList.contains('active');
+      adminToggle.classList.toggle('active', isNowAdmin);
+      if (!rawMeta[newUuid]) rawMeta[newUuid] = {};
+      rawMeta[newUuid].isAdminGroup = isNowAdmin;
+      if (isNowAdmin) {
+        await syncGroupToAdministrativeGroups(newUuid);
+      }
+    };
+
     const halfToggle = document.createElement('button');
     halfToggle.type = 'button';
     halfToggle.className = 'eg-half-toggle';
@@ -2208,6 +2348,7 @@
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
+    row.appendChild(adminToggle);
     row.appendChild(halfToggle);
     row.appendChild(archiveBtn);
     row.appendChild(delBtn);
@@ -2230,6 +2371,14 @@
     semContent.appendChild(row);
     semContent.appendChild(studentSection);
     semContent.appendChild(halfSection);
+
+    if (isAdminVal) {
+      if (!rawMeta[newUuid]) rawMeta[newUuid] = {};
+      rawMeta[newUuid].isAdminGroup = true;
+      syncGroupToAdministrativeGroups(newUuid);
+    }
+    const adminCb = document.getElementById('new-group-is-admin');
+    if (adminCb) adminCb.checked = false;
 
     row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -2469,6 +2618,13 @@
     if (!result?.ok && result?.mode !== 'download') {
       showNotice((typeof t === 'function' ? t('geSaveFailed') : 'Save failed:') + ' ' + (result?.error || 'Unable to save class-groups.js'), true);
       return;
+    }
+
+    // Sync any administrative groups
+    for (const gId of Object.keys(updatedMeta)) {
+      if (updatedMeta[gId] && updatedMeta[gId].isAdminGroup) {
+        await syncGroupToAdministrativeGroups(gId);
+      }
     }
 
     const saveBtn = document.getElementById('ge-save-btn');
