@@ -670,6 +670,115 @@
             border-color: #334155 !important;
             color: #ffffff !important;
         }
+
+        /* Keyboard Shortcuts Manager Modal */
+        #edit-shortcuts-modal .skm-editor-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        #edit-shortcuts-modal .skm-editor-table th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+            z-index: 2;
+        }
+        #edit-shortcuts-modal .skm-editor-table td {
+            padding: 7px 12px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        #edit-shortcuts-modal .skm-editor-table tr:hover td {
+            background: #f8fafc;
+        }
+        #edit-shortcuts-modal .skm-cat-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.4px;
+        }
+        #edit-shortcuts-modal .skm-cat-roster { background: #e0e7ff; color: #3730a3; }
+        #edit-shortcuts-modal .skm-cat-presentation { background: #dbeafe; color: #1e40af; }
+        #edit-shortcuts-modal .skm-cat-grouping { background: #fef3c7; color: #92400e; }
+        #edit-shortcuts-modal .skm-cat-actions { background: #f1f5f9; color: #334155; }
+        #edit-shortcuts-modal .skm-btn-key {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #1e293b;
+            transition: all 0.15s ease;
+            min-height: 28px;
+        }
+        #edit-shortcuts-modal .skm-btn-key:hover {
+            border-color: #94a3b8;
+            background: #f1f5f9;
+        }
+        #edit-shortcuts-modal .skm-btn-key.recording {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+            animation: skmPulse 1.5s infinite;
+        }
+        @keyframes skmPulse {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.5); }
+        }
+        #edit-shortcuts-modal .skm-btn-key kbd {
+            display: inline-block;
+            background: #fff;
+            border: 1px solid #94a3b8;
+            border-bottom: 2px solid #64748b;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 0.78rem;
+            font-family: inherit;
+            color: #0f172a;
+        }
+        #edit-shortcuts-modal .skm-btn-icon-action {
+            background: none;
+            border: none;
+            padding: 4px 6px;
+            cursor: pointer;
+            color: #94a3b8;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            line-height: 1;
+            transition: color 0.15s, background 0.15s;
+        }
+        #edit-shortcuts-modal .skm-btn-icon-action:hover {
+            color: #0f172a;
+            background: #e2e8f0;
+        }
+        #edit-shortcuts-modal .skm-conflict-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.72rem;
+            color: #b45309;
+            background: #fef3c7;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-left: 6px;
+        }
     </style>
 </head>
 
@@ -922,6 +1031,13 @@
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_edit_modes">Edit Modes</strong>
                 <small data-i18n="settings_edit_modes_small">Customise working modes (sound, picture, text)</small>
+            </span>
+        </button>
+        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditShortcutsModal();">
+            <span class="db-popup-btn-icon"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></span>
+            <span class="db-popup-btn-text">
+                <strong data-i18n="settings_edit_shortcuts">Edit Keyboard Shortcuts</strong>
+                <small data-i18n="settings_edit_shortcuts_small">Customise shortcuts for roster toggles and classroom actions</small>
             </span>
         </button>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html');">
@@ -1242,11 +1358,11 @@
                                         <span data-i18n="rsp_pres_btn_sen">SEN</span></button>
                                     <button class="rsp-inline-btn" id="rsp-pres-roles-btn"
                                         onclick="togglePresSetting('roles')" title="Show roles in presentation window"
-                                        data-i18n-title="rsp_pres_roles_title"><img src="../assets/icons/user-check.svg"
+                                        data-i18n-title="rsp_pres_roles_title"><img src="../assets/icons/eye.svg"
                                             class="btn-icon" alt="" /> <span data-i18n="rsp_pres_btn_roles">Roles</span></button>
                                     <button class="rsp-inline-btn" id="rsp-pres-badges-btn"
                                         onclick="togglePresSetting('badges')" title="Show badges in presentation window"
-                                        data-i18n-title="rsp_pres_badges_title"><img src="../assets/icons/award.svg"
+                                        data-i18n-title="rsp_pres_badges_title"><img src="../assets/icons/eye.svg"
                                             class="btn-icon" alt="" /> <span data-i18n="rsp_pres_btn_badges">Badges</span></button>
                                     <button class="rsp-inline-btn"
                                         id="rsp-pres-autoflag-btn" onclick="togglePresSetting('autoflag')"
@@ -2081,6 +2197,68 @@
             <div style="margin-top:20px; display:flex; justify-content:flex-end;">
                 <button onclick="closeModeManager()"
                     style="background:#111; color:#fff; border:none; border-radius:4px; padding:8px 24px; font-weight:700; cursor:pointer;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KEYBOARD SHORTCUTS MANAGER MODAL -->
+    <div class="modal-overlay" id="edit-shortcuts-modal" onclick="if(event.target===this)closeEditShortcutsModal()">
+        <div class="modal-content" onclick="event.stopPropagation()"
+            style="max-width:760px; width:95%; max-height:88vh; display:flex; flex-direction:column; padding:22px 24px; box-sizing:border-box;">
+            <button class="close-modal" onclick="closeEditShortcutsModal()">&times;</button>
+
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+                <div>
+                    <h2 style="margin:0; text-transform:uppercase; letter-spacing:1.2px; font-size:1.2rem; display:flex; align-items:center; gap:8px;"
+                        data-i18n="shortcuts_manager_title">
+                        <span>⌨️</span> Keyboard Shortcuts Manager
+                    </h2>
+                    <p style="color:#666; font-size:0.82rem; margin:4px 0 0;" data-i18n="shortcuts_manager_desc">
+                        Click on any shortcut to rebind it by pressing the desired key combination. Press Esc to cancel.
+                    </p>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button onclick="resetCmsShortcutsToDefault()" class="btn-mini"
+                        style="padding:6px 12px; font-size:0.8rem; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:5px; cursor:pointer; font-weight:600; color:#334155;"
+                        data-i18n="shortcuts_btn_reset_all">
+                        🔄 Reset to Defaults
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter and Category toolbar -->
+            <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="shortcuts-search-input" oninput="filterShortcutsTable()"
+                    placeholder="Search actions or shortcuts…" data-i18n-placeholder="shortcuts_search_placeholder"
+                    style="flex:1; min-width:200px; padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
+                <select id="shortcuts-category-filter" onchange="filterShortcutsTable()"
+                    style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff; cursor:pointer;">
+                    <option value="all" data-i18n="shortcuts_cat_all">All Categories</option>
+                    <option value="roster" data-i18n="shortcuts_cat_roster">Roster Toggles</option>
+                    <option value="presentation" data-i18n="shortcuts_cat_presentation">Presentation</option>
+                    <option value="grouping" data-i18n="shortcuts_cat_grouping">Grouping & Roles</option>
+                    <option value="actions" data-i18n="shortcuts_cat_actions">Classroom Actions</option>
+                </select>
+            </div>
+
+            <!-- Conflict Banner (hidden by default) -->
+            <div id="shortcuts-conflict-banner"
+                style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:0.82rem; color:#92400e; align-items:center; gap:8px;">
+                <span>⚠️</span> <span id="shortcuts-conflict-text">One or more shortcuts have conflicts.</span>
+            </div>
+
+            <!-- Shortcuts Table Container -->
+            <div id="shortcuts-table-container"
+                style="flex:1; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; background:#fff; max-height:55vh;">
+                <!-- Dynamically rendered table -->
+            </div>
+
+            <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+                <span id="shortcuts-status-msg" style="font-size:0.8rem; color:#64748b;"></span>
+                <button onclick="closeEditShortcutsModal()"
+                    style="background:#111; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-weight:700; font-size:0.88rem; cursor:pointer;">
+                    Done
+                </button>
             </div>
         </div>
     </div>
@@ -5166,7 +5344,7 @@
                         <ul class="medal-students">
                             ${winners.map(s => `
                                 <li class="medal-student">
-                                    <span>${s.name}</span>
+                                    <span>${getDisplayName(s)}</span>
                                     <span class="student-score">+${s.score}</span>
                                 </li>
                             `).join('')}
@@ -8326,6 +8504,7 @@
             renderRoster();
             renderRanking();
             if (val > 0) _broadcastAnimation('score-flash', { label: type === 'p' ? '+1' : '−1', color: type === 'p' ? '#16a34a' : '#dc2626' });
+            if (typeof queueDbAutosave === 'function') queueDbAutosave('score', 300);
             if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
 
@@ -8342,6 +8521,7 @@
                 }
                 renderRoster();
                 renderRanking();
+                if (typeof queueDbAutosave === 'function') queueDbAutosave('team-score', 300);
                 if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
                 return;
             }
@@ -8369,6 +8549,7 @@
             renderRoster();
             renderRanking();
             if (val > 0) _broadcastAnimation('score-flash', { label: type === 'p' ? 'T+1' : 'T−1', color: type === 'p' ? '#2563eb' : '#dc2626' });
+            if (typeof queueDbAutosave === 'function') queueDbAutosave('team-score', 300);
         }
 
         function renderRanking() {
@@ -8403,6 +8584,7 @@
             if (!student || student.isAbsent) return;
             student.isPicked = !student.isPicked;
             renderRoster();
+            if (typeof queueDbAutosave === 'function') queueDbAutosave('strike', 500);
         }
 
         function changeStudentRole(id) {
@@ -8493,6 +8675,7 @@
                 studentGroups[selectedGroupName].forEach(s => { s.pluses = 0; s.minuses = 0; s.teamPluses = 0; s.teamMinuses = 0; s.badges = []; });
                 renderRoster();
                 renderRanking();
+                if (typeof autosaveToDb === 'function') autosaveToDb('reset-points');
             });
         }
 
@@ -9365,7 +9548,7 @@
             const winner = weightedPool[Math.floor(Math.random() * weightedPool.length)];
             winner.isPicked = true;
             const dn = document.getElementById('display-name');
-            dn.innerText = winner.name;
+            dn.innerText = getDisplayName(winner);
             dn.style.color = '';
             dn.classList.remove('blinking');
             void dn.offsetWidth; // reflow to restart animation
@@ -9394,8 +9577,11 @@
                 }
             } catch (err) { }
 
-            // Notify presentation windows to also animate the picked student
-            if (!PRESENTATION_MODE) _broadcastAnimation('pick-blink', { studentId: winner.id });
+            // Notify presentation windows to also animate the picked student and sync state
+            if (!PRESENTATION_MODE) {
+                _broadcastAnimation('pick-blink', { studentId: winner.id });
+                _broadcastPresentationState();
+            }
         }
 
         function pickTeam() {
@@ -11766,6 +11952,7 @@ syncState();
             renderRoster();
             renderRanking();
             _broadcastAnimation('badge-flash', { icon });
+            if (typeof autosaveToDb === 'function') autosaveToDb('badge-award');
             if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
 
@@ -11775,13 +11962,15 @@ syncState();
             if (!student || !student.badges) return;
             const idx = student.badges.findIndex(b => b.icon === icon);
             if (idx === -1) return;
-            student.badges.splice(idx, 1);
+            const removed = student.badges.splice(idx, 1)[0];
             // Diamond removal undoes the +1 point
             if (icon === '💎') {
-                student.pluses = Math.max(0, student.pluses - 1);
+                student.pluses = Math.max(0, (student.pluses || 0) - 1);
             }
+            logHistory('remove', student.name, (removed?.label ? removed.label + ' ' : '') + 'badge (' + icon + ')');
             renderRoster();
             renderRanking();
+            if (typeof autosaveToDb === 'function') autosaveToDb('badge-remove');
             if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
 
@@ -12068,6 +12257,7 @@ syncState();
             student.comments.splice(noteIndex, 1);
             renderNotesLog(student);
             renderRoster();
+            if (typeof autosaveToDb === 'function') autosaveToDb('comment-delete');
         }
 
         function saveComment() {
@@ -12088,6 +12278,7 @@ syncState();
             document.getElementById('comment-textarea').value = '';
             renderNotesLog(student);
             renderRoster();
+            if (typeof autosaveToDb === 'function') autosaveToDb('comment-save');
         }
 
         function closeCommentPopup() {
@@ -12828,101 +13019,412 @@ syncState();
         }
 
         // ============================================================
-        // KEYBOARD SHORTCUTS
+        // KEYBOARD SHORTCUTS MANAGER & DISPATCHER
         // ============================================================
+
+        const CMS_SHORTCUTS_STORAGE_KEY = 'CMS_CUSTOM_SHORTCUTS_V1';
+        let _activeRecordingActionId = null;
+        let _recordingKeydownHandler = null;
+
+        const CMS_SHORTCUT_DEFINITIONS = [
+            // --- Roster Toggles & Name Size ---
+            { id: 'toggle_sen', nameKey: 'rsp_toggle_sen_title', defaultName: 'Toggle SEN indicator (*)', category: 'roster', defaultKeys: null, fn: () => toggleSenVisibility() },
+            { id: 'toggle_roles', nameKey: 'rsp_toggle_roles_title', defaultName: 'Toggle roles visibility', category: 'roster', defaultKeys: null, fn: () => toggleRolesVisibility() },
+            { id: 'toggle_badges', nameKey: 'rsp_toggle_badges_title', defaultName: 'Toggle badges visibility', category: 'roster', defaultKeys: { ctrl: true, key: 'b' }, fn: () => toggleBadgesVisibility() },
+            { id: 'toggle_autoflag', nameKey: 'rsp_toggle_autoflag_title', defaultName: 'Toggle autoflag visibility', category: 'roster', defaultKeys: { ctrl: true, key: 'f' }, fn: () => toggleAutoFlagVisibility() },
+            { id: 'toggle_anim', nameKey: 'rsp_toggle_anim_title', defaultName: 'Toggle visual animations', category: 'roster', defaultKeys: null, fn: () => toggleAnimations() },
+            { id: 'toggle_plan', nameKey: 'rsp_toggle_plan_title', defaultName: 'Toggle seating plan view', category: 'roster', defaultKeys: { ctrl: true, key: 'p' }, fn: () => toggleRosterPlanView() },
+            { id: 'toggle_sounds', nameKey: 'rsp_mute_score_title', defaultName: 'Mute / unmute score sounds', category: 'roster', defaultKeys: null, fn: () => toggleScoreMute() },
+            { id: 'increase_name_size', nameKey: 'rsp_increase_title', defaultName: 'Increase name size (A+)', category: 'roster', defaultKeys: null, fn: () => changeNameSize(1) },
+            { id: 'decrease_name_size', nameKey: 'rsp_decrease_title', defaultName: 'Decrease name size (A−)', category: 'roster', defaultKeys: null, fn: () => changeNameSize(-1) },
+            { id: 'reset_name_size', nameKey: 'rsp_reset_title', defaultName: 'Reset name size (A)', category: 'roster', defaultKeys: null, fn: () => resetNameSize() },
+            { id: 'toggle_roster_settings', nameKey: 'rsp_roster_settings_title', defaultName: 'Toggle roster settings menu', category: 'roster', defaultKeys: null, fn: () => toggleRosterSettingsPopup() },
+
+            // --- Presentation & Mirroring ---
+            { id: 'open_presentation', nameKey: 'rsp_present_title', defaultName: 'Open presentation window', category: 'presentation', defaultKeys: null, fn: () => openCmsPresentation() },
+            { id: 'freeze_presentation', nameKey: 'rsp_freeze_title', defaultName: 'Freeze presentation window', category: 'presentation', defaultKeys: null, fn: () => toggleFreezePresentation() },
+            { id: 'close_presentation', nameKey: 'rsp_close_pres_title', defaultName: 'Close presentation window', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationClose() },
+            { id: 'fullscreen_presentation', nameKey: 'rsp_full_pres_title', defaultName: 'Toggle fullscreen on presentation', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationFullscreen() },
+            { id: 'maximize_presentation', nameKey: 'rsp_max_pres_title', defaultName: 'Maximise presentation window', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationMaximize() },
+            { id: 'minimize_presentation', nameKey: 'rsp_min_pres_title', defaultName: 'Minimise presentation window', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationMinimize() },
+            { id: 'dock_right_presentation', nameKey: 'rsp_right_pres_title', defaultName: 'Move presentation window right', category: 'presentation', defaultKeys: null, fn: () => cmsPresentationDockRight() },
+            { id: 'increase_pres_font', nameKey: 'rsp_pres_increase_title', defaultName: 'Increase presentation font size (A+)', category: 'presentation', defaultKeys: null, fn: () => changePresentationNameSize(1) },
+            { id: 'decrease_pres_font', nameKey: 'rsp_pres_decrease_title', defaultName: 'Decrease presentation font size (A−)', category: 'presentation', defaultKeys: null, fn: () => changePresentationNameSize(-1) },
+            { id: 'reset_pres_font', nameKey: 'rsp_pres_reset_title', defaultName: 'Reset presentation font size (A)', category: 'presentation', defaultKeys: null, fn: () => resetPresentationNameSize() },
+            { id: 'mirror_sen', nameKey: 'rsp_pres_sen_title', defaultName: 'Mirror SEN in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('sen') },
+            { id: 'mirror_roles', nameKey: 'rsp_pres_roles_title', defaultName: 'Mirror roles in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('roles') },
+            { id: 'mirror_badges', nameKey: 'rsp_pres_badges_title', defaultName: 'Mirror badges in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('badges') },
+            { id: 'mirror_autoflag', nameKey: 'rsp_pres_autoflag_title', defaultName: 'Mirror autoflag in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('autoflag') },
+            { id: 'mirror_anim', nameKey: 'rsp_pres_anim_title', defaultName: 'Mirror animations in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('anim') },
+            { id: 'mirror_plan', nameKey: 'rsp_pres_plan_title', defaultName: 'Mirror plan view in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('plan') },
+            { id: 'mirror_modes', nameKey: 'rsp_pres_modes_title', defaultName: 'Mirror modes in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('modes') },
+
+            // --- Grouping & Roles ---
+            { id: 'teams_create', nameKey: 'skmCmsTeams', defaultName: 'Create / reshuffle teams', category: 'grouping', defaultKeys: { ctrl: true, key: 't' }, fn: () => { const modal = document.getElementById('team-modal'); if (modal && modal.style.display === 'flex') closeTeamModal(); else createTeams(); } },
+            { id: 'teams_clear', nameKey: 'btn_clear_teams', defaultName: 'Clear teams', category: 'grouping', defaultKeys: null, fn: () => clearTeams() },
+            { id: 'roles_modal', nameKey: 'skmCmsRoles', defaultName: 'Assign roles modal', category: 'grouping', defaultKeys: { ctrl: true, key: 'r' }, fn: () => openRolesModal() },
+            { id: 'roles_reassign', nameKey: 'rsp_reassign_roles', defaultName: 'Reassign roles', category: 'grouping', defaultKeys: null, fn: () => reassignRolesFromUtility() },
+            { id: 'roles_clear', nameKey: 'rsp_clear_roles', defaultName: 'Clear roles', category: 'grouping', defaultKeys: null, fn: () => clearAssignedRolesFromUtility() },
+            { id: 'roles_info', nameKey: 'btn_role_info', defaultName: 'Assigned role info', category: 'grouping', defaultKeys: null, fn: () => openAssignedRolesInfo() },
+
+            // --- Tools & Classroom Actions ---
+            { id: 'pick_student', nameKey: 'skmCmsRandomStudent', defaultName: 'Pick random student', category: 'actions', defaultKeys: { ctrl: true, key: ' ' }, fn: () => { const btn = document.getElementById('pick-btn'); if (btn && !btn.disabled) pickStudent(); } },
+            { id: 'pick_team', nameKey: 'tut_pick_title', defaultName: 'Pick random team', category: 'actions', defaultKeys: null, fn: () => { const btn = document.getElementById('team-pick-btn'); if (btn && !btn.disabled) pickTeam(); } },
+            { id: 'mode_picker', nameKey: 'skmCmsModes', defaultName: 'Open working mode picker', category: 'actions', defaultKeys: { ctrl: true, key: 'm' }, fn: () => {
+                const modeOverlay = document.getElementById('mode-animation-overlay');
+                const modePicker = document.getElementById('mode-picker-modal');
+                if (modeOverlay && modeOverlay.classList.contains('active')) closeMode();
+                else if (modePicker && modePicker.style.display === 'flex') closeModePicker();
+                else openModePicker();
+            } },
+            { id: 'noise_toggle', nameKey: 'skmCmsNoiseToggle', defaultName: 'Toggle ambient noise', category: 'actions', defaultKeys: { ctrl: false, key: 'w' }, fn: () => overlaySetNoise(_noiseType) },
+            { id: 'noise_mute', nameKey: 'skmCmsNoiseMute', defaultName: 'Mute / unmute ambient noise', category: 'actions', defaultKeys: { ctrl: false, key: 'm' }, fn: () => toggleWhiteNoiseMute() },
+            { id: 'noise_vol_down', nameKey: 'skmCmsNoiseVolume', defaultName: 'Decrease ambient noise volume', category: 'actions', defaultKeys: { ctrl: false, key: '[' }, fn: () => stepWhiteNoiseVolume(-5) },
+            { id: 'noise_vol_up', nameKey: 'skmCmsNoiseVolume', defaultName: 'Increase ambient noise volume', category: 'actions', defaultKeys: { ctrl: false, key: ']' }, fn: () => stepWhiteNoiseVolume(+5) },
+            { id: 'copy_roster', nameKey: 'rsp_copy_roster_btn', defaultName: 'Copy roster plain text', category: 'actions', defaultKeys: null, fn: () => copyRosterPlainText() },
+            { id: 'results_ranking', nameKey: 'rsp_results_ranking', defaultName: 'Results & Ranking', category: 'actions', defaultKeys: null, fn: () => openResultsRankingModal() },
+            { id: 'reset_points', nameKey: 'btn_reset_points', defaultName: 'Reset points', category: 'actions', defaultKeys: null, fn: () => manualResetFull() },
+            { id: 'reset_strikes', nameKey: 'btn_reset_strikes', defaultName: 'Reset strikes', category: 'actions', defaultKeys: null, fn: () => resetStrikesOnly() },
+            { id: 'timer_toggle', nameKey: 'timer_pp_title', defaultName: 'Start / Pause timer', category: 'actions', defaultKeys: null, fn: () => {
+                const pauseBtn = document.getElementById('popup-pause-btn');
+                if (pauseBtn && pauseBtn.style.display !== 'none') timerTogglePause();
+                else popupStartTimer();
+            } },
+            { id: 'timer_stop', nameKey: 'timer_stop', defaultName: 'Stop timer', category: 'actions', defaultKeys: null, fn: () => popupStopTimer() }
+        ];
+
+        function getCmsCustomShortcutsMap() {
+            try {
+                const raw = localStorage.getItem(CMS_SHORTCUTS_STORAGE_KEY);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveCmsCustomShortcutsMap(map) {
+            try {
+                localStorage.setItem(CMS_SHORTCUTS_STORAGE_KEY, JSON.stringify(map));
+            } catch (e) {
+                console.warn('Could not save custom shortcuts to localStorage', e);
+            }
+        }
+
+        function getActiveShortcutForDef(def, customMap = null) {
+            const map = customMap || getCmsCustomShortcutsMap();
+            if (map[def.id] !== undefined) return map[def.id];
+            return def.defaultKeys;
+        }
+
+        function formatShortcutKeysList(sc) {
+            if (!sc || !sc.key) return [];
+            const list = [];
+            if (sc.ctrl) list.push('Ctrl');
+            if (sc.alt) list.push('Alt');
+            if (sc.shift) list.push('Shift');
+            
+            let k = String(sc.key);
+            if (k === ' ') k = 'Space';
+            else if (k.toLowerCase() === 'arrowleft') k = '←';
+            else if (k.toLowerCase() === 'arrowright') k = '→';
+            else if (k.toLowerCase() === 'arrowup') k = '↑';
+            else if (k.toLowerCase() === 'arrowdown') k = '↓';
+            else if (k.length === 1) k = k.toUpperCase();
+            list.push(k);
+            return list;
+        }
+
+        function formatShortcutKeyHtml(sc) {
+            const keys = formatShortcutKeysList(sc);
+            if (!keys.length) {
+                return `<span style="color:#94a3b8; font-style:italic;">${t('shortcuts_unassigned') || 'Unassigned'}</span>`;
+            }
+            return keys.map(k => `<kbd>${k}</kbd>`).join(' + ');
+        }
+
+        function shortcutKeysMatch(scA, scB) {
+            if (!scA || !scB || !scA.key || !scB.key) return false;
+            return !!scA.ctrl === !!scB.ctrl &&
+                   !!scA.alt === !!scB.alt &&
+                   !!scA.shift === !!scB.shift &&
+                   String(scA.key).toLowerCase() === String(scB.key).toLowerCase();
+        }
+
+        function findShortcutConflict(defId, sc, customMap) {
+            if (!sc || !sc.key) return null;
+            for (const other of CMS_SHORTCUT_DEFINITIONS) {
+                if (other.id === defId) continue;
+                const otherSc = getActiveShortcutForDef(other, customMap);
+                if (shortcutKeysMatch(sc, otherSc)) {
+                    const name = t(other.nameKey) || other.defaultName;
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        function openEditShortcutsModal() {
+            _cancelRecording();
+            const modal = document.getElementById('edit-shortcuts-modal');
+            if (modal) modal.style.display = 'flex';
+            renderEditShortcutsTable();
+        }
+
+        function closeEditShortcutsModal() {
+            _cancelRecording();
+            const modal = document.getElementById('edit-shortcuts-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function filterShortcutsTable() {
+            renderEditShortcutsTable();
+        }
+
+        function resetCmsShortcutsToDefault() {
+            _cancelRecording();
+            localStorage.removeItem(CMS_SHORTCUTS_STORAGE_KEY);
+            renderEditShortcutsTable();
+            showToast(t('shortcuts_reset_toast') || 'Keyboard shortcuts reset to default');
+        }
+
+        function renderEditShortcutsTable() {
+            const container = document.getElementById('shortcuts-table-container');
+            if (!container) return;
+
+            const searchInput = document.getElementById('shortcuts-search-input');
+            const catFilter = document.getElementById('shortcuts-category-filter');
+            const search = (searchInput && searchInput.value ? searchInput.value.toLowerCase().trim() : '');
+            const cat = (catFilter ? catFilter.value : 'all');
+
+            const customMap = getCmsCustomShortcutsMap();
+            let hasAnyConflict = false;
+            let rowsHtml = '';
+
+            const categoryLabels = {
+                roster: t('shortcuts_cat_roster') || 'Roster Toggles',
+                presentation: t('shortcuts_cat_presentation') || 'Presentation',
+                grouping: t('shortcuts_cat_grouping') || 'Grouping & Roles',
+                actions: t('shortcuts_cat_actions') || 'Classroom Actions'
+            };
+
+            const filtered = CMS_SHORTCUT_DEFINITIONS.filter(def => {
+                if (cat !== 'all' && def.category !== cat) return false;
+                if (!search) return true;
+                const name = (t(def.nameKey) || def.defaultName).toLowerCase();
+                const sc = getActiveShortcutForDef(def, customMap);
+                const scText = formatShortcutKeysList(sc).join(' ').toLowerCase();
+                return name.includes(search) || scText.includes(search) || def.category.includes(search);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="padding:30px; text-align:center; color:#94a3b8; font-style:italic;">No matching shortcuts found.</div>`;
+                return;
+            }
+
+            rowsHtml += `
+                <table class="skm-editor-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40%;">Action</th>
+                            <th style="width:20%;">Category</th>
+                            <th style="width:30%;">Shortcut</th>
+                            <th style="width:10%; text-align:right;">Reset</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filtered.forEach(def => {
+                const sc = getActiveShortcutForDef(def, customMap);
+                const isRecording = (_activeRecordingActionId === def.id);
+                const conflictWith = findShortcutConflict(def.id, sc, customMap);
+                if (conflictWith) hasAnyConflict = true;
+
+                const name = t(def.nameKey) || def.defaultName;
+                const catLabel = categoryLabels[def.category] || def.category;
+                const hasCustom = customMap[def.id] !== undefined;
+
+                const conflictHtml = conflictWith
+                    ? `<span class="skm-conflict-tag" title="${t('shortcuts_conflict') || 'Conflict with'}: ${conflictWith}">⚠️ ${conflictWith}</span>`
+                    : '';
+
+                const keyButtonHtml = isRecording
+                    ? `<button class="skm-btn-key recording">${t('shortcuts_recording_prompt') || 'Press key combo… (Esc to cancel)'}</button>`
+                    : `<button class="skm-btn-key" onclick="startRecordingShortcut('${def.id}', event)" title="${t('shortcuts_rebind_btn') || 'Click to rebind'}">${formatShortcutKeyHtml(sc)}</button>${conflictHtml}`;
+
+                const clearBtnHtml = (sc && sc.key)
+                    ? `<button class="skm-btn-icon-action" onclick="clearShortcutSingle('${def.id}', event)" title="${t('shortcuts_clear_btn') || 'Clear shortcut'}">✕</button>`
+                    : '';
+
+                const resetBtnHtml = hasCustom
+                    ? `<button class="skm-btn-icon-action" onclick="resetShortcutSingle('${def.id}', event)" title="${t('shortcuts_reset_btn') || 'Reset to default'}">↺</button>`
+                    : '';
+
+                rowsHtml += `
+                    <tr>
+                        <td><strong>${name}</strong></td>
+                        <td><span class="skm-cat-tag skm-cat-${def.category}">${catLabel}</span></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                ${keyButtonHtml}
+                                ${clearBtnHtml}
+                            </div>
+                        </td>
+                        <td style="text-align:right;">${resetBtnHtml}</td>
+                    </tr>
+                `;
+            });
+
+            rowsHtml += `</tbody></table>`;
+            container.innerHTML = rowsHtml;
+
+            // Conflict banner update
+            const conflictBanner = document.getElementById('shortcuts-conflict-banner');
+            if (conflictBanner) {
+                conflictBanner.style.display = hasAnyConflict ? 'flex' : 'none';
+            }
+        }
+
+        function _cancelRecording() {
+            _activeRecordingActionId = null;
+            if (_recordingKeydownHandler) {
+                window.removeEventListener('keydown', _recordingKeydownHandler, true);
+                _recordingKeydownHandler = null;
+            }
+        }
+
+        function startRecordingShortcut(actionId, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            _cancelRecording();
+
+            _activeRecordingActionId = actionId;
+            renderEditShortcutsTable();
+
+            _recordingKeydownHandler = function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (e.key === 'Escape') {
+                    _cancelRecording();
+                    renderEditShortcutsTable();
+                    return;
+                }
+
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    _cancelRecording();
+                    clearShortcutSingle(actionId);
+                    return;
+                }
+
+                // Ignore lone modifier presses
+                if (['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'Tab'].includes(e.key)) {
+                    return;
+                }
+
+                const newShortcut = {
+                    ctrl: !!(e.ctrlKey || e.metaKey),
+                    alt: !!e.altKey,
+                    shift: !!e.shiftKey,
+                    key: e.key.toLowerCase()
+                };
+
+                const customMap = getCmsCustomShortcutsMap();
+                customMap[actionId] = newShortcut;
+                saveCmsCustomShortcutsMap(customMap);
+
+                _cancelRecording();
+                renderEditShortcutsTable();
+                showToast(t('shortcuts_saved_toast') || 'Keyboard shortcuts saved');
+            };
+
+            window.addEventListener('keydown', _recordingKeydownHandler, true);
+        }
+
+        function clearShortcutSingle(actionId, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            _cancelRecording();
+            const customMap = getCmsCustomShortcutsMap();
+            customMap[actionId] = null; // null represents explicitly cleared
+            saveCmsCustomShortcutsMap(customMap);
+            renderEditShortcutsTable();
+        }
+
+        function resetShortcutSingle(actionId, event) {
+            if (event) { event.stopPropagation(); event.preventDefault(); }
+            _cancelRecording();
+            const customMap = getCmsCustomShortcutsMap();
+            delete customMap[actionId];
+            saveCmsCustomShortcutsMap(customMap);
+            renderEditShortcutsTable();
+        }
 
         function openCmsShortcutsModal() {
             if (typeof ShortcutsModal === 'undefined') return;
+            const customMap = getCmsCustomShortcutsMap();
+
+            const sections = [
+                { id: 'roster', title: t('shortcuts_cat_roster') || 'Roster Toggles' },
+                { id: 'presentation', title: t('shortcuts_cat_presentation') || 'Presentation' },
+                { id: 'grouping', title: t('shortcuts_cat_grouping') || 'Grouping & Roles' },
+                { id: 'actions', title: t('shortcuts_cat_actions') || 'Classroom Actions' }
+            ];
+
+            const rows = [];
+            sections.forEach(sec => {
+                const defs = CMS_SHORTCUT_DEFINITIONS.filter(d => d.category === sec.id);
+                const activeDefs = defs.map(d => ({ def: d, sc: getActiveShortcutForDef(d, customMap) }))
+                                       .filter(item => item.sc && item.sc.key);
+                if (activeDefs.length > 0) {
+                    rows.push({ section: sec.title });
+                    activeDefs.forEach(item => {
+                        rows.push({
+                            keys: formatShortcutKeysList(item.sc),
+                            desc: t(item.def.nameKey) || item.def.defaultName
+                        });
+                    });
+                }
+            });
+
+            // Extra static helpers
+            rows.push({ section: t('skmSecGeneral') || 'General & Overlays' });
+            rows.push({ keys: ['1-9'], desc: t('mode_title') || 'Activate working mode (when picker/overlay open)' });
+            rows.push({ keys: ['Esc'], desc: t('skmCmsEsc') || 'Close active popup or overlay' });
+
             ShortcutsModal.open({
                 title: t('skmTitle') || 'Keyboard Shortcuts',
-                rows: [
-                    { section: t('skmSecClassroom') || 'Classroom Actions' },
-                    { keys: ['Ctrl', 'Space'], desc: t('skmCmsRandomStudent') || 'Pick random student' },
-                    { keys: ['Ctrl', 'T'], alt: ['Ctrl', 'Shift', 'K'], desc: t('skmCmsTeams') || 'Create / reshuffle teams' },
-                    { keys: ['Ctrl', 'R'], desc: t('skmCmsRoles') || 'Assign roles to class' },
-                    { keys: ['Ctrl', 'M'], desc: t('skmCmsModes') || 'Open working mode picker' },
-                    { keys: ['Ctrl', 'P'], desc: t('skmCmsPlan') || 'Toggle seating plan view' },
-                    { keys: ['Ctrl', 'B'], desc: t('skmCmsBadges') || 'Toggle badges visibility' },
-                    { keys: ['Ctrl', 'F'], desc: t('skmCmsAutoflag') || 'Toggle autoflag visibility' },
-                    { section: t('skmSecGeneral') || 'General & Overlays' },
-                    { keys: ['1-9'], desc: t('mode_title') || 'Activate working mode (when picker/overlay open)' },
-                    { keys: ['W'], desc: t('skmCmsNoiseToggle') || 'Toggle ambient noise' },
-                    { keys: ['M'], desc: t('skmCmsNoiseMute') || 'Mute / unmute ambient noise' },
-                    { keys: ['['], alt: [']'], desc: t('skmCmsNoiseVolume') || 'Adjust ambient noise volume' },
-                    { keys: ['Esc'], desc: t('skmCmsEsc') || 'Close active popup or overlay' }
-                ],
+                rows: rows,
                 noShortcutsText: t('skmNone')
             });
         }
 
+        // Global Dispatcher for customizable shortcuts
         document.addEventListener('keydown', function (e) {
             if (PRESENTATION_MODE) return;
+            if (_activeRecordingActionId) return; // Handled by recording listener
+
             // Ignore shortcuts when typing in inputs, textareas, selects
             const tag = document.activeElement && document.activeElement.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-            if (e.ctrlKey && e.shiftKey && e.key === 'K') {
-                e.preventDefault();
-                // Toggle team modal
-                const modal = document.getElementById('team-modal');
-                if (modal && modal.style.display === 'flex') {
-                    closeTeamModal();
-                } else {
-                    createTeams();
+            const customMap = getCmsCustomShortcutsMap();
+            const currentEventSc = {
+                ctrl: !!(e.ctrlKey || e.metaKey),
+                alt: !!e.altKey,
+                shift: !!e.shiftKey,
+                key: e.key.toLowerCase()
+            };
+
+            // Check against configured shortcuts
+            for (const def of CMS_SHORTCUT_DEFINITIONS) {
+                const activeSc = getActiveShortcutForDef(def, customMap);
+                if (shortcutKeysMatch(currentEventSc, activeSc)) {
+                    e.preventDefault();
+                    if (typeof def.fn === 'function') def.fn();
+                    return;
                 }
             }
 
-            if (e.ctrlKey && e.key === 'b') {
-                e.preventDefault();
-                toggleBadgesVisibility();
-            }
-
-            if (e.ctrlKey && e.key === 'f') {
-                e.preventDefault();
-                toggleAutoFlagVisibility();
-            }
-
-            if (e.ctrlKey && e.key === 't') {
-                e.preventDefault();
-                const teamModal = document.getElementById('team-modal');
-                if (teamModal && teamModal.style.display === 'flex') {
-                    closeTeamModal();
-                } else {
-                    createTeams();
-                }
-            }
-
-            if (e.ctrlKey && e.key === 'r') {
-                e.preventDefault();
-                openRolesModal();
-            }
-
-            if (e.ctrlKey && e.key === ' ') {
-                e.preventDefault();
-                const pickBtn = document.getElementById('pick-btn');
-                if (pickBtn && !pickBtn.disabled) pickStudent();
-            }
-
-            if (e.ctrlKey && e.key === 'm') {
-                e.preventDefault();
-                // Toggle mode picker (or close mode overlay if active)
-                const modeOverlay = document.getElementById('mode-animation-overlay');
-                const modePicker = document.getElementById('mode-picker-modal');
-                if (modeOverlay && modeOverlay.classList.contains('active')) {
-                    closeMode();
-                } else if (modePicker && modePicker.style.display === 'flex') {
-                    closeModePicker();
-                } else {
-                    openModePicker();
-                }
-            }
-
-            if (e.ctrlKey && e.key === 'p') {
-                e.preventDefault();
-                toggleRosterPlanView();
-            }
-
-            // Dynamic numeric key shortcuts (1-9) for modes when overlay/picker is open
+            // Legacy / Special Overlay Numeric & Ambient Fallbacks (when overlays are open)
             if (!e.ctrlKey && !e.altKey && !e.metaKey) {
                 const modeOverlay = document.getElementById('mode-animation-overlay');
                 const modePicker = document.getElementById('mode-picker-modal');
@@ -12937,14 +13439,6 @@ syncState();
                         e.preventDefault();
                         activateMode(matchedMode.id);
                     }
-                }
-
-                // White noise shortcuts — active when any overlay is open
-                if (timerFsOpen || modeOpen) {
-                    if (e.key === 'w' || e.key === 'W') { e.preventDefault(); overlaySetNoise(_noiseType); }
-                    if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleWhiteNoiseMute(); }
-                    if (e.key === '[') { e.preventDefault(); stepWhiteNoiseVolume(-5); }
-                    if (e.key === ']') { e.preventDefault(); stepWhiteNoiseVolume(+5); }
                 }
             }
         });
@@ -13150,14 +13644,22 @@ syncState();
             dbAutosaveLastFingerprint = computeDbAutosaveFingerprint() || '';
         }
 
+        let dbAutosaveDebounceTimer = null;
+        function queueDbAutosave(trigger = 'change', delayMs = 300) {
+            if (dbAutosaveDebounceTimer) clearTimeout(dbAutosaveDebounceTimer);
+            dbAutosaveDebounceTimer = setTimeout(() => {
+                dbAutosaveDebounceTimer = null;
+                autosaveToDb(trigger);
+            }, delayMs);
+        }
+
         function autosaveToDb(trigger = 'interval') {
+            if (dbAutosaveDebounceTimer) {
+                clearTimeout(dbAutosaveDebounceTimer);
+                dbAutosaveDebounceTimer = null;
+            }
             const fingerprint = computeDbAutosaveFingerprint();
             if (!fingerprint) {
-                updateDbAutosaveStatusLabel();
-                return false;
-            }
-
-            if (!groupHasInteraction(selectedGroupName)) {
                 updateDbAutosaveStatusLabel();
                 return false;
             }
@@ -13165,15 +13667,34 @@ syncState();
             if (fingerprint === dbAutosaveLastFingerprint) return false;
 
             const now = new Date();
-            const session = buildLiveSessionSnapshot(now);
-            if (!session) return false;
-
             const sessions = getDb();
             const todayStr = now.toDateString();
             const existingIdx = sessions.findIndex(s => {
                 const sDate = new Date(s.id);
-                return sDate.toDateString() === todayStr && s.activeGroup === session.activeGroup;
+                return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
             });
+
+            const hasInteractions = groupHasInteraction(selectedGroupName);
+
+            if (!hasInteractions) {
+                if (existingIdx !== -1) {
+                    sessions.splice(existingIdx, 1);
+                    saveDb(sessions);
+                    updateDbSessionCountLabel();
+                    dbAutosaveLastFingerprint = fingerprint;
+                    dbAutosaveLastSavedAt = now;
+                    updateDbAutosaveStatusLabel();
+                    if (trigger !== 'interval') {
+                        console.info(`[DB autosave] Cleared today's session on ${trigger} (no interactions remaining)`);
+                    }
+                    return true;
+                }
+                updateDbAutosaveStatusLabel();
+                return false;
+            }
+
+            const session = buildLiveSessionSnapshot(now);
+            if (!session) return false;
 
             if (existingIdx !== -1) {
                 sessions[existingIdx] = session;
@@ -13294,6 +13815,31 @@ syncState();
                 const filename = `${datePrefix}_${safeGroup}.js`;
                 return Desktop.saveText('groupParticipation', filename, buildDbFileContent(classSessions), safeGroup)
                     .catch(err => console.warn(`Could not save DB for class "${group}":`, err));
+            });
+
+            // Clean up any class folders where today's session was cleared/deleted
+            const allKnownGroups = new Set([
+                ...Object.keys(studentGroups || {}),
+                ...Object.keys(rawMeta || {})
+            ]);
+
+            allKnownGroups.forEach(group => {
+                if (!byClass[group]) {
+                    const displayName = (rawMeta[group] && rawMeta[group].name) ? rawMeta[group].name : group;
+                    const safeGroup = displayName
+                        .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+                        .replace(/\s+/g, '_')
+                        .replace(/^\.+/, '')
+                        .trim() || '_class';
+                    const filename = `${datePrefix}_${safeGroup}.js`;
+                    const relPath = `${safeGroup}/${filename}`;
+                    if (typeof Desktop.deleteByPath === 'function') {
+                        savePromises.push(
+                            Desktop.deleteByPath('groupParticipation', relPath, { force: true })
+                                .catch(() => {})
+                        );
+                    }
+                }
             });
 
             return Promise.all(savePromises);
@@ -13517,17 +14063,26 @@ syncState();
 
             Object.keys(studentGroups).forEach((gName, i) => {
                 const groupStudents = studentGroups[gName] || [];
-                if (!groupStudents.some(studentHasInteraction)) return;
+                const hasInteractions = groupStudents.some(studentHasInteraction);
+
+                const existingIdx = sessions.findIndex(s => {
+                    const sDate = new Date(s.id);
+                    return sDate.toDateString() === todayStr && s.activeGroup === gName;
+                });
+
+                if (!hasInteractions) {
+                    if (existingIdx !== -1) {
+                        sessions.splice(existingIdx, 1);
+                        changed = true;
+                    }
+                    return;
+                }
 
                 const isoKey = new Date(now.getTime() + i).toISOString();
                 const groupHistory = Array.isArray(sessionHistory)
                     ? sessionHistory.filter(e => !e.group || e.group === gName).map(e => JSON.parse(JSON.stringify(e)))
                     : [];
 
-                const existingIdx = sessions.findIndex(s => {
-                    const sDate = new Date(s.id);
-                    return sDate.toDateString() === todayStr && s.activeGroup === gName;
-                });
                 const existingObjectives = existingIdx !== -1 ? (sessions[existingIdx].lessonObjectives || '') : '';
                 const existingTeamNames = existingIdx !== -1 ? sessions[existingIdx].teamCustomNames : null;
                 const activeTeamNames = getSessionTeamCustomNames();
