@@ -6,6 +6,7 @@
   <title>Grade Sheet</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
@@ -311,6 +312,7 @@
   <div id="dup-test-popup-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup wide panel" role="dialog" aria-modal="true">
       <div class="crit-popup-title" data-i18n="gsDupTitle">Duplicate / Import Test Config</div>
+      <div class="ref-inline-note" id="dup-test-context-note" style="margin-bottom:14px;" data-i18n="gsDupSubtitle">Copy configuration elements from a source test into a destination class slot.</div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
           <div style="font-size:0.83rem;font-weight:600;color:var(--muted);margin-bottom:8px;" data-i18n="gsDupSource">SOURCE</div>
@@ -333,6 +335,10 @@
         <div style="flex:1;min-width:180px;">
           <div style="font-size:0.83rem;font-weight:600;color:var(--muted);margin-bottom:8px;" data-i18n="gsDupDest">DESTINATION</div>
           <div class="form-group">
+            <label for="dup-dest-class-select" data-i18n="gsDupLabelDestClass">Class</label>
+            <select id="dup-dest-class-select" class="input"></select>
+          </div>
+          <div class="form-group">
             <label for="dup-dest-sem-select" data-i18n="gsDupLabelDestSem">Term</label>
             <select id="dup-dest-sem-select" class="input">
               <option value="sem1" data-i18n="gsSem1">Term 1</option>
@@ -342,6 +348,49 @@
           <div class="form-group">
             <label for="dup-dest-test-select" data-i18n="gsDupLabelDestSlot">Test slot</label>
             <select id="dup-dest-test-select" class="input"></select>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e5e5;padding-bottom:6px;">
+          <div style="font-size:0.83rem;font-weight:700;color:var(--muted);letter-spacing:0.04em;" data-i18n="gsDupElements">ELEMENTS TO COPY</div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="dup-test-select-all" class="btn" style="font-size:0.72rem;padding:2px 8px;" data-i18n="gsBtnSelectAll">All</button>
+            <button type="button" id="dup-test-deselect-all" class="btn" style="font-size:0.72rem;padding:2px 8px;" data-i18n="gsBtnDeselectAll">None</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;" data-i18n="gsDupElemGeneral">General Info</div>
+          <div class="chip-group">
+            <button type="button" class="chip active" data-elem="testName" data-i18n="gsToptName">Name</button>
+            <button type="button" class="chip active" data-elem="testDate" data-i18n="gsToptDate">Date</button>
+            <button type="button" class="chip active" data-elem="scope" data-i18n="gsToptScope">Scope</button>
+            <button type="button" class="chip active" data-elem="type" data-i18n="gsToptType">Type</button>
+            <button type="button" class="chip active" data-elem="observationSections" data-i18n="gsColObservations">Observations</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;" data-i18n="gsDupElemWeighting">Weighting</div>
+          <div class="chip-group">
+            <button type="button" class="chip active" data-elem="coefficient" data-i18n="gsCoeffLabelCoeff">Coefficient</button>
+            <button type="button" class="chip active" data-elem="fixedWeight" data-i18n="gsCoeffLabelFixed">Fixed weight (%)</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;" data-i18n="gsDupElemGrading">Grading Scale</div>
+          <div class="chip-group">
+            <button type="button" class="chip active" data-elem="grading" data-i18n="gsGradingTitle">Grading Scale</button>
+            <button type="button" class="chip active" data-elem="nextGradeHighlightPoints" data-i18n="gsDupNextGradeHighlight">Next-grade delta</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;" data-i18n="gsDupElemCriteria">Criteria</div>
+          <div class="chip-group">
+            <button type="button" class="chip active" data-elem="criteria" data-i18n="gsRefTabCriteria">Correction Criteria</button>
           </div>
         </div>
       </div>
@@ -2423,13 +2472,49 @@
       return rankById;
     }
 
-    function defaultStudent(index, fullName) {
-      const name = (fullName || "").trim();
-      const spaceIdx = name.indexOf(' ');
-      const firstName = spaceIdx > 0 ? name.slice(0, spaceIdx) : name;
-      const lastName = spaceIdx > 0 ? name.slice(spaceIdx + 1) : "";
+    function defaultStudent(index, firstNameOrFull, maybeLastName, maybeId) {
+      let firstName = "";
+      let lastName = "";
+      let id = maybeId || uid();
+
+      if (typeof maybeLastName === "string") {
+        firstName = (firstNameOrFull || "").trim();
+        lastName = (maybeLastName || "").trim();
+      } else if (typeof firstNameOrFull === "object" && firstNameOrFull !== null) {
+        firstName = (firstNameOrFull.firstName || "").trim();
+        lastName = (firstNameOrFull.lastName || "").trim();
+        if (firstNameOrFull.uuid || firstNameOrFull.id) id = firstNameOrFull.uuid || firstNameOrFull.id;
+      } else {
+        const raw = (firstNameOrFull || "").trim();
+        const roster = _gsRoster();
+        if (roster[raw]) {
+          const rs = roster[raw];
+          firstName = rs.firstName || "";
+          lastName = rs.lastName || "";
+          id = rs.uuid || id;
+        } else {
+          const upper = raw.toUpperCase();
+          const match = Object.values(roster).find(rs => {
+            const fn = (rs.firstName || "").trim().toUpperCase();
+            const ln = (rs.lastName || "").trim().toUpperCase();
+            const full = (fn + (ln ? " " + ln : "")).trim();
+            const fullRev = (ln + (fn ? " " + fn : "")).trim();
+            return full === upper || fullRev === upper;
+          });
+          if (match) {
+            firstName = match.firstName || "";
+            lastName = match.lastName || "";
+            id = match.uuid || id;
+          } else {
+            const spaceIdx = raw.indexOf(' ');
+            firstName = spaceIdx > 0 ? raw.slice(0, spaceIdx) : raw;
+            lastName = spaceIdx > 0 ? raw.slice(spaceIdx + 1) : "";
+          }
+        }
+      }
+
       return {
-        id: uid(),
+        id,
         index,
         firstName,
         lastName,
@@ -2855,22 +2940,57 @@
     // Also updates cls.name when the group has been renamed in group-editor.
     // Only adds — never removes — so existing grade data is never touched.
     function _gsRoster() {
-      if (typeof STUDENTS_ROSTER === 'undefined' || !Array.isArray(STUDENTS_ROSTER)) return {};
+      const src = (typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER))
+        ? window.STUDENTS_ROSTER
+        : (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER) ? STUDENTS_ROSTER : []);
       const map = {};
-      STUDENTS_ROSTER.forEach(s => { if (s && s.uuid) map[s.uuid] = s; });
+      src.forEach(s => { if (s && (s.uuid || s.id)) map[s.uuid || s.id] = s; });
       return map;
     }
 
-    function _gsResolveStudentNames(studentsArr) {
+    function _gsResolveStudentDescriptors(studentsArr) {
       if (!Array.isArray(studentsArr) || studentsArr.length === 0) return [];
-      if (typeof studentsArr[0] === 'string' && studentsArr[0].startsWith('st-')) {
-        const roster = _gsRoster();
-        return studentsArr.map(sid => {
-          const s = roster[sid];
-          return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
-        }).filter(Boolean);
-      }
-      return studentsArr.filter(s => typeof s === 'string');
+      const roster = _gsRoster();
+      return studentsArr.map(entry => {
+        if (!entry) return null;
+        if (typeof entry === 'object') {
+          return {
+            id: entry.uuid || entry.id || null,
+            firstName: entry.firstName || '',
+            lastName: entry.lastName || ''
+          };
+        }
+        if (typeof entry === 'string') {
+          if (roster[entry]) {
+            const rs = roster[entry];
+            return { id: rs.uuid || entry, firstName: rs.firstName || '', lastName: rs.lastName || '' };
+          }
+          const upper = entry.trim().toUpperCase();
+          const match = Object.values(roster).find(rs => {
+            const fn = (rs.firstName || '').trim().toUpperCase();
+            const ln = (rs.lastName || '').trim().toUpperCase();
+            const full = (fn + (ln ? ' ' + ln : '')).trim();
+            const fullRev = (ln + (fn ? ' ' + fn : '')).trim();
+            return full === upper || fullRev === upper;
+          });
+          if (match) {
+            return { id: match.uuid, firstName: match.firstName || '', lastName: match.lastName || '' };
+          }
+          const spaceIdx = entry.indexOf(' ');
+          return {
+            id: null,
+            firstName: spaceIdx > 0 ? entry.slice(0, spaceIdx) : entry,
+            lastName: spaceIdx > 0 ? entry.slice(spaceIdx + 1) : ''
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    }
+
+    function _gsResolveStudentNames(studentsArr) {
+      return _gsResolveStudentDescriptors(studentsArr).map(d =>
+        ((d.firstName || '') + (d.lastName ? ' ' + d.lastName : '')).trim().toUpperCase()
+      ).filter(Boolean);
     }
 
     function syncFromClassGroups() {
@@ -2880,6 +3000,7 @@
       const groupUuids = Object.keys(cgMeta).length ? Object.keys(cgMeta) : (cgGroupsLegacy ? Object.keys(cgGroupsLegacy) : []);
       if (!groupUuids.length) return false;
       let changed = false;
+      const roster = _gsRoster();
 
       for (const groupUuid of groupUuids) {
         const meta = cgMeta[groupUuid] || {};
@@ -2891,7 +3012,7 @@
         const rawStudents = Array.isArray(meta.students) && meta.students.length
           ? meta.students
           : (cgGroupsLegacy && Array.isArray(cgGroupsLegacy[groupUuid]) ? cgGroupsLegacy[groupUuid] : []);
-        const studentNames = _gsResolveStudentNames(rawStudents);
+        const studentDescriptors = _gsResolveStudentDescriptors(rawStudents);
 
         // Match by groupId (UUID link) first, then by name for backward compat
         let classObj = appState.classes.find(c => c.groupId === groupUuid) ||
@@ -2907,18 +3028,64 @@
           if (classObj.name !== groupName) { classObj.name = groupName; changed = true; }
         }
 
-        for (const cgName of studentNames) {
-          if (!cgName) continue;
-          const upper = cgName.trim().toUpperCase();
-          const alreadyPresent = classObj.students.some(s => {
+        // First, sync existing students in class with roster (update firstName/lastName if present in group-editor)
+        classObj.students.forEach(s => {
+          let rStudent = s.id ? roster[s.id] : null;
+          if (!rStudent) {
+            const sFirst = (s.firstName || '').trim().toUpperCase();
+            const sLast = (s.lastName || '').trim().toUpperCase();
+            const sFull = (sFirst + (sLast ? ' ' + sLast : '')).trim();
+            rStudent = Object.values(roster).find(rs => {
+              const fn = (rs.firstName || '').trim().toUpperCase();
+              const ln = (rs.lastName || '').trim().toUpperCase();
+              const full = (fn + (ln ? ' ' + ln : '')).trim();
+              const fullRev = (ln + (fn ? ' ' + fn : '')).trim();
+              return full === sFull || fullRev === sFull;
+            });
+          }
+          if (rStudent) {
+            const trueFirst = rStudent.firstName || '';
+            const trueLast = rStudent.lastName || '';
+            if (s.firstName !== trueFirst || s.lastName !== trueLast) {
+              s.firstName = trueFirst;
+              s.lastName = trueLast;
+              changed = true;
+            }
+            if (rStudent.uuid && s.id !== rStudent.uuid) {
+              s.id = rStudent.uuid;
+              changed = true;
+            }
+          }
+        });
+
+        // Add any missing students from the group, or update their names
+        for (const desc of studentDescriptors) {
+          const descFirst = (desc.firstName || '').trim().toUpperCase();
+          const descLast = (desc.lastName || '').trim().toUpperCase();
+          const descFull = (descFirst + (descLast ? ' ' + descLast : '')).trim();
+
+          const existingStudent = classObj.students.find(s => {
+            if (desc.id && s.id === desc.id) return true;
             const first = (s.firstName || '').trim().toUpperCase();
             const last = (s.lastName || '').trim().toUpperCase();
-            const full = last ? first + ' ' + last : first;
-            return full === upper || first === upper || last === upper;
+            const full = (first + (last ? ' ' + last : '')).trim();
+            const fullRev = (last + (first ? ' ' + first : '')).trim();
+            return full === descFull || fullRev === descFull;
           });
-          if (!alreadyPresent) {
-            classObj.students.push(defaultStudent(classObj.students.length + 1, cgName));
+
+          if (!existingStudent) {
+            classObj.students.push(defaultStudent(classObj.students.length + 1, desc.firstName, desc.lastName, desc.id));
             changed = true;
+          } else {
+            if (desc.firstName && (existingStudent.firstName !== desc.firstName || existingStudent.lastName !== desc.lastName)) {
+              existingStudent.firstName = desc.firstName;
+              existingStudent.lastName = desc.lastName;
+              changed = true;
+            }
+            if (desc.id && existingStudent.id !== desc.id) {
+              existingStudent.id = desc.id;
+              changed = true;
+            }
           }
         }
       }
@@ -2994,6 +3161,12 @@
     // Determine whether a student exists in the current CLASS_GROUPS entry for this class.
     function studentPresentInClassGroups(classObj, student) {
       try {
+        const cgData = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+        const cgMeta = cgData ? (cgData.classGroupsMeta || {}) : (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+        const metaEntry = (classObj.groupId && cgMeta[classObj.groupId]) || null;
+        if (metaEntry && Array.isArray(metaEntry.students)) {
+          if (student.id && metaEntry.students.includes(student.id)) return true;
+        }
         const group = _getClassGroupStudents(classObj);
         if (!Array.isArray(group)) return true;
         const first = (student.firstName || "").trim().toUpperCase();
@@ -3774,11 +3947,14 @@
         tdFirst.classList.add("col-shrink");
         const tdLast = document.createElement("td");
         tdLast.classList.add("col-shrink");
-        const nameLink = document.createElement("span");
-        nameLink.className = "student-name-link student-name-static";
-        nameLink.textContent = student.firstName + (student.lastName ? " " + student.lastName : "");
-        tdFirst.appendChild(nameLink);
-        tdLast.textContent = "";
+        const firstNameSpan = document.createElement("span");
+        firstNameSpan.className = "student-name-link student-name-static";
+        firstNameSpan.textContent = student.firstName || "";
+        tdFirst.appendChild(firstNameSpan);
+        const lastNameSpan = document.createElement("span");
+        lastNameSpan.className = "student-name-link student-name-static";
+        lastNameSpan.textContent = student.lastName || "";
+        tdLast.appendChild(lastNameSpan);
 
         const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
         const criteriaMap = student.criteriaResults[sem][testIndex] || {};
@@ -6535,18 +6711,63 @@
       const classSel = document.getElementById("dup-test-class-select");
       const semSel = document.getElementById("dup-test-sem-select");
       const testSel = document.getElementById("dup-test-test-select");
+      const destClassSel = document.getElementById("dup-dest-class-select");
       const destSemSel = document.getElementById("dup-dest-sem-select");
       const destTestSel = document.getElementById("dup-dest-test-select");
+      const elemChips = document.querySelectorAll("#dup-test-popup-overlay .chip-group .chip[data-elem]");
 
-      // Pre-select source to current class (or same as active test)
-      classSel.innerHTML = appState.classes
-        .slice().sort((a, b) => a.name.localeCompare(b.name))
-        .map(c => `<option value="${c.id}"${c.id === classObj.id ? " selected" : ""}>${escapeHtml(c.name)}</option>`)
+      // Reset all element chips to active by default
+      elemChips.forEach(chip => {
+        chip.classList.add("active");
+        chip.onclick = () => chip.classList.toggle("active");
+      });
+
+      const selectAllBtn = document.getElementById("dup-test-select-all");
+      if (selectAllBtn) {
+        selectAllBtn.onclick = () => elemChips.forEach(chip => chip.classList.add("active"));
+      }
+      const deselectAllBtn = document.getElementById("dup-test-deselect-all");
+      if (deselectAllBtn) {
+        deselectAllBtn.onclick = () => elemChips.forEach(chip => chip.classList.remove("active"));
+      }
+
+      // Populate source class dropdown (sorted alphabetically)
+      const sortedClasses = appState.classes.slice().sort((a, b) => a.name.localeCompare(b.name));
+      const classOptionsHtml = sortedClasses
+        .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
         .join("");
+
+      classSel.innerHTML = classOptionsHtml;
+      destClassSel.innerHTML = classOptionsHtml;
+
+      // Pre-select source and destination classes
+      classSel.value = classObj.id;
+      destClassSel.value = classObj.id;
 
       // Pre-select dest semester from active test if available
       if (appState.activeTest) {
         destSemSel.value = appState.activeTest.semester;
+        semSel.value = appState.activeTest.semester;
+      }
+
+      function updateDupContextHint() {
+        const srcClass = appState.classes.find(c => c.id === classSel.value);
+        const destClass = appState.classes.find(c => c.id === destClassSel.value);
+        const note = document.getElementById("dup-test-context-note");
+        const confirmBtn = document.getElementById("dup-test-confirm");
+        if (!srcClass || !destClass) return;
+
+        const isSameClass = srcClass.id === destClass.id;
+        if (note) {
+          note.textContent = isSameClass
+            ? tFmt('gsDupContextSameClass', { name: srcClass.name })
+            : tFmt('gsDupContextCrossClass', { src: srcClass.name, dest: destClass.name });
+        }
+        if (confirmBtn) {
+          confirmBtn.textContent = isSameClass
+            ? t('gsDupActionDuplicate')
+            : t('gsDupActionImport');
+        }
       }
 
       function refreshSourceTestOptions() {
@@ -6555,56 +6776,103 @@
         const count = srcClass && srcClass.testCounts ? (srcClass.testCounts[sem] || 0) : 0;
         testSel.innerHTML = count === 0
           ? `<option value="">${t('gsNoTestsInSem')}</option>`
-          : Array.from({ length: count }, (_, i) =>
-              `<option value="${i}">T${i + 1}</option>`).join("");
+          : Array.from({ length: count }, (_, i) => {
+              const cfg = (srcClass.testConfigs && srcClass.testConfigs[sem] && srcClass.testConfigs[sem][i]) || null;
+              const namePart = (cfg && cfg.testName) ? ` (${escapeHtml(cfg.testName)})` : '';
+              return `<option value="${i}">T${i + 1}${namePart}</option>`;
+            }).join("");
+        updateDupContextHint();
       }
 
       function refreshDestTestOptions() {
+        const destClass = appState.classes.find(c => c.id === destClassSel.value) || classObj;
         const destSem = destSemSel.value;
-        const currentCount = classObj.testCounts ? (classObj.testCounts[destSem] || 0) : 0;
-        const preselect = appState.activeTest && appState.activeTest.semester === destSem
+        const currentCount = destClass.testCounts ? (destClass.testCounts[destSem] || 0) : 0;
+        const preselect = appState.activeTest && destClass.id === classObj.id && appState.activeTest.semester === destSem
           ? appState.activeTest.testIndex : null;
         // Show existing slots + one new slot (to create)
         const maxSlot = Math.min(currentCount + 1, TEST_COUNT_PER_SEM);
         destTestSel.innerHTML = Array.from({ length: maxSlot }, (_, i) => {
-          const label = i < currentCount ? `T${i + 1}` : `T${i + 1}${t('gsTestSlotNew')}`;
+          const cfg = (destClass.testConfigs && destClass.testConfigs[destSem] && destClass.testConfigs[destSem][i]) || null;
+          const namePart = (cfg && cfg.testName) ? ` (${escapeHtml(cfg.testName)})` : '';
+          const label = i < currentCount ? `T${i + 1}${namePart}` : `T${i + 1}${t('gsTestSlotNew')}`;
           const sel = preselect !== null ? i === preselect : i === currentCount;
           return `<option value="${i}"${sel ? " selected" : ""}>${label}</option>`;
         }).join("");
+        updateDupContextHint();
       }
 
       classSel.onchange = refreshSourceTestOptions;
       semSel.onchange = refreshSourceTestOptions;
+      destClassSel.onchange = refreshDestTestOptions;
       destSemSel.onchange = refreshDestTestOptions;
+
       refreshSourceTestOptions();
       refreshDestTestOptions();
+      updateDupContextHint();
 
       overlay.classList.remove("hidden");
 
       document.getElementById("dup-test-confirm").onclick = () => {
         const srcClass = appState.classes.find(c => c.id === classSel.value);
+        const destClass = appState.classes.find(c => c.id === destClassSel.value);
         const srcSem = semSel.value;
         const srcTestIdx = Number(testSel.value);
-        if (!srcClass || testSel.value === "") return;
+        if (!srcClass || !destClass || testSel.value === "") return;
+
+        const isSelected = elem => !!document.querySelector(`#dup-test-popup-overlay button[data-elem="${elem}"].active`);
+        const anySelected = Array.from(elemChips).some(btn => btn.classList.contains("active"));
+
+        if (!anySelected) {
+          if (typeof showToast === 'function') showToast(t('gsDupErrNoElements') || 'Please select at least one element to copy.', true);
+          return;
+        }
 
         const destSem = destSemSel.value;
         const destTestIdx = Number(destTestSel.value);
 
         ensureClassStructures(srcClass);
-        ensureClassStructures(classObj);
+        ensureClassStructures(destClass);
         const srcConfig = srcClass.testConfigs[srcSem][srcTestIdx];
 
-        // Deep-copy config into destination slot
-        classObj.testConfigs[destSem][destTestIdx] = JSON.parse(JSON.stringify(srcConfig));
+        let destConfig = destClass.testConfigs[destSem][destTestIdx];
+        if (!destConfig) {
+          destConfig = createDefaultTestConfig();
+        } else {
+          destConfig = JSON.parse(JSON.stringify(destConfig));
+        }
+
+        if (isSelected("testName")) destConfig.testName = srcConfig.testName || "";
+        if (isSelected("testDate")) destConfig.testDate = srcConfig.testDate || "";
+        if (isSelected("scope")) destConfig.scope = srcConfig.scope || "";
+        if (isSelected("type")) destConfig.type = srcConfig.type || "";
+        if (isSelected("observationSections")) destConfig.observationSections = JSON.parse(JSON.stringify(srcConfig.observationSections || []));
+
+        if (isSelected("coefficient")) destConfig.coefficient = srcConfig.coefficient != null ? srcConfig.coefficient : 1;
+        if (isSelected("fixedWeight")) destConfig.fixedWeight = srcConfig.fixedWeight != null ? srcConfig.fixedWeight : null;
+
+        if (isSelected("grading")) destConfig.grading = JSON.parse(JSON.stringify(srcConfig.grading || {}));
+        if (isSelected("nextGradeHighlightPoints")) destConfig.nextGradeHighlightPoints = srcConfig.nextGradeHighlightPoints != null ? srcConfig.nextGradeHighlightPoints : 0;
+
+        if (isSelected("criteria")) destConfig.criteria = JSON.parse(JSON.stringify(srcConfig.criteria || []));
+
+        destClass.testConfigs[destSem][destTestIdx] = destConfig;
 
         // Auto-create the test slot if it doesn't exist yet
-        if (destTestIdx >= classObj.testCounts[destSem]) {
-          classObj.testCounts[destSem] = destTestIdx + 1;
+        if (destTestIdx >= (destClass.testCounts[destSem] || 0)) {
+          destClass.testCounts[destSem] = destTestIdx + 1;
         }
 
         saveState();
-        // Navigate to the test if we're not already on it
+        const successMsg = srcClass.id === destClass.id
+          ? (t('gsToastTestConfigCopied') || 'Test configuration duplicated.')
+          : (t('gsToastTestConfigCopied') || 'Test configuration imported.');
+        if (typeof showToast === 'function') showToast(successMsg);
+
+        // Navigate to the destination class and test
+        appState.activeClassId = destClass.id;
         appState.activeTest = { semester: destSem, testIndex: destTestIdx };
+        renderClasses();
         renderSummary();
         renderTestSheet();
         showScreen("test");
@@ -8238,7 +8506,7 @@ function showGsTour() {
     }
   };
   Desktop.onDataChanged(function (data) {
-    if (data && data.filename === 'class-groups.js') {
+    if (data && (data.filename === 'class-groups.js' || data.filename === 'students.js')) {
       showDataChangedBanner(data);
     }
   });
