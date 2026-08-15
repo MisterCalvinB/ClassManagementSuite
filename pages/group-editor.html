@@ -11,6 +11,7 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/menus.js"></script>
   <script src="../js/tutorial.js"></script>
+  <script src="../js/import-utils.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -592,6 +593,82 @@
       color: #000;
       font-weight: 800;
     }
+
+    /* ── Student Match / Reconciliation Modal ─────────── */
+    .ge-match-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .ge-match-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 24px;
+      max-width: 840px;
+      width: 96%;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    }
+    .ge-match-table-wrap {
+      overflow-y: auto;
+      margin: 14px 0 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .ge-match-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .ge-match-table th {
+      background: #f8fafc;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 800;
+      border-bottom: 2px solid #e2e8f0;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #475569;
+    }
+    .ge-match-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .ge-match-table tr:hover {
+      background: #f8fafc;
+    }
+
+    .ge-ast-filter {
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 4px;
+      background: #fff;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .ge-ast-filter.active {
+      background: #2563a8;
+      border-color: #2563a8;
+      color: #fff !important;
+    }
+    .ge-ast-row-unassigned {
+      background: #fffbeb !important;
+    }
+    .ge-ast-row-unassigned:hover {
+      background: #fef3c7 !important;
+    }
   </style>
 </head>
 <body>
@@ -609,6 +686,8 @@
     <button class="ge-back-btn" onclick="goBack()" data-i18n="geBack">← Launcher</button>
     <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
     <div class="ge-csv-bar">
+      <button class="ge-csv-btn" onclick="openAllStudentsModal()" title="View and manage all students in the roster, highlight unassigned students, archive or delete them" data-i18n="geAllStudentsBtn"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" onerror="this.remove()" /> All Students</button>
+      <button class="ge-csv-btn" onclick="checkAndMergeDuplicateStudents()" title="Check for students sharing the same name across different UUIDs and merge them" data-i18n="geMergeCheckBtn"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" onerror="this.remove()" /> Merge Duplicates</button>
       <button class="ge-csv-btn" onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('import-tool.html'); else window.open('../pages/import-tool.html')" title="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
       <button class="ge-csv-btn" onclick="exportCsv()" title="Export all groups and students to a CSV file"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export CSV</button>
     </div>
@@ -774,6 +853,137 @@
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button onclick="cancelConfirm()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
       <button id="ge-confirm-ok" onclick="okConfirm()" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="btnOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Reconciliation Modal -->
+<div id="ge-match-modal" class="ge-match-overlay" style="display:none;">
+  <div class="ge-match-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geMatchModalTitle">Student Match Detected</h3>
+      <div style="display:flex;gap:6px;">
+        <button type="button" onclick="geMatchSetAll('reuse')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMatchBtnReuseAll">Reuse all UUIDs</button>
+        <button type="button" onclick="geMatchSetAll('new')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMatchBtnNewAll">Create all as new</button>
+        <button type="button" onclick="geMatchSetAll('ignore')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;color:#64748b;cursor:pointer;" data-i18n="geMatchBtnIgnoreAll">Do nothing</button>
+      </div>
+    </div>
+    <p style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMatchModalDesc">Some imported students match existing records in the student roster. Choose whether to reuse their UUID to track history across groups, create a new student, or update their information.</p>
+    
+    <div class="ge-match-table-wrap">
+      <table class="ge-match-table">
+        <thead>
+          <tr>
+            <th data-i18n="geMatchColIncoming">Incoming Student</th>
+            <th data-i18n="geMatchColExisting">Existing Record & History</th>
+            <th data-i18n="geMatchColAction" style="width:220px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="ge-match-tbody"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
+      <button type="button" onclick="window._geMatchCancelCb && window._geMatchCancelCb()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
+      <button type="button" onclick="window._geMatchConfirmCb && window._geMatchConfirmCb()" style="padding:7px 16px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMatchBtnConfirm">Apply & Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Merge Modal -->
+<div id="ge-merge-modal" class="ge-match-overlay" style="display:none;">
+  <div class="ge-match-card" style="max-width:920px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geMergeModalTitle">Merge Duplicate Students</h3>
+        <p id="ge-merge-subtitle" style="font-size:0.78rem;color:#64748b;margin:3px 0 0;"></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="display:flex;gap:6px;">
+          <button type="button" onclick="geMergeSetAll('primary')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMergeBtnMergeAll">Merge all</button>
+          <button type="button" onclick="geMergeSetAll('ignore')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMergeBtnIgnoreAll">Do nothing (Keep all)</button>
+        </div>
+        <button type="button" onclick="closeMergeModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
+      </div>
+    </div>
+    <p style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMergeModalDesc">The following students share the exact same name across different UUID records. Choose which primary UUID to keep for each student. All classes, historical enrollments, and performance links will be merged into the primary UUID.</p>
+    
+    <div class="ge-match-table-wrap" style="max-height:55vh;">
+      <table class="ge-match-table">
+        <thead>
+          <tr>
+            <th data-i18n="geMergeColStudent" style="width:180px;">Student Name</th>
+            <th data-i18n="geMergeColRecords">Duplicate Records & Classes</th>
+            <th data-i18n="geMergeColPrimary" style="width:240px;">Keep as Primary</th>
+          </tr>
+        </thead>
+        <tbody id="ge-merge-tbody"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
+      <button type="button" onclick="closeMergeModal()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
+      <button type="button" onclick="applyStudentMerges()" style="padding:7px 18px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMergeBtnConfirm">Merge Selected Duplicates</button>
+    </div>
+  </div>
+</div>
+
+<!-- All Students Roster & Unassigned Cleanup Modal -->
+<div id="ge-all-students-modal" class="ge-match-overlay" style="display:none;">
+  <div class="ge-match-card" style="max-width:1040px;height:90vh;max-height:90vh;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
+        <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geAllStudentsModalTitle">All Students Directory</h3>
+        <p id="ge-all-students-subtitle" style="font-size:0.78rem;color:#64748b;margin:3px 0 0;"></p>
+      </div>
+      <button type="button" onclick="closeAllStudentsModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
+    </div>
+
+    <!-- Search & Filters Toolbar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
+        <input type="text" id="ge-all-students-search" oninput="renderAllStudentsTable()" placeholder="Filter by name, class, UUID..." data-i18n-placeholder="geAllStudentsSearchPlaceholder" style="padding:7px 12px;font-size:0.82rem;border:1.5px solid #cbd5e1;border-radius:6px;width:100%;max-width:320px;">
+        <div style="display:flex;gap:4px;">
+          <button type="button" id="ge-filter-all-btn" onclick="setAllStudentsFilter('all')" class="ge-ast-filter active" data-i18n="geAllStudentsFilterAll">All</button>
+          <button type="button" id="ge-filter-unassigned-btn" onclick="setAllStudentsFilter('unassigned')" class="ge-ast-filter" style="border-color:#f59e0b;color:#b45309;" data-i18n="geAllStudentsFilterUnassigned">⚠️ Unassigned</button>
+          <button type="button" id="ge-filter-groups-btn" onclick="setAllStudentsFilter('groups')" class="ge-ast-filter" data-i18n="geAllStudentsFilterInGroups">In Groups</button>
+        </div>
+      </div>
+
+      <!-- Quick Batch Unassigned Actions -->
+      <div id="ge-unassigned-batch-bar" style="display:flex;gap:6px;">
+        <button type="button" onclick="archiveAllUnassigned()" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fffbeb;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveUnassigned">Archive All Unassigned</button>
+        <button type="button" onclick="deleteAllUnassigned()" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fef2f2;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteUnassigned">Delete All Unassigned</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="ge-match-table-wrap" style="flex:1;min-height:200px;margin:10px 0 14px;">
+      <table class="ge-match-table">
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center;"><input type="checkbox" id="ge-ast-select-all" onchange="toggleAllStudentsSelection(this.checked)"></th>
+            <th data-i18n="geAllStudentsColStudent" style="width:200px;">Student</th>
+            <th data-i18n="geAllStudentsColInfo" style="width:170px;">Details</th>
+            <th data-i18n="geAllStudentsColGroups">Assigned Groups</th>
+            <th data-i18n="geAllStudentsColStatus" style="width:100px;text-align:center;">Status</th>
+            <th data-i18n="geAllStudentsColActions" style="width:160px;text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ge-all-students-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Footer with selection actions -->
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div id="ge-ast-selected-actions" style="display:flex;gap:8px;align-items:center;">
+        <span id="ge-ast-selected-count" style="font-size:0.78rem;font-weight:700;color:#475569;">0 selected</span>
+        <button type="button" id="ge-ast-btn-del-sel" onclick="deleteSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteSelected">Delete Selected</button>
+        <button type="button" id="ge-ast-btn-arc-sel" onclick="archiveSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fff;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveSelected">Archive Selected</button>
+      </div>
+      <div>
+        <button type="button" onclick="closeAllStudentsModal()" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -950,6 +1160,9 @@
   }
 
   function buildStudentsFileContent() {
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
     const arr = Object.values(studentRoster);
     return 'const STUDENTS_ROSTER = ' + JSON.stringify(arr, null, 2) + ';\n';
   }
@@ -1796,6 +2009,13 @@
       delBtn.disabled = true;
     } else {
       delBtn.onclick = () => row.remove();
+    }
+
+    const rStudent = studentRoster[uuid] || student;
+    const enrollments = (rStudent && Array.isArray(rStudent.enrollments)) ? rStudent.enrollments : [];
+    if (enrollments.length > 0) {
+      const pastList = enrollments.map(e => `${e.groupName || e.groupUuid} (${e.year || ''} ${e.semester ? 'S' + e.semester : ''})`).join(', ');
+      fnInput.title = (typeof t === 'function' ? t('gePastEnrollments') : 'Enrolled in: {list}').replace('{list}', pastList);
     }
 
     row.appendChild(fnInput);
@@ -2845,31 +3065,762 @@
     );
   }
 
-  function applyCsvImport(newGroups, newMeta) {
-    Object.keys(newGroups).forEach(gName => {
-      let uuid = Object.keys(rawMeta).find(k => rawMeta[k] && rawMeta[k].name === gName);
-      if (!uuid) uuid = generateGroupUuid();
+  function geMatchSetAll(action) {
+    const selects = document.querySelectorAll('#ge-match-tbody .ge-match-select');
+    selects.forEach(s => { s.value = action; });
+  }
 
-      const studentObjs = newGroups[gName];
-      // Resolve each student against the roster (create if new)
-      const studentUuids = studentObjs.map(s => {
-        const existing = _rosterLookupByName(s.firstName, s.lastName);
-        const sid = existing ? existing.uuid : generateStudentUuid();
-        studentRoster[sid] = { uuid: sid, firstName: s.firstName || '', lastName: s.lastName || '', dob: s.dob || '', adminClass: s.adminClass || '', sen: s.sen === true };
-        return sid;
-      });
+  function reconcileStudentMatches(candidates, onProceed) {
+    if (!candidates || candidates.length === 0) {
+      onProceed({});
+      return;
+    }
+    const modal = document.getElementById('ge-match-modal');
+    const tbody = document.getElementById('ge-match-tbody');
+    tbody.innerHTML = '';
 
-      if (!rawMeta[uuid]) rawMeta[uuid] = {};
-      rawMeta[uuid].name = gName;
-      rawMeta[uuid].students = studentUuids;
-      const m = newMeta[gName] || {};
-      if (m.year)     rawMeta[uuid].year = m.year;
-      if (m.semester) rawMeta[uuid].semester = m.semester;
-      if (m.level)    rawMeta[uuid].level = m.level;
+    candidates.forEach((cand, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = 'ge-match-row';
+      tr.dataset.idx = String(idx);
+
+      // Incoming column
+      const tdInc = document.createElement('td');
+      const inc = cand.incoming;
+      tdInc.innerHTML = `<div style="font-weight:700;">${inc.firstName || ''} ${inc.lastName || ''}</div>
+        <div style="font-size:0.75rem;color:#666;margin-top:2px;">
+          ${cand.groupName ? '<strong>Group:</strong> ' + cand.groupName : ''}
+          ${inc.adminClass ? ' | <strong>Class:</strong> ' + inc.adminClass : ''}
+          ${inc.dob ? ' | <strong>DOB:</strong> ' + inc.dob : ''}
+        </div>`;
+
+      // Existing column
+      const tdExt = document.createElement('td');
+      const ext = cand.existing;
+      const pastList = (ext.enrollments && ext.enrollments.length)
+        ? ext.enrollments.map(e => `${e.groupName || e.groupUuid} (${e.year || ''}${e.semester ? ' S' + e.semester : ''}${e.level ? ' Lvl ' + e.level : ''})`).join(', ')
+        : (typeof t === 'function' ? t('geNoPastEnrollments') : 'No previous groups');
+
+      tdExt.innerHTML = `<div style="font-weight:700;display:flex;align-items:center;gap:6px;">
+          <span>${ext.firstName || ''} ${ext.lastName || ''}</span>
+          <span style="font-size:0.7rem;font-family:monospace;color:#2563a8;background:#eff6ff;padding:1px 5px;border-radius:3px;border:1px solid #bfdbfe;">${ext.uuid}</span>
+        </div>
+        <div style="font-size:0.75rem;color:#334155;margin-top:2px;"><strong>${typeof t === 'function' ? t('ptEnrollmentHistory') : 'Enrollment History'}:</strong> ${pastList}</div>
+        <div style="font-size:0.72rem;color:#64748b;margin-top:1px;">${ext.adminClass ? 'Class: ' + ext.adminClass : ''}${ext.dob ? ' | DOB: ' + ext.dob : ''}</div>`;
+
+      // Action column
+      const tdAct = document.createElement('td');
+      const sel = document.createElement('select');
+      sel.className = 'ge-match-select';
+      sel.style.cssText = 'padding:6px 8px;font-size:0.78rem;border:1.5px solid #2563a8;border-radius:5px;font-weight:700;cursor:pointer;background:#fff;width:100%;';
+      
+      const optReuse = document.createElement('option');
+      optReuse.value = 'reuse';
+      optReuse.textContent = typeof t === 'function' ? t('geMatchActionReuse') : '🔗 Reuse UUID (Track history)';
+      optReuse.selected = true;
+
+      const optNew = document.createElement('option');
+      optNew.value = 'new';
+      optNew.textContent = typeof t === 'function' ? t('geMatchActionNew') : '➕ Create New Student';
+
+      const optUpdate = document.createElement('option');
+      optUpdate.value = 'update';
+      optUpdate.textContent = typeof t === 'function' ? t('geMatchActionUpdate') : '📝 Update Existing Info';
+
+      const optIgnore = document.createElement('option');
+      optIgnore.value = 'ignore';
+      optIgnore.textContent = typeof t === 'function' ? t('geMatchActionIgnore') : '❌ Do nothing (Skip)';
+
+      sel.appendChild(optReuse);
+      sel.appendChild(optNew);
+      sel.appendChild(optUpdate);
+      sel.appendChild(optIgnore);
+      tdAct.appendChild(sel);
+
+      tr.appendChild(tdInc);
+      tr.appendChild(tdExt);
+      tr.appendChild(tdAct);
+      tbody.appendChild(tr);
     });
 
+    modal.style.display = 'flex';
+
+    window._geMatchConfirmCb = () => {
+      modal.style.display = 'none';
+      const decisions = {};
+      tbody.querySelectorAll('.ge-match-row').forEach(r => {
+        const i = r.dataset.idx;
+        const s = r.querySelector('.ge-match-select');
+        decisions[i] = s ? s.value : 'reuse';
+      });
+      onProceed(decisions);
+    };
+
+    window._geMatchCancelCb = () => {
+      modal.style.display = 'none';
+    };
+  }
+
+  function applyCsvImport(newGroups, newMeta) {
+    // 1. Check for student matches across all groups
+    const matchCandidates = [];
+    const studentRefs = [];
+
+    Object.keys(newGroups).forEach(gName => {
+      const studentObjs = newGroups[gName];
+      studentObjs.forEach(s => {
+        const existing = _rosterLookupByName(s.firstName, s.lastName);
+        const ref = { groupName: gName, student: s, existing: existing };
+        studentRefs.push(ref);
+        if (existing) {
+          matchCandidates.push({
+            groupName: gName,
+            incoming: s,
+            existing: existing
+          });
+        }
+      });
+    });
+
+    const commitImport = (decisions) => {
+      let matchIdx = 0;
+      Object.keys(newGroups).forEach(gName => {
+        let uuid = Object.keys(rawMeta).find(k => rawMeta[k] && rawMeta[k].name === gName);
+        if (!uuid) uuid = generateGroupUuid();
+
+        const studentObjs = newGroups[gName];
+        const studentUuids = studentObjs.map(s => {
+          const existing = _rosterLookupByName(s.firstName, s.lastName);
+          let sid;
+          if (existing) {
+            const decision = decisions[matchIdx] || 'reuse';
+            matchIdx++;
+            if (decision === 'ignore') {
+              return null;
+            } else if (decision === 'new') {
+              sid = generateStudentUuid();
+              studentRoster[sid] = {
+                uuid: sid,
+                firstName: s.firstName || '',
+                lastName: s.lastName || '',
+                dob: s.dob || '',
+                adminClass: s.adminClass || '',
+                sen: s.sen === true
+              };
+            } else if (decision === 'update') {
+              sid = existing.uuid;
+              const target = studentRoster[sid] || existing;
+              if (s.dob) target.dob = s.dob;
+              if (s.adminClass) target.adminClass = s.adminClass;
+              if (s.gender) target.gender = s.gender;
+              if (s.sen !== undefined) target.sen = s.sen === true;
+            } else {
+              // 'reuse'
+              sid = existing.uuid;
+            }
+          } else {
+            sid = generateStudentUuid();
+            studentRoster[sid] = {
+              uuid: sid,
+              firstName: s.firstName || '',
+              lastName: s.lastName || '',
+              dob: s.dob || '',
+              adminClass: s.adminClass || '',
+              sen: s.sen === true
+            };
+          }
+          return sid;
+        }).filter(Boolean);
+
+        if (!rawMeta[uuid]) rawMeta[uuid] = {};
+        rawMeta[uuid].name = gName;
+        rawMeta[uuid].students = studentUuids;
+        const m = newMeta[gName] || {};
+        if (m.year)     rawMeta[uuid].year = m.year;
+        if (m.semester) rawMeta[uuid].semester = m.semester;
+        if (m.level)    rawMeta[uuid].level = m.level;
+      });
+
+      renderGroupsList();
+      showNotice('Imported ' + Object.keys(newGroups).length + ' group(s). Click Save to persist.');
+    };
+
+    if (matchCandidates.length > 0) {
+      reconcileStudentMatches(matchCandidates, commitImport);
+    } else {
+      commitImport({});
+    }
+  }
+
+  // ── Student Merge Duplicates ─────────────────────────────────
+  let _currentMergeGroups = [];
+
+  function checkAndMergeDuplicateStudents() {
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+
+    const nameMap = {};
+    Object.values(studentRoster).forEach(s => {
+      if (!s) return;
+      const fn = (s.firstName || '').trim();
+      const ln = (s.lastName || '').trim();
+      if (!fn && !ln) return;
+      const key = _nameKey(fn, ln);
+      if (!key) return;
+      if (!nameMap[key]) nameMap[key] = [];
+      nameMap[key].push(s);
+    });
+
+    _currentMergeGroups = Object.keys(nameMap)
+      .map(k => nameMap[k])
+      .filter(arr => arr.length > 1);
+
+    if (_currentMergeGroups.length === 0) {
+      const msg = typeof t === 'function' ? t('geNoDuplicatesFound') : 'No duplicate student records found in the roster.';
+      if (typeof showToast === 'function') showToast(msg);
+      else showNotice(msg);
+      return;
+    }
+
+    const modal = document.getElementById('ge-merge-modal');
+    const tbody = document.getElementById('ge-merge-tbody');
+    const subtitle = document.getElementById('ge-merge-subtitle');
+    tbody.innerHTML = '';
+
+    const countText = (typeof t === 'function' ? t('geMergeGroupCount') : '{count} duplicate student name(s) found').replace('{count}', String(_currentMergeGroups.length));
+    if (subtitle) subtitle.textContent = countText;
+
+    _currentMergeGroups.forEach((group, gIdx) => {
+      const tr = document.createElement('tr');
+      tr.dataset.groupIdx = String(gIdx);
+
+      // Student name column
+      const tdName = document.createElement('td');
+      const sample = group[0];
+      tdName.innerHTML = `<div style="font-weight:800;font-size:0.92rem;color:#1e293b;">${sample.firstName || ''} ${sample.lastName || ''}</div>
+        <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${group.length} records</div>`;
+
+      // Records detail column
+      const tdRecords = document.createElement('td');
+      let recsHtml = '<div style="display:flex;flex-direction:column;gap:6px;">';
+      group.forEach((s) => {
+        const enrs = Array.isArray(s.enrollments) ? s.enrollments : [];
+        const groupsList = enrs.length > 0
+          ? enrs.map(e => `${e.groupName || e.groupUuid} (${e.year || ''}${e.semester ? ' S' + e.semester : ''}${e.level ? ' Lvl ' + e.level : ''})`).join(', ')
+          : (typeof t === 'function' ? t('geNoPastEnrollments') : 'No groups assigned');
+        
+        const extraInfo = [s.adminClass ? 'Class: ' + s.adminClass : '', s.dob ? 'DOB: ' + s.dob : '', s.gender ? 'Gender: ' + s.gender : '', s.sen ? 'SEN: Yes' : ''].filter(Boolean).join(' | ');
+
+        recsHtml += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 10px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.72rem;font-family:monospace;font-weight:700;color:#2563a8;background:#eff6ff;padding:1px 6px;border-radius:3px;border:1px solid #bfdbfe;">${s.uuid}</span>
+            <span style="font-size:0.78rem;color:#475569;">${extraInfo}</span>
+          </div>
+          <div style="font-size:0.74rem;color:#334155;margin-top:3px;">
+            <strong>Groups:</strong> ${groupsList}
+          </div>
+        </div>`;
+      });
+      recsHtml += '</div>';
+      tdRecords.innerHTML = recsHtml;
+
+      // Keep as Primary selector column
+      const tdPrimary = document.createElement('td');
+      const select = document.createElement('select');
+      select.className = 'ge-merge-primary-select';
+      select.style.cssText = 'padding:6px 8px;font-size:0.78rem;border:1.5px solid #2563a8;border-radius:5px;font-weight:700;cursor:pointer;background:#fff;width:100%;';
+      
+      group.forEach((s, sIdx) => {
+        const opt = document.createElement('option');
+        opt.value = s.uuid;
+        const enrCount = (s.enrollments || []).length;
+        opt.textContent = `Keep ${s.uuid} (${enrCount} ${enrCount === 1 ? 'group' : 'groups'})`;
+        if (sIdx === 0) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      const optIgnore = document.createElement('option');
+      optIgnore.value = 'ignore';
+      optIgnore.textContent = typeof t === 'function' ? t('geMergeActionIgnore') : '❌ Do nothing (Keep separate)';
+      select.appendChild(optIgnore);
+
+      tdPrimary.appendChild(select);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdRecords);
+      tr.appendChild(tdPrimary);
+      tbody.appendChild(tr);
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  function closeMergeModal() {
+    const modal = document.getElementById('ge-merge-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function applyStudentMerges() {
+    if (!_currentMergeGroups || _currentMergeGroups.length === 0) {
+      closeMergeModal();
+      return;
+    }
+
+    let mergedRecordsCount = 0;
+    const rows = document.querySelectorAll('#ge-merge-tbody tr');
+
+    rows.forEach(r => {
+      const gIdx = parseInt(r.dataset.groupIdx, 10);
+      const group = _currentMergeGroups[gIdx];
+      if (!group || group.length < 2) return;
+
+      const sel = r.querySelector('.ge-merge-primary-select');
+      const primaryUuid = sel ? sel.value : group[0].uuid;
+      if (primaryUuid === 'ignore') {
+        return; // Do nothing for this duplicate group
+      }
+
+      const primaryStudent = studentRoster[primaryUuid] || group.find(s => s.uuid === primaryUuid) || group[0];
+      const secondaryStudents = group.filter(s => s.uuid !== primaryUuid);
+
+      secondaryStudents.forEach(sec => {
+        mergedRecordsCount++;
+        // Merge attributes if primary is missing them
+        if (!primaryStudent.dob && sec.dob) primaryStudent.dob = sec.dob;
+        if (!primaryStudent.adminClass && sec.adminClass) primaryStudent.adminClass = sec.adminClass;
+        if (!primaryStudent.gender && sec.gender) primaryStudent.gender = sec.gender;
+        if (primaryStudent.sen === undefined && sec.sen !== undefined) primaryStudent.sen = sec.sen;
+
+        // Replace secondary UUID in all groups in rawMeta
+        Object.keys(rawMeta).forEach(gid => {
+          const g = rawMeta[gid];
+          if (g && Array.isArray(g.students)) {
+            const hasSec = g.students.includes(sec.uuid);
+            if (hasSec) {
+              g.students = g.students.map(sid => sid === sec.uuid ? primaryUuid : sid);
+              // De-duplicate
+              g.students = [...new Set(g.students)];
+            }
+          }
+        });
+
+        // Delete secondary from roster
+        delete studentRoster[sec.uuid];
+      });
+
+      studentRoster[primaryUuid] = primaryStudent;
+    });
+
+    // Re-sync student enrollments
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+
     renderGroupsList();
-    showNotice('Imported ' + Object.keys(newGroups).length + ' group(s). Click Save to persist.');
+    closeMergeModal();
+
+    const msg = (typeof t === 'function' ? t('geMergeSuccessNotice') : 'Successfully merged {count} duplicate student record(s). Click Save to persist.').replace('{count}', String(mergedRecordsCount));
+    showNotice(msg);
+    if (typeof showToast === 'function') showToast(msg);
+  }
+
+  function geMergeSetAll(action) {
+    const selects = document.querySelectorAll('#ge-merge-tbody .ge-merge-primary-select');
+    selects.forEach(s => {
+      if (action === 'ignore') {
+        s.value = 'ignore';
+      } else {
+        if (s.options.length > 0) s.selectedIndex = 0;
+      }
+    });
+  }
+
+  // ── All Students & Unassigned Management ─────────────────────
+  let _astFilterTab = 'all'; // 'all' | 'unassigned' | 'groups'
+  const _astSelectedUuids = new Set();
+
+  function getStudentGroupStatus(student) {
+    const uuid = student.uuid;
+    const activeGroups = [];
+    const archivedGroups = [];
+
+    Object.keys(rawMeta).forEach(gid => {
+      const g = rawMeta[gid];
+      if (g && Array.isArray(g.students) && g.students.includes(uuid)) {
+        const item = {
+          id: gid,
+          name: g.name || gid,
+          year: g.year || '',
+          semester: g.semester || null,
+          archived: !!g.archived
+        };
+        if (g.archived) archivedGroups.push(item);
+        else activeGroups.push(item);
+      }
+    });
+
+    const isUnassigned = activeGroups.length === 0 && archivedGroups.length === 0;
+    const isArchivedOnly = activeGroups.length === 0 && archivedGroups.length > 0;
+    const isArchived = !!student.archived;
+
+    return {
+      activeGroups,
+      archivedGroups,
+      isUnassigned,
+      isArchivedOnly,
+      isArchived
+    };
+  }
+
+  function openAllStudentsModal() {
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+    _astSelectedUuids.clear();
+    _astFilterTab = 'all';
+
+    const allStudents = Object.values(studentRoster);
+    const unassignedCount = allStudents.filter(s => getStudentGroupStatus(s).isUnassigned).length;
+    if (unassignedCount > 0) {
+      _astFilterTab = 'unassigned';
+    }
+
+    const modal = document.getElementById('ge-all-students-modal');
+    modal.style.display = 'flex';
+    setAllStudentsFilter(_astFilterTab);
+  }
+
+  function closeAllStudentsModal() {
+    const modal = document.getElementById('ge-all-students-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function setAllStudentsFilter(tab) {
+    _astFilterTab = tab;
+    document.querySelectorAll('.ge-ast-filter').forEach(btn => {
+      btn.classList.toggle('active', btn.id === `ge-filter-${tab}-btn`);
+    });
+    renderAllStudentsTable();
+  }
+
+  function renderAllStudentsTable() {
+    const tbody = document.getElementById('ge-all-students-tbody');
+    const searchInput = document.getElementById('ge-all-students-search');
+    const q = (searchInput?.value || '').trim().toLowerCase();
+    tbody.innerHTML = '';
+
+    const allStudents = Object.values(studentRoster);
+    let totalCount = allStudents.length;
+    let unassignedCount = 0;
+    let inGroupsCount = 0;
+
+    const studentRowsData = allStudents.map(s => {
+      const status = getStudentGroupStatus(s);
+      if (status.isUnassigned) unassignedCount++;
+      else inGroupsCount++;
+      return { student: s, status: status };
+    });
+
+    // Update filter tab button counts
+    const btnAll = document.getElementById('ge-filter-all-btn');
+    const btnUnassigned = document.getElementById('ge-filter-unassigned-btn');
+    const btnGroups = document.getElementById('ge-filter-groups-btn');
+    if (btnAll) btnAll.textContent = (typeof t === 'function' ? t('geAllStudentsFilterAll') : 'All ({count})').replace('{count}', String(totalCount));
+    if (btnUnassigned) btnUnassigned.textContent = (typeof t === 'function' ? t('geAllStudentsFilterUnassigned') : '⚠️ Unassigned ({count})').replace('{count}', String(unassignedCount));
+    if (btnGroups) btnGroups.textContent = (typeof t === 'function' ? t('geAllStudentsFilterInGroups') : 'In Groups ({count})').replace('{count}', String(inGroupsCount));
+
+    // Update subtitle
+    const subtitle = document.getElementById('ge-all-students-subtitle');
+    if (subtitle) {
+      subtitle.textContent = `Total: ${totalCount} student(s) · In active groups: ${inGroupsCount} · Unassigned (no group): ${unassignedCount}`;
+    }
+
+    // Toggle visibility of quick unassigned buttons
+    const batchBar = document.getElementById('ge-unassigned-batch-bar');
+    if (batchBar) {
+      batchBar.style.display = unassignedCount > 0 ? 'flex' : 'none';
+      const arcBtn = batchBar.querySelector('[data-i18n="geAllStudentsArchiveUnassigned"]');
+      const delBtn = batchBar.querySelector('[data-i18n="geAllStudentsDeleteUnassigned"]');
+      if (arcBtn) arcBtn.textContent = (typeof t === 'function' ? t('geAllStudentsArchiveUnassigned') : 'Archive All Unassigned ({count})').replace('{count}', String(unassignedCount));
+      if (delBtn) delBtn.textContent = (typeof t === 'function' ? t('geAllStudentsDeleteUnassigned') : 'Delete All Unassigned ({count})').replace('{count}', String(unassignedCount));
+    }
+
+    // Filter by tab
+    let filtered = studentRowsData.filter(item => {
+      if (_astFilterTab === 'unassigned') return item.status.isUnassigned;
+      if (_astFilterTab === 'groups') return !item.status.isUnassigned;
+      return true;
+    });
+
+    // Filter by search query
+    if (q) {
+      filtered = filtered.filter(item => {
+        const s = item.student;
+        const fn = (s.firstName || '').toLowerCase();
+        const ln = (s.lastName || '').toLowerCase();
+        const fullName = `${fn} ${ln}`;
+        const uuid = (s.uuid || '').toLowerCase();
+        const cls = (s.adminClass || '').toLowerCase();
+        const groups = [...item.status.activeGroups, ...item.status.archivedGroups].map(g => g.name.toLowerCase()).join(' ');
+        return fullName.includes(q) || uuid.includes(q) || cls.includes(q) || groups.includes(q);
+      });
+    }
+
+    // Sort: unassigned first, then by name
+    filtered.sort((a, b) => {
+      if (a.status.isUnassigned && !b.status.isUnassigned) return -1;
+      if (!a.status.isUnassigned && b.status.isUnassigned) return 1;
+      const na = `${a.student.lastName || ''} ${a.student.firstName || ''}`;
+      const nb = `${b.student.lastName || ''} ${b.student.firstName || ''}`;
+      return na.localeCompare(nb);
+    });
+
+    filtered.forEach(item => {
+      const s = item.student;
+      const st = item.status;
+      const tr = document.createElement('tr');
+      if (st.isUnassigned) tr.className = 'ge-ast-row-unassigned';
+
+      // Checkbox column
+      const tdCb = document.createElement('td');
+      tdCb.style.textAlign = 'center';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'ge-ast-row-cb';
+      cb.dataset.uuid = s.uuid;
+      cb.checked = _astSelectedUuids.has(s.uuid);
+      cb.onchange = () => {
+        if (cb.checked) _astSelectedUuids.add(s.uuid);
+        else _astSelectedUuids.delete(s.uuid);
+        updateSelectedStudentsCount();
+      };
+      tdCb.appendChild(cb);
+
+      // Student name column
+      const tdName = document.createElement('td');
+      tdName.innerHTML = `
+        <div style="font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">
+          <span>${s.firstName || ''} ${s.lastName || ''}</span>
+          ${s.sen ? '<span style="font-weight:900;color:#e11d48;" title="SEN">*</span>' : ''}
+        </div>
+        <div style="font-size:0.7rem;font-family:monospace;color:#2563a8;margin-top:2px;">
+          <span style="background:#eff6ff;padding:1px 5px;border-radius:3px;border:1px solid #bfdbfe;">${s.uuid}</span>
+        </div>`;
+
+      // Details column
+      const tdDetails = document.createElement('td');
+      const detailsList = [
+        s.adminClass ? `<strong>Class:</strong> ${s.adminClass}` : '',
+        s.dob ? `<strong>DOB:</strong> ${s.dob}` : '',
+        s.gender ? `<strong>Gen:</strong> ${s.gender}` : ''
+      ].filter(Boolean).join('<br>');
+      tdDetails.innerHTML = `<div style="font-size:0.75rem;color:#475569;line-height:1.35;">${detailsList || '—'}</div>`;
+
+      // Assigned groups column
+      const tdGroups = document.createElement('td');
+      if (st.isUnassigned) {
+        tdGroups.innerHTML = `<span style="font-size:0.72rem;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:4px;display:inline-flex;align-items:center;gap:4px;">
+          ⚠️ ${typeof t === 'function' ? t('geAllStudentsUnassignedBadge') : 'No Group Assigned'}
+        </span>`;
+      } else {
+        let groupsHtml = '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+        st.activeGroups.forEach(g => {
+          const yr = g.year ? ` ${g.year}` : '';
+          const sem = g.semester ? ` S${g.semester}` : '';
+          groupsHtml += `<span style="font-size:0.72rem;font-weight:600;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;padding:2px 6px;border-radius:4px;">${g.name}${yr}${sem}</span>`;
+        });
+        st.archivedGroups.forEach(g => {
+          groupsHtml += `<span style="font-size:0.72rem;font-weight:600;color:#64748b;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 6px;border-radius:4px;" title="Archived group">📂 ${g.name}</span>`;
+        });
+        groupsHtml += '</div>';
+        tdGroups.innerHTML = groupsHtml;
+      }
+
+      // Status column
+      const tdStatus = document.createElement('td');
+      tdStatus.style.textAlign = 'center';
+      if (st.isArchived) {
+        tdStatus.innerHTML = `<span style="font-size:0.7rem;font-weight:700;color:#64748b;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 6px;border-radius:4px;">${typeof t === 'function' ? t('geAllStudentsStatusArchived') : 'Archived'}</span>`;
+      } else {
+        tdStatus.innerHTML = `<span style="font-size:0.7rem;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 6px;border-radius:4px;">${typeof t === 'function' ? t('geAllStudentsStatusActive') : 'Active'}</span>`;
+      }
+
+      // Actions column
+      const tdActions = document.createElement('td');
+      tdActions.style.textAlign = 'center';
+      const actionWrap = document.createElement('div');
+      actionWrap.style.cssText = 'display:flex;gap:4px;justify-content:center;align-items:center;';
+
+      const arcBtn = document.createElement('button');
+      arcBtn.type = 'button';
+      arcBtn.style.cssText = 'padding:4px 8px;font-size:0.72rem;font-weight:700;border:1px solid #cbd5e1;border-radius:4px;background:#fff;color:#475569;cursor:pointer;';
+      arcBtn.textContent = st.isArchived
+        ? (typeof t === 'function' ? t('geAllStudentsBtnUnarchive') : 'Unarchive')
+        : (typeof t === 'function' ? t('geAllStudentsBtnArchive') : 'Archive');
+      arcBtn.onclick = () => toggleArchiveSingleStudent(s.uuid);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.style.cssText = 'padding:4px 8px;font-size:0.72rem;font-weight:700;border:1px solid #fca5a5;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;';
+      delBtn.textContent = typeof t === 'function' ? t('geAllStudentsBtnDelete') : 'Delete';
+      delBtn.onclick = () => deleteSingleStudent(s.uuid);
+
+      actionWrap.appendChild(arcBtn);
+      actionWrap.appendChild(delBtn);
+      tdActions.appendChild(actionWrap);
+
+      tr.appendChild(tdCb);
+      tr.appendChild(tdName);
+      tr.appendChild(tdDetails);
+      tr.appendChild(tdGroups);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdActions);
+      tbody.appendChild(tr);
+    });
+
+    updateSelectedStudentsCount();
+  }
+
+  function toggleAllStudentsSelection(checked) {
+    const checkboxes = document.querySelectorAll('#ge-all-students-tbody .ge-ast-row-cb');
+    checkboxes.forEach(cb => {
+      cb.checked = checked;
+      if (checked) _astSelectedUuids.add(cb.dataset.uuid);
+      else _astSelectedUuids.delete(cb.dataset.uuid);
+    });
+    updateSelectedStudentsCount();
+  }
+
+  function updateSelectedStudentsCount() {
+    const count = _astSelectedUuids.size;
+    const lbl = document.getElementById('ge-ast-selected-count');
+    const delBtn = document.getElementById('ge-ast-btn-del-sel');
+    const arcBtn = document.getElementById('ge-ast-btn-arc-sel');
+    if (lbl) lbl.textContent = `${count} selected`;
+    if (delBtn) {
+      delBtn.disabled = count === 0;
+      delBtn.textContent = (typeof t === 'function' ? t('geAllStudentsDeleteSelected') : 'Delete Selected ({count})').replace('{count}', String(count));
+    }
+    if (arcBtn) {
+      arcBtn.disabled = count === 0;
+      arcBtn.textContent = (typeof t === 'function' ? t('geAllStudentsArchiveSelected') : 'Archive Selected ({count})').replace('{count}', String(count));
+    }
+  }
+
+  function deleteSingleStudent(uuid) {
+    const student = studentRoster[uuid];
+    const name = student ? `${student.firstName} ${student.lastName}`.trim() : uuid;
+    const msg = (typeof t === 'function' ? t('geAllStudentsConfirmDelete') : 'Permanently delete {count} student(s) from the roster? This cannot be undone.').replace('{count}', `"${name}"`);
+    showConfirm(msg, () => {
+      delete studentRoster[uuid];
+      Object.keys(rawMeta).forEach(gid => {
+        if (rawMeta[gid] && Array.isArray(rawMeta[gid].students)) {
+          rawMeta[gid].students = rawMeta[gid].students.filter(sid => sid !== uuid);
+        }
+      });
+      _astSelectedUuids.delete(uuid);
+      if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+        studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+      }
+      renderGroupsList();
+      renderAllStudentsTable();
+      const notMsg = (typeof t === 'function' ? t('geAllStudentsDeletedNotice') : 'Deleted {count} student(s). Click Save to persist.').replace('{count}', '1');
+      showNotice(notMsg);
+      if (typeof showToast === 'function') showToast(notMsg);
+    });
+  }
+
+  function toggleArchiveSingleStudent(uuid) {
+    const student = studentRoster[uuid];
+    if (!student) return;
+    student.archived = !student.archived;
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+    renderGroupsList();
+    renderAllStudentsTable();
+    const notMsg = (typeof t === 'function' ? t('geAllStudentsArchivedNotice') : 'Archived {count} student(s). Click Save to persist.').replace('{count}', '1');
+    showNotice(notMsg);
+    if (typeof showToast === 'function') showToast(notMsg);
+  }
+
+  function deleteSelectedStudents() {
+    const count = _astSelectedUuids.size;
+    if (count === 0) return;
+    const msg = (typeof t === 'function' ? t('geAllStudentsConfirmDelete') : 'Permanently delete {count} student(s) from the roster? This cannot be undone.').replace('{count}', String(count));
+    showConfirm(msg, () => {
+      _astSelectedUuids.forEach(uuid => {
+        delete studentRoster[uuid];
+        Object.keys(rawMeta).forEach(gid => {
+          if (rawMeta[gid] && Array.isArray(rawMeta[gid].students)) {
+            rawMeta[gid].students = rawMeta[gid].students.filter(sid => sid !== uuid);
+          }
+        });
+      });
+      _astSelectedUuids.clear();
+      if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+        studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+      }
+      renderGroupsList();
+      renderAllStudentsTable();
+      const notMsg = (typeof t === 'function' ? t('geAllStudentsDeletedNotice') : 'Deleted {count} student(s). Click Save to persist.').replace('{count}', String(count));
+      showNotice(notMsg);
+      if (typeof showToast === 'function') showToast(notMsg);
+    });
+  }
+
+  function archiveSelectedStudents() {
+    const count = _astSelectedUuids.size;
+    if (count === 0) return;
+    _astSelectedUuids.forEach(uuid => {
+      if (studentRoster[uuid]) studentRoster[uuid].archived = true;
+    });
+    _astSelectedUuids.clear();
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+    renderGroupsList();
+    renderAllStudentsTable();
+    const notMsg = (typeof t === 'function' ? t('geAllStudentsArchivedNotice') : 'Archived {count} student(s). Click Save to persist.').replace('{count}', String(count));
+    showNotice(notMsg);
+    if (typeof showToast === 'function') showToast(notMsg);
+  }
+
+  function deleteAllUnassigned() {
+    const unassigned = Object.values(studentRoster).filter(s => getStudentGroupStatus(s).isUnassigned);
+    if (unassigned.length === 0) return;
+    const msg = (typeof t === 'function' ? t('geAllStudentsConfirmDelete') : 'Permanently delete {count} student(s) from the roster? This cannot be undone.').replace('{count}', String(unassigned.length));
+    showConfirm(msg, () => {
+      unassigned.forEach(s => {
+        delete studentRoster[s.uuid];
+        _astSelectedUuids.delete(s.uuid);
+      });
+      if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+        studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+      }
+      renderGroupsList();
+      renderAllStudentsTable();
+      const notMsg = (typeof t === 'function' ? t('geAllStudentsDeletedNotice') : 'Deleted {count} student(s). Click Save to persist.').replace('{count}', String(unassigned.length));
+      showNotice(notMsg);
+      if (typeof showToast === 'function') showToast(notMsg);
+    });
+  }
+
+  function archiveAllUnassigned() {
+    const unassigned = Object.values(studentRoster).filter(s => getStudentGroupStatus(s).isUnassigned);
+    if (unassigned.length === 0) return;
+    unassigned.forEach(s => {
+      s.archived = true;
+    });
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+    renderGroupsList();
+    renderAllStudentsTable();
+    const notMsg = (typeof t === 'function' ? t('geAllStudentsArchivedNotice') : 'Archived {count} student(s). Click Save to persist.').replace('{count}', String(unassigned.length));
+    showNotice(notMsg);
+    if (typeof showToast === 'function') showToast(notMsg);
   }
 
   // ── Tutorial ─────────────────────────────────────────────────

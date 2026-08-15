@@ -1140,6 +1140,11 @@
                                         title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title"><img
                                             src="../assets/icons/mute.svg" class="btn-icon" alt="" />
                                         <span data-i18n="rsp_btn_sounds">Sounds</span></button>
+                                    <button class="rsp-inline-btn" id="rsp-toggle-sen-btn"
+                                        onclick="closeRosterSettingsPopup(); toggleSenVisibility()"
+                                        title="Toggle SEN indicator (*)" data-i18n-title="rsp_toggle_sen_title"><span
+                                            style="font-weight:900; color:#e11d48; margin-right:2px; font-size:1.1rem; line-height:1;">*</span>
+                                        <span data-i18n="rsp_btn_sen">SEN</span></button>
                                     <button class="rsp-inline-btn" id="rsp-toggle-roles-btn"
                                         onclick="closeRosterSettingsPopup(); toggleRolesVisibility()"
                                         title="Toggle roles visibility" data-i18n-title="rsp_toggle_roles_title"><img
@@ -1229,6 +1234,12 @@
                             <div class="rsp-tab-section">
                                 <div class="rsp-row-label" data-i18n="rsp_mirror_options">Mirror in Presentation:</div>
                                 <div class="rsp-grid-toggles">
+                                    <button class="rsp-inline-btn" id="rsp-pres-sen-btn"
+                                        onclick="togglePresSetting('sen')"
+                                        title="Show SEN in presentation window"
+                                        data-i18n-title="rsp_pres_sen_title"><span
+                                            style="font-weight:900; color:#e11d48; margin-right:2px; font-size:1.1rem; line-height:1;">*</span>
+                                        <span data-i18n="rsp_pres_btn_sen">SEN</span></button>
                                     <button class="rsp-inline-btn" id="rsp-pres-roles-btn"
                                         onclick="togglePresSetting('roles')" title="Show roles in presentation window"
                                         data-i18n-title="rsp_pres_roles_title"><img src="../assets/icons/user-check.svg"
@@ -3345,12 +3356,14 @@
             participationSettings = normalizeParticipationSettings(config?.participationSettings);
             if (config?.uiSettings) {
                 const ui = config.uiSettings;
+                if (typeof ui.senVisible === 'boolean') senVisible = ui.senVisible;
                 if (typeof ui.badgesVisible === 'boolean') badgesVisible = ui.badgesVisible;
                 if (typeof ui.rolesVisible === 'boolean') rolesVisible = ui.rolesVisible;
                 if (typeof ui.autoFlagVisible === 'boolean') autoFlagVisible = ui.autoFlagVisible;
                 if (typeof ui.animationsEnabled === 'boolean') animationsEnabled = ui.animationsEnabled;
                 if (typeof ui.scoreMuted === 'boolean') scoreMuted = ui.scoreMuted;
                 if (ui.presSettings && typeof ui.presSettings === 'object') {
+                    if (typeof ui.presSettings.sen === 'boolean') presSettings.sen = ui.presSettings.sen;
                     if (typeof ui.presSettings.plan === 'boolean') presSettings.plan = ui.presSettings.plan;
                     if (typeof ui.presSettings.anim === 'boolean') presSettings.anim = ui.presSettings.anim;
                     if (typeof ui.presSettings.autoflag === 'boolean') presSettings.autoflag = ui.presSettings.autoflag;
@@ -3530,6 +3543,7 @@
                     ? loadedConfig.constellationPresets
                     : undefined,
                 uiSettings: {
+                    senVisible: senVisible,
                     badgesVisible: badgesVisible,
                     rolesVisible: rolesVisible,
                     autoFlagVisible: autoFlagVisible,
@@ -3642,13 +3656,20 @@
             const uuids = meta && Array.isArray(meta.students) && meta.students.length > 0 ? meta.students : null;
             if (uuids && typeof uuids[0] === 'string' && uuids[0].startsWith('st-')) {
                 return uuids.map(sid => {
-                    const s = studentRoster[sid] || { uuid: sid, firstName: '', lastName: '' };
+                    const s = studentRoster[sid] || { uuid: sid, firstName: '', lastName: '', sen: false, enrollments: [] };
                     const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() || sid;
-                    return { uuid: sid, name };
+                    return { uuid: sid, name, sen: !!s.sen, enrollments: s.enrollments || [] };
                 });
             }
             const names = rawData[groupId] || [];
-            return names.map(name => ({ uuid: null, name: String(name) }));
+            return names.map(name => {
+                const s = Object.values(studentRoster).find(st => {
+                    const fn = (st.firstName || '').trim().toUpperCase();
+                    const ln = (st.lastName || '').trim().toUpperCase();
+                    return (fn + ' ' + ln).trim() === String(name).trim().toUpperCase();
+                });
+                return { uuid: s ? s.uuid : null, name: String(name), sen: !!(s && s.sen), enrollments: (s && s.enrollments) || [] };
+            });
         }
 
         function _halfGroupFilter(allStudents, halfGroupArray) {
@@ -3671,6 +3692,8 @@
                         id: Date.now() + Math.random(),
                         uuid: s.uuid || null,
                         name: s.name,
+                        sen: !!s.sen,
+                        enrollments: s.enrollments || [],
                         isPicked: false,
                         isAbsent: false,
                         pluses: 0,
@@ -3940,6 +3963,7 @@
                     id: Date.now() + Math.random(),
                     uuid: s.uuid || null,
                     name: s.name,
+                    sen: !!s.sen,
                     isPicked: false,
                     isAbsent: false,
                     pluses: 0,
@@ -6881,11 +6905,13 @@
                 }).join('');
 
                 const hasNotes = student.comments && student.comments.length > 0;
+                const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
+                const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
 
                 li.innerHTML = `
     <div class="student-info">
         <span class="student-name" onclick="toggleStrike(${student.id})">
-            ${getDisplayName(student)}${renderStudentFlagsHtml(student)}
+            ${getDisplayName(student)}${senStarHtml}${renderStudentFlagsHtml(student)}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: 0.9rem; margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
         <span class="comment-dot ${hasNotes ? 'has-comment' : ''}" onclick="openCommentPopup(event, ${student.id})" title="${hasNotes ? 'View notes' : 'Add note'}"></span>
@@ -9408,11 +9434,12 @@
             _broadcastPresentationState();
         }
 
+        let senVisible = false;
         let badgesVisible = true;
         let rolesVisible = true;
         let autoFlagVisible = true;
         let animationsEnabled = true;
-        let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false };
+        let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false, sen: false };
         let rosterSettingsPinned = false;
         const ROSTER_SETTINGS_PIN_KEY = 'cmt-cms-roster-settings-pinned';
 
@@ -9968,6 +9995,12 @@
                 scoreBtn.title = scoreMuted ? 'Score sounds muted' : 'Score sounds on';
             }
 
+            const senBtn = document.getElementById('rsp-toggle-sen-btn');
+            if (senBtn) {
+                senBtn.classList.toggle('is-off', !senVisible);
+                senBtn.title = senVisible ? 'SEN indicator visible' : 'SEN indicator hidden';
+            }
+
             const rolesBtn = document.getElementById('rsp-toggle-roles-btn');
             if (rolesBtn) {
                 rolesBtn.classList.toggle('is-off', !rolesVisible);
@@ -9992,7 +10025,7 @@
                 animationsBtn.title = animationsEnabled ? 'Animations on' : 'Animations off';
             }
 
-            ['plan', 'anim', 'autoflag', 'badges', 'roles', 'modes'].forEach(key => {
+            ['plan', 'anim', 'autoflag', 'badges', 'roles', 'modes', 'sen'].forEach(key => {
                 const btn = document.getElementById('rsp-pres-' + key + '-btn');
                 if (btn) btn.classList.toggle('is-off', !presSettings[key]);
             });
@@ -10013,6 +10046,49 @@
             }
             syncRosterInlineToggleButtonStates();
             persistSettingsToUserFile().catch(err => console.warn('toggleScoreMute: could not save config:', err));
+        }
+
+        function toggleSenVisibility() {
+            senVisible = !senVisible;
+            syncRosterInlineToggleButtonStates();
+            renderRoster();
+            persistSettingsToUserFile().catch(err => console.warn('toggleSenVisibility: could not save config:', err));
+        }
+
+        function toggleRolesVisibility() {
+            rolesVisible = !rolesVisible;
+            syncRosterInlineToggleButtonStates();
+            renderRoster();
+            persistSettingsToUserFile().catch(err => console.warn('toggleRolesVisibility: could not save config:', err));
+        }
+
+        function toggleBadgesVisibility() {
+            badgesVisible = !badgesVisible;
+            syncRosterInlineToggleButtonStates();
+            renderRoster();
+            persistSettingsToUserFile().catch(err => console.warn('toggleBadgesVisibility: could not save config:', err));
+        }
+
+        function toggleAutoFlagVisibility() {
+            autoFlagVisible = !autoFlagVisible;
+            syncRosterInlineToggleButtonStates();
+            renderRoster();
+            persistSettingsToUserFile().catch(err => console.warn('toggleAutoFlagVisibility: could not save config:', err));
+        }
+
+        function toggleAnimations() {
+            animationsEnabled = !animationsEnabled;
+            syncRosterInlineToggleButtonStates();
+            persistSettingsToUserFile().catch(err => console.warn('toggleAnimations: could not save config:', err));
+        }
+
+        function togglePresSetting(key) {
+            if (key in presSettings) {
+                presSettings[key] = !presSettings[key];
+                syncRosterInlineToggleButtonStates();
+                if (!PRESENTATION_MODE) _broadcastPresentationState();
+                persistSettingsToUserFile().catch(err => console.warn('togglePresSetting: could not save config:', err));
+            }
         }
 
         // ---- Timer Popup ----
@@ -15720,7 +15796,9 @@ syncState();
             cell.innerHTML = '';
             const nameSpan = document.createElement('span');
             nameSpan.className = 'cp-desk-name';
-            nameSpan.textContent = student ? getDisplayName(student) : studentName;
+            const isSen = !!(student && (student.sen || (student.uuid && studentRoster[student.uuid]?.sen)));
+            const senStar = (senVisible && !PRESENTATION_MODE && isSen) ? ' *' : '';
+            nameSpan.textContent = (student ? getDisplayName(student) : studentName) + senStar;
 
             const rmBtn = document.createElement('button');
             rmBtn.className = 'cp-desk-remove'; rmBtn.title = 'Remove'; rmBtn.textContent = '✕';
@@ -16135,10 +16213,12 @@ ${body}
 
                         const hasNotes = student.comments && student.comments.length > 0;
                         const abbrev = getDisplayName(student);
+                        const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
+                        const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
 
                         li.innerHTML = `
                     <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-                        ${abbrev}${renderStudentFlagsHtml(student)}
+                        ${abbrev}${senStarHtml}${renderStudentFlagsHtml(student)}
                         ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
                     </span>
                     <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">
@@ -16227,9 +16307,11 @@ ${body}
             }).join('');
             const hasNotes = student.comments && student.comments.length > 0;
             const abbrev = getDisplayName(student);
+            const isSen = !!(student.sen || (student.uuid && studentRoster[student.uuid]?.sen));
+            const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
             li.innerHTML = `
         <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
-            ${abbrev}${renderStudentFlagsHtml(student)}
+            ${abbrev}${senStarHtml}${renderStudentFlagsHtml(student)}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
         </span>
         <div class="badges rpc-badges" id="badges-row-${student.id}" style="${badgesVisible ? '' : 'display:none'}">

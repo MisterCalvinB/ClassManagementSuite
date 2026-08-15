@@ -1720,24 +1720,59 @@
                 STUDENTS_ROSTER.forEach(s => {
                     if (!s || (!s.firstName && !s.lastName)) return;
                     const fullName = ((s.firstName || '') + ' ' + (s.lastName || '')).trim();
-                    const groupId = s.groupId || 'unassigned';
-                    const isArchived = isGroupArchived(groupId);
-                    const key = `${fullName.toUpperCase()}|${groupId}`;
-                    if (!studentMap[key]) {
-                        studentMap[key] = {
-                            name: fullName,
-                            groupId: groupId,
-                            groupName: groupDisplayName(groupId),
-                            isArchived: isArchived,
-                            picks: 0,
-                            pluses: 0,
-                            minuses: 0,
-                            teamPluses: 0,
-                            teamMinuses: 0,
-                            badgePositive: 0,
-                            badgeNegative: 0,
-                            sessionsCount: 0
-                        };
+                    const sEnrollments = Array.isArray(s.enrollments) ? s.enrollments : [];
+                    
+                    if (sEnrollments.length > 0) {
+                        sEnrollments.forEach(e => {
+                            const gid = e.groupUuid || 'unassigned';
+                            const isArchived = isGroupArchived(gid);
+                            const key = `${fullName.toUpperCase()}|${gid}`;
+                            if (!studentMap[key]) {
+                                studentMap[key] = {
+                                    uuid: s.uuid,
+                                    name: fullName,
+                                    groupId: gid,
+                                    groupName: e.groupName || groupDisplayName(gid),
+                                    isArchived: isArchived,
+                                    enrollments: sEnrollments,
+                                    picks: 0,
+                                    pluses: 0,
+                                    minuses: 0,
+                                    teamPluses: 0,
+                                    teamMinuses: 0,
+                                    badgePositive: 0,
+                                    badgeNegative: 0,
+                                    sessionsCount: 0
+                                };
+                            } else {
+                                studentMap[key].uuid = s.uuid;
+                                studentMap[key].enrollments = sEnrollments;
+                            }
+                        });
+                    } else {
+                        const groupId = s.groupId || 'unassigned';
+                        const isArchived = isGroupArchived(groupId);
+                        const key = `${fullName.toUpperCase()}|${groupId}`;
+                        if (!studentMap[key]) {
+                            studentMap[key] = {
+                                uuid: s.uuid,
+                                name: fullName,
+                                groupId: groupId,
+                                groupName: groupDisplayName(groupId),
+                                isArchived: isArchived,
+                                enrollments: [],
+                                picks: 0,
+                                pluses: 0,
+                                minuses: 0,
+                                teamPluses: 0,
+                                teamMinuses: 0,
+                                badgePositive: 0,
+                                badgeNegative: 0,
+                                sessionsCount: 0
+                            };
+                        } else {
+                            studentMap[key].uuid = s.uuid;
+                        }
                     }
                 });
             }
@@ -1790,11 +1825,19 @@
                     ? `<span class="pt-search-item-group archived" style="background:#fff0f0; color:#c0392b; border:1px solid #ecc; opacity:0.9; font-weight:600;">📂 ${escapeHtml(item.groupName)} (${escapeHtml(t('rfArchivedLabel'))})</span>`
                     : `<span class="pt-search-item-group">${escapeHtml(item.groupName)}</span>`;
 
+                const enrollmentList = (item.enrollments && item.enrollments.length > 1)
+                    ? item.enrollments.map(e => `${e.groupName || e.groupUuid}`).join(', ')
+                    : '';
+                const multiGroupBadge = enrollmentList
+                    ? `<div style="font-size:11px; color:#1e40af; margin-top:2px; font-weight:600;">📚 ${escapeHtml(enrollmentList)}</div>`
+                    : '';
+
                 html += `
                     <div class="pt-search-item" data-index="${idx}" data-student-name="${escapeHtml(item.name)}" data-group-id="${escapeHtml(item.groupId)}">
                         <div class="pt-search-item-info">
                             <span class="pt-search-item-name">${escapeHtml(item.name)}</span>
                             ${groupBadge}
+                            ${multiGroupBadge}
                         </div>
                         <div class="pt-search-item-stats">
                             <span class="pt-search-item-stat" title="Picks">🎯 ${item.picks}</span>
@@ -3382,6 +3425,64 @@
                 `;
             }
 
+            // Check for student enrollment history across multiple groups
+            let crossGroupHtml = '';
+            const roster = _ptRoster();
+            const rosterStudent = Object.values(roster).find(s => {
+                if (!s) return false;
+                const fn = (s.firstName || '').trim().toUpperCase();
+                const ln = (s.lastName || '').trim().toUpperCase();
+                return (fn + ' ' + ln).trim() === currentStudentName.toUpperCase();
+            });
+
+            if (rosterStudent && Array.isArray(rosterStudent.enrollments) && rosterStudent.enrollments.length > 0) {
+                const enrs = rosterStudent.enrollments;
+                // Calculate cross-group totals across all DB_EXPORT sessions
+                let cgPicks = 0, cgPluses = 0, cgMinuses = 0, cgBadges = 0, cgSessions = 0;
+                DB_EXPORT.forEach(sess => {
+                    if (!sess.groups) return;
+                    Object.keys(sess.groups).forEach(gid => {
+                        (sess.groups[gid] || []).forEach(st => {
+                            if (st && st.name && st.name.toUpperCase() === currentStudentName.toUpperCase()) {
+                                cgSessions++;
+                                if (st.isPicked) cgPicks++;
+                                cgPluses += (st.pluses || 0) + (st.teamPluses || 0);
+                                cgMinuses += (st.minuses || 0) + (st.teamMinuses || 0);
+                                cgBadges += (st.badges || []).length;
+                            }
+                        });
+                    });
+                });
+
+                const pillsHtml = enrs.map(e => {
+                    const isCurrent = e.groupUuid === currentGroupId;
+                    const pillStyle = isCurrent
+                        ? 'background:#2563a8; color:#fff; font-weight:700;'
+                        : 'background:#fff; color:#334155; border:1px solid #cbd5e1;';
+                    const yrSem = [e.year, e.semester ? 'S' + e.semester : '', e.level ? 'Lvl ' + e.level : ''].filter(Boolean).join(' ');
+                    return `<span style="font-size:0.75rem; padding:3px 8px; border-radius:4px; ${pillStyle}">${escapeHtml(e.groupName || e.groupUuid)}${yrSem ? ' (' + escapeHtml(yrSem) + ')' : ''}</span>`;
+                }).join(' ');
+
+                crossGroupHtml = `
+                    <div class="detail-stat" style="grid-column: 1 / -1; background:#f0f7ff; border:1.5px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-top:8px; text-align:left;">
+                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#1e40af; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
+                            <span>📚 ${escapeHtml(t('ptEnrollmentHistory') || 'Enrollment History')} (${enrs.length} ${enrs.length === 1 ? 'group' : 'groups'})</span>
+                            <span style="font-size:0.7rem; font-family:monospace; color:#2563a8; background:#fff; padding:2px 6px; border-radius:3px; border:1px solid #bfdbfe;">${escapeHtml(rosterStudent.uuid)}</span>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+                            ${pillsHtml}
+                        </div>
+                        <div style="font-size:0.78rem; color:#1e293b; background:#fff; padding:6px 10px; border-radius:5px; border:1px solid #e2e8f0; display:flex; gap:14px; flex-wrap:wrap;">
+                            <span><strong>${escapeHtml(t('ptAggregatedStats') || 'All-Groups Total')}:</strong></span>
+                            <span>🎯 <strong>${cgPicks}</strong> picks (${cgSessions} sessions)</span>
+                            <span style="color:#2ca02c;">+<strong>${cgPluses}</strong></span>
+                            <span style="color:#d62728;">-<strong>${cgMinuses}</strong></span>
+                            <span style="color:#7a5a00;">🏅 <strong>${cgBadges}</strong> badges</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             // Update detail stats
             const detailStats = document.getElementById('studentDetailStats');
             detailStats.innerHTML = `
@@ -3418,6 +3519,7 @@
                     <div class="detail-stat-value" style="color: #d62728">${badgeNegative}</div>
                 </div>
                 ${provGradeHtml}
+                ${crossGroupHtml}
             `;
 
             // Filter student sessions and sort them

@@ -849,6 +849,17 @@
         var tdStatus = document.createElement('td');
         if (isConflict) {
           tdStatus.innerHTML = buildConflictRadio(i);
+          var ext = existingByKey[k];
+          var enrollments = (ext && Array.isArray(ext.enrollments)) ? ext.enrollments : [];
+          if (enrollments.length > 0) {
+            var pastList = enrollments.map(function (e) {
+              return (e.groupName || e.groupUuid) + ' (' + (e.year || '') + (e.semester ? ' S' + e.semester : '') + ')';
+            }).join(', ');
+            var hint = document.createElement('div');
+            hint.style.cssText = 'font-size:0.72rem;color:#2563a8;margin-top:4px;font-weight:600;';
+            hint.textContent = '📚 ' + tt('importConflictEnrollmentHistory', 'Past groups: {list}').replace('{list}', pastList);
+            tdStatus.appendChild(hint);
+          }
         } else {
           tdStatus.innerHTML = '<span class="badge badge-new">' + tt('importStep4New', 'New') + '</span>';
         }
@@ -1007,21 +1018,11 @@
         }
       });
 
-      // Save students.js
-      var content = ImportUtils.buildStudentsFileContent(roster);
-      var saveResult = await Desktop.saveText('user', 'students.js', content);
-      if (!saveResult || !saveResult.ok) {
-        showSaving(false);
-        showError('err-step4', tt('importErrSaveFail', 'Save failed'));
-        return;
-      }
-      existingStudents = roster;
+      var cg = existingGroups || { activeYear: '', activeSemester: null, activeSemesterStart: '', activeSemesterEnd: '', classGroupsMeta: {} };
+      cg.classGroupsMeta = cg.classGroupsMeta || {};
 
-      // If class groups or admin groups module: save class-groups.js
+      // If class groups or admin groups module: update classGroupsMeta
       if (selectedModule.id === 'classGroups' || selectedModule.id === 'adminGroups') {
-        var cg = existingGroups || { activeYear: '', activeSemester: null, activeSemesterStart: '', activeSemesterEnd: '', classGroupsMeta: {} };
-        cg.classGroupsMeta = cg.classGroupsMeta || {};
-
         if (groupMode === 'new') {
           var groupId = ImportUtils.generateGroupUuid();
           while (cg.classGroupsMeta[groupId]) groupId = ImportUtils.generateGroupUuid();
@@ -1041,7 +1042,25 @@
             cg.classGroupsMeta[selId].students = existing_students;
           }
         }
+      }
 
+      // Sync student enrollments across groups
+      if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+        roster = ImportUtils.syncStudentEnrollments(roster, cg.classGroupsMeta);
+      }
+
+      // Save students.js
+      var content = ImportUtils.buildStudentsFileContent(roster);
+      var saveResult = await Desktop.saveText('user', 'students.js', content);
+      if (!saveResult || !saveResult.ok) {
+        showSaving(false);
+        showError('err-step4', tt('importErrSaveFail', 'Save failed'));
+        return;
+      }
+      existingStudents = roster;
+
+      // Save class-groups.js if needed
+      if (selectedModule.id === 'classGroups' || selectedModule.id === 'adminGroups') {
         var cgContent = ImportUtils.buildGroupsFileContent(cg);
         var cgSave = await Desktop.saveText('user', 'class-groups.js', cgContent);
         if (!cgSave || !cgSave.ok) {

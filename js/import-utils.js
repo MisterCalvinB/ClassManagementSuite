@@ -515,41 +515,99 @@
     }
   }
 
-  function buildStudentsFileContent(arr) {
+  function syncStudentEnrollments(rosterInput, classGroupsMeta) {
+    var isArr = Array.isArray(rosterInput);
+    var rosterMap = {};
+    if (isArr) {
+      rosterInput.forEach(function (s) { if (s && s.uuid) rosterMap[s.uuid] = s; });
+    } else if (rosterInput && typeof rosterInput === 'object') {
+      rosterMap = rosterInput;
+    }
+
+    var meta = (classGroupsMeta && typeof classGroupsMeta === 'object') ? classGroupsMeta : {};
+
+    // Map of studentUuid -> array of group enrollments
+    var studentEnrollmentsMap = {};
+
+    Object.keys(meta).forEach(function (groupId) {
+      var g = meta[groupId] || {};
+      var sids = Array.isArray(g.students) ? g.students : [];
+      sids.forEach(function (sid) {
+        if (!sid) return;
+        var uuid = (typeof sid === 'string' && sid.startsWith('st-')) ? sid : (sid.uuid || null);
+        if (!uuid) return;
+        if (!studentEnrollmentsMap[uuid]) studentEnrollmentsMap[uuid] = [];
+        studentEnrollmentsMap[uuid].push({
+          groupUuid: groupId,
+          groupName: g.name || groupId,
+          year: g.year !== undefined ? String(g.year) : '',
+          semester: g.semester !== undefined && g.semester !== '' ? Number(g.semester) : null,
+          level: g.level !== undefined && g.level !== '' ? Number(g.level) : null,
+          archived: !!g.archived
+        });
+      });
+    });
+
+    Object.keys(rosterMap).forEach(function (uuid) {
+      var student = rosterMap[uuid];
+      if (!student) return;
+      var activeEnrollments = studentEnrollmentsMap[uuid] || [];
+      // Keep any existing historical enrollments that might be from groups not currently in meta
+      var existingEnrollments = Array.isArray(student.enrollments) ? student.enrollments : [];
+      var combined = [];
+      var seenGroupIds = new Set();
+
+      activeEnrollments.forEach(function (e) {
+        seenGroupIds.add(e.groupUuid);
+        combined.push(Object.assign({}, e, { adminClass: student.adminClass || '' }));
+      });
+
+      existingEnrollments.forEach(function (e) {
+        if (e && e.groupUuid && !seenGroupIds.has(e.groupUuid)) {
+          seenGroupIds.add(e.groupUuid);
+          combined.push(e);
+        }
+      });
+
+      // Sort by year descending, semester descending
+      combined.sort(function (a, b) {
+        var ya = String(a.year || '');
+        var yb = String(b.year || '');
+        if (ya !== yb) return yb.localeCompare(ya);
+        var sa = a.semester !== null && a.semester !== undefined ? Number(a.semester) : 0;
+        var sb = b.semester !== null && b.semester !== undefined ? Number(b.semester) : 0;
+        return sb - sa;
+      });
+
+      student.enrollments = combined;
+    });
+
+    return isArr ? Object.values(rosterMap) : rosterMap;
+  }
+
+  function findStudentMatches(incoming, rosterInput) {
+    var rosterList = Array.isArray(rosterInput) ? rosterInput : Object.values(rosterInput || {});
+    var inFn = String(incoming.firstName || '').trim().toUpperCase();
+    var inLn = String(incoming.lastName || '').trim().toUpperCase();
+    var inKey = (inFn + ' ' + inLn).trim();
+    if (!inKey) return [];
+
+    return rosterList.filter(function (s) {
+      if (!s) return false;
+      var sFn = String(s.firstName || '').trim().toUpperCase();
+      var sLn = String(s.lastName || '').trim().toUpperCase();
+      var sKey = (sFn + ' ' + sLn).trim();
+      return inKey === sKey;
+    });
+  }
+
+  function buildStudentsFileContent(roster) {
+    var arr = Array.isArray(roster) ? roster : Object.values(roster || {});
     return 'const STUDENTS_ROSTER = ' + JSON.stringify(arr, null, 2) + ';\n';
   }
 
-  function buildGroupsFileContent(data) {
-    var meta = data.classGroupsMeta || {};
-    var metaLines = Object.keys(meta).map(function (uuid) {
-      var m = meta[uuid] || {};
-      var entry = {
-        year: m.year !== undefined ? m.year : '',
-        semester: m.semester !== undefined ? m.semester : '',
-        level: m.level !== undefined ? m.level : ''
-      };
-      if (m.name) entry.name = m.name;
-      if (m.halfGroups && ((m.halfGroups.A && m.halfGroups.A.length) || (m.halfGroups.B && m.halfGroups.B.length))) {
-        entry.halfGroups = m.halfGroups;
-      }
-      if (m.students && m.students.length) entry.students = m.students;
-      if (m.archived) entry.archived = true;
-      return '    ' + JSON.stringify(uuid) + ': ' + JSON.stringify(entry);
-    });
-    return [
-      'const CLASS_GROUPS_DATA = {',
-      '  "activeYear": ' + JSON.stringify(data.activeYear || '') + ',',
-      '  "activeSemester": ' + JSON.stringify(data.activeSemester !== undefined ? data.activeSemester : null) + ',',
-      '  "activeSemesterStart": ' + JSON.stringify(data.activeSemesterStart || '') + ',',
-      '  "activeSemesterEnd": ' + JSON.stringify(data.activeSemesterEnd || '') + ',',
-      '  "classGroupsMeta": {',
-      metaLines.join(',\n').split('\n').map(function (l) { return '  ' + l; }).join('\n'),
-      '  }',
-      '};',
-      '',
-      'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
-      ''
-    ].join('\n');
+  function buildGroupsFileContent(classGroupsData) {
+    return 'const CLASS_GROUPS_DATA = ' + JSON.stringify(classGroupsData, null, 2) + ';\n';
   }
 
   window.ImportUtils = {
@@ -562,6 +620,9 @@
     loadStudentRoster: loadStudentRoster,
     loadClassGroupsData: loadClassGroupsData,
     buildStudentsFileContent: buildStudentsFileContent,
-    buildGroupsFileContent: buildGroupsFileContent
+    buildGroupsFileContent: buildGroupsFileContent,
+    syncStudentEnrollments: syncStudentEnrollments,
+    findStudentMatches: findStudentMatches
   };
 })();
+

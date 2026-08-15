@@ -275,7 +275,7 @@
             <div class="status" style="margin-top:8px;" id="backupStatus"></div>
 
           </section>
-          <section class="config-section">
+          <section class="config-section" id="localSyncSection">
             <h2 data-i18n="gcSyncLocation">Local Sync</h2>
             <p class="section-desc" style="margin-bottom:4px;" data-i18n="gcSyncDesc">Synchronize the current data
               folder with another saved location.</p>
@@ -1612,11 +1612,6 @@
           var asr = await window.electronApi.getAutoSync();
           autoSyncToggle.checked = asr && asr.autoSync === true;
         } catch (e) { }
-      }
-      if (hasSyncLocation && sessionStorage.getItem('cmt-auto-sync') === '1') {
-        sessionStorage.removeItem('cmt-auto-sync');
-        document.getElementById('syncPath').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        doSync();
       }
     }
 
@@ -3117,10 +3112,42 @@
       });
     }
 
+    function handleInitialNavigation() {
+      var targetTab = sessionStorage.getItem('cmt-config-tab');
+      var targetSec = sessionStorage.getItem('cmt-config-section');
+      sessionStorage.removeItem('cmt-config-tab');
+      sessionStorage.removeItem('cmt-config-section');
+      sessionStorage.removeItem('cmt-auto-sync');
+
+      var hash = (window.location.hash || '').replace(/^#/, '').toLowerCase();
+      var urlParams = new URLSearchParams(window.location.search || '');
+      var paramTab = urlParams.get('tab');
+      var paramSec = urlParams.get('section');
+
+      var activeTab = targetTab || paramTab || (hash === 'sync' || hash === 'storage' ? 'storage' : (hash === 'remote' ? 'remote' : (hash === 'notes' ? 'notes' : null)));
+      var activeSec = targetSec || paramSec || (hash === 'sync' ? 'sync' : null);
+
+      if (activeTab && typeof gcSetTab === 'function') {
+        gcSetTab(activeTab);
+      }
+      if (activeSec === 'sync') {
+        var syncSec = document.getElementById('localSyncSection') || (document.getElementById('syncPath') && document.getElementById('syncPath').closest('.config-section'));
+        if (syncSec) {
+          syncSec.classList.remove('collapsed');
+          setTimeout(function () {
+            syncSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+      }
+    }
+
+    window.addEventListener('hashchange', handleInitialNavigation);
+
     document.addEventListener('DOMContentLoaded', async function () {
       await init();  // reads config from file, populates path boxes
       initGeneralConfigCollapsible();
       initResetApp();
+      handleInitialNavigation();
       if (typeof applyTranslations === 'function') applyTranslations();
     });
   </script>
