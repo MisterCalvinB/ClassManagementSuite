@@ -120,6 +120,35 @@
     .eg-students-toggle.active { border-color: #0891b2; background: #0891b2; color: #fff; }
     .eg-students-toggle:disabled { opacity: 0.5; cursor: default; }
 
+    /* ── Class UUID badge ───────────────────────────────── */
+    .eg-group-uuid {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #475569;
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 3px 7px;
+      cursor: pointer;
+      user-select: all;
+      letter-spacing: 0.2px;
+      flex-shrink: 0;
+      transition: background 0.12s, border-color 0.12s, color 0.12s;
+      height: 31px;
+    }
+    .eg-group-uuid:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+      color: #0f172a;
+    }
+    .eg-group-uuid:active {
+      transform: scale(0.96);
+    }
+
     /* ── Administrative Group toggle button ───────────────── */
     .eg-admin-toggle {
       padding: 4px 8px;
@@ -2131,6 +2160,20 @@
     nameInput.title = 'Group name';
     if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
 
+    const uuidBadge = document.createElement('span');
+    uuidBadge.className = 'eg-group-uuid';
+    uuidBadge.textContent = groupId;
+    uuidBadge.title = typeof t === 'function' ? t('geClassUuidTitle') : 'Class UUID (Click to copy)';
+    uuidBadge.onclick = () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(groupId);
+        if (typeof showToast === 'function') {
+          const msg = typeof tFmt === 'function' ? tFmt('geToastUuidCopied', { id: groupId }) : `Class UUID copied: ${groupId}`;
+          showToast(msg);
+        }
+      }
+    };
+
     const students = getStudentsForGroup(groupId);
 
     const studentsToggle = document.createElement('button');
@@ -2250,6 +2293,7 @@
     };
 
     row.appendChild(nameInput);
+    row.appendChild(uuidBadge);
     row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
@@ -2516,6 +2560,20 @@
     nameInput.value = nameVal;
     nameInput.title = 'Group name';
 
+    const uuidBadge = document.createElement('span');
+    uuidBadge.className = 'eg-group-uuid';
+    uuidBadge.textContent = newUuid;
+    uuidBadge.title = typeof t === 'function' ? t('geClassUuidTitle') : 'Class UUID (Click to copy)';
+    uuidBadge.onclick = () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(newUuid);
+        if (typeof showToast === 'function') {
+          const msg = typeof tFmt === 'function' ? tFmt('geToastUuidCopied', { id: newUuid }) : `Class UUID copied: ${newUuid}`;
+          showToast(msg);
+        }
+      }
+    };
+
     const studentsToggle = document.createElement('button');
     studentsToggle.type = 'button';
     studentsToggle.className = 'eg-students-toggle active';
@@ -2590,6 +2648,7 @@
     delBtn.onclick = () => { row.remove(); studentSection.remove(); if (halfSection.parentNode) halfSection.remove(); };
 
     row.appendChild(nameInput);
+    row.appendChild(uuidBadge);
     row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);

@@ -5487,11 +5487,9 @@
                 }
             }
 
-            Object.keys(studentGroups).sort((a, b) => {
-                const na = (rawMeta[a] && rawMeta[a].name) ? rawMeta[a].name : a;
-                const nb = (rawMeta[b] && rawMeta[b].name) ? rawMeta[b].name : b;
-                return na.localeCompare(nb);
-            }).forEach(groupName => {
+            const allItems = [];
+
+            Object.keys(studentGroups).forEach(groupName => {
                 if (rawMeta[groupName] && rawMeta[groupName].archived) return;
                 const displayName = (rawMeta[groupName] && rawMeta[groupName].name) ? rawMeta[groupName].name : groupName;
                 const meta = rawMeta[groupName];
@@ -5515,27 +5513,18 @@
 
                         if (groupSearchQuery && !buttonText.toLowerCase().includes(groupSearchQuery)) return;
 
-                        const btn = document.createElement("button");
-                        btn.className = "btn-group";
-                        btn.dataset.group = groupName;
-                        btn.dataset.half = slot.halfGroup || '';
-                        btn.innerHTML = `<span class="btn-group-name">${displayName}</span>` +
-                            `<span class="btn-group-time-badge">${dayLabel ? dayLabel + ' ' : ''}${timeLabel}${halfLabel}</span>`;
-
-                        // Check active state
-                        if (selectedGroupName === groupName &&
-                            selectedHalfGroup === (slot.halfGroup || null) &&
-                            selectedPlannerSlot &&
-                            String(selectedPlannerSlot.day) === String(slot.day) &&
-                            (selectedPlannerSlot.time || '').slice(0, 5) === timeLabel) {
-                            btn.classList.add("active");
-                        }
-
-                        btn.onclick = () => {
-                            selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' };
-                            selectGroup(groupName, slot.halfGroup || null, btn);
-                        };
-                        container.appendChild(btn);
+                        allItems.push({
+                            type: 'slot',
+                            groupName,
+                            displayName,
+                            slot,
+                            day: slot.day !== undefined && slot.day !== null ? parseInt(slot.day, 10) : 99,
+                            time: slot.time ? slot.time.slice(0, 5) : '',
+                            halfGroup: slot.halfGroup || '',
+                            dayLabel,
+                            timeLabel,
+                            halfLabel
+                        });
                     });
                 } else {
                     if (slotViewActive) {
@@ -5545,6 +5534,68 @@
                     // Filter by search query
                     if (groupSearchQuery && !displayName.toLowerCase().includes(groupSearchQuery)) return;
 
+                    allItems.push({
+                        type: 'group',
+                        groupName,
+                        displayName,
+                        hasHalves
+                    });
+                }
+            });
+
+            // Sort buttons chronologically (by day Mon->Sun, then start time, then name, then half group)
+            allItems.sort((a, b) => {
+                if (a.type === 'slot' && b.type === 'slot') {
+                    // Mon(1), Tue(2), Wed(3), Thu(4), Fri(5), Sat(6), Sun(0 -> 7)
+                    const getDayOrder = (d) => {
+                        const n = parseInt(d, 10);
+                        if (isNaN(n)) return 99;
+                        return n === 0 ? 7 : n;
+                    };
+                    const dayDiff = getDayOrder(a.day) - getDayOrder(b.day);
+                    if (dayDiff !== 0) return dayDiff;
+
+                    const timeDiff = (a.time || '').localeCompare(b.time || '');
+                    if (timeDiff !== 0) return timeDiff;
+
+                    const nameDiff = (a.displayName || '').localeCompare(b.displayName || '');
+                    if (nameDiff !== 0) return nameDiff;
+
+                    return (a.halfGroup || '').localeCompare(b.halfGroup || '');
+                }
+
+                if (a.type === 'slot' && b.type !== 'slot') return -1;
+                if (a.type !== 'slot' && b.type === 'slot') return 1;
+
+                return (a.displayName || '').localeCompare(b.displayName || '');
+            });
+
+            allItems.forEach(item => {
+                if (item.type === 'slot') {
+                    const { groupName, displayName, slot, dayLabel, timeLabel, halfLabel } = item;
+                    const btn = document.createElement("button");
+                    btn.className = "btn-group";
+                    btn.dataset.group = groupName;
+                    btn.dataset.half = slot.halfGroup || '';
+                    btn.innerHTML = `<span class="btn-group-name">${displayName}</span>` +
+                        `<span class="btn-group-time-badge">${dayLabel ? dayLabel + ' ' : ''}${timeLabel}${halfLabel}</span>`;
+
+                    // Check active state
+                    if (selectedGroupName === groupName &&
+                        selectedHalfGroup === (slot.halfGroup || null) &&
+                        selectedPlannerSlot &&
+                        String(selectedPlannerSlot.day) === String(slot.day) &&
+                        (selectedPlannerSlot.time || '').slice(0, 5) === timeLabel) {
+                        btn.classList.add("active");
+                    }
+
+                    btn.onclick = () => {
+                        selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' };
+                        selectGroup(groupName, slot.halfGroup || null, btn);
+                    };
+                    container.appendChild(btn);
+                } else {
+                    const { groupName, displayName, hasHalves } = item;
                     const btn = document.createElement("button");
                     btn.className = "btn-group";
                     btn.dataset.group = groupName;
