@@ -19,6 +19,7 @@
     },
     currentGroupId: 'all',
     currentPeriodId: 'all',
+    selectedPeriods: ['all'],
     activeTab: 'all',
     searchQuery: '',
     selectedStudentId: null,
@@ -292,27 +293,25 @@
     return total;
   }
 
-  function isTierApplicableToPeriod(tier, periodId) {
-    if (!tier.periodScope || tier.periodScope === 'all') {
-      return true;
-    }
-    if (tier.periodScope === 'any_period') {
+  function isTierApplicableToPeriod(tier, periodScope) {
+    if (!tier.periodScope || tier.periodScope === 'all' || tier.periodScope === 'any_period') {
       return true;
     }
     var scopeList = Array.isArray(tier.periodScope) ? tier.periodScope : String(tier.periodScope).split(',').map(function (s) { return s.trim(); });
-    if (!periodId || periodId === 'all') {
+    var activeScopes = Array.isArray(periodScope) ? periodScope : (typeof periodScope === 'string' ? periodScope.split(',').map(function (s) { return s.trim(); }) : ['all']);
+    if (activeScopes.indexOf('all') !== -1 || activeScopes.length === 0) {
       return true;
     }
-    return scopeList.indexOf(periodId) !== -1;
+    return activeScopes.some(function (pid) { return scopeList.indexOf(pid) !== -1; });
   }
 
-  function determineSanctionTier(points, periodId) {
+  function determineSanctionTier(points, periodScope) {
     if (points <= 0) return null;
     var tiers = state.config.sanctionTiers || [];
-    var pid = periodId || state.currentPeriodId || 'all';
+    var pScope = periodScope || state.selectedPeriods || state.currentPeriodId || 'all';
     for (var i = tiers.length - 1; i >= 0; i--) {
       var t = tiers[i];
-      if (points >= t.minPoints && isTierApplicableToPeriod(t, pid)) {
+      if (points >= t.minPoints && isTierApplicableToPeriod(t, pScope)) {
         if (t.maxPoints && points > t.maxPoints) continue;
         return t;
       }
@@ -341,20 +340,69 @@
     if (!sel) return;
     var isFr = isFrench();
     var periods = (state.config && state.config.periods) || [];
-    var html = '<option value="all"' + (state.currentPeriodId === 'all' ? ' selected' : '') + '>' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '</option>';
+    var isAllSelected = !state.selectedPeriods || state.selectedPeriods.indexOf('all') !== -1 || state.selectedPeriods.length === 0;
+    var html = '<option value="all"' + (isAllSelected ? ' selected' : '') + '>' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '</option>';
     periods.forEach(function (p) {
       var pName = isFr ? (p.nameFr || p.name) : p.name;
       var dateRange = '';
       if (p.startDate && p.endDate) {
         dateRange = ' (' + p.startDate + ' → ' + p.endDate + ')';
       }
-      html += '<option value="' + escapeHtml(p.id) + '"' + (state.currentPeriodId === p.id ? ' selected' : '') + '>' + escapeHtml(pName + dateRange) + '</option>';
+      var isSingleSelected = !isAllSelected && state.selectedPeriods.length === 1 && state.selectedPeriods[0] === p.id;
+      html += '<option value="' + escapeHtml(p.id) + '"' + (isSingleSelected ? ' selected' : '') + '>' + escapeHtml(pName + dateRange) + '</option>';
     });
+
+    if (!isAllSelected && state.selectedPeriods.length > 1) {
+      html += '<option value="' + escapeHtml(state.selectedPeriods.join(',')) + '" selected>' + (isFr ? ('Périodes sélectionnées (' + state.selectedPeriods.length + ')') : ('Selected Periods (' + state.selectedPeriods.length + ')')) + '</option>';
+    }
+
     sel.innerHTML = html;
   }
 
   window.onPeriodFilterChanged = function (val) {
-    state.currentPeriodId = val || 'all';
+    if (!val || val === 'all') {
+      state.selectedPeriods = ['all'];
+      state.currentPeriodId = 'all';
+    } else if (val.indexOf(',') !== -1) {
+      state.selectedPeriods = val.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      state.currentPeriodId = val;
+    } else {
+      state.selectedPeriods = [val];
+      state.currentPeriodId = val;
+    }
+    renderPeriodChips();
+    renderTable();
+  };
+
+  window.toggleMainPeriodFilter = function (periodId) {
+    if (periodId === 'all') {
+      state.selectedPeriods = ['all'];
+      state.currentPeriodId = 'all';
+    } else {
+      var cur = state.selectedPeriods || ['all'];
+      var isAll = cur.indexOf('all') !== -1 || cur.length === 0;
+
+      if (isAll) {
+        state.selectedPeriods = [periodId];
+      } else {
+        var idx = cur.indexOf(periodId);
+        if (idx !== -1) {
+          cur.splice(idx, 1);
+          if (cur.length === 0) {
+            state.selectedPeriods = ['all'];
+          } else {
+            state.selectedPeriods = cur;
+          }
+        } else {
+          cur.push(periodId);
+          state.selectedPeriods = cur;
+        }
+      }
+      state.currentPeriodId = state.selectedPeriods.length === 1 ? state.selectedPeriods[0] : (state.selectedPeriods.indexOf('all') !== -1 ? 'all' : state.selectedPeriods.join(','));
+    }
+
+    populatePeriodSelector();
+    renderPeriodChips();
     renderTable();
   };
 
@@ -383,6 +431,38 @@
         saveAllData();
       }
     });
+  }
+
+  // ── Render Period Filter Chips (Above Tabs Bar) ──
+  function renderPeriodChips() {
+    var container = document.getElementById('agPeriodChipsBar');
+    if (!container) return;
+
+    var periods = (state.config && state.config.periods) || [];
+    var isFr = isFrench();
+    var selectedP = state.selectedPeriods || ['all'];
+    var isAllSelected = selectedP.indexOf('all') !== -1 || selectedP.length === 0;
+
+    var html = '<span class="ag-period-chips-label">' + svgIcon('clock') + ' <span>' + (isFr ? 'Périodes :' : (typeof t === 'function' ? t('agFilterPeriodChips', 'Periods:') : 'Periods:')) + '</span></span>';
+
+    var allYearLabel = isFr ? 'Toute l\'année (Cumulatif)' : (typeof t === 'function' ? t('agPeriodAllYear', 'All Year (Cumulative)') : 'All Year (Cumulative)');
+    html += '<button type="button" class="ag-period-chip' + (isAllSelected ? ' active' : '') + '" onclick="window.toggleMainPeriodFilter(\'all\')" title="' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '">';
+    html += (isAllSelected ? svgIcon('check') : '') + ' <span>' + escapeHtml(allYearLabel) + '</span>';
+    html += '</button>';
+
+    periods.forEach(function (p) {
+      var isChipActive = !isAllSelected && selectedP.indexOf(p.id) !== -1;
+      var pName = isFr ? (p.nameFr || p.name) : p.name;
+      var dateRange = '';
+      if (p.startDate && p.endDate) {
+        dateRange = ' (' + p.startDate + ' → ' + p.endDate + ')';
+      }
+      html += '<button type="button" class="ag-period-chip' + (isChipActive ? ' active' : '') + '" onclick="window.toggleMainPeriodFilter(\'' + escapeHtml(p.id) + '\')" title="' + escapeHtml(pName + dateRange) + '">';
+      html += (isChipActive ? svgIcon('check') : '') + ' <span>' + escapeHtml(p.id.toUpperCase() + (pName ? ': ' + pName : '')) + '</span>';
+      html += '</button>';
+    });
+
+    container.innerHTML = html;
   }
 
   // ── Render Main Navigation Tabs ──
@@ -440,9 +520,27 @@
     return (state.adminData.actions || []).filter(function (a) { return a.studentId === uuid; });
   }
 
-  function getStudentPeriodInfractions(student, periodId) {
+  function getStudentPeriodInfractions(student, periodsScope) {
     if (!student) return {};
-    if (!periodId || periodId === 'all') {
+    var scope = periodsScope || state.selectedPeriods || state.currentPeriodId || 'all';
+    var isAll = false;
+    var targetPeriods = [];
+
+    if (typeof scope === 'string') {
+      if (scope === 'all' || !scope) {
+        isAll = true;
+      } else {
+        targetPeriods = scope.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+    } else if (Array.isArray(scope)) {
+      if (scope.indexOf('all') !== -1 || scope.length === 0) {
+        isAll = true;
+      } else {
+        targetPeriods = scope;
+      }
+    }
+
+    if (isAll) {
       if (student.periods) {
         var totals = {};
         (state.config.infractions || []).forEach(function (inf) {
@@ -461,10 +559,27 @@
       return student.infractions || {};
     }
 
-    if (student.periods && student.periods[periodId] && student.periods[periodId].infractions) {
-      return student.periods[periodId].infractions;
+    if (targetPeriods.length === 1) {
+      var pid = targetPeriods[0];
+      if (student.periods && student.periods[pid] && student.periods[pid].infractions) {
+        return student.periods[pid].infractions;
+      }
+      return {};
     }
-    return { lates: 0, missingHomework: 0, missingMaterial: 0, disruptive: 0, dismissals: 0, unexcusedAbsence: 0 };
+
+    // Multiple periods selected: sum infractions across all selected periods
+    var multiTotals = {};
+    (state.config.infractions || []).forEach(function (inf) {
+      multiTotals[inf.key] = 0;
+    });
+    targetPeriods.forEach(function (pid) {
+      if (student.periods && student.periods[pid] && student.periods[pid].infractions) {
+        Object.keys(student.periods[pid].infractions).forEach(function (k) {
+          multiTotals[k] = (multiTotals[k] || 0) + (parseInt(student.periods[pid].infractions[k], 10) || 0);
+        });
+      }
+    });
+    return multiTotals;
   }
 
   // ── Render Spreadsheet Table ──
@@ -520,9 +635,9 @@
     } else {
       list.forEach(function (s) {
         var actionsCount = getStudentActions(s.uuid).length;
-        var pInfractions = getStudentPeriodInfractions(s, state.currentPeriodId);
+        var pInfractions = getStudentPeriodInfractions(s, state.selectedPeriods);
         var pPoints = calculateDisciplinePoints(pInfractions);
-        var pSanction = determineSanctionTier(pPoints);
+        var pSanction = determineSanctionTier(pPoints, state.selectedPeriods);
 
         html += '<tr data-student-id="' + s.uuid + '">';
 
@@ -599,6 +714,7 @@
   }
 
   function renderAll() {
+    renderPeriodChips();
     renderMainTabs();
     renderTable();
   }
@@ -608,8 +724,10 @@
     var student = state.students.find(function (s) { return s.uuid === uuid; });
     if (!student) return;
 
-    var targetPeriod = state.currentPeriodId;
-    if (targetPeriod === 'all') {
+    var targetPeriod = 'p1';
+    if (state.selectedPeriods && state.selectedPeriods.length > 0 && state.selectedPeriods[0] !== 'all') {
+      targetPeriod = state.selectedPeriods[0];
+    } else {
       var firstPeriod = (state.config.periods && state.config.periods[0] && state.config.periods[0].id) || 'p1';
       targetPeriod = firstPeriod;
     }
@@ -624,7 +742,7 @@
     // Recalculate overall
     student.infractions = getStudentPeriodInfractions(student, 'all');
     student.points = calculateDisciplinePoints(student.infractions);
-    student.sanction = determineSanctionTier(student.points);
+    student.sanction = determineSanctionTier(student.points, 'all');
 
     // Update state.adminData
     state.adminData.students = state.adminData.students || {};
@@ -1258,7 +1376,17 @@
   window.executeExport = async function () {
     var cat = state.exportCategory || 'all';
     var fmt = state.exportFormat || 'html';
-    var students = getFilteredStudents();
+    var rawStudents = getFilteredStudents();
+    var students = rawStudents.map(function (s) {
+      var pInf = getStudentPeriodInfractions(s, state.selectedPeriods);
+      var pts = calculateDisciplinePoints(pInf);
+      var sanc = determineSanctionTier(pts, state.selectedPeriods);
+      return Object.assign({}, s, {
+        points: pts,
+        sanction: sanc,
+        infractions: pInf
+      });
+    });
     var groupName = state.currentGroupId === 'all' ? 'All_Classes' : (state.currentGroupId);
     var timestamp = new Date().toISOString().split('T')[0];
     var baseFilename = 'administrative_groups_' + groupName + '_' + cat + '_' + timestamp;
@@ -2272,6 +2400,7 @@
     });
 
     populatePeriodSelector();
+    renderPeriodChips();
     renderMainTabs();
     renderTable();
     closeSettingsModal();

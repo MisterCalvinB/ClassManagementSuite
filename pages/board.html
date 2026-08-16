@@ -2418,6 +2418,10 @@
               onclick="wnInsertList('insertOrderedList')" title="Numbered list">1.</button>
             <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnInsertCheckboxList()"
               title="Checkbox list">☑</button>
+            <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnOutdentList()"
+              title="Outdent / Move back a level">⇤</button>
+            <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="wnIndentList()"
+              title="Indent / Sub-level">⇥</button>
             <button class="wn-sp-style-toggle" id="wn-sp-link" onmousedown="event.preventDefault()"
               onclick="wnLinkOpen()" title="Insert/edit link">🔗</button>
           </div>
@@ -23068,26 +23072,47 @@
       wnStyleRefresh();
     }
 
-    function wnInsertList(type) {
-      if (!_wnActiveNote) return;
-      const editor = wnGetActiveEditor();
-      if (!editor || editor.tagName === 'TEXTAREA') return;
-      if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
-      editor.focus();
-      document.execCommand('styleWithCSS', false, true);
-      document.execCommand(type, false, null);
-      wnRememberSelection(editor);
-      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
-      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+    function wnStripCheckboxesFromLi(li) {
+      if (!li) return;
+      const checkboxes = Array.from(li.querySelectorAll('input[type="checkbox"]'));
+      checkboxes.forEach(cb => {
+        const next = cb.nextSibling;
+        if (next && next.nodeType === Node.TEXT_NODE) {
+          next.nodeValue = next.nodeValue.replace(/^[ \u00A0]/, '');
+          if (next.nodeValue.length === 0) next.remove();
+        }
+        cb.remove();
+      });
+    }
+
+    function wnFindEnclosingList(node, editor) {
+      while (node && node !== editor) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'UL' || node.tagName === 'OL')) {
+          return node;
+        }
+        node = node.parentNode;
+      }
+      return null;
+    }
+
+    function wnGetTopEnclosingList(node, editor) {
+      let cur = wnFindEnclosingList(node, editor);
+      if (!cur) return null;
+      while (cur.parentNode && cur.parentNode !== editor) {
+        const parentList = wnFindEnclosingList(cur.parentNode, editor);
+        if (!parentList) break;
+        cur = parentList;
+      }
+      return cur;
     }
 
     function wnDecorateChecklistCheckbox(cb, noteData, editor) {
       if (!cb || cb.dataset.wnCbInit === '1') return cb;
       cb.type = 'checkbox';
       cb.setAttribute('contenteditable', 'false');
-      if (!cb.style.marginRight) cb.style.marginRight = '4px';
+      if (!cb.style.marginRight) cb.style.marginRight = '6px';
       if (!cb.style.cursor) cb.style.cursor = 'pointer';
-      if (!cb.style.verticalAlign) cb.style.verticalAlign = 'middle';
+      if (!cb.style.verticalAlign) cb.style.verticalAlign = '-1px';
       cb.addEventListener('mousedown', e => e.stopPropagation());
       cb.addEventListener('click', e => e.stopPropagation());
       cb.addEventListener('change', () => {
@@ -23101,26 +23126,37 @@
       cb.dataset.wnCbInit = '1';
       return cb;
     }
+
     function wnCreateChecklistCheckbox(noteData, editor) {
-      const cb = document.createElement('input'); cb.type = 'checkbox';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
       return wnDecorateChecklistCheckbox(cb, noteData, editor);
     }
+
     function wnCreateChecklistListItem(noteData, editor) {
       const li = document.createElement('li');
       const cb = wnCreateChecklistCheckbox(noteData, editor);
       const spaceNode = document.createTextNode(' ');
-      li.appendChild(cb); li.appendChild(spaceNode);
+      li.appendChild(cb);
+      li.appendChild(spaceNode);
       return { li, cb, spaceNode };
     }
 
     function wnNormalizeChecklistLists(editor, noteData) {
       if (!editor || editor.tagName === 'TEXTAREA') return;
-      editor.querySelectorAll('ul').forEach(ul => {
-        const hasChecklistSignals = ul.matches('[data-checkbox-list]') || !!ul.querySelector('input[type="checkbox"]');
-        if (!hasChecklistSignals) return;
+      // Strip any stray checkboxes from non-checklist lists
+      editor.querySelectorAll('ol, ul:not([data-checkbox-list])').forEach(list => {
+        list.querySelectorAll('li').forEach(li => {
+          if (li.querySelector('input[type="checkbox"]')) {
+            wnStripCheckboxesFromLi(li);
+          }
+        });
+      });
+
+      editor.querySelectorAll('ul[data-checkbox-list="true"], ul[data-checkbox-list]').forEach(ul => {
         ul.dataset.checkboxList = 'true';
         ul.style.listStyleType = 'none';
-        ul.style.paddingLeft = '4px';
+        ul.style.paddingLeft = '2px';
         Array.from(ul.children).forEach(li => {
           if (!li || li.tagName !== 'LI') return;
           let cb = li.querySelector('input[type="checkbox"]');
@@ -23143,48 +23179,353 @@
       if (noteData) wnSyncNoteDataFromEditor(noteData, editor);
     }
 
-    function wnInsertCheckboxList() {
-      if (!_wnActiveNote) return;
-      const editor = wnGetActiveEditor();
+    function wnApplyListType(targetType, optEditor, optNoteData) {
+      let editor = optEditor || wnGetActiveEditor();
+      if (!editor) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const node = sel.getRangeAt(0).startContainer;
+          const el = (node.nodeType === Node.TEXT_NODE) ? node.parentElement : node;
+          editor = el ? el.closest('.wn-note-editor') : null;
+        }
+      }
       if (!editor || editor.tagName === 'TEXTAREA') return;
+
+      const noteEl = editor.closest('.con-word-note, .ta-word-note');
+      const noteId = noteEl ? noteEl.dataset.id : null;
+      let noteData = optNoteData || _wnActiveNote;
+      if (!noteData && noteId) {
+        noteData = (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === noteId) : null)
+          || (typeof taWordNotes !== 'undefined' ? taWordNotes.find(n => n.id === noteId) : null);
+      }
+      if (noteData) _wnActiveNote = noteData;
+
       if (!wnSelectionInside(editor)) wnRestoreSelection(editor);
       editor.focus();
-      editor.querySelectorAll('ul').forEach(ul => ul.setAttribute('data-pre-existing', '1'));
-      document.execCommand('styleWithCSS', false, true);
-      document.execCommand('insertUnorderedList', false, null);
-      const newUls = [...editor.querySelectorAll('ul')].filter(ul => !ul.hasAttribute('data-pre-existing'));
-      let targetLi = null;
-      newUls.forEach(ul => {
-        ul.dataset.checkboxList = 'true';
-        ul.style.listStyleType = 'none'; ul.style.paddingLeft = '4px';
-        ul.querySelectorAll('li').forEach(li => {
-          if (!li.querySelector('input[type="checkbox"]')) {
-            const cb = wnCreateChecklistCheckbox(_wnActiveNote, editor);
-            li.insertBefore(cb, li.firstChild);
-            const spaceNode = document.createTextNode(' ');
-            li.insertBefore(spaceNode, cb.nextSibling);
-            if (!targetLi) targetLi = li;
-          }
-        });
-      });
-      editor.querySelectorAll('ul[data-pre-existing]').forEach(ul => ul.removeAttribute('data-pre-existing'));
-      wnSyncNoteDataFromEditor(_wnActiveNote, editor);
-      if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
-      if (targetLi) {
-        const liRef = targetLi;
-        setTimeout(() => {
-          editor.focus();
-          const cb = liRef.querySelector('input[type="checkbox"]');
-          const spaceNode = cb ? cb.nextSibling : null;
-          const sel = window.getSelection();
-          if (sel) {
+
+      let mode = targetType;
+      if (targetType === 'insertOrderedList' || targetType === 'ordered' || targetType === 'ol') mode = 'ordered';
+      else if (targetType === 'insertUnorderedList' || targetType === 'unordered' || targetType === 'ul') mode = 'unordered';
+      else if (targetType === 'checkbox' || targetType === 'checklist') mode = 'checkbox';
+
+      const sel = window.getSelection();
+      let range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+      if (!range || !editor.contains(range.commonAncestorContainer)) {
+        const r = document.createRange();
+        r.selectNodeContents(editor);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        range = r;
+      }
+
+      let activeList = wnGetTopEnclosingList(range.startContainer, editor);
+      if (!activeList && range.endContainer) {
+        activeList = wnGetTopEnclosingList(range.endContainer, editor);
+      }
+
+      if (activeList && editor.contains(activeList)) {
+        const isCurrentChecklist = activeList.tagName === 'UL' && activeList.hasAttribute('data-checkbox-list');
+        const isCurrentOrdered = activeList.tagName === 'OL';
+        const currentMode = isCurrentChecklist ? 'checkbox' : (isCurrentOrdered ? 'ordered' : 'unordered');
+
+        if (currentMode === mode) {
+          // TOGGLE OFF: Unwrap all items in list into plain divs
+          const frag = document.createDocumentFragment();
+          const items = Array.from(activeList.querySelectorAll('li'));
+          items.forEach(li => {
+            wnStripCheckboxesFromLi(li);
+            const div = document.createElement('div');
+            while (li.firstChild) div.appendChild(li.firstChild);
+            if (!div.hasChildNodes() || (div.childNodes.length === 1 && div.textContent === '')) {
+              div.appendChild(document.createElement('br'));
+            }
+            frag.appendChild(div);
+          });
+          const firstNewBlock = frag.firstChild;
+          activeList.parentNode.replaceChild(frag, activeList);
+          if (firstNewBlock) {
             const r = document.createRange();
-            if (spaceNode && spaceNode.nodeType === Node.TEXT_NODE) { r.setStart(spaceNode, spaceNode.length); }
-            else if (cb) { r.setStartAfter(cb); } else { return; }
-            r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
-            wnRememberSelection(editor);
+            r.selectNodeContents(firstNewBlock);
+            r.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(r);
           }
-        }, 0);
+        } else {
+          // CONVERT WHOLE LIST TO TARGET TYPE
+          let newList = activeList;
+          if (mode === 'ordered') {
+            if (activeList.tagName !== 'OL') {
+              const ol = document.createElement('ol');
+              while (activeList.firstChild) ol.appendChild(activeList.firstChild);
+              activeList.parentNode.replaceChild(ol, activeList);
+              newList = ol;
+            }
+            newList.removeAttribute('data-checkbox-list');
+            newList.classList.remove('wn-list-dash');
+            newList.style.listStyleType = '';
+            newList.style.paddingLeft = '';
+            Array.from(newList.querySelectorAll('li')).forEach(li => wnStripCheckboxesFromLi(li));
+          } else if (mode === 'unordered') {
+            if (activeList.tagName !== 'UL') {
+              const ul = document.createElement('ul');
+              while (activeList.firstChild) ul.appendChild(activeList.firstChild);
+              activeList.parentNode.replaceChild(ul, activeList);
+              newList = ul;
+            }
+            newList.removeAttribute('data-checkbox-list');
+            newList.classList.remove('wn-list-decimal-paren', 'wn-list-alpha-dot', 'wn-list-alpha-paren');
+            newList.style.listStyleType = '';
+            newList.style.paddingLeft = '';
+            Array.from(newList.querySelectorAll('li')).forEach(li => wnStripCheckboxesFromLi(li));
+          } else if (mode === 'checkbox') {
+            if (activeList.tagName !== 'UL') {
+              const ul = document.createElement('ul');
+              while (activeList.firstChild) ul.appendChild(activeList.firstChild);
+              activeList.parentNode.replaceChild(ul, activeList);
+              newList = ul;
+            }
+            newList.setAttribute('data-checkbox-list', 'true');
+            newList.classList.remove('wn-list-dash', 'wn-list-decimal-paren', 'wn-list-alpha-dot', 'wn-list-alpha-paren');
+            newList.style.listStyleType = 'none';
+            newList.style.paddingLeft = '2px';
+            Array.from(newList.querySelectorAll('li')).forEach(li => {
+              if (!li.querySelector('input[type="checkbox"]')) {
+                const cb = wnCreateChecklistCheckbox(noteData, editor);
+                li.insertBefore(cb, li.firstChild);
+                li.insertBefore(document.createTextNode(' '), cb.nextSibling);
+              }
+            });
+          }
+        }
+      } else {
+        // Not currently in a list: Convert active selection/line
+        if (mode === 'ordered') {
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('insertOrderedList', false, null);
+          editor.querySelectorAll('ol').forEach(ol => {
+            ol.removeAttribute('data-checkbox-list');
+            Array.from(ol.querySelectorAll('li')).forEach(li => wnStripCheckboxesFromLi(li));
+          });
+        } else if (mode === 'unordered') {
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('insertUnorderedList', false, null);
+          editor.querySelectorAll('ul').forEach(ul => {
+            if (!ul.hasAttribute('data-checkbox-list')) {
+              Array.from(ul.querySelectorAll('li')).forEach(li => wnStripCheckboxesFromLi(li));
+            }
+          });
+        } else if (mode === 'checkbox') {
+          editor.querySelectorAll('ul').forEach(ul => ul.setAttribute('data-pre-existing', '1'));
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('insertUnorderedList', false, null);
+          const targetUls = Array.from(editor.querySelectorAll('ul')).filter(ul => !ul.hasAttribute('data-pre-existing'));
+          targetUls.forEach(ul => {
+            ul.setAttribute('data-checkbox-list', 'true');
+            ul.style.listStyleType = 'none';
+            ul.style.paddingLeft = '2px';
+            Array.from(ul.querySelectorAll('li')).forEach(li => {
+              if (!li.querySelector('input[type="checkbox"]')) {
+                const cb = wnCreateChecklistCheckbox(noteData, editor);
+                li.insertBefore(cb, li.firstChild);
+                li.insertBefore(document.createTextNode(' '), cb.nextSibling);
+              }
+            });
+          });
+          editor.querySelectorAll('ul[data-pre-existing]').forEach(ul => ul.removeAttribute('data-pre-existing'));
+        }
+      }
+
+      wnNormalizeChecklistLists(editor, noteData);
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(noteData, editor);
+      if (noteData && noteData._applyStyle) noteData._applyStyle();
+      if (typeof conNoteAutosize === 'function') {
+        conNoteAutosize(editor, noteData);
+      }
+    }
+
+    function wnInsertList(type) {
+      wnApplyListType(type);
+    }
+
+    function wnInsertCheckboxList() {
+      wnApplyListType('checkbox');
+    }
+
+    function wnOutdentListItem(li, editor, noteData) {
+      if (!li || !editor || !editor.contains(li)) return false;
+      const list = li.closest('ul,ol');
+      if (!list || !editor.contains(list)) return false;
+
+      let outerList = null;
+      let parentLi = null;
+      let cur = list.parentElement;
+      while (cur && cur !== editor) {
+        if (cur.tagName === 'LI' && !parentLi) {
+          parentLi = cur;
+        }
+        if ((cur.tagName === 'UL' || cur.tagName === 'OL') && cur !== list) {
+          outerList = cur;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+
+      if (outerList && editor.contains(outerList)) {
+        const subSiblings = [];
+        let n = li.nextElementSibling;
+        while (n) {
+          subSiblings.push(n);
+          n = n.nextElementSibling;
+        }
+        if (subSiblings.length > 0) {
+          const subList = document.createElement(list.tagName);
+          if (list.hasAttribute('data-checkbox-list')) {
+            subList.setAttribute('data-checkbox-list', 'true');
+            subList.style.listStyleType = 'none';
+            subList.style.paddingLeft = '2px';
+          }
+          if (list.classList.contains('wn-list-alpha-dot')) subList.classList.add('wn-list-alpha-dot');
+          subSiblings.forEach(s => subList.appendChild(s));
+          li.appendChild(subList);
+        }
+
+        if (parentLi && outerList.contains(parentLi)) {
+          parentLi.after(li);
+        } else {
+          list.after(li);
+        }
+
+        if (!list.querySelector('li')) list.remove();
+        wnSetCaretAtNodeStart(li);
+      } else {
+        const div = document.createElement('div');
+        wnStripCheckboxesFromLi(li);
+        while (li.firstChild) {
+          div.appendChild(li.firstChild);
+        }
+        if (!div.hasChildNodes() || (div.childNodes.length === 1 && div.textContent === '')) {
+          div.appendChild(document.createElement('br'));
+        }
+
+        const prevSiblings = [];
+        let p = li.previousElementSibling;
+        while (p) {
+          prevSiblings.unshift(p);
+          p = p.previousElementSibling;
+        }
+
+        const nextSiblings = [];
+        let n = li.nextElementSibling;
+        while (n) {
+          nextSiblings.push(n);
+          n = n.nextElementSibling;
+        }
+
+        if (nextSiblings.length > 0) {
+          const nextList = document.createElement(list.tagName);
+          if (list.hasAttribute('data-checkbox-list')) {
+            nextList.setAttribute('data-checkbox-list', 'true');
+            nextList.style.listStyleType = 'none';
+            nextList.style.paddingLeft = '2px';
+          }
+          if (list.classList.contains('wn-list-alpha-dot')) nextList.classList.add('wn-list-alpha-dot');
+          nextSiblings.forEach(s => nextList.appendChild(s));
+          list.after(nextList);
+        }
+
+        list.after(div);
+        li.remove();
+
+        if (prevSiblings.length === 0) {
+          list.remove();
+        }
+
+        wnSetCaretAtNodeStart(div);
+      }
+
+      wnNormalizeChecklistLists(editor, noteData);
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(noteData, editor);
+      if (noteData && noteData._applyStyle) noteData._applyStyle();
+      if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      return true;
+    }
+
+    function wnIndentListItem(li, editor, noteData) {
+      if (!li || !editor || !editor.contains(li)) return false;
+      const list = li.closest('ul,ol');
+      if (!list || !editor.contains(list)) return false;
+
+      const prevLi = li.previousElementSibling;
+      if (!prevLi) return false;
+
+      let subList = prevLi.querySelector(':scope > ul, :scope > ol');
+      if (!subList) {
+        subList = document.createElement(list.tagName);
+        if (list.tagName === 'OL') {
+          subList.classList.add('wn-list-alpha-dot');
+        }
+        if (list.hasAttribute('data-checkbox-list')) {
+          subList.setAttribute('data-checkbox-list', 'true');
+          subList.style.listStyleType = 'none';
+          subList.style.paddingLeft = '2px';
+        }
+        prevLi.appendChild(subList);
+      }
+      subList.appendChild(li);
+
+      wnNormalizeChecklistLists(editor, noteData);
+      wnRememberSelection(editor);
+      wnSyncNoteDataFromEditor(noteData, editor);
+      if (noteData && noteData._applyStyle) noteData._applyStyle();
+      if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      wnSetCaretAtNodeStart(li);
+      return true;
+    }
+
+    function wnOutdentList() {
+      let editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const node = sel.getRangeAt(0).startContainer;
+          const el = (node.nodeType === Node.TEXT_NODE) ? node.parentElement : node;
+          editor = el ? el.closest('.wn-note-editor') : null;
+        }
+      }
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      let node = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const curLi = node ? node.closest('li') : null;
+      if (curLi && editor.contains(curLi)) {
+        wnOutdentListItem(curLi, editor, _wnActiveNote);
+      }
+    }
+
+    function wnIndentList() {
+      let editor = wnGetActiveEditor();
+      if (!editor || editor.tagName === 'TEXTAREA') {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const node = sel.getRangeAt(0).startContainer;
+          const el = (node.nodeType === Node.TEXT_NODE) ? node.parentElement : node;
+          editor = el ? el.closest('.wn-note-editor') : null;
+        }
+      }
+      if (!editor || editor.tagName === 'TEXTAREA') return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      let node = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const curLi = node ? node.closest('li') : null;
+      if (curLi && editor.contains(curLi)) {
+        wnIndentListItem(curLi, editor, _wnActiveNote);
       }
     }
 
@@ -23371,33 +23712,19 @@
       if (isUnordered || isOrdered || isChecklist) {
         if (range.startContainer.nodeType !== Node.TEXT_NODE) return false;
         const delRange = document.createRange();
-        const startOffset = Math.max(0, range.startOffset - (shortcut.length + 1));
+        const startOffset = Math.max(0, range.startOffset - shortcut.length);
         delRange.setStart(range.startContainer, startOffset);
         delRange.setEnd(range.startContainer, range.startOffset);
         sel.removeAllRanges(); sel.addRange(delRange);
         document.execCommand('delete', false, null);
+
         if (isChecklist) {
-          document.execCommand('insertUnorderedList', false, null);
-          const curSel = window.getSelection();
-          if (curSel && curSel.rangeCount) {
-            let n = curSel.getRangeAt(0).startContainer;
-            if (n.nodeType === Node.TEXT_NODE) n = n.parentElement;
-            const curLi = n ? n.closest('li') : null;
-            const list = curLi ? curLi.closest('ul') : null;
-            if (list) {
-              list.dataset.checkboxList = 'true'; list.style.listStyleType = 'none'; list.style.paddingLeft = '4px';
-              Array.from(list.children).forEach(li => {
-                if (!li || li.tagName !== 'LI') return;
-                if (!li.querySelector('input[type="checkbox"]')) {
-                  const cb = wnCreateChecklistCheckbox(noteData || _wnActiveNote, ta);
-                  li.insertBefore(cb, li.firstChild);
-                  li.insertBefore(document.createTextNode(' '), cb.nextSibling);
-                }
-              });
-            }
-          }
+          wnApplyListType('checkbox', ta, noteData);
+        } else if (isUnordered) {
+          wnApplyListType('unordered', ta, noteData);
+          wnApplyListMarkerStyleFromShortcut(ta, shortcut);
         } else {
-          document.execCommand(isUnordered ? 'insertUnorderedList' : 'insertOrderedList', false, null);
+          wnApplyListType('ordered', ta, noteData);
           wnApplyListMarkerStyleFromShortcut(ta, shortcut);
         }
         return true;
@@ -23448,62 +23775,58 @@
       const isEmpty = wnIsListItemEffectivelyEmpty(curLi, isChecklist);
 
       if (e.key === 'Tab') {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         if (e.shiftKey) {
-          document.execCommand('outdent', false, null);
+          wnOutdentListItem(curLi, ta, noteData);
         } else {
-          document.execCommand('indent', false, null);
+          wnIndentListItem(curLi, ta, noteData);
         }
-        wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        return true;
       }
 
       if (e.key === 'Enter') {
         if (isChecklist) {
-          e.preventDefault(); e.stopPropagation();
+          e.preventDefault();
+          e.stopPropagation();
           if (isEmpty) {
-            const prevLi = curLi.previousElementSibling, nextLi = curLi.nextElementSibling;
-            curLi.remove();
-            if (!list.querySelector('li')) {
-              const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
-              list.after(exitLine); list.remove(); wnSetCaretAtNodeStart(exitLine);
-            } else if (nextLi && nextLi.matches('li')) { wnSetCaretAtChecklistItemStart(nextLi); }
-            else if (prevLi && prevLi.matches('li')) {
-              const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
-              list.after(exitLine); wnSetCaretAtNodeStart(exitLine);
-            }
+            wnOutdentListItem(curLi, ta, noteData);
           } else {
             const created = wnCreateChecklistListItem(noteData, ta);
-            curLi.after(created.li); wnSetCaretAtNodeStart(created.spaceNode);
+            const tailRange = document.createRange();
+            tailRange.setStart(range.endContainer, range.endOffset);
+            tailRange.setEnd(curLi, curLi.childNodes.length);
+            const tailFrag = tailRange.extractContents();
+            if (tailFrag && tailFrag.hasChildNodes()) {
+              created.li.appendChild(tailFrag);
+            }
+            curLi.after(created.li);
+            wnSetCaretAtChecklistItemStart(created.li);
           }
-          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+          wnRememberSelection(ta);
+          wnSyncNoteDataFromEditor(noteData, ta);
+          if (typeof conNoteAutosize === 'function') conNoteAutosize(ta, noteData);
+          return true;
         }
         if (isEmpty) {
-          e.preventDefault(); e.stopPropagation();
-          document.execCommand('outdent', false, null);
-          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+          e.preventDefault();
+          e.stopPropagation();
+          wnOutdentListItem(curLi, ta, noteData);
+          return true;
         }
         return false;
       }
 
       if (e.key === 'Backspace' && range.collapsed) {
         const prefix = document.createRange();
-        prefix.setStart(curLi, 0); prefix.setEnd(range.startContainer, range.startOffset);
-        if (prefix.toString().replace(/ /g, ' ').trim().length !== 0) return false;
-        if (isChecklist && isEmpty) {
-          e.preventDefault(); e.stopPropagation();
-          const prevLi = curLi.previousElementSibling, nextLi = curLi.nextElementSibling;
-          curLi.remove();
-          if (!list.querySelector('li')) {
-            const exitLine = document.createElement('div'); exitLine.appendChild(document.createElement('br'));
-            list.after(exitLine); list.remove(); wnSetCaretAtNodeStart(exitLine);
-          } else if (prevLi && prevLi.matches('li')) { wnSetCaretAtNodeEnd(prevLi); }
-          else if (nextLi && nextLi.matches('li')) { wnSetCaretAtChecklistItemStart(nextLi); }
-          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
-        }
-        if (!isChecklist && isEmpty) {
-          e.preventDefault(); e.stopPropagation();
-          document.execCommand('outdent', false, null);
-          wnRememberSelection(ta); wnSyncNoteDataFromEditor(noteData, ta); return true;
+        prefix.setStart(curLi, 0);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        const prefixText = prefix.toString().replace(/ /g, ' ').replace(/\u200B/g, '').trim();
+        if (prefixText.length === 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          wnOutdentListItem(curLi, ta, noteData);
+          return true;
         }
       }
       return false;
