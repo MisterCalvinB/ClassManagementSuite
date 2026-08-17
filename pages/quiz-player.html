@@ -101,7 +101,8 @@
         if (students.length > 0 && typeof students[0] === 'string' && students[0].startsWith('st-')) {
           groups[String(key)] = students.map(function (sid) {
             const s = roster[sid];
-            return s ? ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() : null;
+            if (!s) return null;
+            return s.customName ? s.customName : ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase();
           }).filter(Boolean);
         } else {
           groups[String(key)] = students.map(function (v) { return String(v || '').trim(); }).filter(Boolean);

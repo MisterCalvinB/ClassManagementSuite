@@ -7,6 +7,7 @@
     <title>Class Management</title>
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
     <script src="../electron-bridge.js"></script>
+    <script src="../js/student-name-utils.js"></script>
     <script src="../js/dialogs.js"></script>
     <script src="../js/i18n.js"></script>
     <script src="../js/menus.js"></script>
@@ -958,7 +959,7 @@
             <span
                 style="font-size:0.8rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;"
                 data-i18n="settings_show_name">Show name</span>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 <label
                     style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
                     <input type="radio" name="nameDisplayMode" value="full" onchange="saveNameDisplayMode(this.value)"
@@ -973,6 +974,11 @@
                     style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
                     <input type="radio" name="nameDisplayMode" value="last" onchange="saveNameDisplayMode(this.value)">
                     <span data-i18n="settings_name_last">Last</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                    <input type="radio" name="nameDisplayMode" value="custom" onchange="saveNameDisplayMode(this.value)">
+                    <span data-i18n="cmsNameModeCustom">Custom</span>
                 </label>
             </div>
         </div>
@@ -2845,7 +2851,7 @@
             if (data.nameSizeRem !== undefined) { studentNameSizeRem = data.nameSizeRem; applyNameSize(); }
             if (data.presNameSizeRem !== undefined) { presNameSizeRem = data.presNameSizeRem; applyPresNameSize(); }
             if (data.planAbbrevLen !== undefined) { planAbbrevLen = data.planAbbrevLen; }
-            if (data.nameDisplayMode !== undefined && ['full', 'first', 'last'].includes(data.nameDisplayMode)) { nameDisplayMode = data.nameDisplayMode; }
+            if (data.nameDisplayMode !== undefined && ['full', 'first', 'last', 'custom'].includes(data.nameDisplayMode)) { nameDisplayMode = data.nameDisplayMode; }
             const dn = document.getElementById('display-name');
             if (dn) {
                 const _resolvedGrpName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : (selectedGroupName || '--');
@@ -3550,7 +3556,7 @@
                     if (typeof ui.presSettings.modes === 'boolean') presSettings.modes = ui.presSettings.modes;
                 }
                 if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
-                if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last'].includes(ui.nameDisplayMode)) nameDisplayMode = ui.nameDisplayMode;
+                if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(ui.nameDisplayMode)) nameDisplayMode = ui.nameDisplayMode;
             }
             if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
                 classModes = config.classModes.map(m => ({ ...m }));
@@ -3834,9 +3840,9 @@
             const uuids = meta && Array.isArray(meta.students) && meta.students.length > 0 ? meta.students : null;
             if (uuids && typeof uuids[0] === 'string' && uuids[0].startsWith('st-')) {
                 return uuids.map(sid => {
-                    const s = studentRoster[sid] || { uuid: sid, firstName: '', lastName: '', sen: false, enrollments: [] };
+                    const s = studentRoster[sid] || { uuid: sid, firstName: '', lastName: '', customName: '', sen: false, enrollments: [] };
                     const name = ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() || sid;
-                    return { uuid: sid, name, sen: !!s.sen, enrollments: s.enrollments || [] };
+                    return { uuid: sid, name, firstName: s.firstName || '', lastName: s.lastName || '', customName: s.customName || '', sen: !!s.sen, enrollments: s.enrollments || [] };
                 });
             }
             const names = rawData[groupId] || [];
@@ -3846,7 +3852,7 @@
                     const ln = (st.lastName || '').trim().toUpperCase();
                     return (fn + ' ' + ln).trim() === String(name).trim().toUpperCase();
                 });
-                return { uuid: s ? s.uuid : null, name: String(name), sen: !!(s && s.sen), enrollments: (s && s.enrollments) || [] };
+                return { uuid: s ? s.uuid : null, name: String(name), firstName: s?.firstName || '', lastName: s?.lastName || '', customName: s?.customName || '', sen: !!(s && s.sen), enrollments: (s && s.enrollments) || [] };
             });
         }
 
@@ -14608,7 +14614,15 @@ syncState();
         }
 
         function getDisplayName(student) {
+            if (!student) return '';
+            const rosterStudent = (student.uuid && studentRoster[student.uuid]) ? studentRoster[student.uuid] : student;
+            if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+                return StudentNameUtils.formatStudentDisplayName(rosterStudent, nameDisplayMode, 'firstLastInitial') || student.name || '';
+            }
             const name = student.name || '';
+            if (nameDisplayMode === 'custom') {
+                return (rosterStudent && rosterStudent.customName) ? rosterStudent.customName : name;
+            }
             if (nameDisplayMode === 'first') {
                 const sp = name.indexOf(' ');
                 return sp > 0 ? name.slice(0, sp) : name;
@@ -14621,7 +14635,7 @@ syncState();
         }
 
         function saveNameDisplayMode(value) {
-            if (['full', 'first', 'last'].includes(value)) nameDisplayMode = value;
+            if (['full', 'first', 'last', 'custom'].includes(value)) nameDisplayMode = value;
             renderRoster();
             renderRanking();
             if (!PRESENTATION_MODE) _broadcastPresentationState();

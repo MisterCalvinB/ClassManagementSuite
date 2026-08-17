@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Class Plan</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/pins.js"></script>
@@ -246,6 +247,7 @@
       <option value="full" data-i18n="cpNameFull">First + Last name</option>
       <option value="first" data-i18n="cpNameFirst">First name only</option>
       <option value="last" data-i18n="cpNameLast">Last name only</option>
+      <option value="custom" data-i18n="cpNameCustom">Custom name / Nickname</option>
     </select>
 
     <label class="form-label" data-i18n="cpLabelPlannerSlot">Linked planner slot</label>
@@ -875,10 +877,22 @@ function buildCell(seatId, studentName, plan) {
 
 function formatName(fullName, display) {
   if (!display || display === 'full') return fullName;
+  const roster = (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER))
+    ? STUDENTS_ROSTER : [];
+  const upper = String(fullName || '').trim().toUpperCase();
+  const studentObj = roster.find(s => {
+    const fn = (s.firstName || '').trim().toUpperCase();
+    const ln = (s.lastName || '').trim().toUpperCase();
+    return (fn + ' ' + ln).trim() === upper || (s.uuid === fullName);
+  });
+  if (studentObj && window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+    return StudentNameUtils.formatStudentDisplayName(studentObj, display, 'firstLastInitial') || fullName;
+  }
   const parts = String(fullName || '').trim().split(/\s+/);
   if (parts.length <= 1) return parts[0] || fullName;
   if (display === 'first') return parts[0];
   if (display === 'last') return parts.slice(1).join(' ');
+  if (display === 'custom') return (studentObj && studentObj.customName) ? studentObj.customName : (parts[0] + ' ' + (parts[1] ? parts[1].charAt(0).toUpperCase() + '.' : ''));
   return fullName;
 }
 

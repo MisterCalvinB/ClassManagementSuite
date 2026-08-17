@@ -6,6 +6,7 @@
   <title>Schedule Maker</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/pins.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -896,16 +897,16 @@
     let students;
     if (rawStudents.length > 0 && typeof rawStudents[0] === 'string' && rawStudents[0].startsWith('st-')) {
       students = rawStudents.map(sid => {
-        const s = smStudentRoster[sid] || { firstName: sid, lastName: '', sen: false };
-        return { firstName: s.firstName || '', lastName: s.lastName || '', sen: s.sen === true };
+        const s = smStudentRoster[sid] || { firstName: sid, lastName: '', customName: '', sen: false };
+        return { firstName: s.firstName || '', lastName: s.lastName || '', customName: s.customName || '', sen: s.sen === true };
       });
     } else {
       students = rawStudents.map(s => {
         if (typeof s === 'string') {
           const parts = s.trim().split(/\s+/);
-          return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', sen: false };
+          return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '', customName: '', sen: false };
         }
-        return { firstName: s.firstName || '', lastName: s.lastName || '', sen: s.sen === true };
+        return { firstName: s.firstName || '', lastName: s.lastName || '', customName: s.customName || '', sen: s.sen === true };
       });
     }
 
@@ -918,6 +919,7 @@
     let newItems = students.map(s => ({
       type: 'student',
       name: ([s.firstName, s.lastName].filter(Boolean).join(' ').trim() || String(s)).toUpperCase(),
+      customName: s.customName || '',
       sen: s.sen === true
     }));
 

@@ -6,6 +6,7 @@
   <title>Group Editor</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -199,7 +200,7 @@
     }
     .eg-student-header {
       display: grid;
-      grid-template-columns: 1fr 1fr 120px 80px 58px 44px 28px;
+      grid-template-columns: 1fr 1fr 1.15fr 115px 75px 54px 44px 28px;
       gap: 4px;
       font-size: 0.68rem;
       font-weight: 800;
@@ -207,12 +208,153 @@
       letter-spacing: 0.8px;
       color: #aaa;
       padding: 0 2px 5px;
+      align-items: center;
     }
     .eg-student-row {
       display: grid;
-      grid-template-columns: 1fr 1fr 120px 80px 58px 44px 28px;
+      grid-template-columns: 1fr 1fr 1.15fr 115px 75px 54px 44px 28px;
       gap: 4px;
       margin-bottom: 3px;
+      align-items: center;
+    }
+    .eg-s-custom-cell {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      position: relative;
+    }
+    .eg-s-preset-btn {
+      width: 22px;
+      height: 25px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      flex-shrink: 0;
+      transition: all 0.12s;
+    }
+    .eg-s-preset-btn .btn-icon,
+    .eg-s-preset-btn img {
+      width: 13px;
+      height: 13px;
+      display: block;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .eg-s-preset-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-color: #94a3b8;
+    }
+    .eg-s-preset-btn:hover .btn-icon,
+    .eg-s-preset-btn:hover img {
+      opacity: 1;
+    }
+    .eg-hdr-custom-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .eg-hdr-preset-btn {
+      background: none;
+      border: 1px solid #cbd5e1;
+      border-radius: 3px;
+      color: #64748b;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 1px 4px;
+      line-height: 1.2;
+      transition: all 0.12s;
+      text-transform: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .eg-hdr-preset-btn .btn-icon,
+    .eg-hdr-preset-btn img {
+      width: 10px;
+      height: 10px;
+      vertical-align: -1px;
+      margin-right: 3px;
+      pointer-events: none;
+    }
+    .eg-hdr-preset-btn:hover {
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
+    .ge-preset-menu {
+      position: fixed;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 10000;
+      padding: 4px 0;
+      min-width: 220px;
+      font-family: inherit;
+    }
+    .ge-preset-menu-header {
+      padding: 5px 10px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #64748b;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 2px;
+    }
+    .ge-preset-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 12px;
+      border: none;
+      background: none;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #1e293b;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.1s;
+    }
+    .ge-preset-item .btn-icon,
+    .ge-preset-item img {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      opacity: 0.75;
+      pointer-events: none;
+    }
+    .ge-preset-item:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    .ge-preset-item:hover .btn-icon,
+    .ge-preset-item:hover img {
+      opacity: 1;
+    }
+    .ge-preset-item-clear {
+      color: #b91c1c;
+      border-top: 1px solid #f1f5f9;
+      margin-top: 2px;
+    }
+    .ge-preset-item-clear .btn-icon,
+    .ge-preset-item-clear img {
+      filter: invert(18%) sepia(88%) saturate(4680%) hue-rotate(352deg) brightness(88%) contrast(98%);
+    }
+    .ge-preset-item-clear:hover {
+      background: #fef2f2;
+      color: #991b1b;
     }
     .eg-s-sen-cell {
       display: flex;
@@ -1180,7 +1322,14 @@
         const arr = fn();
         if (Array.isArray(arr)) {
           studentRoster = {};
-          arr.forEach(s => { if (s && s.uuid) studentRoster[s.uuid] = s; });
+          arr.forEach(s => {
+            if (s && s.uuid) {
+              studentRoster[s.uuid] = {
+                ...s,
+                customName: s.customName || ''
+              };
+            }
+          });
           return true;
         }
       }
@@ -1206,15 +1355,16 @@
     const newRoster = {};
 
     // Collect students from rawMeta (object format) and rawData (string format)
-    const processStudent = (firstName, lastName, dob, adminClass, sen, gender) => {
+    const processStudent = (firstName, lastName, customName, dob, adminClass, sen, gender) => {
       const fn = (firstName || '').trim().toUpperCase();
       const ln = (lastName || '').trim().toUpperCase();
+      const cn = (customName || '').trim();
       const key = _nameKey(fn, ln);
       if (!key) return;
       if (!nameToUuid[key]) {
         const uuid = generateStudentUuid();
         nameToUuid[key] = uuid;
-        newRoster[uuid] = { uuid, firstName: fn, lastName: ln, dob: dob || '', adminClass: (adminClass || '').trim().toUpperCase(), gender: (gender || '').trim().toUpperCase(), sen: sen === true };
+        newRoster[uuid] = { uuid, firstName: fn, lastName: ln, customName: cn, dob: dob || '', adminClass: (adminClass || '').trim().toUpperCase(), gender: (gender || '').trim().toUpperCase(), sen: sen === true };
       }
     };
 
@@ -1223,7 +1373,7 @@
       if (meta.students.length > 0 && typeof meta.students[0] === 'string' && meta.students[0].startsWith('st-')) return;
       meta.students.forEach(s => {
         if (!s || typeof s !== 'object') return;
-        processStudent(s.firstName, s.lastName, s.dob, s.adminClass, s.sen, s.gender);
+        processStudent(s.firstName, s.lastName, s.customName, s.dob, s.adminClass, s.sen, s.gender);
       });
     });
 
@@ -1323,14 +1473,15 @@
     studentSection.querySelectorAll('.eg-student-row').forEach(row => {
       const fn = (row.querySelector('.eg-s-fn')?.value || '').trim().toUpperCase();
       const ln = (row.querySelector('.eg-s-ln')?.value || '').trim().toUpperCase();
+      const cn = (row.querySelector('.eg-s-custom')?.value || '').trim();
       const dob = (row.querySelector('.eg-s-dob')?.value || '').trim();
       const ac = (row.querySelector('.eg-s-class')?.value || '').trim().toUpperCase();
       const gen = (row.querySelector('.eg-s-gender')?.value || '').trim().toUpperCase();
       const senCb = row.querySelector('.eg-s-sen');
       const sen = senCb ? senCb.checked : false;
-      if (fn || ln) {
+      if (fn || ln || cn) {
         const uuid = row.dataset.uuid || null;
-        const entry = { uuid, firstName: fn, lastName: ln, dob, adminClass: ac, gender: gen };
+        const entry = { uuid, firstName: fn, lastName: ln, customName: cn, dob, adminClass: ac, gender: gen };
         if (sen) entry.sen = true;
         results.push(entry);
       }
@@ -1979,13 +2130,225 @@
     return { yearInput, semSelect, lvlSelect };
   }
 
+  // ── Preset popup menus for Custom Name ────────────────────────
+  let _activePresetMenu = null;
+  function _closePresetMenu() {
+    if (_activePresetMenu && _activePresetMenu.parentNode) {
+      _activePresetMenu.parentNode.removeChild(_activePresetMenu);
+    }
+    _activePresetMenu = null;
+    document.removeEventListener('click', _closePresetMenu);
+    document.removeEventListener('keydown', _presetMenuEsc);
+  }
+  function _presetMenuEsc(e) {
+    if (e.key === 'Escape') _closePresetMenu();
+  }
+
+  function _positionPresetMenu(menu, anchor) {
+    const rect = anchor.getBoundingClientRect();
+    let top = rect.bottom + 4;
+    let left = rect.left;
+    if (left + 230 > window.innerWidth) left = window.innerWidth - 240;
+    if (top + 180 > window.innerHeight) top = Math.max(10, rect.top - 170);
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+  }
+
+  function _showStudentPresetMenu(anchor, fnInput, lnInput, cnInput) {
+    _closePresetMenu();
+    const menu = document.createElement('div');
+    menu.className = 'ge-preset-menu';
+
+    const header = document.createElement('div');
+    header.className = 'ge-preset-menu-header';
+    header.textContent = typeof t === 'function' ? t('geCustomName') : 'Custom Name';
+    menu.appendChild(header);
+
+    const fn = (fnInput.value || '').trim();
+    const ln = (lnInput.value || '').trim();
+
+    const optFirstLast = document.createElement('button');
+    optFirstLast.type = 'button';
+    optFirstLast.className = 'ge-preset-item';
+    const preview1 = (window.StudentNameUtils && typeof StudentNameUtils.formatFirstLastInitial === 'function')
+      ? StudentNameUtils.formatFirstLastInitial(fn, ln)
+      : (fn + (ln ? ' ' + ln.charAt(0).toUpperCase() + '.' : ''));
+    optFirstLast.onclick = () => {
+      cnInput.value = preview1;
+      cnInput.dispatchEvent(new Event('input'));
+      _closePresetMenu();
+    };
+    menu.appendChild(optFirstLast);
+
+    const optInitials = document.createElement('button');
+    optInitials.type = 'button';
+    optInitials.className = 'ge-preset-item';
+    const preview2 = (window.StudentNameUtils && typeof StudentNameUtils.formatInitials === 'function')
+      ? StudentNameUtils.formatInitials(fn, ln)
+      : (fn.charAt(0).toUpperCase() + '.' + (ln ? ln.charAt(0).toUpperCase() + '.' : ''));
+    optInitials.innerHTML = `<img src="../assets/icons/text.svg" class="btn-icon" alt="" /> <span>${typeof t === 'function' ? t('geCustomChoiceInitials') : 'Initials'} ${preview2 ? '<em style="color:#64748b;font-weight:400;">(' + preview2 + ')</em>' : ''}</span>`;
+    optInitials.onclick = () => {
+      cnInput.value = preview2;
+      cnInput.dispatchEvent(new Event('input'));
+      _closePresetMenu();
+    };
+    menu.appendChild(optInitials);
+
+    const optNick = document.createElement('button');
+    optNick.type = 'button';
+    optNick.className = 'ge-preset-item';
+    optNick.innerHTML = `<img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> <span>${typeof t === 'function' ? t('geCustomChoiceNickname') : 'Custom Nickname'}</span>`;
+    optNick.onclick = () => {
+      _closePresetMenu();
+      cnInput.focus();
+      cnInput.select();
+    };
+    menu.appendChild(optNick);
+
+    const optClear = document.createElement('button');
+    optClear.type = 'button';
+    optClear.className = 'ge-preset-item ge-preset-item-clear';
+    optClear.innerHTML = `<img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span>Clear</span>`;
+    optClear.onclick = () => {
+      cnInput.value = '';
+      cnInput.dispatchEvent(new Event('input'));
+      _closePresetMenu();
+    };
+    menu.appendChild(optClear);
+
+    document.body.appendChild(menu);
+    _positionPresetMenu(menu, anchor);
+    _activePresetMenu = menu;
+    setTimeout(() => {
+      document.addEventListener('click', _closePresetMenu);
+      document.addEventListener('keydown', _presetMenuEsc);
+    }, 0);
+  }
+
+  function _showGroupPresetMenu(anchor, section) {
+    _closePresetMenu();
+    const menu = document.createElement('div');
+    menu.className = 'ge-preset-menu';
+
+    const header = document.createElement('div');
+    header.className = 'ge-preset-menu-header';
+    header.textContent = typeof t === 'function' ? t('geCustomApplyAll') : 'Apply naming style to group...';
+    menu.appendChild(header);
+
+    const optFirstLast = document.createElement('button');
+    optFirstLast.type = 'button';
+    optFirstLast.className = 'ge-preset-item';
+    optFirstLast.innerHTML = `<img src="../assets/icons/user-check.svg" class="btn-icon" alt="" /> <span>${typeof t === 'function' ? t('geCustomChoiceFirstLastInitial') : 'First name & last initial'}</span>`;
+    optFirstLast.onclick = () => {
+      let count = 0;
+      section.querySelectorAll('.eg-student-row').forEach(row => {
+        const fn = (row.querySelector('.eg-s-fn')?.value || '').trim();
+        const ln = (row.querySelector('.eg-s-ln')?.value || '').trim();
+        const cn = row.querySelector('.eg-s-custom');
+        const sid = row.dataset.uuid;
+        if (cn && (fn || ln)) {
+          const val = (window.StudentNameUtils && typeof StudentNameUtils.formatFirstLastInitial === 'function')
+            ? StudentNameUtils.formatFirstLastInitial(fn, ln)
+            : (fn + (ln ? ' ' + ln.charAt(0).toUpperCase() + '.' : ''));
+          cn.value = val;
+          if (sid) {
+            if (!studentRoster[sid]) studentRoster[sid] = { uuid: sid, firstName: fn, lastName: ln, customName: val };
+            else studentRoster[sid].customName = val;
+            document.querySelectorAll(`.eg-student-row[data-uuid="${sid}"] .eg-s-custom`).forEach(other => {
+              if (other !== cn && other.value !== val) other.value = val;
+            });
+          }
+          count++;
+        }
+      });
+      _closePresetMenu();
+      if (typeof showToast === 'function') {
+        showToast((typeof tFmt === 'function' ? tFmt('geCustomApplyAllSuccess', { count }) : `Applied custom names to ${count} student(s).`));
+      }
+    };
+    menu.appendChild(optFirstLast);
+
+    const optInitials = document.createElement('button');
+    optInitials.type = 'button';
+    optInitials.className = 'ge-preset-item';
+    optInitials.innerHTML = `<img src="../assets/icons/text.svg" class="btn-icon" alt="" /> <span>${typeof t === 'function' ? t('geCustomChoiceInitials') : 'Initials (e.g. J.D.)'}</span>`;
+    optInitials.onclick = () => {
+      let count = 0;
+      section.querySelectorAll('.eg-student-row').forEach(row => {
+        const fn = (row.querySelector('.eg-s-fn')?.value || '').trim();
+        const ln = (row.querySelector('.eg-s-ln')?.value || '').trim();
+        const cn = row.querySelector('.eg-s-custom');
+        const sid = row.dataset.uuid;
+        if (cn && (fn || ln)) {
+          const val = (window.StudentNameUtils && typeof StudentNameUtils.formatInitials === 'function')
+            ? StudentNameUtils.formatInitials(fn, ln)
+            : (fn.charAt(0).toUpperCase() + '.' + (ln ? ln.charAt(0).toUpperCase() + '.' : ''));
+          cn.value = val;
+          if (sid) {
+            if (!studentRoster[sid]) studentRoster[sid] = { uuid: sid, firstName: fn, lastName: ln, customName: val };
+            else studentRoster[sid].customName = val;
+            document.querySelectorAll(`.eg-student-row[data-uuid="${sid}"] .eg-s-custom`).forEach(other => {
+              if (other !== cn && other.value !== val) other.value = val;
+            });
+          }
+          count++;
+        }
+      });
+      _closePresetMenu();
+      if (typeof showToast === 'function') {
+        showToast((typeof tFmt === 'function' ? tFmt('geCustomApplyAllSuccess', { count }) : `Applied initials to ${count} student(s).`));
+      }
+    };
+    menu.appendChild(optInitials);
+
+    const optClear = document.createElement('button');
+    optClear.type = 'button';
+    optClear.className = 'ge-preset-item ge-preset-item-clear';
+    optClear.innerHTML = `<img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span>Clear all custom names in group</span>`;
+    optClear.onclick = () => {
+      section.querySelectorAll('.eg-student-row').forEach(row => {
+        const cn = row.querySelector('.eg-s-custom');
+        const sid = row.dataset.uuid;
+        if (cn) {
+          cn.value = '';
+          if (sid && studentRoster[sid]) studentRoster[sid].customName = '';
+          if (sid) {
+            document.querySelectorAll(`.eg-student-row[data-uuid="${sid}"] .eg-s-custom`).forEach(other => {
+              if (other !== cn && other.value !== '') other.value = '';
+            });
+          }
+        }
+      });
+      _closePresetMenu();
+      if (typeof showToast === 'function') showToast('Custom names cleared.');
+    };
+    menu.appendChild(optClear);
+
+    document.body.appendChild(menu);
+    _positionPresetMenu(menu, anchor);
+    _activePresetMenu = menu;
+    setTimeout(() => {
+      document.addEventListener('click', _closePresetMenu);
+      document.addEventListener('keydown', _presetMenuEsc);
+    }, 0);
+  }
+
   // ── Student table section ────────────────────────────────────
   function buildStudentInputRow(student, isDisabled) {
     // Resolve or assign UUID: reuse from roster if same name already exists
     let uuid = student.uuid;
+    let rStudent = uuid ? studentRoster[uuid] : null;
     if (!uuid) {
       const existing = _rosterLookupByName(student.firstName, student.lastName);
-      uuid = existing ? existing.uuid : generateStudentUuid();
+      if (existing) {
+        uuid = existing.uuid;
+        rStudent = existing;
+      } else {
+        uuid = generateStudentUuid();
+      }
+    }
+    if (rStudent && !student.customName && rStudent.customName) {
+      student.customName = rStudent.customName;
     }
 
     const row = document.createElement('div');
@@ -2004,6 +2367,26 @@
 
     const fnInput = makeInput('eg-s-fn', student.firstName, 'First name');
     const lnInput = makeInput('eg-s-ln', student.lastName, 'Last name');
+
+    const cnVal = (student && student.customName) ? student.customName : (rStudent && rStudent.customName ? rStudent.customName : '');
+    const cnCell = document.createElement('div');
+    cnCell.className = 'eg-s-custom-cell';
+    const cnInput = makeInput('eg-s-custom', cnVal, typeof t === 'function' ? t('geCustomNamePlaceholder') : 'Custom / Nickname');
+    cnCell.appendChild(cnInput);
+
+    if (!isDisabled) {
+      const presetBtn = document.createElement('button');
+      presetBtn.type = 'button';
+      presetBtn.className = 'eg-s-preset-btn';
+      presetBtn.innerHTML = '<img src="../assets/icons/zap.svg" class="btn-icon" alt="" />';
+      presetBtn.title = typeof t === 'function' ? t('geCustomName') : 'Custom Name options (First+Initial, Initials, Nickname)';
+      presetBtn.onclick = (e) => {
+        e.stopPropagation();
+        _showStudentPresetMenu(presetBtn, fnInput, lnInput, cnInput);
+      };
+      cnCell.appendChild(presetBtn);
+    }
+
     const dobInput = makeInput('eg-s-dob', student.dob, '', 'date');
     const acInput = makeInput('eg-s-class', student.adminClass, 'Class');
 
@@ -2040,8 +2423,49 @@
       delBtn.onclick = () => row.remove();
     }
 
-    const rStudent = studentRoster[uuid] || student;
-    const enrollments = (rStudent && Array.isArray(rStudent.enrollments)) ? rStudent.enrollments : [];
+    if (!isDisabled) {
+      const syncFieldToRosterAndDom = (field, val) => {
+        if (!uuid) return;
+        if (!studentRoster[uuid]) {
+          studentRoster[uuid] = { uuid, firstName: '', lastName: '', customName: '', dob: '', adminClass: '', gender: '', sen: false };
+        }
+        studentRoster[uuid][field] = val;
+        const selectorMap = {
+          customName: '.eg-s-custom',
+          firstName: '.eg-s-fn',
+          lastName: '.eg-s-ln',
+          dob: '.eg-s-dob',
+          adminClass: '.eg-s-class'
+        };
+        const sel = selectorMap[field];
+        if (sel) {
+          document.querySelectorAll(`.eg-student-row[data-uuid="${uuid}"] ${sel}`).forEach(other => {
+            if (other !== (field === 'customName' ? cnInput : field === 'firstName' ? fnInput : field === 'lastName' ? lnInput : field === 'dob' ? dobInput : acInput) && other.value !== val) {
+              other.value = val;
+            }
+          });
+        } else if (field === 'gender') {
+          document.querySelectorAll(`.eg-student-row[data-uuid="${uuid}"] .eg-s-gender`).forEach(other => {
+            if (other !== genSelect && other.value !== val) other.value = val;
+          });
+        } else if (field === 'sen') {
+          document.querySelectorAll(`.eg-student-row[data-uuid="${uuid}"] .eg-s-sen`).forEach(other => {
+            if (other !== senCb && other.checked !== val) other.checked = val;
+          });
+        }
+      };
+
+      fnInput.addEventListener('input', () => syncFieldToRosterAndDom('firstName', fnInput.value.trim().toUpperCase()));
+      lnInput.addEventListener('input', () => syncFieldToRosterAndDom('lastName', lnInput.value.trim().toUpperCase()));
+      cnInput.addEventListener('input', () => syncFieldToRosterAndDom('customName', cnInput.value.trim()));
+      dobInput.addEventListener('input', () => syncFieldToRosterAndDom('dob', dobInput.value.trim()));
+      acInput.addEventListener('input', () => syncFieldToRosterAndDom('adminClass', acInput.value.trim().toUpperCase()));
+      genSelect.addEventListener('change', () => syncFieldToRosterAndDom('gender', genSelect.value.trim().toUpperCase()));
+      senCb.addEventListener('change', () => syncFieldToRosterAndDom('sen', senCb.checked));
+    }
+
+    const currentRosterStudent = studentRoster[uuid] || student;
+    const enrollments = (currentRosterStudent && Array.isArray(currentRosterStudent.enrollments)) ? currentRosterStudent.enrollments : [];
     if (enrollments.length > 0) {
       const pastList = enrollments.map(e => `${e.groupName || e.groupUuid} (${e.year || ''} ${e.semester ? 'S' + e.semester : ''})`).join(', ');
       fnInput.title = (typeof t === 'function' ? t('gePastEnrollments') : 'Enrolled in: {list}').replace('{list}', pastList);
@@ -2049,6 +2473,7 @@
 
     row.appendChild(fnInput);
     row.appendChild(lnInput);
+    row.appendChild(cnCell);
     row.appendChild(dobInput);
     row.appendChild(acInput);
     row.appendChild(genSelect);
@@ -2064,11 +2489,54 @@
 
     const header = document.createElement('div');
     header.className = 'eg-student-header';
-    ['First Name', 'Last Name', 'Date of Birth', 'Class', 'Gender', 'SEN', ''].forEach(label => {
-      const span = document.createElement('span');
-      span.textContent = label;
-      header.appendChild(span);
-    });
+
+    const fnSpan = document.createElement('span');
+    fnSpan.textContent = typeof t === 'function' ? t('importFieldFirstName') || 'First Name' : 'First Name';
+    header.appendChild(fnSpan);
+
+    const lnSpan = document.createElement('span');
+    lnSpan.textContent = typeof t === 'function' ? t('importFieldLastName') || 'Last Name' : 'Last Name';
+    header.appendChild(lnSpan);
+
+    const cnSpan = document.createElement('span');
+    cnSpan.className = 'eg-hdr-custom-wrap';
+    const cnTitle = document.createElement('span');
+    cnTitle.textContent = typeof t === 'function' ? t('geCustomName') || 'Custom Name' : 'Custom Name';
+    cnSpan.appendChild(cnTitle);
+
+    if (!isDisabled) {
+      const allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.className = 'eg-hdr-preset-btn';
+      allBtn.innerHTML = '<img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> All ▾';
+      allBtn.title = typeof t === 'function' ? t('geCustomApplyAll') || 'Apply naming style to group...' : 'Apply naming style to group...';
+      allBtn.onclick = (e) => {
+        e.stopPropagation();
+        _showGroupPresetMenu(allBtn, section);
+      };
+      cnSpan.appendChild(allBtn);
+    }
+    header.appendChild(cnSpan);
+
+    const dobSpan = document.createElement('span');
+    dobSpan.textContent = typeof t === 'function' ? t('importFieldDob') || 'Date of Birth' : 'Date of Birth';
+    header.appendChild(dobSpan);
+
+    const classSpan = document.createElement('span');
+    classSpan.textContent = typeof t === 'function' ? t('importFieldAdminClass') || 'Class' : 'Class';
+    header.appendChild(classSpan);
+
+    const genSpan = document.createElement('span');
+    genSpan.textContent = typeof t === 'function' ? t('importFieldGender') || 'Gender' : 'Gender';
+    header.appendChild(genSpan);
+
+    const senSpan = document.createElement('span');
+    senSpan.textContent = typeof t === 'function' ? t('importFieldSen') || 'SEN' : 'SEN';
+    header.appendChild(senSpan);
+
+    const actSpan = document.createElement('span');
+    header.appendChild(actSpan);
+
     section.appendChild(header);
 
     const tableBody = document.createElement('div');
@@ -2081,7 +2549,7 @@
       addBtn.type = 'button';
       addBtn.className = 'eg-s-add';
       addBtn.textContent = '+ Student';
-      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', dob: '', adminClass: '', gender: '' }, false));
+      addBtn.onclick = () => tableBody.appendChild(buildStudentInputRow({ firstName: '', lastName: '', customName: '', dob: '', adminClass: '', gender: '' }, false));
       section.appendChild(addBtn);
     }
 
@@ -2484,14 +2952,17 @@
           const existing = _rosterLookupByName(s.firstName, s.lastName);
           sid = existing ? existing.uuid : generateStudentUuid();
         }
+        const existing = studentRoster[sid] || {};
         studentRoster[sid] = {
+          ...existing,
           uuid: sid,
-          firstName: s.firstName || '',
-          lastName: s.lastName || '',
-          dob: s.dob || '',
-          adminClass: s.adminClass || '',
-          gender: s.gender || '',
-          sen: s.sen === true
+          firstName: s.firstName || existing.firstName || '',
+          lastName: s.lastName || existing.lastName || '',
+          customName: (s.customName !== undefined && s.customName !== '') ? s.customName : (existing.customName || ''),
+          dob: s.dob || existing.dob || '',
+          adminClass: s.adminClass || existing.adminClass || '',
+          gender: s.gender || existing.gender || '',
+          sen: s.sen === true || (s.sen === undefined && existing.sen === true)
         };
         return sid;
       }).filter(Boolean);
@@ -3004,10 +3475,10 @@
         return sid;
       });
       if (students.length === 0) {
-        rows.push([displayName, '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
+        rows.push([displayName, '', '', '', '', '', m.year || '', m.semester ?? '', m.level ?? '', ''].map(csvEscape).join(','));
       } else {
         students.forEach(s => {
-          rows.push([displayName, s.firstName || '', s.lastName || '', s.dob || '', s.adminClass || '', m.year || '', m.semester ?? '', m.level ?? '', s.sen ? 'true' : ''].map(csvEscape).join(','));
+          rows.push([displayName, s.firstName || '', s.lastName || '', s.customName || '', s.dob || '', s.adminClass || '', m.year || '', m.semester ?? '', m.level ?? '', s.sen ? 'true' : ''].map(csvEscape).join(','));
         });
       }
     });
@@ -3064,15 +3535,16 @@
 
     const find = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t)));
     const idx = {
-      group:     find('group'),
-      firstName: find('first', 'firstname', 'fn', 'prenom', 'prénom'),
-      lastName:  find('last', 'lastname', 'ln', 'nom', 'surname'),
-      dob:       find('dob', 'birth', 'date', 'born'),
+      group:      find('group'),
+      firstName:  find('first', 'firstname', 'fn', 'prenom', 'prénom'),
+      lastName:   find('last', 'lastname', 'ln', 'nom', 'surname'),
+      customName: find('customname', 'custom', 'nickname', 'surnom', 'alias', 'pseudo', 'spitzname', 'soprannome'),
+      dob:        find('dob', 'birth', 'date', 'born'),
       adminClass: find('adminclass', 'admin', 'class'),
-      year:      find('year', 'annee', 'année'),
-      semester:  find('sem'),
-      level:     find('level', 'lvl'),
-      sen:       find('sen', 'special'),
+      year:       find('year', 'annee', 'année'),
+      semester:   find('sem'),
+      level:      find('level', 'lvl'),
+      sen:        find('sen', 'special'),
     };
 
     // adminClass should not steal "group" if both match "class"
@@ -3092,13 +3564,14 @@
 
       const fn = idx.firstName >= 0 ? (cols[idx.firstName] || '').trim().toUpperCase() : '';
       const ln = idx.lastName  >= 0 ? (cols[idx.lastName]  || '').trim().toUpperCase() : '';
+      const cn = idx.customName >= 0 ? (cols[idx.customName] || '').trim() : '';
       const dob = idx.dob      >= 0 ? (cols[idx.dob]       || '').trim() : '';
       const ac = idx.adminClass >= 0 ? (cols[idx.adminClass] || '').trim().toUpperCase() : '';
       const senRaw = idx.sen >= 0 ? (cols[idx.sen] || '').trim().toLowerCase() : '';
       const isSen = senRaw === 'true' || senRaw === 'yes' || senRaw === '1' || senRaw === 'x';
 
-      if (fn || ln) {
-        const entry = { firstName: fn, lastName: ln, dob, adminClass: ac };
+      if (fn || ln || cn) {
+        const entry = { firstName: fn, lastName: ln, customName: cn, dob, adminClass: ac };
         if (isSen) entry.sen = true;
         groups[gName].push(entry);
       }
@@ -3446,6 +3919,7 @@
       secondaryStudents.forEach(sec => {
         mergedRecordsCount++;
         // Merge attributes if primary is missing them
+        if (!primaryStudent.customName && sec.customName) primaryStudent.customName = sec.customName;
         if (!primaryStudent.dob && sec.dob) primaryStudent.dob = sec.dob;
         if (!primaryStudent.adminClass && sec.adminClass) primaryStudent.adminClass = sec.adminClass;
         if (!primaryStudent.gender && sec.gender) primaryStudent.gender = sec.gender;
@@ -3661,6 +4135,7 @@
       tdName.innerHTML = `
         <div style="font-weight:700;color:#0f172a;display:flex;align-items:center;gap:6px;">
           <span>${s.firstName || ''} ${s.lastName || ''}</span>
+          ${s.customName ? `<span style="font-size:0.75rem;color:#475569;font-weight:600;background:#f1f5f9;padding:1px 6px;border-radius:3px;border:1px solid #cbd5e1;">${s.customName}</span>` : ''}
           ${s.sen ? '<span style="font-weight:900;color:#e11d48;" title="SEN">*</span>' : ''}
         </div>
         <div style="font-size:0.7rem;font-family:monospace;color:#2563a8;margin-top:2px;">

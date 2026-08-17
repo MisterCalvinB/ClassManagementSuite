@@ -6,6 +6,7 @@
   <title>Oral Marking</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
@@ -2478,12 +2479,12 @@
     return rawStudents.map((entry, i) => {
       if (typeof entry === 'string' && entry.startsWith('st-')) {
         const sr = studentRoster[entry];
-        return { id: entry, index: i + 1, firstName: sr?.firstName || entry, lastName: sr?.lastName || '', comments: '' };
+        return { id: entry, index: i + 1, firstName: sr?.firstName || entry, lastName: sr?.lastName || '', customName: sr?.customName || '', comments: '' };
       }
       if (typeof entry === 'object') {
-        return { id: entry.id || entry.uuid || generateUuid(), index: i + 1, firstName: entry.firstName || '', lastName: entry.lastName || '', comments: '' };
+        return { id: entry.id || entry.uuid || generateUuid(), index: i + 1, firstName: entry.firstName || '', lastName: entry.lastName || '', customName: entry.customName || '', comments: '' };
       }
-      return { id: generateUuid(), index: i + 1, firstName: String(entry), lastName: '', comments: '' };
+      return { id: generateUuid(), index: i + 1, firstName: String(entry), lastName: '', customName: '', comments: '' };
     });
   }
 
@@ -2564,7 +2565,10 @@
     return Number.isInteger(n) ? String(n) : n.toFixed(1);
   }
 
-  function fmtStudentName(name) {
+  function fmtStudentName(name, studentObj) {
+    if (studentObj && window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
+      return StudentNameUtils.formatStudentDisplayName(studentObj, 'custom', 'firstLastInitial') || name || '—';
+    }
     if (!name) return '—';
     // Schedule stores names in UPPERCASE — convert to Title Case
     return name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());

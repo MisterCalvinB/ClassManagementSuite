@@ -56,6 +56,23 @@
             </div>
           </section>
 
+          <!-- ── Default Student Name Display ─────────────────── -->
+          <section class="config-section">
+            <h2 data-i18n="gcFieldDefaultNameDisplay">Default student name display</h2>
+            <p class="section-desc" data-i18n="gcFieldDefaultNameDisplayHint">Default naming format used across all tools and classroom views.</p>
+            <div class="field">
+              <select id="defaultNameDisplaySelect" class="form-input" style="max-width:320px; padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; background:#fff; color:var(--text);">
+                <option value="full" data-i18n="cpNameFull">First + Last name</option>
+                <option value="first" data-i18n="cpNameFirst">First name only</option>
+                <option value="last" data-i18n="cpNameLast">Last name only</option>
+                <option value="custom" data-i18n="cpNameCustom">Custom name / Nickname</option>
+              </select>
+              <p class="field-hint" style="margin-top:8px;">
+                <span class="save-status" id="nameDisplaySaveStatus" data-i18n="saved">Saved</span>
+              </p>
+            </div>
+          </section>
+
           <!-- ── Language ─────────────────────────────────────── -->
           <section class="config-section">
             <h2 data-i18n="gcSecLanguage">Language</h2>
@@ -1020,6 +1037,16 @@
       pdfOrientationSelect.addEventListener('change', function () {
         patchExportSettings({ orientation: pdfOrientationSelect.value });
         flashSaved(pdfExportSaveStatus);
+      });
+    }
+
+    /* ── default name display mode ─────────────────────── */
+    var defaultNameDisplaySelect = document.getElementById('defaultNameDisplaySelect');
+    var nameDisplaySaveStatus = document.getElementById('nameDisplaySaveStatus');
+    if (defaultNameDisplaySelect) {
+      defaultNameDisplaySelect.addEventListener('change', function () {
+        patchLauncherSettings({ defaultNameDisplayMode: defaultNameDisplaySelect.value });
+        flashSaved(nameDisplaySaveStatus);
       });
     }
 
@@ -2786,6 +2813,11 @@
       document.querySelectorAll('.lang-btn').forEach(function (b) {
         b.classList.toggle('active', b.dataset.lang === lang);
       });
+
+      /* default name display */
+      if (defaultNameDisplaySelect && cfg.defaultNameDisplayMode) {
+        setSelectValue(defaultNameDisplaySelect, cfg.defaultNameDisplayMode);
+      }
 
       /* startup */
       buildAppCheckboxes();

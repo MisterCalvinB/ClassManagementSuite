@@ -16,6 +16,12 @@ window.IMPORT_MODULE_CLASS_GROUPS = {
       autoMatch: ['lastname', 'last name', 'nom', 'nom de famille', 'nachname', 'cognome', 'last', 'surname', 'family name', 'family']
     },
     {
+      key: 'customName',
+      i18nKey: 'importFieldCustomName',
+      required: false,
+      autoMatch: ['customname', 'custom name', 'nickname', 'surnom', 'alias', 'pseudo', 'spitzname', 'soprannome', 'custom']
+    },
+    {
       key: 'dob',
       i18nKey: 'importFieldDob',
       required: false,

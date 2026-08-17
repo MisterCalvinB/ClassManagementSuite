@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
     <script src="../modules/xlsx.min.js"></script>
     <script src="../js/i18n.js"></script>
+    <script src="../js/student-name-utils.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
         <script src="../electron-bridge.js"></script>
         <script src="../js/dialogs.js"></script>
@@ -112,6 +113,16 @@
                     <span data-i18n="ptDateTo">to</span>
                     <input type="date" id="dateTo">
                 </div>
+            </div>
+
+            <div class="control-group" style="min-width: 140px;">
+                <label data-i18n="ptNameDisplay">Name Display</label>
+                <select id="ptNameDisplaySelect" style="padding:7px 10px;font-size:12px;font-weight:600;font-family:inherit;border:2px solid #ddd;border-radius:4px;background:#fff;color:#222;outline:none;cursor:pointer;width:100%;">
+                    <option value="full">👤 Full Name</option>
+                    <option value="first">First Name</option>
+                    <option value="last">Last Name</option>
+                    <option value="custom">⚡ Custom / Nickname</option>
+                </select>
             </div>
 
             <div class="control-group" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
@@ -1050,6 +1061,70 @@
             };
         }
 
+        // ─── Name display mode and student resolution helpers ─────────────
+        function getPtNameDisplayMode() {
+            const saved = localStorage.getItem('cmt-pt-name-display');
+            if (saved && ['full', 'first', 'last', 'custom'].includes(saved)) return saved;
+            try {
+                if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG?.nameDisplayMode) {
+                    return CLASS_MANAGEMENT_CONFIG.nameDisplayMode;
+                }
+            } catch (_) {}
+            return 'full';
+        }
+
+        function setPtNameDisplayMode(mode) {
+            if (!['full', 'first', 'last', 'custom'].includes(mode)) mode = 'full';
+            localStorage.setItem('cmt-pt-name-display', mode);
+            const sel = document.getElementById('ptNameDisplaySelect');
+            if (sel && sel.value !== mode) sel.value = mode;
+            updateDashboard();
+        }
+
+        function resolvePtStudent(nameOrUuid) {
+            if (!nameOrUuid) return null;
+            const roster = (typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER))
+                ? window.STUDENTS_ROSTER
+                : (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER) ? STUDENTS_ROSTER : []);
+            
+            if (typeof nameOrUuid === 'object') return nameOrUuid;
+            const str = String(nameOrUuid).trim();
+            
+            const byUuid = roster.find(s => s && (s.uuid === str || s.id === str));
+            if (byUuid) return byUuid;
+
+            const upper = str.toUpperCase();
+            const byName = roster.find(s => {
+                if (!s) return false;
+                const fn = (s.firstName || '').trim().toUpperCase();
+                const ln = (s.lastName || '').trim().toUpperCase();
+                const cn = (s.customName || '').trim().toUpperCase();
+                const full = (fn + (ln ? ' ' + ln : '')).trim();
+                const fullRev = (ln + (fn ? ' ' + fn : '')).trim();
+                return full === upper || fullRev === upper || (cn && cn === upper);
+            });
+            if (byName) return byName;
+
+            const spaceIdx = str.indexOf(' ');
+            return {
+                firstName: spaceIdx > 0 ? str.slice(0, spaceIdx) : str,
+                lastName: spaceIdx > 0 ? str.slice(spaceIdx + 1) : '',
+                customName: ''
+            };
+        }
+
+        function getPtStudentDisplayName(rawName) {
+            const s = resolvePtStudent(rawName);
+            const mode = getPtNameDisplayMode();
+            if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function') {
+                return StudentNameUtils.formatStudentName(s, mode);
+            }
+            if (mode === 'custom' && s && s.customName) return s.customName;
+            if (mode === 'first' && s && s.firstName) return s.firstName;
+            if (mode === 'last' && s && s.lastName) return s.lastName;
+            return rawName;
+        }
+
 
         // Initialize app
         async function initializeApp() {
@@ -1635,6 +1710,14 @@
             const compareBtn = document.getElementById('openCompareGroupsBtn');
             if (compareBtn) compareBtn.addEventListener('click', openCompareGroupsModal);
 
+            const nameDisplaySel = document.getElementById('ptNameDisplaySelect');
+            if (nameDisplaySel) {
+                nameDisplaySel.value = getPtNameDisplayMode();
+                nameDisplaySel.addEventListener('change', () => {
+                    setPtNameDisplayMode(nameDisplaySel.value);
+                });
+            }
+
             const clearCompareBtn = document.getElementById('clearCompareBtn');
             if (clearCompareBtn) {
                 clearCompareBtn.addEventListener('click', () => {
@@ -1731,6 +1814,7 @@
                                 studentMap[key] = {
                                     uuid: s.uuid,
                                     name: fullName,
+                                    customName: s.customName || '',
                                     groupId: gid,
                                     groupName: e.groupName || groupDisplayName(gid),
                                     isArchived: isArchived,
@@ -1746,6 +1830,7 @@
                                 };
                             } else {
                                 studentMap[key].uuid = s.uuid;
+                                studentMap[key].customName = s.customName || '';
                                 studentMap[key].enrollments = sEnrollments;
                             }
                         });
@@ -1757,6 +1842,7 @@
                             studentMap[key] = {
                                 uuid: s.uuid,
                                 name: fullName,
+                                customName: s.customName || '',
                                 groupId: groupId,
                                 groupName: groupDisplayName(groupId),
                                 isArchived: isArchived,
@@ -1772,6 +1858,7 @@
                             };
                         } else {
                             studentMap[key].uuid = s.uuid;
+                            studentMap[key].customName = s.customName || '';
                         }
                     }
                 });
@@ -1790,13 +1877,14 @@
             const all = getAllGlobalStudents();
             const filtered = all.filter(s => {
                 const nameMatch = s.name.toLowerCase().includes(q);
+                const customMatch = s.customName ? s.customName.toLowerCase().includes(q) : false;
                 const groupMatch = s.groupName.toLowerCase().includes(q);
-                return nameMatch || groupMatch;
+                return nameMatch || customMatch || groupMatch;
             });
 
             filtered.sort((a, b) => {
-                const aStart = a.name.toLowerCase().startsWith(q);
-                const bStart = b.name.toLowerCase().startsWith(q);
+                const aStart = a.name.toLowerCase().startsWith(q) || (a.customName && a.customName.toLowerCase().startsWith(q));
+                const bStart = b.name.toLowerCase().startsWith(q) || (b.customName && b.customName.toLowerCase().startsWith(q));
                 if (aStart && !bStart) return -1;
                 if (!aStart && bStart) return 1;
                 return a.name.localeCompare(b.name);
@@ -1832,10 +1920,15 @@
                     ? `<div style="font-size:11px; color:#1e40af; margin-top:2px; font-weight:600;">📚 ${escapeHtml(enrollmentList)}</div>`
                     : '';
 
+                const formattedName = getPtStudentDisplayName(item.name);
+                const customSubtitle = (item.customName && getPtNameDisplayMode() !== 'custom')
+                    ? ` <span style="font-size:11px;color:#666;font-weight:normal;">(${escapeHtml(item.customName)})</span>`
+                    : '';
+
                 html += `
                     <div class="pt-search-item" data-index="${idx}" data-student-name="${escapeHtml(item.name)}" data-group-id="${escapeHtml(item.groupId)}">
                         <div class="pt-search-item-info">
-                            <span class="pt-search-item-name">${escapeHtml(item.name)}</span>
+                            <span class="pt-search-item-name">${escapeHtml(formattedName)}${customSubtitle}</span>
                             ${groupBadge}
                             ${multiGroupBadge}
                         </div>
@@ -2797,10 +2890,16 @@
                 const pGrade = calculateStudentProvisionalGrade(data);
                 const displayGrade = pGrade !== null ? formatSummaryNumber(pGrade) : '—';
 
+                const displayName = getPtStudentDisplayName(data.name);
+                const sObj = resolvePtStudent(data.name);
+                const customBadge = (sObj && sObj.customName && getPtNameDisplayMode() !== 'custom')
+                    ? ` <span style="font-size:0.72rem;font-weight:normal;color:#666;">(${escapeHtml(sObj.customName)})</span>`
+                    : '';
+
                 const row = document.createElement('tr');
                 row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
                 row.innerHTML = `
-                    <td><strong>${data.name}</strong></td>
+                    <td><strong>${escapeHtml(displayName)}</strong>${customBadge}</td>
                     <td>${data.sessions}</td>
                     <td>${data.picks}</td>
                     <td>${data.absent}</td>
@@ -2822,7 +2921,7 @@
                     <td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${computeTrend(data.sessionNets) === 'up' ? '#2ca02c' : computeTrend(data.sessionNets) === 'down' ? '#d62728' : '#888'};" title="${computeTrend(data.sessionNets) === 'up' ? t('ptTrendImproving') : computeTrend(data.sessionNets) === 'down' ? t('ptTrendDeclining') : t('ptTrendStable')}">${computeTrend(data.sessionNets) === 'up' ? '↑' : computeTrend(data.sessionNets) === 'down' ? '↓' : '→'}</td>
                 `;
                 row.dataset.studentName = data.name;
-                row.title = t('ptRightClickHint');
+                row.title = sObj?.customName ? `${data.name} (Custom: ${sObj.customName}) — ${t('ptRightClickHint')}` : t('ptRightClickHint');
                 row.addEventListener('click', () => {
                     currentStudentName = data.name;
                     document.querySelectorAll('#classOverviewTableBody tr').forEach(r => r.classList.remove('selected-student'));
@@ -3230,6 +3329,12 @@
 
         function updateStudentDetails() {
             if (!currentStudentName || !currentGroupId) return;
+
+            const studentDetailTitle = document.getElementById('studentDetailTitle');
+            if (studentDetailTitle) {
+                const formattedName = getPtStudentDisplayName(currentStudentName);
+                studentDetailTitle.textContent = `${t('ptStudentDetailTitle') || 'Individual Student Analysis'} — ${formattedName}`;
+            }
 
             const dateRange = getDateRange();
             const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);

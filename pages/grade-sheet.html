@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grade Sheet</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
@@ -172,6 +173,14 @@
         </div>
         <div class="btn-row">
           <button id="btn-back-classes" class="btn" data-i18n="gsBtnBackClasses"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Classes</button>
+          <div class="dropdown" id="summary-name-display-dropdown" style="display:inline-flex;align-items:center;">
+            <select id="gs-name-display-select" class="btn" style="padding:6px 10px;font-size:0.82rem;font-weight:600;background:var(--card,#fff);color:var(--text,#111);border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;" title="Student name display mode">
+              <option value="full">👤 Full Name</option>
+              <option value="first">First Name Only</option>
+              <option value="last">Last Name Only</option>
+              <option value="custom">⚡ Custom / Nickname</option>
+            </select>
+          </div>
           <button id="btn-add-student" class="btn" data-i18n="gsBtnAddStudent"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Student</button>
           <button id="btn-add-test" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
           <button id="btn-import-test" class="btn" data-i18n="gsBtnImportTest"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Test</button>
@@ -1092,8 +1101,30 @@
     const TEST_COUNT_PER_SEM = 8;
     const GRADE_STEPS = [6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1];
 
-    // XLSM_CRITERIA loaded from user/correction-criteria.js
-    // XLSM_SCALE_MODELS loaded from user/grade-scale-models.js
+    // Name display mode helpers
+    function getGsNameDisplayMode() {
+      const saved = localStorage.getItem('cmt-gs-name-display');
+      if (saved && ['full', 'first', 'last', 'custom'].includes(saved)) return saved;
+      try {
+        if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG?.nameDisplayMode) {
+          return CLASS_MANAGEMENT_CONFIG.nameDisplayMode;
+        }
+      } catch (_) {}
+      return 'full';
+    }
+
+    function setGsNameDisplayMode(mode) {
+      if (!['full', 'first', 'last', 'custom'].includes(mode)) mode = 'full';
+      localStorage.setItem('cmt-gs-name-display', mode);
+      const sel = document.getElementById('gs-name-display-select');
+      if (sel && sel.value !== mode) sel.value = mode;
+      renderSummary();
+      const screenTest = document.getElementById('screen-test');
+      if (screenTest && !screenTest.classList.contains('hidden')) {
+        renderTestSheet();
+      }
+    }
+
 
     // Splits a comment string into individual sentences.
     function splitIntoSentences(text) {
@@ -2477,12 +2508,14 @@
       let lastName = "";
       let id = maybeId || uid();
 
+      let customName = "";
       if (typeof maybeLastName === "string") {
         firstName = (firstNameOrFull || "").trim();
         lastName = (maybeLastName || "").trim();
       } else if (typeof firstNameOrFull === "object" && firstNameOrFull !== null) {
         firstName = (firstNameOrFull.firstName || "").trim();
         lastName = (firstNameOrFull.lastName || "").trim();
+        customName = (firstNameOrFull.customName || "").trim();
         if (firstNameOrFull.uuid || firstNameOrFull.id) id = firstNameOrFull.uuid || firstNameOrFull.id;
       } else {
         const raw = (firstNameOrFull || "").trim();
@@ -2491,6 +2524,7 @@
           const rs = roster[raw];
           firstName = rs.firstName || "";
           lastName = rs.lastName || "";
+          customName = rs.customName || "";
           id = rs.uuid || id;
         } else {
           const upper = raw.toUpperCase();
@@ -2504,6 +2538,7 @@
           if (match) {
             firstName = match.firstName || "";
             lastName = match.lastName || "";
+            customName = match.customName || "";
             id = match.uuid || id;
           } else {
             const spaceIdx = raw.indexOf(' ');
@@ -2518,6 +2553,7 @@
         index,
         firstName,
         lastName,
+        customName,
         sem1Tests: Array(TEST_COUNT_PER_SEM).fill(null),
         sem2Tests: Array(TEST_COUNT_PER_SEM).fill(null),
         comments: "",
@@ -2597,6 +2633,7 @@
             index: s.index,
             firstName: s.firstName,
             lastName: s.lastName,
+            customName: s.customName || '',
             comments: s.comments
           }))
         };
@@ -2691,6 +2728,7 @@
               index: s.index || idx + 1,
               firstName: s.firstName || '',
               lastName: s.lastName || '',
+              customName: s.customName || '',
               comments: s.comments || '',
               sem1Tests: Array(TEST_COUNT_PER_SEM).fill(null),
               sem2Tests: Array(TEST_COUNT_PER_SEM).fill(null),
@@ -2957,30 +2995,33 @@
           return {
             id: entry.uuid || entry.id || null,
             firstName: entry.firstName || '',
-            lastName: entry.lastName || ''
+            lastName: entry.lastName || '',
+            customName: entry.customName || ''
           };
         }
         if (typeof entry === 'string') {
           if (roster[entry]) {
             const rs = roster[entry];
-            return { id: rs.uuid || entry, firstName: rs.firstName || '', lastName: rs.lastName || '' };
+            return { id: rs.uuid || entry, firstName: rs.firstName || '', lastName: rs.lastName || '', customName: rs.customName || '' };
           }
           const upper = entry.trim().toUpperCase();
           const match = Object.values(roster).find(rs => {
             const fn = (rs.firstName || '').trim().toUpperCase();
             const ln = (rs.lastName || '').trim().toUpperCase();
+            const cn = (rs.customName || '').trim().toUpperCase();
             const full = (fn + (ln ? ' ' + ln : '')).trim();
             const fullRev = (ln + (fn ? ' ' + fn : '')).trim();
-            return full === upper || fullRev === upper;
+            return full === upper || fullRev === upper || (cn && cn === upper);
           });
           if (match) {
-            return { id: match.uuid, firstName: match.firstName || '', lastName: match.lastName || '' };
+            return { id: match.uuid, firstName: match.firstName || '', lastName: match.lastName || '', customName: match.customName || '' };
           }
           const spaceIdx = entry.indexOf(' ');
           return {
             id: null,
             firstName: spaceIdx > 0 ? entry.slice(0, spaceIdx) : entry,
-            lastName: spaceIdx > 0 ? entry.slice(spaceIdx + 1) : ''
+            lastName: spaceIdx > 0 ? entry.slice(spaceIdx + 1) : '',
+            customName: ''
           };
         }
         return null;
@@ -3074,12 +3115,18 @@
           });
 
           if (!existingStudent) {
-            classObj.students.push(defaultStudent(classObj.students.length + 1, desc.firstName, desc.lastName, desc.id));
+            const newSt = defaultStudent(classObj.students.length + 1, desc.firstName, desc.lastName, desc.id);
+            if (desc.customName) newSt.customName = desc.customName;
+            classObj.students.push(newSt);
             changed = true;
           } else {
             if (desc.firstName && (existingStudent.firstName !== desc.firstName || existingStudent.lastName !== desc.lastName)) {
               existingStudent.firstName = desc.firstName;
               existingStudent.lastName = desc.lastName;
+              changed = true;
+            }
+            if (desc.customName && existingStudent.customName !== desc.customName) {
+              existingStudent.customName = desc.customName;
               changed = true;
             }
             if (desc.id && existingStudent.id !== desc.id) {
@@ -3618,6 +3665,7 @@
       thead.appendChild(headerRow);
 
       const rankMap = rankStudents(classObj);
+      const nameMode = getGsNameDisplayMode();
 
       classObj.students.forEach(student => {
         const c = computeStudent(student);
@@ -3629,10 +3677,22 @@
             tr.title = 'Student not found in current class-groups.js — grades retained.';
           }
         } catch (e) { }
+
+        let fnDisplay = student.firstName || "";
+        let lnDisplay = student.lastName || "";
+        if (nameMode === 'custom' && student.customName) {
+          fnDisplay = student.customName;
+        } else if (nameMode === 'first') {
+          lnDisplay = "";
+        } else if (nameMode === 'last') {
+          fnDisplay = student.lastName || "";
+          lnDisplay = "";
+        }
+
         const row = [
           student.index,
-          student.firstName,
-          student.lastName,
+          fnDisplay,
+          lnDisplay,
           ...Array.from({ length: n1 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem1", i))),
           ...(showSem1 ? [fmt(c.sem1Avg)] : []),
           ...Array.from({ length: n2 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem2", i))),
@@ -3943,17 +4003,33 @@
         tdIdx.textContent = String(student.index);
         tdIdx.classList.add("col-shrink");
 
+        const nameMode = getGsNameDisplayMode();
         const tdFirst = document.createElement("td");
         tdFirst.classList.add("col-shrink");
         const tdLast = document.createElement("td");
         tdLast.classList.add("col-shrink");
         const firstNameSpan = document.createElement("span");
         firstNameSpan.className = "student-name-link student-name-static";
-        firstNameSpan.textContent = student.firstName || "";
+        
+        let fnText = student.firstName || "";
+        let lnText = student.lastName || "";
+        if (nameMode === 'custom' && student.customName) {
+          fnText = student.customName;
+        } else if (nameMode === 'first') {
+          lnText = "";
+        } else if (nameMode === 'last') {
+          fnText = student.lastName || "";
+          lnText = "";
+        }
+        
+        firstNameSpan.textContent = fnText;
+        if (student.customName) {
+          firstNameSpan.title = `${student.firstName} ${student.lastName} (Custom: ${student.customName})`;
+        }
         tdFirst.appendChild(firstNameSpan);
         const lastNameSpan = document.createElement("span");
         lastNameSpan.className = "student-name-link student-name-static";
-        lastNameSpan.textContent = student.lastName || "";
+        lastNameSpan.textContent = lnText;
         tdLast.appendChild(lastNameSpan);
 
         const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
@@ -5081,7 +5157,7 @@
         }
 
         const gradeDisplay = grade != null ? String(grade) : "—";
-        const fullName = esc((student.firstName + " " + student.lastName).trim());
+        const fullName = esc(window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function' ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode()) : (student.firstName + " " + student.lastName).trim());
         const testLabel = esc(`${classObj.name} — ${sem.toUpperCase()} — Test T${testNo}`);
         const metaParts = [];
         if (config.testDate) metaParts.push(esc(config.testDate));
@@ -5811,7 +5887,9 @@
         const noteArray = student.testNotes[sem];
         const notes = Array.isArray(noteArray[testIndex]) ? noteArray[testIndex] : [];
 
-        const fullName = `${student.firstName || ""} ${student.lastName || ""}`.trim();
+        const fullName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+          ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode())
+          : `${student.firstName || ""} ${student.lastName || ""}`.trim();
         sections.push(`## ${fullName} - Grade: ${grade != null ? grade : "-"}`);
         if (config.testDate || config.scope || config.type) {
           const metaParts = [];
@@ -5925,7 +6003,13 @@
       _studentModalDraft = { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, modalOpenedAt: Date.now() };
 
       const heading = document.getElementById("student-modal-heading");
-      heading.textContent = `${student.firstName} ${student.lastName}`.trim();
+      const studentFormattedName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
+        ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode())
+        : `${student.firstName} ${student.lastName}`.trim();
+      heading.textContent = studentFormattedName;
+      if (student.customName && getGsNameDisplayMode() !== 'custom') {
+        heading.title = `Custom name: ${student.customName}`;
+      }
 
       const body = document.getElementById("student-modal-body");
       body.innerHTML = "";
@@ -7529,7 +7613,17 @@
         if (evt.target === document.getElementById("csv-export-popup-overlay")) closeCsvExportPopup();
       });
 
-      document.getElementById("btn-add-student").addEventListener("click", addStudent);
+      document.getElementById("btn-add-student").addEventListener("click", () => {
+        const classObj = getActiveClass();
+        if (classObj) openGsAddStudentsModal(classObj);
+      });
+      const gsNameDisplaySel = document.getElementById("gs-name-display-select");
+      if (gsNameDisplaySel) {
+        gsNameDisplaySel.value = getGsNameDisplayMode();
+        gsNameDisplaySel.addEventListener("change", () => {
+          setGsNameDisplayMode(gsNameDisplaySel.value);
+        });
+      }
       document.getElementById("btn-add-test").addEventListener("click", addTest);
       document.getElementById("btn-import-test").addEventListener("click", openDuplicateTestPopup);
       document.getElementById("btn-delete-class").addEventListener("click", deleteActiveClass);
