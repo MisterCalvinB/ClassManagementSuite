@@ -1238,6 +1238,36 @@
                 } catch (e) {
                     console.warn('Failed to load pt-rules.js:', e);
                 }
+                try {
+                    window.CMS_PARTICIPATION_PRESETS = [];
+                    const pp = await Desktop.readText('groupParticipation', 'pt-presets.js');
+                    if (pp?.ok && pp.content) {
+                        const m2 = pp.content.match(/window\.CMS_PARTICIPATION_PRESETS\s*=\s*(\[[\s\S]*\]);?\s*$/);
+                        if (m2) {
+                            window.CMS_PARTICIPATION_PRESETS = JSON.parse(m2[1]);
+                        }
+                    }
+                    // One-time migration: move any presets from localStorage into the file
+                    if (window.CMS_PARTICIPATION_PRESETS.length === 0) {
+                        try {
+                            const legacy = localStorage.getItem('CMS_PARTICIPATION_RULES_PRESETS');
+                            if (legacy) {
+                                const legacyArr = JSON.parse(legacy);
+                                if (Array.isArray(legacyArr) && legacyArr.length > 0) {
+                                    window.CMS_PARTICIPATION_PRESETS = legacyArr;
+                                    await Desktop.saveText('groupParticipation', 'pt-presets.js',
+                                        `window.CMS_PARTICIPATION_PRESETS = ${JSON.stringify(legacyArr, null, 2)};\n`);
+                                    localStorage.removeItem('CMS_PARTICIPATION_RULES_PRESETS');
+                                    console.log('[PT] Migrated', legacyArr.length, 'presets from localStorage to pt-presets.js');
+                                }
+                            }
+                        } catch (me) {
+                            console.warn('Preset localStorage migration failed:', me);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load pt-presets.js:', e);
+                }
             }
 
 
@@ -5878,6 +5908,11 @@
         }
 
         function getSavedRulesPresets() {
+            // Primary source: in-memory array populated from pt-presets.js at boot
+            if (Array.isArray(window.CMS_PARTICIPATION_PRESETS)) {
+                return window.CMS_PARTICIPATION_PRESETS;
+            }
+            // Fallback: localStorage (browser mode or first boot before file loaded)
             try {
                 const stored = localStorage.getItem('CMS_PARTICIPATION_RULES_PRESETS');
                 if (stored) return JSON.parse(stored);
@@ -5887,11 +5922,25 @@
             return [];
         }
 
-        function saveRulesPresetsToStorage(presets) {
-            try {
-                localStorage.setItem('CMS_PARTICIPATION_RULES_PRESETS', JSON.stringify(presets));
-            } catch (e) {
-                console.error('Error saving rules presets to localStorage:', e);
+        async function saveRulesPresetsToStorage(presets) {
+            // Keep in-memory cache in sync
+            window.CMS_PARTICIPATION_PRESETS = presets;
+            // Persist to file (Electron) or localStorage (browser fallback)
+            if (ELECTRON_AVAILABLE && window.Desktop) {
+                try {
+                    await Desktop.saveText('groupParticipation', 'pt-presets.js',
+                        `window.CMS_PARTICIPATION_PRESETS = ${JSON.stringify(presets, null, 2)};\n`);
+                } catch (e) {
+                    console.error('Error saving rules presets to file:', e);
+                    // Fallback to localStorage on file error
+                    try { localStorage.setItem('CMS_PARTICIPATION_RULES_PRESETS', JSON.stringify(presets)); } catch (_) {}
+                }
+            } else {
+                try {
+                    localStorage.setItem('CMS_PARTICIPATION_RULES_PRESETS', JSON.stringify(presets));
+                } catch (e) {
+                    console.error('Error saving rules presets to localStorage:', e);
+                }
             }
         }
 
@@ -5929,7 +5978,7 @@
             if (modal) modal.classList.remove('active');
         }
 
-        function saveCurrentRulesAsPreset() {
+        async function saveCurrentRulesAsPreset() {
             const nameInput = document.getElementById('presetNameInput');
             const name = (nameInput ? nameInput.value.trim() : '') || `Preset ${new Date().toLocaleDateString()}`;
             
@@ -5953,7 +6002,7 @@
             };
 
             presets.push(newPreset);
-            saveRulesPresetsToStorage(presets);
+            await saveRulesPresetsToStorage(presets);
 
             if (nameInput) nameInput.value = '';
             showMessage((t('ptPresetSavedMsg') || 'Saved preset:') + ' ' + name, 'success');
@@ -6004,10 +6053,10 @@
             }
         }
 
-        function deleteRulesPreset(presetId) {
+        async function deleteRulesPreset(presetId) {
             let presets = getSavedRulesPresets();
             presets = presets.filter(p => p.id !== presetId);
-            saveRulesPresetsToStorage(presets);
+            await saveRulesPresetsToStorage(presets);
             renderSavedRulesList();
             showMessage(t('ptPresetDeletedMsg') || 'Preset deleted', 'info');
         }

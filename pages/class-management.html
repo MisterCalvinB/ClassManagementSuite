@@ -9598,10 +9598,11 @@
         }
 
         function pickStudent() {
-            const halfNames = selectedHalfGroup
+            const halfArr = selectedHalfGroup
                 ? ((rawMeta[selectedGroupName] && rawMeta[selectedGroupName].halfGroups && rawMeta[selectedGroupName].halfGroups[selectedHalfGroup]) || [])
                 : null;
-            const pool = studentGroups[selectedGroupName].filter(s => !s.isPicked && !s.isAbsent && (!halfNames || halfNames.includes(s.name)));
+            const halfSet = halfArr ? new Set(_halfGroupFilter(studentGroups[selectedGroupName], halfArr).map(s => s.id)) : null;
+            const pool = studentGroups[selectedGroupName].filter(s => !s.isPicked && !s.isAbsent && (!halfSet || halfSet.has(s.id)));
             if (pool.length === 0) {
                 showToast(t('alert_everyone_called') || "Everyone has been called!");
                 showConfirm((t('alert_everyone_called') || "Everyone has been called!") + "\n\nReset strikes?", function () {
