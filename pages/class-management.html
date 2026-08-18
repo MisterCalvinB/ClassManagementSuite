@@ -3562,6 +3562,15 @@
                 classModes = config.classModes.map(m => ({ ...m }));
                 if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
             }
+            if (config?.shortcuts && typeof config.shortcuts === 'object' && !Array.isArray(config.shortcuts)) {
+                try {
+                    localStorage.setItem(CMS_SHORTCUTS_STORAGE_KEY, JSON.stringify(config.shortcuts));
+                } catch (_) { }
+            } else if (config?.customShortcuts && typeof config.customShortcuts === 'object' && !Array.isArray(config.customShortcuts)) {
+                try {
+                    localStorage.setItem(CMS_SHORTCUTS_STORAGE_KEY, JSON.stringify(config.customShortcuts));
+                } catch (_) { }
+            }
             if (config?.classPlans && typeof config.classPlans === 'object') {
                 classPlans = config.classPlans;
             } else {
@@ -3739,6 +3748,9 @@
                     actionButtons: normalizeActionButtonSettings(actionButtonSettings)
                 },
                 launcherSettings: loadedConfig.launcherSettings || {},
+                shortcuts: (overrides && overrides.shortcuts !== undefined)
+                    ? overrides.shortcuts
+                    : (typeof getCmsCustomShortcutsMap === 'function' ? getCmsCustomShortcutsMap() : (loadedConfig.shortcuts || {})),
                 classPlans: _cpSerializablePlans()
             };
 
@@ -13151,6 +13163,13 @@ syncState();
         ];
 
         function getCmsCustomShortcutsMap() {
+            const cfg = getLoadedConfig();
+            if (cfg && cfg.shortcuts && typeof cfg.shortcuts === 'object' && !Array.isArray(cfg.shortcuts)) {
+                return { ...cfg.shortcuts };
+            }
+            if (cfg && cfg.customShortcuts && typeof cfg.customShortcuts === 'object' && !Array.isArray(cfg.customShortcuts)) {
+                return { ...cfg.customShortcuts };
+            }
             try {
                 const raw = localStorage.getItem(CMS_SHORTCUTS_STORAGE_KEY);
                 return raw ? JSON.parse(raw) : {};
@@ -13165,6 +13184,15 @@ syncState();
             } catch (e) {
                 console.warn('Could not save custom shortcuts to localStorage', e);
             }
+            if (loadedConfigCache && typeof loadedConfigCache === 'object') {
+                loadedConfigCache.shortcuts = { ...map };
+            }
+            if (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && typeof window.CLASS_MANAGEMENT_CONFIG === 'object') {
+                window.CLASS_MANAGEMENT_CONFIG.shortcuts = { ...map };
+            }
+            persistSettingsToUserFile().catch(e => {
+                console.warn('Could not save custom shortcuts to config.js', e);
+            });
         }
 
         function getActiveShortcutForDef(def, customMap = null) {
@@ -13240,6 +13268,15 @@ syncState();
         function resetCmsShortcutsToDefault() {
             _cancelRecording();
             localStorage.removeItem(CMS_SHORTCUTS_STORAGE_KEY);
+            if (loadedConfigCache && typeof loadedConfigCache === 'object') {
+                loadedConfigCache.shortcuts = {};
+                delete loadedConfigCache.customShortcuts;
+            }
+            if (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && typeof window.CLASS_MANAGEMENT_CONFIG === 'object') {
+                window.CLASS_MANAGEMENT_CONFIG.shortcuts = {};
+                delete window.CLASS_MANAGEMENT_CONFIG.customShortcuts;
+            }
+            persistSettingsToUserFile({ shortcuts: {} }).catch(err => console.warn('resetCmsShortcutsToDefault: could not save config:', err));
             renderEditShortcutsTable();
             showToast(t('shortcuts_reset_toast') || 'Keyboard shortcuts reset to default');
         }
