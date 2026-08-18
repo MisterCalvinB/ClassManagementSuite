@@ -355,9 +355,17 @@
     <div id="rulesModal" class="modal">
         <div class="modal-content">
             <button class="close-modal" onclick="closeRulesModal()">&times;</button>
-            <h3 data-i18n="ptRulesModalTitle">Objectives & Automatic Grading Rules</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px; padding-right:32px;">
+                <h3 id="rulesModalTitle" data-i18n="ptRulesModalTitle" style="margin:0;">Objectives & Automatic Grading Rules</h3>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="rulesModalGroupSelect" style="font-size:12px; font-weight:700; color:#444;" data-i18n="ptSelectGroup">Class / Group:</label>
+                    <select id="rulesModalGroupSelect" onchange="onRulesModalGroupChange(this.value)" style="padding:4px 8px; font-size:12px; font-weight:600; border:2px solid #ddd; border-radius:4px; background:#fff; outline:none; cursor:pointer; width:auto; min-width:180px;">
+                        <option value="">Default (All Groups)</option>
+                    </select>
+                </div>
+            </div>
             
-            <div style="margin-bottom: 15px; font-size: 13px; color: #666; line-height: 1.5; margin-top: 10px;">
+            <div style="margin-bottom: 15px; font-size: 13px; color: #666; line-height: 1.5; margin-top: 6px;">
                 Configure participation objectives. Students who meet the criteria will receive the points defined.
             </div>
 
@@ -5582,24 +5590,61 @@
         // ─── Objectives & Grading Rules and Student Performance Chart Logic ───
         let rulesModalActiveGroup = null;
 
-        function openRulesModal() {
-            if (!currentGroupId) {
-                showMessage(t('ptMsgSelectGroup'), 'error');
-                return;
-            }
-            rulesModalActiveGroup = currentGroupId;
+        function populateRulesModalGroupSelect() {
+            const select = document.getElementById('rulesModalGroupSelect');
+            if (!select) return;
+            select.innerHTML = '';
             
-            // Set modal title
-            const groupName = groupDisplayName(currentGroupId);
-            document.getElementById('rulesModal').querySelector('h3').textContent = 
-                `${t('ptRulesModalTitle')} - ${groupName}`;
+            const defOpt = document.createElement('option');
+            defOpt.value = '';
+            defOpt.textContent = t('ptAllGroups') || 'Default (All Groups)';
+            select.appendChild(defOpt);
 
-            // Load group rules
-            const config = (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || {
-                rules: [],
-                maxGrade: 20,
-                scaleToMax: false
-            };
+            const groups = (typeof extractGroupsFromData === 'function') ? extractGroupsFromData() : [];
+            const knownGroups = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+            
+            const allGroupIds = new Set(groups);
+            Object.keys(knownGroups).forEach(gId => allGroupIds.add(gId));
+            
+            allGroupIds.forEach(groupId => {
+                if (typeof isGroupArchived === 'function' && isGroupArchived(groupId)) {
+                    return;
+                }
+                const opt = document.createElement('option');
+                opt.value = groupId;
+                opt.textContent = (typeof groupDisplayName === 'function') ? groupDisplayName(groupId) : groupId;
+                select.appendChild(opt);
+            });
+            
+            select.value = rulesModalActiveGroup || '';
+        }
+
+        function onRulesModalGroupChange(groupId) {
+            rulesModalActiveGroup = groupId || null;
+            
+            // Update modal title
+            const titleEl = document.getElementById('rulesModalTitle');
+            if (titleEl) {
+                if (groupId) {
+                    const gName = (typeof groupDisplayName === 'function') ? groupDisplayName(groupId) : groupId;
+                    titleEl.textContent = `${t('ptRulesModalTitle')} - ${gName}`;
+                } else {
+                    titleEl.textContent = t('ptRulesModalTitle');
+                }
+            }
+            
+            loadRulesForActiveGroup();
+        }
+
+        function loadRulesForActiveGroup() {
+            const targetGroup = rulesModalActiveGroup;
+            const config = (targetGroup && window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[targetGroup]) 
+                || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES['_default']) 
+                || {
+                    rules: [],
+                    maxGrade: 20,
+                    scaleToMax: false
+                };
 
             document.getElementById('rulesMaxGrade').value = config.maxGrade || 20;
             document.getElementById('rulesScaleToMax').checked = !!config.scaleToMax;
@@ -5633,9 +5678,34 @@
                 addRuleRow('netPoints', 0, 1, 5, 3, 10, 5, '');
             }
 
+            updateProvisionalGradesPreview();
+        }
+
+        function openRulesModal(targetGroupId = null) {
+            rulesModalActiveGroup = targetGroupId || currentGroupId || null;
+            
+            // Populate group select dropdown inside modal
+            populateRulesModalGroupSelect();
+
+            // Set modal title
+            const titleEl = document.getElementById('rulesModalTitle');
+            if (titleEl) {
+                if (rulesModalActiveGroup) {
+                    const groupName = groupDisplayName(rulesModalActiveGroup);
+                    titleEl.textContent = `${t('ptRulesModalTitle')} - ${groupName}`;
+                } else {
+                    titleEl.textContent = t('ptRulesModalTitle');
+                }
+            }
+
+            // Load active group rules
+            loadRulesForActiveGroup();
+
             // Sync dates to modal pickers
-            document.getElementById('modalDateFrom').value = document.getElementById('dateFrom').value || '';
-            document.getElementById('modalDateTo').value = document.getElementById('dateTo').value || '';
+            const mainFrom = document.getElementById('dateFrom');
+            const mainTo = document.getElementById('dateTo');
+            document.getElementById('modalDateFrom').value = mainFrom ? mainFrom.value || '' : '';
+            document.getElementById('modalDateTo').value = mainTo ? mainTo.value || '' : '';
             const mainActivePresetBtn = document.querySelector('.date-controls .date-preset-btn.active');
             const presetVal = mainActivePresetBtn ? mainActivePresetBtn.dataset.preset : 'all';
             updateModalPresetButtonClasses(presetVal);
@@ -5663,7 +5733,7 @@
             updateModalPresetButtonClasses(null);
             
             // Re-render main dashboard content so it matches
-            if (typeof updateDashboard === 'function') {
+            if (currentGroupId && typeof updateDashboard === 'function') {
                 updateDashboard();
             }
             
@@ -5810,7 +5880,7 @@
                     </div>
                 </td>
                 <td style="text-align: center;">
-                    <button class="btn-rules-delete" onclick="this.closest('tr').remove(); updateProvisionalGradesPreview();">&times;</button>
+                    <button type="button" class="btn-rules-delete" onclick="this.closest('tr').remove(); updateProvisionalGradesPreview();" title="Delete rule" aria-label="Delete rule"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
                 </td>
             `;
             tbody.appendChild(row);
@@ -5865,18 +5935,26 @@
         }
 
         async function saveRulesConfig() {
-            if (!rulesModalActiveGroup) return;
-
             const rules = getRulesFromModal();
             const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
             const scaleToMax = document.getElementById('rulesScaleToMax').checked;
 
             window.CMS_PARTICIPATION_RULES = window.CMS_PARTICIPATION_RULES || {};
-            window.CMS_PARTICIPATION_RULES[rulesModalActiveGroup] = {
-                rules,
-                maxGrade,
-                scaleToMax
-            };
+            
+            const targetGroupId = rulesModalActiveGroup || currentGroupId;
+            if (targetGroupId) {
+                window.CMS_PARTICIPATION_RULES[targetGroupId] = {
+                    rules,
+                    maxGrade,
+                    scaleToMax
+                };
+            } else {
+                window.CMS_PARTICIPATION_RULES['_default'] = {
+                    rules,
+                    maxGrade,
+                    scaleToMax
+                };
+            }
 
             if (ELECTRON_AVAILABLE && window.Desktop) {
                 try {
@@ -5891,7 +5969,9 @@
             }
 
             closeRulesModal();
-            updateDashboard(); // Redraw UI and table with new grades
+            if (currentGroupId && typeof updateDashboard === 'function') {
+                updateDashboard(); // Redraw UI and table with new grades
+            }
         }
 
         // ─── Save / Load Rules Presets Logic ───
@@ -6061,6 +6141,21 @@
             showMessage(t('ptPresetDeletedMsg') || 'Preset deleted', 'info');
         }
 
+        async function deleteGroupRulesConfig(groupId) {
+            if (!window.CMS_PARTICIPATION_RULES || !window.CMS_PARTICIPATION_RULES[groupId]) return;
+            delete window.CMS_PARTICIPATION_RULES[groupId];
+            if (ELECTRON_AVAILABLE && window.Desktop) {
+                try {
+                    await Desktop.saveText('groupParticipation', 'pt-rules.js',
+                        `window.CMS_PARTICIPATION_RULES = ${JSON.stringify(window.CMS_PARTICIPATION_RULES, null, 2)};\n`);
+                } catch (e) {
+                    console.error('Error saving rules after deletion:', e);
+                }
+            }
+            renderSavedRulesList();
+            showMessage(t('ptRulesClearedMsg') || 'Group rules deleted', 'info');
+        }
+
         function renderSavedRulesList() {
             const listEl = document.getElementById('savedRulesList');
             if (!listEl) return;
@@ -6116,9 +6211,9 @@
                                     ${dateStr ? `<span style="color:#888;">${dateStr} &bull; </span>` : ''}Metrics: ${escapeHtml(ruleSummary)}
                                 </div>
                             </div>
-                            <div style="display:flex; gap:6px;">
+                            <div style="display:flex; gap:6px; align-items:center;">
                                 <button type="button" onclick="applyRulesPresetById('${p.id}')" style="background:#111; color:#fff; border:1px solid #111; border-radius:4px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;" data-i18n="ptBtnApply">Apply</button>
-                                <button type="button" onclick="deleteRulesPreset('${p.id}')" style="background:#fff; color:#c33; border:1px solid #ecc; border-radius:4px; padding:4px 8px; font-size:0.75rem; cursor:pointer;" title="Delete preset">&times;</button>
+                                <button type="button" class="btn-rules-delete" onclick="deleteRulesPreset('${p.id}')" title="Delete preset" aria-label="Delete preset"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
                             </div>
                         </div>
                     `;
@@ -6145,8 +6240,9 @@
                                     Metrics: ${escapeHtml(ruleSummary)}
                                 </div>
                             </div>
-                            <div>
+                            <div style="display:flex; gap:6px; align-items:center;">
                                 <button type="button" onclick="applyRulesPresetById('${g.id}')" style="background:#111; color:#fff; border:1px solid #111; border-radius:4px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;" data-i18n="ptBtnApply">Apply</button>
+                                <button type="button" class="btn-rules-delete" onclick="deleteGroupRulesConfig('${g.groupId}')" title="Delete group rules" aria-label="Delete group rules"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
                             </div>
                         </div>
                     `;
@@ -6699,18 +6795,24 @@
             const tableBody = document.getElementById('provisionalGradesTableBody');
 
             if (rules.length === 0) {
-                previewSection.classList.add('hidden');
+                if (previewSection) previewSection.classList.add('hidden');
+                return;
+            }
+
+            const targetGroupId = rulesModalActiveGroup || currentGroupId;
+            if (!targetGroupId || typeof filterSessionsByDateAndGroup !== 'function') {
+                if (previewSection) previewSection.classList.add('hidden');
                 return;
             }
 
             // Calculate grades for all students in active group
             const dateRange = getDateRange();
-            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            const sessions = filterSessionsByDateAndGroup(targetGroupId, dateRange.from, dateRange.to);
             
             // Re-aggregate student map for calculation
             const studentMap = {};
             sessions.forEach(session => {
-                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                (session.groups[targetGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
                     if (!studentMap[student.name]) {
                         studentMap[student.name] = {
                             name: student.name,
@@ -6826,17 +6928,23 @@
                 return;
             }
 
+            const targetGroupId = rulesModalActiveGroup || currentGroupId;
+            if (!targetGroupId) {
+                showMessage(t('ptMsgSelectGroup') || 'Please select a group first', 'error');
+                return;
+            }
+
             const maxGrade = parseFloat(document.getElementById('rulesMaxGrade').value) || 20;
             const scaleToMax = document.getElementById('rulesScaleToMax').checked;
             const groupRulesConfig = { rules, maxGrade, scaleToMax };
 
             const dateRange = getDateRange();
-            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            const sessions = filterSessionsByDateAndGroup(targetGroupId, dateRange.from, dateRange.to);
 
             // Re-aggregate student map for calculation
             const studentMap = {};
             sessions.forEach(session => {
-                (session.groups[currentGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
+                (session.groups[targetGroupId] || []).filter(s => isStudentInCurrentHalfGroup(s.name)).forEach(student => {
                     if (!studentMap[student.name]) {
                         studentMap[student.name] = {
                             name: student.name,
@@ -6919,17 +7027,18 @@
                 }
             });
 
-            const groupMeta = window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[currentGroupId];
-            const groupName = groupMeta ? groupMeta.name : currentGroupId;
+            const groupMeta = window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[targetGroupId];
+            const groupName = groupMeta ? groupMeta.name : targetGroupId;
 
             const importData = {
                 class: groupName,
-                classGroupId: currentGroupId,
+                classGroupId: targetGroupId,
                 grades: grades,
                 criteria: criteria,
                 studentCriteriaScores: studentCriteriaScores,
                 maxGrade: maxGrade,
                 scaleToMax: scaleToMax,
+                dateRange: dateRange.from && dateRange.to ? `${dateRange.from} to ${dateRange.to}` : (dateRange.from || dateRange.to || ''),
                 dateFrom: dateRange.from,
                 dateTo: dateRange.to
             };

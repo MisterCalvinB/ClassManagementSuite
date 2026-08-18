@@ -4209,6 +4209,9 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
     case 'dock-right':
       dockTargetWindow(mirrorWindow, 'right');
       break;
+    case 'maximise':
+      if (mirrorWindow.isMaximized()) { mirrorWindow.unmaximize(); } else { mirrorWindow.maximize(); }
+      break;
     default:
       return { ok: false, reason: 'unknown-command' };
   }

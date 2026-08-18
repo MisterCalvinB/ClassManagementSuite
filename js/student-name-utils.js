@@ -71,6 +71,7 @@
   root.StudentNameUtils = {
     formatFirstLastInitial: formatFirstLastInitial,
     formatInitials: formatInitials,
-    formatStudentDisplayName: formatStudentDisplayName
+    formatStudentDisplayName: formatStudentDisplayName,
+    formatStudentName: formatStudentDisplayName
   };
 })();

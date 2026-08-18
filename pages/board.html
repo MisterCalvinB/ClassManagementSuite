@@ -9653,6 +9653,7 @@
             const ny = ev.clientY - brdRect.top - oy;
             if (!dragging && Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) return;
             dragging = true;
+            window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast
             el.style.left = nx + 'px';
             el.style.top = ny + 'px';
             // For empty groups, keep _px/_py in sync so refit uses correct position
@@ -9684,6 +9685,11 @@
               _conShapeUpdateHandles(s);
             });
             conRedrawEdges();
+            // Send lightweight node-move message to mirror (no full snapshot needed)
+            if (window._conMirrorSend && memberSnap.length > 0) {
+              const positions = memberSnap.map(({ n }) => ({ id: n.id, x: n.x, y: n.y }));
+              window._conMirrorSend({ type: 'node-move', positions: positions });
+            }
           }
           function onUp() {
             document.removeEventListener('mousemove', onMove);
@@ -9704,6 +9710,9 @@
               conGroupFocus(group.id);
             }
             dragging = false;
+            // Lift drag suppression and do a full broadcast so mirror is in sync
+            window._conMirrorDragging = false;
+            if (window._conMirrorBroadcast) window._conMirrorBroadcast();
           }
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onUp);
@@ -14258,6 +14267,7 @@
             + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
             + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
             + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+            + '<button type="button" data-pres-action="maximise" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
             + '<div style="display:flex;gap:4px;">'
             + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
             + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
@@ -14271,6 +14281,7 @@
             if (action === 'close') window.conCloseMirrorWindow();
             else if (action === 'freeze') window.conToggleMirrorFreeze();
             else if (action === 'resize') window.conMirrorResizeWindow();
+            else if (action === 'maximise') window.conMirrorMaximiseWindow();
             else if (action === 'right') window.conMirrorDockRight();
             else if (action === 'left') window.conMirrorDockLeft();
           });
@@ -14440,6 +14451,8 @@
               window.conToggleMirrorFreeze();
             } else if (e.data.command === 'resize') {
               window.conMirrorResizeWindow();
+            } else if (e.data.command === 'maximise') {
+              window.conMirrorMaximiseWindow();
             } else if (e.data.command === 'right') {
               window.conMirrorDockRight();
             } else if (e.data.command === 'left') {
@@ -14463,6 +14476,15 @@
             if (btn) btn.classList.toggle('laser-btn-active', !!on);
             var badge = document.getElementById('con-frozen-indicator');
             if (badge) badge.classList.toggle('con-frozen-active', !!on);
+            // Update the dynamic pres-menu freeze button label
+            if (_mirrorControlMenuEl) {
+              var dynFreezeBtn = _mirrorControlMenuEl.querySelector('[data-pres-action="freeze"]');
+              if (dynFreezeBtn) {
+                var label = on ? boardT('presUnfreeze') : boardT('presFreeze');
+                dynFreezeBtn.textContent = label;
+                dynFreezeBtn.title = label;
+              }
+            }
           }
           const _mirrorBoard = document.getElementById('constellation-board');
           if (_mirrorBoard) {
@@ -14472,7 +14494,9 @@
                 return m.type === 'attributes' && m.attributeName === 'class' &&
                   m.target.classList.contains('con-group');
               });
-              if (!allBlink) _mirrorBroadcast();
+              // During node drags we use a lightweight node-move message instead —
+              // skip the heavy full-snapshot broadcast while dragging is active.
+              if (!allBlink && !window._conMirrorDragging) _mirrorBroadcast();
             }).observe(_mirrorBoard, {
               childList: true, subtree: true,
               attributes: true, attributeFilter: ['style', 'class', 'data-shape']
@@ -14681,6 +14705,20 @@
             const left = Math.max(0, Math.round((window.screen && window.screen.availWidth ? window.screen.availWidth : 1200) - width));
             _mirrorPopupRef.resizeTo(width, height);
             _mirrorPopupRef.moveTo(left, 0);
+          }
+        };
+        window.conMirrorMaximiseWindow = async function () {
+          if (window.Desktop && window.Desktop.isElectron() && typeof window.Desktop.mirrorWindowCommand === 'function') {
+            await window.Desktop.mirrorWindowCommand('maximise');
+            return;
+          }
+          if (_mirrorPopupRef && !_mirrorPopupRef.closed) {
+            try { _mirrorPopupRef.moveTo(0, 0); } catch (e) { }
+            try {
+              const sw = window.screen && window.screen.availWidth ? window.screen.availWidth : screen.availWidth;
+              const sh = window.screen && window.screen.availHeight ? window.screen.availHeight : screen.availHeight;
+              _mirrorPopupRef.resizeTo(sw, sh);
+            } catch (e) { }
           }
         };
       } else {
@@ -15469,6 +15507,7 @@
             ny = Math.max(0, Math.min(brd.clientHeight - el.offsetHeight, ny));
             if (!dragging && Math.abs(e.clientX - startX) < 3 && Math.abs(e.clientY - startY) < 3) return;
             dragging = true;
+            window._conMirrorDragging = true; // suppress heavy MutationObserver broadcast during drag
             window._conTblDraggingNodeId = id;
             if (groupSnap) {
               groupSnap.forEach(({ n, dx, dy }) => {
@@ -15609,10 +15648,22 @@
             }
             conRedrawEdges();
             conGroupRefitAll();
+            // Send lightweight node-move message to mirror — avoids full snapshot during drag
+            if (window._conMirrorSend) {
+              const _mirrorPositions = [];
+              if (groupSnap) {
+                groupSnap.forEach(function ({ n }) { _mirrorPositions.push({ id: n.id, x: n.x, y: n.y }); });
+              } else {
+                _mirrorPositions.push({ id: node.id, x: node.x, y: node.y });
+              }
+              window._conMirrorSend({ type: 'node-move', positions: _mirrorPositions });
+            }
           }
           function onUp(e) {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            // Lift drag suppression so the MutationObserver resumes normal operation
+            window._conMirrorDragging = false;
             // Clear snap lines and drop-target highlights
             document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
             conNodes.forEach(n => n.el.classList.remove('con-drop-target'));
@@ -15692,6 +15743,8 @@
                 n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
               });
             }
+            // Full mirror sync on drag end so the mirror state is always consistent
+            if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast();
 
             if (!dragging) {
               // It was a click — check modifiers
@@ -24854,10 +24907,19 @@
             if (dr.el) { dr.el.style.left = (dr.x - dr.pad) + 'px'; dr.el.style.top = (dr.y - dr.pad) + 'px'; }
           });
         }
+        // Lightweight mirror update — send note positions directly, no snapshot
+        if (window._conMirrorSend && _dragOffsets.length > 0) {
+          window._conMirrorDragging = true;
+          const _notePositions = _dragOffsets.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y }));
+          window._conMirrorSend({ type: 'note-move', positions: _notePositions });
+        }
       });
       document.addEventListener('mouseup', () => {
         if (!dragging) return;
         dragging = false;
+        // Lift drag suppression and do a full mirror sync
+        window._conMirrorDragging = false;
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast();
         // Clear snap lines
         document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
         note.style.cursor = '';
@@ -35238,6 +35300,7 @@
           + '<button type="button" data-mirror-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
           + '<button type="button" data-mirror-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
           + '<button type="button" data-mirror-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+          + '<button type="button" data-mirror-action="maximise" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
           + '<div style="display:flex;gap:4px;">'
           + '  <button type="button" data-mirror-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
           + '  <button type="button" data-mirror-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
@@ -35571,6 +35634,34 @@
           var _lsv2 = document.getElementById('con-draw-live-svg');
           if (_lsv2) _lsv2.innerHTML = '';
           _mirrorLivePath = null;
+          return;
+        }
+
+        if (d.type === 'node-move') {
+          if (_mirrorIsFrozen) return;
+          if (!d.positions || !d.positions.length) return;
+          d.positions.forEach(function (p) {
+            var nel = document.getElementById(p.id);
+            if (nel) {
+              nel.style.left = p.x + 'px';
+              nel.style.top = p.y + 'px';
+            }
+          });
+          // Redraw edges so connections stay aligned during the drag
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
+
+        if (d.type === 'note-move') {
+          if (_mirrorIsFrozen) return;
+          if (!d.positions || !d.positions.length) return;
+          d.positions.forEach(function (p) {
+            var nel = document.querySelector('#constellation-board .con-word-note[data-id="' + p.id + '"]');
+            if (nel) {
+              nel.style.left = p.x + 'px';
+              nel.style.top = p.y + 'px';
+            }
+          });
           return;
         }
       };

@@ -3680,8 +3680,14 @@
 
         let fnDisplay = student.firstName || "";
         let lnDisplay = student.lastName || "";
-        if (nameMode === 'custom' && student.customName) {
-          fnDisplay = student.customName;
+        if (nameMode === 'custom') {
+          if (student.customName) {
+            fnDisplay = student.customName;
+            lnDisplay = "";
+          } else {
+            fnDisplay = student.firstName || "";
+            lnDisplay = student.lastName ? (student.lastName.trim().charAt(0).toUpperCase() + '.') : "";
+          }
         } else if (nameMode === 'first') {
           lnDisplay = "";
         } else if (nameMode === 'last') {
@@ -4013,8 +4019,14 @@
         
         let fnText = student.firstName || "";
         let lnText = student.lastName || "";
-        if (nameMode === 'custom' && student.customName) {
-          fnText = student.customName;
+        if (nameMode === 'custom') {
+          if (student.customName) {
+            fnText = student.customName;
+            lnText = "";
+          } else {
+            fnText = student.firstName || "";
+            lnText = student.lastName ? (student.lastName.trim().charAt(0).toUpperCase() + '.') : "";
+          }
         } else if (nameMode === 'first') {
           lnText = "";
         } else if (nameMode === 'last') {
@@ -5806,11 +5818,28 @@
       const report = buildSemesterReportData(classObj, sem);
       const header = ["#", "First Name", "Last Name", ...report.testNames, "Semester Avg"];
       const aoa = [header];
+      const nameMode = getGsNameDisplayMode();
       report.rows.forEach(({ student, grades, semAvg }) => {
+        let fn = student.firstName || "";
+        let ln = student.lastName || "";
+        if (nameMode === 'custom') {
+          if (student.customName) {
+            fn = student.customName;
+            ln = "";
+          } else {
+            fn = student.firstName || "";
+            ln = student.lastName ? (student.lastName.trim().charAt(0).toUpperCase() + '.') : "";
+          }
+        } else if (nameMode === 'first') {
+          ln = "";
+        } else if (nameMode === 'last') {
+          fn = student.lastName || "";
+          ln = "";
+        }
         aoa.push([
           student.index != null ? student.index : "",
-          student.firstName || "",
-          student.lastName || "",
+          fn,
+          ln,
           ...grades.map(g => (g != null ? g : "")),
           semAvg != null ? semAvg : ""
         ]);
