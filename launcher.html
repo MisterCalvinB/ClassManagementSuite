@@ -856,8 +856,25 @@
         var batch = toRead.slice(i, i + BATCH);
         await Promise.all(batch.map(async function(f) {
           var key = (f.target || 'mindmaps') + ':' + (f.relativePath || f.filename);
+          var rel = f.relativePath || f.filename || '';
+          var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+          if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+            try {
+              var insp = await Desktop.inspectBoardArchive(f.target || 'mindmaps', rel);
+              var searchParts = [];
+              if (insp && insp.manifest) {
+                if (insp.manifest.title) searchParts.push(insp.manifest.title);
+                if (insp.manifest.classGroup) searchParts.push(insp.manifest.classGroup);
+              }
+              rfContentCache.set(key, searchParts.join(' ').toLowerCase());
+              return;
+            } catch(e) {
+              rfContentCache.set(key, '');
+              return;
+            }
+          }
           try {
-            var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+            var result = await Desktop.readByPath(f.target || 'mindmaps', rel);
             rfContentCache.set(key, rfExtractSearchText(result && result.content ? result.content : ''));
           } catch(e) {
             rfContentCache.set(key, '');
@@ -876,7 +893,7 @@
   }
 
   function rfStripClassPrefix(fn) {
-    var base = fn.replace(/\.(js|json)$/i, '');
+    var base = fn.replace(/\.(js|json|cstz|zip)$/i, '');
     for (var _id in rfGroupMeta) {
       var _safe = String(_id).trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
       if (_safe && base.startsWith(_safe + '_')) {
@@ -947,8 +964,20 @@
       var batch = pending.slice(i, i + BATCH);
       await Promise.all(batch.map(async function(f) {
         var key = rfSessionCacheKey(f);
+        var rel = f.relativePath || f.filename || '';
+        var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+        if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+          try {
+            var insp = await Desktop.inspectBoardArchive(f.target || 'mindmaps', rel);
+            rfSessionTypeCache.set(key, (insp && insp.manifest && insp.manifest._type) || 'constellation');
+            return;
+          } catch(e) {
+            rfSessionTypeCache.set(key, 'constellation');
+            return;
+          }
+        }
         try {
-          var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
+          var result = await Desktop.readByPath(f.target || 'mindmaps', rel);
           var raw = result && result.content ? result.content : '';
           rfSessionTypeCache.set(key, rfExtractSessionType(raw));
         } catch (e) {
@@ -958,12 +987,58 @@
     }
   }
 
-  async function rfExcludeTemplateSessions() {
-    var allSessions = rfAllFiles.concat(rfAllArchivedFiles);
-    if (!allSessions.length) return;
-    await rfPrimeSessionTypes(allSessions);
-    rfAllFiles = rfAllFiles.filter(function(f) { return !rfIsTemplateFile(f); });
-    rfAllArchivedFiles = rfAllArchivedFiles.filter(function(f) { return !rfIsTemplateFile(f); });
+  function rfIsMindmapSessionFile(file) {
+    var rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+    var parts = rel.split('/').filter(Boolean);
+    var filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
+    if (!filename) return false;
+    if (/-Autosave\.(js|json|cstz|zip)$/i.test(filename)) return false;
+    if (/\.v\d{8}-\d{6}\.(js|json|cstz|zip)$/i.test(filename)) return false;
+    if (rel.indexOf('/history/') !== -1 || rel.startsWith('history/')) return false;
+    if (rel.indexOf('/media/') !== -1 || rel.startsWith('media/')) return false;
+    if (rel.indexOf('/audio/') !== -1 || rel.startsWith('audio/')) return false;
+    if (rel.indexOf('/page-snapshots/') !== -1 || rel.startsWith('page-snapshots/')) return false;
+    // archived/folder/folder.js (depth 3)
+    if (parts.length === 3 && parts[0] === 'archived') {
+      return filename.replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase() === parts[1].toLowerCase();
+    }
+    // archived/file.js / archived/file.cstz (depth 2, archived flat)
+    if (parts.length === 2 && parts[0] === 'archived') return true;
+    // root file: file.cstz / file.js (depth 1)
+    if (parts.length <= 1) return true;
+    // nested folder: folder/folder.js (depth 2)
+    if (parts.length === 2) {
+      var folder = parts[0];
+      return filename.replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase() === folder.toLowerCase();
+    }
+    return false;
+  }
+
+  function rfDeduplicateMindmapFiles(files) {
+    var sessionMap = new Map();
+    (Array.isArray(files) ? files : []).forEach(function(f) {
+      if (!f || !rfIsMindmapSessionFile(f)) return;
+      var rel = String(f.relativePath || f.filename || '').replace(/\\/g, '/');
+      var isArchived = rel.split('/').indexOf('archived') !== -1;
+      var baseName = (f.filename || rel.split('/').pop() || '').replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase();
+      var key = (isArchived ? 'archived:' : 'active:') + baseName;
+      var isArchiveFile = rel.endsWith('.cstz') || rel.endsWith('.zip');
+      var existing = sessionMap.get(key);
+      if (!existing) {
+        sessionMap.set(key, f);
+      } else {
+        var existingRel = String(existing.relativePath || existing.filename || '').replace(/\\/g, '/');
+        var existingIsArchive = existingRel.endsWith('.cstz') || existingRel.endsWith('.zip');
+        if (isArchiveFile && !existingIsArchive) {
+          sessionMap.set(key, f);
+        } else if (!isArchiveFile && existingIsArchive) {
+          // keep existing .cstz
+        } else if ((f.mtimeMs || f.savedAt || 0) > (existing.mtimeMs || existing.savedAt || 0)) {
+          sessionMap.set(key, f);
+        }
+      }
+    });
+    return Array.from(sessionMap.values());
   }
 
   function rfFileDateMs(f) { return f.savedAt || f.createdAt || f.mtimeMs || 0; }
@@ -1110,7 +1185,7 @@
     rfAllArchivedFiles = [];
 
     var results = await Promise.all([
-      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true }).catch(function(){ return null; }),
+      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true }).catch(function(){ return null; }),
       Desktop.listByPath('user', 'custom-data', { extensions: RF_DOC_EXTS, recursive: true }).catch(function(){ return null; }),
       Desktop.readByPath('user', 'class-groups.js').catch(function(){ return null; })
     ]);
@@ -1120,7 +1195,8 @@
     var cgr = results[2];
 
     if (r && r.ok && Array.isArray(r.files)) {
-      r.files.forEach(function(f) {
+      var validMindmaps = rfDeduplicateMindmapFiles(r.files);
+      validMindmaps.forEach(function(f) {
         var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
         var fWithTarget = Object.assign({}, f, { target: 'mindmaps' });
         if (rel.split('/').indexOf('archived') !== -1) {
@@ -1132,7 +1208,12 @@
     }
 
     try {
-      await rfExcludeTemplateSessions();
+      var allSessions = rfAllFiles.concat(rfAllArchivedFiles);
+      if (allSessions.length) {
+        await rfPrimeSessionTypes(allSessions);
+        rfAllFiles = rfAllFiles.filter(function(f) { return !rfIsTemplateFile(f); });
+        rfAllArchivedFiles = rfAllArchivedFiles.filter(function(f) { return !rfIsTemplateFile(f); });
+      }
     } catch(e) {}
 
     if (d && d.ok && Array.isArray(d.files)) {
@@ -1688,17 +1769,16 @@
     }
     var docs = [];
     var results = await Promise.all([
-      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json'], recursive: true }).catch(function(){ return null; }),
+      Desktop.listByPath('mindmaps', '', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true }).catch(function(){ return null; }),
       Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'] }).catch(function(){ return null; })
     ]);
     var r = results[0];
     var r2 = results[1];
     if (r && r.ok && Array.isArray(r.files)) {
-      r.files.forEach(function(f) {
+      var validMindmaps = rfDeduplicateMindmapFiles(r.files);
+      validMindmaps.forEach(function(f) {
         var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
-        if (rel.indexOf('archived') === -1
-            && !/-Autosave\.(js|json)$/i.test(f.filename)
-            && !/\.v\d{8}-\d{6}\.(js|json)$/i.test(f.filename)) {
+        if (rel.indexOf('archived') === -1) {
           docs.push(Object.assign({}, f, { _type: 'mindmap' }));
         }
       });
@@ -2093,7 +2173,7 @@
       items.push('-');
 
       items.push({ label: tl('fmRename', 'Rename'), action: async function() {
-        var base = (fileObj.filename || '').replace(/\.(js|json)$/i, '');
+        var base = (fileObj.filename || '').replace(/\.(js|json|cstz|zip)$/i, '');
         var ext  = fileObj.filename.slice(base.length);
         var newBase = await showPrompt(tl('fmRename','Rename'), base);
         if (!newBase || newBase.trim() === '' || newBase.trim() === base) return;
@@ -2107,7 +2187,8 @@
         var newRelPath = dir + newFilename;
         try {
           var pathParts = relPath.split('/').filter(Boolean);
-          if (target === 'mindmaps' && pathParts.length === 2 && typeof Desktop.listByPath === 'function') {
+          var isNestedOldSession = target === 'mindmaps' && pathParts.length === 2 && !fileObj.filename.endsWith('.cstz') && !fileObj.filename.endsWith('.zip');
+          if (isNestedOldSession && typeof Desktop.listByPath === 'function') {
             var oldFolder = pathParts[0];
             if (oldFolder !== newBase) {
               var fr = await Desktop.renameByPath(target, oldFolder, newBase);

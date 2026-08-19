@@ -157,7 +157,7 @@ Creating an entry of type **Test** in [Planner](#plannerhtml) automatically veri
 ### Board ↔ Planner: Lesson Tagging
 
 - **Board → Planner**: Click **Planner** in the Board toolbar to tag a constellation session map to a specific Planner lesson, test, or assignment (`_plannerEntryId`).
-- **Planner → Board**: Right-click any entry in [Planner](#plannerhtml) (or click the modal button) to immediately create or open its linked Board mind-map file.
+- **Planner → Board**: Right-click any entry in [Planner](#plannerhtml) (or click the modal button) to immediately create or open its linked Board mind-map archive (`.cstz`).
 
 ---
 
@@ -170,7 +170,7 @@ Creating an entry of type **Test** in [Planner](#plannerhtml) automatically veri
 
 ### File Manager → Board: Reopen Saved Sessions
 
-The [File Manager](#file-managerhtml) **Recent** tab includes an **Open in Board** button next to saved constellation maps to open them directly in Board.
+The [File Manager](#file-managerhtml) **Recent** and **Browse** tabs recognize `.cstz` zipped archives and legacy `.js` session files in `user/mindmaps/`, providing an **Open in Board** button to launch sessions directly into Board. Single-file `.cstz` archives also support clean single-file renaming, moving, and deletion.
 
 ---
 
@@ -360,9 +360,9 @@ Live oral exam evaluation tool that streams to secondary displays and writes dir
 Data file manager with built-in search, rename, move, and synchronization features.
 
 #### Tabs & Capabilities
-- **Recent Tab**: Filter constellation maps, PDFs, images, and audio. Reopen maps in Board with one click.
-- **Browse Tab**: Deep folder navigation across `user/` subdirectories. Supports multi-select (Ctrl/Shift+click), drag-and-drop moving, inline renaming, folder creation, and sidebar folder pinning.
-- **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs.
+- **Recent Tab**: Filter constellation map archives (`.cstz`), legacy sessions (`.js`), PDFs, images, and audio. Reopen maps in Board with one click.
+- **Browse Tab**: Deep folder navigation across `user/` subdirectories. Supports multi-select (Ctrl/Shift+click), drag-and-drop moving, inline renaming, folder creation, and sidebar folder pinning. Single-file `.cstz` archives are treated as standalone atomic documents.
+- **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs. Automatically handles `.cstz` board archives under the `mindmaps` category.
 
 <details>
 <summary><strong>Keyboard Shortcuts</strong></summary>
@@ -412,7 +412,9 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 
 #### Features
 - **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches.
-- **Voice Recordings**: Record microphone audio directly into companion folders (`audio/`) and attach sound nodes to the board with built-in audio trimming (`✂ Trim`).
+- **Zipped Archive Storage (`.cstz`)**: Saves all canvas data, multi-page layouts, version histories, and embedded media assets into a single portable `.cstz` archive in `user/mindmaps/`. Media assets are stored uncompressed for fast, spike-free saves.
+- **Hybrid Backward Compatibility**: Seamlessly loads both legacy multi-file `.js` folders and modern `.cstz` single-file archives.
+- **Voice Recordings**: Record microphone audio directly and attach sound nodes to the board with built-in audio trimming (`✂ Trim`), bundled seamlessly into the `.cstz` package.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
 - **Live Sync**: Displays floating timer widgets streamed live from [Class Management](#class-managementhtml).
 - **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
@@ -422,7 +424,7 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl/Cmd + S` | Save constellation file |
+| `Ctrl/Cmd + S` | Save constellation archive (`.cstz`) |
 | `Ctrl/Cmd + Z` / `Y` | Undo / Redo |
 | `Ctrl/Cmd + G` | Group selected nodes |
 | `Ctrl/Cmd + L` | Toggle laser pointer |

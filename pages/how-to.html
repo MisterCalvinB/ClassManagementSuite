@@ -415,7 +415,7 @@
         <ul style="margin:8px 0 0 16px;padding:0;line-height:1.7">
           <li><strong>Upcoming Events</strong> — pulls lessons, tests, and assignments from the Planner with dates on or after today, sorted by date. Click any entry to jump directly to that date in the Planner.</li>
           <li><strong>To-do</strong> — lists incomplete to-do items from the Planner sorted by due date. Overdue items are highlighted in red. Click the <strong>+</strong> button to open the Planner and add a new item.</li>
-          <li><strong>Recent Docs</strong> — shows the most recently modified constellation maps (Board sessions) and Document Editor files. Click any entry to open it directly in Board or Document Editor; right-click a Board session to delete it and its companion folder.</li>
+          <li><strong>Recent Docs</strong> — shows the most recently modified constellation maps (Board <code>.cstz</code> archives and legacy sessions) and Document Editor files. Click any entry to open it directly in Board or Document Editor; right-click to delete the saved session.</li>
         </ul>
         <p style="margin:8px 0 0">Recent Docs updates automatically when those files are saved, renamed, moved, copied, or deleted in other tools, so names and modified dates stay in sync without reopening the launcher.</p>
         <p style="margin:8px 0 0">The small number button (e.g. <strong>5</strong>) in each section header controls how many items are shown (1–20); the setting is saved per device. The interactive <strong>▶ Tour</strong> button in the launcher header includes steps for all three sidebar sections.</p>
@@ -648,7 +648,7 @@
             </div>
             <div class="mini-card">
               <h4>📂 File Manager → Board</h4>
-              <p>The Recent tab's <strong>Open in Board</strong> button reopens any saved constellation map directly in Board without going through the launcher.</p>
+              <p>The Recent and Browse tabs recognise <code>.cstz</code> zipped archives and legacy <code>.js</code> session files. Click <strong>Open in Board</strong> to launch any saved map directly in Board without going through the launcher.</p>
             </div>
             <div class="mini-card">
               <h4>🪑 Class Plan ↔ Class Management</h4>
@@ -656,8 +656,8 @@
             </div>
             <div class="mini-card">
               <h4>🖥 Board ↔ Planner: lesson tagging</h4>
-              <p>A <strong>Planner</strong> button in the Board toolbar lets you tag the current constellation to a specific Planner lesson or test. The tag is saved with the session file so the link is restored when you reload the board later.</p>
-              <p>You can also right-click a Planner entry, or use the button in the entry modal, to create or open its linked board file directly from the schedule.</p>
+              <p>A <strong>Planner</strong> button in the Board toolbar lets you tag the current constellation to a specific Planner lesson or test. The tag is saved inside the <code>.cstz</code> archive so the link is restored when you reload the board later.</p>
+              <p>You can also right-click a Planner entry, or use the button in the entry modal, to create or open its linked <code>.cstz</code> board archive directly from the schedule.</p>
             </div>
           </div>
         </div></div>
@@ -846,11 +846,13 @@
               <li>Export: click <strong>🖨 Print</strong>, then choose which columns (translation, IPA, definition…) to include in the PDF.</li>
             </ol>
             <div class="tip"><strong>Tip:</strong> Use <strong>DEF</strong> in the node context menu to auto-fetch a definition, or <strong>FR</strong> for a French translation via Wiktionary.</div>
-            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Pasting tables:</strong> copy a table from any web page, Word document, or spreadsheet and paste it onto the board with <kbd>Ctrl+V</kbd>. HTML tables and tab-separated (TSV) data are both recognised and placed on the canvas as a draggable, resizable table element. The first row is styled as a header when the source used <code>&lt;th&gt;</code> cells. Tables are saved and exported as part of the constellation file.</p>
-            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Linking to a Planner lesson:</strong> click the <strong>Planner</strong> button in the Board toolbar to tag the open constellation to a specific lesson, test, or assignment from the Planner. Recent and upcoming entries are shown by default; click <em>Show all</em> for the full list. The link is stored in the saved file and restored when the board is reopened. From the Planner itself, right-click an entry or use the modal button to create or open the linked board file.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:12px;"><strong>Zipped Archive File Format (<code>.cstz</code>):</strong> Constellation boards are saved as self-contained zipped archives with the <code>.cstz</code> file extension into <code>user/mindmaps/</code>. The archive contains the board JSON session, manifest, revision snapshots, and all embedded media (audio recordings, images, background PDFs). Embedded media assets are stored uncompressed for near-instant autosaves without performance lag.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Hybrid Backward Compatibility:</strong> Any existing <code>.js</code> session files and their companion media folders continue to be loaded, searched, and edited transparently.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Pasting tables:</strong> copy a table from any web page, Word document, or spreadsheet and paste it onto the board with <kbd>Ctrl+V</kbd>. HTML tables and tab-separated (TSV) data are both recognised and placed on the canvas as a draggable, resizable table element. The first row is styled as a header when the source used <code>&lt;th&gt;</code> cells. Tables are saved and exported as part of the constellation archive.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Linking to a Planner lesson:</strong> click the <strong>Planner</strong> button in the Board toolbar to tag the open constellation to a specific lesson, test, or assignment from the Planner. Recent and upcoming entries are shown by default; click <em>Show all</em> for the full list. The link is stored in the saved archive and restored when the board is reopened. From the Planner itself, right-click an entry or use the modal button to create or open the linked <code>.cstz</code> board file.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Duplicating a board file:</strong> use <strong>⧉ Duplicate</strong> in the File toolbar. If the current file is linked to a Planner timeslot, a popup explains that the duplicate will break that link and offers to open the class timeslot picker so you can relink the duplicate to another slot.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Quick page navigation in File menu:</strong> when a saved board file is open and has at least two pages, the File menu shows a compact strip with page numbers and tiny thumbnails. Click any thumbnail to jump directly to that page.</p>
-            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Renaming Board Files:</strong> if a board has already been saved, a grey <strong>Rename file</strong> button appears next to the title input at the top. Click it to rename the active constellation file and its companion folder on disk to match the new board title (Electron app only). This also updates the filename in any version history automatically.</p>
+            <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Renaming Board Files:</strong> if a board has already been saved, a grey <strong>Rename file</strong> button appears next to the title input at the top. Click it to rename the active constellation archive on disk to match the new board title (Electron app only). This also updates the filename in any version history automatically.</p>
             <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-top:8px;"><strong>Mirror Mode:</strong> opening the board with <code>?mirror=1</code> in the URL disables autosaves and silent initial saves to prevent overwriting an active presenter's session.</p>
           </div>
         </div>

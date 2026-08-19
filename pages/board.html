@@ -27023,18 +27023,32 @@
       if (_currentFileForSection && window.Desktop && Desktop.isElectron()) {
         if (!conSessionHasMeaningfulContent(data)) return;
         const target = boardExportTargetForSection(section);
+        const persistedAutosaveData = boardBuildPersistedSessionData(section, data);
+
+        if (section === 'constellation') {
+          const isArchive = _currentFileForSection.endsWith('.cstz') || _currentFileForSection.endsWith('.zip') || !_currentFileForSection.endsWith('.js');
+          if (isArchive && typeof Desktop.saveBoardArchive === 'function') {
+            const savePromise = conSaveSessionFolderBundle(_currentFileForSection, persistedAutosaveData).catch(() => { });
+            boardPersistLocalSession(section, persistedAutosaveData, {
+              source: 'autosave',
+              classGroup,
+              name: boardAutosaveName(section, persistedAutosaveData, classGroup)
+            });
+            return savePromise;
+          }
+        }
+
         const exportName = section === 'constellation' ? 'CONSTELLATION_SESSION_EXPORT'
           : section === 'notes' ? 'NOTES_SESSION_EXPORT'
             : 'TEXTANALYSIS_SESSION_EXPORT';
-        const persistedAutosaveData = boardBuildPersistedSessionData(section, data);
         const autosaveContent = boardBuildSessionFileContent(persistedAutosaveData, exportName);
         const autosaveFile = {
           filename: _currentFileForSection,
           content: autosaveContent,
           encoding: 'utf8'
         };
-        if (section === 'constellation') {
-          autosaveFile.subdir = _conCurrentFolderName || boardStripJsonExt(_currentFileForSection);
+        if (section === 'constellation' && _conCurrentFolderName) {
+          autosaveFile.subdir = _conCurrentFolderName;
         }
         const autosaveFiles = [autosaveFile];
         const savePromise = Desktop.saveFiles(target, autosaveFiles).catch(() => { });
@@ -28794,7 +28808,7 @@
         if (window.conUpdatePageBar) window.conUpdatePageBar();
         return {
           filename: archiveBundle.filename,
-          folderName: archiveBundle.baseName,
+          folderName: null,
           data: archiveBundle.data
         };
       }
@@ -29021,6 +29035,7 @@
 
     async function conSaveHistorySnapshot(folderName, filename, data) {
       if (!(window.Desktop && Desktop.isElectron())) return;
+      if (!folderName) return; // For .cstz archives without companion folders, skip loose disk snapshots
       try {
         const base = boardStripJsonExt(filename);
         const now = new Date();

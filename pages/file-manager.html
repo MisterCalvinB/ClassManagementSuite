@@ -539,6 +539,56 @@ async function rfFilterOutTemplateSessions(files) {
   });
 }
 
+function fmIsMindmapSessionFile(file) {
+  var rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+  var parts = rel.split('/').filter(Boolean);
+  var filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
+  if (!filename) return false;
+  if (/-Autosave\.(js|json|cstz|zip)$/i.test(filename)) return false;
+  if (/\.v\d{8}-\d{6}\.(js|json|cstz|zip)$/i.test(filename)) return false;
+  if (rel.indexOf('/history/') !== -1 || rel.startsWith('history/')) return false;
+  if (rel.indexOf('/media/') !== -1 || rel.startsWith('media/')) return false;
+  if (rel.indexOf('/audio/') !== -1 || rel.startsWith('audio/')) return false;
+  if (rel.indexOf('/page-snapshots/') !== -1 || rel.startsWith('page-snapshots/')) return false;
+  if (parts.length === 3 && parts[0] === 'archived') {
+    return filename.replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase() === parts[1].toLowerCase();
+  }
+  if (parts.length === 2 && parts[0] === 'archived') return true;
+  if (parts.length <= 1) return true;
+  if (parts.length === 2) {
+    var folder = parts[0];
+    return filename.replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase() === folder.toLowerCase();
+  }
+  return false;
+}
+
+function fmDeduplicateMindmapFiles(files) {
+  var sessionMap = new Map();
+  (Array.isArray(files) ? files : []).forEach(function(f) {
+    if (!f || !fmIsMindmapSessionFile(f)) return;
+    var rel = String(f.relativePath || f.filename || '').replace(/\\/g, '/');
+    var isArchived = rel.split('/').indexOf('archived') !== -1;
+    var baseName = (f.filename || rel.split('/').pop() || '').replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase();
+    var key = (isArchived ? 'archived:' : 'active:') + baseName;
+    var isArchiveFile = rel.endsWith('.cstz') || rel.endsWith('.zip');
+    var existing = sessionMap.get(key);
+    if (!existing) {
+      sessionMap.set(key, f);
+    } else {
+      var existingRel = String(existing.relativePath || existing.filename || '').replace(/\\/g, '/');
+      var existingIsArchive = existingRel.endsWith('.cstz') || existingRel.endsWith('.zip');
+      if (isArchiveFile && !existingIsArchive) {
+        sessionMap.set(key, f);
+      } else if (!isArchiveFile && existingIsArchive) {
+        // keep existing .cstz
+      } else if ((f.mtimeMs || f.savedAt || 0) > (existing.mtimeMs || existing.savedAt || 0)) {
+        sessionMap.set(key, f);
+      }
+    }
+  });
+  return Array.from(sessionMap.values());
+}
+
 function fmIsTemplateMindmapFile(fileObj) {
   if (!fileObj) return false;
   var target = fileObj.target || 'mindmaps';
@@ -942,7 +992,8 @@ async function loadRecent() {
   var e = results[2];
 
   if (r && r.ok && Array.isArray(r.files)) {
-    var allSessions = r.files.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
+    var validFiles = fmDeduplicateMindmapFiles(r.files);
+    var allSessions = validFiles.map(function(f) { return Object.assign({}, f, { target:'mindmaps' }); });
     allSessions = await rfFilterOutTemplateSessions(allSessions);
     rfSessions = allSessions.filter(function(f) {
       var rel = normPath(f.relativePath || f.filename || '');
