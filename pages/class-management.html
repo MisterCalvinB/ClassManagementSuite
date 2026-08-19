@@ -45,6 +45,7 @@
             }
 
             window.__cmUserBootstrapPromise = (async function () {
+                try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
                 try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
                 try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
             })();
@@ -2732,6 +2733,7 @@
                     groupName: selectedGroupName,
                     halfGroup: selectedHalfGroup,
                     studentGroups: JSON.parse(JSON.stringify(studentGroups)),
+                    studentRoster: JSON.parse(JSON.stringify(studentRoster)),
                     rosterPlanView,
                     classPlans: JSON.parse(JSON.stringify(classPlans)),
                     currentTeamsActive,
@@ -2836,6 +2838,9 @@
             }
             if (data.studentGroups) {
                 try { Object.assign(studentGroups, JSON.parse(JSON.stringify(data.studentGroups))); } catch (_) { }
+            }
+            if (data.studentRoster) {
+                try { Object.assign(studentRoster, JSON.parse(JSON.stringify(data.studentRoster))); } catch (_) { }
             }
             if (data.groupName !== undefined) selectedGroupName = data.groupName;
             if (data.halfGroup !== undefined) selectedHalfGroup = data.halfGroup;
@@ -3045,7 +3050,7 @@
             }
             const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="freeze"]');
             if (popupBtn) {
-                popupBtn.innerHTML = _presFrozen ? `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_unfreeze')}` : `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_freeze')}`;
+                popupBtn.innerHTML = _presFrozen ? `<img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> ${t('pres_unfreeze')}` : `<img src="../assets/icons/snowflake.svg" class="btn-icon" style="width:12px;height:12px;" alt="" /> ${t('pres_freeze')}`;
                 popupBtn.title = _presFrozen ? t('pres_unfreeze_title') : t('pres_freeze_title');
             }
         }
@@ -3054,16 +3059,16 @@
             if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
             const popup = document.createElement('div');
             popup.id = 'cms-pres-popup';
-            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;cursor:move;user-select:none;';
+            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
             popup.innerHTML = ''
-                + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:2px;cursor:move;">' + t('pres_menu_title') + '</div>'
-                + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
-                + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_freeze') + '</button>'
-                + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_resize') + '</button>'
-                + '<button type="button" data-pres-action="maximize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + t('pres_maximize') + '</button>'
-                + '<div style="display:flex;gap:4px;">'
-                + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('pres_left') + '</button>'
-                + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + t('pres_right') + '</button>'
+                + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + t('pres_menu_title') + '</div>'
+                + '<button type="button" data-pres-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
+                + '<button type="button" data-pres-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_freeze') + '</button>'
+                + '<button type="button" data-pres-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_resize') + '</button>'
+                + '<button type="button" data-pres-action="maximize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_maximize') + '</button>'
+                + '<div style="display:flex;gap:3px;">'
+                + '  <button type="button" data-pres-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.5rem;line-height:1.1;cursor:pointer;">' + t('pres_left') + '</button>'
+                + '  <button type="button" data-pres-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_right') + '</button>'
                 + '</div>';
             popup.addEventListener('click', (event) => {
                 const btn = event.target.closest('[data-pres-action]');
@@ -3558,7 +3563,11 @@
                     if (typeof ui.presSettings.modes === 'boolean') presSettings.modes = ui.presSettings.modes;
                 }
                 if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
-                if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(ui.nameDisplayMode)) nameDisplayMode = ui.nameDisplayMode;
+                if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(ui.nameDisplayMode)) {
+                    nameDisplayMode = ui.nameDisplayMode;
+                } else if (typeof config?.launcherSettings?.defaultNameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(config.launcherSettings.defaultNameDisplayMode)) {
+                    nameDisplayMode = config.launcherSettings.defaultNameDisplayMode;
+                }
             }
             if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
                 classModes = config.classModes.map(m => ({ ...m }));
@@ -3835,6 +3844,11 @@
         }
 
         async function _cmsLoadStudentRoster() {
+            if (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER)) {
+                studentRoster = {};
+                STUDENTS_ROSTER.forEach(s => { if (s && s.uuid) studentRoster[s.uuid] = s; });
+                return;
+            }
             if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readText !== 'function') return;
             try {
                 const r = await Desktop.readText(CONFIG_FILE_TARGET, 'students.js');
@@ -3890,6 +3904,9 @@
                         id: Date.now() + Math.random(),
                         uuid: s.uuid || null,
                         name: s.name,
+                        firstName: s.firstName || '',
+                        lastName: s.lastName || '',
+                        customName: s.customName || '',
                         sen: !!s.sen,
                         enrollments: s.enrollments || [],
                         isPicked: false,
@@ -14657,17 +14674,20 @@ syncState();
             if (!student) return '';
             const rosterStudent = (student.uuid && studentRoster[student.uuid]) ? studentRoster[student.uuid] : student;
             if (window.StudentNameUtils && typeof StudentNameUtils.formatStudentDisplayName === 'function') {
-                return StudentNameUtils.formatStudentDisplayName(rosterStudent, nameDisplayMode, 'firstLastInitial') || student.name || '';
+                const formatted = StudentNameUtils.formatStudentDisplayName(rosterStudent, nameDisplayMode, 'firstLastInitial');
+                if (formatted) return formatted;
             }
-            const name = student.name || '';
+            const name = student.name || ((rosterStudent.firstName || '') + ' ' + (rosterStudent.lastName || '')).trim() || '';
             if (nameDisplayMode === 'custom') {
                 return (rosterStudent && rosterStudent.customName) ? rosterStudent.customName : name;
             }
             if (nameDisplayMode === 'first') {
+                if (rosterStudent && rosterStudent.firstName) return rosterStudent.firstName;
                 const sp = name.indexOf(' ');
                 return sp > 0 ? name.slice(0, sp) : name;
             }
             if (nameDisplayMode === 'last') {
+                if (rosterStudent && rosterStudent.lastName) return rosterStudent.lastName;
                 const sp = name.lastIndexOf(' ');
                 return sp > 0 ? name.slice(sp + 1) : name;
             }

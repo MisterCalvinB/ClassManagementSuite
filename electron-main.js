@@ -2569,7 +2569,89 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
     return diffMs > 0 && diffMs % 3_600_000 === 0;
   }
 
-  if (mode === 'to-target') {
+  const deleted = [];
+
+  async function deleteAndPrune(targetDir, relativePath) {
+    const fullPath = path.join(targetDir, relativePath);
+    try {
+      await fs.unlink(fullPath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    let dir = path.dirname(fullPath);
+    const resolvedTarget = path.resolve(targetDir);
+    while (dir.startsWith(resolvedTarget) && dir !== resolvedTarget) {
+      try {
+        const entries = await fs.readdir(dir);
+        if (entries.length === 0) {
+          await fs.rmdir(dir);
+          dir = path.dirname(dir);
+        } else {
+          break;
+        }
+      } catch {
+        break;
+      }
+    }
+  }
+
+  if (mode === 'mirror-to-target') {
+    // 1. Copy / update from src (user/) to dest (sync target)
+    for (const [rel, srcEntry] of srcFiles) {
+      const destEntry = destFiles.get(rel);
+      if (!destEntry || !sameFile(srcEntry, destEntry)) {
+        try {
+          await copyOne(srcEntry.fullPath, path.join(destDir, rel));
+          const stat = await fs.stat(path.join(destDir, rel));
+          copied++;
+          synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
+        } catch (err) {
+          errors.push({ path: rel, error: String(err?.message || err) });
+        }
+      } else {
+        synced.push({ relativePath: rel, mtimeMs: destEntry.mtimeMs, size: destEntry.size });
+      }
+    }
+    // 2. Delete any files in dest that do not exist in src
+    for (const [rel, destEntry] of destFiles) {
+      if (!srcFiles.has(rel)) {
+        try {
+          await deleteAndPrune(destDir, rel);
+          deleted.push(rel);
+        } catch (err) {
+          errors.push({ path: rel, error: String(err?.message || err) });
+        }
+      }
+    }
+  } else if (mode === 'mirror-to-source') {
+    // 1. Copy / update from dest (sync target) to src (user/)
+    for (const [rel, destEntry] of destFiles) {
+      const srcEntry = srcFiles.get(rel);
+      if (!srcEntry || !sameFile(srcEntry, destEntry)) {
+        try {
+          await copyOne(destEntry.fullPath, path.join(srcDir, rel));
+          const stat = await fs.stat(path.join(srcDir, rel));
+          copied++;
+          synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
+        } catch (err) {
+          errors.push({ path: rel, error: String(err?.message || err) });
+        }
+      } else {
+        synced.push({ relativePath: rel, mtimeMs: srcEntry.mtimeMs, size: srcEntry.size });
+      }
+    }
+    // 2. Delete any files in src that do not exist in dest
+    for (const [rel, srcEntry] of srcFiles) {
+      if (!destFiles.has(rel)) {
+        try {
+          await deleteAndPrune(srcDir, rel);
+          deleted.push(rel);
+        } catch (err) {
+          errors.push({ path: rel, error: String(err?.message || err) });
+        }
+      }
+    }
+  } else if (mode === 'to-target') {
     for (const [rel, srcEntry] of srcFiles) {
       const destEntry = destFiles.get(rel);
       if (!destEntry) {
@@ -2678,7 +2760,7 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
     }
   }
 
-  return { copied, errors, conflicts, added, newFiles, synced };
+  return { copied, errors, conflicts, added, newFiles, synced, deleted };
 }
 
 async function copyTreeForBackup(sourceDir, destDir) {
@@ -5294,7 +5376,7 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
     return { ok: false, error: 'No sync location configured.' };
   }
 
-  const validModes = ['to-target', 'to-source', 'both'];
+  const validModes = ['to-target', 'to-source', 'both', 'mirror-to-target', 'mirror-to-source'];
   const syncMode = validModes.includes(mode) ? mode : 'to-target';
 
   try {
@@ -5303,7 +5385,7 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
     return { ok: false, error: 'Sync folder is not accessible.' };
   }
 
-  if (syncMode === 'to-target' || syncMode === 'both') {
+  if (syncMode === 'to-target' || syncMode === 'both' || syncMode === 'mirror-to-target') {
     try {
       fsSync.accessSync(syncLocation, fsSync.constants.W_OK);
     } catch {
@@ -5327,6 +5409,38 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
   const allConflicts = result.conflicts;
   const allNewFiles  = result.newFiles;
   const allAdded     = result.added;
+  const allDeleted   = result.deleted || [];
+
+  if (syncMode === 'mirror-to-target' || syncMode === 'mirror-to-source') {
+    for (const e of result.synced) {
+      baselineMap.set(e.relativePath, { mtimeMs: e.mtimeMs, size: e.size });
+    }
+    for (const d of allDeleted) {
+      baselineMap.delete(d);
+    }
+    await saveSyncBaseline(baselineMap);
+    _pendingBaselineEntries = [];
+
+    if (syncMode === 'mirror-to-source') {
+      _broadcastDataChanged(_event, 'general-config.html', {
+        action: 'sync',
+        target: 'user',
+        filename: 'config.js'
+      });
+    }
+
+    return {
+      ok: true,
+      copied: result.copied,
+      deleted: allDeleted.length,
+      deletedFiles: allDeleted,
+      errors: allErrors,
+      conflicts: [],
+      newFiles: [],
+      added: allAdded,
+      syncLocation
+    };
+  }
 
   // Save pending entries for baseline update after conflict resolution.
   // If there are no conflicts the baseline is committed immediately.
@@ -5341,7 +5455,7 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
     _pendingBaselineEntries = [];
   }
 
-  return { ok: true, copied: result.copied, errors: allErrors, conflicts: allConflicts, newFiles: allNewFiles, added: allAdded, syncLocation };
+  return { ok: true, copied: result.copied, deleted: allDeleted.length, deletedFiles: allDeleted, errors: allErrors, conflicts: allConflicts, newFiles: allNewFiles, added: allAdded, syncLocation };
 });
 
 ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {}) => {

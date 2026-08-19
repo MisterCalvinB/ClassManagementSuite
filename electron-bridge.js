@@ -218,6 +218,11 @@
     return getDesktopApi().resetSyncBaseline();
   }
 
+  async function runSync(request) {
+    if (!isElectron()) return null;
+    return getDesktopApi().runSync(request);
+  }
+
   async function renameFile(target, oldFilename, newFilename) {
     if (!isElectron()) {
       return null;
@@ -793,6 +798,7 @@
     renameFile,
     renameByPath,
     resetSyncBaseline,
+    runSync,
     statByPath,
     copyByPath,
     moveByPath,

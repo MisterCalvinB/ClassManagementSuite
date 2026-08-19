@@ -48,6 +48,17 @@
     var cn = String(student.customName || '').trim();
     var m = mode || 'full';
 
+    if (!fn && !ln && student.name && typeof student.name === 'string') {
+      var sName = student.name.trim();
+      var spaceIdx = sName.indexOf(' ');
+      if (spaceIdx !== -1) {
+        fn = sName.slice(0, spaceIdx);
+        ln = sName.slice(spaceIdx + 1);
+      } else {
+        fn = sName;
+      }
+    }
+
     if (m === 'custom') {
       if (cn) return cn;
       // Fallback if customName is not explicitly set

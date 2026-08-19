@@ -1335,6 +1335,30 @@
   function sbTomorrowStr() {
     var d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
   }
+  function sbIsPastEvent(slot) {
+    if (!slot || !slot.date) return false;
+    var now = new Date();
+    var dateParts = slot.date.split('-');
+    if (dateParts.length < 3) return false;
+    var year = parseInt(dateParts[0], 10);
+    var month = parseInt(dateParts[1], 10) - 1;
+    var day = parseInt(dateParts[2], 10);
+
+    var timeStr = slot.timeEnd || slot.time;
+    if (timeStr && typeof timeStr === 'string' && timeStr.indexOf(':') !== -1) {
+      var tp = timeStr.split(':');
+      var h = parseInt(tp[0], 10);
+      var m = parseInt(tp[1], 10) || 0;
+      if (!isNaN(h) && !isNaN(m)) {
+        var eventTime = new Date(year, month, day, h, m, 0, 0);
+        return now.getTime() > eventTime.getTime();
+      }
+    }
+
+    var endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+    return now.getTime() > endOfDay.getTime();
+  }
+
   function sbFormatDate(dateStr) {
     if (!dateStr) return '';
     var td = sbTodayStr(), tm = sbTomorrowStr();
@@ -1582,7 +1606,8 @@
                 entArr.forEach(function(e) {
                   slots.push({
                     date: ds, classId: cid,
-                    time: s.time || '', timeEnd: s.timeEnd || '',
+                    time: (e && e.time) || s.time || '',
+                    timeEnd: (e && e.timeEnd) || s.timeEnd || '',
                     type: (e && e.type) || 'lesson',
                     topic: (e && e.topic) || '',
                     entryId: (e && e.id) || ''
@@ -1601,7 +1626,7 @@
           var k = e.classId ? (e.date + '|' + e.classId) : (e.date + '|__' + (e.id || ''));
           if (consumed[k]) return;
           if (holDates.has(e.date)) return;
-          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '',
+          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '', timeEnd: e.timeEnd || '',
                        type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
         });
       }
@@ -1610,7 +1635,7 @@
       entries.forEach(function(e) {
         if (e && e.date && e.date >= todayStr && e.type !== 'holiday' &&
             !(e.classId && (classMeta[e.classId] || {}).archived)) {
-          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '',
+          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '', timeEnd: e.timeEnd || '',
                        type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
         }
       });
@@ -1629,10 +1654,11 @@
       return;
     }
     slots.forEach(function(s) {
+      var isPast = sbIsPastEvent(s);
       var ds = sbFormatDate(s.date);
       var isToday = s.date === sbTodayStr(), isTom = s.date === sbTomorrowStr();
       var item = document.createElement('div');
-      item.className = 'sb-item';
+      item.className = 'sb-item' + (isPast ? ' sb-item-past' : '');
       var clsName = (classMeta[s.classId] && classMeta[s.classId].name) || s.classId || '';
       item.innerHTML =
         '<div class="sb-item-top">' +

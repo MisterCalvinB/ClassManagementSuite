@@ -108,7 +108,7 @@
           nameFr: c.nameFr || c.name,
           description: c.description || c.desc || '',
           descriptionFr: c.descriptionFr || c.descFr || '',
-          weight: c.weight != null ? parseFloat(c.weight) : 1,
+          weight: c.weight != null && !isNaN(parseFloat(c.weight)) ? parseFloat(c.weight) : 0,
           icon: c.icon || 'note'
         };
       });
@@ -287,7 +287,7 @@
     var infList = getInfractionsList();
     infList.forEach(function (inf) {
       var count = parseInt(infractions[inf.key] || 0, 10);
-      var weight = parseFloat(inf.weight != null ? inf.weight : 1);
+      var weight = inf.weight != null && !isNaN(parseFloat(inf.weight)) ? parseFloat(inf.weight) : 1;
       total += count * weight;
     });
     return total;
@@ -657,7 +657,7 @@
             html += '<td style="text-align:center;">';
             html += '<div class="ag-counter-cell">';
             html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', -1)">-</button>';
-            html += '<span class="ag-counter-val">' + val + '</span>';
+            html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + key + '\', this.value)">';
             html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + key + '\', 1)">+</button>';
             html += '</div>';
             html += '</td>';
@@ -667,7 +667,7 @@
               html += '<td style="text-align:center;">';
               html += '<div class="ag-counter-cell">';
               html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', -1)">-</button>';
-              html += '<span class="ag-counter-val">' + val + '</span>';
+              html += '<input type="number" class="ag-counter-val" min="0" max="999" value="' + val + '" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="window.setInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', this.value)">';
               html += '<button type="button" class="ag-counter-btn" onclick="window.modInfraction(\'' + s.uuid + '\', \'' + inf.key + '\', 1)">+</button>';
               html += '</div>';
               html += '</td>';
@@ -720,6 +720,42 @@
   }
 
   // ── Global Window Handlers for Direct UI Interactions ──
+  window.setInfraction = function (uuid, key, val) {
+    var student = state.students.find(function (s) { return s.uuid === uuid; });
+    if (!student) return;
+
+    var num = parseInt(val, 10);
+    if (isNaN(num) || num < 0) num = 0;
+
+    var targetPeriod = 'p1';
+    if (state.selectedPeriods && state.selectedPeriods.length > 0 && state.selectedPeriods[0] !== 'all') {
+      targetPeriod = state.selectedPeriods[0];
+    } else {
+      var firstPeriod = (state.config.periods && state.config.periods[0] && state.config.periods[0].id) || 'p1';
+      targetPeriod = firstPeriod;
+    }
+
+    student.periods = student.periods || {};
+    student.periods[targetPeriod] = student.periods[targetPeriod] || { infractions: {}, startDate: '', endDate: '' };
+    student.periods[targetPeriod].infractions = student.periods[targetPeriod].infractions || {};
+
+    student.periods[targetPeriod].infractions[key] = num;
+
+    // Recalculate overall
+    student.infractions = getStudentPeriodInfractions(student, 'all');
+    student.points = calculateDisciplinePoints(student.infractions);
+    student.sanction = determineSanctionTier(student.points, 'all');
+
+    // Update state.adminData
+    state.adminData.students = state.adminData.students || {};
+    state.adminData.students[uuid] = state.adminData.students[uuid] || {};
+    state.adminData.students[uuid].periods = student.periods;
+    state.adminData.students[uuid].infractions = student.infractions;
+
+    renderTable();
+    autoSave();
+  };
+
   window.modInfraction = function (uuid, key, delta) {
     var student = state.students.find(function (s) { return s.uuid === uuid; });
     if (!student) return;
@@ -1893,8 +1929,10 @@
       var currentType = col.type || 'text';
       var isInfraction = currentType === 'infraction';
       var currentIcon = col.icon || (isInfraction ? 'note' : (currentType === 'sen' ? 'award' : 'table'));
+      var colWeight = col.weight != null && !isNaN(parseFloat(col.weight)) ? parseFloat(col.weight) : (isInfraction ? 1 : 0);
 
-      html += '<tr>';
+      html += '<tr data-col-idx="' + idx + '">';
+      html += '<td class="cfg-drag-handle" title="' + (isFr ? 'Glisser pour réordonner les colonnes' : 'Drag to reorder columns') + '">⠿</td>';
       html += '<td style="text-align:center;"><input type="checkbox" style="width:18px; height:18px; cursor:pointer;" ' + (col.visible !== false ? 'checked' : '') + ' onchange="window.toggleTempColumn(' + idx + ', this.checked)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:55px; text-align:center;" value="' + escapeHtml(currentIcon) + '" placeholder="icon" onchange="window.updateTempColumn(' + idx + ', \'icon\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100px; font-weight:800;" value="' + escapeHtml(col.key || '') + '" onchange="window.updateTempColumn(' + idx + ', \'key\', this.value)"></td>';
@@ -1926,7 +1964,7 @@
 
       // Points weight (for infraction columns)
       if (isInfraction) {
-        html += '<td style="text-align:center;"><input type="number" class="ag-input" style="width:65px; text-align:center;" min="0" max="50" step="0.5" value="' + (col.weight != null ? col.weight : 1) + '" onchange="window.updateTempColumn(' + idx + ', \'weight\', parseFloat(this.value)||1)"></td>';
+        html += '<td style="text-align:center;"><input type="number" class="ag-input" style="width:65px; text-align:center;" min="0" max="50" step="0.5" value="' + colWeight + '" onchange="var val = parseFloat(this.value); window.updateTempColumn(' + idx + ', \'weight\', isNaN(val) ? 0 : val)"></td>';
       } else {
         html += '<td style="text-align:center; color:#94a3b8; font-weight:bold;">—</td>';
       }
@@ -1935,6 +1973,98 @@
       html += '</tr>';
     });
     tbody.innerHTML = html;
+    attachColumnDragEvents(tbody);
+  }
+
+  function attachColumnDragEvents(tbody) {
+    var rows = tbody.querySelectorAll('tr[data-col-idx]');
+    var dragSrcIdx = null;
+
+    rows.forEach(function (row) {
+      var handle = row.querySelector('.cfg-drag-handle');
+
+      if (handle) {
+        handle.addEventListener('mousedown', function () {
+          row.setAttribute('draggable', 'true');
+        });
+        handle.addEventListener('mouseup', function () {
+          row.setAttribute('draggable', 'false');
+        });
+      }
+
+      row.querySelectorAll('input, select, button').forEach(function (el) {
+        el.setAttribute('draggable', 'false');
+        el.addEventListener('mousedown', function () {
+          row.setAttribute('draggable', 'false');
+        });
+      });
+
+      row.addEventListener('dragstart', function (e) {
+        dragSrcIdx = parseInt(row.getAttribute('data-col-idx'), 10);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(dragSrcIdx));
+        setTimeout(function () { row.classList.add('dragging'); }, 0);
+      });
+
+      row.addEventListener('dragend', function () {
+        row.removeAttribute('draggable');
+        rows.forEach(function (r) {
+          r.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom');
+        });
+      });
+
+      row.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        var targetIdx = parseInt(row.getAttribute('data-col-idx'), 10);
+        if (targetIdx === dragSrcIdx) {
+          row.classList.remove('drag-over-top', 'drag-over-bottom');
+          return;
+        }
+
+        var rect = row.getBoundingClientRect();
+        var relY = e.clientY - rect.top;
+        if (relY < rect.height / 2) {
+          row.classList.add('drag-over-top');
+          row.classList.remove('drag-over-bottom');
+        } else {
+          row.classList.add('drag-over-bottom');
+          row.classList.remove('drag-over-top');
+        }
+      });
+
+      row.addEventListener('dragleave', function () {
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        var toIdx = parseInt(row.getAttribute('data-col-idx'), 10);
+
+        var rect = row.getBoundingClientRect();
+        var relY = e.clientY - rect.top;
+        var insertAfter = relY >= rect.height / 2;
+
+        if (isNaN(fromIdx) || isNaN(toIdx)) return;
+
+        var list = state.tempConfig && state.tempConfig.columns;
+        if (!list || fromIdx < 0 || fromIdx >= list.length || toIdx < 0 || toIdx >= list.length) return;
+
+        var item = list.splice(fromIdx, 1)[0];
+        var targetPos = toIdx;
+        if (fromIdx < toIdx) {
+          targetPos = insertAfter ? toIdx : (toIdx - 1);
+        } else {
+          targetPos = insertAfter ? (toIdx + 1) : toIdx;
+        }
+        if (targetPos < 0) targetPos = 0;
+        if (targetPos > list.length) targetPos = list.length;
+
+        list.splice(targetPos, 0, item);
+        renderSettingsColumns();
+      });
+    });
   }
 
   window.onColumnTypeChange = function (idx, newType) {
@@ -2152,8 +2282,8 @@
       html += '<td><input type="text" class="ag-input" style="width:60px; text-align:center;" value="' + escapeHtml(inf.icon || 'note') + '" onchange="window.updateTempInfraction(' + idx + ', \'icon\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:120px;" value="' + escapeHtml(inf.key || '') + '" onchange="window.updateTempInfraction(' + idx + ', \'key\', this.value)"></td>';
       html += '<td><input type="text" class="ag-input" style="width:100%;" value="' + escapeHtml(inf.name || '') + '" onchange="window.updateTempInfraction(' + idx + ', \'name\', this.value)"></td>';
-      html += '<td><input type="text" class="ag-input" style="width:100%;" value="' + escapeHtml(inf.nameFr || '') + '" onchange="window.updateTempInfraction(' + idx + ', \'nameFr\', this.value)"></td>';
-      html += '<td><input type="number" class="ag-input" style="width:70px; text-align:center;" min="0" max="50" step="0.5" value="' + (inf.weight || 1) + '" onchange="window.updateTempInfraction(' + idx + ', \'weight\', parseFloat(this.value)||1)"></td>';
+      var infWeight = inf.weight != null && !isNaN(parseFloat(inf.weight)) ? parseFloat(inf.weight) : 1;
+      html += '<td><input type="number" class="ag-input" style="width:70px; text-align:center;" min="0" max="50" step="0.5" value="' + infWeight + '" onchange="var val = parseFloat(this.value); window.updateTempInfraction(' + idx + ', \'weight\', isNaN(val) ? 0 : val)"></td>';
       html += '<td style="text-align:center;"><button type="button" class="btn btn-secondary" style="padding:2px 6px; color:#b91c1c;" onclick="window.removeSettingInfraction(' + idx + ')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>';
       html += '</tr>';
     });

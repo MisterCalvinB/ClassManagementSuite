@@ -1076,8 +1076,9 @@
           closeModal('batchActionModal');
           return;
         }
-        entries.forEach(function (e) {
+        for (var e of entries) {
           if (selectedEntryIds.has(e.id)) {
+            var oldSem = e.date ? getGsSemesterForDate(e.date) : null;
             if (e.date) {
               var d = new Date(e.date + 'T12:00:00');
               d.setDate(d.getDate() + days);
@@ -1088,8 +1089,18 @@
               dTo.setDate(dTo.getDate() + days);
               e.dateTo = dTo.toISOString().slice(0, 10);
             }
+            if (e.type === 'test' && e.gsLink) {
+              var newSem = getGsSemesterForDate(e.date);
+              if (oldSem !== newSem) {
+                await removeTestFromGradeSheet(e);
+                e.gsLink = null;
+                await syncTestToGradeSheet(e, false);
+              } else {
+                await syncTestToGradeSheet(e, true);
+              }
+            }
           }
-        });
+        }
         await persistEntries();
         exitMultiSelectMode();
         closeModal('batchActionModal');
@@ -1098,14 +1109,20 @@
       else if (val === 'change_class') {
         var classInput = document.getElementById('batch-new-class');
         var newClassId = classInput ? classInput.value : '';
-        entries.forEach(function (e) {
+        for (var e of entries) {
           if (selectedEntryIds.has(e.id)) {
+            var oldClassId = e.classId;
             e.classId = newClassId;
             if (e.classIds && e.classIds.length) {
               e.classIds = [newClassId];
             }
+            if (e.type === 'test' && e.gsLink && oldClassId !== newClassId) {
+              await removeTestFromGradeSheet(e);
+              e.gsLink = null;
+              await syncTestToGradeSheet(e, false);
+            }
           }
-        });
+        }
         await persistEntries();
         exitMultiSelectMode();
         closeModal('batchActionModal');
@@ -1114,11 +1131,18 @@
       else if (val === 'change_type') {
         var typeInput = document.getElementById('batch-new-type');
         var newType = typeInput ? typeInput.value : 'lesson';
-        entries.forEach(function (e) {
+        for (var e of entries) {
           if (selectedEntryIds.has(e.id)) {
+            var oldType = e.type;
             e.type = newType;
+            if (oldType === 'test' && newType !== 'test' && e.gsLink) {
+              await removeTestFromGradeSheet(e);
+              e.gsLink = null;
+            } else if (oldType !== 'test' && newType === 'test' && !e.gsLink) {
+              await syncTestToGradeSheet(e, false);
+            }
           }
-        });
+        }
         await persistEntries();
         exitMultiSelectMode();
         closeModal('batchActionModal');
@@ -1500,6 +1524,7 @@
       if (aeEl) aeEl.checked = !!(cfg.reminderSettings ? cfg.reminderSettings.autoLessonEnd5Min !== false : true);
 
       loadTodos();
+      validateGradeSheetLinks(); // non-blocking link integrity check
 
       // Prune orphaned planner entry and to-do pins
       (async function() {
@@ -2037,6 +2062,10 @@
       updateWeekNav();
     }
 
+    function isGradeSheetLinked(entry) {
+      return !!(entry && entry.type === 'test' && entry.gsLink);
+    }
+
     function renderSlot(s) {
       if (s.isGlobalHoliday) {
         var hlabel = s.holidayLabel || t('pl_typeHoliday');
@@ -2097,7 +2126,7 @@
         r += '<span class="recur-badge" title="' + esc(t('pl_recurBadgeTitle')) + '">↻</span>';
       }
       if (showDot) r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
-      if (entry && entry.gsLink) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       var _boardLink = plannerBoardSessionsForSlot(s, entry);
       var _bSess = _boardLink.sessions;
       if (_bSess && _bSess.length) {
@@ -3422,7 +3451,7 @@
           reminder: (function () { var v = document.getElementById('e-reminder').value; return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
           reminderEnd: (function () { var v = document.getElementById('e-reminder-end').value; return v ? { minutesBefore: parseInt(v, 10) } : null; })(),
           customFields: Object.keys(customFields).length ? customFields : undefined,
-          gsLink: (prevEntry && prevEntry.gsLink) || null,
+          gsLink: (newType === 'test' && prevEntry && prevEntry.gsLink) ? prevEntry.gsLink : null,
           recurrenceId: recurId || undefined,
           recurrenceIndex: recurIndex != null ? recurIndex : undefined,
           recurrenceRule: recurId && recurRule ? recurRule : undefined
@@ -3584,13 +3613,25 @@
 
       // Grade-sheet sync (async, non-blocking) — only for single entries
       if (!recurRule) {
-        var syncEntry = entries.find(function (e) { return e.date === date && e.classId === classId && e.type === newType; }) || prevEntry;
-        if (newType === 'test' && syncEntry && !syncEntry.gsLink) {
-          syncTestToGradeSheet(syncEntry, false);
-        } else if (newType === 'test' && syncEntry && syncEntry.gsLink) {
-          syncTestToGradeSheet(syncEntry, true);
-        } else if (prevType === 'test' && newType !== 'test' && syncEntry && syncEntry.gsLink) {
-          removeTestFromGradeSheet(syncEntry);
+        var syncEntry = entries.find(function (e) { return e.id === singleId; }) || prevEntry;
+        if (prevType === 'test' && newType !== 'test') {
+          if (prevEntry && prevEntry.gsLink) removeTestFromGradeSheet(prevEntry);
+          if (syncEntry) syncEntry.gsLink = null;
+        } else if (newType === 'test' && syncEntry) {
+          if (syncEntry.gsLink) {
+            var curSem = getGsSemesterForDate(syncEntry.date);
+            var classChanged = prevEntry && (prevEntry.classId !== syncEntry.classId);
+            var semChanged = syncEntry.gsLink.semester && (syncEntry.gsLink.semester !== curSem);
+            if (classChanged || semChanged) {
+              if (prevEntry && prevEntry.gsLink) removeTestFromGradeSheet(prevEntry);
+              syncEntry.gsLink = null;
+              syncTestToGradeSheet(syncEntry, false);
+            } else {
+              syncTestToGradeSheet(syncEntry, true);
+            }
+          } else {
+            syncTestToGradeSheet(syncEntry, false);
+          }
         }
       }
     }
@@ -3852,9 +3893,10 @@
               var content = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_TEST_DATA = ' + JSON.stringify(data, null, 2) + ';\n';
               await Desktop.saveText('grades', testLabel + '.js', content, link.classSlug);
               showToast(t('pl_gsUpdated'));
+              return;
             }
           }
-          return;
+          // If file not found on disk, fallback to creating a new test slot
         }
 
         // Create: find next empty slot
@@ -3926,7 +3968,7 @@
               semester: gsSem, testIndex: testIndex
             };
             persistEntries();
-            renderAgenda(); // refresh GS badge
+            render(); // refresh GS badge
           }
           showToast(t('pl_gsWriteOk'));
         }
@@ -3934,7 +3976,7 @@
     }
 
     async function removeTestFromGradeSheet(entry) {
-      if (!entry.gsLink) return;
+      if (!entry || !entry.gsLink) return;
       try {
         var link = entry.gsLink;
         var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0');
@@ -3981,6 +4023,58 @@
         } catch (e) { console.warn('removeTestFromGradeSheet _class.js update error:', e); }
 
       } catch (e) { console.warn('removeTestFromGradeSheet error:', e); }
+
+      entry.gsLink = null;
+      var matchIdx = entries.findIndex(function (e) { return e.id === entry.id; });
+      if (matchIdx >= 0) {
+        entries[matchIdx].gsLink = null;
+      }
+      persistEntries();
+      render();
+    }
+
+    async function validateGradeSheetLinks() {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      var modified = false;
+      var listResult = null;
+      try {
+        listResult = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+      } catch (e) { return; }
+      if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) return;
+
+      var gradeFilesMap = {};
+      listResult.files.forEach(function (f) {
+        if (f.relativePath) {
+          var norm = f.relativePath.replace(/\\/g, '/').toLowerCase();
+          gradeFilesMap[norm] = f;
+        }
+      });
+
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (e.type !== 'test' && e.gsLink) {
+          e.gsLink = null;
+          modified = true;
+        } else if (e.type === 'test' && e.gsLink) {
+          var link = e.gsLink;
+          if (!link.classSlug || !link.semester || link.testIndex == null) {
+            e.gsLink = null;
+            modified = true;
+            continue;
+          }
+          var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0') + '.js';
+          var relPathNorm = (link.classSlug + '/' + testLabel).toLowerCase();
+          if (!gradeFilesMap[relPathNorm]) {
+            e.gsLink = null;
+            modified = true;
+          }
+        }
+      }
+
+      if (modified) {
+        await persistEntries();
+        render();
+      }
     }
 
     // ── Export ─────────────────────────────────────────────────────────────────
@@ -5433,7 +5527,7 @@
         var ok = await showConfirm(confirmMsg);
         if (!ok) return;
 
-        if (tgtEntry.type === 'test' && srcEntry.type !== 'test' && tgtEntry.gsLink) {
+        if (tgtEntry.gsLink) {
           await removeTestFromGradeSheet(tgtEntry);
           tgtEntry.gsLink = null;
         }
@@ -5446,12 +5540,7 @@
         tgtEntry.notes        = srcEntry.notes || '';
         tgtEntry.customFields = srcEntry.customFields
           ? Object.assign({}, srcEntry.customFields) : undefined;
-
-        if (srcEntry.type !== 'test') {
-          tgtEntry.gsLink = null;
-        } else if (!tgtEntry.gsLink) {
-          tgtEntry.gsLink = null;
-        }
+        tgtEntry.gsLink       = null;
 
         updatedEntry = tgtEntry;
       } else if (targetInfo && targetInfo.date) {
@@ -5484,9 +5573,7 @@
         if (!updatedEntry.classId) {
           updatedEntry.classId = srcEntry.classId || ((filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '');
         }
-        if (updatedEntry.gsLink) {
-          await syncTestToGradeSheet(updatedEntry, true);
-        } else if (updatedEntry.classId) {
+        if (updatedEntry.classId) {
           await syncTestToGradeSheet(updatedEntry, false);
         }
       }
@@ -5859,7 +5946,7 @@
       if (viewOpts.badges && badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
-      if (entry.gsLink) r += '<span class="gs-badge">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
       r += '</div>';
@@ -5895,7 +5982,7 @@
       if (timeLabel) r += '<span class="at-time">' + esc(timeLabel) + '</span>';
       if (badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
-      if (entry.gsLink) r += '<span class="gs-badge">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
       r += '</div>';
@@ -6510,6 +6597,10 @@
           loadData().then(function() {
             render();
           });
+          return;
+        }
+        if (data && (data.target === 'grades' || data.subdir === 'grades')) {
+          if (typeof validateGradeSheetLinks === 'function') validateGradeSheetLinks();
           return;
         }
         if (data && (data.filename === 'planner-config.js' || data.filename === 'class-groups.js' || data.subdir === 'planner')) {

@@ -1062,22 +1062,22 @@
 </div>
 
 <!-- Student Merge Modal -->
-<div id="ge-merge-modal" class="ge-match-overlay" style="display:none;">
+<div id="ge-merge-modal" class="ge-match-overlay" style="display:none;z-index:9600;">
   <div class="ge-match-card" style="max-width:920px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div>
-        <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geMergeModalTitle">Merge Duplicate Students</h3>
+        <h3 id="ge-merge-modal-title" style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geMergeModalTitle">Merge Duplicate Students</h3>
         <p id="ge-merge-subtitle" style="font-size:0.78rem;color:#64748b;margin:3px 0 0;"></p>
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
-        <div style="display:flex;gap:6px;">
+        <div id="ge-merge-batch-bar" style="display:flex;gap:6px;">
           <button type="button" onclick="geMergeSetAll('primary')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMergeBtnMergeAll">Merge all</button>
           <button type="button" onclick="geMergeSetAll('ignore')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMergeBtnIgnoreAll">Do nothing (Keep all)</button>
         </div>
         <button type="button" onclick="closeMergeModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
       </div>
     </div>
-    <p style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMergeModalDesc">The following students share the exact same name across different UUID records. Choose which primary UUID to keep for each student. All classes, historical enrollments, and performance links will be merged into the primary UUID.</p>
+    <p id="ge-merge-desc" style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMergeModalDesc">The following students share the exact same name across different UUID records. Choose which primary UUID to keep for each student. All classes, historical enrollments, and performance links will be merged into the primary UUID.</p>
     
     <div class="ge-match-table-wrap" style="max-height:55vh;">
       <table class="ge-match-table">
@@ -1147,10 +1147,11 @@
 
     <!-- Footer with selection actions -->
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div id="ge-ast-selected-actions" style="display:flex;gap:8px;align-items:center;">
+      <div id="ge-ast-selected-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="ge-ast-selected-count" style="font-size:0.78rem;font-weight:700;color:#475569;">0 selected</span>
-        <button type="button" id="ge-ast-btn-del-sel" onclick="deleteSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteSelected">Delete Selected</button>
+        <button type="button" id="ge-ast-btn-merge-sel" onclick="mergeSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" data-i18n="geAllStudentsMergeSelected"><img src="../assets/icons/merge.svg" style="width:13px;height:13px;" alt=""> Merge Selected (0)</button>
         <button type="button" id="ge-ast-btn-arc-sel" onclick="archiveSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fff;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveSelected">Archive Selected</button>
+        <button type="button" id="ge-ast-btn-del-sel" onclick="deleteSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteSelected">Delete Selected</button>
       </div>
       <div>
         <button type="button" onclick="closeAllStudentsModal()" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Close</button>
@@ -3784,7 +3785,7 @@
     }
   }
 
-  // ── Student Merge Duplicates ─────────────────────────────────
+  // ── Student Merge Duplicates & Selected Students ────────────
   let _currentMergeGroups = [];
 
   function checkAndMergeDuplicateStudents() {
@@ -3815,22 +3816,70 @@
       return;
     }
 
+    openMergeModalWithGroups(_currentMergeGroups, false);
+  }
+
+  function mergeSelectedStudents() {
+    const count = _astSelectedUuids.size;
+    if (count < 2) {
+      const msg = typeof t === 'function' ? t('geMergeSelectMin') : 'Please select at least 2 students to merge.';
+      if (typeof showToast === 'function') showToast(msg, true);
+      return;
+    }
+    if (window.ImportUtils && typeof window.ImportUtils.syncStudentEnrollments === 'function') {
+      studentRoster = ImportUtils.syncStudentEnrollments(studentRoster, rawMeta);
+    }
+    const selectedStudents = Array.from(_astSelectedUuids).map(uuid => studentRoster[uuid]).filter(Boolean);
+    if (selectedStudents.length < 2) {
+      const msg = typeof t === 'function' ? t('geMergeSelectMin') : 'Please select at least 2 students to merge.';
+      if (typeof showToast === 'function') showToast(msg, true);
+      return;
+    }
+    _currentMergeGroups = [selectedStudents];
+    openMergeModalWithGroups(_currentMergeGroups, true);
+  }
+
+  function openMergeModalWithGroups(groups, isManualSelection) {
     const modal = document.getElementById('ge-merge-modal');
     const tbody = document.getElementById('ge-merge-tbody');
+    const title = document.getElementById('ge-merge-modal-title');
     const subtitle = document.getElementById('ge-merge-subtitle');
+    const desc = document.getElementById('ge-merge-desc');
+    const batchBar = document.getElementById('ge-merge-batch-bar');
+    if (!tbody || !modal) return;
     tbody.innerHTML = '';
 
-    const countText = (typeof t === 'function' ? t('geMergeGroupCount') : '{count} duplicate student name(s) found').replace('{count}', String(_currentMergeGroups.length));
-    if (subtitle) subtitle.textContent = countText;
+    if (batchBar) {
+      batchBar.style.display = isManualSelection ? 'none' : 'flex';
+    }
 
-    _currentMergeGroups.forEach((group, gIdx) => {
+    if (isManualSelection) {
+      const totalStudents = groups.reduce((acc, g) => acc + g.length, 0);
+      if (title) title.textContent = typeof t === 'function' ? t('geMergeModalTitle') : 'Merge Duplicate Students';
+      if (subtitle) {
+        subtitle.textContent = (typeof t === 'function' ? t('geMergeSelectedSubtitle') : 'Merging {count} selected student records into one').replace('{count}', String(totalStudents));
+      }
+      if (desc) {
+        desc.textContent = typeof t === 'function' ? t('geMergeSelectedDesc') : 'Choose which primary student record to retain. All group enrollments, past records, and details will be combined into the primary profile.';
+      }
+    } else {
+      if (title) title.textContent = typeof t === 'function' ? t('geMergeModalTitle') : 'Merge Duplicate Students';
+      const countText = (typeof t === 'function' ? t('geMergeGroupCount') : '{count} duplicate student name(s) found').replace('{count}', String(groups.length));
+      if (subtitle) subtitle.textContent = countText;
+      if (desc) {
+        desc.textContent = typeof t === 'function' ? t('geMergeModalDesc') : 'The following students share the exact same name across different UUID records. Choose which primary UUID to keep for each student. All classes, historical enrollments, and performance links will be merged into the primary UUID.';
+      }
+    }
+
+    groups.forEach((group, gIdx) => {
       const tr = document.createElement('tr');
       tr.dataset.groupIdx = String(gIdx);
 
       // Student name column
       const tdName = document.createElement('td');
-      const sample = group[0];
-      tdName.innerHTML = `<div style="font-weight:800;font-size:0.92rem;color:#1e293b;">${sample.firstName || ''} ${sample.lastName || ''}</div>
+      const uniqueNames = [...new Set(group.map(s => `${s.firstName || ''} ${s.lastName || ''}`.trim()).filter(Boolean))];
+      const displayName = uniqueNames.join(' / ') || group[0].uuid;
+      tdName.innerHTML = `<div style="font-weight:800;font-size:0.92rem;color:#1e293b;">${displayName}</div>
         <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${group.length} records</div>`;
 
       // Records detail column
@@ -3842,10 +3891,17 @@
           ? enrs.map(e => `${e.groupName || e.groupUuid} (${e.year || ''}${e.semester ? ' S' + e.semester : ''}${e.level ? ' Lvl ' + e.level : ''})`).join(', ')
           : (typeof t === 'function' ? t('geNoPastEnrollments') : 'No groups assigned');
         
-        const extraInfo = [s.adminClass ? 'Class: ' + s.adminClass : '', s.dob ? 'DOB: ' + s.dob : '', s.gender ? 'Gender: ' + s.gender : '', s.sen ? 'SEN: Yes' : ''].filter(Boolean).join(' | ');
+        const extraInfo = [
+          (s.firstName || s.lastName) ? `<strong>${s.firstName || ''} ${s.lastName || ''}</strong>` : '',
+          s.customName ? `Nickname: ${s.customName}` : '',
+          s.adminClass ? 'Class: ' + s.adminClass : '',
+          s.dob ? 'DOB: ' + s.dob : '',
+          s.gender ? 'Gender: ' + s.gender : '',
+          s.sen ? '<span style="color:#e11d48;font-weight:800;">SEN: Yes</span>' : ''
+        ].filter(Boolean).join(' · ');
 
         recsHtml += `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:6px 10px;">
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span style="font-size:0.72rem;font-family:monospace;font-weight:700;color:#2563a8;background:#eff6ff;padding:1px 6px;border-radius:3px;border:1px solid #bfdbfe;">${s.uuid}</span>
             <span style="font-size:0.78rem;color:#475569;">${extraInfo}</span>
           </div>
@@ -3867,7 +3923,8 @@
         const opt = document.createElement('option');
         opt.value = s.uuid;
         const enrCount = (s.enrollments || []).length;
-        opt.textContent = `Keep ${s.uuid} (${enrCount} ${enrCount === 1 ? 'group' : 'groups'})`;
+        const sFullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.uuid;
+        opt.textContent = `Keep ${sFullName} (${s.uuid.slice(0, 8)}…) [${enrCount} ${enrCount === 1 ? 'group' : 'groups'}]`;
         if (sIdx === 0) opt.selected = true;
         select.appendChild(opt);
       });
@@ -3919,11 +3976,13 @@
       secondaryStudents.forEach(sec => {
         mergedRecordsCount++;
         // Merge attributes if primary is missing them
+        if (!primaryStudent.firstName && sec.firstName) primaryStudent.firstName = sec.firstName;
+        if (!primaryStudent.lastName && sec.lastName) primaryStudent.lastName = sec.lastName;
         if (!primaryStudent.customName && sec.customName) primaryStudent.customName = sec.customName;
         if (!primaryStudent.dob && sec.dob) primaryStudent.dob = sec.dob;
         if (!primaryStudent.adminClass && sec.adminClass) primaryStudent.adminClass = sec.adminClass;
         if (!primaryStudent.gender && sec.gender) primaryStudent.gender = sec.gender;
-        if (primaryStudent.sen === undefined && sec.sen !== undefined) primaryStudent.sen = sec.sen;
+        if ((primaryStudent.sen === undefined || primaryStudent.sen === false) && sec.sen) primaryStudent.sen = sec.sen;
 
         // Replace secondary UUID in all groups in rawMeta
         Object.keys(rawMeta).forEach(gid => {
@@ -3938,8 +3997,11 @@
           }
         });
 
-        // Delete secondary from roster
+        // Delete secondary from roster and selection set
         delete studentRoster[sec.uuid];
+        if (typeof _astSelectedUuids !== 'undefined') {
+          _astSelectedUuids.delete(sec.uuid);
+        }
       });
 
       studentRoster[primaryUuid] = primaryStudent;
@@ -3951,6 +4013,9 @@
     }
 
     renderGroupsList();
+    if (typeof renderAllStudentsTable === 'function') {
+      renderAllStudentsTable();
+    }
     closeMergeModal();
 
     const msg = (typeof t === 'function' ? t('geMergeSuccessNotice') : 'Successfully merged {count} duplicate student record(s). Click Save to persist.').replace('{count}', String(mergedRecordsCount));
@@ -4229,9 +4294,15 @@
   function updateSelectedStudentsCount() {
     const count = _astSelectedUuids.size;
     const lbl = document.getElementById('ge-ast-selected-count');
+    const mergeBtn = document.getElementById('ge-ast-btn-merge-sel');
     const delBtn = document.getElementById('ge-ast-btn-del-sel');
     const arcBtn = document.getElementById('ge-ast-btn-arc-sel');
     if (lbl) lbl.textContent = `${count} selected`;
+    if (mergeBtn) {
+      mergeBtn.disabled = count < 2;
+      const baseText = typeof t === 'function' ? t('geAllStudentsMergeSelected') : 'Merge Selected ({count})';
+      mergeBtn.innerHTML = `<img src="../assets/icons/merge.svg" style="width:13px;height:13px;vertical-align:middle;" alt=""> <span>${baseText.replace('{count}', String(count))}</span>`;
+    }
     if (delBtn) {
       delBtn.disabled = count === 0;
       delBtn.textContent = (typeof t === 'function' ? t('geAllStudentsDeleteSelected') : 'Delete Selected ({count})').replace('{count}', String(count));

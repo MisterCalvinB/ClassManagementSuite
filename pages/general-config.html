@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
   <link rel="stylesheet" href="../css/general-config.css">
 </head>
 
@@ -302,6 +303,8 @@
               <button class="btn btn-outline" id="pickSyncBtn" type="button" data-i18n="gcChooseFolder">Choose
                 Folder</button>
               <button class="btn" id="runSyncBtn" type="button" disabled data-i18n="gcSyncNow">Sync Now</button>
+              <button class="btn btn-outline" id="runMirrorAppToSyncBtn" type="button" disabled data-i18n="gcMirrorAppToSync">Mirror: App → Sync</button>
+              <button class="btn btn-outline" id="runMirrorSyncToAppBtn" type="button" disabled data-i18n="gcMirrorSyncToApp">Mirror: Sync → App</button>
               <button class="btn btn-outline" id="resetSyncBaselineBtn" type="button" data-i18n="gcResetSyncBaseline">Reset Baseline</button>
             </div>
             <div style="margin-top:10px;">
@@ -1624,13 +1627,20 @@
       if (!window.electronApi || !window.electronApi.getSyncLocation) return;
       var res = await window.electronApi.getSyncLocation();
       var hasSyncLocation = res && res.ok && res.syncLocation;
+      var runSyncBtn = document.getElementById('runSyncBtn');
+      var runMirrorAppToSyncBtn = document.getElementById('runMirrorAppToSyncBtn');
+      var runMirrorSyncToAppBtn = document.getElementById('runMirrorSyncToAppBtn');
       if (hasSyncLocation) {
         document.getElementById('syncPath').textContent = res.syncLocation;
-        document.getElementById('runSyncBtn').disabled = false;
+        if (runSyncBtn) runSyncBtn.disabled = false;
+        if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = false;
+        if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = false;
         autoSyncToggle.disabled = false;
       } else {
         document.getElementById('syncPath').textContent = typeof t === 'function' ? t('notSet') : 'Not set';
-        document.getElementById('runSyncBtn').disabled = true;
+        if (runSyncBtn) runSyncBtn.disabled = true;
+        if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = true;
+        if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = true;
         autoSyncToggle.disabled = true;
         autoSyncToggle.checked = false;
       }
@@ -1674,6 +1684,10 @@
           setSyncStatus(t('gcSyncFolderUpdated'), 'ok');
           document.getElementById('syncPath').textContent = res.syncLocation;
           document.getElementById('runSyncBtn').disabled = false;
+          var runMirrorAppToSyncBtn = document.getElementById('runMirrorAppToSyncBtn');
+          var runMirrorSyncToAppBtn = document.getElementById('runMirrorSyncToAppBtn');
+          if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = false;
+          if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = false;
           autoSyncToggle.disabled = false;
         }
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
@@ -1681,6 +1695,10 @@
     });
 
     document.getElementById('runSyncBtn').addEventListener('click', doSync);
+    var runMirrorAppToSyncBtnEl = document.getElementById('runMirrorAppToSyncBtn');
+    if (runMirrorAppToSyncBtnEl) runMirrorAppToSyncBtnEl.addEventListener('click', doMirrorAppToSync);
+    var runMirrorSyncToAppBtnEl = document.getElementById('runMirrorSyncToAppBtn');
+    if (runMirrorSyncToAppBtnEl) runMirrorSyncToAppBtnEl.addEventListener('click', doMirrorSyncToApp);
 
     document.getElementById('resetSyncBaselineBtn').addEventListener('click', async function () {
       if (!window.Desktop || typeof Desktop.resetSyncBaseline !== 'function') return;
@@ -2304,6 +2322,82 @@
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally {
         if (!syncConflictOverlay.classList.contains('open')) document.getElementById('runSyncBtn').disabled = false;
+      }
+    }
+
+    async function doMirrorAppToSync() {
+      var confirmMsg = typeof t === 'function' ? t('gcMirrorAppToSyncConfirm') : 'Mirror App to Sync?';
+      var confirmed = (typeof showConfirm === 'function')
+        ? await showConfirm(confirmMsg)
+        : window.confirm(confirmMsg);
+      if (!confirmed) return;
+
+      var btnAppToSync = document.getElementById('runMirrorAppToSyncBtn');
+      var btnSyncToApp = document.getElementById('runMirrorSyncToAppBtn');
+      var btnSync = document.getElementById('runSyncBtn');
+      if (btnAppToSync) btnAppToSync.disabled = true;
+      if (btnSyncToApp) btnSyncToApp.disabled = true;
+      if (btnSync) btnSync.disabled = true;
+
+      setSyncStatus(t('gcMirroring'), '');
+      syncAddedDetails.style.display = 'none';
+      try {
+        var res = await window.electronApi.runSync({ mode: 'mirror-to-target' });
+        if (!res || !res.ok) {
+          setSyncStatus((res && res.error) || t('gcSyncFailed'), 'err');
+          return;
+        }
+        var errCount = (res.errors && res.errors.length) || 0;
+        if (errCount) {
+          setSyncStatus(tFmt('gcSyncedWith', { n: errCount }), 'err');
+        } else {
+          setSyncStatus(tFmt('gcMirrorComplete', { copied: res.copied || 0, deleted: res.deleted || 0 }), 'ok');
+          _saveLastSyncTime();
+        }
+      } catch (err) {
+        setSyncStatus(String(err && err.message ? err.message : err), 'err');
+      } finally {
+        if (btnAppToSync) btnAppToSync.disabled = false;
+        if (btnSyncToApp) btnSyncToApp.disabled = false;
+        if (btnSync) btnSync.disabled = false;
+      }
+    }
+
+    async function doMirrorSyncToApp() {
+      var confirmMsg = typeof t === 'function' ? t('gcMirrorSyncToAppConfirm') : 'Mirror Sync to App?';
+      var confirmed = (typeof showConfirm === 'function')
+        ? await showConfirm(confirmMsg)
+        : window.confirm(confirmMsg);
+      if (!confirmed) return;
+
+      var btnAppToSync = document.getElementById('runMirrorAppToSyncBtn');
+      var btnSyncToApp = document.getElementById('runMirrorSyncToAppBtn');
+      var btnSync = document.getElementById('runSyncBtn');
+      if (btnAppToSync) btnAppToSync.disabled = true;
+      if (btnSyncToApp) btnSyncToApp.disabled = true;
+      if (btnSync) btnSync.disabled = true;
+
+      setSyncStatus(t('gcMirroring'), '');
+      syncAddedDetails.style.display = 'none';
+      try {
+        var res = await window.electronApi.runSync({ mode: 'mirror-to-source' });
+        if (!res || !res.ok) {
+          setSyncStatus((res && res.error) || t('gcSyncFailed'), 'err');
+          return;
+        }
+        var errCount = (res.errors && res.errors.length) || 0;
+        if (errCount) {
+          setSyncStatus(tFmt('gcSyncedWith', { n: errCount }), 'err');
+        } else {
+          setSyncStatus(tFmt('gcMirrorComplete', { copied: res.copied || 0, deleted: res.deleted || 0 }), 'ok');
+          _saveLastSyncTime();
+        }
+      } catch (err) {
+        setSyncStatus(String(err && err.message ? err.message : err), 'err');
+      } finally {
+        if (btnAppToSync) btnAppToSync.disabled = false;
+        if (btnSyncToApp) btnSyncToApp.disabled = false;
+        if (btnSync) btnSync.disabled = false;
       }
     }
 
