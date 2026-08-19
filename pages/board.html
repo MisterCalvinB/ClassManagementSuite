@@ -14516,6 +14516,153 @@
       window.conSyncNodeLockState = function (node) { conSyncNodeLockState(node); };
       window.conDeselectAll = function () { conSelect(null); };
       window.conGetMultiSelected = function () { return conMultiSelected; };
+      window.conUndo = function () { conUndo(); };
+      window.conRedo = function () { conRedo(); };
+      window.conIsNodeLocked = conIsNodeLocked;
+      window.conGroupOfNode = conGroupOfNode;
+      window.conGetMode = function () { return conMode; };
+      window.conIsLinkModeActive = function () { return !!_conLinkSrc; };
+      window.conCancelLinkMode = function () { if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode(); };
+      window.conStartLinkMode = function (srcId) { if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId); };
+      window.conSelectAllNodes = function () {
+        conSelected = null;
+        if (Array.isArray(conNodes)) {
+          conNodes.forEach(n => {
+            if (n && n.el) {
+              n.el.classList.remove('con-selected');
+              n.el.classList.add('con-multi-selected');
+              conMultiSelected.add(n.id);
+            }
+          });
+        }
+      };
+      window.conDeleteSelectedItems = function () {
+        conPushUndo();
+        if (conGroupFocused) {
+          if (typeof conGroupDeleteWithContents === 'function') conGroupDeleteWithContents(conGroupFocused);
+          if (typeof conGroupFocus === 'function') conGroupFocus(null);
+          return;
+        }
+        if (conMultiSelected.size > 0) {
+          [...conMultiSelected].forEach(id => conRemoveNode(id));
+          conMultiSelected.clear();
+        } else if (conSelected) {
+          conRemoveNode(conSelected);
+        }
+        if (typeof conDrawingSelected !== 'undefined' && conDrawingSelected.size > 0) {
+          [...conDrawingSelected].forEach(did => {
+            const dr = (typeof conDrawings !== 'undefined' ? conDrawings : []).find(x => x.id === did);
+            if (dr && dr.el) dr.el.remove();
+            if (typeof conDrawings !== 'undefined') conDrawings = conDrawings.filter(x => x.id !== did);
+          });
+          conDrawingSelected.clear();
+        }
+        if (window.conGetShapeSelected) {
+          const shapeSel = window.conGetShapeSelected();
+          if (shapeSel && shapeSel.size > 0) {
+            [...shapeSel].forEach(sid => {
+              const s = (typeof conShapes !== 'undefined' ? conShapes : []).find(x => x.id === sid);
+              if (s && s.el) s.el.remove();
+              if (typeof conShapes !== 'undefined') conShapes = conShapes.filter(x => x.id !== sid);
+              conGroups.forEach(g => { if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => id !== sid); });
+            });
+            if (window.conShapeClearSelection) window.conShapeClearSelection();
+          }
+        }
+        if (typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0) {
+          [...conNoteSelected].forEach(nid => {
+            const nd = (typeof conNotes !== 'undefined' ? conNotes : []).find(n => n.id === nid);
+            if (nd && typeof wnDeleteNoteData === 'function') wnDeleteNoteData(nd);
+          });
+          conNoteSelected.clear();
+        }
+      };
+      window.conToggleMaskSelected = function () {
+        const hasNodeSelection = !!(conMultiSelected && conMultiSelected.size > 0);
+        const hasNoteSelection = !!(typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0);
+        if (hasNodeSelection || hasNoteSelection) {
+          conPushUndo();
+          if (hasNodeSelection) {
+            const selectedNodes = conNodes.filter(n => conMultiSelected.has(n.id));
+            const anyVisibleNode = selectedNodes.some(node => !node.masked);
+            selectedNodes.forEach(node => {
+              if (!node || !node.el) return;
+              node.masked = anyVisibleNode;
+              node.el.classList.toggle('con-masked', anyVisibleNode);
+            });
+          }
+          if (hasNoteSelection) {
+            const selectedNotes = [...conNoteSelected]
+              .map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null))
+              .filter(Boolean);
+            const anyVisibleNote = selectedNotes.some(note => !note.hidden);
+            selectedNotes.forEach(note => {
+              note.hidden = anyVisibleNote;
+              if (note._applyStyle) note._applyStyle();
+              if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null);
+            });
+          }
+        } else if (conGroupFocused) {
+          const group = conGroups.find(g => g.id === conGroupFocused);
+          if (group && group.nodeIds && group.nodeIds.length) {
+            conPushUndo();
+            const anyVisible = group.nodeIds.some(nid => {
+              const node = conNodes.find(n => n.id === nid);
+              return node && !node.masked;
+            });
+            group.nodeIds.forEach(nid => {
+              const node = conNodes.find(n => n.id === nid);
+              if (!node || !node.el) return;
+              node.masked = anyVisible;
+              node.el.classList.toggle('con-masked', anyVisible);
+            });
+          }
+        } else if (conSelected) {
+          const node = conNodes.find(n => n.id === conSelected);
+          if (node) {
+            conPushUndo();
+            node.masked = !node.masked;
+            node.el.classList.toggle('con-masked', node.masked);
+          }
+        }
+      };
+      window.conTriggerLinkShortcut = function () {
+        let srcId = null;
+        if (typeof conNoteSelected !== 'undefined' && conNoteSelected.size === 1) {
+          srcId = [...conNoteSelected][0];
+        } else if (conSelected) {
+          srcId = conSelected;
+        } else if (conGroupFocused) {
+          srcId = conGroupFocused;
+        }
+        if (!srcId) return;
+        if (_conLinkSrc === srcId) { if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode(); return; }
+        if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId);
+      };
+      window.conAdjustSelectedFontSize = function (delta) {
+        const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
+        if (!hasSelection) return;
+        const targets = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
+        if (!targets.length) return;
+        conPushUndo();
+        targets.forEach(node => {
+          if (conIsNodeLocked(node)) return;
+          const current = conGetNodeBaseFontSize(node) || 13;
+          const next = delta > 0 ? Math.min(current + delta, 48) : Math.max(current + delta, 8);
+          conSetNodeBaseFontSize(node, next);
+          conApplyNodeShape(node, node.shape);
+        });
+        const lastSize = conGetNodeBaseFontSize(targets[targets.length - 1]) || 13;
+        const slider = document.getElementById('con-ctx-font-size');
+        const display = document.getElementById('con-ctx-font-size-display');
+        if (slider) slider.value = lastSize;
+        if (display) display.textContent = lastSize;
+        conRedrawEdges();
+      };
+      window.conGroupSelected = function () { if (typeof conGroupSelected === 'function') conGroupSelected(); };
+      window.conGroupUngroup = function (groupId) { if (typeof conGroupUngroup === 'function') conGroupUngroup(groupId || conGroupFocused); };
       window.updateZoom = function (scale) {
         const prevZoom = conGetEffectiveZoom();
         const zoom = Math.max(0.5, Math.min(3, parseFloat(scale) || 1));
@@ -33839,17 +33986,20 @@
     let _bcQuickActionsDraftList = [];
 
     function _boardNudgeSelected(dx, dy) {
+      const conSelected = window.conGetSelected ? window.conGetSelected() : null;
+      const conMultiSelected = window.conGetMultiSelected ? window.conGetMultiSelected() : null;
+      const conNodes = window.conGetNodes ? window.conGetNodes() : [];
       const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
       if (!hasSelection) return;
       const targets = (conMultiSelected && conMultiSelected.size > 0)
         ? conNodes.filter(n => conMultiSelected.has(n.id))
         : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
       if (!targets.length) return;
-      conPushUndo();
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
       const movedPhraseGroups = new Set();
       targets.forEach(node => {
-        if (conIsNodeLocked(node)) return;
-        const pg = conGroupOfNode(node.id);
+        if (typeof window.conIsNodeLocked === 'function' && window.conIsNodeLocked(node)) return;
+        const pg = typeof window.conGroupOfNode === 'function' ? window.conGroupOfNode(node.id) : null;
         if (pg && pg.phraseGroup) {
           movedPhraseGroups.add(pg);
           if ((node.phraseOrder || 0) !== 0) return;
@@ -33865,120 +34015,60 @@
           node.el.style.top = node.y + 'px';
         }
       });
-      movedPhraseGroups.forEach(pg => conPhraseGroupLayout(pg));
-      conRedrawEdges(); conGroupRefitAll();
+      movedPhraseGroups.forEach(pg => { if (typeof window.conPhraseGroupLayout === 'function') window.conPhraseGroupLayout(pg); });
+      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+      if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
     }
 
     const BOARD_ACTION_DEFINITIONS = [
       // History & File
-      { id: 'history_undo', name: 'Undo', desc: 'Undo last action', category: 'history', categoryName: 'History & File', icon: '../assets/icons/rewind.svg', defaultShortcut: { ctrl: true, key: 'z' }, fn: () => { if (typeof conUndo === 'function') conUndo(); } },
-      { id: 'history_redo', name: 'Redo', desc: 'Redo last undone action', category: 'history', categoryName: 'History & File', icon: '../assets/icons/refresh.svg', defaultShortcut: { ctrl: true, key: 'y' }, fn: () => { if (typeof conRedo === 'function') conRedo(); } },
-      { id: 'file_save', name: 'Save Session', desc: 'Save board session to file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/save.svg', defaultShortcut: { ctrl: true, key: 's' }, fn: () => { if (typeof conSaveSession === 'function') conSaveSession(); } },
+      { id: 'history_undo', name: 'Undo', desc: 'Undo last action', category: 'history', categoryName: 'History & File', icon: '../assets/icons/rewind.svg', defaultShortcut: { ctrl: true, key: 'z' }, fn: () => { if (typeof window.conUndo === 'function') window.conUndo(); } },
+      { id: 'history_redo', name: 'Redo', desc: 'Redo last undone action', category: 'history', categoryName: 'History & File', icon: '../assets/icons/refresh.svg', defaultShortcut: { ctrl: true, key: 'y' }, fn: () => { if (typeof window.conRedo === 'function') window.conRedo(); } },
+      { id: 'file_save', name: 'Save Session', desc: 'Save board session to file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/save.svg', defaultShortcut: { ctrl: true, key: 's' }, fn: () => { if (typeof window.conSaveSession === 'function') window.conSaveSession(); else if (typeof conSaveSession === 'function') conSaveSession(); } },
       { id: 'file_new', name: 'New Session', desc: 'Save current board and start a new one', category: 'history', categoryName: 'History & File', icon: '../assets/icons/plus.svg', defaultShortcut: null, fn: () => { if (typeof boardNewSession === 'function') boardNewSession('constellation'); } },
-      { id: 'file_clear', name: 'Clear Board', desc: 'Remove all words and nodes from the board', category: 'history', categoryName: 'History & File', icon: '../assets/icons/clear.svg', defaultShortcut: null, fn: () => { if (typeof conClearAll === 'function') conClearAll(); } },
+      { id: 'file_clear', name: 'Clear Board', desc: 'Remove all words and nodes from the board', category: 'history', categoryName: 'History & File', icon: '../assets/icons/clear.svg', defaultShortcut: null, fn: () => { if (typeof window.conClearAll === 'function') window.conClearAll(); else if (typeof conClearAll === 'function') conClearAll(); } },
       { id: 'file_load', name: 'Load Session', desc: 'Load a saved board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/folder.svg', defaultShortcut: null, fn: () => { if (typeof openSessionLoadPopup === 'function') openSessionLoadPopup('constellation'); } },
       { id: 'file_export', name: 'Export Board', desc: 'Export words as PNG, CSV or PDF', category: 'history', categoryName: 'History & File', icon: '../assets/icons/export.svg', defaultShortcut: null, fn: () => { if (typeof conExport === 'function') conExport(); else if (typeof conExportJS === 'function') conExportJS(); } },
       { id: 'file_duplicate', name: 'Duplicate File', desc: 'Duplicate the current board file', category: 'history', categoryName: 'History & File', icon: '../assets/icons/duplicate.svg', defaultShortcut: null, fn: () => { if (typeof conDuplicateCurrentFile === 'function') conDuplicateCurrentFile(); } },
       { id: 'file_templates', name: 'Templates', desc: 'Save or load reusable board templates', category: 'history', categoryName: 'History & File', icon: '../assets/icons/layout.svg', defaultShortcut: null, fn: () => { if (typeof conOpenTemplatePopup === 'function') conOpenTemplatePopup(); } },
-      { id: 'file_media', name: 'Media Attachments', desc: 'Manage media attachments', category: 'history', categoryName: 'History & File', icon: '../assets/icons/media.svg', defaultShortcut: null, fn: () => { const btn = document.getElementById('con-manage-media-btn'); if (typeof conOpenManageMediaChooser === 'function') conOpenManageMediaChooser(btn); } },
+      { id: 'file_media', name: 'Media Attachments', desc: 'Manage media attachments', category: 'history', categoryName: 'History & File', icon: '../assets/icons/media.svg', defaultShortcut: null, fn: () => { const btn = document.getElementById('con-manage-media-btn'); if (typeof window.conOpenManageMediaChooser === 'function') window.conOpenManageMediaChooser(btn); else if (typeof conOpenManageMediaChooser === 'function') conOpenManageMediaChooser(btn); } },
 
       // Selection & Manipulation
       { id: 'select_all', name: 'Select All Nodes', desc: 'Select all constellation nodes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/check.svg', defaultShortcut: { ctrl: true, key: 'a' }, fn: () => {
-        conSelected = null;
-        if (Array.isArray(conNodes)) {
-          conNodes.forEach(n => {
-            if (n && n.el) {
-              n.el.classList.remove('con-selected');
-              n.el.classList.add('con-multi-selected');
-              conMultiSelected.add(n.id);
-            }
-          });
-        }
+        if (typeof window.conSelectAllNodes === 'function') window.conSelectAllNodes();
       } },
       { id: 'deselect_all', name: 'Deselect / Cancel', desc: 'Deselect all items or cancel current active tool', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/close.svg', defaultShortcut: { key: 'Escape' }, fn: () => {
-        if (document.body.classList.contains('laser-active')) { window.laserToggle(); return; }
-        if (_conLinkSrc) { _conCancelLinkMode(); return; }
-        if (conMode === 'draw') { window.conSetMode('move'); return; }
+        if (document.body.classList.contains('laser-active')) { if (typeof window.laserToggle === 'function') window.laserToggle(); return; }
+        if (typeof window.conIsLinkModeActive === 'function' && window.conIsLinkModeActive()) { if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode(); return; }
+        if (typeof window.conGetMode === 'function' && window.conGetMode() === 'draw') { if (typeof window.conSetMode === 'function') window.conSetMode('move'); return; }
         if (typeof _taDrawActive !== 'undefined' && _taDrawActive && typeof window.taToggleDrawMode === 'function') { window.taToggleDrawMode(); return; }
-        conCtxClose(); conBoardCtxClose(); if (window.conEdgeCtxClose) window.conEdgeCtxClose(); if (window.conMaskCtxClose) window.conMaskCtxClose();
-        if (typeof conDeselectAll === 'function') conDeselectAll();
+        if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+        if (typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose();
+        if (typeof window.conMaskCtxClose === 'function') window.conMaskCtxClose();
+        if (typeof window.conDeselectAll === 'function') window.conDeselectAll();
       } },
       { id: 'delete_selected', name: 'Delete Selected', desc: 'Delete selected nodes, notes, or groups', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/delete.svg', defaultShortcut: { key: 'Delete' }, fn: () => {
-        if (typeof conPushUndo === 'function') conPushUndo();
-        if (conGroupFocused) {
-          if (typeof conGroupDeleteWithContents === 'function') conGroupDeleteWithContents(conGroupFocused);
-          if (typeof conGroupFocus === 'function') conGroupFocus(null);
-        } else if (conMultiSelected && conMultiSelected.size > 0) {
-          if (typeof conDeleteSelectedNodes === 'function') conDeleteSelectedNodes();
-        } else if (typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0) {
-          if (typeof conDeleteSelectedNotes === 'function') conDeleteSelectedNotes();
-        } else if (conSelected) {
-          if (typeof conDeleteNode === 'function') conDeleteNode(conSelected);
-        }
+        if (typeof window.conDeleteSelectedItems === 'function') window.conDeleteSelectedItems();
+        else if (typeof window.conDeleteSelected === 'function') window.conDeleteSelected();
       } },
       { id: 'duplicate_selected', name: 'Duplicate Selected', desc: 'Duplicate selected nodes and notes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/duplicate.svg', defaultShortcut: null, fn: () => {
-        if (typeof conDuplicateSelected === 'function') conDuplicateSelected();
-        else if (typeof conClipboardCopy === 'function' && typeof conClipboardPaste === 'function') {
-          conClipboardCopy(); conClipboardPaste();
+        if (typeof window.conDuplicateSelected === 'function') window.conDuplicateSelected();
+        else if (typeof window.conClipboardCopy === 'function' && typeof window.conClipboardPaste === 'function') {
+          window.conClipboardCopy(); window.conClipboardPaste();
         }
       } },
-      { id: 'group_selected', name: 'Group Selected', desc: 'Group selected nodes together', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/group.svg', defaultShortcut: { ctrl: true, key: 'g' }, fn: () => { if (typeof conGroupSelected === 'function') conGroupSelected(); } },
-      { id: 'ungroup_selected', name: 'Ungroup Group', desc: 'Ungroup currently focused group', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/groups.svg', defaultShortcut: null, fn: () => { if (conGroupFocused && typeof conGroupUngroup === 'function') conGroupUngroup(conGroupFocused); } },
+      { id: 'group_selected', name: 'Group Selected', desc: 'Group selected nodes together', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/group.svg', defaultShortcut: { ctrl: true, key: 'g' }, fn: () => { if (typeof window.conGroupSelected === 'function') window.conGroupSelected(); } },
+      { id: 'ungroup_selected', name: 'Ungroup Group', desc: 'Ungroup currently focused group', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/groups.svg', defaultShortcut: null, fn: () => { const grp = window.conGetGroupFocused ? window.conGetGroupFocused() : null; if (grp && typeof window.conGroupUngroup === 'function') window.conGroupUngroup(grp); } },
       { id: 'toggle_mask', name: 'Hide / Reveal Selected', desc: 'Toggle mask visibility for selected nodes and notes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/mask.svg', defaultShortcut: { ctrl: true, key: 'h' }, fn: () => {
-        const hasNodeSelection = !!(conMultiSelected && conMultiSelected.size > 0);
-        const hasNoteSelection = !!(typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0);
-        if (hasNodeSelection || hasNoteSelection) {
-          conPushUndo();
-          if (hasNodeSelection) {
-            const selectedNodes = conNodes.filter(n => conMultiSelected.has(n.id));
-            const anyVisibleNode = selectedNodes.some(node => !node.masked);
-            selectedNodes.forEach(node => {
-              if (!node || !node.el) return;
-              node.masked = anyVisibleNode;
-              node.el.classList.toggle('con-masked', anyVisibleNode);
-            });
-          }
-          if (hasNoteSelection) {
-            const selectedNotes = [...conNoteSelected]
-              .map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null))
-              .filter(Boolean);
-            const anyVisibleNote = selectedNotes.some(note => !note.hidden);
-            selectedNotes.forEach(note => {
-              note.hidden = anyVisibleNote;
-              if (note._applyStyle) note._applyStyle();
-              if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, wnGetNoteElementById(note.id));
-            });
-          }
-        } else if (conGroupFocused) {
-          const group = conGroups.find(g => g.id === conGroupFocused);
-          if (group && group.nodeIds && group.nodeIds.length) {
-            conPushUndo();
-            const anyVisible = group.nodeIds.some(nid => {
-              const node = conNodes.find(n => n.id === nid);
-              return node && !node.masked;
-            });
-            group.nodeIds.forEach(nid => {
-              const node = conNodes.find(n => n.id === nid);
-              if (!node || !node.el) return;
-              node.masked = anyVisible;
-              node.el.classList.toggle('con-masked', anyVisible);
-            });
-          }
-        } else if (conSelected) {
-          const node = conNodes.find(n => n.id === conSelected);
-          if (node) {
-            conPushUndo();
-            node.masked = !node.masked;
-            node.el.classList.toggle('con-masked', node.masked);
-          }
-        }
+        if (typeof window.conToggleMaskSelected === 'function') window.conToggleMaskSelected();
       } },
-      { id: 'toggle_mask_all', name: 'Hide / Reveal All Words', desc: 'Hide or reveal all words on the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/eye.svg', defaultShortcut: null, fn: () => { if (typeof conToggleMaskAll === 'function') conToggleMaskAll(); } },
-      { id: 'add_mask_box', name: 'Add Mask Rectangle', desc: 'Add a movable mask overlay box', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/mask.svg', defaultShortcut: null, fn: () => { if (typeof conAddMask === 'function') conAddMask(); } },
-      { id: 'add_table', name: 'Add Table', desc: 'Add an editable table to the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/table.svg', defaultShortcut: null, fn: () => { if (typeof conAddTableDialog === 'function') conAddTableDialog(); } },
-      { id: 'toggle_snap', name: 'Toggle Snap to Align', desc: 'Toggle snapping when dragging nodes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/snap.svg', defaultShortcut: null, fn: () => { if (typeof conToggleSnap === 'function') conToggleSnap(); } },
-      { id: 'spread_nodes', name: 'Spread Words', desc: 'Spread selected words to remove overlaps', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/spread.svg', defaultShortcut: null, fn: () => { if (typeof conCtxSpreadSelected === 'function') conCtxSpreadSelected(); } },
-      { id: 'compact_nodes', name: 'Compact Words', desc: 'Compact words closer together without overlapping', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/compact.svg', defaultShortcut: null, fn: () => { if (typeof conCompactNodes === 'function') conCompactNodes(); } },
+      { id: 'toggle_mask_all', name: 'Hide / Reveal All Words', desc: 'Hide or reveal all words on the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/eye.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMaskAll === 'function') window.conToggleMaskAll(); else if (typeof conToggleMaskAll === 'function') conToggleMaskAll(); } },
+      { id: 'add_mask_box', name: 'Add Mask Rectangle', desc: 'Add a movable mask overlay box', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/mask.svg', defaultShortcut: null, fn: () => { if (typeof window.conAddMask === 'function') window.conAddMask(); else if (typeof conAddMask === 'function') conAddMask(); } },
+      { id: 'add_table', name: 'Add Table', desc: 'Add an editable table to the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/table.svg', defaultShortcut: null, fn: () => { if (typeof window.conAddTableDialog === 'function') window.conAddTableDialog(); else if (typeof conAddTableDialog === 'function') conAddTableDialog(); } },
+      { id: 'toggle_snap', name: 'Toggle Snap to Align', desc: 'Toggle snapping when dragging nodes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/snap.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleSnap === 'function') window.conToggleSnap(); else if (typeof conToggleSnap === 'function') conToggleSnap(); } },
+      { id: 'spread_nodes', name: 'Spread Words', desc: 'Spread selected words to remove overlaps', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/spread.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSpreadSelected === 'function') window.conCtxSpreadSelected(); } },
+      { id: 'compact_nodes', name: 'Compact Words', desc: 'Compact words closer together without overlapping', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/compact.svg', defaultShortcut: null, fn: () => { if (typeof window.conCompactNodes === 'function') window.conCompactNodes(); } },
 
       // Clipboard
       { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') window.conClipboardCopy({ allowWhileTyping: false }); } },
@@ -33990,17 +34080,7 @@
       { id: 'mode_draw', name: 'Toggle Drawing Pen', desc: 'Toggle freehand drawing annotation pen', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/draw.svg', defaultShortcut: { ctrl: true, key: 'd' }, fn: () => { if (typeof window.conToggleDrawMode === 'function') window.conToggleDrawMode(); else if (typeof setBoardMode === 'function') setBoardMode('drawings'); } },
       { id: 'mode_laser', name: 'Toggle Laser Pointer', desc: 'Toggle interactive laser pointer', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/laser.svg', defaultShortcut: { ctrl: true, key: 'l' }, fn: () => { if (typeof window.laserToggle === 'function') window.laserToggle(); else if (typeof setBoardMode === 'function') setBoardMode('laser'); } },
       { id: 'mode_link', name: 'Link / Connect Nodes', desc: 'Connect selected node or note to another', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/zap.svg', defaultShortcut: { ctrl: true, key: 'j' }, fn: () => {
-        let srcId = null;
-        if (typeof conNoteSelected !== 'undefined' && conNoteSelected.size === 1) {
-          srcId = [...conNoteSelected][0];
-        } else if (conSelected) {
-          srcId = conSelected;
-        } else if (conGroupFocused) {
-          srcId = conGroupFocused;
-        }
-        if (!srcId) return;
-        if (_conLinkSrc === srcId) { _conCancelLinkMode(); return; }
-        _conStartLinkMode(srcId);
+        if (typeof window.conTriggerLinkShortcut === 'function') window.conTriggerLinkShortcut();
       } },
       { id: 'tool_eraser', name: 'Toggle Drawing Eraser', desc: 'Toggle drawing eraser mode', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/eraser.svg', defaultShortcut: null, fn: () => { if (typeof conToggleEraserMode === 'function') conToggleEraserMode(); } },
 
@@ -34022,42 +34102,16 @@
 
       // Text & Formatting
       { id: 'font_size_increase', name: 'Increase Node Font Size', desc: 'Increase font size for selected nodes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A+', defaultShortcut: { ctrl: true, key: 'ArrowUp' }, fn: () => {
-        const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-        if (!hasSelection) return;
-        const targets = conMultiSelected && conMultiSelected.size > 0
-          ? conNodes.filter(n => conMultiSelected.has(n.id))
-          : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
-        if (!targets.length) return;
-        conPushUndo();
-        targets.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          const current = conGetNodeBaseFontSize(node) || 13;
-          conSetNodeBaseFontSize(node, Math.min(current + 1, 48));
-          conApplyNodeShape(node, node.shape);
-        });
-        conRedrawEdges();
+        if (typeof window.conAdjustSelectedFontSize === 'function') window.conAdjustSelectedFontSize(1);
       } },
       { id: 'font_size_decrease', name: 'Decrease Node Font Size', desc: 'Decrease font size for selected nodes', category: 'formatting', categoryName: 'Text & Formatting', symbol: 'A-', defaultShortcut: { ctrl: true, key: 'ArrowDown' }, fn: () => {
-        const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-        if (!hasSelection) return;
-        const targets = conMultiSelected && conMultiSelected.size > 0
-          ? conNodes.filter(n => conMultiSelected.has(n.id))
-          : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
-        if (!targets.length) return;
-        conPushUndo();
-        targets.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          const current = conGetNodeBaseFontSize(node) || 13;
-          conSetNodeBaseFontSize(node, Math.max(current - 1, 8));
-          conApplyNodeShape(node, node.shape);
-        });
-        conRedrawEdges();
+        if (typeof window.conAdjustSelectedFontSize === 'function') window.conAdjustSelectedFontSize(-1);
       } },
-      { id: 'align_left', name: 'Align Left', desc: 'Align selected nodes to left edge', category: 'formatting', categoryName: 'Text & Formatting', icon: '../assets/icons/arrow-left.svg', defaultShortcut: { ctrl: true, key: 'ArrowLeft' }, fn: () => { if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'left'); } },
-      { id: 'align_right', name: 'Align Right', desc: 'Align selected nodes to right edge', category: 'formatting', categoryName: 'Text & Formatting', icon: '../assets/icons/arrow-right.svg', defaultShortcut: { ctrl: true, key: 'ArrowRight' }, fn: () => { if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'right'); } },
-      { id: 'align_center', name: 'Align Center', desc: 'Align selected nodes horizontally center', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⫿', defaultShortcut: null, fn: () => { if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'center'); } },
-      { id: 'align_top', name: 'Align Top', desc: 'Align selected nodes to top edge', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⊼', defaultShortcut: null, fn: () => { if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('horizontal', 'top'); } },
-      { id: 'align_bottom', name: 'Align Bottom', desc: 'Align selected nodes to bottom edge', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⊻', defaultShortcut: null, fn: () => { if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('horizontal', 'bottom'); } },
+      { id: 'align_left', name: 'Align Left', desc: 'Align selected nodes to left edge', category: 'formatting', categoryName: 'Text & Formatting', icon: '../assets/icons/arrow-left.svg', defaultShortcut: { ctrl: true, key: 'ArrowLeft' }, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('vertical', 'left'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'left'); } },
+      { id: 'align_right', name: 'Align Right', desc: 'Align selected nodes to right edge', category: 'formatting', categoryName: 'Text & Formatting', icon: '../assets/icons/arrow-right.svg', defaultShortcut: { ctrl: true, key: 'ArrowRight' }, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('vertical', 'right'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'right'); } },
+      { id: 'align_center', name: 'Align Center', desc: 'Align selected nodes horizontally center', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⫿', defaultShortcut: null, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('vertical', 'center'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('vertical', 'center'); } },
+      { id: 'align_top', name: 'Align Top', desc: 'Align selected nodes to top edge', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⊼', defaultShortcut: null, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('horizontal', 'top'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('horizontal', 'top'); } },
+      { id: 'align_bottom', name: 'Align Bottom', desc: 'Align selected nodes to bottom edge', category: 'formatting', categoryName: 'Text & Formatting', symbol: '⊻', defaultShortcut: null, fn: () => { if (typeof window.conCtxAlignSelected === 'function') window.conCtxAlignSelected('horizontal', 'bottom'); else if (typeof conCtxAlignSelected === 'function') conCtxAlignSelected('horizontal', 'bottom'); } },
 
       // Movement & Nudging
       { id: 'nudge_up', name: 'Nudge 1px Up', desc: 'Nudge selected nodes 1px up', category: 'movement', categoryName: 'Movement & Nudging', symbol: '↑', defaultShortcut: { key: 'ArrowUp' }, fn: () => { _boardNudgeSelected(0, -1); } },
