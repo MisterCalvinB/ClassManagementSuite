@@ -2955,14 +2955,16 @@ function dosDateTimeToMs(dosTime, dosDate) {
 }
 
 function buildZip(entries) {
-  // entries: Array<{ name: string, data: Buffer, mtimeMs?: number }>
+  // entries: Array<{ name: string, data: Buffer, mtimeMs?: number, store?: boolean, compressionMethod?: number }>
   const localParts = [];
   const centralParts = [];
   let offset = 0;
 
   for (const entry of entries) {
     const nameBuf = Buffer.from(entry.name, 'utf8');
-    const compressed = zlib.deflateRawSync(entry.data, { level: 6 });
+    const isStore = entry.store === true || entry.compressionMethod === 0;
+    const method = isStore ? 0 : 8;
+    const compressed = isStore ? entry.data : zlib.deflateRawSync(entry.data, { level: 6 });
     const crc = crc32(entry.data);
     const { dosTime, dosDate } = msToDosDateTime(entry.mtimeMs);
 
@@ -2970,7 +2972,7 @@ function buildZip(entries) {
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(0x0800, 6);
-    local.writeUInt16LE(8, 8);
+    local.writeUInt16LE(method, 8);
     local.writeUInt16LE(dosTime, 10);
     local.writeUInt16LE(dosDate, 12);
     local.writeUInt32LE(crc, 14);
@@ -2986,7 +2988,7 @@ function buildZip(entries) {
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(0x0800, 8);
-    central.writeUInt16LE(8, 10);
+    central.writeUInt16LE(method, 10);
     central.writeUInt16LE(dosTime, 12);
     central.writeUInt16LE(dosDate, 14);
     central.writeUInt32LE(crc, 16);
@@ -3337,6 +3339,175 @@ ipcMain.handle('app:apply-restore-choices', async (event, request = {}) => {
       ok: false,
       error: err && err.message ? err.message : 'Failed to restore files'
     };
+  }
+});
+
+// ── Board Archive (.cstz) IPC Handlers ────────────────────────────────
+ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = request.target || 'mindmaps';
+  const rawFilename = request.filename || request.name || 'board.cstz';
+  const filename = sanitizeFilename(rawFilename);
+  const { targetDir } = resolveAllowedTargetPath(pageFile, target, request.subdir ? path.join(request.subdir, filename) : filename);
+
+  const rawEntries = Array.isArray(request.entries) ? request.entries : [];
+  const zipEntries = [];
+
+  for (const entry of rawEntries) {
+    if (!entry || !entry.name) continue;
+    const name = String(entry.name).replace(/\\/g, '/');
+    let data;
+    if (Buffer.isBuffer(entry.data)) {
+      data = entry.data;
+    } else if (entry.encoding === 'base64') {
+      data = Buffer.from(String(entry.data || ''), 'base64');
+    } else {
+      data = Buffer.from(String(entry.data || ''), 'utf8');
+    }
+    const store = entry.store === true || entry.compressionMethod === 0;
+    zipEntries.push({
+      name,
+      data,
+      store,
+      compressionMethod: store ? 0 : 8,
+      mtimeMs: entry.mtimeMs || Date.now()
+    });
+  }
+
+  const zipBuffer = buildZip(zipEntries);
+  const finalDir = request.subdir ? path.resolve(targetDir, sanitizeRelativePath(request.subdir)) : targetDir;
+  await fs.mkdir(finalDir, { recursive: true });
+  const finalPath = path.join(finalDir, filename);
+  const tmpPath = finalPath + '.tmp';
+
+  try {
+    await fs.writeFile(tmpPath, zipBuffer);
+    try {
+      await fs.rename(tmpPath, finalPath);
+    } catch (renameErr) {
+      if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST') {
+        await fs.unlink(finalPath).catch(() => {});
+        await fs.rename(tmpPath, finalPath);
+      } else {
+        throw renameErr;
+      }
+    }
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+
+  _broadcastDataChanged(event, pageFile, {
+    action: 'save-file',
+    filename,
+    target,
+    subdir: request.subdir || null
+  });
+
+  return { ok: true, filename, path: finalPath, size: zipBuffer.length };
+});
+
+ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = request.target || 'mindmaps';
+  const relativePath = request.relativePath || request.filename || '';
+  const { fullPath } = resolveAllowedTargetPath(pageFile, target, relativePath);
+
+  try {
+    const zipBuffer = await fs.readFile(fullPath);
+    const parsedEntries = parseZipEntries(zipBuffer);
+
+    let manifest = null;
+    let boardData = null;
+    const history = [];
+    const media = {};
+
+    for (const entry of parsedEntries) {
+      const normName = normalizeZipEntryPath(entry.name) || entry.name;
+      if (normName === 'manifest.json') {
+        try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
+      } else if (normName === 'board.json') {
+        try { boardData = JSON.parse(entry.data.toString('utf8')); } catch {}
+      } else if (normName.startsWith('history/') && normName.endsWith('.json')) {
+        try {
+          history.push({
+            name: normName.slice('history/'.length),
+            data: JSON.parse(entry.data.toString('utf8')),
+            mtimeMs: entry.mtimeMs
+          });
+        } catch {}
+      } else if (normName.startsWith('media/')) {
+        const mediaSubPath = normName.slice('media/'.length);
+        const parts = mediaSubPath.split('/');
+        const kind = parts[0];
+        const fileName = parts.slice(1).join('/');
+        media[mediaSubPath] = {
+          name: fileName,
+          kind: kind,
+          subPath: mediaSubPath,
+          base64: entry.data.toString('base64'),
+          size: entry.data.length,
+          mtimeMs: entry.mtimeMs
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      filename: path.basename(fullPath),
+      manifest,
+      boardData,
+      history,
+      media,
+      size: zipBuffer.length
+    };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = request.target || 'mindmaps';
+  const relativePath = request.relativePath || request.filename || '';
+  const { fullPath } = resolveAllowedTargetPath(pageFile, target, relativePath);
+
+  try {
+    const zipBuffer = await fs.readFile(fullPath);
+    const parsedEntries = parseZipEntries(zipBuffer);
+
+    let manifest = null;
+    let boardDataSummary = null;
+
+    for (const entry of parsedEntries) {
+      const normName = normalizeZipEntryPath(entry.name) || entry.name;
+      if (normName === 'manifest.json') {
+        try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
+      } else if (normName === 'board.json' && !manifest) {
+        try {
+          const parsed = JSON.parse(entry.data.toString('utf8'));
+          boardDataSummary = {
+            title: parsed.title,
+            _type: parsed._type,
+            _plannerEntryId: parsed._plannerEntryId || (parsed.manifest && parsed.manifest.plannerEntryId),
+            pageCount: Array.isArray(parsed.pages) ? parsed.pages.length : 1
+          };
+        } catch {}
+      }
+    }
+
+    const stat = await fs.stat(fullPath);
+    return {
+      ok: true,
+      filename: path.basename(fullPath),
+      relativePath,
+      manifest: manifest || boardDataSummary,
+      plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
+      mtimeMs: stat.mtimeMs,
+      size: stat.size
+    };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
   }
 });
 

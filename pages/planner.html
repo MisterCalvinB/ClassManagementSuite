@@ -1663,7 +1663,7 @@
         if (parts.length <= 1) return true;
         if (parts.length === 2) {
           var folder = parts[0];
-          return filename.replace(/\.(js|json)$/i, '').toLowerCase() === folder.toLowerCase();
+          return filename.replace(/\.(js|json|cstz|zip)$/i, '').toLowerCase() === folder.toLowerCase();
         }
         return false;
       }
@@ -1693,8 +1693,8 @@
           });
         }
 
-        if (typeof Desktop.listByPath === 'function' && typeof Desktop.readByPath === 'function') {
-          var filesRes = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true });
+        if (typeof Desktop.listByPath === 'function') {
+          var filesRes = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true });
           var files = (filesRes && filesRes.ok && Array.isArray(filesRes.files)) ? filesRes.files : [];
           var candidates = files.filter(isMindmapSessionFile);
           for (var i = 0; i < candidates.length; i++) {
@@ -1702,11 +1702,21 @@
             var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
             if (!relPath) continue;
             try {
-              var fileRes = await Desktop.readByPath('mindmaps', relPath);
-              if (!fileRes || !fileRes.ok || !fileRes.content) continue;
-              var peid = extractPlannerEntryId(fileRes.content);
+              var isArchive = relPath.endsWith('.cstz') || relPath.endsWith('.zip');
+              var peid = '';
+              if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+                var inspectRes = await Desktop.inspectBoardArchive('mindmaps', relPath);
+                if (inspectRes && inspectRes.ok) {
+                  peid = inspectRes.plannerEntryId || '';
+                }
+              } else if (typeof Desktop.readByPath === 'function') {
+                var fileRes = await Desktop.readByPath('mindmaps', relPath);
+                if (fileRes && fileRes.ok && fileRes.content) {
+                  peid = extractPlannerEntryId(fileRes.content);
+                }
+              }
               if (!peid) continue;
-              var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json)$/i, '');
+              var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json|cstz|zip)$/i, '');
               addLinkedBoardSession(peid, {
                 id: 'path:' + relPath,
                 name: label,
@@ -3255,19 +3265,41 @@
         openLinkedBoard(linkId);
         return;
       }
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) {
+      if (!(window.Desktop && Desktop.isElectron() && (typeof Desktop.saveBoardArchive === 'function' || typeof Desktop.saveFiles === 'function'))) {
         mdbToast('⚠️ ' + t('pl_boardCreateErr'));
         return;
       }
       try {
-        var result = await Desktop.saveFiles('mindmaps', [{
-          filename: plannerBoardEntryFileName(source),
-          subdir: plannerBoardEntryFolderName(source),
-          content: plannerBoardEntryFileContent(source, linkId),
-          encoding: 'utf8'
-        }]);
-        if (!result || result.ok === false) {
-          throw new Error(result && result.error ? result.error : t('pl_boardCreateErr'));
+        var baseName = plannerBoardEntryBaseName(source);
+        if (typeof Desktop.saveBoardArchive === 'function') {
+          var sessionData = plannerBoardEntrySessionData(source, linkId);
+          var manifest = {
+            version: 1,
+            format: 'cstz',
+            title: baseName,
+            plannerEntryId: linkId,
+            pageCount: 1,
+            nodeCount: 0,
+            updatedAt: Date.now()
+          };
+          var archiveEntries = [
+            { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), encoding: 'utf8', store: false },
+            { name: 'board.json', data: JSON.stringify(sessionData, null, 2), encoding: 'utf8', store: false }
+          ];
+          var result = await Desktop.saveBoardArchive('mindmaps', baseName + '.cstz', archiveEntries);
+          if (!result || result.ok === false) {
+            throw new Error(result && result.error ? result.error : t('pl_boardCreateErr'));
+          }
+        } else {
+          var result = await Desktop.saveFiles('mindmaps', [{
+            filename: plannerBoardEntryFileName(source),
+            subdir: plannerBoardEntryFolderName(source),
+            content: plannerBoardEntryFileContent(source, linkId),
+            encoding: 'utf8'
+          }]);
+          if (!result || result.ok === false) {
+            throw new Error(result && result.error ? result.error : t('pl_boardCreateErr'));
+          }
         }
         await loadBoardSessions();
         plannerUpdateBoardEntryControls(source);

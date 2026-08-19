@@ -503,18 +503,32 @@ async function rfFilterOutTemplateSessions(files) {
     }
   });
 
-  if (missing.length > 0 && typeof Desktop.readByPath === 'function') {
+  if (missing.length > 0) {
     var BATCH = 8;
     for (var i = 0; i < missing.length; i += BATCH) {
       var batch = missing.slice(i, i + BATCH);
       await Promise.all(batch.map(async function(f) {
         var key = rfSessionCacheKey(f);
-        try {
-          var result = await Desktop.readByPath(f.target || 'mindmaps', f.relativePath || f.filename);
-          var raw = result && result.content ? result.content : '';
-          rfSessionTypeCache.set(key, rfExtractSessionType(raw));
-        } catch(e) {
-          rfSessionTypeCache.set(key, '');
+        var rel = f.relativePath || f.filename || '';
+        var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+        if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+          try {
+            var insp = await Desktop.inspectBoardArchive(f.target || 'mindmaps', rel);
+            rfSessionTypeCache.set(key, (insp && insp.manifest && insp.manifest._type) || 'constellation');
+            return;
+          } catch(e) {
+            rfSessionTypeCache.set(key, 'constellation');
+            return;
+          }
+        }
+        if (typeof Desktop.readByPath === 'function') {
+          try {
+            var result = await Desktop.readByPath(f.target || 'mindmaps', rel);
+            var raw = result && result.content ? result.content : '';
+            rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+          } catch(e) {
+            rfSessionTypeCache.set(key, '');
+          }
         }
       }));
     }
@@ -542,7 +556,7 @@ async function fmPrimeBrowseSessionTypes(files) {
     var rel = f.relativePath || f.filename || '';
     var isMindmap = target === 'mindmaps' || (target === 'user' && rel.startsWith('mindmaps/'));
     if (!isMindmap) return false;
-    return /\.(js|json)$/i.test(String(f.filename || ''));
+    return /\.(js|json|cstz|zip)$/i.test(String(f.filename || ''));
   });
   if (!list.length) return;
 
@@ -557,19 +571,33 @@ async function fmPrimeBrowseSessionTypes(files) {
     }
   });
 
-  if (missing.length > 0 && typeof Desktop.readByPath === 'function') {
+  if (missing.length > 0) {
     var BATCH = 8;
     for (var i = 0; i < missing.length; i += BATCH) {
       var batch = missing.slice(i, i + BATCH);
       await Promise.all(batch.map(async function(f) {
         var target = f.target || browseTarget || 'mindmaps';
         var key = rfSessionCacheKey(f);
-        try {
-          var result = await Desktop.readByPath(target, f.relativePath || f.filename);
-          var raw = result && result.content ? result.content : '';
-          rfSessionTypeCache.set(key, rfExtractSessionType(raw));
-        } catch (e) {
-          rfSessionTypeCache.set(key, '');
+        var rel = f.relativePath || f.filename || '';
+        var isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+        if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+          try {
+            var insp = await Desktop.inspectBoardArchive(target, rel);
+            rfSessionTypeCache.set(key, (insp && insp.manifest && insp.manifest._type) || 'constellation');
+            return;
+          } catch(e) {
+            rfSessionTypeCache.set(key, 'constellation');
+            return;
+          }
+        }
+        if (typeof Desktop.readByPath === 'function') {
+          try {
+            var result = await Desktop.readByPath(target, rel);
+            var raw = result && result.content ? result.content : '';
+            rfSessionTypeCache.set(key, rfExtractSessionType(raw));
+          } catch (e) {
+            rfSessionTypeCache.set(key, '');
+          }
         }
       }));
     }
@@ -904,7 +932,7 @@ async function loadRecent() {
   }
 
   var results = await Promise.all([
-    Desktop.listByPath('mindmaps', '', { extensions:['.js','.json'], recursive:true }).catch(function(e){ console.warn('loadRecent sessions:', e); return null; }),
+    Desktop.listByPath('mindmaps', '', { extensions:['.js','.json','.cstz','.zip'], recursive:true }).catch(function(e){ console.warn('loadRecent sessions:', e); return null; }),
     Desktop.listByPath('user', 'custom-data', { extensions:DOC_EXTS, recursive:true }).catch(function(e){ console.warn('loadRecent docs:', e); return null; }),
     Desktop.listByPath('docEditorDocs', '', { extensions: ['.md', '.html'], recursive: true }).catch(function(e){ console.warn('loadRecent editorDocs:', e); return null; })
   ]);
@@ -1953,7 +1981,7 @@ function makeBrowseRow(file) {
   acts.className = 'file-actions';
 
   var isMindmapsFolderFile = browseTarget === 'mindmaps' || (browseTarget === 'user' && (file.relativePath || '').startsWith('mindmaps/'));
-  var isConst = /\.(js|json)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
+  var isConst = /\.(js|json|cstz|zip)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
   if (isConst) {
     var boardBtn = document.createElement('button');
     boardBtn.className = 'btn-open';
@@ -2525,7 +2553,7 @@ document.addEventListener('DOMContentLoaded', function() {
     e.stopPropagation();
     var relPath = file.relativePath || file.filename;
     var isMindmapsFolderFile = file.target === 'mindmaps' || (file.target === 'user' && (file.relativePath || '').startsWith('mindmaps/'));
-    var isConst = /\.(js|json)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
+    var isConst = /\.(js|json|cstz|zip)$/i.test(file.filename) && isMindmapsFolderFile && !fmIsTemplateMindmapFile(file);
     var rowEl = e.currentTarget || e.target;
     while (rowEl && !rowEl.classList.contains('file-row')) rowEl = rowEl.parentElement;
     var itemForContext = {

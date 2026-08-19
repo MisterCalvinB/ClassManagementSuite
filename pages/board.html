@@ -1966,7 +1966,7 @@
             <button class="action-btn btn-grey" id="con-manage-media-btn" onclick="conOpenManageMediaChooser(this)"
               title="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg"
                 class="btn-icon" alt="" /> Media</button>
-            <input type="file" id="con-load-input" accept=".js,.json" style="display:none"
+            <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
               onchange="conLoadSession(event)">
             <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
               style="display:none" onchange="conHandleAttachmentInput(event)">
@@ -7245,7 +7245,7 @@
       conRenderAttachmentSummary();
     }
 
-    function conSetAttachmentsFromSession(items) {
+    function conSetAttachmentsFromSession(items, mediaMap) {
       conAttachments.forEach(item => {
         if (item && item._cachedObjectUrl) {
           try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
@@ -7263,6 +7263,24 @@
           _conAttachmentCounter = Math.max(_conAttachmentCounter, Number(matchNum[1]) || 0);
         }
         _conAttachmentCounter += 1;
+        let base64 = raw.base64 || '';
+        if (!base64 && mediaMap) {
+          const mediaKey = kind + '/' + raw.name;
+          if (mediaMap[mediaKey] && mediaMap[mediaKey].base64) {
+            base64 = mediaMap[mediaKey].base64;
+          }
+        }
+        let cachedUrl = '';
+        if (base64) {
+          try {
+            const mime = raw.mime || conGuessMimeByName(raw.name, kind) || 'application/octet-stream';
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: mime });
+            cachedUrl = URL.createObjectURL(blob);
+          } catch {}
+        }
         conAttachments.push({
           id: incomingId || ('att_' + _conAttachmentCounter),
           name: String(raw && raw.name ? raw.name : 'file'),
@@ -7270,6 +7288,8 @@
           kind,
           size: Number(raw && raw.size) || 0,
           file: null,
+          base64: base64 || '',
+          _cachedObjectUrl: cachedUrl || '',
           relativePath: String(raw && raw.relativePath ? raw.relativePath : '')
         });
       });
@@ -25959,7 +25979,7 @@
     }
 
     function boardStripJsonExt(name) {
-      return String(name || '').replace(/\.(json|js)$/i, '');
+      return String(name || '').replace(/\.(json|js|cstz|zip)$/i, '');
     }
 
     function boardSanitizeFilenameKeepSpaces(raw) {
@@ -27521,6 +27541,180 @@
       return { files, metadata };
     }
 
+    async function conBuildSessionArchiveBundle(sessionFilename, persistedData) {
+      const normalizedFilename = sessionFilename.endsWith('.cstz')
+        ? sessionFilename
+        : (sessionFilename.endsWith('.js') || sessionFilename.endsWith('.json') || sessionFilename.endsWith('.zip'))
+          ? boardStripJsonExt(sessionFilename) + '.cstz'
+          : sessionFilename + '.cstz';
+      const baseName = boardStripJsonExt(normalizedFilename);
+      const attachmentBundle = await conPrepareAttachmentBundle(baseName);
+
+      const attachmentById = {};
+      (attachmentBundle.metadata || []).forEach(meta => {
+        if (!meta || !meta.id) return;
+        attachmentById[String(meta.id)] = meta;
+      });
+
+      function conNormalizeMediaPathRefsInSession(dataObj) {
+        if (!dataObj || typeof dataObj !== 'object') return dataObj;
+        function patchPage(pageObj) {
+          if (!pageObj || typeof pageObj !== 'object') return;
+          const mediaList = Array.isArray(pageObj.media) ? pageObj.media : [];
+          mediaList.forEach(m => {
+            const linked = m && m.attachmentId ? attachmentById[String(m.attachmentId)] : null;
+            if (!linked) return;
+            m.name = linked.name || m.name;
+            m.mime = linked.mime || m.mime;
+            m.relativePath = linked.relativePath || m.relativePath;
+          });
+          if (pageObj.backgroundPdf && pageObj.backgroundPdf.attachmentId) {
+            const linkedPdf = attachmentById[String(pageObj.backgroundPdf.attachmentId)];
+            if (linkedPdf) {
+              pageObj.backgroundPdf.name = linkedPdf.name || pageObj.backgroundPdf.name;
+              pageObj.backgroundPdf.mime = linkedPdf.mime || pageObj.backgroundPdf.mime;
+              pageObj.backgroundPdf.relativePath = linkedPdf.relativePath || pageObj.backgroundPdf.relativePath;
+            }
+          }
+        }
+
+        if (Array.isArray(dataObj.pages)) {
+          dataObj.pages.forEach(patchPage);
+        } else {
+          patchPage(dataObj);
+        }
+        return dataObj;
+      }
+
+      const dataToSave = Object.assign({}, persistedData, {
+        attachments: attachmentBundle.metadata
+      });
+      conNormalizeMediaPathRefsInSession(dataToSave);
+
+      const manifest = {
+        version: 1,
+        format: 'cstz',
+        title: dataToSave.title || baseName,
+        plannerEntryId: dataToSave._plannerEntryId || '',
+        pageCount: Array.isArray(dataToSave.pages) ? dataToSave.pages.length : 1,
+        nodeCount: Array.isArray(dataToSave.nodes) ? dataToSave.nodes.length : 0,
+        updatedAt: Date.now()
+      };
+
+      const entries = [
+        {
+          name: 'manifest.json',
+          data: JSON.stringify(manifest, null, 2),
+          encoding: 'utf8',
+          store: false
+        },
+        {
+          name: 'board.json',
+          data: JSON.stringify(dataToSave, null, 2),
+          encoding: 'utf8',
+          store: false
+        }
+      ];
+
+      for (const f of attachmentBundle.files) {
+        if (f.filename === '.keep') continue;
+        const mediaPath = f.subdir ? (f.subdir.replace(/^[^/]+\//, '') + '/' + f.filename) : f.filename;
+        entries.push({
+          name: 'media/' + mediaPath,
+          data: f.content,
+          encoding: f.encoding || 'utf8',
+          store: true
+        });
+      }
+
+      return {
+        filename: normalizedFilename,
+        baseName,
+        data: dataToSave,
+        entries,
+        attachments: attachmentBundle.metadata
+      };
+    }
+
+    async function conParseBoardArchiveArrayBuffer(buffer) {
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      let offset = 0;
+      let manifest = null;
+      let boardData = null;
+      const history = [];
+      const media = {};
+
+      while (offset < bytes.length - 22) {
+        const sig = view.getUint32(offset, true);
+        if (sig === 0x04034b50) {
+          const filenameLen = view.getUint16(offset + 26, true);
+          const extraLen = view.getUint16(offset + 28, true);
+          const compressedSize = view.getUint32(offset + 18, true);
+          const compressionMethod = view.getUint16(offset + 8, true);
+
+          const filenameBytes = bytes.subarray(offset + 30, offset + 30 + filenameLen);
+          const filename = new TextDecoder('utf-8').decode(filenameBytes);
+          const dataStart = offset + 30 + filenameLen + extraLen;
+          const dataEnd = dataStart + compressedSize;
+
+          let entryDataBytes = null;
+          if (compressionMethod === 8) {
+            if (typeof DecompressionStream === 'function') {
+              try {
+                const ds = new DecompressionStream('deflate-raw');
+                const writer = ds.writable.getWriter();
+                writer.write(bytes.subarray(dataStart, dataEnd));
+                writer.close();
+                const res = await new Response(ds.readable).arrayBuffer();
+                entryDataBytes = new Uint8Array(res);
+              } catch (e) {
+                console.error('DecompressionStream error:', e);
+              }
+            }
+          } else if (compressionMethod === 0) {
+            entryDataBytes = bytes.subarray(dataStart, dataEnd);
+          }
+
+          if (entryDataBytes) {
+            if (filename === 'manifest.json') {
+              try { manifest = JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes)); } catch {}
+            } else if (filename === 'board.json') {
+              try { boardData = JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes)); } catch {}
+            } else if (filename.startsWith('history/') && filename.endsWith('.json')) {
+              try {
+                history.push({
+                  name: filename.slice('history/'.length),
+                  data: JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes))
+                });
+              } catch {}
+            } else if (filename.startsWith('media/')) {
+              const mediaSubPath = filename.slice('media/'.length);
+              const parts = mediaSubPath.split('/');
+              const kind = parts[0];
+              const mediaName = parts.slice(1).join('/');
+              let binary = '';
+              for (let i = 0; i < entryDataBytes.length; i++) binary += String.fromCharCode(entryDataBytes[i]);
+              const base64 = btoa(binary);
+              media[mediaSubPath] = {
+                name: mediaName,
+                kind: kind,
+                subPath: mediaSubPath,
+                base64: base64,
+                size: entryDataBytes.length
+              };
+            }
+          }
+
+          offset = dataEnd;
+        } else {
+          offset += 1;
+        }
+      }
+
+      return { ok: true, manifest, boardData, history, media };
+    }
+
     async function conBuildSessionFolderBundle(sessionFilename, persistedData) {
       const normalizedFilename = sessionFilename.endsWith('.js') ? sessionFilename : boardStripJsonExt(sessionFilename) + '.js';
       const folderName = boardStripJsonExt(normalizedFilename);
@@ -28586,6 +28780,25 @@
     })();
 
     async function conSaveSessionFolderBundle(sessionFilename, persistedData) {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveBoardArchive === 'function') {
+        const archiveBundle = await conBuildSessionArchiveBundle(sessionFilename, persistedData);
+        const result = await Desktop.saveBoardArchive('mindmaps', archiveBundle.filename, archiveBundle.entries);
+        if (!result || !result.ok) {
+          throw new Error(result && result.error ? result.error : 'Could not save Constellation archive.');
+        }
+
+        _conCurrentFileName = archiveBundle.filename;
+        _conCurrentFolderName = null;
+        if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
+        conSetAttachmentsFromSession(archiveBundle.attachments);
+        if (window.conUpdatePageBar) window.conUpdatePageBar();
+        return {
+          filename: archiveBundle.filename,
+          folderName: archiveBundle.baseName,
+          data: archiveBundle.data
+        };
+      }
+
       const bundle = await conBuildSessionFolderBundle(sessionFilename, persistedData);
 
       const result = await Desktop.saveFiles('mindmaps', bundle.files);
@@ -28651,16 +28864,16 @@
       boardSetAutosaveFingerprint('constellation', persistedData);
 
       if (window.Desktop && Desktop.isElectron()) {
-        if (_conCurrentFolderName && _conCurrentFileName) {
+        if (_conCurrentFileName) {
           conSaveSessionFolderBundle(_conCurrentFileName, persistedData)
             .then(saved => {
               boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
               boardSetAutosaveFingerprint('constellation', saved.data);
-              mdbToast('✅ Saved: ' + saved.folderName + '/' + saved.filename);
+              mdbToast('✅ Saved: ' + saved.filename);
               conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             })
             .catch(error => {
-              mdbToast('⚠️ Could not save Constellation folder: ' + (error && error.message ? error.message : String(error)));
+              mdbToast('⚠️ Could not save Constellation: ' + (error && error.message ? error.message : String(error)));
             });
           return;
         }
@@ -28672,7 +28885,7 @@
             const saved = await conSaveSessionFolderBundle(requestedName, persistedData);
             boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
             boardSetAutosaveFingerprint('constellation', saved.data);
-            mdbToast('✅ Saved: ' + saved.folderName + '/' + saved.filename);
+            mdbToast('✅ Saved: ' + saved.filename);
             conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             return saved.filename;
           }
@@ -28692,11 +28905,12 @@
 
     async function conSuggestDuplicateFilename(baseName) {
       const sourceBase = boardStripJsonExt(String(baseName || '').trim()) || 'constellation';
+      const ext = (baseName && baseName.endsWith('.js')) ? '.js' : '.cstz';
       const takenBases = new Set();
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
         try {
-          const listed = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true });
+          const listed = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true });
           const files = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
           files.forEach(file => {
             const rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
@@ -28719,14 +28933,14 @@
       const baseLower = sourceBase.toLowerCase();
       let candidate = sourceBase + ' (copy)';
       if (candidate.toLowerCase() === baseLower) candidate = sourceBase + ' (copy 2)';
-      if (!takenBases.has(candidate.toLowerCase())) return candidate + '.js';
+      if (!takenBases.has(candidate.toLowerCase())) return candidate + ext;
 
       for (let i = 2; i <= 999; i++) {
         const numbered = sourceBase + ' (copy ' + i + ')';
-        if (!takenBases.has(numbered.toLowerCase())) return numbered + '.js';
+        if (!takenBases.has(numbered.toLowerCase())) return numbered + ext;
       }
 
-      return sourceBase + ' (copy ' + Date.now() + ').js';
+      return sourceBase + ' (copy ' + Date.now() + ')' + ext;
     }
 
     async function conDuplicateCurrentFile() {
@@ -28734,7 +28948,7 @@
         mdbToast('⚠️ Duplicating files requires the Electron desktop app.');
         return;
       }
-      if (typeof Desktop.saveFiles !== 'function') {
+      if (typeof Desktop.saveFiles !== 'function' && typeof Desktop.saveBoardArchive !== 'function') {
         mdbToast('⚠️ Duplicate is not available in this app version.');
         return;
       }
@@ -28770,7 +28984,7 @@
       }
 
       try {
-        const sourceName = _conCurrentFileName || (_conCurrentFolderName ? (_conCurrentFolderName + '.js') : boardDefaultFileName('constellation', window.conGetTitle ? window.conGetTitle() : '') + '.js');
+        const sourceName = _conCurrentFileName || (_conCurrentFolderName ? (_conCurrentFolderName + '.js') : (boardDefaultFileName('constellation', window.conGetTitle ? window.conGetTitle() : '') + '.cstz'));
         const duplicateFilename = await conSuggestDuplicateFilename(sourceName);
 
         const persistedData = boardBuildPersistedSessionData('constellation', data);
@@ -28785,7 +28999,7 @@
 
         if (typeof historyRefreshList === 'function') historyRefreshList();
 
-        mdbToast('✅ Duplicated: ' + saved.folderName + '/' + saved.filename);
+        mdbToast('✅ Duplicated: ' + saved.filename);
 
         if (relinkAfterDuplicate) {
           _conPendingDuplicateRelinkRename = true;
@@ -28937,15 +29151,54 @@
       body.appendChild(list);
     }
 
-    function conLoadSession(event) {
+    async function conLoadSession(event) {
       const file = event.target.files[0];
       event.target.value = '';
       if (!file) return;
+
+      const isArchive = file.name.endsWith('.cstz') || file.name.endsWith('.zip');
+      if (isArchive) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const parsed = await conParseBoardArchiveArrayBuffer(arrayBuffer);
+          if (!parsed || !parsed.boardData) {
+            mdbToast('⚠️ Could not read .cstz archive.');
+            return;
+          }
+          const data = parsed.boardData;
+          if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
+            mdbToast('⚠️ This file does not look like a Constellation save file.');
+            return;
+          }
+          _conCurrentFileName = file.name;
+          _conCurrentFolderName = null;
+          if (Array.isArray(data.attachments)) {
+            conSetAttachmentsFromSession(data.attachments, parsed.media);
+          }
+          boardSetSessionFileMetaFromData('constellation', data);
+          _conRestoreSession(data);
+          setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
+          const _conAutoTitle = boardStripJsonExt(file.name);
+          if (window.conSetTitle) window.conSetTitle(_conAutoTitle);
+          const _conTitleEl = document.getElementById('con-title-input');
+          if (_conTitleEl) _conTitleEl.value = _conAutoTitle;
+          boardPersistLocalSession('constellation', data, {
+            source: 'file-load',
+            name: _conAutoTitle
+          });
+          boardSetAutosaveFingerprint('constellation', data);
+          return;
+        } catch (err) {
+          mdbToast('⚠️ Could not parse .cstz archive: ' + (err && err.message ? err.message : String(err)));
+          return;
+        }
+      }
+
       const reader = new FileReader();
       reader.onload = e => {
         let data;
         try { data = boardParseSessionText(e.target.result); }
-        catch { mdbToast('⚠️ Could not read file — make sure it is a valid Constellation .js or .json file.'); return; }
+        catch { mdbToast('⚠️ Could not read file — make sure it is a valid Constellation .js, .json, or .cstz file.'); return; }
         if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
           mdbToast('⚠️ This file does not look like a Constellation save file.'); return;
         }
@@ -30284,8 +30537,8 @@
 
       try {
         const mindmapsRes = (typeof Desktop.listByPath === 'function')
-          ? await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json'], recursive: true })
-          : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
+          ? await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true })
+          : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json', '.cstz', '.zip'] });
 
         const mindmapsFiles = Array.isArray(mindmapsRes && mindmapsRes.files) ? mindmapsRes.files : [];
 
@@ -30298,7 +30551,7 @@
           if (parts.length === 3 && parts[0] === 'archived') {
             return boardStripJsonExt(filename).toLowerCase() === parts[1].toLowerCase();
           }
-          // archived/file.js  (depth 2, archived flat)
+          // archived/file.js / archived/file.cstz  (depth 2, archived flat)
           if (parts.length === 2 && parts[0] === 'archived') return true;
           if (parts.length <= 1) return true;
           if (parts.length === 2) {
@@ -30326,7 +30579,7 @@
     }
 
     async function historyEnrichEntryClassGroups() {
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function')) return;
+      if (!(window.Desktop && Desktop.isElectron())) return;
       const toEnrich = historyEntries.filter(e => !e.classGroup);
       if (!toEnrich.length) return;
       const BATCH = 5;
@@ -30336,6 +30589,34 @@
         await Promise.all(batch.map(async entry => {
           try {
             const rel = historyEntryRelativePath(entry);
+            const isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+            if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+              const inspectRes = await Desktop.inspectBoardArchive(entry.target, rel);
+              if (inspectRes && inspectRes.ok) {
+                if (inspectRes.manifest && inspectRes.manifest.classGroup) {
+                  entry.classGroup = inspectRes.manifest.classGroup;
+                  entry.classLabel = getClassGroupLabel(inspectRes.manifest.classGroup);
+                  changed = true;
+                  return;
+                }
+                if (inspectRes.plannerEntryId) {
+                  const pid = inspectRes.plannerEntryId;
+                  const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+                  for (const cid of Object.keys(byClass)) {
+                    const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+                    if (arr.some(e => e.id === pid)) {
+                      entry.classGroup = cid;
+                      entry.classLabel = getClassGroupLabel(cid);
+                      changed = true;
+                      return;
+                    }
+                  }
+                }
+              }
+              return;
+            }
+
+            if (typeof Desktop.readByPath !== 'function') return;
             const result = await Desktop.readByPath(entry.target, rel, { encoding: 'utf8' });
             if (!(result && result.ok && result.content)) return;
             const content = result.content;
@@ -30384,6 +30665,19 @@
     async function historyReadEntryJson(entry) {
       if (!entry || !entry.target) {
         return { ok: false, error: 'Invalid history entry.' };
+      }
+
+      const rel = historyEntryRelativePath(entry) || entry.filename || '';
+      const isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+
+      if (isArchive && window.Desktop && typeof Desktop.readBoardArchive === 'function') {
+        const r = await Desktop.readBoardArchive(entry.target, rel);
+        if (r && r.ok && r.boardData) {
+          if (Array.isArray(r.boardData.attachments)) {
+            conSetAttachmentsFromSession(r.boardData.attachments, r.media);
+          }
+          return { ok: true, data: r.boardData, file: rel, repair: null, isArchive: true };
+        }
       }
 
       if (!historyEntryIsNestedPath(entry)) {
@@ -30722,10 +31016,12 @@
             throw new Error('This file is not a valid Constellation session.');
           }
           await maybeRepairAndResave();
-          _conCurrentFileName = entry.filename ? (entry.filename.endsWith('.js') ? entry.filename : boardStripJsonExt(entry.filename) + '.js') : null;
-          _conCurrentFolderName = historyEntryIsNestedPath(entry)
+          const relPathVal = historyEntryRelativePath(entry) || entry.filename || '';
+          const isArchiveFile = relPathVal.endsWith('.cstz') || relPathVal.endsWith('.zip');
+          _conCurrentFileName = entry.filename ? (isArchiveFile ? entry.filename : (entry.filename.endsWith('.js') ? entry.filename : boardStripJsonExt(entry.filename) + '.js')) : null;
+          _conCurrentFolderName = isArchiveFile ? null : (historyEntryIsNestedPath(entry)
             ? (historyEntryRelativePath(entry).split('/')[0] || null)
-            : (entry.filename ? boardStripJsonExt(entry.filename) : null);
+            : (entry.filename ? boardStripJsonExt(entry.filename) : null));
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
           setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });

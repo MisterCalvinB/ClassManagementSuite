@@ -36,6 +36,15 @@ const exposedApi = {
   saveFiles(request) {
     return invoke('app:save-files', request);
   },
+  saveBoardArchive(request) {
+    return invoke('app:save-board-archive', request);
+  },
+  readBoardArchive(request) {
+    return invoke('app:read-board-archive', request);
+  },
+  inspectBoardArchive(request) {
+    return invoke('app:inspect-board-archive', request);
+  },
   listFiles(request) {
     return invoke('app:list-files', request);
   },

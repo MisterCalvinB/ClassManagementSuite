@@ -124,6 +124,32 @@
     });
   }
 
+  async function saveBoardArchive(target, filename, entries, subdir) {
+    if (!isElectron()) return null;
+    return getDesktopApi().saveBoardArchive({
+      target: target || 'mindmaps',
+      filename,
+      subdir: subdir || undefined,
+      entries: Array.isArray(entries) ? entries : []
+    });
+  }
+
+  async function readBoardArchive(target, relativePath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().readBoardArchive({
+      target: target || 'mindmaps',
+      relativePath
+    });
+  }
+
+  async function inspectBoardArchive(target, relativePath) {
+    if (!isElectron()) return null;
+    return getDesktopApi().inspectBoardArchive({
+      target: target || 'mindmaps',
+      relativePath
+    });
+  }
+
   async function listFiles(target, options = {}) {
     if (!isElectron()) {
       return null;
@@ -814,6 +840,9 @@
     saveBlob,
     saveFile,
     saveFiles,
+    saveBoardArchive,
+    readBoardArchive,
+    inspectBoardArchive,
     saveJson,
     saveText,
     timerCommand,
