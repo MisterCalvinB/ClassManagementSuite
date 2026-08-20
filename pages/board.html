@@ -15111,12 +15111,19 @@
         }
       };
       window.conToggleMaskSelected = function () {
-        const hasNodeSelection = !!(conMultiSelected && conMultiSelected.size > 0);
-        const hasNoteSelection = !!(typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0);
+        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        const selectedNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+          ? [...conNoteSelected].map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null)).filter(Boolean)
+          : (typeof _wnActiveNote !== 'undefined' && _wnActiveNote ? [_wnActiveNote] : []);
+
+        const hasNodeSelection = selectedNodes.length > 0;
+        const hasNoteSelection = selectedNotes.length > 0;
+
         if (hasNodeSelection || hasNoteSelection) {
           conPushUndo();
           if (hasNodeSelection) {
-            const selectedNodes = conNodes.filter(n => conMultiSelected.has(n.id));
             const anyVisibleNode = selectedNodes.some(node => !node.masked);
             selectedNodes.forEach(node => {
               if (!node || !node.el) return;
@@ -15125,14 +15132,24 @@
             });
           }
           if (hasNoteSelection) {
-            const selectedNotes = [...conNoteSelected]
-              .map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null))
-              .filter(Boolean);
             const anyVisibleNote = selectedNotes.some(note => !note.hidden);
             selectedNotes.forEach(note => {
+              if (!note) return;
               note.hidden = anyVisibleNote;
               if (note._applyStyle) note._applyStyle();
-              if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null);
+              const noteEl = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+              if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, noteEl);
+              if (noteEl) {
+                const hideQuickBtn = noteEl.querySelector('.wn-note-mini-btn[title*="Hide"], .wn-note-mini-btn[title*="Reveal"]');
+                if (hideQuickBtn) {
+                  hideQuickBtn.classList.toggle('active', !!note.hidden);
+                  hideQuickBtn.title = note.hidden ? 'Reveal note' : 'Hide note';
+                }
+              }
+              if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id === note.id) {
+                const hideBtn = document.getElementById('wn-sp-hide-btn');
+                if (hideBtn) hideBtn.innerHTML = note.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+              }
             });
           }
         } else if (conGroupFocused) {
@@ -15149,13 +15166,6 @@
               node.masked = anyVisible;
               node.el.classList.toggle('con-masked', anyVisible);
             });
-          }
-        } else if (conSelected) {
-          const node = conNodes.find(n => n.id === conSelected);
-          if (node) {
-            conPushUndo();
-            node.masked = !node.masked;
-            node.el.classList.toggle('con-masked', node.masked);
           }
         }
       };
@@ -15261,6 +15271,16 @@
       window.conRestorePageToBoard = function (snap, opts) { window._conRestorePageToBoard(snap, opts); };
 
       // ---- Mirror: BroadcastChannel broadcast (main window only) ----
+      let _conBoardRevision = 1;
+      window._conBumpBoardRevision = function () {
+        _conBoardRevision++;
+        return _conBoardRevision;
+      };
+      window._conGetBoardRevision = function () {
+        return _conBoardRevision;
+      };
+      window._conSuppressMirrorObserver = false;
+
       if (new URLSearchParams(location.search).get('mirror') !== '1') {
         const _mirrorCh = new BroadcastChannel('constellation-mirror');
         let _mirrorPopupRef = null;
@@ -15269,6 +15289,20 @@
         let _mirrorFrozen = false;
         const _mirrorPeers = new Set();
         let _mirrorControlMenuEl = null;
+        const _attachmentDataUrlCache = new Map(); // cacheKey -> dataUrl
+
+        window.conMirrorSyncSelection = function () {
+          if (!window._conMirrorSend) return;
+          try {
+            window._conMirrorSend({
+              type: 'selection-state',
+              selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
+              selectedGroupId: conGroupFocused || null,
+              selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : []
+            });
+          } catch (_) { }
+        };
+
         function _updateMirrorControlMenuVisibility() {
           if (_mirrorPeers.size > 0 && !_mirrorControlMenuEl) {
             _ensureMirrorControlMenu();
@@ -15395,6 +15429,7 @@
         }
         function _mirrorBroadcast() {
           if (_mirrorFrozen) return;
+          if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
           const _now = Date.now();
           // Leading edge: fire immediately if enough time has passed since last send
           if (_now - _mirrorLastSent >= 50) {
@@ -15417,7 +15452,8 @@
           try {
             var vp = _mirrorGetViewport();
             var snap = window.conBuildPageSnapshot();
-            // Resolve data URLs for all media attachments so the mirror can display them
+            snap._revision = _conBoardRevision;
+            // Resolve data URLs for all media attachments with local caching
             var attachmentDataUrls = {};
             var _mediaItems = snap.media || [];
             await Promise.all(_mediaItems.map(async function (m) {
@@ -15425,20 +15461,25 @@
               if (!attId) return;
               var att = conFindAttachmentById(attId) || (m.attachmentId ? conFindAttachmentById(m.attachmentId) : null);
               if (!att) att = { id: attId, attachmentId: m.attachmentId || attId, name: m.name, mime: m.mime, kind: m.kind, relativePath: m.relativePath || '', file: null };
-              var url = await conGetAttachmentDataUrl(att);
-              // Blob URLs are scoped to the creating window and won't work in the mirror —
-              // convert them to transferable base64 data URLs.
-              if (url && url.startsWith('blob:')) {
-                try {
-                  var resp = await fetch(url);
-                  var blob = await resp.blob();
-                  url = await new Promise(function (resolve, reject) {
-                    var reader = new FileReader();
-                    reader.onload = function () { resolve(reader.result); };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                  });
-                } catch (err) { url = ''; }
+              var cacheKey = attId + '_' + (att.relativePath || '') + '_' + (att.name || '');
+              var url = _attachmentDataUrlCache.get(cacheKey);
+              if (!url) {
+                url = await conGetAttachmentDataUrl(att);
+                // Blob URLs are scoped to the creating window and won't work in the mirror —
+                // convert them to transferable base64 data URLs.
+                if (url && url.startsWith('blob:')) {
+                  try {
+                    var resp = await fetch(url);
+                    var blob = await resp.blob();
+                    url = await new Promise(function (resolve, reject) {
+                      var reader = new FileReader();
+                      reader.onload = function () { resolve(reader.result); };
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                    });
+                  } catch (err) { url = ''; }
+                }
+                if (url) _attachmentDataUrlCache.set(cacheKey, url);
               }
               if (url) {
                 if (m.attachmentId) attachmentDataUrls[m.attachmentId] = url;
@@ -15461,22 +15502,28 @@
                   file: null
                 };
               }
-              var bgUrl = await conGetAttachmentDataUrl(bgAtt);
-              if (bgUrl && bgUrl.startsWith('blob:')) {
-                try {
-                  var bgResp = await fetch(bgUrl);
-                  var bgBlob = await bgResp.blob();
-                  bgUrl = await new Promise(function (resolve, reject) {
-                    var bgReader = new FileReader();
-                    bgReader.onload = function () { resolve(bgReader.result); };
-                    bgReader.onerror = reject;
-                    bgReader.readAsDataURL(bgBlob);
-                  });
-                } catch (err) { bgUrl = ''; }
+              var bgCacheKey = _bg.attachmentId + '_' + (bgAtt.relativePath || '') + '_' + (bgAtt.name || '');
+              var bgUrl = _attachmentDataUrlCache.get(bgCacheKey);
+              if (!bgUrl) {
+                bgUrl = await conGetAttachmentDataUrl(bgAtt);
+                if (bgUrl && bgUrl.startsWith('blob:')) {
+                  try {
+                    var bgResp = await fetch(bgUrl);
+                    var bgBlob = await bgResp.blob();
+                    bgUrl = await new Promise(function (resolve, reject) {
+                      var bgReader = new FileReader();
+                      bgReader.onload = function () { resolve(bgReader.result); };
+                      bgReader.onerror = reject;
+                      bgReader.readAsDataURL(bgBlob);
+                    });
+                  } catch (err) { bgUrl = ''; }
+                }
+                if (bgUrl) _attachmentDataUrlCache.set(bgCacheKey, bgUrl);
               }
               if (bgUrl) attachmentDataUrls[_bg.attachmentId] = bgUrl;
             }
             console.log('[BoardPresenter] Broadcasting board-state:', {
+              revision: _conBoardRevision,
               viewport: vp,
               zoom: conCurrentZoom || 1,
               nodes: (snap.nodes || []).length,
@@ -15574,14 +15621,25 @@
           const _mirrorBoard = document.getElementById('constellation-board');
           if (_mirrorBoard) {
             new MutationObserver(function (mutations) {
-              // Skip full re-render if ALL mutations are only the blink class toggling
-              const allBlink = mutations.every(function (m) {
-                return m.type === 'attributes' && m.attributeName === 'class' &&
-                  m.target.classList.contains('con-group');
+              if (window._conSuppressMirrorObserver || window._conMirrorDragging) return;
+              // Skip full re-render if ALL mutations are only selection, blink, or transient classes
+              const allIgnored = mutations.every(function (m) {
+                if (m.type === 'attributes' && m.attributeName === 'class') {
+                  const t = m.target;
+                  if (!t) return false;
+                  const cls = t.className || '';
+                  if (typeof cls === 'string') {
+                    if (cls.includes('con-selected') || cls.includes('con-multi-selected') ||
+                        cls.includes('con-src') || cls.includes('con-group-selected') ||
+                        cls.includes('con-group-blink') || cls.includes('wn-selected') ||
+                        cls.includes('con-drawing-selected') || cls.includes('laser-')) {
+                      return true;
+                    }
+                  }
+                }
+                return false;
               });
-              // During node drags we use a lightweight node-move message instead —
-              // skip the heavy full-snapshot broadcast while dragging is active.
-              if (!allBlink && !window._conMirrorDragging) _mirrorBroadcast();
+              if (!allIgnored) _mirrorBroadcast();
             }).observe(_mirrorBoard, {
               childList: true, subtree: true,
               attributes: true, attributeFilter: ['style', 'class', 'data-shape']
@@ -15820,6 +15878,7 @@
         });
         conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
         conGroupFocused = null;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
       window.conNodeClearSelection = conNodeClearSelection;
 
@@ -15862,6 +15921,7 @@
             conActivePalette = match >= 0 ? match : 0;
           }
         }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
 
       function conSetMultiSelected(ids) {
@@ -15882,6 +15942,7 @@
             window.conShapeClearSelection();
           }
         }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
 
       window.conViewSelectedCard = function () {
@@ -19370,32 +19431,33 @@
         else conRevealAll();
       };
 
-      // Mask / reveal for multi-selected nodes
+      // Mask / reveal for selected nodes
       window.conMaskSelected = function () {
-        if (!conMultiSelected || conMultiSelected.size === 0) return;
-        conNodes.forEach(node => {
-          if (conMultiSelected.has(node.id) && !node.masked) {
+        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        if (selectedNodes.length === 0) return;
+        conPushUndo();
+        selectedNodes.forEach(node => {
+          if (!node.masked) {
             node.masked = true;
-            node.el.classList.add('con-masked');
+            if (node.el) node.el.classList.add('con-masked');
           }
         });
       };
 
       window.conRevealSelected = function () {
-        if (!conMultiSelected || conMultiSelected.size === 0) return;
-        conNodes.forEach(node => {
-          if (conMultiSelected.has(node.id) && node.masked) {
+        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        if (selectedNodes.length === 0) return;
+        conPushUndo();
+        selectedNodes.forEach(node => {
+          if (node.masked) {
             node.masked = false;
-            node.el.classList.remove('con-masked');
+            if (node.el) node.el.classList.remove('con-masked');
           }
         });
-      };
-
-      window.conToggleMaskSelected = function () {
-        if (!conMultiSelected || conMultiSelected.size === 0) return;
-        // If any selected node is visible, mask all selected; otherwise reveal all selected
-        const anyVisible = conNodes.some(n => conMultiSelected.has(n.id) && !n.masked);
-        if (anyVisible) window.conMaskSelected(); else window.conRevealSelected();
       };
 
       window.conToggleAllIpa = function () {
@@ -20828,52 +20890,8 @@
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           e.preventDefault();
-          const hasNodeSelection = !!(conMultiSelected && conMultiSelected.size > 0);
-          const hasNoteSelection = !!(typeof conNoteSelected !== 'undefined' && conNoteSelected.size > 0);
-          if (hasNodeSelection || hasNoteSelection) {
-            conPushUndo();
-            if (hasNodeSelection) {
-              const selectedNodes = conNodes.filter(n => conMultiSelected.has(n.id));
-              const anyVisibleNode = selectedNodes.some(node => !node.masked);
-              selectedNodes.forEach(node => {
-                if (!node || !node.el) return;
-                node.masked = anyVisibleNode;
-                node.el.classList.toggle('con-masked', anyVisibleNode);
-              });
-            }
-            if (hasNoteSelection) {
-              const selectedNotes = [...conNoteSelected]
-                .map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null))
-                .filter(Boolean);
-              const anyVisibleNote = selectedNotes.some(note => !note.hidden);
-              selectedNotes.forEach(note => {
-                note.hidden = anyVisibleNote;
-                if (note._applyStyle) note._applyStyle();
-                wnApplyHiddenState(note, wnGetNoteElementById(note.id));
-              });
-            }
-          } else if (conGroupFocused) {
-            const group = conGroups.find(g => g.id === conGroupFocused);
-            if (group && group.nodeIds && group.nodeIds.length) {
-              conPushUndo();
-              const anyVisible = group.nodeIds.some(nid => {
-                const node = conNodes.find(n => n.id === nid);
-                return node && !node.masked;
-              });
-              group.nodeIds.forEach(nid => {
-                const node = conNodes.find(n => n.id === nid);
-                if (!node || !node.el) return;
-                node.masked = anyVisible;
-                node.el.classList.toggle('con-masked', anyVisible);
-              });
-            }
-          } else if (conSelected) {
-            const node = conNodes.find(n => n.id === conSelected);
-            if (node) {
-              conPushUndo();
-              node.masked = !node.masked;
-              node.el.classList.toggle('con-masked', node.masked);
-            }
+          if (typeof window.conToggleMaskSelected === 'function') {
+            window.conToggleMaskSelected();
           }
           return;
         }
@@ -23235,7 +23253,7 @@
         if (typeof window._conMirrorBroadcast === 'function') {
           window._conMirrorBroadcast();
         }
-      }, 2000);
+      }, 100);
     }
     window.conScheduleNoteMirrorUpdate = conScheduleNoteMirrorUpdate;
     window.conCancelNoteMirrorUpdate = conCancelNoteMirrorUpdate;
@@ -25677,10 +25695,26 @@
       }
       noteData._applyStyle = applyNoteStyle;
 
+      function updateNoteContent() {
+        const newHtml = noteData.html ? String(noteData.html) : boardEscapeHtml(noteData.text || '').replace(/\n/g, '<br>');
+        const rendered = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(newHtml) : newHtml;
+        if (ta.innerHTML !== rendered) ta.innerHTML = rendered;
+        conNoteAutosize(ta, noteData);
+      }
+      noteData._updateContent = updateNoteContent;
+
       ta.addEventListener('input', e => {
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
         conNoteAutosize(ta, noteData);
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'note-text',
+            id: String(noteData.id),
+            html: noteData.html,
+            text: noteData.text
+          });
+        }
         conScheduleNoteMirrorUpdate(noteData, ta);
       });
       ta.addEventListener('blur', () => {
@@ -25690,6 +25724,14 @@
         wnSyncNoteDataFromEditor(noteData, ta);
         conNoteAutosize(ta, noteData);
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'note-text',
+            id: String(noteData.id),
+            html: noteData.html,
+            text: noteData.text
+          });
+        }
         if (typeof window._conMirrorBroadcast === 'function') {
           window._conMirrorBroadcast();
         }
@@ -27702,7 +27744,8 @@
         boardBgColor: _conBoardBgColor || null,
         boardBackgroundColor: _conBoardBgColor || null,
         tables: window.conSerializeTables ? window.conSerializeTables() : [],
-        boardStickers: (window._conBoardStickers || []).map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 }))
+        boardStickers: (window._conBoardStickers || []).map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 })),
+        _revision: (typeof window._conGetBoardRevision === 'function' ? window._conGetBoardRevision() : 1)
       };
     }
 
@@ -30730,6 +30773,268 @@
       }
 
       data.dateCreated = boardNormalizeDateCreated('constellation', data.dateCreated || data._createdAt);
+
+      if (isMirrorSync) {
+        // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
+        const brd = conGetBoard();
+        const existingNodes = conGetNodes();
+        const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
+        const keepNodeIds = new Set();
+        const nextNodes = [];
+
+        (data.nodes || []).forEach(n => {
+          keepNodeIds.add(n.id);
+          const existing = existingNodeMap.get(n.id);
+          if (existing && existing.el) {
+            existing.x = n.x;
+            existing.y = n.y;
+            existing.baseX = n.x;
+            existing.baseY = n.y;
+            existing.el.style.left = n.x + 'px';
+            existing.el.style.top = n.y + 'px';
+            if (n.bg) existing.el.style.background = n.bg;
+            if (n.color) existing.el.style.color = n.color;
+            if (n.border) existing.el.style.borderColor = n.border;
+            if (n.fontFamily) existing.el.style.fontFamily = n.fontFamily;
+            conApplyTextStrokeStyle(existing.el, n.textStrokeWidth, n.textStrokeColor);
+
+            existing.dbWord = n.dbWord || null;
+            existing.baseWord = n.baseWord || '';
+            existing.sourceWord = n.sourceWord || null;
+            existing.relation = n.relation || null;
+            existing.fmt = n.fmt || {};
+            existing.locked = !!n.locked;
+            existing.pageNum = n.pageNum != null ? n.pageNum : null;
+            existing.phraseOrder = n.phraseOrder != null ? n.phraseOrder : null;
+            existing.emoji = n.emoji || null;
+            existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
+            existing.borderWidth = n.borderWidth || null;
+            existing.borderStyle = n.borderStyle || null;
+            existing.highlight = n.highlight || null;
+            existing.preset = n.preset || null;
+            existing.fontFamily = n.fontFamily || null;
+            existing.fontSize = n.fontSize || '16px';
+            existing.textStrokeColor = n.textStrokeColor || null;
+            existing.textStrokeWidth = n.textStrokeWidth || null;
+
+            window.conRenderNodeLabel(existing);
+            if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(existing, n.fontSize || '16px');
+            conApplyNodeShape(existing, existing.shape);
+            existing.el.dataset.baseWord = n.baseWord || '';
+            if (existing.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(existing);
+            if (n.masked) {
+              existing.masked = true;
+              existing.el.classList.add('con-masked');
+            } else {
+              existing.masked = false;
+              existing.el.classList.remove('con-masked');
+            }
+            if (window.conSyncNodeLockState) window.conSyncNodeLockState(existing);
+            nextNodes.push(existing);
+          } else {
+            const dbMatch = (typeof vocabBank !== 'undefined')
+              ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
+              : null;
+            const el = document.createElement('div');
+            el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+            el.id = n.id;
+            el.style.left = n.x + 'px';
+            el.style.top = n.y + 'px';
+            if (n.bg) el.style.background = n.bg;
+            if (n.color) el.style.color = n.color;
+            if (n.border) el.style.borderColor = n.border;
+            if (n.fontFamily) el.style.fontFamily = n.fontFamily;
+            conApplyTextStrokeStyle(el, n.textStrokeWidth, n.textStrokeColor);
+            brd.appendChild(el);
+            const nodeObj = {
+              id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
+              dbWord: n.dbWord || null,
+              baseWord: n.baseWord || '',
+              sourceWord: n.sourceWord || null,
+              relation: n.relation || null,
+              fmt: n.fmt || {},
+              locked: !!n.locked,
+              pageNum: n.pageNum != null ? n.pageNum : null,
+              phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+              emoji: n.emoji || null,
+              shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
+              borderWidth: n.borderWidth || null,
+              borderStyle: n.borderStyle || null,
+              highlight: n.highlight || null,
+              preset: n.preset || null,
+              fontFamily: n.fontFamily || null,
+              fontSize: n.fontSize || '16px',
+              textStrokeColor: n.textStrokeColor || null,
+              textStrokeWidth: n.textStrokeWidth || null
+            };
+            nextNodes.push(nodeObj);
+            window.conAttachNode(n.id, el);
+            window.conRenderNodeLabel(nodeObj);
+            if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
+            conApplyNodeShape(nodeObj, nodeObj.shape);
+            el.dataset.baseWord = n.baseWord || '';
+            if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
+            if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
+            if (n.masked) {
+              nodeObj.masked = true;
+              el.classList.add('con-masked');
+            }
+            if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
+          }
+        });
+
+        // Remove only deleted nodes
+        existingNodeMap.forEach((node, id) => {
+          if (!keepNodeIds.has(id)) {
+            if (node && node.el) node.el.remove();
+          }
+        });
+        existingNodes.length = 0;
+        existingNodes.push(...nextNodes);
+
+        // Word notes reconciliation
+        const _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+        const existingNotesMap = new Map(_liveNotes.map(n => [String(n.id), n]));
+        const keepNoteIds = new Set();
+        const nextNotes = [];
+
+        (data.notes || []).forEach(n => {
+          const nid = String(n.id);
+          keepNoteIds.add(nid);
+          const existing = existingNotesMap.get(nid);
+          const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector('.con-word-note[data-id="' + nid + '"]');
+
+          if (existing && noteEl) {
+            Object.assign(existing, {
+              x: n.x, y: n.y,
+              text: n.text, html: n.html || '',
+              color: n.color, bg: n.bg,
+              fontSize: n.fontSize,
+              fontFamily: n.fontFamily || null,
+              bold: !!n.bold, italic: !!n.italic, underline: !!n.underline,
+              strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked,
+              manualSize: !!n.manualSize,
+              width: typeof n.width === 'number' ? n.width : null,
+              height: typeof n.height === 'number' ? n.height : null,
+              borderWidth: n.borderWidth || null,
+              borderStyle: n.borderStyle || null,
+              borderColor: n.borderColor || null,
+              preset: n.preset || null,
+              blink: !!n.blink,
+              studentInput: !!n.studentInput,
+              textAlign: n.textAlign || null
+            });
+            noteEl.style.left = n.x + 'px';
+            noteEl.style.top = n.y + 'px';
+            const editorEl = noteEl.querySelector('.wn-note-editor');
+            if (editorEl) {
+              const content = n.html ? String(n.html) : boardEscapeHtml(n.text || '').replace(/\n/g, '<br>');
+              const rendered = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(content) : content;
+              if (editorEl.innerHTML !== rendered) editorEl.innerHTML = rendered;
+            }
+            if (existing._applyStyle) existing._applyStyle();
+            if (existing._updateContent) existing._updateContent();
+            nextNotes.push(existing);
+          } else {
+            const noteData = {
+              fontSize: 14, bold: false, italic: false, underline: false, strike: false,
+              color: '#111111', bg: '#ffffff',
+              hidden: false, locked: false,
+              manualSize: false, width: null, height: null,
+              ...n
+            };
+            nextNotes.push(noteData);
+            conNoteBuild(noteData);
+            const num = parseInt(String(n.id).replace(/^cn+/, ''));
+            if (!isNaN(num)) conNoteNextId = Math.max(conNoteNextId, num + 1);
+            if (n.nodeId) {
+              const linkedNode = conGetNodes().find(nd => nd.id === n.nodeId);
+              if (linkedNode) linkedNode.el.classList.add('has-con-note');
+            }
+          }
+        });
+
+        // Remove deleted notes
+        existingNotesMap.forEach((n, id) => {
+          if (!keepNoteIds.has(id)) {
+            const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(id) : document.querySelector('.con-word-note[data-id="' + id + '"]');
+            if (el) el.remove();
+          }
+        });
+        _liveNotes.length = 0;
+        _liveNotes.push(...nextNotes);
+
+        // Clear and rebuild edges & groups
+        const edges = window.conGetEdges ? window.conGetEdges() : [];
+        edges.forEach(e => e.g && e.g.remove());
+        edges.length = 0;
+        const groups = window.conGetGroups ? window.conGetGroups() : [];
+        groups.forEach(g => g.el && g.el.remove());
+        groups.length = 0;
+        const svgEl = document.getElementById('constellation-svg');
+        if (svgEl) svgEl.innerHTML = '';
+
+        (data.edges || []).forEach(e => {
+          if (e.a && e.b) {
+            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null);
+          }
+        });
+
+        const savedMasksMirror = Array.isArray(data.masks) ? data.masks : (Array.isArray(data.conMasks) ? data.conMasks : []);
+        if (data.groups) {
+          data.groups.forEach(g => {
+            const validIds = (g.nodeIds || []).filter(id => conGetNodes().find(n => n.id === id));
+            const noteIds = g.noteIds || [];
+            const drawingIds = g.drawingIds || [];
+            const shapeIds = g.shapeIds || [];
+            if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || (g.manualW != null && g.manualH != null))
+              _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds }, validIds);
+          });
+        }
+
+        if (window.conMasksClear) window.conMasksClear();
+        savedMasksMirror.forEach(m => {
+          if (window.conAddMaskFromData) window.conAddMaskFromData(m);
+        });
+
+        if (window.conDrawingsClear) window.conDrawingsClear();
+        (data.drawings || []).forEach(d => {
+          if (window.conDrawingFromData) window.conDrawingFromData(d);
+        });
+
+        if (window.conShapesClear) window.conShapesClear();
+        (data.shapes || []).forEach(s => {
+          if (window.conShapeFromData) window.conShapeFromData(s);
+        });
+
+        if (window.conTablesClear) window.conTablesClear();
+        (data.tables || []).forEach(t => {
+          if (window.conAddTableFromData) window.conAddTableFromData(t);
+        });
+
+        conRestoreMediaItems(data.media || []);
+        conPageBackgroundPdf = data.backgroundPdf ? {
+          attachmentId: String(data.backgroundPdf.attachmentId || ''),
+          name: String(data.backgroundPdf.name || 'background.pdf'),
+          mime: String(data.backgroundPdf.mime || 'application/pdf'),
+          relativePath: String(data.backgroundPdf.relativePath || ''),
+          pageNumber: Math.max(1, Number(data.backgroundPdf.pageNumber) || 1),
+          file: null
+        } : null;
+        conRenderPagePdfBackground({ silent: true });
+        _conBoardBg = (data.boardBg && data.boardBg.attachmentId)
+          ? { attachmentId: String(data.boardBg.attachmentId), pageNumber: Math.max(1, Number(data.boardBg.pageNumber) || 1) }
+          : null;
+        conRenderBoardBg({ silent: true });
+        _conBoardBgColor = conNormalizeColorHex(data.boardBgColor || data.boardBackgroundColor || data.backgroundColor || '') || window._bcBoardDefaultBgColor || '';
+        conApplyBoardBgColor();
+
+        window.conRedrawEdges();
+        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        if (window.conUpdatePageBar) window.conUpdatePageBar();
+        return;
+      }
+
       // Clear existing board without confirm
       const nodes = conGetNodes();
       nodes.slice().forEach(n => n.el.remove());
@@ -37753,6 +38058,34 @@
 
       // Track active node attention blinks so they survive board re-renders.
       var _activeNodeBlinks = {}; // nodeId -> { durationMs, startTime, borderColor, cleanupTimer }
+      var _lastRenderedRevision = null;
+
+      function _mirrorApplySelectionState(sel) {
+        if (!sel) return;
+        // Show active/selected node highlight
+        document.querySelectorAll('#constellation-board .con-node.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedNodeId) {
+          var activeEl = document.getElementById(sel.selectedNodeId);
+          if (activeEl) activeEl.classList.add('con-mirror-active');
+        }
+        // Show active/selected group (and phrase-group) highlight
+        document.querySelectorAll('#constellation-board .con-group.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedGroupId) {
+          var activeGroupEl = document.querySelector('#constellation-board [data-gid="' + sel.selectedGroupId + '"]');
+          if (activeGroupEl) activeGroupEl.classList.add('con-mirror-active');
+        }
+        // Show active/selected note highlight
+        document.querySelectorAll('#constellation-board .con-word-note.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedNoteIds && sel.selectedNoteIds.length) {
+          sel.selectedNoteIds.forEach(function (nid) {
+            var activeNoteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + nid + '"]');
+            if (activeNoteEl) activeNoteEl.classList.add('con-mirror-active');
+          });
+        }
+      }
 
       function _mirrorApplyNodeBlink(nodeId, info) {
         var nel = document.getElementById(nodeId);
@@ -37776,6 +38109,33 @@
         if (!e.data) return;
         var d = e.data;
 
+        if (d.type === 'note-text') {
+          if (_mirrorIsFrozen) return;
+          var noteEl = document.querySelector('.con-word-note[data-id="' + d.id + '"]');
+          if (noteEl) {
+            var editor = noteEl.querySelector('.wn-note-editor');
+            if (editor) {
+              var content = d.html ? String(d.html) : boardEscapeHtml(d.text || '').replace(/\n/g, '<br>');
+              var rendered = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(content) : content;
+              if (editor.innerHTML !== rendered) editor.innerHTML = rendered;
+              var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+              var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.id); });
+              if (noteObj) {
+                noteObj.html = d.html || '';
+                noteObj.text = d.text || '';
+                if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteObj);
+              }
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'selection-state') {
+          if (_mirrorIsFrozen) return;
+          _mirrorApplySelectionState(d);
+          return;
+        }
+
         if (d.type === 'board-state') {
           console.log('[BoardMirror] Received board-state:', {
             boardViewW: d.boardViewW,
@@ -37786,6 +38146,7 @@
             snapshotNodes: d.snapshot ? (d.snapshot.nodes || []).length : 0,
             snapshotDrawings: d.snapshot ? (d.snapshot.drawings || []).length : 0,
             hasBoardBgRender: !!d.boardBgRender,
+            revision: d.snapshot ? d.snapshot._revision : null,
             frozen: d.frozen
           });
           if (d.boardViewW) { _mvpW = d.boardViewW; _mvpH = d.boardViewH; }
@@ -37794,8 +38155,13 @@
           if (d.attachmentDataUrls && typeof window.conSetAttachmentPreloadMap === 'function') {
             window.conSetAttachmentPreloadMap(d.attachmentDataUrls);
           }
-          if (d.snapshot && typeof window.conRestorePageToBoard === 'function') {
+
+          const incomingRevision = d.snapshot && (d.snapshot._revision || d.snapshot._conRevision);
+          const skipRestore = !!(incomingRevision && _lastRenderedRevision && incomingRevision === _lastRenderedRevision);
+
+          if (!skipRestore && d.snapshot && typeof window.conRestorePageToBoard === 'function') {
             window.conRestorePageToBoard(d.snapshot, { mirrorSync: true });
+            _lastRenderedRevision = incomingRevision || null;
             // conDrawingsClear (called during restore) wipes con-draw-live-svg; re-attach the
             // in-progress live path so a mid-stroke board-state doesn't erase it from view.
             if (_mirrorLivePath) {
@@ -37811,29 +38177,13 @@
               _mirrorApplyNodeBlink(nid, _activeNodeBlinks[nid]);
             });
           }
-          // Show active/selected node highlight
-          document.querySelectorAll('#constellation-board .con-node.con-mirror-active')
-            .forEach(function (el) { el.classList.remove('con-mirror-active'); });
-          if (d.selectedNodeId) {
-            var activeEl = document.getElementById(d.selectedNodeId);
-            if (activeEl) activeEl.classList.add('con-mirror-active');
-          }
-          // Show active/selected group (and phrase-group) highlight
-          document.querySelectorAll('#constellation-board .con-group.con-mirror-active')
-            .forEach(function (el) { el.classList.remove('con-mirror-active'); });
-          if (d.selectedGroupId) {
-            var activeGroupEl = document.querySelector('#constellation-board [data-gid="' + d.selectedGroupId + '"]');
-            if (activeGroupEl) activeGroupEl.classList.add('con-mirror-active');
-          }
-          // Show active/selected note highlight
-          document.querySelectorAll('#constellation-board .con-word-note.con-mirror-active')
-            .forEach(function (el) { el.classList.remove('con-mirror-active'); });
-          if (d.selectedNoteIds && d.selectedNoteIds.length) {
-            d.selectedNoteIds.forEach(function (nid) {
-              var activeNoteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + nid + '"]');
-              if (activeNoteEl) activeNoteEl.classList.add('con-mirror-active');
-            });
-          }
+
+          _mirrorApplySelectionState({
+            selectedNodeId: d.selectedNodeId,
+            selectedGroupId: d.selectedGroupId,
+            selectedNoteIds: d.selectedNoteIds
+          });
+
           // Sync pointer dot visibility
           if (d.pointerOn !== undefined) {
             document.body.classList.toggle('con-pointer-on', !!d.pointerOn);

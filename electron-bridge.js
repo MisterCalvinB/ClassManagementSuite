@@ -883,6 +883,40 @@
     }
   });
 
+  // Global interceptor for external hyperlinks (http://, https://, mailto:)
+  // Ensures external websites always open in the user's default browser or a new tab
+  // instead of navigating the current tool window away and losing active state.
+  function wireExternalLinks() {
+    document.addEventListener('click', function (event) {
+      const anchor = event.target && typeof event.target.closest === 'function'
+        ? event.target.closest('a[href]')
+        : null;
+      if (!anchor) return;
+
+      // Ignore internal anchors (e.g. #section, javascript:, or nav-links handled by wireAppNav)
+      if (anchor.classList && anchor.classList.contains('nav-link')) return;
+
+      const rawHref = anchor.getAttribute('href');
+      if (!rawHref) return;
+
+      const trimmed = rawHref.trim();
+      const isExternal = /^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed);
+      if (!isExternal) return;
+
+      if (isElectron()) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.Desktop && typeof window.Desktop.openExternal === 'function') {
+          window.Desktop.openExternal(trimmed);
+        }
+      } else {
+        // Standard browser fallback: ensure it opens in a new tab safely
+        anchor.setAttribute('target', '_blank');
+        anchor.setAttribute('rel', 'noopener noreferrer');
+      }
+    }, true);
+  }
+
   // In Electron, intercept app-nav links so they open in a new tool window
   // instead of being blocked by setWindowOpenHandler.
   // Uses event delegation so dynamically-injected menu links are handled.
@@ -907,10 +941,17 @@
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { wireAppNav(); wireHamburger(); wireReminderToast(); });
+    document.addEventListener('DOMContentLoaded', function () {
+      wireExternalLinks();
+      wireAppNav();
+      wireHamburger();
+      wireReminderToast();
+    });
   } else {
+    wireExternalLinks();
     wireAppNav();
     wireHamburger();
     wireReminderToast();
   }
 })();
+

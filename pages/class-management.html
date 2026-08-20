@@ -2486,8 +2486,10 @@
 
     <!-- MODE ANIMATION OVERLAY -->
     <div id="mode-animation-overlay">
-        <button class="mode-minimize-btn" id="mode-overlay-minimize-btn" onclick="minimizeMode()" title="Minimise mode" data-i18n-title="mode_minimize_title"><img src="../assets/icons/minimize.svg" class="btn-icon" alt="" /></button>
-        <button class="mode-close-btn" id="mode-overlay-close-btn" onclick="closeMode()" title="Close mode" data-i18n-title="mode_close_title"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        <div class="mode-overlay-window-controls">
+            <button class="mode-close-btn" id="mode-overlay-close-btn" onclick="closeMode()" title="Close mode" data-i18n-title="mode_close_title"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+            <button class="mode-minimize-btn" id="mode-overlay-minimize-btn" onclick="minimizeMode()" title="Minimise mode" data-i18n-title="mode_minimize_title"><img src="../assets/icons/minimize.svg" class="btn-icon" alt="" /></button>
+        </div>
         <div id="mode-overlay-timer-settings">
             <div class="timer-overlay-setting" id="mode-overlay-duration-setting">
                 <span class="timer-overlay-setting-label" data-i18n="timer_duration">Duration</span>
@@ -2889,6 +2891,8 @@
                 document.body.classList.toggle('pres-show-autoflag', !!data.presSettings.autoflag);
                 document.body.classList.toggle('pres-show-badges', !!data.presSettings.badges);
                 document.body.classList.toggle('pres-show-roles', !!data.presSettings.roles);
+                document.body.classList.toggle('pres-show-sen', !!data.presSettings.sen);
+                presSettings = { ...presSettings, ...data.presSettings };
             }
             if (data.studentGroups) {
                 try { Object.assign(studentGroups, JSON.parse(JSON.stringify(data.studentGroups))); } catch (_) { }
@@ -9031,13 +9035,14 @@
         }
 
         function renderStudentFlagsHtml(student) {
-            if (!autoFlagVisible || !student) return '';
+            const isVisible = PRESENTATION_MODE ? !!presSettings.autoflag : autoFlagVisible;
+            if (!isVisible || !student) return '';
             const flags = getActiveFlags(student);
             if (!flags || flags.length === 0) return '';
 
             return flags.map(f => {
                 const title = f.ruleName ? `${f.label}: ${f.ruleName}` : `${f.label} (${f.source})`;
-                return `<span title="${title}" style="margin-left:3px; display:inline-block; cursor:default;">${getFlagIconSvg(f.color, 14)}</span>`;
+                return `<span class="flag-indicator" title="${title}" style="margin-left:3px; display:inline-block; cursor:default;">${getFlagIconSvg(f.color, 14)}</span>`;
             }).join('');
         }
 
@@ -15508,6 +15513,10 @@ syncState();
         document.addEventListener('DOMContentLoaded', () => {
             if (PRESENTATION_MODE) {
                 document.body.classList.add('presentation-mode');
+                document.body.classList.toggle('pres-show-autoflag', !!presSettings.autoflag);
+                document.body.classList.toggle('pres-show-badges', !!presSettings.badges);
+                document.body.classList.toggle('pres-show-roles', !!presSettings.roles);
+                document.body.classList.toggle('pres-show-sen', !!presSettings.sen);
                 window.addEventListener('resize', () => {
                     if (rosterPlanView) requestAnimationFrame(_presAdjustPlanViewHeight);
                     else _presAdjustRosterColumns();

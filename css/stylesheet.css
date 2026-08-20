@@ -13145,13 +13145,15 @@ button > img.btn-icon:only-child {
   display: flex;
   gap: 12px;
   align-items: center;
+  justify-content: center;
   background: #f5f5f5a1;
   border: 2px solid #ddd;
   border-radius: 8px;
   padding: 8px 12px;
   flex-wrap: wrap;
   z-index: 20;
-  max-width: calc(100vw - 80px);
+  max-width: calc(100% - 130px);
+  box-sizing: border-box;
 }
 
 #mode-overlay-timer-settings .timer-overlay-setting-label {
@@ -13235,10 +13237,21 @@ button > img.btn-icon:only-child {
   display: flex;
 }
 
-#mode-animation-overlay .mode-close-btn,
-#mode-animation-overlay .mode-minimize-btn {
+#mode-animation-overlay .mode-overlay-window-controls {
   position: absolute;
   top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+}
+
+#mode-animation-overlay .mode-close-btn,
+#mode-animation-overlay .mode-minimize-btn {
+  position: relative;
+  top: auto;
+  right: auto;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -13251,17 +13264,9 @@ button > img.btn-icon:only-child {
   align-items: center;
   justify-content: center;
   transition: all 0.12s;
-  z-index: 10;
   box-shadow: 2px 2px 0 #111;
   padding: 0;
-}
-
-#mode-animation-overlay .mode-close-btn {
-  right: 14px;
-}
-
-#mode-animation-overlay .mode-minimize-btn {
-  right: 58px;
+  flex-shrink: 0;
 }
 
 #mode-animation-overlay .mode-close-btn:hover,
@@ -22219,6 +22224,8 @@ body.presentation-mode {
 .presentation-mode #timer-overlay-close,
 .presentation-mode .mode-minimize-btn,
 .presentation-mode .mode-close-btn,
+.presentation-mode .mode-overlay-window-controls,
+.presentation-mode #mode-animation-overlay .mode-overlay-window-controls,
 .presentation-mode #mode-animation-overlay .mode-minimize-btn,
 .presentation-mode #mode-animation-overlay .mode-close-btn,
 .presentation-mode #mode-minimized-pill {
@@ -22235,7 +22242,8 @@ body.presentation-mode {
 }
 
 /* Presentation mode — per-feature visibility (toggled from roster settings) */
-.presentation-mode:not(.pres-show-autoflag) .flag-indicator {
+.presentation-mode:not(.pres-show-autoflag) .flag-indicator,
+.presentation-mode:not(.pres-show-autoflag) .flag-indicator-svg {
   display: none !important;
 }
 
@@ -22248,6 +22256,10 @@ body.presentation-mode {
 }
 
 .presentation-mode:not(.pres-show-roles) .student-role-tag {
+  display: none !important;
+}
+
+.presentation-mode:not(.pres-show-sen) .sen-indicator {
   display: none !important;
 }
 

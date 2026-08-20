@@ -394,6 +394,27 @@ function _arrangeSideBySide(mainWin, toolWin, mainFrac, cmOnRight = true) {
   }
 }
 
+function setupWindowExternalLinkHandling(win) {
+  if (!win || !win.webContents) return;
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https?|mailto):/i.test(url)) {
+      shell.openExternal(url).catch((err) => {
+        console.warn('Failed to open external URL from window.open:', url, err);
+      });
+    }
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    if (/^https?:\/\//i.test(url)) {
+      event.preventDefault();
+      shell.openExternal(url).catch((err) => {
+        console.warn('Failed to open external URL on will-navigate:', url, err);
+      });
+    }
+  });
+}
+
 function createToolWindow(pageFile, options = {}) {
   const win = new BrowserWindow({
     width: 1600,
@@ -407,7 +428,7 @@ function createToolWindow(pageFile, options = {}) {
     }
   });
 
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(win);
   let closingAfterExport = false;
   win.on('close', (event) => {
     const currentPage = getLoadedPageFile(win);
@@ -505,7 +526,7 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
   }, 800);
   mainWindow.once('show', () => clearTimeout(showFallbackTimer));
 
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(mainWindow);
   mainWindow.on('close', (event) => {
     if (mainWindowClosingAfterExport) {
       return;
@@ -4460,7 +4481,7 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   }
 
   mirrorWindow = new BrowserWindow(winOpts);
-  mirrorWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(mirrorWindow);
   mirrorWindow.on('closed', () => { mirrorWindow = null; });
   // When no second screen: keep presentation window the same size as the main window
   if (!secondDisplay && senderWin) {
@@ -4553,7 +4574,7 @@ ipcMain.handle('app:open-cms-presentation', async (event, request = {}) => {
   }
 
   cmsPresentationWindow = new BrowserWindow(winOpts);
-  cmsPresentationWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(cmsPresentationWindow);
   cmsPresentationWindow.on('closed', () => { cmsPresentationWindow = null; });
 
   try {
@@ -4660,7 +4681,7 @@ ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
     if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
   }
   oralPresenterWindow = new BrowserWindow(winOpts);
-  oralPresenterWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(oralPresenterWindow);
   oralPresenterWindow.on('closed', () => { oralPresenterWindow = null; });
   try {
     await oralPresenterWindow.loadFile(getToolPath(PAGE_FILES.oralMarking), { query: { presentation: '1' } });
@@ -4742,7 +4763,7 @@ ipcMain.handle('app:open-doc-presentation', async (event, request = {}) => {
   }
 
   docPresentationWindow = new BrowserWindow(winOpts);
-  docPresentationWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  setupWindowExternalLinkHandling(docPresentationWindow);
   docPresentationWindow.on('closed', () => { docPresentationWindow = null; });
 
   try {
