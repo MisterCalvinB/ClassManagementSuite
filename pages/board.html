@@ -4372,6 +4372,7 @@
     function updateGroupSelectorTitle() { }
 
     function _cgDisplayName(key) {
+      if (!key) return '';
       try {
         const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
           ? CLASS_GROUPS_META
@@ -4379,17 +4380,34 @@
             ? CLASS_GROUPS_DATA.classGroupsMeta
             : null;
         const m = meta ? meta[key] : null;
-        return (m && m.name) ? m.name : key;
-      } catch { return key; }
+        if (m && m.name) return m.name;
+      } catch { }
+      try {
+        const cfg = window.PLANNER_CONFIG;
+        const cls = cfg && cfg.classes && cfg.classes[key];
+        if (cls && cls.name) return String(cls.name);
+      } catch { }
+      return key;
     }
 
     function setActiveClassGroup(groupName, options = {}) {
       const preserveBoardState = !!options.preserveBoardState;
       const prevGroup = activeClassGroup;
-      const hasGroup = typeof CLASS_GROUPS_META !== 'undefined'
-        && CLASS_GROUPS_META
-        && Object.prototype.hasOwnProperty.call(CLASS_GROUPS_META, groupName);
-      const nextGroup = hasGroup ? groupName : '';
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? CLASS_GROUPS_META
+        : (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta
+          : null;
+      let nextGroup = String(groupName || '').trim();
+      if (meta && nextGroup) {
+        if (meta[nextGroup]) {
+          // Exactly matches a key in meta (e.g. UUID)
+        } else {
+          // Check if groupName matches by displayName / name
+          const matchKey = Object.keys(meta).find(k => meta[k] && (meta[k].name === nextGroup || _cgDisplayName(k) === nextGroup));
+          if (matchKey) nextGroup = matchKey;
+        }
+      }
       if (prevGroup !== nextGroup && !preserveBoardState && typeof boardAutosaveAllNow === 'function') {
         boardAutosaveAllNow({ classGroup: prevGroup, force: true });
       }
@@ -4456,9 +4474,15 @@
       if (!pillsEl) return;
       pillsEl.innerHTML = '';
 
-      const groupKeys = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
-        ? Object.keys(CLASS_GROUPS_META)
-          .filter(key => !(CLASS_GROUPS_META[key] && CLASS_GROUPS_META[key].archived))
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? CLASS_GROUPS_META
+        : (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta
+          : null;
+
+      const groupKeys = meta
+        ? Object.keys(meta)
+          .filter(key => !(meta[key] && meta[key].archived))
           .sort((a, b) => _cgDisplayName(a).localeCompare(_cgDisplayName(b)))
         : [];
 
@@ -4474,7 +4498,7 @@
         const pill = document.createElement('li');
         pill.className = 'con-class-pill';
         const displayName = _cgDisplayName(key);
-        const count = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[key] && Array.isArray(CLASS_GROUPS_META[key].students)) ? CLASS_GROUPS_META[key].students.length : 0;
+        const count = (meta[key] && Array.isArray(meta[key].students)) ? meta[key].students.length : 0;
         pill.textContent = displayName;
         pill.title = displayName + (count ? ' (' + count + ' students)' : '');
         pill.dataset.group = key;
@@ -4603,7 +4627,10 @@
     }
 
     function bpFmtDate(dateStr) {
-      try { return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); }
+      try {
+        const loc = typeof getLocale === 'function' ? getLocale() : ((typeof getLang === 'function' && { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' }[getLang()]) || 'fr-FR');
+        return new Date(dateStr + 'T12:00:00').toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
+      }
       catch (e) { return dateStr; }
     }
 
@@ -4650,49 +4677,120 @@
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) return false;
       if (!_conCurrentFileName) return false;
 
-      const nextFilename = conPlannerSlotBaseName(e) + '.js';
       const oldFilename = _conCurrentFileName;
+      const extMatch = String(oldFilename).match(/\.(cstz|js|json|zip)$/i);
+      const ext = extMatch ? extMatch[0] : '.cstz';
+      const cleanBase = conPlannerSlotBaseName(e);
+      let nextFilename = cleanBase + ext;
+      if (nextFilename === oldFilename) return true;
+
+      const hasFolder = !!_conCurrentFolderName;
+      let targetFolder = cleanBase;
+
+      if (typeof Desktop.statByPath === 'function') {
+        try {
+          const checkTarget = hasFolder ? targetFolder : nextFilename;
+          const stat = await Desktop.statByPath('mindmaps', checkTarget);
+          if (stat && stat.ok && stat.exists) {
+            let i = 2;
+            while (i < 1000) {
+              const testBase = `${cleanBase} (${i})`;
+              const testFilename = testBase + ext;
+              const testTarget = hasFolder ? testBase : testFilename;
+              const s = await Desktop.statByPath('mindmaps', testTarget);
+              if (!s || !s.ok || !s.exists) {
+                targetFolder = testBase;
+                nextFilename = testFilename;
+                break;
+              }
+              i++;
+            }
+          }
+        } catch (_) { }
+      }
+
       if (nextFilename === oldFilename) return true;
 
       const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
-      const newFolder = boardStripJsonExt(nextFilename);
+      const newFolder = targetFolder;
 
       try {
-        if (oldFolder && oldFolder !== newFolder) {
-          await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
-        }
-        if (oldFilename !== nextFilename) {
-          await Desktop.renameByPath('mindmaps', newFolder + '/' + oldFilename, newFolder + '/' + nextFilename);
-        }
-
-        if (typeof Desktop.listByPath === 'function') {
-          const oldBase = boardStripJsonExt(oldFilename);
-          const newBase = boardStripJsonExt(nextFilename);
-          if (oldBase !== newBase) {
-            const histPath = newFolder + '/history';
-            try {
-              const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json'], recursive: false });
-              const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
-              for (const vf of vFiles) {
-                const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
-                if (vfname.startsWith(oldBase + '.v')) {
-                  const suffix = vfname.slice(oldBase.length);
-                  await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => { });
-                }
-              }
-            } catch (e) { }
+        if (hasFolder) {
+          if (oldFolder && oldFolder !== newFolder) {
+            const rFolder = await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
+            if (rFolder && rFolder.ok === false) {
+              throw new Error(rFolder.error || 'Could not rename folder');
+            }
           }
+          if (oldFilename !== nextFilename) {
+            const innerFrom = (newFolder || oldFolder) + '/' + oldFilename;
+            const innerTo = (newFolder || oldFolder) + '/' + nextFilename;
+            await Desktop.renameByPath('mindmaps', innerFrom, innerTo).catch(() => { });
+          }
+
+          if (typeof Desktop.listByPath === 'function') {
+            const oldBase = boardStripJsonExt(oldFilename);
+            const newBase = targetFolder;
+            if (oldBase !== newBase) {
+              const histPath = newFolder + '/history';
+              try {
+                const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: false });
+                const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+                for (const vf of vFiles) {
+                  const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
+                  if (vfname.startsWith(oldBase + '.v')) {
+                    const suffix = vfname.slice(oldBase.length);
+                    await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => { });
+                  }
+                }
+              } catch (e) { }
+            }
+          }
+          _conCurrentFolderName = newFolder;
+        } else {
+          const res = await Desktop.renameByPath('mindmaps', oldFilename, nextFilename);
+          if (res && res.ok === false) {
+            throw new Error(res.error || 'Could not rename file');
+          }
+          _conCurrentFolderName = null;
         }
 
+        const oldFileValue = _conCurrentFileName;
         _conCurrentFileName = nextFilename;
-        _conCurrentFolderName = newFolder;
+
+        try {
+          const store = boardReadStore();
+          const list = store['constellation'] || [];
+          list.forEach(item => {
+            if (item.name === oldFileValue) {
+              item.name = nextFilename;
+            }
+          });
+          boardWriteStoreWithFallback(store);
+        } catch (e) { }
+
+        // Save the updated session data with the new planner link and class group into the new file
+        try {
+          const currentData = conBuildSessionData();
+          const persistedData = boardBuildPersistedSessionData('constellation', currentData);
+          persistedData._plannerEntryId = activePlannerEntryId;
+          persistedData._classGroup = activeClassGroup;
+          await conSaveSessionFolderBundle(nextFilename, persistedData);
+          boardPersistLocalSession('constellation', persistedData, { source: 'manual-save', name: nextFilename, classGroup: activeClassGroup });
+          boardSetAutosaveFingerprint('constellation', persistedData);
+        } catch (e) {
+          console.warn('Post-rename session save error:', e);
+        }
+
         if (window.conSetTitle) window.conSetTitle(newFolder);
         const titleEl = document.getElementById('con-title-input');
         if (titleEl) titleEl.value = newFolder;
         if (typeof historyRefreshList === 'function') await historyRefreshList();
+        conUpdateRenameButtonVisibility();
         mdbToast('✅ Renamed to slot: ' + nextFilename);
         return true;
       } catch (error) {
+        console.error('conRenameCurrentBundleToPlannerSlot error:', error);
         mdbToast('⚠️ Linked, but could not rename file to slot name.');
         return false;
       }
@@ -4747,46 +4845,62 @@
         return;
       }
 
-      const nextFilename = cleanBase + '.js';
       const oldFilename = _conCurrentFileName;
+      const extMatch = String(oldFilename).match(/\.(cstz|js|json|zip)$/i);
+      const ext = extMatch ? extMatch[0] : '.cstz';
+      const nextFilename = cleanBase + ext;
       if (nextFilename === oldFilename) {
         conUpdateRenameButtonVisibility();
         return;
       }
 
+      const hasFolder = !!_conCurrentFolderName;
       const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
-      const newFolder = boardStripJsonExt(nextFilename);
+      const newFolder = cleanBase;
 
       try {
-        if (oldFolder && oldFolder !== newFolder) {
-          await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
-        }
-        if (oldFilename !== nextFilename) {
-          await Desktop.renameByPath('mindmaps', newFolder + '/' + oldFilename, newFolder + '/' + nextFilename);
-        }
-
-        if (typeof Desktop.listByPath === 'function') {
-          const oldBase = boardStripJsonExt(oldFilename);
-          const newBase = boardStripJsonExt(nextFilename);
-          if (oldBase !== newBase) {
-            const histPath = newFolder + '/history';
-            try {
-              const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json'], recursive: false });
-              const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
-              for (const vf of vFiles) {
-                const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
-                if (vfname.startsWith(oldBase + '.v')) {
-                  const suffix = vfname.slice(oldBase.length);
-                  await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => { });
-                }
-              }
-            } catch (e) { }
+        if (hasFolder) {
+          if (oldFolder && oldFolder !== newFolder) {
+            const rFolder = await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
+            if (rFolder && rFolder.ok === false) {
+              throw new Error(rFolder.error || 'Could not rename folder');
+            }
           }
+          if (oldFilename !== nextFilename) {
+            const innerFrom = (newFolder || oldFolder) + '/' + oldFilename;
+            const innerTo = (newFolder || oldFolder) + '/' + nextFilename;
+            await Desktop.renameByPath('mindmaps', innerFrom, innerTo).catch(() => { });
+          }
+
+          if (typeof Desktop.listByPath === 'function') {
+            const oldBase = boardStripJsonExt(oldFilename);
+            const newBase = cleanBase;
+            if (oldBase !== newBase) {
+              const histPath = newFolder + '/history';
+              try {
+                const listed = await Desktop.listByPath('mindmaps', histPath, { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: false });
+                const vFiles = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
+                for (const vf of vFiles) {
+                  const vfname = (vf.relativePath || '').split('/').pop() || vf.filename || '';
+                  if (vfname.startsWith(oldBase + '.v')) {
+                    const suffix = vfname.slice(oldBase.length);
+                    await Desktop.renameByPath('mindmaps', histPath + '/' + vfname, histPath + '/' + newBase + suffix).catch(() => { });
+                  }
+                }
+              } catch (e) { }
+            }
+          }
+          _conCurrentFolderName = newFolder;
+        } else {
+          const res = await Desktop.renameByPath('mindmaps', oldFilename, nextFilename);
+          if (res && res.ok === false) {
+            throw new Error(res.error || 'Could not rename file');
+          }
+          _conCurrentFolderName = null;
         }
 
         const oldFileValue = _conCurrentFileName;
         _conCurrentFileName = nextFilename;
-        _conCurrentFolderName = newFolder;
 
         try {
           const store = boardReadStore();
@@ -4875,11 +4989,6 @@
       if (e.classId) setActiveClassGroup(e.classId);
       bpUpdateBtn();
 
-      // Persist timeslot linking even when board content itself is unchanged.
-      if (typeof boardAutosaveAllNow === 'function') {
-        boardAutosaveAllNow({ force: true });
-      }
-
       // Auto-fill title when it still looks like the auto-generated timestamp
       const titleInput = document.getElementById('con-title-input');
       if (titleInput) {
@@ -4899,6 +5008,11 @@
       if (_conPendingDuplicateRelinkRename) {
         const ok = await conRenameCurrentBundleToPlannerSlot(e);
         if (ok) _conPendingDuplicateRelinkRename = false;
+      }
+
+      // Persist timeslot linking even when board content itself is unchanged.
+      if (typeof boardAutosaveAllNow === 'function') {
+        boardAutosaveAllNow({ force: true });
       }
     }
 
@@ -6271,6 +6385,11 @@
         buildThemePickerDropdown(w, types, sel, null, t('allTypes'));
         themePickerSetSelected(w, sel);
       });
+
+      if (typeof bpUpdateBtn === 'function') bpUpdateBtn();
+      if (typeof historyRenderList === 'function' && document.getElementById('history-overlay') && document.getElementById('history-overlay').style.display !== 'none') {
+        historyRenderList();
+      }
     }
 
     // Initialise language on page load
@@ -6278,6 +6397,14 @@
       _updateAllLangBtns();
       // Small delay to let vocabBank and pickers initialise first
       setTimeout(applyLang, 150);
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'cmt-general-config' || e.key === 'cmt-lang-board') {
+        currentLang = getLang();
+        _updateAllLangBtns();
+        applyLang();
+      }
     });
 
     // ================================================================
@@ -7101,6 +7228,7 @@
     // ================================================================
     let conPageSnapshots = [{}]; // one snapshot object per page; current page captured on demand
     let conCurrentPageIndex = 0; // index of the currently displayed page
+    let _conPageSnapshotPngs = []; // cached PNG dataUrls per page index
     let _conCopiedPages = [];    // clipboard for copy/paste page(s)
     let _conPreviewSelectedIdx = new Set(); // checked page indices in Pages popup
     let _conAttachmentCounter = 0;
@@ -13832,6 +13960,9 @@
         const clone = JSON.parse(JSON.stringify(snap));
         const insertIdx = idx + 1;
         conPageSnapshots.splice(insertIdx, 0, clone);
+        if (Array.isArray(_conPageSnapshotPngs)) {
+          _conPageSnapshotPngs.splice(insertIdx, 0, _conPageSnapshotPngs[idx] || null);
+        }
         conCurrentPageIndex = insertIdx;
         _conRestorePageToBoard(clone);
 
@@ -13855,10 +13986,12 @@
         if (idx === conCurrentPageIndex) {
           const goTo = idx > 0 ? idx - 1 : 0;
           conPageSnapshots.splice(idx, 1);
+          if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(idx, 1);
           conCurrentPageIndex = Math.min(goTo, conPageSnapshots.length - 1);
           _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
         } else {
           conPageSnapshots.splice(idx, 1);
+          if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(idx, 1);
           if (idx < conCurrentPageIndex) {
             conCurrentPageIndex--;
           }
@@ -13884,6 +14017,10 @@
 
         const draggedSnap = conPageSnapshots.splice(fromIdx, 1)[0];
         conPageSnapshots.splice(toIdx, 0, draggedSnap);
+        if (Array.isArray(_conPageSnapshotPngs)) {
+          const movedPng = _conPageSnapshotPngs.splice(fromIdx, 1)[0];
+          _conPageSnapshotPngs.splice(toIdx, 0, movedPng || null);
+        }
 
         if (conCurrentPageIndex === fromIdx) {
           conCurrentPageIndex = toIdx;
@@ -13908,25 +14045,34 @@
         const indicator = document.getElementById('con-page-indicator');
         const prevBtn = document.getElementById('con-page-prev-btn');
         const nextBtn = document.getElementById('con-page-next-btn');
+        const pasteBtn = document.getElementById('con-paste-page-btn');
         const total = conPageSnapshots.length;
         const cur = conCurrentPageIndex;
         if (indicator) indicator.textContent = 'Page ' + (cur + 1) + ' / ' + total;
         if (prevBtn) prevBtn.disabled = cur === 0;
         if (nextBtn) nextBtn.disabled = cur >= total - 1;
+        if (pasteBtn) pasteBtn.disabled = !(typeof conHasCopiedPages === 'function' ? conHasCopiedPages() : (_conCopiedPages && _conCopiedPages.length > 0));
         conRenderMiniPageNav();
       }
       window.conUpdatePageBar = conUpdatePageBar;
 
       async function conResolveMiniPageSnapshotUrl(pageIndex) {
+        const idx = Number(pageIndex) || 0;
+        if (_conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
+          return _conPageSnapshotPngs[idx];
+        }
         if (!(window.Desktop && Desktop.isElectron())) return '';
         if (!_conCurrentFolderName) return '';
-        const padded = String((pageIndex || 0) + 1).padStart(3, '0');
+        const padded = String(idx + 1).padStart(3, '0');
         const relPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
         try {
           if (typeof Desktop.readByPath === 'function') {
             const res = await Desktop.readByPath('mindmaps', relPath, { encoding: 'base64' });
             if (res && res.ok && res.content) {
-              return 'data:image/png;base64,' + res.content;
+              const url = 'data:image/png;base64,' + res.content;
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[idx] = url;
+              return url;
             }
             return '';
           }
@@ -14092,6 +14238,7 @@
         conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         // Create a new empty page and switch to it
         conPageSnapshots.push(conBuildEmptyPageSnapshot());
+        if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
         conCurrentPageIndex = conPageSnapshots.length - 1;
         _conRestorePageToBoard(conBuildEmptyPageSnapshot());
         conUpdatePageBar();
@@ -14111,27 +14258,289 @@
       window.conGoToPrevPage = function () { window.conGoToPage(conCurrentPageIndex - 1); };
       window.conGoToNextPage = function () { window.conGoToPage(conCurrentPageIndex + 1); };
 
-      window.conCopyPage = function () {
+      async function conGetAttachmentBase64(att, fallbackInfo) {
+        if (!att && !fallbackInfo) return '';
+        let base64 = (att && att.base64) || '';
+        if (!base64 && att && att.file) {
+          try { base64 = await conReadAttachmentFileBase64(att.file); } catch (_) { }
+        }
+        if (!base64 && att && att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) {
+          const comma = att._cachedDataUrl.indexOf(',');
+          if (comma >= 0) base64 = att._cachedDataUrl.slice(comma + 1);
+        }
+        if (!base64 && att && att._cachedObjectUrl && att._cachedObjectUrl.startsWith('blob:')) {
+          try {
+            const resp = await fetch(att._cachedObjectUrl);
+            const blob = await resp.blob();
+            base64 = await conReadAttachmentFileBase64(blob);
+          } catch (_) { }
+        }
+        if (!base64 && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+          const candidates = att ? conAttachmentCandidateRelativePaths(att) : (fallbackInfo ? conAttachmentCandidateRelativePaths(fallbackInfo) : []);
+          for (const p of candidates) {
+            try {
+              const res = await Desktop.readByPath('mindmaps', p, { encoding: 'base64' });
+              if (res && res.ok && res.content) {
+                base64 = String(res.content);
+                break;
+              }
+            } catch (_) { }
+          }
+        }
+        return base64 || '';
+      }
+
+      async function conCollectAttachmentsForPages(pages) {
+        const referencedMap = new Map();
+        (Array.isArray(pages) ? pages : []).forEach(page => {
+          if (!page) return;
+          if (Array.isArray(page.media)) {
+            page.media.forEach(m => {
+              if (!m) return;
+              const attId = String(m.attachmentId || m.id || '').trim();
+              if (attId && !referencedMap.has(attId)) {
+                referencedMap.set(attId, { kind: m.kind, name: m.name, relativePath: m.relativePath, mime: m.mime });
+              }
+            });
+          }
+          if (page.backgroundPdf && (page.backgroundPdf.attachmentId || page.backgroundPdf.id || page.backgroundPdf.relativePath)) {
+            const attId = String(page.backgroundPdf.attachmentId || page.backgroundPdf.id || '').trim();
+            if (attId && !referencedMap.has(attId)) {
+              referencedMap.set(attId, {
+                kind: 'pdf',
+                name: page.backgroundPdf.name || 'background.pdf',
+                relativePath: page.backgroundPdf.relativePath || '',
+                mime: page.backgroundPdf.mime || 'application/pdf'
+              });
+            }
+          }
+          if (page.boardBg && page.boardBg.attachmentId) {
+            const attId = String(page.boardBg.attachmentId).trim();
+            if (attId && !referencedMap.has(attId)) {
+              referencedMap.set(attId, { kind: 'pdf' });
+            }
+          }
+        });
+
+        const collected = [];
+        for (const [attId, fallbackInfo] of referencedMap.entries()) {
+          let att = conFindAttachmentById(attId);
+          if (!att && fallbackInfo && fallbackInfo.name) {
+            att = conAttachments.find(a => String(a.name || '').toLowerCase() === String(fallbackInfo.name).toLowerCase());
+          }
+          const base64 = await conGetAttachmentBase64(att, fallbackInfo);
+          const name = (att && att.name) || (fallbackInfo && fallbackInfo.name) || 'file';
+          const mime = (att && att.mime) || (fallbackInfo && fallbackInfo.mime) || '';
+          const kind = (att && att.kind) || (fallbackInfo && fallbackInfo.kind) || (typeof conAttachmentKind === 'function' ? conAttachmentKind(name, mime) : 'pics') || 'pics';
+          const size = (att && Number(att.size)) || (base64 ? Math.round(base64.length * 0.75) : 0);
+          const relativePath = (att && att.relativePath) || (fallbackInfo && fallbackInfo.relativePath) || '';
+          collected.push({
+            id: (att && att.id) || attId,
+            name,
+            mime,
+            kind,
+            size,
+            relativePath,
+            base64
+          });
+        }
+        return collected;
+      }
+
+      function conHasCopiedPages() {
+        if (_conCopiedPages) {
+          if (Array.isArray(_conCopiedPages)) return _conCopiedPages.length > 0;
+          if (_conCopiedPages.pages && Array.isArray(_conCopiedPages.pages)) return _conCopiedPages.pages.length > 0;
+        }
+        try {
+          const raw = sessionStorage.getItem('con_copied_pages_v2');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.length > 0;
+            if (parsed && Array.isArray(parsed.pages)) return parsed.pages.length > 0;
+          }
+        } catch (_) { }
+        return false;
+      }
+
+      function conGetCopiedPagesPackage() {
+        if (_conCopiedPages) {
+          if (Array.isArray(_conCopiedPages)) return { pages: _conCopiedPages, attachments: [] };
+          if (_conCopiedPages.pages && Array.isArray(_conCopiedPages.pages)) return { pages: _conCopiedPages.pages, attachments: _conCopiedPages.attachments || [] };
+        }
+        try {
+          const raw = sessionStorage.getItem('con_copied_pages_v2');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return { pages: parsed, attachments: [] };
+            if (parsed && Array.isArray(parsed.pages)) return { pages: parsed.pages, attachments: parsed.attachments || [] };
+          }
+        } catch (_) { }
+        return null;
+      }
+
+      function conPasteCopiedPagesPackage(pkg, insertIdx) {
+        if (!pkg || !Array.isArray(pkg.pages) || pkg.pages.length === 0) return 0;
+        const idMap = {};
+        const copiedAtts = Array.isArray(pkg.attachments) ? pkg.attachments : [];
+
+        copiedAtts.forEach(att => {
+          if (!att) return;
+          const incomingId = String(att.id || '').trim();
+          if (!incomingId) return;
+
+          // Check if current board already has an identical attachment
+          const existingSameContent = conAttachments.find(a =>
+            (att.base64 && a.base64 && a.base64 === att.base64) ||
+            (att.name && a.name && String(a.name).toLowerCase() === String(att.name).toLowerCase() && Number(a.size || 0) === Number(att.size || 0) && a.kind === att.kind && (a.base64 || a._cachedObjectUrl))
+          );
+
+          if (existingSameContent) {
+            idMap[incomingId] = existingSameContent.id;
+            if (!existingSameContent.base64 && att.base64) {
+              existingSameContent.base64 = att.base64;
+            }
+            if (!existingSameContent._cachedObjectUrl && existingSameContent.base64) {
+              try {
+                const mime = existingSameContent.mime || conGuessMimeByName(existingSameContent.name, existingSameContent.kind) || 'application/octet-stream';
+                const cleanB64 = existingSameContent.base64.startsWith('data:') ? existingSameContent.base64.split(',')[1] : existingSameContent.base64;
+                const binary = atob(cleanB64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: mime });
+                existingSameContent._cachedObjectUrl = URL.createObjectURL(blob);
+              } catch (_) { }
+            }
+            return;
+          }
+
+          // Allocate non-colliding ID in current board
+          const existingWithId = conAttachments.find(a => String(a.id || '') === incomingId);
+          let targetId = incomingId;
+          if (existingWithId || !targetId) {
+            _conAttachmentCounter += 1;
+            targetId = 'att_' + _conAttachmentCounter;
+            while (conAttachments.some(a => String(a.id || '') === targetId)) {
+              _conAttachmentCounter += 1;
+              targetId = 'att_' + _conAttachmentCounter;
+            }
+          } else {
+            const matchNum = targetId.match(/(\d+)$/);
+            if (matchNum) {
+              _conAttachmentCounter = Math.max(_conAttachmentCounter, Number(matchNum[1]) || 0);
+            }
+          }
+
+          let cachedUrl = '';
+          if (att.base64) {
+            try {
+              const mime = att.mime || conGuessMimeByName(att.name, att.kind) || 'application/octet-stream';
+              const cleanB64 = att.base64.startsWith('data:') ? att.base64.split(',')[1] : att.base64;
+              const binary = atob(cleanB64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const blob = new Blob([bytes], { type: mime });
+              cachedUrl = URL.createObjectURL(blob);
+            } catch (_) { }
+          }
+
+          const newAtt = {
+            id: targetId,
+            name: String(att.name || 'file'),
+            mime: String(att.mime || ''),
+            kind: att.kind || (typeof conAttachmentKind === 'function' ? conAttachmentKind(att.name, att.mime) : 'pics') || 'pics',
+            size: Number(att.size) || (att.base64 ? Math.round(att.base64.length * 0.75) : 0),
+            file: null,
+            base64: att.base64 || '',
+            _cachedObjectUrl: cachedUrl || '',
+            relativePath: String(att.relativePath || '')
+          };
+          conAttachments.push(newAtt);
+          idMap[incomingId] = targetId;
+        });
+
+        if (copiedAtts.length > 0 && typeof conRenderAttachmentSummary === 'function') {
+          conRenderAttachmentSummary();
+        }
+
+        const clones = pkg.pages.map(snap => {
+          const clone = JSON.parse(JSON.stringify(snap || {}));
+          if (Array.isArray(clone.media)) {
+            clone.media.forEach(m => {
+              if (!m) return;
+              const oldId = String(m.attachmentId || '').trim();
+              if (oldId && idMap[oldId]) {
+                m.attachmentId = idMap[oldId];
+              }
+              m.id = 'cm' + (conMediaNextId++);
+            });
+          }
+          if (clone.backgroundPdf && clone.backgroundPdf.attachmentId) {
+            const oldId = String(clone.backgroundPdf.attachmentId).trim();
+            if (oldId && idMap[oldId]) {
+              clone.backgroundPdf.attachmentId = idMap[oldId];
+            }
+          }
+          if (clone.boardBg && clone.boardBg.attachmentId) {
+            const oldId = String(clone.boardBg.attachmentId).trim();
+            if (oldId && idMap[oldId]) {
+              clone.boardBg.attachmentId = idMap[oldId];
+            }
+          }
+          return clone;
+        });
+
+        conPageSnapshots.splice(insertIdx, 0, ...clones);
+        conCurrentPageIndex = insertIdx;
+        _conRestorePageToBoard(clones[0]);
+        conUpdatePageBar();
+        if (typeof conTriggerLivePageSnapshot === 'function') {
+          conTriggerLivePageSnapshot();
+        }
+        return clones.length;
+      }
+
+      // Cross-window channel for page clipboard
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const _conPageClipboardChannel = new BroadcastChannel('con-page-clipboard');
+          _conPageClipboardChannel.onmessage = function (ev) {
+            if (ev && ev.data && ev.data.type === 'page-copied' && ev.data.payload) {
+              _conCopiedPages = ev.data.payload;
+              const pasteBtnMain = document.getElementById('con-paste-page-btn');
+              if (pasteBtnMain) pasteBtnMain.disabled = false;
+              if (typeof conPreviewUpdateSelectionUi === 'function') conPreviewUpdateSelectionUi();
+            }
+          };
+        } catch (_) { }
+      }
+
+      window.conCopyPage = async function () {
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        _conCopiedPages = [JSON.parse(JSON.stringify(conPageSnapshots[conCurrentPageIndex]))];
+        const snap = conPageSnapshots[conCurrentPageIndex];
+        const attachments = await conCollectAttachmentsForPages([snap]);
+        const pkg = { pages: [JSON.parse(JSON.stringify(snap))], attachments };
+        _conCopiedPages = pkg;
+        try { sessionStorage.setItem('con_copied_pages_v2', JSON.stringify(pkg)); } catch (_) { }
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('con-page-clipboard');
+            ch.postMessage({ type: 'page-copied', payload: pkg });
+            ch.close();
+          }
+        } catch (_) { }
         const btn = document.getElementById('con-paste-page-btn');
         if (btn) btn.disabled = false;
         mdbToast('📋 1 page copied — use Paste Page to insert a duplicate');
       };
 
       window.conPastePage = function () {
-        if (!_conCopiedPages || _conCopiedPages.length === 0) return;
-        // Save current live board
+        const pkg = conGetCopiedPagesPackage();
+        if (!pkg || !pkg.pages || pkg.pages.length === 0) return;
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        // Deep-clone copied snapshots so pasted pages stay independent
-        const clones = _conCopiedPages.map(snap => JSON.parse(JSON.stringify(snap)));
-        // Insert clones right after the current page
         const insertIdx = conCurrentPageIndex + 1;
-        conPageSnapshots.splice(insertIdx, 0, ...clones);
-        conCurrentPageIndex = insertIdx;
-        _conRestorePageToBoard(clones[0]);
-        conUpdatePageBar();
-        mdbToast('📋 Pasted ' + clones.length + ' page' + (clones.length === 1 ? '' : 's') + ' starting at page ' + (conCurrentPageIndex + 1));
+        const count = conPasteCopiedPagesPackage(pkg, insertIdx);
+        mdbToast('📋 Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' starting at page ' + (conCurrentPageIndex + 1));
       };
 
       function conPreviewUpdateSelectionUi() {
@@ -14140,7 +14549,7 @@
         const pasteBtn = document.getElementById('con-pages-paste-copied-btn');
         const info = document.getElementById('con-pages-selection-info');
         if (copyBtn) copyBtn.disabled = count === 0;
-        if (pasteBtn) pasteBtn.disabled = !_conCopiedPages || _conCopiedPages.length === 0;
+        if (pasteBtn) pasteBtn.disabled = !conHasCopiedPages();
         if (info) info.textContent = count + ' selected';
       }
 
@@ -14150,14 +14559,25 @@
         conPreviewUpdateSelectionUi();
       };
 
-      window.conPreviewCopySelectedPages = function () {
+      window.conPreviewCopySelectedPages = async function () {
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
         const indices = Array.from(_conPreviewSelectedIdx).sort((a, b) => a - b);
         if (indices.length === 0) {
           mdbToast('Select at least one page first');
           return;
         }
-        _conCopiedPages = indices.map(i => JSON.parse(JSON.stringify(conPageSnapshots[i] || {})));
+        const pages = indices.map(i => JSON.parse(JSON.stringify(conPageSnapshots[i] || {})));
+        const attachments = await conCollectAttachmentsForPages(pages);
+        const pkg = { pages, attachments };
+        _conCopiedPages = pkg;
+        try { sessionStorage.setItem('con_copied_pages_v2', JSON.stringify(pkg)); } catch (_) { }
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('con-page-clipboard');
+            ch.postMessage({ type: 'page-copied', payload: pkg });
+            ch.close();
+          }
+        } catch (_) { }
         const pasteBtnMain = document.getElementById('con-paste-page-btn');
         if (pasteBtnMain) pasteBtnMain.disabled = false;
         conPreviewUpdateSelectionUi();
@@ -14165,7 +14585,8 @@
       };
 
       window.conPreviewPasteCopiedPagesPrompt = async function () {
-        if (!_conCopiedPages || _conCopiedPages.length === 0) {
+        const pkg = conGetCopiedPagesPackage();
+        if (!pkg || !pkg.pages || pkg.pages.length === 0) {
           mdbToast('Copy page(s) first');
           return;
         }
@@ -14183,12 +14604,8 @@
         }
 
         const insertIdx = afterPage; // after page N => array index N
-        const clones = _conCopiedPages.map(snap => JSON.parse(JSON.stringify(snap)));
-        conPageSnapshots.splice(insertIdx, 0, ...clones);
-        conCurrentPageIndex = insertIdx;
-        _conRestorePageToBoard(clones[0]);
-        conUpdatePageBar();
-        mdbToast('📋 Pasted ' + clones.length + ' page' + (clones.length === 1 ? '' : 's') + ' at page ' + (insertIdx + 1));
+        const count = conPasteCopiedPagesPackage(pkg, insertIdx);
+        mdbToast('📋 Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' at page ' + (insertIdx + 1));
         window.conOpenPagePreview();
       };
 
@@ -14471,20 +14888,31 @@
         overlay.classList.add('active');
 
         // Async: replace canvas placeholders with real saved PNGs where available
-        if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
-          thumbEls.forEach(({ thumb, canvas }, idx) => {
+        thumbEls.forEach(({ thumb, canvas }, idx) => {
+          if (_conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
+            if (!thumb.isConnected) return;
+            const img = document.createElement('img');
+            img.src = _conPageSnapshotPngs[idx];
+            img.style.cssText = 'display:block;width:160px;height:110px;object-fit:contain;border-radius:2px;background:#fff;';
+            thumb.replaceChild(img, canvas);
+            return;
+          }
+          if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
             const padded = String(idx + 1).padStart(3, '0');
             const pngPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
             Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' }).then(res => {
               if (!(res && res.ok && res.content)) return;
               if (!thumb.isConnected) return; // popup was closed before response
+              const dataUrl = 'data:image/png;base64,' + res.content;
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[idx] = dataUrl;
               const img = document.createElement('img');
-              img.src = 'data:image/png;base64,' + res.content;
+              img.src = dataUrl;
               img.style.cssText = 'display:block;width:160px;height:110px;object-fit:contain;border-radius:2px;background:#fff;';
               thumb.replaceChild(img, canvas);
             }).catch(() => { });
-          });
-        }
+          }
+        });
       };
 
       window.conClosePagePreview = function () {
@@ -14532,6 +14960,7 @@
             _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
           }
           conPageSnapshots.splice(idx, 1);
+          if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.splice(idx, 1);
           // If the deleted page was before the current one, the array shifted left —
           // decrement so conCurrentPageIndex still points to the page being displayed.
           if (idx < conCurrentPageIndex) {
@@ -14566,6 +14995,10 @@
       window.conPreviewMovePage = function (fromIdx, toIdx) {
         const snap = conPageSnapshots.splice(fromIdx, 1)[0];
         conPageSnapshots.splice(toIdx, 0, snap);
+        if (Array.isArray(_conPageSnapshotPngs)) {
+          const movedPng = _conPageSnapshotPngs.splice(fromIdx, 1)[0];
+          _conPageSnapshotPngs.splice(toIdx, 0, movedPng || null);
+        }
         // Adjust current page index to follow the moved/shifted pages
         if (conCurrentPageIndex === fromIdx) {
           conCurrentPageIndex = toIdx;
@@ -14848,16 +15281,16 @@
           if (_mirrorControlMenuEl) return;
           const menu = document.createElement('div');
           menu.id = 'con-pres-menu';
-          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+          menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
           menu.innerHTML = ''
-            + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + boardT('presMenuTitle') + '</div>'
-            + '<button type="button" data-pres-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
-            + '<button type="button" data-pres-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
-            + '<button type="button" data-pres-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
-            + '<button type="button" data-pres-action="maximise" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
-            + '<div style="display:flex;gap:4px;">'
-            + '  <button type="button" data-pres-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
-            + '  <button type="button" data-pres-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
+            + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + boardT('presMenuTitle') + '</div>'
+            + '<button type="button" data-pres-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
+            + '<button type="button" data-pres-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
+            + '<button type="button" data-pres-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+            + '<button type="button" data-pres-action="maximise" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
+            + '<div style="display:flex;gap:3px;">'
+            + '  <button type="button" data-pres-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
+            + '  <button type="button" data-pres-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
             + '</div>';
           menu.addEventListener('click', function (event) {
             const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
@@ -14872,6 +15305,71 @@
             else if (action === 'right') window.conMirrorDockRight();
             else if (action === 'left') window.conMirrorDockLeft();
           });
+
+          // Make the popup draggable
+          let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+          menu.addEventListener('mousedown', dragMouseDown);
+          menu.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+          function dragMouseDown(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+            e = e || window.event;
+            if (e.type !== 'touchstart') {
+              e.preventDefault();
+            }
+            if (e.type === 'touchstart') {
+              pos3 = e.touches[0].clientX;
+              pos4 = e.touches[0].clientY;
+            } else {
+              pos3 = e.clientX;
+              pos4 = e.clientY;
+            }
+            document.addEventListener('mouseup', closeDragElement);
+            document.addEventListener('mousemove', elementDrag);
+            document.addEventListener('touchend', closeDragElement);
+            document.addEventListener('touchmove', elementDrag, { passive: false });
+          }
+
+          function elementDrag(e) {
+            e = e || window.event;
+            let clientX, clientY;
+            if (e.type === 'touchmove') {
+              clientX = e.touches[0].clientX;
+              clientY = e.touches[0].clientY;
+            } else {
+              clientX = e.clientX;
+              clientY = e.clientY;
+            }
+            pos1 = pos3 - clientX;
+            pos2 = pos4 - clientY;
+            pos3 = clientX;
+            pos4 = clientY;
+
+            let newTop = menu.offsetTop - pos2;
+            let newLeft = menu.offsetLeft - pos1;
+
+            const rect = menu.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            if (newTop < 0) newTop = 0;
+            if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
+            if (newLeft < 0) newLeft = 0;
+            if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+
+            menu.style.top = newTop + 'px';
+            menu.style.left = newLeft + 'px';
+            menu.style.right = 'auto';
+            menu.style.bottom = 'auto';
+          }
+
+          function closeDragElement() {
+            document.removeEventListener('mouseup', closeDragElement);
+            document.removeEventListener('mousemove', elementDrag);
+            document.removeEventListener('touchend', closeDragElement);
+            document.removeEventListener('touchmove', elementDrag);
+          }
+
           document.body.appendChild(menu);
           _mirrorControlMenuEl = menu;
           _updateMirrorControlMenuVisibility();
@@ -27447,12 +27945,8 @@
 
     async function _sessionLoadPopupRefreshFromDisk() {
       if (!sessionLoadMode) return;
-      const classGroup = activeClassGroup || '';
-      const showAll = classGroup === '';
-      const classLabel = classGroup || 'No class prefix';
       const title = document.getElementById('session-load-title');
-      title.textContent = 'Load ' + boardSectionLabel(sessionLoadMode) + ' sessions'
-        + (showAll ? ' - all classes' : ' - ' + classLabel);
+      title.textContent = 'Load ' + boardSectionLabel(sessionLoadMode) + ' sessions';
 
       const listEl = document.getElementById('session-load-list');
       listEl.innerHTML = '<div class="session-load-empty">Loading…</div>';
@@ -27463,10 +27957,11 @@
 
       try {
         let filesRes;
+        const exts = section === 'constellation' ? ['.js', '.json', '.cstz', '.zip'] : ['.js', '.json'];
         if (section === 'constellation' && typeof Desktop.listByPath === 'function') {
-          filesRes = await Desktop.listByPath(target, '.', { extensions: ['.js', '.json'], recursive: true });
+          filesRes = await Desktop.listByPath(target, '.', { extensions: exts, recursive: true });
         } else {
-          filesRes = await Desktop.listFiles(target, { extensions: ['.js', '.json'] });
+          filesRes = await Desktop.listFiles(target, { extensions: exts });
         }
 
         let files = Array.isArray(filesRes && filesRes.files) ? filesRes.files : [];
@@ -27478,6 +27973,12 @@
             const parts = rel.split('/').filter(Boolean);
             const filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
             if (!filename) return false;
+            // archived/folder/folder.js (depth 3)
+            if (parts.length === 3 && parts[0] === 'archived') {
+              return boardStripJsonExt(filename).toLowerCase() === parts[1].toLowerCase();
+            }
+            // archived/file.js or .cstz (depth 2)
+            if (parts.length === 2 && parts[0] === 'archived') return true;
             if (parts.length <= 1) return true;
             if (parts.length === 2) {
               const folder = parts[0];
@@ -27489,17 +27990,13 @@
 
         let entries = files.map(file => historyBuildEntry(target, file));
 
-        if (!showAll) {
-          entries = entries.filter(e => (e.classGroup || '') === classGroup);
-        }
-
         entries.sort((a, b) => b.modifiedAt - a.modifiedAt);
 
         listEl.innerHTML = '';
         if (!entries.length) {
           const empty = document.createElement('div');
           empty.className = 'session-load-empty';
-          empty.textContent = 'No saved files found for this class.';
+          empty.textContent = 'No saved files found.';
           listEl.appendChild(empty);
           return;
         }
@@ -27509,8 +28006,8 @@
           item.className = 'session-load-item';
 
           const name = boardEscapeHtml(entry.baseName || boardStripJsonExt(entry.filename));
-          const entryClass = entry.classGroup || '';
-          const classTag = showAll ? (entryClass ? ' [' + entryClass + ']' : ' [no prefix]') : '';
+          const entryClass = entry.classLabel || entry.classGroup || '';
+          const classTag = entryClass ? ' [' + entryClass + ']' : '';
           const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.modifiedAt) + classTag);
           item.innerHTML = '<div class="session-load-item-title">' + name + '</div>'
             + '<div class="session-load-item-meta">' + meta + '</div>';
@@ -27602,11 +28099,9 @@
 
     function sessionLoadRestoreLocal(entryId) {
       if (!sessionLoadMode) return;
-      const classGroup = activeClassGroup || '';
-      const showAll = classGroup === '';
       const store = boardReadStore();
       const entries = Array.isArray(store[sessionLoadMode]) ? store[sessionLoadMode] : [];
-      const entry = entries.find(e => e.id === entryId && (showAll || (e.classGroup || '') === classGroup));
+      const entry = entries.find(e => e.id === entryId);
       if (!entry || !entry.data) {
         mdbToast('⚠️ This saved session is no longer available.');
         renderSessionLoadPopup();
@@ -27617,24 +28112,19 @@
 
     function renderSessionLoadPopup() {
       if (!sessionLoadMode) return;
-      const classGroup = activeClassGroup || '';
-      const showAll = classGroup === '';
-      const classLabel = classGroup || 'No class prefix';
       const title = document.getElementById('session-load-title');
-      title.textContent = 'Load ' + boardSectionLabel(sessionLoadMode) + ' sessions'
-        + (showAll ? ' - all classes' : ' - ' + classLabel);
+      title.textContent = 'Load ' + boardSectionLabel(sessionLoadMode) + ' sessions';
 
       const listEl = document.getElementById('session-load-list');
       const store = boardReadStore();
       const entries = (Array.isArray(store[sessionLoadMode]) ? store[sessionLoadMode] : [])
-        .filter(e => showAll || (e.classGroup || '') === classGroup)
         .sort((a, b) => b.savedAt - a.savedAt);
 
       listEl.innerHTML = '';
       if (!entries.length) {
         const empty = document.createElement('div');
         empty.className = 'session-load-empty';
-        empty.textContent = 'No saved entries for this class yet. Use Save or wait for autosave, or load from file.';
+        empty.textContent = 'No saved entries yet. Use Save or wait for autosave, or load from file.';
         listEl.appendChild(empty);
         return;
       }
@@ -27644,8 +28134,8 @@
         item.className = 'session-load-item';
 
         const name = boardEscapeHtml(entry.name || boardDefaultSessionName(sessionLoadMode));
-        const entryClass = entry.classGroup || '';
-        const classTag = showAll ? (entryClass ? ' [' + entryClass + ']' : ' [no prefix]') : '';
+        const entryClass = entry.classGroup ? getClassGroupLabel(entry.classGroup) : '';
+        const classTag = entryClass ? ' [' + entryClass + ']' : '';
         const meta = boardEscapeHtml(boardSourceLabel(entry.source) + ' - ' + boardFormatWhen(entry.savedAt) + classTag);
         item.innerHTML = '<div class="session-load-item-title">' + name + '</div>'
           + '<div class="session-load-item-meta">' + meta + '</div>';
@@ -28318,13 +28808,36 @@
       });
       conNormalizeMediaPathRefsInSession(dataToSave);
 
+      const pages = (Array.isArray(dataToSave.pages) && dataToSave.pages.length > 0)
+        ? dataToSave.pages
+        : [dataToSave];
+
+      // Ensure current live page snapshot is fresh
+      if (typeof conBuildPageSnapshot === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
+        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      }
+
+      // Try capturing live board canvas for the current page if available
+      try {
+        if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
+          const liveRes = await _conBuildBoardCanvas();
+          if (liveRes && liveRes.canvas) {
+            const dataUrl = liveRes.canvas.toDataURL('image/png');
+            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+            _conPageSnapshotPngs[conCurrentPageIndex] = dataUrl;
+          }
+        }
+      } catch (_) {}
+
       const manifest = {
         version: 1,
         format: 'cstz',
         title: dataToSave.title || baseName,
+        classGroup: dataToSave._classGroup || dataToSave.classGroup || '',
         plannerEntryId: dataToSave._plannerEntryId || '',
-        pageCount: Array.isArray(dataToSave.pages) ? dataToSave.pages.length : 1,
+        pageCount: pages.length,
         nodeCount: Array.isArray(dataToSave.nodes) ? dataToSave.nodes.length : 0,
+        thumbnail: 'page-snapshots/page-001.png',
         updatedAt: Date.now()
       };
 
@@ -28342,6 +28855,42 @@
           store: false
         }
       ];
+
+      // Add thumbnail entries for all pages into the archive
+      for (let i = 0; i < pages.length; i += 1) {
+        let pngDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
+        if (!pngDataUrl) {
+          try {
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = 480;
+            offCanvas.height = 320;
+            if (typeof conRenderPageThumbnail === 'function') {
+              conRenderPageThumbnail(pages[i], offCanvas);
+            }
+            pngDataUrl = offCanvas.toDataURL('image/png');
+            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+            _conPageSnapshotPngs[i] = pngDataUrl;
+          } catch (_) {}
+        }
+        if (pngDataUrl) {
+          const base64Png = pngDataUrl.replace(/^data:image\/[a-z]+;base64,/i, '');
+          const padded = String(i + 1).padStart(3, '0');
+          entries.push({
+            name: 'page-snapshots/page-' + padded + '.png',
+            data: base64Png,
+            encoding: 'base64',
+            store: true
+          });
+          if (i === 0) {
+            entries.push({
+              name: 'thumbnail.png',
+              data: base64Png,
+              encoding: 'base64',
+              store: true
+            });
+          }
+        }
+      }
 
       for (const f of attachmentBundle.files) {
         if (f.filename === '.keep') continue;
@@ -28371,6 +28920,7 @@
       let boardData = null;
       const history = [];
       const media = {};
+      const thumbnails = {};
 
       while (offset < bytes.length - 22) {
         const sig = view.getUint32(offset, true);
@@ -28415,6 +28965,20 @@
                   data: JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes))
                 });
               } catch {}
+            } else if (filename.startsWith('page-snapshots/') || filename.startsWith('thumbnails/') || filename === 'thumbnail.png') {
+              let binary = '';
+              for (let i = 0; i < entryDataBytes.length; i++) binary += String.fromCharCode(entryDataBytes[i]);
+              const base64 = btoa(binary);
+              const dataUrl = 'data:image/png;base64,' + base64;
+              thumbnails[filename] = dataUrl;
+              const mediaEntry = {
+                name: filename.split('/').pop(),
+                kind: 'pics',
+                subPath: filename,
+                base64: base64,
+                size: entryDataBytes.length
+              };
+              media[filename] = mediaEntry;
             } else if (filename.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(filename)) {
               const mediaSubPath = filename.startsWith('media/') ? filename.slice('media/'.length) : filename;
               const parts = mediaSubPath.split('/');
@@ -28445,7 +29009,7 @@
         }
       }
 
-      return { ok: true, manifest, boardData, history, media };
+      return { ok: true, manifest, boardData, history, media, thumbnails };
     }
 
     async function conBuildSessionFolderBundle(sessionFilename, persistedData) {
@@ -29411,6 +29975,8 @@
       const result = await _conBuildBoardCanvas();
       if (!result) return;
       const dataUrl = result.canvas.toDataURL('image/png');
+      if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+      _conPageSnapshotPngs[idx] = dataUrl;
 
       // Update thumbnail image in mini-strip immediately in DOM
       const strip = document.getElementById('con-page-mini-strip');
@@ -29748,8 +30314,9 @@
       const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.js$/i);
       if (!m) return filename;
       const dt = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
-      return dt.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
-        + ' — ' + dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const loc = typeof getLocale === 'function' ? getLocale() : ((typeof getLang === 'function' && { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' }[getLang()]) || 'fr-FR');
+      return dt.toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric' })
+        + ' — ' + dt.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
     async function conSaveHistorySnapshot(folderName, filename, data) {
@@ -29907,6 +30474,7 @@
           _conCurrentFileName = file.name;
           _conCurrentFolderName = null;
           data._mediaMap = parsed.media || null;
+          data._thumbnails = parsed.thumbnails || null;
           if (Array.isArray(data.attachments)) {
             conSetAttachmentsFromSession(data.attachments, parsed.media);
           }
@@ -30098,6 +30666,18 @@
       if (!isPageRestore) {
         const mediaMap = (data && (data._mediaMap || data.mediaMap || data.media)) || null;
         conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
+        _conPageSnapshotPngs = [];
+        const thumbMap = (data && (data._thumbnails || data.thumbnails)) || null;
+        if (thumbMap && typeof thumbMap === 'object') {
+          const totalP = Array.isArray(data.pages) && data.pages.length > 0 ? data.pages.length : 1;
+          for (let i = 0; i < totalP; i++) {
+            const padded = String(i + 1).padStart(3, '0');
+            const key1 = 'page-snapshots/page-' + padded + '.png';
+            const key2 = 'page-' + padded + '.png';
+            const val = thumbMap[key1] || thumbMap[key2] || (i === 0 ? (thumbMap['thumbnail.png'] || thumbMap['thumbnails/page-001.png']) : null);
+            _conPageSnapshotPngs[i] = val || null;
+          }
+        }
       }
 
       // ---- Multi-page format detection ----
@@ -30908,26 +31488,53 @@
     }
 
     function historyInferClassGroup(baseName) {
-      const name = String(baseName || '');
+      const name = String(baseName || '').trim();
+      if (!name) return '';
       const nameLower = name.toLowerCase();
       const noneSafe = historyNormalizeForCompare('No class prefix');
-      if (nameLower === noneSafe || nameLower.startsWith(noneSafe + '_')) {
+      if (nameLower === noneSafe || nameLower.startsWith(noneSafe + '_') || nameLower.startsWith(noneSafe + ' - ')) {
         return '';
       }
 
-      const groupCandidates = (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS)
-        ? Object.keys(CLASS_GROUPS).map(key => ({ key, safe: historyNormalizeForCompare(key) }))
-          .filter(item => !!item.safe)
-          .sort((a, b) => b.safe.length - a.safe.length)
-        : [];
+      const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+        ? CLASS_GROUPS_META
+        : (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta
+          : (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS ? CLASS_GROUPS : null);
 
-      for (const item of groupCandidates) {
-        if (nameLower === item.safe || nameLower.startsWith(item.safe + '_')) {
-          return item.key;
+      if (meta) {
+        const groupCandidates = Object.keys(meta).map(key => {
+          const m = meta[key];
+          const dispName = (m && m.name) ? m.name : (typeof _cgDisplayName === 'function' ? _cgDisplayName(key) : key);
+          return {
+            key,
+            dispName: String(dispName || ''),
+            dispLower: String(dispName || '').toLowerCase(),
+            safe: historyNormalizeForCompare(dispName || key)
+          };
+        }).filter(item => !!item.dispLower)
+          .sort((a, b) => b.dispLower.length - a.dispLower.length);
+
+        // Check hyphen-separated slot filename tokens: e.g. "2026-08-21 - 5B - 08-30 - Topic"
+        const parts = name.split(/\s*-\s*/);
+        for (const part of parts) {
+          const partLower = part.trim().toLowerCase();
+          for (const item of groupCandidates) {
+            if (partLower === item.dispLower || partLower === item.key.toLowerCase()) {
+              return item.key;
+            }
+          }
+        }
+
+        // Check prefix matches (e.g. "5B_Topic", "5B - Topic")
+        for (const item of groupCandidates) {
+          if (nameLower === item.safe || nameLower.startsWith(item.safe + '_') || nameLower.startsWith(item.dispLower + ' - ') || nameLower.startsWith(item.dispLower + '_')) {
+            return item.key;
+          }
         }
       }
 
-      const autosaveMatch = name.match(/^(.*)_-_.*_Autosave$/i);
+      const autosaveMatch = name.match(/^(.*)_-_.*_Autosave$/i) || name.match(/^(.*)\s+-\s+.*Autosave$/i);
       if (autosaveMatch && autosaveMatch[1]) {
         const autosaveGroup = autosaveMatch[1].replace(/_/g, ' ').trim();
         if (!autosaveGroup || autosaveGroup.toLowerCase() === 'no class prefix') {
@@ -31329,9 +31936,10 @@
             if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
               const inspectRes = await Desktop.inspectBoardArchive(entry.target, rel);
               if (inspectRes && inspectRes.ok) {
-                if (inspectRes.manifest && inspectRes.manifest.classGroup) {
-                  entry.classGroup = inspectRes.manifest.classGroup;
-                  entry.classLabel = getClassGroupLabel(inspectRes.manifest.classGroup);
+                const cg = inspectRes.classGroup || (inspectRes.manifest && inspectRes.manifest.classGroup);
+                if (cg) {
+                  entry.classGroup = cg;
+                  entry.classLabel = getClassGroupLabel(cg);
                   changed = true;
                   return;
                 }
@@ -37022,16 +37630,16 @@
         if (_mirrorControlMenuEl) return;
         var menu = document.createElement('div');
         menu.id = 'con-pres-menu';
-        menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:5px;padding:7px 8px;border:1px solid rgba(0,0,0,0.2);border-radius:10px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:138px;font-family:inherit;';
+        menu.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100000;display:flex;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
         menu.innerHTML = ''
-          + '<div style="font-size:0.56rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:#555;line-height:1;">' + boardT('presMenuTitle') + '</div>'
-          + '<button type="button" data-mirror-action="close" style="padding:5px 8px;border:1px solid #444;border-radius:7px;background:#111;color:#fff;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
-          + '<button type="button" data-mirror-action="freeze" style="padding:5px 8px;border:1px solid #4a90d9;border-radius:7px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
-          + '<button type="button" data-mirror-action="resize" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
-          + '<button type="button" data-mirror-action="maximise" style="padding:5px 8px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.74rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
-          + '<div style="display:flex;gap:4px;">'
-          + '  <button type="button" data-mirror-action="left" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
-          + '  <button type="button" data-mirror-action="right" style="flex:1;padding:5px 6px;border:1px solid #666;border-radius:7px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.72rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
+          + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + boardT('presMenuTitle') + '</div>'
+          + '<button type="button" data-mirror-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presStop') + '</button>'
+          + '<button type="button" data-mirror-action="freeze" style="padding:3px 6px;border:1px solid #4a90d9;border-radius:5px;background:#fff;color:#1f4f86;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presFreeze') + '</button>'
+          + '<button type="button" data-mirror-action="resize" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presResize') + '</button>'
+          + '<button type="button" data-mirror-action="maximise" style="padding:3px 6px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presMaximise') + '</button>'
+          + '<div style="display:flex;gap:3px;">'
+          + '  <button type="button" data-mirror-action="left" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presLeft') + '</button>'
+          + '  <button type="button" data-mirror-action="right" style="flex:1;padding:3px 4px;border:1px solid #666;border-radius:5px;background:#f8f8f8;color:#222;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + boardT('presRight') + '</button>'
           + '</div>';
         menu.addEventListener('click', function (event) {
           var btn = event.target && event.target.closest ? event.target.closest('[data-mirror-action]') : null;
@@ -37040,6 +37648,71 @@
           event.stopPropagation();
           try { ch.postMessage({ type: 'mirror-control', command: btn.getAttribute('data-mirror-action') }); } catch (e) { }
         });
+
+        // Make the popup draggable
+        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        menu.addEventListener('mousedown', dragMouseDown);
+        menu.addEventListener('touchstart', dragMouseDown, { passive: false });
+
+        function dragMouseDown(e) {
+          if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+          e = e || window.event;
+          if (e.type !== 'touchstart') {
+            e.preventDefault();
+          }
+          if (e.type === 'touchstart') {
+            pos3 = e.touches[0].clientX;
+            pos4 = e.touches[0].clientY;
+          } else {
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+          }
+          document.addEventListener('mouseup', closeDragElement);
+          document.addEventListener('mousemove', elementDrag);
+          document.addEventListener('touchend', closeDragElement);
+          document.addEventListener('touchmove', elementDrag, { passive: false });
+        }
+
+        function elementDrag(e) {
+          e = e || window.event;
+          var clientX, clientY;
+          if (e.type === 'touchmove') {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+          } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+          }
+          pos1 = pos3 - clientX;
+          pos2 = pos4 - clientY;
+          pos3 = clientX;
+          pos4 = clientY;
+
+          var newTop = menu.offsetTop - pos2;
+          var newLeft = menu.offsetLeft - pos1;
+
+          var rect = menu.getBoundingClientRect();
+          var viewportWidth = window.innerWidth;
+          var viewportHeight = window.innerHeight;
+
+          if (newTop < 0) newTop = 0;
+          if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
+          if (newLeft < 0) newLeft = 0;
+          if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
+
+          menu.style.top = newTop + 'px';
+          menu.style.left = newLeft + 'px';
+          menu.style.right = 'auto';
+          menu.style.bottom = 'auto';
+        }
+
+        function closeDragElement() {
+          document.removeEventListener('mouseup', closeDragElement);
+          document.removeEventListener('mousemove', elementDrag);
+          document.removeEventListener('touchend', closeDragElement);
+          document.removeEventListener('touchmove', elementDrag);
+        }
+
         document.body.appendChild(menu);
         _mirrorControlMenuEl = menu;
         _setMirrorMenuFrozen(_mirrorIsFrozen);

@@ -10190,6 +10190,20 @@ gsStudentAllChip: "Alle",
     } catch (e) { return 'fr'; }
   };
 
+  var LOCALE_MAP = {
+    fr: 'fr-FR',
+    en: 'en-GB',
+    de: 'de-DE',
+    it: 'it-IT'
+  };
+
+  window.getLocale = function () {
+    try {
+      var l = (typeof window.getLang === 'function') ? window.getLang() : 'fr';
+      return LOCALE_MAP[l] || l || 'fr-FR';
+    } catch (e) { return 'fr-FR'; }
+  };
+
   window.setPageLang = function (lang) {
     if (lang) {
       localStorage.setItem('cmt-lang-' + _pageKey(), lang);
@@ -10219,6 +10233,7 @@ gsStudentAllChip: "Alle",
   window.i18n = {
     t: window.t,
     getLang: window.getLang,
+    getLocale: window.getLocale,
     setPageLang: window.setPageLang,
     applyTranslations: window.applyTranslations,
     STRINGS: STRINGS

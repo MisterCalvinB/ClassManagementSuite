@@ -888,8 +888,9 @@
   function rfFormatDate(ms) {
     if (!ms) return '—';
     var d = new Date(ms);
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
-           ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    var loc = typeof getLocale === 'function' ? getLocale() : ((typeof getLang === 'function' && { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' }[getLang()]) || 'fr-FR');
+    return d.toLocaleDateString(loc, { year: 'numeric', month: 'short', day: 'numeric' }) +
+           ' ' + d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
   }
 
   function rfStripClassPrefix(fn) {
@@ -1390,7 +1391,12 @@
     });
 
     window.addEventListener('storage', function (e) {
-      if (e.key === 'cmt-general-config') applyTitle();
+      if (e.key === 'cmt-general-config' || e.key === 'cmt-lang-launcher') {
+        applyTitle();
+        if (typeof applyTranslations === 'function') applyTranslations();
+        if (typeof sbRender === 'function') sbRender();
+        if (typeof rfRender === 'function') rfRender();
+      }
     });
   }
 
@@ -1445,7 +1451,8 @@
     var td = sbTodayStr(), tm = sbTomorrowStr();
     if (dateStr === td) return typeof t === 'function' ? t('sbToday')    : 'Today';
     if (dateStr === tm) return typeof t === 'function' ? t('sbTomorrow') : 'Tomorrow';
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    var loc = typeof getLocale === 'function' ? getLocale() : ((typeof getLang === 'function' && { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' }[getLang()]) || 'fr-FR');
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   function sbTypeLabel(type) {
@@ -1816,7 +1823,8 @@
       var tagClass = isMm ? 'sb-tag-mindmap' : 'sb-tag-doc';
       var name = isMm ? rfPrettyName(f.filename) : f.filename.replace(/\.(md|html)$/i, '');
       var ms = rfFileDateMs(f);
-      var dateLbl = ms ? new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      var loc = typeof getLocale === 'function' ? getLocale() : ((typeof getLang === 'function' && { en: 'en-GB', fr: 'fr-FR', de: 'de-DE', it: 'it-IT' }[getLang()]) || 'fr-FR');
+      var dateLbl = ms ? new Date(ms).toLocaleDateString(loc, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
       var item = document.createElement('div');
       item.className = 'sb-item';
       item.innerHTML =

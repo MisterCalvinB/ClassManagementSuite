@@ -3421,6 +3421,7 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
     let boardData = null;
     const history = [];
     const media = {};
+    const thumbnails = {};
 
     for (const entry of parsedEntries) {
       const normName = normalizeZipEntryPath(entry.name) || entry.name;
@@ -3436,6 +3437,20 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
             mtimeMs: entry.mtimeMs
           });
         } catch {}
+      } else if (normName.startsWith('page-snapshots/') || normName.startsWith('thumbnails/') || normName === 'thumbnail.png') {
+        const base64 = entry.data.toString('base64');
+        const dataUrl = 'data:image/png;base64,' + base64;
+        thumbnails[normName] = dataUrl;
+        const fileName = normName.split('/').pop();
+        const mediaEntry = {
+          name: fileName,
+          kind: 'pics',
+          subPath: normName,
+          base64: base64,
+          size: entry.data.length,
+          mtimeMs: entry.mtimeMs
+        };
+        media[normName] = mediaEntry;
       } else if (normName.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(normName)) {
         const mediaSubPath = normName.startsWith('media/') ? normName.slice('media/'.length) : normName;
         const parts = mediaSubPath.split('/');
@@ -3465,6 +3480,7 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
       boardData,
       history,
       media,
+      thumbnails,
       size: zipBuffer.length
     };
   } catch (err) {
@@ -3484,22 +3500,32 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
 
     let manifest = null;
     let boardDataSummary = null;
+    let thumbnail = null;
 
     for (const entry of parsedEntries) {
       const normName = normalizeZipEntryPath(entry.name) || entry.name;
       if (normName === 'manifest.json') {
         try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
-      } else if (normName === 'board.json' && !manifest) {
+      } else if (normName === 'board.json') {
         try {
           const parsed = JSON.parse(entry.data.toString('utf8'));
           boardDataSummary = {
             title: parsed.title,
             _type: parsed._type,
+            classGroup: parsed._classGroup || parsed.classGroup || '',
+            _classGroup: parsed._classGroup || parsed.classGroup || '',
             _plannerEntryId: parsed._plannerEntryId || (parsed.manifest && parsed.manifest.plannerEntryId),
+            plannerEntryId: parsed._plannerEntryId || (parsed.manifest && parsed.manifest.plannerEntryId),
             pageCount: Array.isArray(parsed.pages) ? parsed.pages.length : 1
           };
         } catch {}
+      } else if (!thumbnail && (normName === 'page-snapshots/page-001.png' || normName === 'thumbnail.png' || normName.startsWith('page-snapshots/'))) {
+        thumbnail = 'data:image/png;base64,' + entry.data.toString('base64');
       }
+    }
+
+    if (manifest && !manifest.classGroup && boardDataSummary && boardDataSummary.classGroup) {
+      manifest.classGroup = boardDataSummary.classGroup;
     }
 
     const stat = await fs.stat(fullPath);
@@ -3508,6 +3534,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       filename: path.basename(fullPath),
       relativePath,
       manifest: manifest || boardDataSummary,
+      thumbnail: thumbnail || (manifest && manifest.thumbnail) || null,
+      classGroup: (manifest && manifest.classGroup) || (boardDataSummary && boardDataSummary.classGroup) || '',
       plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
       mtimeMs: stat.mtimeMs,
       size: stat.size
