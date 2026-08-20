@@ -234,7 +234,7 @@
         <div class="section-header-actions">
             <h2 data-i18n="ptHistoryTitle">Session History</h2>
             <div style="display:flex;gap:8px;align-items:center;">
-                <button class="btn-danger btn-icon" id="resetGroupBtn" onclick="handleResetGroupClick(event)" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
+                <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
             </div>
         </div>
         <div class="section-header-actions-line"></div>
@@ -7266,27 +7266,22 @@
         });
 
         // ─── Reset helpers ────────────────────────────────────────────
-        async function handleResetGroupClick(e) {
+        async function handleResetGroupClick(e, targetGroupId) {
             if (e) {
                 if (typeof e.preventDefault === 'function') e.preventDefault();
                 if (typeof e.stopPropagation === 'function') e.stopPropagation();
             }
 
-            if (!currentGroupId) {
-                const activeBtn = document.querySelector('.group-btn.active');
-                if (activeBtn) {
-                    currentGroupId = activeBtn.dataset.group || activeBtn.dataset.groupId || activeBtn.textContent.trim();
-                }
-            }
+            const targetGroup = targetGroupId || currentGroupId || (document.querySelector('.group-btn.active')?.dataset.group);
 
-            if (!currentGroupId) {
+            if (!targetGroup) {
                 const msg = (typeof t === 'function' ? t('ptMsgSelectGroup') : '') || 'Please select a class group first';
                 if (typeof showToast === 'function') showToast(msg, true);
                 if (typeof showMessage === 'function') showMessage(msg, 'error');
                 return;
             }
 
-            const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(currentGroupId) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[currentGroupId]?.name) ? CLASS_GROUPS_META[currentGroupId].name : currentGroupId);
+            const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(targetGroup) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[targetGroup]?.name) ? CLASS_GROUPS_META[targetGroup].name : targetGroup);
             const confirmMsg = `⚠️ RESET GROUP DATA\n\nAre you sure you want to permanently delete all participation data for "${groupName}"?\n\nThis will remove all recorded session logs for this group.`;
 
             let confirmed = false;
@@ -7308,7 +7303,7 @@
 
             if (!finalConfirmed) return;
 
-            pendingResetAction = { type: 'group', payload: currentGroupId };
+            pendingResetAction = { type: 'group', payload: targetGroup };
             await executeReset();
         }
 
@@ -7331,8 +7326,7 @@
                 pendingResetAction = { type: 'session', payload };
                 await executeReset();
             } else if (type === 'group') {
-                currentGroupId = payload;
-                await handleResetGroupClick();
+                await handleResetGroupClick(null, payload);
             }
         }
 
@@ -7353,19 +7347,32 @@
             pendingResetAction = null;
 
             if (type === 'session') {
-                const idx = DB_EXPORT.findIndex(s => s.id === payload);
+                const idx = DB_EXPORT.findIndex(s => s && (s.id === payload || s.date === payload));
                 if (idx !== -1) DB_EXPORT.splice(idx, 1);
                 if (selectedHistorySessionId === payload) {
                     selectedHistorySessionId = null;
                 }
+                syncGlobalDbExport();
                 showMessage(t('ptMsgSessionDeleted'), 'success');
             } else if (type === 'group') {
+                const candidateKeys = new Set([
+                    payload,
+                    String(payload),
+                    (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : null,
+                    (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[payload]?.name) ? CLASS_GROUPS_META[payload].name : null
+                ].filter(Boolean));
+
                 DB_EXPORT.forEach(session => {
-                    if (session.groups) delete session.groups[payload];
+                    if (session && session.groups) {
+                        candidateKeys.forEach(k => {
+                            delete session.groups[k];
+                        });
+                    }
                 });
-                const filtered = DB_EXPORT.filter(s => s.groups && Object.keys(s.groups).length > 0);
+                const filtered = DB_EXPORT.filter(s => s && s.groups && Object.keys(s.groups).length > 0);
                 DB_EXPORT.splice(0, DB_EXPORT.length, ...filtered);
-                const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[payload]?.name) ? CLASS_GROUPS_META[payload].name : payload);
+                syncGlobalDbExport();
+                const groupName = (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[payload]?.name) ? CLASS_GROUPS_META[payload].name : payload);
                 showMessage(tFmt('ptMsgGroupDeleted', { name: groupName }), 'success');
             }
 
@@ -7373,17 +7380,25 @@
             if (type === 'session' && currentGroupId) {
                 await persistEditedGroupSessionsToDisk(currentGroupId);
             }
+            if (type === 'group') {
+                await persistNotesToFile();
+            }
             currentStudentName = null;
+            selectedHistorySessionId = null;
+            currentHalfGroup = null;
             document.getElementById('studentDetailsArea').classList.add('hidden');
             document.getElementById('studentDetailTitle').classList.add('hidden');
             populateGroups();
-            if (!currentGroupId || type === 'group') selectFirstGroup();
+            if (!currentGroupId || currentGroupId === payload || type === 'group') {
+                currentGroupId = null;
+                selectFirstGroup();
+            }
             updateDashboard();
         }
 
         function groupNameToSafeDir(name) {
             return String(name)
-                .replace(/[<>:"\/\\|?*]/g, '-')
+                .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
                 .replace(/\s+/g, '_')
                 .replace(/^\.+/, '')
                 .trim() || '_class';
@@ -7392,35 +7407,125 @@
         async function persistResetToFile(type, payload) {
             if (!ELECTRON_AVAILABLE || !window.Desktop) return;
             if (type === 'group') {
-                const safeDirs = new Set();
-                safeDirs.add(groupNameToSafeDir(payload));
+                const candidateNames = new Set();
+                if (payload) {
+                    candidateNames.add(String(payload));
+                    candidateNames.add(groupNameToSafeDir(payload));
+                    candidateNames.add(String(payload).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                    candidateNames.add(String(payload).replace(/[<>:"\/\\|?*]/g, '-').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                }
                 const dispName = (typeof groupDisplayName === 'function') ? groupDisplayName(payload) : null;
-                if (dispName) safeDirs.add(groupNameToSafeDir(dispName));
-                if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META[payload]?.name) {
-                    safeDirs.add(groupNameToSafeDir(CLASS_GROUPS_META[payload].name));
+                if (dispName) {
+                    candidateNames.add(String(dispName));
+                    candidateNames.add(groupNameToSafeDir(dispName));
+                    candidateNames.add(String(dispName).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                    candidateNames.add(String(dispName).replace(/[<>:"\/\\|?*]/g, '-').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                }
+                if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[payload]?.name) {
+                    const mName = CLASS_GROUPS_META[payload].name;
+                    candidateNames.add(String(mName));
+                    candidateNames.add(groupNameToSafeDir(mName));
+                    candidateNames.add(String(mName).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                    candidateNames.add(String(mName).replace(/[<>:"\/\\|?*]/g, '-').replace(/\s+/g, '_').replace(/^\.+/, '').trim());
+                }
+                candidateNames.delete('');
+
+                // 1. Delete candidate folders directly
+                for (const name of candidateNames) {
+                    try { await Desktop.deleteByPath('groupParticipation', name, { recursive: true, force: true }); } catch (_) {}
+                    try { await Desktop.deleteByPath('groupParticipation', 'archived/' + name, { recursive: true, force: true }); } catch (_) {}
                 }
 
-                for (const safeDir of safeDirs) {
-                    if (!safeDir) continue;
-                    try {
-                        await Desktop.deleteByPath('groupParticipation', safeDir, { recursive: true, force: true });
-                    } catch (e) {}
-                    try {
-                        await Desktop.deleteByPath('groupParticipation', 'archived/' + safeDir, { recursive: true, force: true });
-                    } catch (e) {}
-                }
-
+                // 2. Scan and clean all participation files
                 try {
-                    const listResult = await Desktop.listByPath('groupParticipation', '.', { extensions: ['.js'] });
-                    for (const fileInfo of (listResult?.files || [])) {
-                        const fname = fileInfo.relativePath || fileInfo.name || '';
-                        for (const safeDir of safeDirs) {
-                            if (safeDir && fname.includes(safeDir)) {
-                                try { await Desktop.deleteByPath('groupParticipation', fname, { force: true }); } catch (e) {}
+                    const listResult = await Desktop.listByPath('groupParticipation', '.', {
+                        extensions: ['.js', '.json', '.txt'],
+                        recursive: true
+                    });
+                    const files = Array.isArray(listResult?.files) ? listResult.files : [];
+                    for (const fileInfo of files) {
+                        const relPath = fileInfo.relativePath || fileInfo.name || '';
+                        if (!relPath) continue;
+                        if (relPath === 'pt-rules.js' || relPath === 'pt-presets.js' || relPath === 'pt-deleted.js') continue;
+
+                        let matchesFolder = false;
+                        for (const name of candidateNames) {
+                            if (relPath === name ||
+                                relPath.startsWith(name + '/') ||
+                                relPath.startsWith('archived/' + name + '/') ||
+                                relPath.includes('/' + name + '/') ||
+                                relPath.includes('_' + name + '.') ||
+                                relPath.includes('-' + name + '.')) {
+                                matchesFolder = true;
+                                break;
                             }
                         }
+
+                        if (matchesFolder) {
+                            try {
+                                await Desktop.deleteByPath('groupParticipation', relPath, { force: true });
+                            } catch (_) {}
+                            continue;
+                        }
+
+                        // Inspect content of other data files (e.g. flat cms-db.js or multi-class session files)
+                        try {
+                            const readResult = await Desktop.readByPath('groupParticipation', relPath);
+                            if (readResult && readResult.ok && readResult.content) {
+                                const content = String(readResult.content);
+                                let fileHasGroup = false;
+                                for (const name of candidateNames) {
+                                    if (content.includes(name)) {
+                                        fileHasGroup = true;
+                                        break;
+                                    }
+                                }
+
+                                if (fileHasGroup) {
+                                    const fileSessions = extractSessionsFromContent(content);
+                                    if (Array.isArray(fileSessions) && fileSessions.length > 0) {
+                                        let modified = false;
+                                        fileSessions.forEach(session => {
+                                            if (session && session.groups) {
+                                                for (const name of candidateNames) {
+                                                    if (session.groups[name]) {
+                                                        delete session.groups[name];
+                                                        modified = true;
+                                                    }
+                                                }
+                                            }
+                                        });
+
+                                        if (modified) {
+                                            const remainingSessions = fileSessions.filter(s => s && s.groups && Object.keys(s.groups).length > 0);
+                                            if (remainingSessions.length === 0) {
+                                                try {
+                                                    await Desktop.deleteByPath('groupParticipation', relPath, { force: true });
+                                                } catch (_) {}
+                                            } else {
+                                                const newContent = `window.CMS_DB_EXPORT = ${JSON.stringify(remainingSessions, null, 2)};\nwindow.DB_EXPORT = window.CMS_DB_EXPORT;\n`;
+                                                const pathParts = relPath.split('/');
+                                                const filename = pathParts.pop();
+                                                const subdir = pathParts.length > 0 ? pathParts.join('/') : null;
+                                                try {
+                                                    await Desktop.saveFile({
+                                                        target: 'groupParticipation',
+                                                        filename: filename,
+                                                        subdir: subdir,
+                                                        content: newContent,
+                                                        encoding: 'utf8'
+                                                    });
+                                                } catch (_) {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (_) {}
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('Failed listing/deleting group participation files:', e);
+                }
             } else if (type === 'session') {
                 await addSessionTombstone(payload);
             }
