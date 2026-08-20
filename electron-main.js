@@ -3436,12 +3436,13 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
             mtimeMs: entry.mtimeMs
           });
         } catch {}
-      } else if (normName.startsWith('media/')) {
-        const mediaSubPath = normName.slice('media/'.length);
+      } else if (normName.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(normName)) {
+        const mediaSubPath = normName.startsWith('media/') ? normName.slice('media/'.length) : normName;
         const parts = mediaSubPath.split('/');
-        const kind = parts[0];
+        const rawKind = parts[0].toLowerCase();
+        const kind = rawKind === 'images' ? 'pics' : (rawKind === 'sound' ? 'sounds' : (rawKind === 'video' ? 'videos' : rawKind));
         const fileName = parts.slice(1).join('/');
-        media[mediaSubPath] = {
+        const mediaEntry = {
           name: fileName,
           kind: kind,
           subPath: mediaSubPath,
@@ -3449,6 +3450,11 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
           size: entry.data.length,
           mtimeMs: entry.mtimeMs
         };
+        media[mediaSubPath] = mediaEntry;
+        media['media/' + mediaSubPath] = mediaEntry;
+        media[kind + '/' + fileName] = mediaEntry;
+        media[fileName] = mediaEntry;
+        media[fileName.toLowerCase()] = mediaEntry;
       }
     }
 

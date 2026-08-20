@@ -7496,6 +7496,9 @@
     }
 
     function conSetAttachmentsFromSession(items, mediaMap) {
+      const prevById = new Map((conAttachments || []).map(a => [String(a.id || ''), a]));
+      const prevByName = new Map((conAttachments || []).map(a => [String(a.name || '').toLowerCase(), a]));
+
       conAttachments.forEach(item => {
         if (item && item._cachedObjectUrl) {
           try { URL.revokeObjectURL(item._cachedObjectUrl); } catch { }
@@ -7514,17 +7517,44 @@
         }
         _conAttachmentCounter += 1;
         let base64 = raw.base64 || '';
-        if (!base64 && mediaMap) {
-          const mediaKey = kind + '/' + raw.name;
-          if (mediaMap[mediaKey] && mediaMap[mediaKey].base64) {
-            base64 = mediaMap[mediaKey].base64;
+        if (!base64 && mediaMap && typeof mediaMap === 'object') {
+          const tryKeys = [
+            kind + '/' + raw.name,
+            'media/' + kind + '/' + raw.name,
+            raw.name,
+            raw.relativePath,
+            raw.relativePath ? raw.relativePath.replace(/^[^/]+\//, '') : ''
+          ].filter(Boolean);
+
+          for (const k of tryKeys) {
+            if (mediaMap[k] && mediaMap[k].base64) {
+              base64 = mediaMap[k].base64;
+              break;
+            }
+          }
+          if (!base64) {
+            const lowerName = String(raw.name || '').toLowerCase();
+            for (const [k, v] of Object.entries(mediaMap)) {
+              if (v && v.base64 && (k.toLowerCase().endsWith('/' + lowerName) || k.toLowerCase() === lowerName || (v.name && v.name.toLowerCase() === lowerName))) {
+                base64 = v.base64;
+                break;
+              }
+            }
+          }
+        }
+        // Retain from previously loaded state if not found in mediaMap
+        if (!base64) {
+          const prev = prevById.get(incomingId) || prevByName.get(String(raw.name || '').toLowerCase());
+          if (prev && prev.base64) {
+            base64 = prev.base64;
           }
         }
         let cachedUrl = '';
         if (base64) {
           try {
             const mime = raw.mime || conGuessMimeByName(raw.name, kind) || 'application/octet-stream';
-            const binary = atob(base64);
+            const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+            const binary = atob(cleanB64);
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             const blob = new Blob([bytes], { type: mime });
@@ -7636,39 +7666,68 @@
 
     async function conGetAttachmentDataUrl(att) {
       if (!att) return '';
+
+      const masterAtt = (typeof conFindAttachmentById === 'function')
+        ? (conFindAttachmentById(att.attachmentId || att.id) || att)
+        : att;
+
       if (att._cachedObjectUrl) return att._cachedObjectUrl;
+      if (masterAtt && masterAtt._cachedObjectUrl) return masterAtt._cachedObjectUrl;
       if (att._cachedDataUrl) return att._cachedDataUrl;
+      if (masterAtt && masterAtt._cachedDataUrl) return masterAtt._cachedDataUrl;
 
       // Mirror mode: use preloaded data URLs sent from the main window
-      const _preloadKey = att.attachmentId || att.id || '';
+      const _preloadKey = att.attachmentId || att.id || (masterAtt && (masterAtt.attachmentId || masterAtt.id)) || '';
       if (_preloadKey && _conMirrorAttachmentPreload[_preloadKey]) {
         att._cachedDataUrl = _conMirrorAttachmentPreload[_preloadKey];
         return att._cachedDataUrl;
       }
 
-      const mimeForBlob = att.mime || conGuessMimeByName(att.name, att.kind) || 'application/octet-stream';
+      const mimeForBlob = att.mime || (masterAtt && masterAtt.mime) || conGuessMimeByName(att.name || (masterAtt && masterAtt.name), att.kind || (masterAtt && masterAtt.kind)) || 'application/octet-stream';
 
-      if (att.file) {
+      const fileObj = att.file || (masterAtt && masterAtt.file);
+      if (fileObj) {
         try {
-          att._cachedObjectUrl = URL.createObjectURL(att.file);
-          return att._cachedObjectUrl;
+          const objUrl = URL.createObjectURL(fileObj);
+          att._cachedObjectUrl = objUrl;
+          if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+          return objUrl;
         } catch {
           try {
-            att._cachedDataUrl = await new Promise((resolve, reject) => {
+            const dataUrl = await new Promise((resolve, reject) => {
               const reader = new FileReader();
               reader.onload = () => resolve(String(reader.result || ''));
               reader.onerror = () => reject(reader.error || new Error('Could not read file.'));
-              reader.readAsDataURL(att.file);
+              reader.readAsDataURL(fileObj);
             });
-            return att._cachedDataUrl;
+            att._cachedDataUrl = dataUrl;
+            if (masterAtt) masterAtt._cachedDataUrl = dataUrl;
+            return dataUrl;
           } catch {
             return '';
           }
         }
       }
 
+      const base64 = att.base64 || (masterAtt && masterAtt.base64) || '';
+      if (base64) {
+        try {
+          const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+          const binary = atob(cleanB64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: mimeForBlob });
+          const objUrl = URL.createObjectURL(blob);
+          att._cachedObjectUrl = objUrl;
+          if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+          return objUrl;
+        } catch (e) {
+          console.error('[Attachment] Failed to convert base64 to object URL:', e);
+        }
+      }
+
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
-        const candidates = conAttachmentCandidateRelativePaths(att);
+        const candidates = conAttachmentCandidateRelativePaths(masterAtt || att);
         for (const candidatePath of candidates) {
           try {
             const res = await Desktop.readByPath('mindmaps', candidatePath, { encoding: 'base64' });
@@ -7677,9 +7736,12 @@
               const bytes = new Uint8Array(binary.length);
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
               const blob = new Blob([bytes], { type: mimeForBlob });
-              att._cachedObjectUrl = URL.createObjectURL(blob);
+              const objUrl = URL.createObjectURL(blob);
+              att._cachedObjectUrl = objUrl;
+              if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
               if (!att.relativePath) att.relativePath = candidatePath;
-              return att._cachedObjectUrl;
+              if (masterAtt && !masterAtt.relativePath) masterAtt.relativePath = candidatePath;
+              return objUrl;
             }
           } catch { }
         }
@@ -7691,8 +7753,12 @@
     async function conGetAttachmentArrayBuffer(att) {
       if (!att) return null;
 
+      const masterAtt = (typeof conFindAttachmentById === 'function')
+        ? (conFindAttachmentById(att.attachmentId || att.id) || att)
+        : att;
+
       // Mirror mode: convert preloaded data URL to ArrayBuffer
-      const _abPreloadKey = (att.attachmentId || att.id) || '';
+      const _abPreloadKey = (att.attachmentId || att.id || (masterAtt && (masterAtt.attachmentId || masterAtt.id))) || '';
       if (_abPreloadKey && _conMirrorAttachmentPreload[_abPreloadKey]) {
         try {
           const dataUrl = _conMirrorAttachmentPreload[_abPreloadKey];
@@ -7704,14 +7770,40 @@
         } catch { }
       }
 
-      if (att.file && typeof att.file.arrayBuffer === 'function') {
+      // 1. Check direct file object
+      const fileObj = att.file || (masterAtt && masterAtt.file);
+      if (fileObj && typeof fileObj.arrayBuffer === 'function') {
         try {
-          return await att.file.arrayBuffer();
+          return await fileObj.arrayBuffer();
         } catch { }
       }
 
+      // 2. Check base64 data
+      const base64 = att.base64 || (masterAtt && masterAtt.base64) || '';
+      if (base64) {
+        try {
+          const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
+          const binary = atob(cleanB64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          return bytes.buffer;
+        } catch (e) {
+          console.error('[Attachment] Failed to convert base64 to buffer:', e);
+        }
+      }
+
+      // 3. Check cached object URL (blob:) or data URL
+      const cachedUrl = att._cachedObjectUrl || (masterAtt && masterAtt._cachedObjectUrl) || att._cachedDataUrl || (masterAtt && masterAtt._cachedDataUrl) || '';
+      if (cachedUrl) {
+        try {
+          const resp = await fetch(cachedUrl);
+          if (resp.ok) return await resp.arrayBuffer();
+        } catch { }
+      }
+
+      // 4. Check Desktop disk files
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
-        const candidates = conAttachmentCandidateRelativePaths(att);
+        const candidates = conAttachmentCandidateRelativePaths(masterAtt || att);
         for (const candidatePath of candidates) {
           try {
             const res = await Desktop.readByPath('mindmaps', candidatePath, { encoding: 'base64' });
@@ -7719,7 +7811,7 @@
               const binary = atob(String(res.content));
               const bytes = new Uint8Array(binary.length);
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              if (!att.relativePath) att.relativePath = candidatePath;
+              if (!masterAtt.relativePath) masterAtt.relativePath = candidatePath;
               return bytes.buffer;
             }
           } catch { }
@@ -8991,6 +9083,8 @@
         const linkedAttachment = conFindAttachmentById(normalized.attachmentId);
         if (linkedAttachment) {
           normalized.file = linkedAttachment.file || null;
+          normalized.base64 = linkedAttachment.base64 || '';
+          normalized._cachedObjectUrl = linkedAttachment._cachedObjectUrl || '';
           if (linkedAttachment.relativePath) normalized.relativePath = linkedAttachment.relativePath;
           if (linkedAttachment.mime) normalized.mime = linkedAttachment.mime;
           if (linkedAttachment.name) normalized.name = linkedAttachment.name;
@@ -9428,6 +9522,7 @@
       let conNextId = 1;
       let _conClipboard = null;
       let _conClipboardPasteCount = 0;
+      let _lastBoardPastePoint = null;
       const CON_CLIPBOARD_STORAGE_KEY = 'con_clipboard_v1';
       function _conClipboardWrite(payload) {
         _conClipboard = payload;
@@ -11400,9 +11495,10 @@
 
           // Plain click/drag: select just this drawing (unless it's already in a multi-selection)
           if (!conDrawingSelected.has(d.id)) {
-            // Clear node/note selections first (conDeselectAll also clears conDrawingSelected)
-            if (window.conDeselectAll) window.conDeselectAll();
+            // Clear node/note selections first
+            if (window.conNodeClearSelection) window.conNodeClearSelection();
             if (window.conNoteClearSelection) window.conNoteClearSelection();
+            if (window.conShapeClearSelection) window.conShapeClearSelection();
             // Now select only this drawing
             conDrawingSelected.add(d.id);
             el.classList.add('con-drawing-selected');
@@ -12096,7 +12192,7 @@
             return;
           }
           if (!_conShapeSelected.has(s.id)) {
-            if (window.conDeselectAll) window.conDeselectAll();
+            if (window.conNodeClearSelection) window.conNodeClearSelection();
             if (window.conDrawingClearSelection) window.conDrawingClearSelection();
             if (window.conNoteClearSelection) window.conNoteClearSelection();
             window.conShapeClearSelection();
@@ -14513,9 +14609,13 @@
       window.conGetGroupFocused = function () { return conGroupFocused; };
       window.conPushUndo = function (snapshot) { conPushUndo(snapshot); };
       window.conRenderNodeLabel = function (node) { conRenderNodeLabel(node); };
-      window.conSyncNodeLockState = function (node) { conSyncNodeLockState(node); };
-      window.conDeselectAll = function () { conSelect(null); };
-      window.conGetMultiSelected = function () { return conMultiSelected; };
+      window.conDeselectAll = function () {
+        if (typeof conNodeClearSelection === 'function') conNodeClearSelection();
+        else conSelect(null);
+        if (typeof window.conNoteClearSelection === 'function') window.conNoteClearSelection();
+        if (typeof window.conDrawingClearSelection === 'function') window.conDrawingClearSelection();
+        if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
+      };
       window.conUndo = function () { conUndo(); };
       window.conRedo = function () { conRedo(); };
       window.conIsNodeLocked = conIsNodeLocked;
@@ -15214,6 +15314,17 @@
       }
 
       // ---- Internal helpers ----
+      function conNodeClearSelection() {
+        conSelected = null;
+        conMultiSelected.clear();
+        conNodes.forEach(n => {
+          if (n && n.el) n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
+        });
+        conGroups.forEach(g => { if (g && g.el) g.el.classList.remove('con-group-selected'); });
+        conGroupFocused = null;
+      }
+      window.conNodeClearSelection = conNodeClearSelection;
+
       function conSelect(id) {
         // Clear group focus
         conGroups.forEach(g => g.el.classList.remove('con-group-selected'));
@@ -15223,12 +15334,21 @@
         conNodes.forEach(n => {
           n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
         });
-        // Clear drawing selection
-        conDrawingSelected.clear();
-        document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
-          .forEach(el => el.classList.remove('con-drawing-selected'));
         conSelected = id;
         if (id) {
+          // Clear drawing selection
+          conDrawingSelected.clear();
+          document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+            .forEach(el => el.classList.remove('con-drawing-selected'));
+          // Clear note selection
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.clear();
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(el => el.classList.remove('wn-selected'));
+          }
+          if (typeof window.conShapeClearSelection === 'function') {
+            window.conShapeClearSelection();
+          }
           const node = conNodes.find(n => n.id === id);
           if (node) node.el.classList.add('con-selected');
           // Sync active palette to match the node's current colour
@@ -15254,6 +15374,16 @@
           n.el.classList.remove('con-selected', 'con-multi-selected');
           if (conMultiSelected.has(n.id)) n.el.classList.add('con-multi-selected');
         });
+        if (ids && ids.length > 0) {
+          if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+            conNoteSelected.clear();
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(el => el.classList.remove('wn-selected'));
+          }
+          if (typeof window.conShapeClearSelection === 'function') {
+            window.conShapeClearSelection();
+          }
+        }
       }
 
       window.conViewSelectedCard = function () {
@@ -19535,23 +19665,46 @@
         return false;
       }
 
+      let _lastConCopiedText = null;
+      let _lastConCopyTime = 0;
+
       function conClipboardSelectionSummary() {
         const nodeIds = new Set();
         const noteIds = new Set();
         const groupIds = new Set();
+        const drawingIds = new Set();
+        const shapeIds = new Set();
+
+        const hasNoteSelection = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0;
+        const hasNodeSelection = (conMultiSelected && conMultiSelected.size > 0) || !!conSelected;
+        const hasDrawingSelection = typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size > 0;
+        const shapeSel = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected() : null;
+        const hasShapeSelection = !!(shapeSel && shapeSel.size > 0);
 
         if (conMultiSelected && conMultiSelected.size > 0) {
           conMultiSelected.forEach(id => nodeIds.add(id));
-        } else if (conSelected) {
+        } else if (conSelected && !hasNoteSelection) {
           nodeIds.add(conSelected);
         }
 
-        if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
+        if (hasNoteSelection) {
           conNoteSelected.forEach(id => noteIds.add(id));
         }
 
-        if (typeof _conGroupCtxId !== 'undefined' && _conGroupCtxId) {
+        if (hasDrawingSelection) {
+          conDrawingSelected.forEach(id => drawingIds.add(id));
+        }
+
+        if (hasShapeSelection) {
+          shapeSel.forEach(id => shapeIds.add(id));
+        }
+
+        const groupCtxMenu = document.getElementById('con-group-ctx-menu');
+        const isGroupCtxVisible = groupCtxMenu && groupCtxMenu.classList.contains('visible');
+        if (typeof _conGroupCtxId !== 'undefined' && _conGroupCtxId && isGroupCtxVisible) {
           groupIds.add(_conGroupCtxId);
+        } else if (conGroupFocused) {
+          groupIds.add(conGroupFocused);
         }
 
         groupIds.forEach(gid => {
@@ -19564,21 +19717,25 @@
         conGroups.forEach(g => {
           const gNodeIds = g.nodeIds || [];
           const gNoteIds = g.noteIds || [];
+          if (!gNodeIds.length && !gNoteIds.length) return;
           const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) || gNoteIds.some(id => noteIds.has(id));
-          const fullySelected = gNodeIds.every(id => nodeIds.has(id)) && gNoteIds.every(id => noteIds.has(id));
+          const fullySelected = (gNodeIds.length === 0 || gNodeIds.every(id => nodeIds.has(id))) &&
+                                (gNoteIds.length === 0 || gNoteIds.every(id => noteIds.has(id)));
           if (hasAnySelected && fullySelected) groupIds.add(g.id);
         });
 
         return {
           nodeIds: [...nodeIds],
           noteIds: [...noteIds],
-          groupIds: [...groupIds]
+          groupIds: [...groupIds],
+          drawingIds: [...drawingIds],
+          shapeIds: [...shapeIds]
         };
       }
 
       function conClipboardBuildPayload() {
         const sel = conClipboardSelectionSummary();
-        if (!sel.nodeIds.length && !sel.noteIds.length && !sel.groupIds.length) return null;
+        if (!sel.nodeIds.length && !sel.noteIds.length && !sel.groupIds.length && !sel.drawingIds.length && !sel.shapeIds.length) return null;
 
         const nodes = sel.nodeIds
           .map(id => conNodes.find(n => n.id === id))
@@ -19658,6 +19815,41 @@
             h: g.el ? (parseFloat(g.el.style.height) || g.el.offsetHeight || 100) : 100
           }));
 
+        const drawings = (sel.drawingIds || [])
+          .map(id => (typeof conDrawings !== 'undefined' ? conDrawings.find(d => d.id === id) : null))
+          .filter(Boolean)
+          .map(d => ({
+            id: d.id,
+            x: Number(d.x) || 0,
+            y: Number(d.y) || 0,
+            w: Number(d.w) || 100,
+            h: Number(d.h) || 100,
+            points: Array.isArray(d.points) ? JSON.parse(JSON.stringify(d.points)) : [],
+            color: d.color || '#111111',
+            thickness: Number(d.thickness) || 3,
+            opacity: d.opacity != null ? Number(d.opacity) : 1,
+            pad: d.pad || 16
+          }));
+
+        const shapes = (sel.shapeIds || [])
+          .map(id => (typeof conShapes !== 'undefined' ? conShapes.find(s => s.id === id) : null))
+          .filter(Boolean)
+          .map(s => ({
+            id: s.id,
+            type: s.type || 'rect',
+            x: Number(s.x) || 0,
+            y: Number(s.y) || 0,
+            w: Number(s.w) || 100,
+            h: Number(s.h) || 100,
+            color: s.color || '#111111',
+            thickness: Number(s.thickness) || 2,
+            opacity: s.opacity != null ? Number(s.opacity) : 1,
+            fillColor: s.fillColor || 'none',
+            dashStyle: s.dashStyle || 'solid',
+            arrowheadSize: s.arrowheadSize || 20,
+            pts: Array.isArray(s.pts) ? JSON.parse(JSON.stringify(s.pts)) : undefined
+          }));
+
         const nodeSet = new Set(nodes.map(n => n.id));
         const edges = conEdges
           .filter(e => nodeSet.has(e.a) && nodeSet.has(e.b))
@@ -19693,6 +19885,12 @@
         groups.forEach(g => {
           rects.push({ x: g.x, y: g.y, w: g.w || 180, h: g.h || 100 });
         });
+        drawings.forEach(d => {
+          rects.push({ x: d.x, y: d.y, w: d.w || 100, h: d.h || 100 });
+        });
+        shapes.forEach(s => {
+          rects.push({ x: s.x, y: s.y, w: s.w || 100, h: s.h || 100 });
+        });
 
         const bounds = rects.length
           ? {
@@ -19703,24 +19901,42 @@
           }
           : { minX: 0, minY: 0, maxX: 120, maxY: 60 };
 
+        const textParts = [];
+        nodes.forEach(n => { if (n.baseWord) textParts.push(n.baseWord); });
+        notes.forEach(n => { if (n.text) textParts.push(n.text); });
+        groups.forEach(g => { if (g.title) textParts.push(g.title); });
+        const plainText = textParts.join('\n');
+
         return {
           type: 'constellation-selection',
           nodes,
           notes,
           groups,
+          drawings,
+          shapes,
           edges,
-          bounds
+          bounds,
+          plainText,
+          timestamp: Date.now()
         };
       }
 
       function conClipboardClearVisualSelection() {
         conMultiSelected.clear();
         conSelected = null;
-        conNodes.forEach(n => n.el.classList.remove('con-selected', 'con-multi-selected', 'con-src'));
+        conNodes.forEach(n => n.el && n.el.classList.remove('con-selected', 'con-multi-selected', 'con-src'));
         if (typeof conNoteSelected !== 'undefined') {
           conNoteSelected.clear();
           document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
             .forEach(el => el.classList.remove('wn-selected'));
+        }
+        if (typeof conDrawingSelected !== 'undefined') {
+          conDrawingSelected.clear();
+          document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected')
+            .forEach(el => el.classList.remove('con-drawing-selected'));
+        }
+        if (typeof window.conShapeClearSelection === 'function') {
+          window.conShapeClearSelection();
         }
       }
 
@@ -19745,6 +19961,22 @@
           });
         }
 
+        if (payload.drawings && payload.drawings.length && typeof conDrawings !== 'undefined') {
+          payload.drawings.forEach(d => {
+            const dr = conDrawings.find(x => x.id === d.id);
+            if (dr && dr.el) dr.el.remove();
+            conDrawings = conDrawings.filter(x => x.id !== d.id);
+          });
+        }
+
+        if (payload.shapes && payload.shapes.length && typeof conShapes !== 'undefined') {
+          payload.shapes.forEach(s => {
+            const sh = conShapes.find(x => x.id === s.id);
+            if (sh && sh.el) sh.el.remove();
+            conShapes = conShapes.filter(x => x.id !== s.id);
+          });
+        }
+
         conClipboardClearVisualSelection();
       }
 
@@ -19754,8 +19986,8 @@
         if (!brd) return false;
 
         const sourceBounds = payload.bounds || { minX: 0, minY: 0, maxX: 120, maxY: 60 };
-        const anchorX = Number(window._boardCtxNoteX);
-        const anchorY = Number(window._boardCtxNoteY);
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || Number(window._boardCtxNoteX);
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
         const baseX = Number.isFinite(anchorX) ? anchorX : Math.round(brd.clientWidth / 2);
         const baseY = Number.isFinite(anchorY) ? anchorY : Math.round(brd.clientHeight / 2);
         _conClipboardPasteCount = 0;
@@ -19864,6 +20096,33 @@
           });
         }
 
+        if (typeof conDrawingFromData === 'function' && Array.isArray(payload.drawings)) {
+          payload.drawings.forEach(d => {
+            const dx = targetMinX + ((Number(d.x) || 0) - sourceBounds.minX);
+            const dy = targetMinY + ((Number(d.y) || 0) - sourceBounds.minY);
+            conDrawingFromData({
+              ...d,
+              id: undefined,
+              x: dx,
+              y: dy,
+              points: Array.isArray(d.points) ? d.points.map(p => (p ? { x: p.x, y: p.y } : null)) : []
+            });
+          });
+        }
+
+        if (typeof conShapeFromData === 'function' && Array.isArray(payload.shapes)) {
+          payload.shapes.forEach(s => {
+            const sx = targetMinX + ((Number(s.x) || 0) - sourceBounds.minX);
+            const sy = targetMinY + ((Number(s.y) || 0) - sourceBounds.minY);
+            conShapeFromData({
+              ...s,
+              id: undefined,
+              x: sx,
+              y: sy
+            });
+          });
+        }
+
         (payload.groups || []).forEach(g => {
           const mappedNodeIds = (g.nodeIds || []).map(id => nodeIdMap.get(id)).filter(Boolean);
           const mappedNoteIds = (g.noteIds || []).map(id => noteIdMap.get(id)).filter(Boolean);
@@ -19939,7 +20198,12 @@
           return false;
         }
         _conClipboardWrite(payload);
-        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length;
+        _lastConCopiedText = payload.plainText || '';
+        _lastConCopyTime = Date.now();
+        if (payload.plainText && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(payload.plainText).catch(() => {});
+        }
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
         if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
         return true;
       };
@@ -19955,9 +20219,14 @@
           return false;
         }
         _conClipboardWrite(payload);
+        _lastConCopiedText = payload.plainText || '';
+        _lastConCopyTime = Date.now();
+        if (payload.plainText && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(payload.plainText).catch(() => {});
+        }
         conPushUndo();
         conClipboardDeletePayload(payload);
-        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length;
+        const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
         if (typeof mdbToast === 'function') mdbToast('✂ Cut ' + count + ' item' + (count === 1 ? '' : 's'));
         return true;
       };
@@ -19976,7 +20245,7 @@
         conPushUndo();
         const ok = conClipboardPastePayload(_pasteTarget);
         if (ok && typeof mdbToast === 'function') {
-          const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length;
+          const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
           mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
         }
         return ok;
@@ -20316,72 +20585,125 @@
         }
       });
 
-      // ---- Paste images from system clipboard (Ctrl+V with image data) ----
+      // ---- Unified Document Paste Handler ----
       document.addEventListener('paste', function (e) {
         // Only act when the constellation section is visible
         const sec = document.getElementById('constellation-section');
         if (!sec || sec.classList.contains('hidden')) return;
 
-        // Don't intercept paste inside text inputs / contenteditable
-        const tag = document.activeElement && document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        if (document.activeElement && document.activeElement.isContentEditable) return;
+        // Don't intercept paste inside text inputs / contenteditable / note editors
+        const target = e.target;
+        if (target && target.closest('.wn-note-editor, textarea, input, select, [contenteditable="true"]')) return;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
 
         // Block all paste when laser pointer is active
         if (document.body.classList.contains('laser-active')) return;
 
-        const items = e.clipboardData && e.clipboardData.items;
-        if (!items) return;
+        const clip = (e.clipboardData || window.clipboardData);
+        if (!clip) return;
 
+        // 1. Check for image attachments from system clipboard
+        const items = clip.items || [];
         const imageItems = [];
         for (let i = 0; i < items.length; i++) {
-          if (items[i].type.startsWith('image/')) imageItems.push(items[i]);
+          if (items[i].type && items[i].type.startsWith('image/')) {
+            imageItems.push(items[i]);
+          }
         }
-        // If no image in clipboard, fall back to pasting constellation nodes
-        if (!imageItems.length) {
+        if (imageItems.length > 0) {
+          e.preventDefault();
+          imageItems.forEach((clipItem, idx) => {
+            const file = clipItem.getAsFile();
+            if (!file) return;
+
+            const ext = (file.name && file.name.includes('.'))
+              ? file.name.split('.').pop()
+              : (clipItem.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const name = 'pasted-image-' + Date.now() + (idx > 0 ? '-' + idx : '') + '.' + ext;
+
+            _conAttachmentCounter += 1;
+            const attachmentId = 'att_' + _conAttachmentCounter;
+            conAttachments.push({
+              id: attachmentId,
+              name: conSanitizeAttachmentName(name),
+              mime: clipItem.type,
+              kind: 'pics',
+              size: Number(file.size) || 0,
+              file,
+              relativePath: ''
+            });
+            conRenderAttachmentSummary();
+
+            const board = document.getElementById('constellation-board');
+            const baseW = window._bcImageInsertWidth || 260;
+            const baseH = 200;
+            const pos = board
+              ? {
+                x: Math.max(12, Math.round((board.clientWidth - baseW) / 2 + idx * 20)),
+                y: Math.max(12, Math.round((board.clientHeight - baseH) / 2 + idx * 20))
+              }
+              : { x: 40 + idx * 20, y: 40 + idx * 20 };
+
+            window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
+            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+          });
+          return;
+        }
+
+        const brd = board();
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || window._boardCtxNoteX;
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || window._boardCtxNoteY;
+        const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2) : 100);
+        const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2) : 100);
+
+        const text = clip.getData ? clip.getData('text/plain') : '';
+        const html = clip.getData ? clip.getData('text/html') : '';
+        const plain = String(text || '').trim();
+
+        // 2. Check for Table data (HTML <table> or TSV)
+        if (typeof wnPasteAsConTable === 'function' && (html.includes('<table') || (plain.includes('\t') && plain.includes('\n')))) {
+          if (wnPasteAsConTable(clip, x, y)) {
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // 3. Check for Internal Board Clipboard vs External Plain Text
+        const _pasteTarget = _conClipboardRead();
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length));
+
+        // If internal payload was copied and the OS clipboard either matches its plain text
+        // or the user hasn't copied a different external plain text string, paste the internal payload
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim()
+        );
+
+        if (isInternalCopyMatch) {
+          e.preventDefault();
           window.conClipboardPaste({ allowWhileTyping: false });
           return;
         }
 
-        e.preventDefault();
+        // 4. Fallback: If external plain text exists in OS clipboard, create a text note
+        if (plain) {
+          e.preventDefault();
+          if (window.conCreateTextNote) window.conCreateTextNote(plain, x, y, { fontSize: 24 });
+          return;
+        }
 
-        imageItems.forEach((clipItem, idx) => {
-          const file = clipItem.getAsFile();
-          if (!file) return;
-
-          // Derive a reasonable filename from the MIME type
-          const ext = (file.name && file.name.includes('.'))
-            ? file.name.split('.').pop()
-            : (clipItem.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-          const name = 'pasted-image-' + Date.now() + (idx > 0 ? '-' + idx : '') + '.' + ext;
-
-          _conAttachmentCounter += 1;
-          const attachmentId = 'att_' + _conAttachmentCounter;
-          conAttachments.push({
-            id: attachmentId,
-            name: conSanitizeAttachmentName(name),
-            mime: clipItem.type,
-            kind: 'pics',
-            size: Number(file.size) || 0,
-            file,
-            relativePath: ''
-          });
-          conRenderAttachmentSummary();
-
-          // Place the image at the centre of the visible board area
-          const board = document.getElementById('constellation-board');
-          const baseW = window._bcImageInsertWidth || 260;
-          const baseH = 200;
-          const pos = board
-            ? {
-              x: Math.max(12, Math.round((board.clientWidth - baseW) / 2 + idx * 20)),
-              y: Math.max(12, Math.round((board.clientHeight - baseH) / 2 + idx * 20))
-            }
-            : { x: 40 + idx * 20, y: 40 + idx * 20 };
-
-          window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
-          mdbToast('🖼 Image pasted onto the board.');
-        });
+        // 5. If no plain text in OS clipboard but internal payload exists, paste internal payload
+        if (hasValidInternalPayload) {
+          e.preventDefault();
+          window.conClipboardPaste({ allowWhileTyping: false });
+        }
       });
 
       // ---- Merge selected drawings/shapes into a single multi-stroke drawing ----
@@ -20578,7 +20900,6 @@
         if (snapBtn) snapBtn.classList.toggle('con-panel-active', conSnapEnabled);
         const brd = board();
         if (!brd) return;
-        let _lastBoardPastePoint = null;
 
         // Clicking outside a note editor should remove focus from it
         brd.addEventListener('mousedown', function (e) {
@@ -20621,43 +20942,14 @@
           _conCancelLinkMode();
         }, true);
 
-        brd.addEventListener('mousemove', function (e) {
-          const brdRect = brd.getBoundingClientRect();
-          _lastBoardPastePoint = {
-            x: e.clientX - brdRect.left + brd.scrollLeft,
-            y: e.clientY - brdRect.top + brd.scrollTop
-          };
-        });
-
-        document.addEventListener('paste', function (e) {
-          const sec = document.getElementById('constellation-section');
-          if (!sec || sec.classList.contains('hidden')) return;
-
-          const target = e.target;
-          if (target && target.closest('.wn-note-editor, textarea, input, [contenteditable="true"]')) return;
-          const ae = document.activeElement;
-          if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
-
-          const clip = (e.clipboardData || window.clipboardData);
-          const text = clip && clip.getData ? clip.getData('text/plain') : '';
-          const plain = String(text || '').trim();
-          if (!plain) return;
-
-          e.preventDefault();
-          const x = (_lastBoardPastePoint && _lastBoardPastePoint.x) || (window._boardCtxNoteX || Math.round(brd.clientWidth / 2));
-          const y = (_lastBoardPastePoint && _lastBoardPastePoint.y) || (window._boardCtxNoteY || Math.round(brd.clientHeight / 2));
-
-          // Table data (HTML <table> or TSV) → create a con-table-el
-          if (typeof wnPasteAsConTable === 'function' && wnPasteAsConTable(clip, x, y)) return;
-
-          if (window.conCreateTextNote) window.conCreateTextNote(plain, x, y, { fontSize: 24 });
-        });
-
         // Track mouse position on the board so Ctrl+V / paste button land at cursor
         brd.addEventListener('mousemove', function (e) {
           const brdRect = brd.getBoundingClientRect();
-          window._boardCtxNoteX = e.clientX - brdRect.left + brd.scrollLeft;
-          window._boardCtxNoteY = e.clientY - brdRect.top + brd.scrollTop;
+          const px = e.clientX - brdRect.left + brd.scrollLeft;
+          const py = e.clientY - brdRect.top + brd.scrollTop;
+          _lastBoardPastePoint = { x: px, y: py };
+          window._boardCtxNoteX = px;
+          window._boardCtxNoteY = py;
         });
 
         // Suppress native browser context menu on the board
@@ -24909,7 +25201,12 @@
         wnRememberSelection(ta);
         conScheduleNoteMirrorUpdate(noteData, ta);
       });
-      ta.addEventListener('focus', () => wnRememberSelection(ta));
+      ta.addEventListener('focus', () => {
+        wnRememberSelection(ta);
+        if (window.conNodeClearSelection) window.conNodeClearSelection();
+        if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+        if (window.conShapeClearSelection) window.conShapeClearSelection();
+      });
       ta.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
           setTimeout(() => {
@@ -25215,15 +25512,18 @@
             conNoteSelected.add(noteData.id);
             note.classList.add('wn-selected');
           }
-        } else if (!conNoteSelected.has(noteData.id)) {
-          document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
-            .forEach(n => n.classList.remove('wn-selected'));
-          conNoteSelected.clear();
-          conNoteSelected.add(noteData.id);
-          note.classList.add('wn-selected');
-          // Plain click on a note — clear node and drawing selection too
-          if (window.conDeselectAll) window.conDeselectAll();
+        } else {
+          if (!conNoteSelected.has(noteData.id)) {
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
+              .forEach(n => n.classList.remove('wn-selected'));
+            conNoteSelected.clear();
+            conNoteSelected.add(noteData.id);
+            note.classList.add('wn-selected');
+          }
+          // Plain click on a note — clear node, drawing, and shape selections
+          if (window.conNodeClearSelection) window.conNodeClearSelection();
           if (window.conDrawingClearSelection) window.conDrawingClearSelection();
+          if (window.conShapeClearSelection) window.conShapeClearSelection();
         }
         // Check if any selected notes are locked — if so, don't allow dragging
         let anyLocked = false;
@@ -27907,15 +28207,29 @@
         taken.add((kind + '/' + safeName).toLowerCase());
 
         const nextRelativePath = folderName + '/' + kind + '/' + safeName;
-        let base64 = '';
+        let base64 = item.base64 || '';
 
-        if (item.file) {
+        if (!base64 && item.file) {
           try {
             base64 = await conReadAttachmentFileBase64(item.file);
           } catch (error) {
             console.info('Could not read selected attachment:', item.name, error);
           }
-        } else if (window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+        }
+        if (!base64 && item._cachedDataUrl && item._cachedDataUrl.startsWith('data:')) {
+          const commaIdx = item._cachedDataUrl.indexOf(',');
+          if (commaIdx >= 0) base64 = item._cachedDataUrl.slice(commaIdx + 1);
+        }
+        if (!base64 && item._cachedObjectUrl && item._cachedObjectUrl.startsWith('blob:')) {
+          try {
+            const resp = await fetch(item._cachedObjectUrl);
+            const blob = await resp.blob();
+            base64 = await conReadAttachmentFileBase64(blob);
+          } catch (e) {
+            console.warn('Could not read blob url for attachment:', item.name, e);
+          }
+        }
+        if (!base64 && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
           const candidates = conAttachmentCandidateRelativePaths(item);
           for (const candidatePath of candidates) {
             try {
@@ -27932,6 +28246,7 @@
         }
 
         if (base64) {
+          item.base64 = base64;
           files.push({
             filename: safeName,
             subdir: folderName + '/' + kind,
@@ -27945,7 +28260,7 @@
           name: safeName,
           mime: item.mime || '',
           kind,
-          size: Number(item.size) || 0,
+          size: Number(item.size) || (base64 ? Math.round(base64.length * 0.75) : 0),
           relativePath: base64 ? nextRelativePath : (item.relativePath || nextRelativePath)
         });
       }
@@ -28100,21 +28415,27 @@
                   data: JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes))
                 });
               } catch {}
-            } else if (filename.startsWith('media/')) {
-              const mediaSubPath = filename.slice('media/'.length);
+            } else if (filename.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(filename)) {
+              const mediaSubPath = filename.startsWith('media/') ? filename.slice('media/'.length) : filename;
               const parts = mediaSubPath.split('/');
-              const kind = parts[0];
+              const rawKind = parts[0].toLowerCase();
+              const kind = rawKind === 'images' ? 'pics' : (rawKind === 'sound' ? 'sounds' : (rawKind === 'video' ? 'videos' : rawKind));
               const mediaName = parts.slice(1).join('/');
               let binary = '';
               for (let i = 0; i < entryDataBytes.length; i++) binary += String.fromCharCode(entryDataBytes[i]);
               const base64 = btoa(binary);
-              media[mediaSubPath] = {
+              const mediaEntry = {
                 name: mediaName,
                 kind: kind,
                 subPath: mediaSubPath,
                 base64: base64,
                 size: entryDataBytes.length
               };
+              media[mediaSubPath] = mediaEntry;
+              media['media/' + mediaSubPath] = mediaEntry;
+              media[kind + '/' + mediaName] = mediaEntry;
+              media[mediaName] = mediaEntry;
+              media[mediaName.toLowerCase()] = mediaEntry;
             }
           }
 
@@ -29585,6 +29906,7 @@
           }
           _conCurrentFileName = file.name;
           _conCurrentFolderName = null;
+          data._mediaMap = parsed.media || null;
           if (Array.isArray(data.attachments)) {
             conSetAttachmentsFromSession(data.attachments, parsed.media);
           }
@@ -29774,7 +30096,8 @@
       const isMirrorSync = !!data._isMirrorSync;
       if (!isPageRestore) { _conUndoStack = []; _conRedoStack = []; }
       if (!isPageRestore) {
-        conSetAttachmentsFromSession((data && data.attachments) || []);
+        const mediaMap = (data && (data._mediaMap || data.mediaMap || data.media)) || null;
+        conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
       }
 
       // ---- Multi-page format detection ----
@@ -31086,6 +31409,7 @@
       if (isArchive && window.Desktop && typeof Desktop.readBoardArchive === 'function') {
         const r = await Desktop.readBoardArchive(entry.target, rel);
         if (r && r.ok && r.boardData) {
+          r.boardData._mediaMap = r.media || null;
           if (Array.isArray(r.boardData.attachments)) {
             conSetAttachmentsFromSession(r.boardData.attachments, r.media);
           }
