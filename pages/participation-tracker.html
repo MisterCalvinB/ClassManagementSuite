@@ -9,6 +9,7 @@
     <script src="../js/i18n.js"></script>
     <script src="../js/student-name-utils.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
+    <script src="../js/tutorial.js"></script>
         <script src="../electron-bridge.js"></script>
         <script src="../js/dialogs.js"></script>
         <script src="../js/menus.js"></script>
@@ -67,7 +68,7 @@
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
   <div id="app-hamburger" class="hm-wrap">
     <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-    <button class="tut-trigger-btn" onclick="showPtTourStub()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button class="tut-trigger-btn" onclick="showPtTour()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
@@ -356,7 +357,10 @@
         <div class="modal-content">
             <button class="close-modal" onclick="closeRulesModal()">&times;</button>
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px; padding-right:32px;">
-                <h3 id="rulesModalTitle" data-i18n="ptRulesModalTitle" style="margin:0;">Objectives & Automatic Grading Rules</h3>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="rulesModalTitle" data-i18n="ptRulesModalTitle" style="margin:0;">Objectives & Automatic Grading Rules</h3>
+                    <button type="button" class="tut-trigger-btn" onclick="showPtRulesTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <label for="rulesModalGroupSelect" style="font-size:12px; font-weight:700; color:#444;" data-i18n="ptSelectGroup">Class / Group:</label>
                     <select id="rulesModalGroupSelect" onchange="onRulesModalGroupChange(this.value)" style="padding:4px 8px; font-size:12px; font-weight:600; border:2px solid #ddd; border-radius:4px; background:#fff; outline:none; cursor:pointer; width:auto; min-width:180px;">
@@ -373,10 +377,11 @@
             <div style="background:#f9f9f9; border:2px solid #ddd; padding:12px; border-radius:5px; margin-bottom:15px; display:flex; flex-wrap:wrap; gap:15px; align-items:center; font-size:13px; justify-content:space-between; box-sizing:border-box;">
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                     <strong style="color:#333;" data-i18n="ptDateRange">Date Range:</strong>
-                    <div style="display:flex; gap:5px;">
+                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
                         <button class="btn-preset-modal-all active" onclick="setModalDatePreset('all')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDateAll">All Data</button>
                         <button class="btn-preset-modal-30" onclick="setModalDatePreset('30days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate30Days">Last 30 Days</button>
                         <button class="btn-preset-modal-7" onclick="setModalDatePreset('7days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate7Days">Last 7 Days</button>
+                        <button class="btn-preset-modal-semester" id="modalSemesterBtn" onclick="setModalDatePreset('semester')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer; display:none;" data-i18n="ptDateSemester">Active Semester</button>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -449,6 +454,7 @@
             <div class="button-group" style="border-top:2px solid #111; padding-top:15px; margin-top:15px;">
                 <button onclick="closeRulesModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff';this.style.borderColor='#111'" onmouseout="this.style.background='#fff';this.style.color='#888';this.style.borderColor='#ccc'" data-i18n="ptBtnCancel">Cancel</button>
                 <button onclick="confirmNewRules()" style="background:#fff; color:#c33; border:2px solid #ecc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-left:auto;" onmouseover="this.style.background='#c33';this.style.color='#fff';this.style.borderColor='#c33'" onmouseout="this.style.background='#fff';this.style.color='#c33';this.style.borderColor='#ecc'" data-i18n="ptBtnNewRules">New Rules</button>
+                <button onclick="openExportRulesModal()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="ptBtnExportRules"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
                 <button onclick="loadRulesConfig()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="ptBtnLoadRules">Load Rules</button>
                 <button onclick="saveRulesConfig()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptBtnSaveRules">Save Rules</button>
             </div>
@@ -503,12 +509,83 @@
         </div>
     </div>
 
+    <!-- Export Rules Modal (Neobrutalist Popup) -->
+    <div id="rulesExportModal" class="modal">
+        <div class="modal-content" style="max-width: 620px;">
+            <button class="close-modal" onclick="closeExportRulesModal()" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+            <div class="pt-export-modal-header">
+                <h2><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="ptExportRulesModalTitle">Export Grading & Participation Rules</span></h2>
+                <div class="pt-export-subtitle" data-i18n="ptExportRulesSub">Export active objective grading rules to HTML, PDF, or Markdown format.</div>
+            </div>
+
+            <!-- Active context summary info box -->
+            <div style="background:#fafafa; border:2px solid #111; border-radius:6px; padding:12px 16px; margin-bottom:18px; box-shadow:3px 3px 0 #111; font-size:12px; display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#666; letter-spacing:0.5px;" data-i18n="ptSelectGroup">Class / Group</div>
+                    <strong id="exportRulesGroupName" style="font-size:13px; color:#111;">Default (All Groups)</strong>
+                </div>
+                <div>
+                    <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#666; letter-spacing:0.5px;" data-i18n="ptMaxGrade">Max Grade</div>
+                    <strong id="exportRulesMaxGrade" style="font-size:13px; color:#111;">20</strong>
+                </div>
+                <div>
+                    <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#666; letter-spacing:0.5px;" data-i18n="ptScaleToMax">Scale to Max</div>
+                    <strong id="exportRulesScaleToMax" style="font-size:13px; color:#111;">No</strong>
+                </div>
+                <div>
+                    <div style="font-size:10px; font-weight:800; text-transform:uppercase; color:#666; letter-spacing:0.5px;">Active Rules</div>
+                    <strong id="exportRulesCount" style="font-size:13px; color:#111;">0 rules</strong>
+                </div>
+            </div>
+
+            <!-- Format Selection -->
+            <div class="pt-export-section" style="margin-bottom:18px;">
+                <label class="pt-export-section-title"><span>Select Export Format</span></label>
+                <div class="pt-export-formats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <label class="pt-format-tile">
+                        <input type="radio" name="ptRulesExportFormat" value="html" checked onchange="updateRulesExportHint()">
+                        <div class="pt-format-box">
+                            <span class="pt-format-icon"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /></span>
+                            <span class="pt-format-name">HTML</span>
+                            <span class="pt-format-tag">Interactive</span>
+                        </div>
+                    </label>
+                    <label class="pt-format-tile">
+                        <input type="radio" name="ptRulesExportFormat" value="pdf" onchange="updateRulesExportHint()">
+                        <div class="pt-format-box">
+                            <span class="pt-format-icon"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /></span>
+                            <span class="pt-format-name">PDF</span>
+                            <span class="pt-format-tag">Print Document</span>
+                        </div>
+                    </label>
+                    <label class="pt-format-tile">
+                        <input type="radio" name="ptRulesExportFormat" value="md" onchange="updateRulesExportHint()">
+                        <div class="pt-format-box">
+                            <span class="pt-format-icon"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /></span>
+                            <span class="pt-format-name">Markdown</span>
+                            <span class="pt-format-tag">.MD File</span>
+                        </div>
+                    </label>
+                </div>
+                <div id="rulesExportFormatHint" class="pt-export-hint" style="margin-top:12px;"></div>
+            </div>
+
+            <div class="pt-export-footer">
+                <button type="button" class="btn-secondary" onclick="closeExportRulesModal()" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-primary" onclick="executeExportRules()" id="rulesConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Detail Modal for Notes & Student Data Editing -->
     <div id="detailModal" class="modal">
         <div class="modal-content student-edit-modal-content">
-            <div class="modal-header">
-                <h3 id="detailModalTitle"></h3>
+            <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <h3 id="detailModalTitle" style="margin:0;"></h3>
+                    <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                </div>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
             </div>
 
@@ -1287,7 +1364,7 @@
                 return;
             }
 
-            if (typeof CLASS_GROUPS_META === 'undefined' || !CLASS_GROUPS_META || Object.keys(CLASS_GROUPS_META).length === 0) {
+            if (typeof CLASS_GROUPS_META === 'undefined' || !CLASS_GROUPS_META || Object.keys(CLASS_GROUPS_META).length === 0 || typeof CLASS_GROUPS_DATA === 'undefined' || !CLASS_GROUPS_DATA) {
                 // Try loading from user data folder (class-groups.js is not bundled in the packaged app).
                 if (window.Desktop && typeof Desktop.readText === 'function') {
                     try {
@@ -1295,7 +1372,23 @@
                         if (gr?.ok && gr.content) {
                             const fn = new Function(gr.content + '; return typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : {};');
                             const parsed = fn();
-                            if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
+                            if (parsed) {
+                                window.CLASS_GROUPS_DATA = parsed;
+                                if (parsed.classGroupsMeta) window.CLASS_GROUPS_META = parsed.classGroupsMeta;
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            }
+
+            if (typeof PLANNER_CONFIG === 'undefined' || !PLANNER_CONFIG) {
+                if (window.Desktop && typeof Desktop.readText === 'function') {
+                    try {
+                        const pr = await Desktop.readText('user', 'planner-config.js');
+                        if (pr?.ok && pr.content) {
+                            const fn = new Function('window', pr.content + '; return window.PLANNER_CONFIG || null;');
+                            const pcfg = fn({});
+                            if (pcfg) window.PLANNER_CONFIG = pcfg;
                         }
                     } catch (e) { /* ignore */ }
                 }
@@ -2256,9 +2349,9 @@
                     document.getElementById('dateTo').value = today.toISOString().split('T')[0];
                     break;
                 case 'semester': {
-                    const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
-                    document.getElementById('dateFrom').value = _cgd.activeSemesterStart || '';
-                    document.getElementById('dateTo').value = _cgd.activeSemesterEnd || '';
+                    const semDates = getActiveSemesterDates();
+                    document.getElementById('dateFrom').value = semDates.start || '';
+                    document.getElementById('dateTo').value = semDates.end || '';
                     break;
                 }
             }
@@ -5741,25 +5834,30 @@
         }
 
         function setModalDatePreset(preset) {
-            // Find and click the main screen preset button
+            // If preset is semester and button not yet wired on main view, apply directly
             const mainBtn = document.querySelector(`.date-preset-btn[data-preset="${preset}"]`);
             if (mainBtn) {
                 mainBtn.click();
-                
-                // Copy the updated date values to the modal's date pickers
-                document.getElementById('modalDateFrom').value = document.getElementById('dateFrom').value || '';
-                document.getElementById('modalDateTo').value = document.getElementById('dateTo').value || '';
-                
-                // Update active classes on modal presets
-                updateModalPresetButtonClasses(preset);
-                
-                // Refresh modal preview
-                updateProvisionalGradesPreview();
+            } else {
+                applyDatePreset(preset);
+                if (currentGroupId && typeof updateDashboard === 'function') {
+                    updateDashboard();
+                }
             }
+            
+            // Copy the updated date values to the modal's date pickers
+            document.getElementById('modalDateFrom').value = document.getElementById('dateFrom').value || '';
+            document.getElementById('modalDateTo').value = document.getElementById('dateTo').value || '';
+            
+            // Update active classes on modal presets
+            updateModalPresetButtonClasses(preset);
+            
+            // Refresh modal preview
+            updateProvisionalGradesPreview();
         }
 
         function updateModalPresetButtonClasses(preset) {
-            document.querySelectorAll('.btn-preset-modal-all, .btn-preset-modal-30, .btn-preset-modal-7').forEach(btn => {
+            document.querySelectorAll('.btn-preset-modal-all, .btn-preset-modal-30, .btn-preset-modal-7, .btn-preset-modal-semester').forEach(btn => {
                 btn.style.background = '#fff';
                 btn.style.color = '#333';
                 btn.style.borderColor = '#ccc';
@@ -5772,6 +5870,9 @@
                 if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
             } else if (preset === '7days') {
                 const btn = document.querySelector('.btn-preset-modal-7');
+                if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
+            } else if (preset === 'semester') {
+                const btn = document.querySelector('.btn-preset-modal-semester');
                 if (btn) { btn.style.background = '#111'; btn.style.color = '#fff'; btn.style.borderColor = '#111'; }
             }
         }
@@ -6250,6 +6351,511 @@
             }
 
             listEl.innerHTML = html;
+        }
+
+        // ─── NEOBRUTALIST RULES EXPORT SYSTEM ───────────────────────────
+        function openExportRulesModal() {
+            const rules = getRulesFromModal();
+            if (!rules || rules.length === 0) {
+                showMessage(t('ptRulesExportNoRules') || 'No rules configured to export. Please add at least one rule first.', 'error');
+                return;
+            }
+
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade')?.value) || 20;
+            const scaleToMax = !!document.getElementById('rulesScaleToMax')?.checked;
+            const targetGroup = rulesModalActiveGroup || currentGroupId;
+            const rawGroupName = targetGroup
+                ? ((typeof groupDisplayName === 'function') ? groupDisplayName(targetGroup) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[targetGroup]) ? CLASS_GROUPS_META[targetGroup].name : targetGroup))
+                : (t('ptAllGroups') || 'Default (All Groups)');
+
+            const groupNameEl = document.getElementById('exportRulesGroupName');
+            const maxGradeEl = document.getElementById('exportRulesMaxGrade');
+            const scaleEl = document.getElementById('exportRulesScaleToMax');
+            const countEl = document.getElementById('exportRulesCount');
+
+            if (groupNameEl) groupNameEl.textContent = rawGroupName || 'Default (All Groups)';
+            if (maxGradeEl) maxGradeEl.textContent = maxGrade;
+            if (scaleEl) scaleEl.textContent = scaleToMax ? 'Yes' : 'No';
+            if (countEl) countEl.textContent = `${rules.length} rule${rules.length === 1 ? '' : 's'}`;
+
+            updateRulesExportHint();
+
+            const modal = document.getElementById('rulesExportModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeExportRulesModal() {
+            const modal = document.getElementById('rulesExportModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function updateRulesExportHint() {
+            const selectedFormat = document.querySelector('input[name="ptRulesExportFormat"]:checked')?.value || 'html';
+            const hintEl = document.getElementById('rulesExportFormatHint');
+            if (!hintEl) return;
+
+            const hints = {
+                html: '<img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <strong>HTML (Interactive & Editable):</strong> Formatted standalone Neobrutalist HTML page with interactive table, editable fields, variables reference, and instant print / copy buttons.',
+                pdf: '<img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <strong>PDF (Print Ready):</strong> Neobrutalist print-formatted document formatted for desktop printing or PDF export via Electron / system dialog.',
+                md: '<img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <strong>Markdown (.md):</strong> Clean markdown file with structured tables and formula code blocks, ready for documentation, notes, or Document Editor.'
+            };
+            hintEl.innerHTML = hints[selectedFormat] || hints.html;
+        }
+
+        function getRuleMetricHumanLabel(metric) {
+            const metricLabels = {
+                netPoints: t('ptStatsNetPoints') || 'Net Points',
+                picks: t('ptStatsTimesPicked') || 'Times Picked',
+                attendanceRate: (t('ptStatsSessionsRecorded') || 'Attendance') + ' (%)',
+                positivePoints: t('ptStatPluses') || 'Positive Points (+)',
+                badgePositive: (t('ptStatsPosBadges') || 'Positive Badges') + ' (Total)',
+                badgePositiveSession: (t('ptStatsPosBadges') || 'Positive Badges') + ' / session',
+                sessions: t('ptColSess') || 'Sessions Recorded',
+                absent: t('ptColAbs') || 'Absences',
+                pluses: t('ptColPluses') || 'Pluses (+)',
+                minuses: t('ptColMinuses') || 'Minuses (-)',
+                teamPluses: t('ptColT') || 'Team Pluses (T+)',
+                teamMinuses: t('ptColTm') || 'Team Minuses (T-)',
+                badgeNegative: (t('ptColBadgeMinus') || 'Negative Badges') + ' (Total)',
+                badgeNegativeSession: (t('ptColBadgeMinus') || 'Negative Badges') + ' / session',
+                teamRoleEvents: t('ptColTeamRole') || 'Team/Role Events',
+                posRatio: t('ptColPosRatio') || '+ / Session',
+                negRatio: t('ptColNegRatio') || '- / Session',
+                netRatio: t('ptColNetRatio') || 'Net / Session',
+                ratio: t('ptColGoodBad') || 'Good / Bad Ratio',
+                trend: t('ptColTrend') || 'Participation Trend',
+                formula: 'Formula / Condition'
+            };
+
+            if (metricLabels[metric]) return metricLabels[metric];
+
+            if (typeof metric === 'string') {
+                if (metric.startsWith('badge_icon_session:')) {
+                    const icon = metric.replace('badge_icon_session:', '');
+                    const def = resolveBadgeDefinition(icon);
+                    return `${icon} ${def ? def.label : ''} / session`.trim();
+                }
+                if (metric.startsWith('badge_icon:')) {
+                    const icon = metric.replace('badge_icon:', '');
+                    const def = resolveBadgeDefinition(icon);
+                    return `${icon} ${def ? def.label : ''} (Total)`.trim();
+                }
+                if (metric.startsWith('badge_label_session:')) {
+                    const label = metric.replace('badge_label_session:', '');
+                    return `Badge ${label} / session`;
+                }
+                if (metric.startsWith('badge_label:')) {
+                    const label = metric.replace('badge_label:', '');
+                    return `Badge ${label} (Total)`;
+                }
+            }
+
+            return String(metric || '');
+        }
+
+        function getRulesExportData() {
+            const rules = getRulesFromModal();
+            const maxGrade = parseFloat(document.getElementById('rulesMaxGrade')?.value) || 20;
+            const scaleToMax = !!document.getElementById('rulesScaleToMax')?.checked;
+            const targetGroup = rulesModalActiveGroup || currentGroupId;
+            const rawGroupName = targetGroup
+                ? ((typeof groupDisplayName === 'function') ? groupDisplayName(targetGroup) : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[targetGroup]) ? CLASS_GROUPS_META[targetGroup].name : targetGroup))
+                : (t('ptAllGroups') || 'Default (All Groups)');
+            const groupName = rawGroupName || 'Class';
+            const safeGroupTag = groupName.trim().replace(/[\s\/\\:\*\?"<>\|]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'Rules';
+
+            const now = new Date();
+            const datePart = now.toISOString().split('T')[0];
+            const timePart = [
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+                String(now.getSeconds()).padStart(2, '0')
+            ].join('-');
+            const timeStamp = `${datePart}_${timePart}`;
+            const filenameBase = `participation_rules_${safeGroupTag}_${timeStamp}`;
+            const title = `Participation & Grading Rules — ${groupName}`;
+
+            const formattedRules = rules.map((r, i) => {
+                const index = i + 1;
+                const metricName = getRuleMetricHumanLabel(r.metric);
+                let minText = '—';
+                let passText = '—';
+                let maxText = '—';
+                let points = 0;
+
+                if (r.metric === 'formula') {
+                    minText = '—';
+                    passText = '—';
+                    maxText = r.formulaVal || r.value || '';
+                    points = r.maxPts || r.points || 0;
+                } else {
+                    minText = `${r.minVal} → ${r.minPts} pts`;
+                    passText = `${r.passVal} → ${r.passPts} pts`;
+                    maxText = `${r.maxVal} → ${r.maxPts} pts`;
+                    points = Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                }
+
+                return {
+                    index,
+                    metric: r.metric,
+                    name: metricName,
+                    minText,
+                    passText,
+                    maxText,
+                    points,
+                    raw: r
+                };
+            });
+
+            const totalPossiblePoints = formattedRules.reduce((sum, r) => sum + Number(r.points || 0), 0);
+
+            return {
+                title,
+                groupName,
+                targetGroup,
+                maxGrade,
+                scaleToMax,
+                rules: formattedRules,
+                totalPossiblePoints,
+                dateGenerated: now.toLocaleString(),
+                filenameBase
+            };
+        }
+
+        async function executeExportRules() {
+            const format = document.querySelector('input[name="ptRulesExportFormat"]:checked')?.value || 'html';
+            const rulesData = getRulesExportData();
+
+            if (!rulesData || !rulesData.rules || rulesData.rules.length === 0) {
+                showMessage(t('ptRulesExportNoRules') || 'No rules configured to export.', 'error');
+                return;
+            }
+
+            closeExportRulesModal();
+
+            if (format === 'html') {
+                exportRulesAsHtml(rulesData);
+            } else if (format === 'pdf') {
+                await exportRulesAsPdf(rulesData);
+            } else if (format === 'md') {
+                exportRulesAsMd(rulesData);
+            }
+        }
+
+        function generateRulesPrintableHtml(data) {
+            const pdfSettings = getPdfExportSettings();
+
+            const rulesRowsHtml = data.rules.map(r => {
+                const isFormula = r.metric === 'formula';
+                const conditionDisplay = isFormula
+                    ? `<code style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-weight:700; color:#0f172a;">${escHtml(r.maxText)}</code> &rarr; <strong>${escHtml(String(r.points))} pts</strong>`
+                    : escHtml(r.maxText);
+
+                return `<tr>
+                    <td style="font-weight:800; text-align:center;">${r.index}</td>
+                    <td style="font-weight:700;">${escHtml(r.name)}</td>
+                    <td>${escHtml(r.minText)}</td>
+                    <td>${escHtml(r.passText)}</td>
+                    <td>${conditionDisplay}</td>
+                    <td style="font-weight:800; text-align:center; background:#fafafa;">${escHtml(String(r.points))} pts</td>
+                </tr>`;
+            }).join('\n');
+
+            return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${escHtml(data.title)}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; }
+        body { font-family: 'Lexend', Arial, Helvetica, sans-serif; font-size: 12px; color: #111; background: #fff; line-height: 1.4; }
+        h1 { font-size: 18px; font-weight: 900; color: #111; border-bottom: 2.5px solid #111; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 11px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; box-shadow: 3px 3px 0 #111; }
+        .meta-item { display: flex; gap: 6px; align-items: center; }
+        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 10px; letter-spacing: 0.03em; }
+        .meta-val { font-weight: 700; color: #111; background: #fff; border: 1.5px solid #111; padding: 1px 6px; border-radius: 3px; }
+        table { width: 100%; max-width: 100%; border-collapse: collapse; border: 2.5px solid #111; margin-top: 6px; background: #fff; page-break-inside: auto; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; break-inside: avoid; }
+        th, td { border: 2px solid #111; padding: 7px 10px; vertical-align: middle; word-break: break-word; }
+        th { background: #f0f0f0; font-weight: 900; color: #111; text-align: left; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.03em; }
+        td { font-size: 11px; }
+        tr:nth-child(even) td { background: #fafafa; }
+        .notes-card { background: #fff; border: 2px solid #111; border-radius: 6px; padding: 12px 14px; margin-top: 16px; box-shadow: 3px 3px 0 #111; font-size: 11px; line-height: 1.5; }
+        .notes-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; color: #111; border-bottom: 1.5px solid #111; padding-bottom: 3px; }
+        @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
+        @media print {
+            body { margin: 0; padding: 0; }
+            .meta-box, .notes-card { box-shadow: none !important; }
+            table { max-width: 100% !important; width: 100% !important; }
+        }
+    </style>
+</head>
+<body>
+    <h1>${escHtml(data.title)}</h1>
+    <div class="meta-box">
+        <div class="meta-item"><span class="meta-label">Class / Group:</span> <span class="meta-val">${escHtml(data.groupName)}</span></div>
+        <div class="meta-item"><span class="meta-label">Max Grade:</span> <span class="meta-val">${escHtml(String(data.maxGrade))}</span></div>
+        <div class="meta-item"><span class="meta-label">Scale to Max:</span> <span class="meta-val">${data.scaleToMax ? 'Yes' : 'No'}</span></div>
+        <div class="meta-item"><span class="meta-label">Total Possible Points:</span> <span class="meta-val">${escHtml(String(data.totalPossiblePoints))} pts</span></div>
+        <div class="meta-item"><span class="meta-label">Generated:</span> <span class="meta-val">${escHtml(data.dateGenerated)}</span></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:36px; text-align:center;">#</th>
+                <th>Objective / Metric</th>
+                <th>Min Threshold</th>
+                <th>Pass Threshold</th>
+                <th>Max / Formula Condition</th>
+                <th style="width:80px; text-align:center;">Max Pts</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rulesRowsHtml}
+        </tbody>
+    </table>
+
+    <div class="notes-card">
+        <h3>Grading Calculation & Rules Reference</h3>
+        <p><strong>Provisional Grade Formula:</strong> ${data.scaleToMax ? `<code>Final Grade = (Sum of Rule Points / ${data.totalPossiblePoints}) × ${data.maxGrade}</code> (scaled to max grade)` : `<code>Final Grade = Sum of Rule Points</code>`}</p>
+        <p style="margin-top:4px;"><strong>Formula Variables:</strong> <code>netPoints</code>, <code>picks</code>, <code>attendanceRate</code>, <code>posRatio</code>, <code>negRatio</code>, <code>netRatio</code>, <code>trend</code>, badge icons (e.g. <code>💎</code>, <code>👍</code>), logical operators (<code>and</code>, <code>or</code>, <code>not</code>), and functions (<code>if(cond, trueVal, falseVal)</code>).</p>
+    </div>
+</body>
+</html>`;
+        }
+
+        function generateRulesMarkdown(data) {
+            let md = `# ${data.title}\n\n`;
+            md += `> **Class / Group:** ${data.groupName}  \n`;
+            md += `> **Max Grade:** ${data.maxGrade}  \n`;
+            md += `> **Scale to Max:** ${data.scaleToMax ? 'Yes' : 'No'}  \n`;
+            md += `> **Total Possible Rule Points:** ${data.totalPossiblePoints} pts  \n`;
+            md += `> **Generated:** ${data.dateGenerated}  \n\n`;
+            md += `---\n\n`;
+            md += `## Configured Rules & Objectives\n\n`;
+            md += `| # | Objective / Metric | Min (Val → Pts) | Pass (Val → Pts) | Max / Formula (Val → Pts) | Max Pts |\n`;
+            md += `|---|---|---|---|---|---|\n`;
+
+            data.rules.forEach(r => {
+                const isFormula = r.metric === 'formula';
+                const condText = isFormula ? `\`${r.maxText}\` → ${r.points} pts` : r.maxText;
+                md += `| ${r.index} | ${r.name} | ${r.minText} | ${r.passText} | ${condText} | ${r.points} pts |\n`;
+            });
+
+            md += `\n---\n\n`;
+            md += `## Grading Calculation Notes\n\n`;
+            if (data.scaleToMax) {
+                md += `- **Scale to Max Grade:** Yes\n`;
+                md += `- **Formula:** \`Final Grade = (Sum of Rule Points / ${data.totalPossiblePoints}) * ${data.maxGrade}\`\n\n`;
+            } else {
+                md += `- **Scale to Max Grade:** No\n`;
+                md += `- **Formula:** \`Final Grade = Sum of Rule Points\`\n\n`;
+            }
+
+            md += `### Formula Variables Reference\n`;
+            md += `- \`netPoints\`: Total net points ((Pluses + T+ + Badges+) - (Minuses + T- + Badges-))\n`;
+            md += `- \`picks\`: Total times picked / called upon\n`;
+            md += `- \`attendanceRate\`: Percentage of sessions attended (0 - 100)\n`;
+            md += `- \`posRatio\`, \`negRatio\`, \`netRatio\`: Rates per attended session\n`;
+            md += `- \`trend\`: +1 (improving), -1 (declining), 0 (stable)\n`;
+            md += `- Badge counts by icon or name (e.g. \`💎 >= 2\`, \`👍 >= 3\`, \`[Good Job] >= 1\`)\n`;
+            md += `- Functions & logic: \`if(condition, trueVal, falseVal)\`, \`and\`, \`or\`, \`not\`\n`;
+
+            return md;
+        }
+
+        function exportRulesAsHtml(data) {
+            const rulesRowsHtml = data.rules.map(r => {
+                const isFormula = r.metric === 'formula';
+                const conditionDisplay = isFormula
+                    ? `<code style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-weight:700; color:#0f172a;" contenteditable="true">${escHtml(r.maxText)}</code> &rarr; <span contenteditable="true" style="font-weight:700;">${escHtml(String(r.points))} pts</span>`
+                    : `<span contenteditable="true">${escHtml(r.maxText)}</span>`;
+
+                return `<tr>
+                    <td contenteditable="true" style="font-weight:800; text-align:center;">${r.index}</td>
+                    <td contenteditable="true" style="font-weight:700;">${escHtml(r.name)}</td>
+                    <td contenteditable="true">${escHtml(r.minText)}</td>
+                    <td contenteditable="true">${escHtml(r.passText)}</td>
+                    <td>${conditionDisplay}</td>
+                    <td contenteditable="true" style="font-weight:800; text-align:center; background:#fafafa;">${escHtml(String(r.points))} pts</td>
+                </tr>`;
+            }).join('\n');
+
+            const mdString = generateRulesMarkdown(data);
+
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escHtml(data.title)}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #111; background: #f4f6f9; padding: 24px; line-height: 1.5; }
+        .report-card { max-width: 960px; margin: 0 auto; background: #fff; border: 3px solid #111; border-radius: 8px; box-shadow: 6px 6px 0 #111; padding: 24px 28px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-bottom: 20px; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-family: inherit; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border: 2px solid #111; border-radius: 5px; cursor: pointer; background: #fff; color: #111; box-shadow: 3px 3px 0 #111; transition: all 0.12s ease; }
+        .btn:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 #111; background: #fdfdfd; }
+        .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 #111; }
+        .btn-primary { background: #111; color: #fff; }
+        .btn-primary:hover { background: #222; color: #fff; }
+        h1 { font-size: 22px; font-weight: 900; color: #111; border-bottom: 3px solid #111; padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .meta-box { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 12px; color: #111; background: #f8f9fa; border: 2px solid #111; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; box-shadow: 3px 3px 0 #111; align-items: center; }
+        .meta-item { display: flex; gap: 6px; align-items: center; }
+        .meta-label { font-weight: 800; color: #111; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; }
+        .meta-val { font-weight: 700; color: #111; background: #fff; border: 1.5px solid #111; padding: 2px 8px; border-radius: 4px; }
+        .table-wrap { overflow-x: auto; border: 2.5px solid #111; border-radius: 6px; margin-bottom: 20px; box-shadow: 3px 3px 0 #111; background: #fff; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { border: 1.5px solid #111; padding: 10px 12px; vertical-align: middle; }
+        th { background: #f0f0f0; font-weight: 900; color: #111; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        td { font-size: 12px; }
+        tr:nth-child(even) td { background: #fafafa; }
+        td[contenteditable="true"]:hover { background: #eef6ff !important; outline: 1.5px dashed #0066cc; }
+        td[contenteditable="true"]:focus { background: #fff !important; outline: 2px solid #0066cc; }
+        .guide-card { background: #fafafa; border: 2px solid #111; border-radius: 6px; padding: 16px; box-shadow: 3px 3px 0 #111; margin-top: 10px; font-size: 12px; }
+        .guide-card h3 { font-size: 13px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; color: #111; border-bottom: 1.5px solid #111; padding-bottom: 4px; }
+        .guide-card p { margin-bottom: 6px; line-height: 1.5; }
+        code { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 11.5px; color: #0f172a; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .toolbar { display: none !important; }
+            .report-card { border: none !important; box-shadow: none !important; padding: 0 !important; max-width: 100% !important; }
+            .meta-box, .table-wrap, .guide-card { box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-card">
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="window.print()">🖨 Print / PDF</button>
+            <button class="btn" onclick="saveEditedHtml()">💾 Save HTML Copy</button>
+            <button class="btn" onclick="copyMarkdown()">📝 Copy Markdown</button>
+        </div>
+
+        <h1>${escHtml(data.title)}</h1>
+
+        <div class="meta-box">
+            <div class="meta-item"><span class="meta-label">Class / Group:</span> <span class="meta-val" contenteditable="true">${escHtml(data.groupName)}</span></div>
+            <div class="meta-item"><span class="meta-label">Max Grade:</span> <span class="meta-val" contenteditable="true">${escHtml(String(data.maxGrade))}</span></div>
+            <div class="meta-item"><span class="meta-label">Scale to Max:</span> <span class="meta-val" contenteditable="true">${data.scaleToMax ? 'Yes' : 'No'}</span></div>
+            <div class="meta-item"><span class="meta-label">Total Possible Points:</span> <span class="meta-val">${escHtml(String(data.totalPossiblePoints))} pts</span></div>
+            <div class="meta-item"><span class="meta-label">Generated:</span> <span class="meta-val">${escHtml(data.dateGenerated)}</span></div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="rulesReportTable">
+                <thead>
+                    <tr>
+                        <th style="width:40px; text-align:center;">#</th>
+                        <th>Objective / Metric</th>
+                        <th>Min Threshold</th>
+                        <th>Pass Threshold</th>
+                        <th>Max / Formula Condition</th>
+                        <th style="width:90px; text-align:center;">Max Pts</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rulesRowsHtml}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="guide-card">
+            <h3>Grading Calculation & Cheatsheet Reference</h3>
+            <p><strong>Grading Calculation:</strong> ${data.scaleToMax ? `<code>Final Grade = (Sum of Achieved Rule Points / ${data.totalPossiblePoints}) × ${data.maxGrade}</code>` : `<code>Final Grade = Sum of Achieved Rule Points</code>`}</p>
+            <p><strong>Formula Variables Reference:</strong> <code>netPoints</code>, <code>picks</code>, <code>attendanceRate</code>, <code>posRatio</code>, <code>negRatio</code>, <code>netRatio</code>, <code>trend</code>, badge icons (e.g. <code>💎</code>, <code>👍</code>, <code>1️⃣</code>), logical connectors (<code>and</code>, <code>or</code>, <code>not</code>), and functions (<code>if(condition, trueVal, falseVal)</code>).</p>
+        </div>
+    </div>
+
+    ${'<script>'}
+        function saveEditedHtml() {
+            var docType = '<!DOCTYPE html>\\n';
+            var html = docType + document.documentElement.outerHTML;
+            var blob = new Blob([html], { type: 'text/html' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = '${data.filenameBase}_edited.html';
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function copyMarkdown() {
+            var md = ${JSON.stringify(mdString)};
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(md).then(function() {
+                    alert('Markdown copied to clipboard!');
+                });
+            } else {
+                alert('Copying not supported by browser.');
+            }
+        }
+    ${'</' + 'script>'}
+</body>
+</html>`;
+
+            downloadFile(`${data.filenameBase}.html`, htmlContent, 'text/html');
+            showMessage(t('ptRulesExportSuccessHtml') || 'HTML rules document exported successfully!', 'success');
+        }
+
+        async function exportRulesAsPdf(data) {
+            const html = generateRulesPrintableHtml(data);
+            const pdfSettings = getPdfExportSettings();
+            const defaultName = `${data.filenameBase}.pdf`;
+
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+                try {
+                    const result = await Desktop.printPdf({
+                        html: html,
+                        defaultName: defaultName,
+                        landscape: false,
+                        pdfOptions: { pageSize: pdfSettings.pageSize, landscape: false }
+                    });
+                    if (result && result.ok) {
+                        if (window.showExportSuccessPopup && result.path) {
+                            showExportSuccessPopup(result.path, result.name || defaultName);
+                        } else {
+                            showMessage(t('ptRulesExportSuccessPdf') || 'PDF rules document exported successfully!', 'success');
+                        }
+                    } else if (result && !result.ok && !result.canceled) {
+                        showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
+                    }
+                } catch (err) {
+                    showMessage('PDF export error: ' + (err?.message || String(err)), 'error');
+                }
+            } else {
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.right = '0';
+                iframe.style.bottom = '0';
+                iframe.style.width = '0';
+                iframe.style.height = '0';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(html);
+                doc.close();
+                iframe.contentWindow.focus();
+                setTimeout(() => {
+                    iframe.contentWindow.print();
+                    setTimeout(() => iframe.remove(), 1000);
+                }, 300);
+            }
+        }
+
+        function exportRulesAsMd(data) {
+            const md = generateRulesMarkdown(data);
+            downloadFile(`${data.filenameBase}.md`, md, 'text/markdown');
+            showMessage(t('ptRulesExportSuccessMd') || 'Markdown rules document exported successfully!', 'success');
         }
 
         function getStudentBadgeCounts(badges) {
@@ -7253,13 +7859,21 @@
             });
         }
 
-        // Close rules modal when clicking outside
+        // Close rules modal and export modal when clicking outside
         document.addEventListener('DOMContentLoaded', () => {
             const rulesModal = document.getElementById('rulesModal');
             if (rulesModal) {
                 rulesModal.addEventListener('click', function(e) {
                     if (e.target === this) {
                         closeRulesModal();
+                    }
+                });
+            }
+            const rulesExportModal = document.getElementById('rulesExportModal');
+            if (rulesExportModal) {
+                rulesExportModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeExportRulesModal();
                     }
                 });
             }
@@ -7606,6 +8220,90 @@
             }
         }
 
+        function getActiveSemesterDates() {
+            const cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
+            const pcfg = (typeof PLANNER_CONFIG !== 'undefined' && PLANNER_CONFIG) ? PLANNER_CONFIG : {};
+            const semesters = Array.isArray(pcfg.semesters) ? pcfg.semesters : [];
+
+            // 1. Direct active context semester dates from group-editor / class-groups.js
+            if (cgd.activeSemesterStart && cgd.activeSemesterEnd) {
+                const label = cgd.activeSemester ? `S${cgd.activeSemester}` : (t('ptDateSemester') || 'Active Semester');
+                return {
+                    start: cgd.activeSemesterStart,
+                    end: cgd.activeSemesterEnd,
+                    label: label,
+                    source: 'group-editor'
+                };
+            }
+
+            // 2. From planner activeSemesterId
+            if (pcfg.activeSemesterId && semesters.length > 0) {
+                const activeSem = semesters.find(s => s.id === pcfg.activeSemesterId);
+                if (activeSem && activeSem.semesterStart && activeSem.semesterEnd) {
+                    return {
+                        start: activeSem.semesterStart,
+                        end: activeSem.semesterEnd,
+                        label: activeSem.label || `Semester ${activeSem.id}`,
+                        source: 'planner'
+                    };
+                }
+            }
+
+            // 3. From planner matching activeSemester number / activeYear
+            if (cgd.activeSemester && semesters.length > 0) {
+                const targetStr = String(cgd.activeSemester).toLowerCase();
+                const matched = semesters.find(s => {
+                    const idStr = String(s.id || '').toLowerCase();
+                    const labelStr = String(s.label || '').toLowerCase();
+                    return idStr.includes(targetStr) || labelStr.includes(targetStr) || (s.semester === cgd.activeSemester);
+                });
+                if (matched && matched.semesterStart && matched.semesterEnd) {
+                    return {
+                        start: matched.semesterStart,
+                        end: matched.semesterEnd,
+                        label: matched.label || `S${cgd.activeSemester}`,
+                        source: 'planner'
+                    };
+                }
+            }
+
+            // 4. From planner matching today's date
+            if (semesters.length > 0) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const currentSem = semesters.find(s => s.semesterStart && s.semesterEnd && s.semesterStart <= todayStr && todayStr <= s.semesterEnd);
+                if (currentSem) {
+                    return {
+                        start: currentSem.semesterStart,
+                        end: currentSem.semesterEnd,
+                        label: currentSem.label || (t('ptDateSemester') || 'Active Semester'),
+                        source: 'planner'
+                    };
+                }
+                // Fallback to first semester if it has dates
+                const firstWithDates = semesters.find(s => s.semesterStart && s.semesterEnd);
+                if (firstWithDates) {
+                    return {
+                        start: firstWithDates.semesterStart,
+                        end: firstWithDates.semesterEnd,
+                        label: firstWithDates.label || (t('ptDateSemester') || 'Active Semester'),
+                        source: 'planner'
+                    };
+                }
+            }
+
+            // Fallback if partial dates exist on cgd
+            if (cgd.activeSemesterStart || cgd.activeSemesterEnd) {
+                return {
+                    start: cgd.activeSemesterStart || '',
+                    end: cgd.activeSemesterEnd || '',
+                    label: cgd.activeSemester ? `S${cgd.activeSemester}` : (t('ptDateSemester') || 'Active Semester'),
+                    source: 'group-editor'
+                };
+            }
+
+            return { start: '', end: '', label: (t('ptDateSemester') || 'Active Semester'), source: 'none' };
+        }
+
         function _initActiveContext() {
             const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
             const ay = _cgd.activeYear || '';
@@ -7615,9 +8313,32 @@
                 badge.textContent = [ay, as ? 'S' + as : ''].filter(Boolean).join(' · ');
                 badge.style.display = '';
             }
+
+            const semDates = getActiveSemesterDates();
+            const hasSemesterDates = Boolean(semDates.start && semDates.end);
+
             const semBtn = document.getElementById('ptSemesterBtn');
-            if (semBtn && _cgd.activeSemesterStart && _cgd.activeSemesterEnd) {
-                semBtn.style.display = '';
+            if (semBtn) {
+                if (hasSemesterDates) {
+                    semBtn.style.display = '';
+                    if (semDates.label) {
+                        semBtn.title = `${semDates.label}: ${semDates.start} → ${semDates.end}`;
+                    }
+                } else {
+                    semBtn.style.display = 'none';
+                }
+            }
+
+            const modalSemBtn = document.getElementById('modalSemesterBtn');
+            if (modalSemBtn) {
+                if (hasSemesterDates) {
+                    modalSemBtn.style.display = '';
+                    if (semDates.label) {
+                        modalSemBtn.title = `${semDates.label}: ${semDates.start} → ${semDates.end}`;
+                    }
+                } else {
+                    modalSemBtn.style.display = 'none';
+                }
             }
         }
 
@@ -7646,9 +8367,94 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
 })();
 </script>
 <script>
-function showPtTourStub() {
-  ShortcutsModal.open({ title: t('tourBtnLabel'), rows: [], noShortcutsText: t('skmTourSoon') });
+function showPtMainWindowTour() {
+  if (typeof Tutorial === 'undefined') return;
+  var labels = { next: t('tutNext', 'Next →'), prev: t('tutPrev', '← Back'), skip: t('tutSkip', 'Skip'), done: t('tutDone', 'Done ✓') };
+  var steps = [
+    { selector: '#ptStudentSearchInput', title: t('tutPtM1Title'), text: t('tutPtM1Text') },
+    { selector: '#groupButtons', title: t('tutPtM2Title'), text: t('tutPtM2Text') },
+    { selector: '.date-controls', title: t('tutPtM3Title'), text: t('tutPtM3Text') },
+    { selector: '#openRulesBtn', title: t('tutPtM4Title'), text: t('tutPtM4Text') },
+    { selector: '.dashboard', title: t('tutPtM5Title'), text: t('tutPtM5Text') },
+    { selector: '#historyTable', title: t('tutPtM6Title'), text: t('tutPtM6Text') },
+    { selector: '#classOverviewTable', title: t('tutPtM7Title'), text: t('tutPtM7Text') }
+  ];
+  Tutorial.start(steps.filter(function (s) { return Boolean(document.querySelector(s.selector)); }), labels);
 }
+
+function showPtRulesTour() {
+  if (typeof Tutorial === 'undefined') return;
+  var rulesModal = document.getElementById('rulesModal');
+  if (!rulesModal || !rulesModal.classList.contains('active')) {
+    if (typeof openRulesModal === 'function') openRulesModal();
+  }
+  var labels = { next: t('tutNext', 'Next →'), prev: t('tutPrev', '← Back'), skip: t('tutSkip', 'Skip'), done: t('tutDone', 'Done ✓') };
+  var steps = [
+    { selector: '#rulesModalTitle', title: t('tutPtR1Title'), text: t('tutPtR1Text') },
+    { selector: '#rulesModalGroupSelect', title: t('tutPtR2Title'), text: t('tutPtR2Text') },
+    { selector: '#rulesModal .btn-preset-modal-all', title: t('tutPtR3Title'), text: t('tutPtR3Text') },
+    { selector: '.rules-table', title: t('tutPtR4Title'), text: t('tutPtR4Text') },
+    { selector: '#rulesMaxGrade', title: t('tutPtR5Title'), text: t('tutPtR5Text') },
+    {
+      selector: '#provisionalGradesPreviewSection',
+      title: t('tutPtR6Title'),
+      text: t('tutPtR6Text'),
+      onShow: function () {
+        var s = document.getElementById('provisionalGradesPreviewSection');
+        if (s) s.classList.remove('hidden');
+      }
+    },
+    { selector: '#rulesModal .button-group', title: t('tutPtR7Title'), text: t('tutPtR7Text') }
+  ];
+  Tutorial.start(steps.filter(function (s) { return Boolean(document.querySelector(s.selector)); }), labels);
+}
+
+function showPtDetailTour() {
+  if (typeof Tutorial === 'undefined') return;
+  var detailModal = document.getElementById('detailModal');
+  if (!detailModal || !detailModal.classList.contains('active')) {
+    var stName = (typeof currentStudentName !== 'undefined' && currentStudentName) ? currentStudentName : null;
+    if (!stName && typeof currentGroupId !== 'undefined' && currentGroupId && typeof DB_EXPORT !== 'undefined' && DB_EXPORT.length > 0) {
+      for (var i = 0; i < DB_EXPORT.length; i++) {
+        var grp = (DB_EXPORT[i].groups && DB_EXPORT[i].groups[currentGroupId]) || [];
+        if (grp.length > 0 && grp[0].name) {
+          stName = grp[0].name;
+          break;
+        }
+      }
+    }
+    if (stName && typeof showStudentDetailModal === 'function') {
+      showStudentDetailModal(stName, null);
+    }
+  }
+  var labels = { next: t('tutNext', 'Next →'), prev: t('tutPrev', '← Back'), skip: t('tutSkip', 'Skip'), done: t('tutDone', 'Done ✓') };
+  var steps = [
+    { selector: '#detailModalTitle', title: t('tutPtD1Title'), text: t('tutPtD1Text') },
+    { selector: '#detailModalBody', title: t('tutPtD2Title'), text: t('tutPtD2Text') },
+    { selector: '#notesTextarea', title: t('tutPtD3Title'), text: t('tutPtD3Text') },
+    { selector: '#detailModal .button-group', title: t('tutPtD4Title'), text: t('tutPtD4Text') }
+  ];
+  Tutorial.start(steps.filter(function (s) { return Boolean(document.querySelector(s.selector)); }), labels);
+}
+
+function showPtTour() {
+  var rulesModalOpen = document.getElementById('rulesModal') && document.getElementById('rulesModal').classList.contains('active');
+  var detailModalOpen = document.getElementById('detailModal') && document.getElementById('detailModal').classList.contains('active');
+  if (rulesModalOpen) {
+    showPtRulesTour();
+    return;
+  }
+  if (detailModalOpen) {
+    showPtDetailTour();
+    return;
+  }
+  showPtMainWindowTour();
+}
+
+window.showPtTour = showPtTour;
+window.showPtMainWindowTour = showPtMainWindowTour;
+window.showPtRulesTour = showPtRulesTour;
+window.showPtDetailTour = showPtDetailTour;
 </script>
 </body>
 </html>

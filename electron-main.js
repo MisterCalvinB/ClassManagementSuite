@@ -367,11 +367,19 @@ function _arrangeSideBySide(mainWin, toolWin, mainFrac, cmOnRight = true) {
     const mainW = Math.round(width * mainFrac);
     const toolW = width - mainW;
 
-    const ob = mainWin.getBounds();
-    const cb = mainWin.getContentBounds();
-    const insetL = Math.max(0, cb.x - ob.x);
-    const insetR = Math.max(0, (ob.x + ob.width) - (cb.x + cb.width));
-    const insetB = Math.max(0, (ob.y + ob.height) - (cb.y + cb.height));
+    let insetL = 0, insetR = 0, insetB = 0;
+    if (process.platform === 'win32') {
+      const ob = mainWin.getBounds();
+      const cb = mainWin.getContentBounds();
+      if (cb && cb.width > 0 && cb.height > 0) {
+        const rawL = cb.x - ob.x;
+        const rawR = (ob.x + ob.width) - (cb.x + cb.width);
+        const rawB = (ob.y + ob.height) - (cb.y + cb.height);
+        if (rawL >= 0 && rawL < 50) insetL = rawL;
+        if (rawR >= 0 && rawR < 50) insetR = rawR;
+        if (rawB >= 0 && rawB < 50) insetB = rawB;
+      }
+    }
 
     const leftBounds  = (vx, vw) => ({ x: vx - insetL, y, width: vw + insetL + insetR, height: height + insetB });
     const rightBounds = (vx, vw) => ({ x: vx - insetL, y, width: vw + insetL + insetR, height: height + insetB });
@@ -392,6 +400,31 @@ function _arrangeSideBySide(mainWin, toolWin, mainFrac, cmOnRight = true) {
   } catch (err) {
     console.warn('_arrangeSideBySide failed:', err);
   }
+}
+
+function _applySafeBounds(win, bounds) {
+  if (!win || win.isDestroyed() || !bounds) return;
+  let { x, y, width, height } = bounds;
+
+  if (process.platform === 'win32') {
+    const ob = win.getBounds();
+    const cb = win.getContentBounds();
+    if (cb && cb.width > 0 && cb.height > 0) {
+      const rawL = cb.x - ob.x;
+      const rawR = (ob.x + ob.width) - (cb.x + cb.width);
+      const rawB = (ob.y + ob.height) - (cb.y + cb.height);
+      const insetL = (rawL >= 0 && rawL < 50) ? rawL : 0;
+      const insetR = (rawR >= 0 && rawR < 50) ? rawR : 0;
+      const insetB = (rawB >= 0 && rawB < 50) ? rawB : 0;
+      if (insetL > 0 || insetR > 0 || insetB > 0) {
+        x -= insetL;
+        width += (insetL + insetR);
+        height += insetB;
+      }
+    }
+  }
+
+  win.setBounds({ x, y, width, height });
 }
 
 function setupWindowExternalLinkHandling(win) {
@@ -416,9 +449,9 @@ function setupWindowExternalLinkHandling(win) {
 }
 
 function createToolWindow(pageFile, options = {}) {
-  const win = new BrowserWindow({
-    width: 1600,
-    height: 1000,
+  const browserOpts = {
+    width: typeof options.width === 'number' ? options.width : 1600,
+    height: typeof options.height === 'number' ? options.height : 1000,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(ROOT_DIR, 'electron-preload.js'),
@@ -426,7 +459,11 @@ function createToolWindow(pageFile, options = {}) {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  };
+  if (typeof options.x === 'number') browserOpts.x = options.x;
+  if (typeof options.y === 'number') browserOpts.y = options.y;
+
+  const win = new BrowserWindow(browserOpts);
 
   setupWindowExternalLinkHandling(win);
   let closingAfterExport = false;
@@ -3984,22 +4021,69 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   }
   const query = request && typeof request.query === 'object' ? request.query : null;
 
-  // For plain navigation (no special flags), focus an existing window if one is open.
-  const isPlainNav = !query && !request.sideBySide && !request.openOnSecondScreen && !request.maximize;
-  if (isPlainNav) {
+  const winSizeRatio = Number(request.windowSizeRatio) || 0;
+  const winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';
+  const hasCustomSize = winSizeRatio >= 0.1 && winSizeRatio <= 1.0;
+  const hasCustomPos  = !!(winPosition && winPosition !== 'default');
+
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const senderBounds = senderWin && !senderWin.isDestroyed() ? senderWin.getBounds() : null;
+  const targetDisplay = senderBounds
+    ? (screen.getDisplayMatching(senderBounds) || screen.getPrimaryDisplay())
+    : screen.getPrimaryDisplay();
+
+  let targetBounds = null;
+  if (!request.sideBySide && !request.maximize && !request.openOnSecondScreen && (hasCustomSize || hasCustomPos)) {
+    const wa = targetDisplay.workArea;
+
+    let vW = hasCustomSize ? Math.max(400, Math.round(wa.width  * winSizeRatio)) : Math.min(1600, wa.width);
+    let vH = hasCustomSize ? Math.max(300, Math.round(wa.height * winSizeRatio)) : Math.min(1000, wa.height);
+    if (winPosition === 'left' || winPosition === 'right') {
+      vH = wa.height;
+    }
+
+    let vX = wa.x + Math.round((wa.width  - vW) / 2);
+    let vY = wa.y + Math.round((wa.height - vH) / 2);
+
+    if (hasCustomPos) {
+      switch (winPosition) {
+        case 'center':       vX = wa.x + Math.round((wa.width  - vW) / 2); vY = wa.y + Math.round((wa.height - vH) / 2); break;
+        case 'top-left':     vX = wa.x;                                   vY = wa.y; break;
+        case 'top-right':    vX = wa.x + wa.width - vW;                   vY = wa.y; break;
+        case 'bottom-left':  vX = wa.x;                                   vY = wa.y + wa.height - vH; break;
+        case 'bottom-right': vX = wa.x + wa.width - vW;                   vY = wa.y + wa.height - vH; break;
+        case 'left':         vX = wa.x;                                   vY = wa.y; break;
+        case 'right':        vX = wa.x + wa.width - vW;                   vY = wa.y; break;
+      }
+    }
+
+    targetBounds = { x: vX, y: vY, width: vW, height: vH };
+  }
+
+  // If an existing window for this page is already open (and no side-by-side or presentation query)
+  if (!query && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
     const existing = BrowserWindow.getAllWindows().find(
       w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
     );
     if (existing) {
+      if (targetBounds) {
+        _applySafeBounds(existing, targetBounds);
+      }
       if (existing.isMinimized()) existing.restore();
       existing.focus();
       return { ok: true, windowId: existing.id };
     }
   }
 
-  const senderWin = BrowserWindow.fromWebContents(event.sender);
-  const senderBounds = senderWin && !senderWin.isDestroyed() ? senderWin.getBounds() : null;
-  const toolWin = createToolWindow(pageFile, query ? { query } : {});
+  const toolOptions = query ? { query } : {};
+  if (targetBounds) {
+    toolOptions.width  = targetBounds.width;
+    toolOptions.height = targetBounds.height;
+    toolOptions.x      = targetBounds.x;
+    toolOptions.y      = targetBounds.y;
+  }
+
+  const toolWin = createToolWindow(pageFile, toolOptions);
   const isLearningToolsPresentation =
     pageFile === PAGE_FILES.learningTools
     && query
@@ -4024,57 +4108,18 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   );
 
   if (wantsSecondary) {
-    const targetDisplay = getExtendedDisplayForBounds(senderBounds);
-    if (targetDisplay) {
+    const extendedDisplay = getExtendedDisplayForBounds(senderBounds);
+    if (extendedDisplay) {
       const sourceDisplay = senderBounds
         ? (screen.getDisplayMatching(senderBounds) || screen.getPrimaryDisplay())
         : screen.getPrimaryDisplay();
-      const mappedBounds = mapWindowBoundsToDisplay(senderBounds, sourceDisplay, targetDisplay);
+      const mappedBounds = mapWindowBoundsToDisplay(senderBounds, sourceDisplay, extendedDisplay);
       if (mappedBounds) {
         toolWin.setBounds(mappedBounds);
       }
     }
-  }
-
-  if (!request.sideBySide && !request.maximize && !wantsSecondary && !toolWin.isDestroyed()) {
-    const winSizeRatio = Number(request.windowSizeRatio) || 0;
-    const winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';
-    const hasSize = winSizeRatio >= 0.1 && winSizeRatio <= 1.0;
-    const hasPos  = !!(winPosition && winPosition !== 'default');
-
-    if (hasSize || hasPos) {
-      const display = screen.getDisplayMatching(toolWin.getBounds());
-      const wa = display.workArea;
-
-      // Measure invisible resize border (DWM shadow on Windows) so tiled
-      // windows meet flush without overlap, matching _arrangeSideBySide.
-      const ob = toolWin.getBounds();
-      const cb = toolWin.getContentBounds();
-      const insetL = Math.max(0, cb.x - ob.x);
-      const insetR = Math.max(0, (ob.x + ob.width)  - (cb.x + cb.width));
-      const insetB = Math.max(0, (ob.y + ob.height) - (cb.y + cb.height));
-
-      // Work in visual (inset-excluded) dimensions
-      let vW = hasSize ? Math.max(400, Math.round(wa.width  * winSizeRatio)) : ob.width  - insetL - insetR;
-      let vH = hasSize ? Math.max(300, Math.round(wa.height * winSizeRatio)) : ob.height - insetB;
-      if (winPosition === 'left' || winPosition === 'right') vH = wa.height;
-
-      if (hasPos) {
-        let vX = wa.x, vY = wa.y;
-        switch (winPosition) {
-          case 'center':       vX = wa.x + Math.round((wa.width  - vW) / 2); vY = wa.y + Math.round((wa.height - vH) / 2); break;
-          case 'top-left':     vX = wa.x;                vY = wa.y; break;
-          case 'top-right':    vX = wa.x + wa.width - vW; vY = wa.y; break;
-          case 'bottom-left':  vX = wa.x;                vY = wa.y + wa.height - vH; break;
-          case 'bottom-right': vX = wa.x + wa.width - vW; vY = wa.y + wa.height - vH; break;
-          case 'left':         vX = wa.x;                vY = wa.y; break;
-          case 'right':        vX = wa.x + wa.width - vW; vY = wa.y; break;
-        }
-        toolWin.setBounds({ x: vX - insetL, y: vY, width: vW + insetL + insetR, height: vH + insetB });
-      } else {
-        toolWin.setSize(vW + insetL + insetR, vH + insetB);
-      }
-    }
+  } else if (targetBounds && !toolWin.isDestroyed()) {
+    _applySafeBounds(toolWin, targetBounds);
   }
 
   if (request.sideBySide) {

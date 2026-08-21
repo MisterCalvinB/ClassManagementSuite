@@ -3643,7 +3643,13 @@
                 }
             }
             if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
-                classModes = config.classModes.map(m => ({ ...m }));
+                classModes = config.classModes.map(m => {
+                    const copy = { ...m };
+                    if (copy.picture && typeof copy.picture === 'object' && copy.picture.src) {
+                        copy.picture = { ...copy.picture, src: sanitizeModeImgSrc(copy.picture.src) };
+                    }
+                    return copy;
+                });
                 if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
             }
             if (config?.shortcuts && typeof config.shortcuts === 'object' && !Array.isArray(config.shortcuts)) {
@@ -10182,15 +10188,19 @@
             if (isElectron && typeof window.Desktop.resolvePath === 'function') {
                 try {
                     const resolved = await window.Desktop.resolvePath('data', normalized);
+                    if (typeof resolved === 'string' && resolved) {
+                        return resolved;
+                    }
                     if (resolved?.path) {
-                        return 'file:///' + encodeURI(String(resolved.path).replace(/\\/g, '/'));
+                        const p = String(resolved.path).replace(/\\/g, '/');
+                        return p.startsWith('/') ? ('file://' + encodeURI(p)) : ('file:///' + encodeURI(p));
                     }
                 } catch (error) {
                     console.warn('Unable to resolve sound path:', error);
                 }
             }
 
-            return `data/${normalized}`;
+            return `../user/custom-data/sounds/${normalized.replace(/^sounds\//, '')}`;
         }
 
         function playSoundFileClip(relativePath, repeatCount = 1, spacingMs = 350, volumeScale = 1.0) {
@@ -12580,12 +12590,18 @@ syncState();
             if (mode.id === 'conversation') return '../assets/icons/speech-bubbles.svg';
             if (mode.id === 'group') return '../assets/icons/people-group.svg';
             if (mode.svgIcon) {
-                return mode.svgIcon.startsWith('../') || mode.svgIcon.startsWith('assets/')
-                    ? mode.svgIcon
-                    : `../assets/icons/${mode.svgIcon}`;
+                const s = String(mode.svgIcon).replace(/\\/g, '/');
+                if (s.startsWith('../') || s.startsWith('file://') || s.startsWith('data:')) return s;
+                if (s.startsWith('assets/')) return '../' + s;
+                return `../assets/icons/${s.replace(/^icons\//, '')}`;
             }
             if (typeof mode.icon === 'string') {
-                if (mode.icon.endsWith('.svg')) return `../assets/icons/${mode.icon}`;
+                const iconStr = mode.icon.replace(/\\/g, '/');
+                if (iconStr.endsWith('.svg')) {
+                    if (iconStr.startsWith('../') || iconStr.startsWith('file://') || iconStr.startsWith('data:')) return iconStr;
+                    if (iconStr.startsWith('assets/')) return '../' + iconStr;
+                    return `../assets/icons/${iconStr.replace(/^icons\//, '')}`;
+                }
                 if (mode.icon.includes('🤫') || mode.icon.toLowerCase().includes('quiet') || mode.icon.toLowerCase().includes('shush')) return '../assets/icons/shush.svg';
                 if (mode.icon.includes('💬') || mode.icon.toLowerCase().includes('chat') || mode.icon.toLowerCase().includes('talk') || mode.icon.toLowerCase().includes('conversation')) return '../assets/icons/speech-bubbles.svg';
                 if (mode.icon.includes('👥') || mode.icon.toLowerCase().includes('group') || mode.icon.toLowerCase().includes('team')) return '../assets/icons/people-group.svg';
@@ -12822,20 +12838,122 @@ syncState();
             activeEditingModeId = null;
         }
 
+        let _cachedUserBaseUrl = null;
+        (function _initUserBaseUrl() {
+            if (window.Desktop && typeof window.Desktop.resolvePath === 'function') {
+                window.Desktop.resolvePath('user', '.').then(res => {
+                    if (typeof res === 'string' && res) {
+                        _cachedUserBaseUrl = res.replace(/\/?$/, '/');
+                    } else if (res?.path) {
+                        let p = String(res.path).replace(/\\/g, '/');
+                        if (!p.startsWith('/')) p = '/' + p;
+                        _cachedUserBaseUrl = 'file://' + encodeURI(p).replace(/\/?$/, '/');
+                    }
+                }).catch(() => { });
+            }
+        })();
+
+        function sanitizeModeImgSrc(imgSrc) {
+            if (!imgSrc) return '';
+            let src = (typeof imgSrc === 'object' && imgSrc !== null)
+                ? (imgSrc.path || imgSrc.fileUrl || imgSrc.filename || imgSrc.src || String(imgSrc))
+                : String(imgSrc);
+            src = src.trim().replace(/\\/g, '/');
+            if (!src) return '';
+            if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:')) {
+                return src;
+            }
+
+            // Decode URI components in case it was stored as encoded file:// URL (e.g. %20 for spaces)
+            let decoded = src;
+            try { decoded = decodeURIComponent(src); } catch (_) { }
+            decoded = decoded.replace(/\\/g, '/');
+
+            // Extract relative portable path if it points to mode-image
+            const modeImgIdx = decoded.toLowerCase().lastIndexOf('/user/mode-image/');
+            if (modeImgIdx !== -1) {
+                return 'user/mode-image/' + decoded.substring(modeImgIdx + '/user/mode-image/'.length).replace(/^\/+/, '');
+            }
+            const modeImgShortIdx = decoded.toLowerCase().lastIndexOf('/mode-image/');
+            if (modeImgShortIdx !== -1) {
+                return 'user/mode-image/' + decoded.substring(modeImgShortIdx + '/mode-image/'.length).replace(/^\/+/, '');
+            }
+            const userIdx = decoded.toLowerCase().lastIndexOf('/user/');
+            if (userIdx !== -1 && !decoded.toLowerCase().includes('/node_modules/')) {
+                return 'user/' + decoded.substring(userIdx + '/user/'.length).replace(/^\/+/, '');
+            }
+            const assetsIdx = decoded.toLowerCase().lastIndexOf('/assets/');
+            if (assetsIdx !== -1) {
+                return 'assets/' + decoded.substring(assetsIdx + '/assets/'.length).replace(/^\/+/, '');
+            }
+
+            if (decoded.startsWith('user/')) return decoded;
+            if (decoded.startsWith('../user/')) return decoded.substring(3);
+            if (decoded.startsWith('./user/')) return decoded.substring(2);
+            if (decoded.startsWith('mode-image/')) return 'user/' + decoded;
+            if (decoded.startsWith('../mode-image/')) return 'user/' + decoded.substring(3);
+
+            // If it's a file:// or absolute path that couldn't be matched above, preserve it
+            if (src.startsWith('file://') || src.startsWith('/') || /^[a-zA-Z]:\//.test(src)) {
+                return src;
+            }
+
+            // Otherwise treat bare filename as user/mode-image/
+            return 'user/mode-image/' + decoded.replace(/^(\.\/|\.\.\/)+/, '');
+        }
+
         function resolveModeImgUrl(imgSrc) {
             if (!imgSrc) return '';
-            const src = (typeof imgSrc === 'object' && imgSrc !== null) ? (imgSrc.fileUrl || imgSrc.path || imgSrc.filename || String(imgSrc)) : String(imgSrc);
+            let src = (typeof imgSrc === 'object' && imgSrc !== null)
+                ? (imgSrc.path || imgSrc.fileUrl || imgSrc.filename || imgSrc.src || String(imgSrc))
+                : String(imgSrc);
+            src = src.trim().replace(/\\/g, '/');
             if (!src) return '';
-            if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('file://')) {
+
+            if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('blob:')) {
                 return src;
             }
-            if (src.startsWith('user/')) {
-                return '../' + src;
+
+            const sanitized = sanitizeModeImgSrc(src);
+
+            if (sanitized.startsWith('data:') || sanitized.startsWith('http://') || sanitized.startsWith('https://') || sanitized.startsWith('blob:')) {
+                return sanitized;
             }
-            if (src.startsWith('../user/') || src.startsWith('./') || src.startsWith('../')) {
-                return src;
+
+            if (sanitized.startsWith('user/')) {
+                if (_cachedUserBaseUrl) {
+                    return _cachedUserBaseUrl + sanitized.substring(5);
+                }
+                return '../' + sanitized;
             }
-            return '../user/mode-image/' + src.replace(/^mode-image\//, '');
+            if (sanitized.startsWith('../user/') || sanitized.startsWith('../assets/')) {
+                return sanitized;
+            }
+            if (sanitized.startsWith('assets/')) {
+                return '../' + sanitized;
+            }
+            if (sanitized.startsWith('./')) {
+                return '../' + sanitized.substring(2);
+            }
+            if (sanitized.startsWith('../')) {
+                return sanitized;
+            }
+
+            // Fallback for file:// or absolute paths
+            if (sanitized.startsWith('file://')) {
+                return sanitized;
+            }
+            if (sanitized.startsWith('/')) {
+                return 'file://' + encodeURI(sanitized);
+            }
+            if (/^[a-zA-Z]:\//.test(sanitized)) {
+                return 'file:///' + encodeURI(sanitized);
+            }
+
+            if (_cachedUserBaseUrl) {
+                return _cachedUserBaseUrl + 'mode-image/' + sanitized.replace(/^mode-image\//, '');
+            }
+            return '../user/mode-image/' + sanitized.replace(/^mode-image\//, '');
         }
 
         function togglePictureTypeFields() {
@@ -12940,9 +13058,9 @@ syncState();
                             filename: targetName,
                             content: content
                         });
-                        const savedPath = res?.fileUrl || (res?.file ? res.file : `../user/mode-image/${targetName}`);
+                        const savedPath = `user/mode-image/${targetName}`;
                         document.getElementById('mode-edit-pic-src').value = savedPath;
-                        if (previewImg) previewImg.src = res?.fileUrl || content;
+                        if (previewImg) previewImg.src = content || resolveModeImgUrl(savedPath);
                         if (previewWrap) previewWrap.style.display = 'block';
                     };
                     reader.readAsDataURL(file);
@@ -12984,6 +13102,7 @@ syncState();
             } else if (picType === 'emoji') {
                 picSrc = icon;
             }
+            picSrc = sanitizeModeImgSrc(picSrc);
             const picAnim = document.getElementById('mode-edit-pic-anim').value;
             const picFit = document.getElementById('mode-edit-pic-fit')?.value || 'fit';
 
@@ -13153,6 +13272,7 @@ syncState();
             let picHtml = '';
             if (mode.picture?.type === 'custom_file' || mode.picture?.type === 'custom_url') {
                 const imgSrc = resolveModeImgUrl(mode.picture?.src || '');
+                const icon = mode.icon || '🎭';
                 const fit = mode.picture?.fit || 'fit';
                 let fitStyle = 'object-fit:contain; max-height:45vh; max-width:85vw;';
                 if (fit === 'stretch') {
@@ -13160,7 +13280,10 @@ syncState();
                 } else if (fit === 'clip') {
                     fitStyle = 'object-fit:cover; width:85vw; height:45vh;';
                 }
-                picHtml = `<img src="${imgSrc}" class="custom-mode-img ${animClass}" style="${fitStyle} border-radius:12px; margin-bottom:16px;">`;
+                picHtml = `
+                    <img src="${imgSrc}" class="custom-mode-img ${animClass}" style="${fitStyle} border-radius:12px; margin-bottom:16px;" onerror="this.onerror=null; console.warn('Custom mode image not found on disk:', this.src); this.style.display='none'; const fb = this.nextElementSibling; if (fb) fb.style.display='block';">
+                    <div class="custom-mode-fallback-icon custom-mode-icon ${animClass}" style="display:none; font-size:5rem; margin-bottom:12px;">${icon}</div>
+                `;
             } else if (mode.picture?.type === 'speech_bubbles') {
                 picHtml = `<div class="speech-bubbles-container"><div class="speech-bubble left">Great idea!</div><div class="speech-bubble right">I agree!</div></div>`;
             } else if (mode.picture?.type === 'group_icons') {
