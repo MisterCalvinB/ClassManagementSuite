@@ -3273,6 +3273,7 @@
         var baseName = plannerBoardEntryBaseName(source);
         if (typeof Desktop.saveBoardArchive === 'function') {
           var sessionData = plannerBoardEntrySessionData(source, linkId);
+          var now = Date.now();
           var manifest = {
             version: 1,
             format: 'cstz',
@@ -3280,7 +3281,10 @@
             plannerEntryId: linkId,
             pageCount: 1,
             nodeCount: 0,
-            updatedAt: Date.now()
+            createdAt: Number(sessionData && sessionData._createdAt) || now,
+            dateCreated: (sessionData && sessionData.dateCreated) || new Date(now).toISOString(),
+            updatedAt: now,
+            savedAt: now
           };
           var archiveEntries = [
             { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), encoding: 'utf8', store: false },

@@ -14061,6 +14061,14 @@
         if (_conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
           return _conPageSnapshotPngs[idx];
         }
+        if (conPageSnapshots && conPageSnapshots[idx] && typeof conBuildPageThumbnailDataUrl === 'function') {
+          const generated = conBuildPageThumbnailDataUrl(conPageSnapshots[idx]);
+          if (generated) {
+            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+            _conPageSnapshotPngs[idx] = generated;
+            return generated;
+          }
+        }
         if (!(window.Desktop && Desktop.isElectron())) return '';
         if (!_conCurrentFolderName) return '';
         const padded = String(idx + 1).padStart(3, '0');
@@ -14117,7 +14125,7 @@
           const canvas = btn.querySelector('canvas');
           const img = btn.querySelector('img');
           if (!canvas || !img) return;
-          if (!forceRefresh && img.dataset.pngLoaded === '1') return;
+          if (!forceRefresh && img.dataset.pngLoaded === '1' && img.src) return;
           conResolveMiniPageSnapshotUrl(i).then(url => {
             if (!url) return;
             img.onload = function () {
@@ -14131,6 +14139,11 @@
               img.dataset.pngLoaded = '0';
             };
             img.src = url;
+            if (img.complete && img.naturalWidth > 0) {
+              canvas.style.display = 'none';
+              img.style.display = 'block';
+              img.dataset.pngLoaded = '1';
+            }
           });
         };
 
@@ -14612,6 +14625,19 @@
       // ---- Page Preview (thumbnails, reorder, delete) ----
       let _conPreviewDragIdx = null; // index of the thumb being dragged
 
+      function conBuildPageThumbnailDataUrl(snap, width = 480, height = 320) {
+        try {
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = width;
+          offCanvas.height = height;
+          conRenderPageThumbnail(snap, offCanvas);
+          return offCanvas.toDataURL('image/png');
+        } catch (_) {
+          return '';
+        }
+      }
+      window.conBuildPageThumbnailDataUrl = conBuildPageThumbnailDataUrl;
+
       function conRenderPageThumbnail(snap, canvas) {
         const W = canvas.width, H = canvas.height;
         const ctx = canvas.getContext('2d');
@@ -14911,6 +14937,21 @@
               img.style.cssText = 'display:block;width:160px;height:110px;object-fit:contain;border-radius:2px;background:#fff;';
               thumb.replaceChild(img, canvas);
             }).catch(() => { });
+          } else {
+            const snap = (idx === conCurrentPageIndex) ? conBuildPageSnapshot() : (conPageSnapshots && conPageSnapshots[idx]);
+            if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+              const dataUrl = conBuildPageThumbnailDataUrl(snap);
+              if (dataUrl) {
+                if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+                _conPageSnapshotPngs[idx] = dataUrl;
+                if (thumb.isConnected) {
+                  const img = document.createElement('img');
+                  img.src = dataUrl;
+                  img.style.cssText = 'display:block;width:160px;height:110px;object-fit:contain;border-radius:2px;background:#fff;';
+                  thumb.replaceChild(img, canvas);
+                }
+              }
+            }
           }
         });
       };
@@ -27042,6 +27083,11 @@
     }
 
     function boardNormalizeDateCreated(section, value) {
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        const iso = new Date(value).toISOString();
+        boardSessionDateCreated[section] = iso;
+        return iso;
+      }
       const trimmed = typeof value === 'string' ? value.trim() : '';
       if (trimmed) {
         boardSessionDateCreated[section] = trimmed;
@@ -27079,12 +27125,20 @@
         boardResetSessionFileMeta(section);
         return;
       }
-      boardSetSessionFileMeta(section, data._createdAt, data._savedAt);
+      const createdAt = Number(data._createdAt || data.createdAt)
+        || (data.dateCreated ? Date.parse(String(data.dateCreated).replace(/_\d+$/, '')) : 0)
+        || 0;
+      const savedAt = Number(data._savedAt || data.savedAt || data.updatedAt) || 0;
+      boardSetSessionFileMeta(section, createdAt, savedAt);
     }
 
     function boardBuildPersistedSessionData(section, data, now = Date.now()) {
       const meta = boardSessionMeta(section);
-      const createdAt = Number(data && data._createdAt) || Number(meta.createdAt) || now;
+      const createdAt = Number(data && (data._createdAt || data.createdAt))
+        || Number(meta.createdAt)
+        || ((data && data.dateCreated) ? Date.parse(String(data.dateCreated).replace(/_\d+$/, '')) : 0)
+        || (boardSessionDateCreated[section] ? Date.parse(String(boardSessionDateCreated[section]).replace(/_\d+$/, '')) : 0)
+        || now;
       const savedAt = Number(now) || Date.now();
       const persisted = Object.assign({}, data, {
         _createdAt: createdAt,
@@ -27803,6 +27857,10 @@
       const title = window.conGetTitle ? window.conGetTitle() : '';
       const dateCreated = boardNormalizeDateCreated('constellation', boardSessionDateCreated.constellation);
       const attachments = conBuildAttachmentMetadata();
+      const meta = boardSessionMeta('constellation');
+      const createdAt = Number(meta.createdAt)
+        || (dateCreated ? Date.parse(String(dateCreated).replace(/_\d+$/, '')) : 0)
+        || undefined;
 
       if (allPages.length > 1) {
         // Multi-page format
@@ -27810,6 +27868,7 @@
           _type: 'constellation',
           _version: 2,
           dateCreated,
+          _createdAt: createdAt,
           title,
           attachments,
           currentPage: conCurrentPageIndex,
@@ -27822,6 +27881,7 @@
         _type: 'constellation',
         _version: 1,
         dateCreated,
+        _createdAt: createdAt,
         title,
         attachments,
         ...currentSnap
@@ -28872,6 +28932,11 @@
         }
       } catch (_) {}
 
+      const createdAtMs = Number(dataToSave._createdAt || dataToSave.createdAt)
+        || (dataToSave.dateCreated ? Date.parse(String(dataToSave.dateCreated).replace(/_\d+$/, '')) : 0)
+        || Date.now();
+      const savedAtMs = Number(dataToSave._savedAt || dataToSave.savedAt) || Date.now();
+
       const manifest = {
         version: 1,
         format: 'cstz',
@@ -28881,7 +28946,10 @@
         pageCount: pages.length,
         nodeCount: Array.isArray(dataToSave.nodes) ? dataToSave.nodes.length : 0,
         thumbnail: 'page-snapshots/page-001.png',
-        updatedAt: Date.now()
+        createdAt: createdAtMs,
+        dateCreated: dataToSave.dateCreated || new Date(createdAtMs).toISOString(),
+        updatedAt: savedAtMs,
+        savedAt: savedAtMs
       };
 
       const entries = [
@@ -29049,6 +29117,18 @@
           offset = dataEnd;
         } else {
           offset += 1;
+        }
+      }
+
+      if (manifest && boardData) {
+        if (!boardData._createdAt && (manifest.createdAt || manifest._createdAt)) {
+          boardData._createdAt = Number(manifest.createdAt || manifest._createdAt) || undefined;
+        }
+        if (!boardData._savedAt && (manifest.updatedAt || manifest.savedAt || manifest._savedAt)) {
+          boardData._savedAt = Number(manifest.updatedAt || manifest.savedAt || manifest._savedAt) || undefined;
+        }
+        if (!boardData.dateCreated && manifest.dateCreated) {
+          boardData.dateCreated = manifest.dateCreated;
         }
       }
 
@@ -30770,9 +30850,27 @@
           conPageSnapshots = [conBuildEmptyPageSnapshot()];
           conCurrentPageIndex = 0;
         }
+
+        // Build PNG previews on startup/restore for all pages that don't have one
+        if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
+        for (let i = 0; i < conPageSnapshots.length; i++) {
+          if (!_conPageSnapshotPngs[i] && conPageSnapshots[i]) {
+            if (typeof conBuildPageThumbnailDataUrl === 'function') {
+              const url = conBuildPageThumbnailDataUrl(conPageSnapshots[i]);
+              if (url) _conPageSnapshotPngs[i] = url;
+            }
+          }
+        }
       }
 
-      data.dateCreated = boardNormalizeDateCreated('constellation', data.dateCreated || data._createdAt);
+      const resolvedCreatedAt = Number(data._createdAt || data.createdAt)
+        || (data.dateCreated ? Date.parse(String(data.dateCreated).replace(/_\d+$/, '')) : 0)
+        || 0;
+      data.dateCreated = boardNormalizeDateCreated('constellation', data.dateCreated || (resolvedCreatedAt ? resolvedCreatedAt : ''));
+      if (resolvedCreatedAt) {
+        data._createdAt = resolvedCreatedAt;
+        boardSetSessionFileMeta('constellation', resolvedCreatedAt, Number(data._savedAt || data.savedAt) || 0);
+      }
 
       if (isMirrorSync) {
         // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
@@ -31253,6 +31351,10 @@
         window._conBoardStickers.forEach(sd => {
           if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brd);
         });
+      }
+
+      if (!isMirrorSync && typeof conQueueCurrentPageSnapshotPng === 'function') {
+        conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
       }
     }
 
@@ -31856,9 +31958,11 @@
       const relativePath = String((file && (file.relativePath || file.filename)) || filename).replace(/\\/g, '/');
       const baseName = boardStripJsonExt(filename);
       const fallbackMs = Date.now();
-      const modifiedAt = Number(file && (file.savedAt || file.mtimeMs || file.ctimeMs || file.birthtimeMs)) || fallbackMs;
+      const modifiedAt = Number(file && (file.savedAt || file.updatedAt || file.mtimeMs || file.ctimeMs || file.birthtimeMs)) || fallbackMs;
       const fsCreatedAt = Number(file && (file.birthtimeMs || file.ctimeMs)) || 0;
-      const metaCreatedAt = Number(file && file.createdAt) || 0;
+      const metaCreatedAt = Number(file && (file.createdAt || file._createdAt))
+        || (file && file.dateCreated ? Date.parse(String(file.dateCreated).replace(/_\d+$/, '')) : 0)
+        || 0;
       let createdAt = metaCreatedAt || fsCreatedAt;
       if (createdAt && modifiedAt && createdAt === modifiedAt && fsCreatedAt && fsCreatedAt !== modifiedAt) {
         createdAt = fsCreatedAt;
@@ -32246,8 +32350,19 @@
                   entry.classGroup = cg;
                   entry.classLabel = getClassGroupLabel(cg);
                   changed = true;
-                  return;
                 }
+                const inspCreatedAt = Number(inspectRes.createdAt || (inspectRes.manifest && (inspectRes.manifest.createdAt || inspectRes.manifest._createdAt))) || 0;
+                if (inspCreatedAt) {
+                  entry.createdAt = inspCreatedAt;
+                  entry.dateKey = historyExtractDateKey(entry.baseName, inspCreatedAt);
+                  changed = true;
+                }
+                const inspSavedAt = Number(inspectRes.savedAt || inspectRes.mtimeMs || (inspectRes.manifest && (inspectRes.manifest.updatedAt || inspectRes.manifest.savedAt))) || 0;
+                if (inspSavedAt) {
+                  entry.modifiedAt = inspSavedAt;
+                  changed = true;
+                }
+                if (cg) return;
                 if (inspectRes.plannerEntryId) {
                   const pid = inspectRes.plannerEntryId;
                   const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
@@ -32323,6 +32438,18 @@
         const r = await Desktop.readBoardArchive(entry.target, rel);
         if (r && r.ok && r.boardData) {
           r.boardData._mediaMap = r.media || null;
+          r.boardData._thumbnails = r.thumbnails || null;
+          if (r.manifest) {
+            if (!r.boardData._createdAt && (r.manifest.createdAt || r.manifest._createdAt)) {
+              r.boardData._createdAt = Number(r.manifest.createdAt || r.manifest._createdAt);
+            }
+            if (!r.boardData._savedAt && (r.manifest.updatedAt || r.manifest.savedAt || r.manifest._savedAt)) {
+              r.boardData._savedAt = Number(r.manifest.updatedAt || r.manifest.savedAt || r.manifest._savedAt);
+            }
+            if (!r.boardData.dateCreated && r.manifest.dateCreated) {
+              r.boardData.dateCreated = r.manifest.dateCreated;
+            }
+          }
           if (Array.isArray(r.boardData.attachments)) {
             conSetAttachmentsFromSession(r.boardData.attachments, r.media);
           }

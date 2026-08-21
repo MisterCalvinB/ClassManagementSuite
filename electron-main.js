@@ -784,6 +784,41 @@ function readSessionTimestampMeta(rawText, ext) {
 
 async function readSessionTimestampMetaFast(filePath, ext) {
   const meta = {};
+  if (ext === '.cstz' || ext === '.zip') {
+    try {
+      const zipBuffer = await fs.readFile(filePath);
+      const entries = parseZipEntries(zipBuffer);
+      let manifest = null;
+      let boardData = null;
+      for (const entry of entries) {
+        const normName = normalizeZipEntryPath(entry.name) || entry.name;
+        if (normName === 'manifest.json') {
+          try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
+        } else if (normName === 'board.json') {
+          try { boardData = JSON.parse(entry.data.toString('utf8')); } catch {}
+        }
+      }
+      if (manifest || boardData) {
+        meta.sessionType = (manifest && manifest.format) || (boardData && boardData._type) || 'constellation';
+        meta.classGroup = (manifest && manifest.classGroup) || (boardData && (boardData._classGroup || boardData.classGroup)) || '';
+        meta.plannerEntryId = (manifest && manifest.plannerEntryId) || (boardData && (boardData._plannerEntryId || (boardData.manifest && boardData.manifest.plannerEntryId))) || '';
+
+        const createdAt = Number(manifest && (manifest.createdAt || manifest._createdAt))
+          || Number(boardData && (boardData._createdAt || boardData.createdAt))
+          || ((boardData && boardData.dateCreated) ? Date.parse(String(boardData.dateCreated).replace(/_\d+$/, '')) : 0)
+          || ((manifest && manifest.dateCreated) ? Date.parse(String(manifest.dateCreated).replace(/_\d+$/, '')) : 0)
+          || 0;
+        if (createdAt > 0) meta.createdAt = createdAt;
+
+        const savedAt = Number(manifest && (manifest.updatedAt || manifest.savedAt || manifest._savedAt))
+          || Number(boardData && (boardData._savedAt || boardData.savedAt))
+          || 0;
+        if (savedAt > 0) meta.savedAt = savedAt;
+      }
+    } catch {}
+    return meta;
+  }
+
   let fileHandle;
   try {
     fileHandle = await fs.open(filePath, 'r');
@@ -856,7 +891,7 @@ async function listAllowedFiles(pageFile, target, request = {}) {
     }
 
     let jsonMeta = {};
-    if (ext === '.json' || ext === '.js') {
+    if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
       try {
         jsonMeta = await readSessionTimestampMetaFast(filePath, ext);
       } catch {}
@@ -1043,7 +1078,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       seen.add(dedupeKey);
 
       let jsonMeta = {};
-      if (ext === '.json' || ext === '.js') {
+      if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
         try {
           jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext);
         } catch {}
@@ -3494,6 +3529,18 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
       }
     }
 
+    if (manifest && boardData) {
+      if (!boardData._createdAt && (manifest.createdAt || manifest._createdAt)) {
+        boardData._createdAt = Number(manifest.createdAt || manifest._createdAt);
+      }
+      if (!boardData._savedAt && (manifest.updatedAt || manifest.savedAt || manifest._savedAt)) {
+        boardData._savedAt = Number(manifest.updatedAt || manifest.savedAt || manifest._savedAt);
+      }
+      if (!boardData.dateCreated && manifest.dateCreated) {
+        boardData.dateCreated = manifest.dateCreated;
+      }
+    }
+
     return {
       ok: true,
       filename: path.basename(fullPath),
@@ -3550,6 +3597,15 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
     }
 
     const stat = await fs.stat(fullPath);
+    const createdAt = Number(manifest && (manifest.createdAt || manifest._createdAt))
+      || Number(boardDataSummary && (boardDataSummary._createdAt || boardDataSummary.createdAt))
+      || ((boardDataSummary && boardDataSummary.dateCreated) ? Date.parse(String(boardDataSummary.dateCreated).replace(/_\d+$/, '')) : 0)
+      || ((manifest && manifest.dateCreated) ? Date.parse(String(manifest.dateCreated).replace(/_\d+$/, '')) : 0)
+      || 0;
+    const savedAt = Number(manifest && (manifest.updatedAt || manifest.savedAt || manifest._savedAt))
+      || Number(boardDataSummary && (boardDataSummary._savedAt || boardDataSummary.savedAt))
+      || stat.mtimeMs;
+
     return {
       ok: true,
       filename: path.basename(fullPath),
@@ -3558,6 +3614,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       thumbnail: thumbnail || (manifest && manifest.thumbnail) || null,
       classGroup: (manifest && manifest.classGroup) || (boardDataSummary && boardDataSummary.classGroup) || '',
       plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
+      createdAt: createdAt || undefined,
+      savedAt: savedAt || stat.mtimeMs,
       mtimeMs: stat.mtimeMs,
       size: stat.size
     };
