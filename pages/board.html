@@ -4213,6 +4213,14 @@
         refreshCurrentGame();
         renderGameTeamUI();
         if (sectionId === 'history-section') historyRefreshList();
+        if (sectionId === 'constellation-section') {
+          if (typeof window.conScheduleLayoutRefresh === 'function') {
+            window.conScheduleLayoutRefresh();
+          } else {
+            if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+            if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+          }
+        }
       } else {
         populateAllThemeMenus();
         if (typeof historyRefreshList === 'function') historyRefreshList();
@@ -9139,10 +9147,22 @@
           clearInterval(item._pdfViewPoll);
           item._pdfViewPoll = null;
         }
+        if (item && item._pdfDoc && typeof item._pdfDoc.destroy === 'function') {
+          try { item._pdfDoc.destroy(); } catch (_) { }
+          item._pdfDoc = null;
+        }
       });
       conMediaItems = [];
       conMediaNextId = 0;
-      document.querySelectorAll('.con-media-item').forEach(el => el.remove());
+      document.querySelectorAll('.con-media-item').forEach(el => {
+        el.querySelectorAll('audio, video').forEach(function (m) {
+          try { m.pause(); m.src = ''; m.load(); } catch (_) { }
+        });
+        el.querySelectorAll('canvas').forEach(function (c) {
+          c.width = 0; c.height = 0;
+        });
+        el.remove();
+      });
     };
 
     window.conRemoveInsertedMedia = function () {
@@ -9330,13 +9350,27 @@
       });
 
       prevElsById.forEach((el, id) => {
-        if (!keepIds.has(id)) el.remove();
+        if (!keepIds.has(id)) {
+          el.querySelectorAll('audio, video').forEach(function (m) {
+            try { m.pause(); m.src = ''; m.load(); } catch (_) { }
+          });
+          el.querySelectorAll('canvas').forEach(function (c) {
+            c.width = 0; c.height = 0;
+          });
+          el.remove();
+        }
       });
 
       prevById.forEach((prev, id) => {
-        if (!keepIds.has(id) && prev && prev._pdfViewPoll) {
-          clearInterval(prev._pdfViewPoll);
-          prev._pdfViewPoll = null;
+        if (!keepIds.has(id) && prev) {
+          if (prev._pdfViewPoll) {
+            clearInterval(prev._pdfViewPoll);
+            prev._pdfViewPoll = null;
+          }
+          if (prev._pdfDoc && typeof prev._pdfDoc.destroy === 'function') {
+            try { prev._pdfDoc.destroy(); } catch (_) { }
+            prev._pdfDoc = null;
+          }
         }
       });
 
@@ -9668,8 +9702,9 @@
       let _conUndoStack = [];
       let _conRedoStack = [];
       let _conApplySizeUndoPushed = false;
-      const _CON_UNDO_MAX = 50;
+      const _CON_UNDO_MAX = 20;
       function conPushUndo(snapshot) {
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         _conUndoStack.push(snapshot || conBuildPageSnapshot());
         if (_conUndoStack.length > _CON_UNDO_MAX) _conUndoStack.shift();
         _conRedoStack = [];
@@ -15066,6 +15101,7 @@
       window.conRedrawEdges = function () { conRedrawEdges(); };
       window.conGroups = conGroups;
       window.conEdges = conEdges;
+      window.conGroupRefit = function (g) { conGroupRefit(g); };
       window.conGroupRefitAll = function () { conGroupRefitAll(); };
       window.CON_PALETTES = CON_PALETTES;
       window.conInitSwatches = conInitSwatches;
@@ -17294,8 +17330,10 @@
       // Returns distance from node centre to its rectangular boundary in direction (dx, dy)
       // plus a small margin so the arrowhead tip lands just at the visible edge
       function conNodeEdgeOffset(node, dx, dy) {
-        const w = Math.max(20, node.el.offsetWidth || 80);
-        const h = Math.max(10, node.el.offsetHeight || 28);
+        const rawW = node && node.el ? ((node.el.offsetWidth > 0) ? node.el.offsetWidth : (parseFloat(node.el.style.width) || 80)) : 80;
+        const rawH = node && node.el ? ((node.el.offsetHeight > 0) ? node.el.offsetHeight : (parseFloat(node.el.style.height) || 28)) : 28;
+        const w = Math.max(20, rawW);
+        const h = Math.max(10, rawH);
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len < 0.01) return w / 2;
         const nx = Math.abs(dx / len), ny = Math.abs(dy / len);
@@ -17331,17 +17369,19 @@
         const noteArr = (typeof conNotes !== 'undefined') ? conNotes : [];
         const note = noteArr.find(n => n.id === id);
         if (note) {
-          const el = document.querySelector(`.con-word-note[data-id="${id}"]`);
-          const w = el ? el.offsetWidth : 120;
-          const h = el ? el.offsetHeight : 80;
+          const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(id) : document.querySelector(`.con-word-note[data-id="${id}"]`);
+          const w = (el && el.offsetWidth > 0) ? el.offsetWidth : (typeof note.width === 'number' && note.width > 0 ? note.width : 120);
+          const h = (el && el.offsetHeight > 0) ? el.offsetHeight : (typeof note.height === 'number' && note.height > 0 ? note.height : 80);
           return { cx: note.x + w / 2, cy: note.y + h / 2, el, shape: null };
         }
         // 2. Node
         const node = conNodes.find(n => n.id === id);
         if (node && node.el) {
+          const nw = (node.el.offsetWidth > 0) ? node.el.offsetWidth : (parseFloat(node.el.style.width) || 80);
+          const nh = (node.el.offsetHeight > 0) ? node.el.offsetHeight : (parseFloat(node.el.style.height) || 28);
           return {
-            cx: node.x + node.el.offsetWidth / 2,
-            cy: node.y + node.el.offsetHeight / 2,
+            cx: node.x + nw / 2,
+            cy: node.y + nh / 2,
             el: node.el,
             shape: node.shape
           };
@@ -17351,9 +17391,11 @@
         if (group && group.el) {
           const gx = parseFloat(group.el.style.left) || 0;
           const gy = parseFloat(group.el.style.top) || 0;
+          const gw = (group.el.offsetWidth > 0) ? group.el.offsetWidth : (parseFloat(group.el.style.width) || (group._manualW != null ? group._manualW : 160));
+          const gh = (group.el.offsetHeight > 0) ? group.el.offsetHeight : (parseFloat(group.el.style.height) || (group._manualH != null ? group._manualH : 64));
           return {
-            cx: gx + group.el.offsetWidth / 2,
-            cy: gy + group.el.offsetHeight / 2,
+            cx: gx + gw / 2,
+            cy: gy + gh / 2,
             el: group.el,
             shape: null
           };
@@ -27614,6 +27656,7 @@
     }
 
     function boardSetAutosaveFingerprint(section, data) {
+      if (typeof _boardIsDirty !== 'undefined') _boardIsDirty = false;
       try {
         boardAutosaveFingerprint[section] = JSON.stringify(data) + '|' + (activeClassGroup || '');
       } catch (e) {
@@ -28290,24 +28333,38 @@
       boardAutosaveFingerprint.notes = '';
     }
 
+    let _boardIsDirty = false;
+    window.conMarkBoardDirty = function () {
+      _boardIsDirty = true;
+    };
+
     function boardAutosaveSection(section, options = {}) {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      const force = !!options.force;
+      if (section !== 'constellation') return;
+      if (!force && !_boardIsDirty && boardAutosaveFingerprint[section]) return;
+
       let data = null;
       let hasContent = false;
       const classGroup = typeof options.classGroup === 'string' ? options.classGroup : (activeClassGroup || '');
-      const force = !!options.force;
 
-      if (section !== 'constellation') return;
       data = conBuildSessionData();
       hasContent = conSessionHasContent(data);
-      if (!hasContent) return;
+      if (!hasContent) {
+        _boardIsDirty = false;
+        return;
+      }
 
       let fp;
       try { fp = JSON.stringify(data) + '|' + classGroup; }
       catch (e) { fp = String(Date.now()) + '|' + classGroup; }
-      if (!force && boardAutosaveFingerprint[section] === fp) return;
+      if (!force && boardAutosaveFingerprint[section] === fp) {
+        _boardIsDirty = false;
+        return;
+      }
 
       boardAutosaveFingerprint[section] = fp;
+      _boardIsDirty = false;
 
       // If working on a named file in Electron, overwrite it directly instead of an autosave copy
       const _currentFileForSection = _conCurrentFileName;
@@ -28381,6 +28438,7 @@
         new MutationObserver((mutations) => {
           const structural = mutations.some(m => m.addedNodes.length || m.removedNodes.length);
           if (!structural) return;
+          _boardIsDirty = true;
           // First structural edit in a brand-new unsaved constellation: silently create the file.
           conTrySilentInitialSave();
           _boardScheduleSave('constellation');
@@ -30782,6 +30840,53 @@
     }
     // ────────────────────────────────────────────────────────────────
 
+    function conScheduleLayoutRefresh() {
+      const run = () => {
+        if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+      };
+      run();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          run();
+          requestAnimationFrame(run);
+        });
+      }
+      setTimeout(run, 50);
+      setTimeout(run, 150);
+      setTimeout(run, 350);
+      if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+        document.fonts.ready.then(run).catch(() => {});
+      }
+    }
+    window.conScheduleLayoutRefresh = conScheduleLayoutRefresh;
+
+    if (typeof ResizeObserver !== 'undefined') {
+      let _conLastObservedW = 0, _conLastObservedH = 0;
+      const _conSectionObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const cr = entry.contentRect;
+          if (cr && cr.width > 0 && cr.height > 0 && (_conLastObservedW === 0 || _conLastObservedH === 0)) {
+            _conLastObservedW = cr.width;
+            _conLastObservedH = cr.height;
+            conScheduleLayoutRefresh();
+          } else if (cr) {
+            _conLastObservedW = cr.width;
+            _conLastObservedH = cr.height;
+          }
+        }
+      });
+      const _attachBoardSectionObserver = () => {
+        const boardSection = document.getElementById('constellation-section');
+        if (boardSection) _conSectionObserver.observe(boardSection);
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _attachBoardSectionObserver);
+      } else {
+        _attachBoardSectionObserver();
+      }
+    }
+
     function _conRestoreSession(data) {
       const isPageRestore = !!data._isPageRestore;
       const isMirrorSync = !!data._isMirrorSync;
@@ -31127,9 +31232,10 @@
         _conBoardBgColor = conNormalizeColorHex(data.boardBgColor || data.boardBackgroundColor || data.backgroundColor || '') || window._bcBoardDefaultBgColor || '';
         conApplyBoardBgColor();
 
-        window.conRedrawEdges();
         if (window.conGroupRefitAll) window.conGroupRefitAll();
+        window.conRedrawEdges();
         if (window.conUpdatePageBar) window.conUpdatePageBar();
+        conScheduleLayoutRefresh();
         return;
       }
 
@@ -31302,6 +31408,8 @@
       requestAnimationFrame(() => {
         const _notesForStyle = window.conGetNotes ? window.conGetNotes() : [];
         _notesForStyle.forEach(nd => { if (nd._applyStyle) nd._applyStyle(); });
+        if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       });
 
       // Restore drawings
@@ -31340,9 +31448,10 @@
       _conBoardBgColor = conNormalizeColorHex(data.boardBgColor || data.boardBackgroundColor || data.backgroundColor || '') || window._bcBoardDefaultBgColor || '';
       conApplyBoardBgColor();
 
-      window.conRedrawEdges();
       if (window.conGroupRefitAll) window.conGroupRefitAll();
+      window.conRedrawEdges();
       if (window.conUpdatePageBar) window.conUpdatePageBar();
+      conScheduleLayoutRefresh();
 
       // Restore board-level emoji stickers (placed near nodes)
       const _brd = document.getElementById('constellation-board');
@@ -31469,10 +31578,15 @@
           if (window.conPhraseGroupLayout) window.conPhraseGroupLayout(groupObj);
         });
       }
-      _conGroupRefit(groupObj);
+      if (typeof window.conGroupRefit === 'function') window.conGroupRefit(groupObj);
+      else _conGroupRefit(groupObj);
     }
 
     function _conGroupRefit(group) {
+      if (typeof window.conGroupRefit === 'function') {
+        window.conGroupRefit(group);
+        return;
+      }
       const PAD = 18;
       // Respect manual size
       if (group._manualW != null && group._manualH != null) {
@@ -31484,11 +31598,18 @@
       }
       const allRects = [];
       conGetNodes().filter(n => group.nodeIds.includes(n.id)).forEach(n => {
-        allRects.push({ x: n.x, y: n.y, w: n.el.offsetWidth || 80, h: n.el.offsetHeight || 28 });
+        const nw = (n.el && n.el.offsetWidth > 0) ? n.el.offsetWidth : (parseFloat(n.el.style.width) || 80);
+        const nh = (n.el && n.el.offsetHeight > 0) ? n.el.offsetHeight : (parseFloat(n.el.style.height) || 28);
+        allRects.push({ x: n.x, y: n.y, w: nw, h: nh });
       });
       (group.noteIds || []).forEach(nid => {
-        const nd = conNotes.find(n => n.id === nid);
-        if (nd && nd.el) allRects.push({ x: nd.x, y: nd.y, w: nd.el.offsetWidth || 80, h: nd.el.offsetHeight || 28 });
+        const nd = (typeof conNotes !== 'undefined' ? conNotes : []).find(n => n.id === nid);
+        const el = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nid) : document.querySelector(`.con-word-note[data-id="${nid}"]`);
+        if (nd) {
+          const nw = (el && el.offsetWidth > 0) ? el.offsetWidth : (typeof nd.width === 'number' && nd.width > 0 ? nd.width : 80);
+          const nh = (el && el.offsetHeight > 0) ? el.offsetHeight : (typeof nd.height === 'number' && nd.height > 0 ? nd.height : 28);
+          allRects.push({ x: nd.x, y: nd.y, w: nw, h: nh });
+        }
       });
       const drawings = window.conGetDrawings ? window.conGetDrawings() : [];
       (group.drawingIds || []).forEach(did => {
@@ -36872,7 +36993,6 @@
 
         var audioCtx = new AudioContext();
         var decoded = await audioCtx.decodeAudioData(arrayBuf);
-        await audioCtx.close();
 
         var sr = decoded.sampleRate;
         var startSample = Math.floor(start * sr);
@@ -36880,10 +37000,11 @@
         var length = endSample - startSample;
         var numCh = decoded.numberOfChannels;
 
-        var trimmedBuf = new AudioContext({ sampleRate: sr }).createBuffer(numCh, length, sr);
+        var trimmedBuf = audioCtx.createBuffer(numCh, length, sr);
         for (var ch = 0; ch < numCh; ch++) {
           trimmedBuf.copyToChannel(decoded.getChannelData(ch).slice(startSample, endSample), ch);
         }
+        await audioCtx.close();
 
         var wavAb = audioBufferToWav(trimmedBuf);
 
@@ -37681,9 +37802,11 @@
         el.className = 'laser-mark';
         el.style.left = x + 'px'; el.style.top = y + 'px';
         document.body.appendChild(el);
+        const _cleanup = function () { if (el && el.parentNode) el.remove(); };
         el.addEventListener('animationend', function (e) {
-          if (e.animationName === 'laser-mark-fade') el.remove();
+          if (e.animationName === 'laser-mark-fade') _cleanup();
         });
+        setTimeout(_cleanup, 3000);
       }
 
       function _addTrailDot(x, y) {
@@ -37693,7 +37816,9 @@
         el.style.transform = 'translate(' + (x - size / 2) + 'px, ' + (y - size / 2) + 'px)';
         el.style.width = size + 'px'; el.style.height = size + 'px';
         document.body.appendChild(el);
-        el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+        const _cleanup = function () { if (el && el.parentNode) el.remove(); };
+        el.addEventListener('animationend', _cleanup, { once: true });
+        setTimeout(_cleanup, 1200);
       }
 
       function _addPulse(x, y) {
@@ -37701,7 +37826,9 @@
         el.className = 'laser-pulse-ring';
         el.style.left = x + 'px'; el.style.top = y + 'px';
         document.body.appendChild(el);
-        el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+        const _cleanup = function () { if (el && el.parentNode) el.remove(); };
+        el.addEventListener('animationend', _cleanup, { once: true });
+        setTimeout(_cleanup, 1500);
       }
 
       function _onMove(e) {
@@ -38164,7 +38291,9 @@
         el.className = 'laser-mark';
         el.style.left = x + 'px'; el.style.top = y + 'px';
         document.body.appendChild(el);
-        el.addEventListener('animationend', function (ev) { if (ev.animationName === 'laser-mark-fade') el.remove(); });
+        var _cleanup = function () { if (el && el.parentNode) el.remove(); };
+        el.addEventListener('animationend', function (ev) { if (ev.animationName === 'laser-mark-fade') _cleanup(); });
+        setTimeout(_cleanup, 3000);
       }
       function _mAddTrail(x, y, size) {
         var el = document.createElement('div');
@@ -38173,14 +38302,18 @@
         el.style.transform = 'translate(' + (x - s / 2) + 'px, ' + (y - s / 2) + 'px)';
         el.style.width = s + 'px'; el.style.height = s + 'px';
         document.body.appendChild(el);
-        el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+        var _cleanup = function () { if (el && el.parentNode) el.remove(); };
+        el.addEventListener('animationend', _cleanup, { once: true });
+        setTimeout(_cleanup, 1200);
       }
       function _mAddPulse(x, y) {
         var el = document.createElement('div');
         el.className = 'laser-pulse-ring';
         el.style.left = x + 'px'; el.style.top = y + 'px';
         document.body.appendChild(el);
-        el.addEventListener('animationend', function () { el.remove(); }, { once: true });
+        var _cleanup = function () { if (el && el.parentNode) el.remove(); };
+        el.addEventListener('animationend', _cleanup, { once: true });
+        setTimeout(_cleanup, 1500);
       }
 
       // Track active node attention blinks so they survive board re-renders.
@@ -38628,8 +38761,26 @@
     }
 
     function _conMediaDeleteItem(item) {
+      if (item) {
+        if (item._pdfViewPoll) {
+          clearInterval(item._pdfViewPoll);
+          item._pdfViewPoll = null;
+        }
+        if (item._pdfDoc && typeof item._pdfDoc.destroy === 'function') {
+          try { item._pdfDoc.destroy(); } catch (_) { }
+          item._pdfDoc = null;
+        }
+      }
       var wrap = _conMediaGetWrap(item);
-      if (wrap) wrap.remove();
+      if (wrap) {
+        wrap.querySelectorAll('audio, video').forEach(function (m) {
+          try { m.pause(); m.src = ''; m.load(); } catch (_) { }
+        });
+        wrap.querySelectorAll('canvas').forEach(function (c) {
+          c.width = 0; c.height = 0;
+        });
+        wrap.remove();
+      }
       if (typeof conMediaItems !== 'undefined') {
         conMediaItems = conMediaItems.filter(function (m) { return m.id !== item.id; });
       }
