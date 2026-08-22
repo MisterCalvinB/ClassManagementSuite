@@ -1,7 +1,7 @@
 window.IMPORT_MODULE_ADMIN_GROUPS = {
   id: 'adminGroups',
   i18nKey: 'importDestAdminGroups',
-  hasGroupStep: true,
+  hasGroupStep: false,
   fields: [
     {
       key: 'firstName',

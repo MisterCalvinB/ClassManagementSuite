@@ -75,6 +75,16 @@
           <!-- populated by JS -->
         </div>
 
+        <!-- Admin group auto-target info (shown when adminGroups is selected) -->
+        <div class="group-options" id="admin-group-info">
+          <h4 data-i18n="importAdminGroupPickLabel">Target Administrative Group</h4>
+          <div id="admin-group-target-text" style="font-size:0.88rem; font-weight:800; color:#111; display:flex; align-items:center; gap:8px;">
+            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" onerror="this.style.display='none'" />
+            <span id="admin-group-target-name"></span>
+          </div>
+          <div id="admin-group-target-sub" style="font-size:0.75rem; color:#64748b; margin-top:4px;"></div>
+        </div>
+
         <!-- Group options (shown when class-groups is selected) -->
         <div class="group-options" id="group-options">
           <h4 data-i18n="importGroupPickLabel">Assign to group</h4>
@@ -402,13 +412,47 @@
       });
     }
 
+    function findAdminGroupId(data) {
+      var cgData = data || existingGroups;
+      if (!cgData || !cgData.classGroupsMeta) return null;
+      var meta = cgData.classGroupsMeta;
+      var keys = Object.keys(meta);
+      var activeAdmin = keys.find(function (id) { return meta[id] && meta[id].isAdminGroup && !meta[id].archived; });
+      if (activeAdmin) return activeAdmin;
+      var anyAdmin = keys.find(function (id) { return meta[id] && meta[id].isAdminGroup; });
+      if (anyAdmin) return anyAdmin;
+      return null;
+    }
+
+    function updateAdminGroupInfo() {
+      var nameEl = document.getElementById('admin-group-target-name');
+      var subEl = document.getElementById('admin-group-target-sub');
+      if (!nameEl || !subEl) return;
+      var gId = findAdminGroupId();
+      if (gId && existingGroups && existingGroups.classGroupsMeta && existingGroups.classGroupsMeta[gId]) {
+        var g = existingGroups.classGroupsMeta[gId];
+        nameEl.textContent = (g.name || gId);
+        subEl.textContent = tt('importAdminGroupTargetDesc', 'Automatically targets the class marked as administrative in Group Editor.');
+      } else {
+        nameEl.textContent = tt('importDestAdminGroups', 'Administrative Groups');
+        subEl.textContent = tt('importAdminGroupAutoCreateDesc', 'Will automatically link to the administrative class in Group Editor.');
+      }
+    }
+
     function selectModule(mod) {
       selectedModule = mod;
       document.querySelectorAll('.dest-card').forEach(function (c) {
         c.classList.toggle('selected', c.dataset.modId === mod.id);
       });
       var grpOpts = document.getElementById('group-options');
-      grpOpts.classList.toggle('visible', !!mod.hasGroupStep && !mod.isFileCopy);
+      grpOpts.classList.toggle('visible', !!mod.hasGroupStep && !mod.isFileCopy && mod.id !== 'adminGroups');
+      var admInfo = document.getElementById('admin-group-info');
+      if (admInfo) {
+        admInfo.classList.toggle('visible', mod.id === 'adminGroups');
+        if (mod.id === 'adminGroups') {
+          updateAdminGroupInfo();
+        }
+      }
       var wbOpts = document.getElementById('wb-options');
       wbOpts.classList.toggle('visible', !!mod.hasWbStep && !mod.isFileCopy);
       if (mod.hasWbStep && !mod.isFileCopy) {
@@ -479,6 +523,9 @@
       existingGroups = cg.data;
       populateExistingGroupDropdown();
       prefillYear();
+      if (selectedModule && selectedModule.id === 'adminGroups') {
+        updateAdminGroupInfo();
+      }
     }
 
     function prefillYear() {
@@ -1023,8 +1070,28 @@
       var cg = existingGroups || { activeYear: '', activeSemester: null, activeSemesterStart: '', activeSemesterEnd: '', classGroupsMeta: {} };
       cg.classGroupsMeta = cg.classGroupsMeta || {};
 
+      var adminGroupId = null;
       // If class groups or admin groups module: update classGroupsMeta
-      if (selectedModule.id === 'classGroups' || selectedModule.id === 'adminGroups') {
+      if (selectedModule.id === 'adminGroups') {
+        adminGroupId = findAdminGroupId(cg);
+        if (!adminGroupId) {
+          adminGroupId = ImportUtils.generateGroupUuid();
+          while (cg.classGroupsMeta[adminGroupId]) adminGroupId = ImportUtils.generateGroupUuid();
+          cg.classGroupsMeta[adminGroupId] = {
+            year: cg.activeYear || '',
+            semester: cg.activeSemester || null,
+            level: '',
+            name: (typeof t === 'function' ? t('importDestAdminGroups', 'Administrative') : 'Administrative'),
+            isAdminGroup: true,
+            students: []
+          };
+        }
+        var existing_students = cg.classGroupsMeta[adminGroupId].students || [];
+        var existingSet = new Set(existing_students);
+        newGroupUuids.forEach(function (u) { if (!existingSet.has(u)) existing_students.push(u); });
+        cg.classGroupsMeta[adminGroupId].students = existing_students;
+        cg.classGroupsMeta[adminGroupId].isAdminGroup = true;
+      } else if (selectedModule.id === 'classGroups') {
         if (groupMode === 'new') {
           var groupId = ImportUtils.generateGroupUuid();
           while (cg.classGroupsMeta[groupId]) groupId = ImportUtils.generateGroupUuid();
@@ -1084,22 +1151,33 @@
             }
           }
           adminData.students = adminData.students || {};
+          var adminGroupName = (adminGroupId && cg.classGroupsMeta[adminGroupId] && cg.classGroupsMeta[adminGroupId].name) || '';
+
           mappedRows.forEach(function (row, i) {
             var k = selectedModule.conflictKey(row);
             var existing = existingByKey[k];
             var uuid = existing ? existing.uuid : (rosterByUuid && roster.find(function (s) { return s.firstName === (row.firstName||'').trim().toUpperCase() && s.lastName === (row.lastName||'').trim().toUpperCase(); })?.uuid);
             if (uuid) {
-              adminData.students[uuid] = Object.assign(adminData.students[uuid] || {}, {
-                gender: row.gender || '',
-                studentNumber: row.studentNumber || '',
-                regime: row.regime || '',
-                guardian1Name: row.guardian1Name || '',
-                guardian1Phone: row.guardian1Phone || '',
-                guardian1Email: row.guardian1Email || '',
-                address: row.address || '',
-                medicalNotes: row.medicalNotes || '',
+              var sObj = adminData.students[uuid] || {};
+              adminData.students[uuid] = Object.assign(sObj, {
+                firstName: (row.firstName || sObj.firstName || '').trim().toUpperCase(),
+                lastName: (row.lastName || sObj.lastName || '').trim().toUpperCase(),
+                dob: row.dob || sObj.dob || '',
+                adminClass: row.adminClass || sObj.adminClass || adminGroupName,
+                gender: row.gender || sObj.gender || '',
+                sen: row.sen !== undefined ? (row.sen === true) : (sObj.sen === true),
+                studentNumber: row.studentNumber || sObj.studentNumber || '',
+                regime: row.regime || sObj.regime || '',
+                guardian1Name: row.guardian1Name || sObj.guardian1Name || '',
+                guardian1Phone: row.guardian1Phone || sObj.guardian1Phone || '',
+                guardian1Email: row.guardian1Email || sObj.guardian1Email || '',
+                address: row.address || sObj.address || '',
+                medicalNotes: row.medicalNotes || sObj.medicalNotes || '',
                 updatedAt: new Date().toISOString()
               });
+              if (Array.isArray(adminData.excludedStudentIds)) {
+                adminData.excludedStudentIds = adminData.excludedStudentIds.filter(function (id) { return id !== uuid; });
+              }
             }
           });
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
@@ -1260,7 +1338,7 @@
 
     // ── Validation ──────────────────────────────────────────────
     function validateStep1() {
-      if (selectedModule.isFileCopy) {
+      if (selectedModule.isFileCopy || selectedModule.id === 'adminGroups') {
         clearError('err-step1');
         return true;
       }

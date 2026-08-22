@@ -2828,6 +2828,9 @@
           map[cr.id].comment = '';
         }
       });
+      if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
+        student.correctionTime[sem][testIndex] = null;
+      }
       recalcStudentGradeFromCriteria(student, sem, testIndex, config);
       saveState();
       renderTestSheet();
@@ -5049,6 +5052,9 @@
         const toGrades   = toSem   === "sem1" ? student.sem1Tests : student.sem2Tests;
         toGrades[toIdx] = fromGrades[fromIdx];
         student.criteriaResults[toSem][toIdx] = Object.assign({}, student.criteriaResults[fromSem]?.[fromIdx] || {});
+        if (student.correctionTime && Array.isArray(student.correctionTime[toSem]) && Array.isArray(student.correctionTime[fromSem])) {
+          student.correctionTime[toSem][toIdx] = student.correctionTime[fromSem][fromIdx] ?? null;
+        }
       });
 
       // Shift subsequent tests in fromSem left to close the gap
@@ -5058,6 +5064,9 @@
           const grades = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
           grades[i] = grades[i + 1];
           student.criteriaResults[fromSem][i] = Object.assign({}, student.criteriaResults[fromSem]?.[i + 1] || {});
+          if (student.correctionTime && Array.isArray(student.correctionTime[fromSem])) {
+            student.correctionTime[fromSem][i] = student.correctionTime[fromSem][i + 1] ?? null;
+          }
         });
       }
 
@@ -5067,6 +5076,9 @@
         const grades = fromSem === "sem1" ? student.sem1Tests : student.sem2Tests;
         grades[lastIdx] = null;
         student.criteriaResults[fromSem][lastIdx] = {};
+        if (student.correctionTime && Array.isArray(student.correctionTime[fromSem])) {
+          student.correctionTime[fromSem][lastIdx] = null;
+        }
       });
 
       classObj.testCounts[fromSem]--;
@@ -8073,6 +8085,10 @@
           student.gradeOverrides[sem].splice(ti, 1);
           student.gradeOverrides[sem].push(false);
         }
+        if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
+          student.correctionTime[sem].splice(ti, 1);
+          student.correctionTime[sem].push(null);
+        }
       });
 
       classObj.testCounts[sem] = Math.max(0, classObj.testCounts[sem] - 1);
@@ -8101,6 +8117,9 @@
         student.criteriaResults[sem][ti] = {};
         if (student.gradeOverrides && Array.isArray(student.gradeOverrides[sem])) {
           student.gradeOverrides[sem][ti] = false;
+        }
+        if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
+          student.correctionTime[sem][ti] = null;
         }
       });
 
