@@ -4169,13 +4169,15 @@
         const letts = oldSection.querySelector('.letter-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.letter-picker-wrap')) : ['all'];
         const lens = oldSection.querySelector('.length-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.length-picker-wrap')) : ['all'];
 
-        // Autosave when leaving a board content section
+        // Autosave when leaving a board content section (only if changes were made)
         const _boardSaveSections = { 'constellation-section': 'constellation' };
         if (_boardSaveSections[activeSection] && activeSection !== sectionId && typeof boardAutosaveSection === 'function') {
-          boardAutosaveSection(_boardSaveSections[activeSection], { force: true });
-          // Save a real PNG snapshot of the current constellation page when navigating away
-          if (activeSection === 'constellation-section' && typeof conSaveCurrentPageSnapshotPng === 'function') {
-            conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+          if (_boardIsDirty) {
+            boardAutosaveSection(_boardSaveSections[activeSection], { force: false });
+            // Save a real PNG snapshot of the current constellation page when navigating away
+            if (activeSection === 'constellation-section' && typeof conSaveCurrentPageSnapshotPng === 'function') {
+              conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+            }
           }
         }
 
@@ -4417,7 +4419,9 @@
         }
       }
       if (prevGroup !== nextGroup && !preserveBoardState && typeof boardAutosaveAllNow === 'function') {
-        boardAutosaveAllNow({ classGroup: prevGroup, force: true });
+        if (_boardIsDirty) {
+          boardAutosaveAllNow({ classGroup: prevGroup, force: false });
+        }
       }
       activeClassGroup = nextGroup;
       conUpdateClassDropdownButton();
@@ -6297,23 +6301,25 @@
     const FS_MAX = 26;
     let currentFontSize = (() => { try { return parseInt(localStorage.getItem('app_font_size')) || FS_DEFAULT; } catch (e) { return FS_DEFAULT; } })();
     let _fontSizeSaveTimer = null;
-    function applyFontSize(size) {
+    function applyFontSize(size, persist = false) {
       currentFontSize = Math.min(FS_MAX, Math.max(FS_MIN, size));
       document.documentElement.style.fontSize = currentFontSize + 'px';
-      try { localStorage.setItem('app_font_size', currentFontSize); } catch (e) { }
-      if (window.Desktop && Desktop.isElectron()) {
-        clearTimeout(_fontSizeSaveTimer);
-        _fontSizeSaveTimer = setTimeout(() => {
-          Desktop.saveJson('user', 'ui-prefs.json', { fontSize: currentFontSize }).catch(() => { });
-        }, 400);
+      if (persist) {
+        try { localStorage.setItem('app_font_size', currentFontSize); } catch (e) { }
+        if (window.Desktop && Desktop.isElectron()) {
+          clearTimeout(_fontSizeSaveTimer);
+          _fontSizeSaveTimer = setTimeout(() => {
+            Desktop.saveJson('user', 'ui-prefs.json', { fontSize: currentFontSize }).catch(() => { });
+          }, 400);
+        }
       }
     }
     function adjustFontSize(delta) {
-      if (delta === 0) applyFontSize(FS_DEFAULT);
-      else applyFontSize(currentFontSize + delta);
+      if (delta === 0) applyFontSize(FS_DEFAULT, true);
+      else applyFontSize(currentFontSize + delta, true);
     }
-    // Apply on load
-    applyFontSize(currentFontSize);
+    // Apply on load (do not write to disk)
+    applyFontSize(currentFontSize, false);
 
     function setLang(lang) {
       if (lang === null || lang === 'auto') {
@@ -22697,7 +22703,10 @@
             try {
               if (localStorage.getItem('app_font_size')) return;
               const r = await Desktop.readJson('user', 'ui-prefs.json');
-              if (r && r.ok && r.data && r.data.fontSize) applyFontSize(r.data.fontSize);
+              if (r && r.ok && r.data && r.data.fontSize) {
+                applyFontSize(r.data.fontSize, false);
+                try { localStorage.setItem('app_font_size', r.data.fontSize); } catch (e) { }
+              }
             } catch (e) { }
           })(),
         ]);
@@ -28231,7 +28240,10 @@
         _conCurrentFolderName = null;
         boardSetSessionFileMeta('constellation', entry.createdAt, entry.savedAt);
         _conRestoreSession(entry.data);
-        boardSetAutosaveFingerprint('constellation', entry.data);
+        setTimeout(() => {
+          boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+          _boardIsDirty = false;
+        }, 200);
         bpSetFromEntryId(entry.plannerEntryId || '');
         navTo('constellation-section');
       } else {
@@ -28334,6 +28346,7 @@
     }
 
     let _boardIsDirty = false;
+    let _conIsRestoringSession = false;
     window.conMarkBoardDirty = function () {
       _boardIsDirty = true;
     };
@@ -28436,6 +28449,7 @@
       const _conBoard = document.getElementById('constellation-board');
       if (_conBoard) {
         new MutationObserver((mutations) => {
+          if (_conIsRestoringSession) return;
           const structural = mutations.some(m => m.addedNodes.length || m.removedNodes.length);
           if (!structural) return;
           _boardIsDirty = true;
@@ -28444,6 +28458,14 @@
           _boardScheduleSave('constellation');
         }).observe(_conBoard, { childList: true, subtree: true });
       }
+
+      function _boardSaveOnWindowClose() {
+        if (_boardIsDirty && typeof boardAutosaveSection === 'function') {
+          boardAutosaveSection('constellation', { force: false });
+        }
+      }
+      window.addEventListener('beforeunload', _boardSaveOnWindowClose);
+      window.addEventListener('pagehide', _boardSaveOnWindowClose);
     }
 
     // Shared helper: returns one {trans,ipa,def} object per DB entry for a word.
@@ -28983,7 +29005,9 @@
         if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
           const liveRes = await _conBuildBoardCanvas();
           if (liveRes && liveRes.canvas) {
-            const dataUrl = liveRes.canvas.toDataURL('image/png');
+            const dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
+              ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
+              : liveRes.canvas.toDataURL('image/png');
             if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
             _conPageSnapshotPngs[conCurrentPageIndex] = dataUrl;
           }
@@ -30148,14 +30172,42 @@
 
     // ── End canvas / export helpers ───────────────────────────────────
 
+    function _conDownsampleCanvas(srcCanvas, maxDim = 600) {
+      if (!srcCanvas || !srcCanvas.width || !srcCanvas.height) return srcCanvas;
+      const sw = srcCanvas.width;
+      const sh = srcCanvas.height;
+      if (sw <= maxDim && sh <= maxDim) return srcCanvas;
+
+      const scale = Math.min(maxDim / sw, maxDim / sh);
+      const dw = Math.max(1, Math.round(sw * scale));
+      const dh = Math.max(1, Math.round(sh * scale));
+
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = dw;
+      thumbCanvas.height = dh;
+      const ctx = thumbCanvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(srcCanvas, 0, 0, dw, dh);
+      }
+      return thumbCanvas;
+    }
+
+    function _conBuildThumbnailDataUrl(srcCanvas, maxDim = 600) {
+      if (!srcCanvas) return '';
+      const thumbCanvas = _conDownsampleCanvas(srcCanvas, maxDim);
+      return thumbCanvas.toDataURL('image/png');
+    }
+
     // Save a PNG snapshot of the current board state for a given page index.
     // Writes to mindmaps/<folderName>/page-snapshots/page-NNN.png (fire-and-forget).
-    async function conSaveCurrentPageSnapshotPng(pageIndex) {
+    async function conSaveCurrentPageSnapshotPng(pageIndex, options = {}) {
       const idx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
       if (typeof idx !== 'number' || idx < 0) return;
       const result = await _conBuildBoardCanvas();
       if (!result) return;
-      const dataUrl = result.canvas.toDataURL('image/png');
+      const dataUrl = _conBuildThumbnailDataUrl(result.canvas, 600);
       if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
       _conPageSnapshotPngs[idx] = dataUrl;
 
@@ -30177,6 +30229,7 @@
         }
       }
 
+      if (!options.force && !_boardIsDirty) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
       if (!_conCurrentFolderName) return;
 
@@ -30241,6 +30294,7 @@
         // Observe PDF canvas renders to refresh snapshot when PDF pages finish loading
         try {
           const obs = new MutationObserver(mutations => {
+            if (_conIsRestoringSession) return;
             for (let i = 0; i < mutations.length; i += 1) {
               const m = mutations[i];
               if (m.target && (m.target.tagName === 'CANVAS' || (m.target.classList && m.target.classList.contains('con-media-pdf-canvas')))) {
@@ -30603,7 +30657,10 @@
             }
             _conRestoreSession(data);
             boardSetSessionFileMetaFromData('constellation', data);
-            boardSetAutosaveFingerprint('constellation', data);
+            setTimeout(() => {
+              boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+              _boardIsDirty = false;
+            }, 200);
             modal.style.display = 'none';
             mdbToast('✅ Version restored — save to keep the changes.');
           } catch (e) { mdbToast('⚠️ Could not restore: ' + (e && e.message ? e.message : String(e))); }
@@ -30670,7 +30727,10 @@
             source: 'file-load',
             name: _conAutoTitle
           });
-          boardSetAutosaveFingerprint('constellation', data);
+          setTimeout(() => {
+            boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+            _boardIsDirty = false;
+          }, 200);
           return;
         } catch (err) {
           mdbToast('⚠️ Could not parse .cstz archive: ' + (err && err.message ? err.message : String(err)));
@@ -30700,7 +30760,10 @@
           source: 'file-load',
           name: boardStripJsonExt(file.name)
         });
-        boardSetAutosaveFingerprint('constellation', data);
+        setTimeout(() => {
+          boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+          _boardIsDirty = false;
+        }, 200);
       };
       reader.readAsText(file);
     }
@@ -30888,121 +30951,123 @@
     }
 
     function _conRestoreSession(data) {
-      const isPageRestore = !!data._isPageRestore;
-      const isMirrorSync = !!data._isMirrorSync;
-      if (!isPageRestore) { _conUndoStack = []; _conRedoStack = []; }
-      if (!isPageRestore) {
-        const mediaMap = (data && (data._mediaMap || data.mediaMap || data.media)) || null;
-        conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
-        _conPageSnapshotPngs = [];
-        const thumbMap = (data && (data._thumbnails || data.thumbnails)) || null;
-        if (thumbMap && typeof thumbMap === 'object') {
-          const totalP = Array.isArray(data.pages) && data.pages.length > 0 ? data.pages.length : 1;
-          for (let i = 0; i < totalP; i++) {
-            const padded = String(i + 1).padStart(3, '0');
-            const key1 = 'page-snapshots/page-' + padded + '.png';
-            const key2 = 'page-' + padded + '.png';
-            const val = thumbMap[key1] || thumbMap[key2] || (i === 0 ? (thumbMap['thumbnail.png'] || thumbMap['thumbnails/page-001.png']) : null);
-            _conPageSnapshotPngs[i] = val || null;
-          }
-        }
-      }
-
-      // ---- Multi-page format detection ----
-      if (!isPageRestore) {
-        if (data.pages && Array.isArray(data.pages) && data.pages.length > 0) {
-          const restoreIdx = Math.max(0, Math.min(Number(data.currentPage) || 0, data.pages.length - 1));
-          conPageSnapshots = data.pages.map(p => p ? {
-            nodes: p.nodes || [],
-            edges: p.edges || [],
-            groups: p.groups || [],
-            masks: p.masks || [],
-            notes: p.notes || [],
-            drawings: p.drawings || [],
-            shapes: p.shapes || [],
-            tables: p.tables || [],
-            media: p.media || [],
-            backgroundPdf: p.backgroundPdf || null,
-            boardBg: p.boardBg || null,
-            boardBgColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
-            boardBackgroundColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
-            boardStickers: p.boardStickers || []
-          } : {});
-          conCurrentPageIndex = restoreIdx;
-          const pageData = conPageSnapshots[restoreIdx];
-          // Flatten the current page into a single-page data object for the restore below
-          data = {
-            _type: data._type || 'constellation',
-            dateCreated: data.dateCreated,
-            title: data.title || '',
-            nodes: pageData.nodes,
-            edges: pageData.edges,
-            groups: pageData.groups,
-            masks: pageData.masks,
-            notes: pageData.notes,
-            drawings: pageData.drawings,
-            shapes: pageData.shapes,
-            tables: pageData.tables || [],
-            media: pageData.media || [],
-            backgroundPdf: pageData.backgroundPdf || null,
-            boardBg: pageData.boardBg || null,
-            boardBgColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
-            boardBackgroundColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
-            boardStickers: pageData.boardStickers || []
-          };
-        } else {
-          // Single-page format — reset to one page
-          conPageSnapshots = [conBuildEmptyPageSnapshot()];
-          conCurrentPageIndex = 0;
-        }
-
-        // Build PNG previews on startup/restore for all pages that don't have one
-        if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
-        for (let i = 0; i < conPageSnapshots.length; i++) {
-          if (!_conPageSnapshotPngs[i] && conPageSnapshots[i]) {
-            if (typeof conBuildPageThumbnailDataUrl === 'function') {
-              const url = conBuildPageThumbnailDataUrl(conPageSnapshots[i]);
-              if (url) _conPageSnapshotPngs[i] = url;
+      _conIsRestoringSession = true;
+      try {
+        const isPageRestore = !!data._isPageRestore;
+        const isMirrorSync = !!data._isMirrorSync;
+        if (!isPageRestore) { _conUndoStack = []; _conRedoStack = []; }
+        if (!isPageRestore) {
+          const mediaMap = (data && (data._mediaMap || data.mediaMap || data.media)) || null;
+          conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
+          _conPageSnapshotPngs = [];
+          const thumbMap = (data && (data._thumbnails || data.thumbnails)) || null;
+          if (thumbMap && typeof thumbMap === 'object') {
+            const totalP = Array.isArray(data.pages) && data.pages.length > 0 ? data.pages.length : 1;
+            for (let i = 0; i < totalP; i++) {
+              const padded = String(i + 1).padStart(3, '0');
+              const key1 = 'page-snapshots/page-' + padded + '.png';
+              const key2 = 'page-' + padded + '.png';
+              const val = thumbMap[key1] || thumbMap[key2] || (i === 0 ? (thumbMap['thumbnail.png'] || thumbMap['thumbnails/page-001.png']) : null);
+              _conPageSnapshotPngs[i] = val || null;
             }
           }
         }
-      }
 
-      const resolvedCreatedAt = Number(data._createdAt || data.createdAt)
-        || (data.dateCreated ? Date.parse(String(data.dateCreated).replace(/_\d+$/, '')) : 0)
-        || 0;
-      data.dateCreated = boardNormalizeDateCreated('constellation', data.dateCreated || (resolvedCreatedAt ? resolvedCreatedAt : ''));
-      if (resolvedCreatedAt) {
-        data._createdAt = resolvedCreatedAt;
-        boardSetSessionFileMeta('constellation', resolvedCreatedAt, Number(data._savedAt || data.savedAt) || 0);
-      }
+        // ---- Multi-page format detection ----
+        if (!isPageRestore) {
+          if (data.pages && Array.isArray(data.pages) && data.pages.length > 0) {
+            const restoreIdx = Math.max(0, Math.min(Number(data.currentPage) || 0, data.pages.length - 1));
+            conPageSnapshots = data.pages.map(p => p ? {
+              nodes: p.nodes || [],
+              edges: p.edges || [],
+              groups: p.groups || [],
+              masks: p.masks || [],
+              notes: p.notes || [],
+              drawings: p.drawings || [],
+              shapes: p.shapes || [],
+              tables: p.tables || [],
+              media: p.media || [],
+              backgroundPdf: p.backgroundPdf || null,
+              boardBg: p.boardBg || null,
+              boardBgColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
+              boardBackgroundColor: p.boardBgColor || p.boardBackgroundColor || p.backgroundColor || null,
+              boardStickers: p.boardStickers || []
+            } : {});
+            conCurrentPageIndex = restoreIdx;
+            const pageData = conPageSnapshots[restoreIdx];
+            // Flatten the current page into a single-page data object for the restore below
+            data = {
+              _type: data._type || 'constellation',
+              dateCreated: data.dateCreated,
+              title: data.title || '',
+              nodes: pageData.nodes,
+              edges: pageData.edges,
+              groups: pageData.groups,
+              masks: pageData.masks,
+              notes: pageData.notes,
+              drawings: pageData.drawings,
+              shapes: pageData.shapes,
+              tables: pageData.tables || [],
+              media: pageData.media || [],
+              backgroundPdf: pageData.backgroundPdf || null,
+              boardBg: pageData.boardBg || null,
+              boardBgColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
+              boardBackgroundColor: pageData.boardBgColor || pageData.boardBackgroundColor || pageData.backgroundColor || null,
+              boardStickers: pageData.boardStickers || []
+            };
+          } else {
+            // Single-page format — reset to one page
+            conPageSnapshots = [conBuildEmptyPageSnapshot()];
+            conCurrentPageIndex = 0;
+          }
 
-      if (isMirrorSync) {
-        // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
-        const brd = conGetBoard();
-        const existingNodes = conGetNodes();
-        const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
-        const keepNodeIds = new Set();
-        const nextNodes = [];
+          // Build PNG previews on startup/restore for all pages that don't have one
+          if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
+          for (let i = 0; i < conPageSnapshots.length; i++) {
+            if (!_conPageSnapshotPngs[i] && conPageSnapshots[i]) {
+              if (typeof conBuildPageThumbnailDataUrl === 'function') {
+                const url = conBuildPageThumbnailDataUrl(conPageSnapshots[i]);
+                if (url) _conPageSnapshotPngs[i] = url;
+              }
+            }
+          }
+        }
 
-        (data.nodes || []).forEach(n => {
-          keepNodeIds.add(n.id);
-          const existing = existingNodeMap.get(n.id);
-          if (existing && existing.el) {
-            existing.x = n.x;
-            existing.y = n.y;
-            existing.baseX = n.x;
-            existing.baseY = n.y;
-            existing.el.style.left = n.x + 'px';
-            existing.el.style.top = n.y + 'px';
-            if (n.bg) existing.el.style.background = n.bg;
-            if (n.color) existing.el.style.color = n.color;
-            if (n.border) existing.el.style.borderColor = n.border;
-            if (n.fontFamily) existing.el.style.fontFamily = n.fontFamily;
-            conApplyTextStrokeStyle(existing.el, n.textStrokeWidth, n.textStrokeColor);
+        const resolvedCreatedAt = Number(data._createdAt || data.createdAt)
+          || (data.dateCreated ? Date.parse(String(data.dateCreated).replace(/_\d+$/, '')) : 0)
+          || 0;
+        data.dateCreated = boardNormalizeDateCreated('constellation', data.dateCreated || (resolvedCreatedAt ? resolvedCreatedAt : ''));
+        if (resolvedCreatedAt) {
+          data._createdAt = resolvedCreatedAt;
+          boardSetSessionFileMeta('constellation', resolvedCreatedAt, Number(data._savedAt || data.savedAt) || 0);
+        }
 
-            existing.dbWord = n.dbWord || null;
-            existing.baseWord = n.baseWord || '';
+        if (isMirrorSync) {
+          // ── Non-destructive in-place reconciliation for Mirror Presentation Mode ──
+          const brd = conGetBoard();
+          const existingNodes = conGetNodes();
+          const existingNodeMap = new Map(existingNodes.map(n => [n.id, n]));
+          const keepNodeIds = new Set();
+          const nextNodes = [];
+
+          (data.nodes || []).forEach(n => {
+            keepNodeIds.add(n.id);
+            const existing = existingNodeMap.get(n.id);
+            if (existing && existing.el) {
+              existing.x = n.x;
+              existing.y = n.y;
+              existing.baseX = n.x;
+              existing.baseY = n.y;
+              existing.el.style.left = n.x + 'px';
+              existing.el.style.top = n.y + 'px';
+              if (n.bg) existing.el.style.background = n.bg;
+              if (n.color) existing.el.style.color = n.color;
+              if (n.border) existing.el.style.borderColor = n.border;
+              if (n.fontFamily) existing.el.style.fontFamily = n.fontFamily;
+              conApplyTextStrokeStyle(existing.el, n.textStrokeWidth, n.textStrokeColor);
+
+              existing.dbWord = n.dbWord || null;
+              existing.baseWord = n.baseWord || '';
             existing.sourceWord = n.sourceWord || null;
             existing.relation = n.relation || null;
             existing.fmt = n.fmt || {};
@@ -31465,7 +31530,12 @@
       if (!isMirrorSync && typeof conQueueCurrentPageSnapshotPng === 'function') {
         conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
       }
+    } finally {
+      setTimeout(() => {
+        _conIsRestoringSession = false;
+      }, 150);
     }
+  }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
     function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle) {
@@ -32935,7 +33005,10 @@
             source: 'file-load',
             name: boardStripJsonExt(entry.filename)
           });
-          boardSetAutosaveFingerprint('constellation', data);
+          setTimeout(() => {
+            boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+            _boardIsDirty = false;
+          }, 200);
           navTo('constellation-section');
           return;
         }

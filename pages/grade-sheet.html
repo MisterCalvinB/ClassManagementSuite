@@ -184,7 +184,7 @@
           <button id="btn-add-student" class="btn" data-i18n="gsBtnAddStudent"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Student</button>
           <button id="btn-add-test" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
           <button id="btn-import-test" class="btn" data-i18n="gsBtnImportTest"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Test</button>
-          <div class="dropdown" id="summary-export-dropdown">
+          <div class="dropdown dropdown-hover" id="summary-export-dropdown">
             <button id="btn-summary-export-trigger" class="btn" data-i18n="gsBtnExportDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
             <div class="dropdown-menu hidden" id="summary-export-menu">
               <button class="dropdown-item" id="btn-print-semester" data-i18n="gsOptionExportPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export to PDF</button>
@@ -225,8 +225,15 @@
           <button id="btn-back-summary" class="btn" data-i18n="gsBtnBackSummary"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Summary</button>
           <button id="btn-test-options" class="btn primary" data-i18n="gsBtnTestOptions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Options</button>
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Criteria Reference</button>
-          <button id="btn-apply-criteria-grades" class="btn" data-i18n="gsBtnApplyCriteria"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Apply Criteria to Grades</button>
-          <div class="dropdown" id="test-export-dropdown">
+          <div class="dropdown dropdown-hover" id="criteria-export-dropdown">
+            <button id="btn-export-criteria-trigger" class="btn" data-i18n="gsBtnExportCriteriaRef"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Criteria ▾</button>
+            <div class="dropdown-menu hidden" id="criteria-export-menu">
+              <button class="dropdown-item" id="btn-export-criteria-pdf" data-i18n="gsOptionExportPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export to PDF</button>
+              <button class="dropdown-item" id="btn-export-criteria-md" data-i18n="gsOptionExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export to MD</button>
+              <button class="dropdown-item" id="btn-export-criteria-html" data-i18n="gsOptionExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export to HTML</button>
+            </div>
+          </div>
+          <div class="dropdown dropdown-hover" id="test-export-dropdown">
             <button id="btn-test-export-trigger" class="btn" data-i18n="gsBtnExportDropdown"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
             <div class="dropdown-menu hidden" id="test-export-menu">
               <button class="dropdown-item" id="btn-print-results" data-i18n="gsOptionExportPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export to PDF</button>
@@ -510,7 +517,8 @@
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;background:#f8fbf3;border:1px solid var(--line);border-radius:8px;margin-bottom:12px;">
         <select id="criteria-mgmt-preset" class="input" style="min-width:160px;font-size:0.85rem;"></select>
         <input id="criteria-mgmt-name" class="input" type="text" data-i18n-placeholder="gsCriteriaLabelName" placeholder="Criterion name" style="flex:1;min-width:110px;font-size:0.85rem;" />
-        <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelMax">max</span> <input id="criteria-mgmt-max" class="input" type="number" min="0" step="0.1" value="1" style="width:64px;" /></label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelMin">min</span> <input id="criteria-mgmt-min" class="input" type="number" step="0.1" value="0" style="width:55px;" /></label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelMax">max</span> <input id="criteria-mgmt-max" class="input" type="number" step="0.1" value="1" style="width:55px;" /></label>
         <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaLabelCoeff">coeff</span> <input id="criteria-mgmt-coeff" class="input" type="number" min="0" step="0.1" value="1" style="width:55px;" /></label>
         <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><input id="criteria-mgmt-bonus" type="checkbox" style="width:16px;height:16px;" /> <span data-i18n="gsCriteriaLabelBonus">Bonus</span></label>
         <label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;"><span data-i18n="gsCriteriaMultiplier">×</span> <input id="criteria-mgmt-count" class="input" type="number" min="1" step="1" value="1" style="width:48px;" title="Number of criteria to add" data-i18n-title="gsCriteriaCountTitle" /></label>
@@ -710,10 +718,14 @@
                 <label for="topt-criteria-name" data-i18n="gsCriteriaLabelName">Criterion Name</label>
                 <input id="topt-criteria-name" class="input" type="text" data-i18n-placeholder="gsCriteriaLabelName" placeholder="Criterion name" />
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div class="form-group" style="margin:0;">
+                  <label for="topt-criteria-min" data-i18n="gsCriteriaLabelMin">Min Points</label>
+                  <input id="topt-criteria-min" class="input" type="number" step="0.1" value="0" />
+                </div>
                 <div class="form-group" style="margin:0;">
                   <label for="topt-criteria-max" data-i18n="gsCriteriaLabelMax">Max Points</label>
-                  <input id="topt-criteria-max" class="input" type="number" min="0" step="0.1" value="1" />
+                  <input id="topt-criteria-max" class="input" type="number" step="0.1" value="1" />
                 </div>
                 <div class="form-group" style="margin:0;">
                   <label for="topt-criteria-coeff" data-i18n="gsCriteriaLabelCoeff">Coefficient</label>
@@ -809,8 +821,12 @@
         <input id="crit-popup-name" class="input" type="text" />
       </div>
       <div class="form-group">
+        <label for="crit-popup-min" data-i18n="gsCritMin">Min Points</label>
+        <input id="crit-popup-min" class="input" type="number" step="0.1" />
+      </div>
+      <div class="form-group">
         <label for="crit-popup-max" data-i18n="gsCritMax">Max Points</label>
-        <input id="crit-popup-max" class="input" type="number" min="0" step="0.1" />
+        <input id="crit-popup-max" class="input" type="number" step="0.1" />
       </div>
       <div class="form-group">
         <label for="crit-popup-coeff" data-i18n="gsCritCoeff">Point Coefficient</label>
@@ -1475,9 +1491,11 @@
       grades.forEach(key => {
         comments[key] = typeof source.comments?.[key] === "string" ? source.comments[key] : "";
       });
+      const rawMin = toNumber(source.minPoints);
+      const minPoints = rawMin != null ? rawMin : null;
       const rawMax = toNumber(source.maxPoints);
       const maxPoints = rawMax != null && rawMax >= 0 ? rawMax : null;
-      return { name, grades, comments, maxPoints };
+      return { name, grades, comments, minPoints, maxPoints };
     }
 
     function normalizeReferenceScaleModel(entry, index, existingKeys = new Set()) {
@@ -1521,7 +1539,7 @@
     function makeBlankCriterion(index) {
       const comments = {};
       DEFAULT_CRITERION_GRADES.forEach(key => { comments[key] = ""; });
-      return { name: `Criterion ${index + 1}`, grades: DEFAULT_CRITERION_GRADES.slice(), comments, maxPoints: null };
+      return { name: `Criterion ${index + 1}`, grades: DEFAULT_CRITERION_GRADES.slice(), comments, minPoints: null, maxPoints: null };
     }
 
     function makeBlankScaleModel(index) {
@@ -1668,8 +1686,12 @@
                 <input class="input" type="text" data-kind="criterion" data-index="${index}" data-field="name" value="${escapeHtml(criterion.name)}" />
               </label>
               <label class="ref-field">
+                <span>${t('gsRefCritLabelMinPts')}</span>
+                <input class="input" type="number" step="0.1" data-kind="criterion" data-index="${index}" data-field="minPoints" value="${criterion.minPoints != null ? escapeHtml(fmtN(criterion.minPoints)) : ''}" placeholder="optional" />
+              </label>
+              <label class="ref-field">
                 <span>${t('gsRefCritLabelMaxPts')}</span>
-                <input class="input" type="number" min="0" step="0.1" data-kind="criterion" data-index="${index}" data-field="maxPoints" value="${criterion.maxPoints != null ? escapeHtml(fmtN(criterion.maxPoints)) : ''}" placeholder="optional" />
+                <input class="input" type="number" step="0.1" data-kind="criterion" data-index="${index}" data-field="maxPoints" value="${criterion.maxPoints != null ? escapeHtml(fmtN(criterion.maxPoints)) : ''}" placeholder="optional" />
               </label>
               <label class="ref-field" style="grid-column:span 2;">
                 <span>${t('gsRefGradesShown')}</span>
@@ -1727,6 +1749,11 @@
           if (fieldName === "name") {
             item.name = evt.target.value;
             updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "criterion", item, index);
+            return;
+          }
+          if (fieldName === "minPoints") {
+            const v = toNumber(evt.target.value);
+            item.minPoints = v != null ? v : null;
             return;
           }
           if (fieldName === "maxPoints") {
@@ -1941,12 +1968,13 @@
       refreshCriteriaPresetDropdown();
     }
 
-    function makeCriterion(name = "Criterion", maxPoints = 1, pointCoefficient = 1, isBonus = false) {
+    function makeCriterion(name = "Criterion", maxPoints = 1, pointCoefficient = 1, isBonus = false, minPoints = 0) {
       return {
         id: uid(),
         name,
-        maxPoints,
-        pointCoefficient,
+        minPoints: Number.isFinite(Number(minPoints)) ? Number(minPoints) : 0,
+        maxPoints: Number.isFinite(Number(maxPoints)) ? Number(maxPoints) : 1,
+        pointCoefficient: Number.isFinite(Number(pointCoefficient)) ? Number(pointCoefficient) : 1,
         showComment: true,
         isBonus: !!isBonus
       };
@@ -2044,8 +2072,10 @@
             ? cfg.criteria.map(cr => ({
                 id: cr.id || uid(),
                 name: cr.name || "Criterion",
+                minPoints: toNumber(cr.minPoints) ?? 0,
                 maxPoints: toNumber(cr.maxPoints) ?? 1,
                 pointCoefficient: toNumber(cr.pointCoefficient) ?? 1,
+                showComment: cr.showComment !== false,
                 isBonus: !!cr.isBonus
               }))
             : [];
@@ -2160,7 +2190,8 @@
       let totalBonusScored = 0;
 
       config.criteria.forEach(criterion => {
-        const maxPts = Math.max(0, toNumber(criterion.maxPoints) ?? 0);
+        const minPts = toNumber(criterion.minPoints) ?? 0;
+        const maxPts = Math.max(minPts, toNumber(criterion.maxPoints) ?? 0);
         const pointCoeff = Math.max(0, toNumber(criterion.pointCoefficient) ?? 1);
         const weightedMax = maxPts * pointCoeff;
 
@@ -2170,13 +2201,13 @@
         if (criterion.isBonus) {
           totalBonusPossible += weightedMax;
           if (points != null) {
-            const bounded = Math.max(0, Math.min(maxPts, points));
+            const bounded = Math.max(minPts, Math.min(maxPts, points));
             totalBonusScored += bounded * pointCoeff;
           }
         } else {
           totalPossible += weightedMax;
           if (points != null) {
-            const bounded = Math.max(0, Math.min(maxPts, points));
+            const bounded = Math.max(minPts, Math.min(maxPts, points));
             totalScored += bounded * pointCoeff;
           }
         }
@@ -2409,11 +2440,35 @@
       _positionMenu(menu, x, y);
     }
 
+    function isGroupEditorClass(classObj) {
+      if (!classObj) return false;
+      if (classObj.groupId) return true;
+      const cgData = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : null;
+      const cgMeta = cgData ? (cgData.classGroupsMeta || {}) : (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {});
+      const cgGroupsLegacy = cgData ? cgData.classGroups : (typeof CLASS_GROUPS === 'object' && CLASS_GROUPS ? CLASS_GROUPS : null);
+      if (cgMeta[classObj.id] || (cgGroupsLegacy && cgGroupsLegacy[classObj.id])) return true;
+      if (classObj.name && Object.values(cgMeta).some(m => m && m.name === classObj.name)) return true;
+      return false;
+    }
+
     function openClassCardMenu(x, y, classObj) {
       closeAllContextMenus();
       const menu = document.getElementById("class-card-menu");
       if (!menu) return;
       _classCardMenuCtx = { classObj };
+      const fromGroupEditor = isGroupEditorClass(classObj);
+      const renameBtn = document.getElementById("class-card-menu-rename");
+      if (renameBtn) {
+        renameBtn.style.display = fromGroupEditor ? "none" : "";
+      }
+      const deleteBtn = document.getElementById("class-card-menu-delete");
+      if (deleteBtn) {
+        deleteBtn.style.display = fromGroupEditor ? "none" : "";
+      }
+      const sep = menu.querySelector(".menu-sep");
+      if (sep) {
+        sep.style.display = fromGroupEditor ? "none" : "";
+      }
       _positionMenu(menu, x, y);
     }
 
@@ -3533,6 +3588,8 @@
           return a.name.localeCompare(b.name);
         })
         .forEach(c => {
+          const fromGroupEditor = isGroupEditorClass(c);
+          const editBtnHtml = fromGroupEditor ? '' : `<button type="button" class="btn-edit-class" data-id="${c.id}" data-i18n="gsMenuEditName">${t('gsMenuEditName')}</button>`;
           const card = document.createElement("button");
           card.type = "button";
           card.className = "class-card";
@@ -3540,7 +3597,7 @@
             <div class="class-name">${escapeHtml(c.name)}</div>
             <div class="class-meta">${c.students.length} students${c.year ? ` · ${escapeHtml(c.year)}` : ''}${c.semester ? ` · S${escapeHtml(String(c.semester))}` : ''}${c.level ? ` · Lvl ${escapeHtml(String(c.level))}` : ''}</div>
             <div class="class-card-footer">
-              <button type="button" class="btn-edit-class" data-id="${c.id}" data-i18n="gsMenuEditName">${t('gsMenuEditName')}</button>
+              ${editBtnHtml}
               <button type="button" class="btn-add-test-card" data-id="${c.id}" data-i18n="gsBtnAddTest">${t('gsBtnAddTest')}</button>
             </div>
           `;
@@ -3549,15 +3606,18 @@
             renderSummary();
             showScreen("summary");
           });
-          card.querySelector(".btn-edit-class").addEventListener("click", async evt => {
-            evt.stopPropagation();
-            const newName = await showPrompt(t('gsPromptRenameClass'), c.name);
-            if (newName && newName.trim() && newName.trim() !== c.name) {
-              c.name = newName.trim();
-              saveState();
-              renderClasses();
-            }
-          });
+          const editBtn = card.querySelector(".btn-edit-class");
+          if (editBtn) {
+            editBtn.addEventListener("click", async evt => {
+              evt.stopPropagation();
+              const newName = await showPrompt(t('gsPromptRenameClass'), c.name);
+              if (newName && newName.trim() && newName.trim() !== c.name) {
+                c.name = newName.trim();
+                saveState();
+                renderClasses();
+              }
+            });
+          }
           card.querySelector(".btn-add-test-card").addEventListener("click", evt => {
             evt.stopPropagation();
             addTestForClass(c);
@@ -3577,6 +3637,12 @@
     function renderSummary() {
       const classObj = getActiveClass();
       if (!classObj) return;
+
+      const fromGroupEditor = isGroupEditorClass(classObj);
+      const editClassBtn = document.getElementById("btn-edit-class");
+      const deleteClassBtn = document.getElementById("btn-delete-class");
+      if (editClassBtn) editClassBtn.style.display = fromGroupEditor ? "none" : "";
+      if (deleteClassBtn) deleteClassBtn.style.display = fromGroupEditor ? "none" : "";
 
       document.getElementById("summary-title").textContent = classObj.name + " - " + t('gsClassSummaryLabel');
       ensureClassStructures(classObj);
@@ -3973,7 +4039,8 @@
         label.className = "th-label";
         label.style.cursor = "pointer";
         label.title = t('gsClickEditCriterion');
-        label.innerHTML = `<strong>${criterion.name}</strong><span class="score-badge">${criterion.isBonus ? 'bonus · ' : ''}max ${criterion.maxPoints}, ${criterion.pointCoefficient}</span>`;
+        const minBadge = criterion.minPoints != null && criterion.minPoints !== 0 ? `min ${criterion.minPoints}, ` : '';
+        label.innerHTML = `<strong>${criterion.name}</strong><span class="score-badge">${criterion.isBonus ? 'bonus · ' : ''}${minBadge}max ${criterion.maxPoints}, ${criterion.pointCoefficient}</span>`;
         label.addEventListener("click", () => criterionPopupOpen(criterion, classObj, sem, testIndex));
         thPts.appendChild(label);
 
@@ -4199,33 +4266,6 @@
           tbody.appendChild(str);
         });
       }
-    }
-
-    async function applyCriteriaToGrades() {
-      const classObj = getActiveClass();
-      if (!classObj || !appState.activeTest) return;
-      const sem = appState.activeTest.semester;
-      const ti = appState.activeTest.testIndex;
-      const config = getTestConfig(classObj, sem, ti);
-      const possible = calcCriteriaTotals(config, {}).totalPossible;
-      if (possible <= 0) {
-        await showAlert(t('gsAlertNeedCriteria'));
-        return;
-      }
-
-      classObj.students.forEach(student => {
-        const map = student.criteriaResults[sem][ti] || {};
-        if (isGradeOverrideEnabled(student, sem, ti)) return;
-        const totals = calcCriteriaTotals(config, map);
-        const ratio = totals.totalPossible > 0 ? (totals.totalScored + (totals.totalBonusScored || 0)) / totals.totalPossible : 0;
-        const graded = gradeFromRatio(ratio, config);
-        if (sem === "sem1") student.sem1Tests[ti] = graded;
-        else student.sem2Tests[ti] = graded;
-      });
-
-      saveState();
-      renderTestSheet();
-      renderSummary();
     }
 
     // ── Config popups ─────────────────────────────────────────────
@@ -4464,7 +4504,8 @@
         config.criteria.forEach(criterion => {
           const row = document.createElement("div");
           row.className = "criteria-mgmt-row";
-          row.innerHTML = `<span class="crit-row-name">${escapeHtml(criterion.name)}</span><span class="crit-row-meta">max ${criterion.maxPoints}, c=${criterion.pointCoefficient}${criterion.isBonus ? ', bonus' : ''}</span>`;
+          const minMeta = criterion.minPoints != null && criterion.minPoints !== 0 ? `min ${criterion.minPoints}, ` : '';
+          row.innerHTML = `<span class="crit-row-name">${escapeHtml(criterion.name)}</span><span class="crit-row-meta">${minMeta}max ${criterion.maxPoints}, c=${criterion.pointCoefficient}${criterion.isBonus ? ', bonus' : ''}</span>`;
           row.addEventListener("click", () => {
             criterionPopupOpen(criterion, classObj, sem, testIndex);
           });
@@ -4482,6 +4523,8 @@
         if (presetSel.value) {
           const entry = XLSM_CRITERIA.find(c => c.name === presetSel.value);
           document.getElementById("criteria-mgmt-name").value = presetSel.value;
+          if (entry && entry.minPoints != null) document.getElementById("criteria-mgmt-min").value = String(entry.minPoints);
+          else document.getElementById("criteria-mgmt-min").value = "0";
           if (entry && entry.maxPoints != null) document.getElementById("criteria-mgmt-max").value = String(entry.maxPoints);
           presetSel.value = "";
         }
@@ -4489,25 +4532,28 @@
 
       document.getElementById("criteria-mgmt-add").onclick = () => {
         const nameEl = document.getElementById("criteria-mgmt-name");
+        const minEl = document.getElementById("criteria-mgmt-min");
         const maxEl = document.getElementById("criteria-mgmt-max");
         const coeffEl = document.getElementById("criteria-mgmt-coeff");
         const bonusEl = document.getElementById("criteria-mgmt-bonus");
         const countEl = document.getElementById("criteria-mgmt-count");
         const name = nameEl.value.trim();
         if (!name) { nameEl.focus(); return; }
-        const maxPoints = Math.max(0, toNumber(maxEl.value) ?? 1);
+        const minPoints = toNumber(minEl.value) ?? 0;
+        const maxPoints = Math.max(minPoints, toNumber(maxEl.value) ?? 1);
         const pointCoeff = Math.max(0, toNumber(coeffEl.value) ?? 1);
         const isBonus = !!(bonusEl && bonusEl.checked);
         const count = Math.max(1, Math.floor(toNumber(countEl.value) ?? 1));
         const startIndex = config.criteria.length + 1;
         if (count === 1) {
-          config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus));
+          config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints));
         } else {
           for (let i = 0; i < count; i++) {
-            config.criteria.push(makeCriterion(`${name} ${startIndex + i}`, maxPoints, pointCoeff, isBonus));
+            config.criteria.push(makeCriterion(`${name} ${startIndex + i}`, maxPoints, pointCoeff, isBonus, minPoints));
           }
         }
         nameEl.value = "";
+        minEl.value = "0";
         maxEl.value = "1";
         coeffEl.value = "1";
         countEl.value = "1";
@@ -4820,7 +4866,8 @@
 
             const header = document.createElement("div");
             header.className = "criteria-mgmt-row";
-            header.innerHTML = `<span class="crit-expand-chevron"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></span><span class="crit-row-name">${escapeHtml(crit.name)}</span><span class="crit-row-meta">max ${crit.maxPoints}, c=${crit.pointCoefficient}${crit.isBonus ? ', bonus' : ''}</span>`;
+            const minMeta = crit.minPoints != null && crit.minPoints !== 0 ? `min ${crit.minPoints}, ` : '';
+            header.innerHTML = `<span class="crit-expand-chevron"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></span><span class="crit-row-name">${escapeHtml(crit.name)}</span><span class="crit-row-meta">${minMeta}max ${crit.maxPoints}, c=${crit.pointCoefficient}${crit.isBonus ? ', bonus' : ''}</span>`;
             header.addEventListener("click", () => { _openCritId = isOpen ? null : crit.id; rebuildToptCriteriaList(); });
 
             const detail = document.createElement("div");
@@ -4835,11 +4882,17 @@
 
             const numRow = document.createElement("div");
             numRow.style.cssText = "display:flex;gap:8px;";
+            const minWrap = document.createElement("label");
+            minWrap.style.cssText = "display:flex;flex-direction:column;gap:3px;font-size:0.82rem;color:var(--muted);flex:1;";
+            minWrap.textContent = t('gsRefCritLabelMinPts');
+            const minInput = document.createElement("input");
+            minInput.type = "number"; minInput.step = "0.1"; minInput.className = "input"; minInput.value = String(crit.minPoints != null ? crit.minPoints : 0);
+            minWrap.appendChild(minInput);
             const maxWrap = document.createElement("label");
             maxWrap.style.cssText = "display:flex;flex-direction:column;gap:3px;font-size:0.82rem;color:var(--muted);flex:1;";
             maxWrap.textContent = t('gsRefCritLabelMaxPts');
             const maxInput = document.createElement("input");
-            maxInput.type = "number"; maxInput.min = "0"; maxInput.step = "0.1"; maxInput.className = "input"; maxInput.value = String(crit.maxPoints);
+            maxInput.type = "number"; maxInput.step = "0.1"; maxInput.className = "input"; maxInput.value = String(crit.maxPoints);
             maxWrap.appendChild(maxInput);
             const coeffWrap = document.createElement("label");
             coeffWrap.style.cssText = "display:flex;flex-direction:column;gap:3px;font-size:0.82rem;color:var(--muted);flex:1;";
@@ -4847,7 +4900,7 @@
             const coeffInput = document.createElement("input");
             coeffInput.type = "number"; coeffInput.min = "0"; coeffInput.step = "0.1"; coeffInput.className = "input"; coeffInput.value = String(crit.pointCoefficient);
             coeffWrap.appendChild(coeffInput);
-            numRow.append(maxWrap, coeffWrap);
+            numRow.append(minWrap, maxWrap, coeffWrap);
 
             const flagRow = document.createElement("div");
             flagRow.style.cssText = "display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:0.83rem;";
@@ -4879,7 +4932,8 @@
             saveBtn.addEventListener("click", () => {
               const name = nameInput.value.trim();
               if (name) crit.name = name;
-              crit.maxPoints = Math.max(0, parseFloat(maxInput.value) || 0);
+              crit.minPoints = parseFloat(minInput.value) || 0;
+              crit.maxPoints = Math.max(crit.minPoints, parseFloat(maxInput.value) || 0);
               crit.pointCoefficient = Math.max(0, parseFloat(coeffInput.value) || 0);
               crit.isBonus = bonusCheck.checked;
               crit.showComment = commentYes.checked;
@@ -4922,6 +4976,8 @@
         if (toptPresetSel.value) {
           const entry = XLSM_CRITERIA.find(c => c.name === toptPresetSel.value);
           document.getElementById("topt-criteria-name").value = toptPresetSel.value;
+          if (entry && entry.minPoints != null) document.getElementById("topt-criteria-min").value = String(entry.minPoints);
+          else document.getElementById("topt-criteria-min").value = "0";
           if (entry && entry.maxPoints != null) document.getElementById("topt-criteria-max").value = String(entry.maxPoints);
           toptPresetSel.value = "";
         }
@@ -4930,19 +4986,21 @@
 
       document.getElementById("topt-criteria-add").onclick = () => {
         const nameEl = document.getElementById("topt-criteria-name");
+        const minEl  = document.getElementById("topt-criteria-min");
         const maxEl  = document.getElementById("topt-criteria-max");
         const cEl    = document.getElementById("topt-criteria-coeff");
         const bonEl  = document.getElementById("topt-criteria-bonus");
         const cntEl  = document.getElementById("topt-criteria-count");
         const name = nameEl.value.trim(); if (!name) { nameEl.focus(); return; }
-        const maxPoints = Math.max(0, toNumber(maxEl.value) ?? 1);
+        const minPoints = toNumber(minEl.value) ?? 0;
+        const maxPoints = Math.max(minPoints, toNumber(maxEl.value) ?? 1);
         const pointCoeff = Math.max(0, toNumber(cEl.value) ?? 1);
         const isBonus = !!(bonEl && bonEl.checked);
         const count = Math.max(1, Math.floor(toNumber(cntEl.value) ?? 1));
         const start = config.criteria.length + 1;
-        if (count === 1) { config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus)); }
-        else { for (let i = 0; i < count; i++) config.criteria.push(makeCriterion(`${name} ${start + i}`, maxPoints, pointCoeff, isBonus)); }
-        nameEl.value = ""; maxEl.value = "1"; cEl.value = "1"; cntEl.value = "1";
+        if (count === 1) { config.criteria.push(makeCriterion(name, maxPoints, pointCoeff, isBonus, minPoints)); }
+        else { for (let i = 0; i < count; i++) config.criteria.push(makeCriterion(`${name} ${start + i}`, maxPoints, pointCoeff, isBonus, minPoints)); }
+        nameEl.value = ""; minEl.value = "0"; maxEl.value = "1"; cEl.value = "1"; cntEl.value = "1";
         saveState(); rebuildToptCriteriaList(); renderTestSheet(); renderSummary();
       };
 
@@ -6058,12 +6116,42 @@
       gradeInput.className = "smod-grade-input";
       gradeInput.min = "1"; gradeInput.max = "6"; gradeInput.step = "0.1";
       gradeInput.value = draftGrade == null ? "" : String(draftGrade);
-      gradeInput.addEventListener("input", () => { draftGrade = asGrade(gradeInput.value); });
+      gradeInput.addEventListener("input", () => {
+        draftGrade = asGrade(gradeInput.value);
+        if (sanctionCheck.checked && draftGrade != null) {
+          sanctionGradeInput.value = String(draftGrade);
+        }
+      });
 
       const overrideBtn = document.createElement("button");
       overrideBtn.type = "button";
       overrideBtn.className = "btn smod-override-btn";
       overrideBtn.textContent = t('gsStudentOverrideGrade');
+
+      const sanctionWrap = document.createElement("label");
+      sanctionWrap.className = "smod-sanction-wrap";
+
+      const sanctionCheck = document.createElement("input");
+      sanctionCheck.type = "checkbox";
+      sanctionCheck.className = "smod-sanction-check";
+      sanctionCheck.style.cssText = "width:16px;height:16px;cursor:pointer;";
+
+      const sanctionLabelText = document.createElement("span");
+      sanctionLabelText.textContent = t('gsStudentSanctionGrade');
+      sanctionWrap.appendChild(sanctionCheck);
+      sanctionWrap.appendChild(sanctionLabelText);
+
+      const sanctionGradeInput = document.createElement("input");
+      sanctionGradeInput.type = "number";
+      sanctionGradeInput.className = "input smod-sanction-input";
+      sanctionGradeInput.min = "1"; sanctionGradeInput.max = "6"; sanctionGradeInput.step = "0.1";
+      sanctionGradeInput.value = (draftOverrideEnabled && draftGrade != null) ? String(draftGrade) : "1";
+      sanctionGradeInput.title = t('gsStudentSanctionGrade');
+
+      const isInitialSanction = draftOverrideEnabled && (draftGrade === 1);
+      sanctionCheck.checked = !!isInitialSanction;
+      sanctionGradeInput.disabled = !sanctionCheck.checked;
+      sanctionGradeInput.style.opacity = sanctionCheck.checked ? "1" : "0.5";
 
       const computeDraftAutoGrade = () => {
         const draftMap = {};
@@ -6082,14 +6170,52 @@
         gradeInput.disabled = !draftOverrideEnabled;
         gradeInput.classList.toggle("locked", !draftOverrideEnabled);
         if (!draftOverrideEnabled) {
+          sanctionCheck.checked = false;
+          sanctionGradeInput.disabled = true;
+          sanctionGradeInput.style.opacity = "0.5";
           const autoGrade = computeDraftAutoGrade();
           draftGrade = autoGrade;
           gradeInput.value = autoGrade == null ? "" : String(autoGrade);
         }
       };
 
+      sanctionCheck.addEventListener("change", () => {
+        if (sanctionCheck.checked) {
+          draftOverrideEnabled = true;
+          if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = true;
+          sanctionGradeInput.disabled = false;
+          sanctionGradeInput.style.opacity = "1";
+          const sVal = asGrade(sanctionGradeInput.value) ?? 1;
+          draftGrade = sVal;
+          gradeInput.value = String(sVal);
+          syncGradeEditability();
+        } else {
+          sanctionGradeInput.disabled = true;
+          sanctionGradeInput.style.opacity = "0.5";
+          draftOverrideEnabled = false;
+          if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = false;
+          syncGradeEditability();
+        }
+      });
+
+      sanctionGradeInput.addEventListener("input", () => {
+        if (sanctionCheck.checked) {
+          const sVal = asGrade(sanctionGradeInput.value) ?? 1;
+          draftGrade = sVal;
+          gradeInput.value = String(sVal);
+          draftOverrideEnabled = true;
+          if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = true;
+          syncGradeEditability();
+        }
+      });
+
       overrideBtn.addEventListener("click", () => {
         draftOverrideEnabled = !draftOverrideEnabled;
+        if (!draftOverrideEnabled) {
+          sanctionCheck.checked = false;
+          sanctionGradeInput.disabled = true;
+          sanctionGradeInput.style.opacity = "0.5";
+        }
         if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = draftOverrideEnabled;
         syncGradeEditability();
       });
@@ -6097,6 +6223,8 @@
       gradeRow.appendChild(gradeLabel);
       gradeRow.appendChild(gradeInput);
       gradeRow.appendChild(overrideBtn);
+      gradeRow.appendChild(sanctionWrap);
+      gradeRow.appendChild(sanctionGradeInput);
       gradeSection.appendChild(gradeTitle);
       gradeSection.appendChild(gradeRow);
       body.appendChild(gradeSection);
@@ -6138,36 +6266,39 @@
           const ptsCellWrap = document.createElement("div");
           ptsCellWrap.className = "smod-pts-cell";
 
+          const minPts = Number(criterion.minPoints != null ? criterion.minPoints : 0);
+          const maxPts = Number(criterion.maxPoints) || 0;
+
           const ptsInput = document.createElement("input");
           ptsInput.type = "number";
-          ptsInput.step = "0.5"; ptsInput.min = "0";
-          ptsInput.max = String(criterion.maxPoints);
-          ptsInput.placeholder = tFmt('gsPtsPlaceholder', { max: fmt(criterion.maxPoints) });
+          ptsInput.step = "0.5"; ptsInput.min = String(minPts);
+          ptsInput.max = String(maxPts);
+          ptsInput.placeholder = tFmt('gsPtsPlaceholder', { min: fmt(minPts), max: fmt(maxPts) });
           ptsInput.value = dr.points == null ? "" : String(dr.points);
 
           const ptsSlider = document.createElement("input");
           ptsSlider.type = "range";
-          ptsSlider.step = "0.5"; ptsSlider.min = "0";
-          ptsSlider.max = String(criterion.maxPoints);
-          ptsSlider.value = dr.points == null ? "0" : String(dr.points);
+          ptsSlider.step = "0.5"; ptsSlider.min = String(minPts);
+          ptsSlider.max = String(maxPts);
+          ptsSlider.value = dr.points == null ? String(minPts) : String(dr.points);
 
-          const maxPts = Number(criterion.maxPoints) || 0;
           const datalistId = `smod-pts-datalist-${criterion.id}-${Math.random().toString(36).substring(2, 7)}`;
           const datalist = document.createElement("datalist");
           datalist.id = datalistId;
 
+          const range = Math.max(0, maxPts - minPts);
           let tickStep = 1;
-          if (maxPts > 30) tickStep = 5;
-          else if (maxPts > 15) tickStep = 2;
-          else if (maxPts > 8) tickStep = 1;
+          if (range > 30) tickStep = 5;
+          else if (range > 15) tickStep = 2;
+          else if (range > 8) tickStep = 1;
           else tickStep = 0.5;
 
-          for (let v = 0; v <= maxPts; v += tickStep) {
+          for (let v = minPts; v <= maxPts; v += tickStep) {
             const opt = document.createElement("option");
             opt.value = String(v);
             datalist.appendChild(opt);
           }
-          if (maxPts > 0 && maxPts % tickStep !== 0) {
+          if (maxPts > minPts && (maxPts - minPts) % tickStep !== 0) {
             const opt = document.createElement("option");
             opt.value = String(maxPts);
             datalist.appendChild(opt);
@@ -6177,10 +6308,10 @@
 
           function applyPtsValue(val) {
             const raw = toNumber(String(val));
-            dr.points = raw == null ? null : Math.max(0, Math.min(criterion.maxPoints, raw));
+            dr.points = raw == null ? null : Math.max(minPts, Math.min(maxPts, raw));
             // Auto-fill comment as selectable sentence chips.
-            if (dr.points != null && criterion.maxPoints > 0) {
-              const ratio = dr.points / criterion.maxPoints;
+            if (dr.points != null && maxPts > minPts) {
+              const ratio = (dr.points - minPts) / (maxPts - minPts);
               const g = gradeFromRatio(ratio, config);
               const auto = xlsmCommentForGrade(criterion.name, g);
               if (auto != null && sentencePickerEls[criterion.id]) {
@@ -7218,19 +7349,24 @@
       const classObj = getActiveClass();
       if (!classObj) return;
       const overlay = document.getElementById("edit-class-overlay");
-      document.getElementById("edit-class-name").value = classObj.name || "";
+      const nameInput = document.getElementById("edit-class-name");
+      const fromGroupEditor = isGroupEditorClass(classObj);
+      nameInput.value = classObj.name || "";
+      nameInput.disabled = fromGroupEditor;
+      nameInput.title = fromGroupEditor ? "Class name is managed in Group Editor" : "";
       document.getElementById("edit-class-year").value = classObj.year || "";
       document.getElementById("edit-class-semester").value = classObj.semester || "";
       document.getElementById("edit-class-level").value = classObj.level || "";
       overlay.classList.remove("hidden");
-      document.getElementById("edit-class-name").focus();
+      (fromGroupEditor ? document.getElementById("edit-class-year") : nameInput).focus();
     }
 
     async function saveEditClass() {
       const classObj = getActiveClass();
       if (!classObj) return;
       const overlay = document.getElementById("edit-class-overlay");
-      const name = document.getElementById("edit-class-name").value.trim();
+      const fromGroupEditor = isGroupEditorClass(classObj);
+      const name = fromGroupEditor ? classObj.name : document.getElementById("edit-class-name").value.trim();
       const year = document.getElementById("edit-class-year").value.trim();
       const semester = document.getElementById("edit-class-semester").value;
       const level = document.getElementById("edit-class-level").value;
@@ -7260,6 +7396,11 @@
     async function deleteActiveClass() {
       const classObj = getActiveClass();
       if (!classObj) return;
+
+      if (isGroupEditorClass(classObj)) {
+        await showAlert(t('gsAlertCannotDeleteGroupEditorClass') || "Classes managed by Group Editor cannot be deleted from Grade Sheet. Please manage classes in Group Editor.");
+        return;
+      }
 
       const ok = await showConfirm(tFmt('gsConfirmDeleteClass', { name: classObj.name }));
       if (!ok) return;
@@ -7671,32 +7812,62 @@
       });
       document.getElementById("btn-delete-test").addEventListener("click", deleteActiveTest);
       document.getElementById("btn-reset-test").addEventListener("click", clearActiveTest);
-      document.getElementById("btn-apply-criteria-grades").addEventListener("click", applyCriteriaToGrades);
       document.getElementById("btn-criteria-ref").addEventListener("click", openCriteriaRef);
+      document.getElementById("btn-export-criteria-pdf").addEventListener("click", exportCriteriaRefPdf);
+      document.getElementById("btn-export-criteria-md").addEventListener("click", exportCriteriaRefMd);
+      document.getElementById("btn-export-criteria-html").addEventListener("click", exportCriteriaRefHtml);
       document.getElementById("btn-print-results").addEventListener("click", printTestResults);
       document.getElementById("btn-export-test-docx").addEventListener("click", exportActiveTestDocx);
       document.getElementById("btn-export-test-html").addEventListener("click", exportActiveTestHtml);
 
-      // Test & Summary export dropdown toggles
+      // Test & Summary export dropdown toggles with hover grace delay
       const setupExportDropdown = (triggerId, menuId, dropdownId) => {
         const trigger = document.getElementById(triggerId);
         const menu = document.getElementById(menuId);
-        if (!trigger || !menu) return;
+        const dropdown = document.getElementById(dropdownId);
+        if (!trigger || !menu || !dropdown) return;
+
+        let closeTimer = null;
+        const openMenu = () => {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+          menu.classList.remove("hidden");
+        };
+        const closeMenuWithDelay = () => {
+          if (closeTimer) clearTimeout(closeTimer);
+          closeTimer = setTimeout(() => {
+            menu.classList.add("hidden");
+          }, 300);
+        };
+        const closeMenuImmediate = () => {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+          menu.classList.add("hidden");
+        };
+
+        dropdown.addEventListener("mouseenter", openMenu);
+        dropdown.addEventListener("mouseleave", closeMenuWithDelay);
+
         trigger.addEventListener("click", (e) => {
           e.stopPropagation();
-          menu.classList.toggle("hidden");
+          if (menu.classList.contains("hidden")) {
+            openMenu();
+          } else {
+            closeMenuImmediate();
+          }
         });
+
         menu.querySelectorAll(".dropdown-item").forEach(item => {
           item.addEventListener("click", () => {
-            menu.classList.add("hidden");
+            closeMenuImmediate();
           });
         });
+
         document.addEventListener("click", (e) => {
           if (!e.target.closest(`#${dropdownId}`)) {
-            menu.classList.add("hidden");
+            closeMenuImmediate();
           }
         });
       };
+      setupExportDropdown("btn-export-criteria-trigger", "criteria-export-menu", "criteria-export-dropdown");
       setupExportDropdown("btn-test-export-trigger", "test-export-menu", "test-export-dropdown");
       setupExportDropdown("btn-summary-export-trigger", "summary-export-menu", "summary-export-dropdown");
 
@@ -7886,60 +8057,263 @@
       });
     }
 
-    // ── Criteria reference overlay ────────────────────────────────
+    // ── Criteria reference & export ───────────────────────────────
+    function buildCriteriaRefHtml(config, classObj, sem, testIndex) {
+      const usedCriteria = (config.criteria || []).map(c => {
+        const xlsm = XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === c.name.trim().toLowerCase());
+        return {
+          configName: c.name,
+          minPoints: c.minPoints,
+          maxPoints: c.maxPoints,
+          pointCoefficient: c.pointCoefficient,
+          isBonus: c.isBonus,
+          grades: normalizeCriterionGrades(xlsm && xlsm.grades),
+          xlsm
+        };
+      });
+
+      const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      const blocks = usedCriteria.length > 0 ? usedCriteria.map(({ configName, maxPoints, pointCoefficient, isBonus, grades, xlsm }) => {
+        const rows = grades.map(k => {
+          const text = (xlsm && xlsm.comments && xlsm.comments[k]) ? xlsm.comments[k] : "\u2014";
+          return `
+            <tr>
+              <th class="grade-col">${esc(k)}</th>
+              <td class="desc-col">${esc(text)}</td>
+            </tr>`;
+        }).join("");
+
+        const badges = [];
+        if (maxPoints != null) badges.push(`<span class="crit-badge">Max: ${fmtN(maxPoints)} pts</span>`);
+        if (pointCoefficient && pointCoefficient !== 1) badges.push(`<span class="crit-badge">Coeff: ${fmtN(pointCoefficient)}×</span>`);
+        if (isBonus) badges.push(`<span class="crit-badge bonus-badge">Bonus</span>`);
+
+        return `
+          <section class="crit-card">
+            <div class="crit-card-header">
+              <div class="crit-name">${esc(configName)}</div>
+              <div class="crit-badges">${badges.join(" ")}</div>
+            </div>
+            <table class="crit-table">
+              <tbody>${rows}</tbody>
+            </table>
+          </section>`;
+      }).join("") : `<div class="empty-notice">No criteria configured for this test.</div>`;
+
+      const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Criteria Reference — ${esc(testTitle)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    background: #faf8f5;
+    line-height: 1.5;
+  }
+  .no-print {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .btn-print {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    color: #111;
+    background: #fff;
+    border: 2px solid #111;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #111;
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-print:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #111;
+    background: #f0f0f0;
+  }
+  .btn-print:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 #111;
+  }
+  .header-card {
+    background: #ffffff;
+    border: 2.5px solid #111;
+    border-radius: 6px;
+    box-shadow: 4px 4px 0 #111;
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header-title-group h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #111;
+  }
+  .header-subtitle {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #444;
+  }
+  .header-badge {
+    background: #ffd93d;
+    border: 2px solid #111;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    box-shadow: 3px 3px 0 #111;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .crit-card {
+    background: #ffffff;
+    border: 2.5px solid #111;
+    border-radius: 6px;
+    box-shadow: 4px 4px 0 #111;
+    margin-bottom: 22px;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .crit-card-header {
+    background: #f0f0f0;
+    border-bottom: 2.5px solid #111;
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .crit-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #111;
+  }
+  .crit-badges {
+    display: flex;
+    gap: 8px;
+  }
+  .crit-badge {
+    background: #ffffff;
+    border: 2px solid #111;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    box-shadow: 2px 2px 0 #111;
+    color: #111;
+  }
+  .crit-badge.bonus-badge {
+    background: #6ee7b7;
+  }
+  .crit-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .crit-table th, .crit-table td {
+    border: 2px solid #111;
+    padding: 10px 14px;
+    vertical-align: top;
+    text-align: left;
+    color: #111;
+  }
+  .crit-table th.grade-col {
+    width: 110px;
+    background: #f8fafc;
+    font-weight: 800;
+    font-size: 1rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .crit-table td.desc-col {
+    white-space: pre-wrap;
+    line-height: 1.55;
+    font-size: 0.92rem;
+  }
+  .crit-table tr:nth-child(even) td.desc-col {
+    background: #fcfbf9;
+  }
+  .empty-notice {
+    background: #fff;
+    border: 2px solid #111;
+    border-radius: 6px;
+    box-shadow: 3px 3px 0 #111;
+    padding: 24px;
+    text-align: center;
+    font-weight: 700;
+    color: #666;
+  }
+  @media print {
+    body {
+      background: #ffffff;
+      padding: 0;
+      font-size: 11pt;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .header-card, .crit-card {
+      box-shadow: none !important;
+      border-width: 2px !important;
+    }
+    .crit-badge {
+      box-shadow: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button class="btn-print" onclick="window.print()">
+    <span>🖨️</span> Print / Save to PDF
+  </button>
+</div>
+<div class="header-card">
+  <div class="header-title-group">
+    <h1>Correction Criteria Reference</h1>
+    <div class="header-subtitle">${esc(testTitle)}</div>
+  </div>
+  <div class="header-badge">Criteria Guide</div>
+</div>
+${blocks}
+</body>
+</html>`;
+    }
+
     async function openCriteriaRef() {
       const classObj = getActiveClass();
       if (!classObj || !appState.activeTest) return;
       const { semester, testIndex } = appState.activeTest;
       const config = classObj.testConfigs[semester][testIndex];
-
-      const usedCriteria = config.criteria.map(c => {
-        const xlsm = XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === c.name.trim().toLowerCase());
-        return { configName: c.name, grades: normalizeCriterionGrades(xlsm && xlsm.grades), xlsm };
-      });
-
-      const blocks = usedCriteria.map(({ configName, grades, xlsm }) => {
-        const rows = grades.map(k => {
-          const text = (xlsm && xlsm.comments && xlsm.comments[k]) ? xlsm.comments[k] : "\u2014";
-          return `
-            <tr>
-              <th>${k}</th>
-              <td>${text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</td>
-            </tr>`;
-        }).join("");
-        return `
-          <section class="crit-block">
-            <div class="crit-name">${configName.replace(/&/g,"&amp;")}</div>
-            <table>
-              <tbody>${rows}</tbody>
-            </table>
-          </section>`;
-      }).join("");
-
-      const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>Criteria Reference — ${(config.name || "Test").replace(/&/g,"&amp;")}</title>
-<style>
-  body { margin: 0; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; font-size: 0.82rem; color: #1f2a1f; background: #f5f6ef; }
-  h1 { margin: 0 0 14px; font-size: 1rem; color: #2d6a4f; }
-  .wrap { padding: 20px; display: grid; gap: 14px; }
-  .crit-block { background: #fff; border: 1px solid #d3dac8; border-radius: 10px; overflow: hidden; }
-  .crit-name { padding: 10px 12px; font-weight: 700; color: #2d6a4f; background: #f3f7ec; border-bottom: 1px solid #d3dac8; }
-  .crit-block table { width: 100%; border-collapse: collapse; }
-  .crit-block th, .crit-block td { border-top: 1px solid #d3dac8; padding: 6px 10px; vertical-align: top; text-align: left; }
-  .crit-block th { width: 8rem; background: #f9fdf5; color: #2d6a4f; font-weight: 700; white-space: nowrap; }
-  .crit-block td { white-space: pre-wrap; line-height: 1.4; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Correction Criteria &mdash; ${(config.name || "Test").replace(/&/g,"&amp;")}</h1>
-  ${blocks}
-</div>
-</body>
-</html>`;
+      const html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
 
       if (window.Desktop && Desktop.isElectron()) {
         try {
@@ -7957,6 +8331,120 @@
       }
     }
 
+    function buildCriteriaRefMarkdown(config, classObj, sem, testIndex) {
+      const testTitle = `${classObj ? classObj.name + " — " : ""}${sem ? sem.toUpperCase() + " — " : ""}${config.name || ("Test T" + ((testIndex || 0) + 1))}`;
+      const lines = [];
+      lines.push(`# Correction Criteria Reference — ${testTitle}`);
+      lines.push("");
+      lines.push(`_Exported on ${new Date().toLocaleDateString()}_`);
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+
+      const usedCriteria = (config.criteria || []).map(c => {
+        const xlsm = XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === c.name.trim().toLowerCase());
+        return {
+          configName: c.name,
+          minPoints: c.minPoints,
+          maxPoints: c.maxPoints,
+          pointCoefficient: c.pointCoefficient,
+          isBonus: c.isBonus,
+          grades: normalizeCriterionGrades(xlsm && xlsm.grades),
+          xlsm
+        };
+      });
+
+      if (usedCriteria.length === 0) {
+        lines.push("_No criteria configured for this test._");
+        return lines.join("\n");
+      }
+
+      usedCriteria.forEach((crit, idx) => {
+        lines.push(`## ${idx + 1}. ${crit.configName}`);
+        const meta = [];
+        if (crit.maxPoints != null) meta.push(`**Max:** ${fmtN(crit.maxPoints)} pts`);
+        if (crit.pointCoefficient && crit.pointCoefficient !== 1) meta.push(`**Coeff:** ${fmtN(crit.pointCoefficient)}×`);
+        if (crit.isBonus) meta.push(`**Bonus:** Yes`);
+        if (meta.length) {
+          lines.push(meta.join(" · "));
+          lines.push("");
+        }
+
+        lines.push("| Grade / Level | Descriptor |");
+        lines.push("| :--- | :--- |");
+        crit.grades.forEach(k => {
+          const text = (crit.xlsm && crit.xlsm.comments && crit.xlsm.comments[k]) ? crit.xlsm.comments[k] : "—";
+          const cleanText = text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+          lines.push(`| **${k}** | ${cleanText} |`);
+        });
+        lines.push("");
+        lines.push("---");
+        lines.push("");
+      });
+
+      return lines.join("\n");
+    }
+
+    async function exportCriteriaRefPdf() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const { semester, testIndex } = appState.activeTest;
+      const config = classObj.testConfigs[semester][testIndex];
+      if (!config || !Array.isArray(config.criteria) || config.criteria.length === 0) {
+        await showAlert(t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.');
+        return;
+      }
+      let html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      const printScript = `<script>
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            window.focus();
+            window.print();
+          }, 300);
+        });
+      <\/script>`;
+      html = html.replace('</body>', `${printScript}</body>`);
+
+      const win = window.open("", "_blank", "width=1200,height=800");
+      if (win) {
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      } else {
+        await showAlert(t('gsAlertPopupBlocked') || 'Pop-up blocked. Please allow pop-ups for this page.');
+      }
+    }
+
+    async function exportCriteriaRefMd() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const { semester, testIndex } = appState.activeTest;
+      const config = classObj.testConfigs[semester][testIndex];
+      if (!config || !Array.isArray(config.criteria) || config.criteria.length === 0) {
+        await showAlert(t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.');
+        return;
+      }
+      const md = buildCriteriaRefMarkdown(config, classObj, semester, testIndex);
+      const slug = slugifyForPath(classObj.name || "class");
+      const filename = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.md`;
+      downloadTextFile(md, filename, "text/markdown;charset=utf-8");
+    }
+
+    async function exportCriteriaRefHtml() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const { semester, testIndex } = appState.activeTest;
+      const config = classObj.testConfigs[semester][testIndex];
+      if (!config || !Array.isArray(config.criteria) || config.criteria.length === 0) {
+        await showAlert(t('gsAlertNoCriteriaToExport') || 'No criteria configured for this test.');
+        return;
+      }
+      const html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      const slug = slugifyForPath(classObj.name || "class");
+      const filename = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.html`;
+      downloadTextFile(html, filename, "text/html;charset=utf-8");
+    }
+
     // ── Criterion edit popup ─────────────────────────────────────
     let _critPopupCtx = null;
 
@@ -7964,6 +8452,7 @@
       _critPopupCtx = { criterion, classObj, sem, testIndex };
       document.getElementById("crit-popup-preset").value = "";
       document.getElementById("crit-popup-name").value = criterion.name;
+      document.getElementById("crit-popup-min").value = String(criterion.minPoints != null ? criterion.minPoints : 0);
       document.getElementById("crit-popup-max").value = String(criterion.maxPoints);
       document.getElementById("crit-popup-coeff").value = String(criterion.pointCoefficient);
       document.getElementById(criterion.showComment !== false ? "crit-popup-comment-yes" : "crit-popup-comment-no").checked = true;
@@ -7987,11 +8476,13 @@
       if (!_critPopupCtx) return;
       const { criterion, classObj, sem, testIndex } = _critPopupCtx;
       const name = document.getElementById("crit-popup-name").value.trim();
-      const maxPts = Math.max(0, parseFloat(document.getElementById("crit-popup-max").value) || 0);
+      const minPts = parseFloat(document.getElementById("crit-popup-min").value) || 0;
+      const maxPts = Math.max(minPts, parseFloat(document.getElementById("crit-popup-max").value) || 0);
       const coeff = Math.max(0, parseFloat(document.getElementById("crit-popup-coeff").value) || 0);
       const showComment = document.getElementById("crit-popup-comment-yes").checked;
       const isBonus = document.getElementById("crit-popup-bonus").checked;
       if (name) criterion.name = name;
+      criterion.minPoints = minPts;
       criterion.maxPoints = maxPts;
       criterion.pointCoefficient = coeff;
       criterion.isBonus = !!isBonus;
@@ -8255,6 +8746,7 @@
             cfg.criteria = parsed.criteria.map(c => ({
               id: c.id,
               name: c.name,
+              minPoints: c.minPoints != null ? c.minPoints : 0,
               maxPoints: c.maxPoints,
               pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
               isBonus: !!c.bonus
@@ -8331,6 +8823,7 @@
                 criteria: parsed.criteria.map(c => ({
                   id: c.id,
                   name: c.name,
+                  minPoints: c.minPoints != null ? c.minPoints : 0,
                   maxPoints: c.maxPoints,
                   pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
                   isBonus: !!c.bonus

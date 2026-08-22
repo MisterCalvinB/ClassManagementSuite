@@ -1405,6 +1405,25 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.smod-sanction-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.smod-sanction-input {
+  width: 56px;
+  padding: 4px 6px;
+  font-size: 0.88rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 .smod-grade-row label {
@@ -1591,8 +1610,9 @@ tr:hover td {
 }
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: 100%;
   right: 0;
+  margin-top: 4px;
   background: #fff;
   border: 2px solid #111;
   border-radius: var(--radius);
@@ -1601,10 +1621,23 @@ tr:hover td {
   box-shadow: 3px 3px 0 #111;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
+}
+/* Invisible bridge so mouse hover never drops when moving across the button gap */
+.dropdown-menu::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -4px;
+  right: -4px;
+  height: 10px;
 }
 .dropdown-menu.hidden {
   display: none !important;
+}
+.dropdown.dropdown-hover:hover .dropdown-menu,
+.dropdown.dropdown-hover:focus-within .dropdown-menu {
+  display: flex !important;
 }
 .dropdown-item {
   background: none;
