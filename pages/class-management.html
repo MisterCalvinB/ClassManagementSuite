@@ -5802,10 +5802,16 @@
             const ps = selectedPlannerSlot;
             const plans = (classPlans[selectedGroupName] || []);
             const matched = plans.find(p => {
-                if (!p || !p.plannerSlot) return false;
-                return String(p.plannerSlot.day) === String(ps.day) &&
-                    (p.plannerSlot.time || '').slice(0, 5) === (ps.time || '').slice(0, 5) &&
-                    (p.plannerSlot.halfGroup || '') === (ps.halfGroup || '');
+                if (!p) return false;
+                const pSlots = Array.isArray(p.plannerSlots) && p.plannerSlots.length
+                    ? p.plannerSlots
+                    : (p.plannerSlot ? (Array.isArray(p.plannerSlot) ? p.plannerSlot : [p.plannerSlot]) : []);
+                return pSlots.some(s => {
+                    if (!s) return false;
+                    return String(s.day) === String(ps.day) &&
+                        (s.time || '').slice(0, 5) === (ps.time || '').slice(0, 5) &&
+                        (s.halfGroup || '') === (ps.halfGroup || '');
+                });
             });
             if (!matched) { chip.style.display = 'none'; return; }
             chipBtn.textContent = matched.name;
@@ -16319,6 +16325,25 @@ syncState();
             persistSettingsToUserFile().catch(() => { });
         }
 
+        function _cpPlanSlotLabel(slot) {
+            if (!slot) return '';
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const day = days[parseInt(slot.day)] || ('Day ' + slot.day);
+            const time = slot.time ? slot.time.slice(0, 5) : '';
+            const half = slot.halfGroup ? ' ½' + slot.halfGroup : '';
+            return day + (time ? ' ' + time : '') + half;
+        }
+
+        function _cpGetPlanSlots(plan) {
+            if (!plan) return [];
+            if (Array.isArray(plan.plannerSlots) && plan.plannerSlots.length) return plan.plannerSlots;
+            if (plan.plannerSlot) {
+                if (Array.isArray(plan.plannerSlot)) return plan.plannerSlot;
+                if (typeof plan.plannerSlot === 'object') return [plan.plannerSlot];
+            }
+            return [];
+        }
+
         function cpScheduleSummary(plan) {
             if (!plan.schedule || !plan.schedule.length) return '';
             return plan.schedule.map(s => `${s.day} ${s.start}–${s.end}`).join(' · ');
@@ -16356,7 +16381,9 @@ syncState();
                 html += plans.map((p, idx) => {
                     const active = p.isActive ? `<span class="cp-active-badge">Active</span>` : '';
                     const temp = p.isTemporary ? `<span class="cp-temp-badge">Temp</span>` : '';
-                    const meta = [p.roomNumber ? '📍 ' + p.roomNumber : '', cpScheduleSummary(p), `${p.rows}×${p.cols}`].filter(Boolean).join(' · ');
+                    const pSlots = _cpGetPlanSlots(p);
+                    const slotStr = pSlots.map(_cpPlanSlotLabel).filter(Boolean).join(', ');
+                    const meta = [p.roomNumber ? '📍 ' + p.roomNumber : '', slotStr ? '🗓 ' + slotStr : '', cpScheduleSummary(p), `${p.rows}×${p.cols}`].filter(Boolean).join(' · ');
                     return `<div class="cp-manager-row">
               <div class="cp-manager-row-name">${escapeSettingsHtml(p.name)} ${active} ${temp}</div>
               <div class="cp-manager-row-meta">${escapeSettingsHtml(meta)}</div>

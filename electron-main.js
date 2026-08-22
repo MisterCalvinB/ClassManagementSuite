@@ -4534,6 +4534,53 @@ function getExtendedDisplayForBounds(bounds) {
   return allDisplays.find((d) => d.id !== sourceDisplay.id) || null;
 }
 
+function getPresenterTargetDisplay(targetWindow, sourceWindow) {
+  const allDisplays = screen.getAllDisplays();
+  if (!Array.isArray(allDisplays) || allDisplays.length <= 1) {
+    return screen.getPrimaryDisplay();
+  }
+
+  // 1. If we have a source window (the teacher's main controller window), target the display that is NOT the source display
+  if (sourceWindow && !sourceWindow.isDestroyed()) {
+    const sBounds = sourceWindow.getBounds();
+    const sourceDisplay = screen.getDisplayMatching(sBounds) || screen.getPrimaryDisplay();
+    const secondDisplay = allDisplays.find(d => d.id !== sourceDisplay.id);
+    if (secondDisplay) return secondDisplay;
+  }
+
+  // 2. If targetWindow is already located on a secondary (non-primary) display, keep it on that display
+  const primaryDisplay = screen.getPrimaryDisplay();
+  if (targetWindow && !targetWindow.isDestroyed()) {
+    const tBounds = targetWindow.getBounds();
+    const currentDisplay = screen.getDisplayMatching(tBounds);
+    if (currentDisplay && currentDisplay.id !== primaryDisplay.id) {
+      return currentDisplay;
+    }
+  }
+
+  // 3. Fallback: find any display that is not the primary display
+  const secondDisplay = allDisplays.find(d => d.id !== primaryDisplay.id);
+  return secondDisplay || primaryDisplay;
+}
+
+function maximizePresenterWindow(targetWindow, sourceWindow) {
+  if (!targetWindow || targetWindow.isDestroyed()) return false;
+  if (targetWindow.isFullScreen()) {
+    targetWindow.setFullScreen(false);
+  }
+  if (targetWindow.isMaximized()) {
+    targetWindow.unmaximize();
+    return true;
+  }
+  const targetDisplay = getPresenterTargetDisplay(targetWindow, sourceWindow);
+  if (targetDisplay) {
+    const wa = targetDisplay.workArea;
+    targetWindow.setBounds({ x: wa.x, y: wa.y, width: wa.width, height: wa.height });
+  }
+  targetWindow.maximize();
+  return true;
+}
+
 function mapWindowBoundsToDisplay(sourceBounds, sourceDisplay, targetDisplay) {
   if (!targetDisplay || !targetDisplay.bounds) return null;
 
@@ -4580,21 +4627,28 @@ function syncTargetWindowToSource(targetWindow, sourceWindow) {
   if (!sourceBounds) return false;
   if (targetWindow.isFullScreen()) targetWindow.setFullScreen(false);
   if (targetWindow.isMaximized()) targetWindow.unmaximize();
-  const targetBounds = targetWindow.getBounds();
-  targetWindow.setBounds({
-    x: targetBounds.x,
-    y: targetBounds.y,
-    width: sourceBounds.width,
-    height: sourceBounds.height
-  });
+  const targetDisplay = getPresenterTargetDisplay(targetWindow, sourceWindow);
+  const sourceDisplay = screen.getDisplayMatching(sourceBounds) || screen.getPrimaryDisplay();
+  const mappedBounds = mapWindowBoundsToDisplay(sourceBounds, sourceDisplay, targetDisplay);
+  if (mappedBounds) {
+    targetWindow.setBounds(mappedBounds);
+  } else {
+    const targetBounds = targetWindow.getBounds();
+    targetWindow.setBounds({
+      x: targetBounds.x,
+      y: targetBounds.y,
+      width: sourceBounds.width,
+      height: sourceBounds.height
+    });
+  }
   return true;
 }
 
-function dockTargetWindow(targetWindow, edge, ratio = 0.2) {
+function dockTargetWindow(targetWindow, edge, ratio = 0.2, sourceWindow = null) {
   if (!targetWindow || targetWindow.isDestroyed()) return false;
   if (targetWindow.isFullScreen()) targetWindow.setFullScreen(false);
   if (targetWindow.isMaximized()) targetWindow.unmaximize();
-  const display = screen.getDisplayMatching(targetWindow.getBounds()) || screen.getPrimaryDisplay();
+  const display = getPresenterTargetDisplay(targetWindow, sourceWindow);
   const wa = display.workArea;
   const width = Math.max(260, Math.round(wa.width * ratio));
   const bounds = { y: wa.y, width, height: wa.height };
@@ -4616,10 +4670,9 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
   const sBounds   = senderWin ? senderWin.getBounds() : null;
   mirrorWindowSource = senderWin || null;
 
-  // Detect second screen
-  const allDisplays = screen.getAllDisplays();
+  // Detect second screen relative to sender window
+  const secondDisplay = getExtendedDisplayForBounds(sBounds);
   const primaryDisplay = screen.getPrimaryDisplay();
-  const secondDisplay = allDisplays.find(d => d.id !== primaryDisplay.id);
 
   let winOpts;
   if (secondDisplay) {
@@ -4627,29 +4680,11 @@ ipcMain.handle('app:open-mirror-window', async (event, request = {}) => {
     const srcDisplay = sBounds
       ? (screen.getDisplayMatching(sBounds) || primaryDisplay)
       : primaryDisplay;
-    const sd = srcDisplay.bounds;
-    const dd = secondDisplay.bounds;
-
-    let newWidth, newHeight, newX, newY;
-    if (sBounds && sd.width > 0 && sd.height > 0) {
-      const relX = (sBounds.x - sd.x) / sd.width;
-      const relY = (sBounds.y - sd.y) / sd.height;
-      const ratioW = sBounds.width  / sd.width;
-      const ratioH = sBounds.height / sd.height;
-      newWidth  = Math.round(ratioW * dd.width);
-      newHeight = Math.round(ratioH * dd.height);
-      newX      = dd.x + Math.round(relX * dd.width);
-      newY      = dd.y + Math.round(relY * dd.height);
-    } else {
-      // Fallback: centre with same absolute size as main window
-      newWidth  = sBounds ? sBounds.width  : 1200;
-      newHeight = sBounds ? sBounds.height : 800;
-      newX      = dd.x + Math.round((dd.width  - newWidth)  / 2);
-      newY      = dd.y + Math.round((dd.height - newHeight) / 2);
-    }
+    const mappedBounds = mapWindowBoundsToDisplay(sBounds, srcDisplay, secondDisplay)
+      || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
 
     winOpts = {
-      x: newX, y: newY, width: newWidth, height: newHeight,
+      x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
       autoHideMenuBar: true,
       title: 'Board – Presentation Mode',
       webPreferences: {
@@ -4709,13 +4744,14 @@ ipcMain.handle('app:mirror-window-command', (event, command) => {
       syncTargetWindowToSource(mirrorWindow, mirrorWindowSource);
       break;
     case 'dock-left':
-      dockTargetWindow(mirrorWindow, 'left');
+      dockTargetWindow(mirrorWindow, 'left', 0.2, mirrorWindowSource);
       break;
     case 'dock-right':
-      dockTargetWindow(mirrorWindow, 'right');
+      dockTargetWindow(mirrorWindow, 'right', 0.2, mirrorWindowSource);
       break;
     case 'maximise':
-      if (mirrorWindow.isMaximized()) { mirrorWindow.unmaximize(); } else { mirrorWindow.maximize(); }
+    case 'maximize':
+      maximizePresenterWindow(mirrorWindow, mirrorWindowSource);
       break;
     default:
       return { ok: false, reason: 'unknown-command' };
@@ -4796,28 +4832,11 @@ ipcMain.handle('app:cms-presentation-command', (event, command) => {
     case 'close':      cmsPresentationWindow.close(); break;
     case 'fullscreen': cmsPresentationWindow.setFullScreen(!cmsPresentationWindow.isFullScreen()); break;
     case 'resize-window': syncTargetWindowToSource(cmsPresentationWindow, cmsPresentationSourceWindow); break;
-    case 'maximize': {
-      if (cmsPresentationWindow.isMaximized()) {
-        cmsPresentationWindow.unmaximize();
-        break;
-      }
-      const targetDisplay = getExtendedDisplayForBounds(cmsPresentationWindow.getBounds());
-      if (targetDisplay) {
-        const wa = targetDisplay.workArea;
-        cmsPresentationWindow.setBounds({ x: wa.x, y: wa.y, width: wa.width, height: wa.height });
-      }
-      cmsPresentationWindow.maximize();
-      break;
-    }
+    case 'maximize':
+    case 'maximise':   maximizePresenterWindow(cmsPresentationWindow, cmsPresentationSourceWindow); break;
     case 'minimize':   cmsPresentationWindow.minimize(); break;
-    case 'dock-left': {
-      dockTargetWindow(cmsPresentationWindow, 'left');
-      break;
-    }
-    case 'dock-right': {
-      dockTargetWindow(cmsPresentationWindow, 'right');
-      break;
-    }
+    case 'dock-left':  dockTargetWindow(cmsPresentationWindow, 'left', 0.2, cmsPresentationSourceWindow); break;
+    case 'dock-right': dockTargetWindow(cmsPresentationWindow, 'right', 0.2, cmsPresentationSourceWindow); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };
@@ -4831,14 +4850,21 @@ ipcMain.handle('app:learning-tools-presentation-command', (event, command) => {
     case 'close':
       learningToolsPresentationWindow.close();
       break;
+    case 'fullscreen':
+      learningToolsPresentationWindow.setFullScreen(!learningToolsPresentationWindow.isFullScreen());
+      break;
     case 'resize-window':
       syncTargetWindowToSource(learningToolsPresentationWindow, learningToolsPresentationSourceWindow);
       break;
     case 'dock-left':
-      dockTargetWindow(learningToolsPresentationWindow, 'left');
+      dockTargetWindow(learningToolsPresentationWindow, 'left', 0.2, learningToolsPresentationSourceWindow);
       break;
     case 'dock-right':
-      dockTargetWindow(learningToolsPresentationWindow, 'right');
+      dockTargetWindow(learningToolsPresentationWindow, 'right', 0.2, learningToolsPresentationSourceWindow);
+      break;
+    case 'maximize':
+    case 'maximise':
+      maximizePresenterWindow(learningToolsPresentationWindow, learningToolsPresentationSourceWindow);
       break;
     default:
       return { ok: false, reason: 'unknown-command' };
@@ -4848,12 +4874,14 @@ ipcMain.handle('app:learning-tools-presentation-command', (event, command) => {
 
 // ── Oral Marking Presenter Window ─────────────────────────────────────────────
 let oralPresenterWindow = null;
+let oralPresenterSourceWindow = null;
 ipcMain.handle('app:open-oral-presenter', async (event, request = {}) => {
   if (oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
     oralPresenterWindow.focus();
     return { ok: true, alreadyOpen: true };
   }
   const senderWin = BrowserWindow.fromWebContents(event.sender);
+  oralPresenterSourceWindow = senderWin || null;
   const sBounds   = senderWin ? senderWin.getBounds() : null;
   const secondDisplay = getExtendedDisplayForBounds(sBounds);
   let winOpts;
@@ -4898,12 +4926,8 @@ ipcMain.handle('app:oral-presenter-command', (event, command) => {
   switch (command) {
     case 'close':      oralPresenterWindow.close(); break;
     case 'fullscreen': oralPresenterWindow.setFullScreen(!oralPresenterWindow.isFullScreen()); break;
-    case 'maximize': {
-      if (oralPresenterWindow.isMaximized()) { oralPresenterWindow.unmaximize(); break; }
-      const targetDisplay = getExtendedDisplayForBounds(oralPresenterWindow.getBounds());
-      if (targetDisplay) { const wa = targetDisplay.workArea; oralPresenterWindow.setBounds({ x: wa.x, y: wa.y, width: wa.width, height: wa.height }); }
-      oralPresenterWindow.maximize(); break;
-    }
+    case 'maximize':
+    case 'maximise':   maximizePresenterWindow(oralPresenterWindow, oralPresenterSourceWindow); break;
     case 'minimize':   oralPresenterWindow.minimize(); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
@@ -4984,10 +5008,11 @@ ipcMain.handle('app:doc-presentation-command', (event, command) => {
   switch (command) {
     case 'close':         docPresentationWindow.close(); break;
     case 'fullscreen':    docPresentationWindow.setFullScreen(!docPresentationWindow.isFullScreen()); break;
-    case 'maximize':      docPresentationWindow.maximize(); break;
+    case 'maximize':
+    case 'maximise':      maximizePresenterWindow(docPresentationWindow, docPresentationSourceWindow); break;
     case 'resize-window': syncTargetWindowToSource(docPresentationWindow, docPresentationSourceWindow); break;
-    case 'dock-left':     dockTargetWindow(docPresentationWindow, 'left'); break;
-    case 'dock-right':    dockTargetWindow(docPresentationWindow, 'right'); break;
+    case 'dock-left':     dockTargetWindow(docPresentationWindow, 'left', 0.2, docPresentationSourceWindow); break;
+    case 'dock-right':    dockTargetWindow(docPresentationWindow, 'right', 0.2, docPresentationSourceWindow); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };

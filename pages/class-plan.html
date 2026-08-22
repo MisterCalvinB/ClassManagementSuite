@@ -167,7 +167,7 @@
     <input type="hidden" id="cfg-edit-id">
 
     <label class="form-label" data-i18n="cpLabelClass">Class</label>
-    <select id="cfg-group" class="form-input" onchange="cpPopulatePlannerSlotSel(this.value, null)"></select>
+    <select id="cfg-group" class="form-input" onchange="cpPopulatePlannerSlots(this.value, null)"></select>
 
     <label class="form-label" data-i18n="cpLabelPlanName">Plan name</label>
     <input type="text" id="cfg-name" class="form-input" data-i18n-placeholder="cpPlaceholderPlanName" placeholder="e.g. Normal Seating" maxlength="60">
@@ -251,7 +251,7 @@
     </select>
 
     <label class="form-label" data-i18n="cpLabelPlannerSlot">Linked planner slot</label>
-    <select id="cfg-planner-slot" class="form-input"></select>
+    <div id="cfg-planner-slots" class="planner-slot-chips"></div>
 
     <label class="form-label" data-i18n="cpLabelSchedule">Weekly schedule</label>
     <div id="cfg-schedule-slots"></div>
@@ -446,32 +446,89 @@ function cpSlotLabel(slot) {
   return day + (time ? ' ' + time : '') + half;
 }
 
-function cpPopulatePlannerSlotSel(groupId, currentSlot) {
-  const sel = document.getElementById('cfg-planner-slot');
-  if (!sel) return;
-  sel.innerHTML = '';
-  const noneOpt = document.createElement('option');
-  noneOpt.value = '';
-  noneOpt.textContent = t('cpSlotNone');
-  sel.appendChild(noneOpt);
-  const slots = cpGetGroupPlannerSlots(groupId);
-  slots.forEach(function (s) {
-    const opt = document.createElement('option');
-    opt.value = JSON.stringify({ day: s.day, time: s.time || '', halfGroup: s.halfGroup || '' });
-    opt.textContent = cpSlotLabel(s);
-    sel.appendChild(opt);
-  });
-  if (currentSlot) {
-    const encoded = JSON.stringify({ day: currentSlot.day, time: currentSlot.time || '', halfGroup: currentSlot.halfGroup || '' });
-    const match = Array.from(sel.options).find(function (o) { return o.value === encoded; });
-    if (match) sel.value = match.value;
+function cpGetPlanSlots(plan) {
+  if (!plan) return [];
+  if (Array.isArray(plan.plannerSlots) && plan.plannerSlots.length) return plan.plannerSlots;
+  if (plan.plannerSlot) {
+    if (Array.isArray(plan.plannerSlot)) return plan.plannerSlot;
+    if (typeof plan.plannerSlot === 'object') return [plan.plannerSlot];
   }
+  return [];
+}
+
+function cpNormalizeSlotList(slotsOrSlot) {
+  if (!slotsOrSlot) return [];
+  if (Array.isArray(slotsOrSlot)) return slotsOrSlot;
+  if (typeof slotsOrSlot === 'object') return [slotsOrSlot];
+  return [];
+}
+
+function cpSlotsEqual(s1, s2) {
+  if (!s1 || !s2) return false;
+  return String(s1.day) === String(s2.day) &&
+    (s1.time || '').slice(0, 5) === (s2.time || '').slice(0, 5) &&
+    (s1.halfGroup || '') === (s2.halfGroup || '');
+}
+
+function cpPopulatePlannerSlots(groupId, currentSlots) {
+  const container = document.getElementById('cfg-planner-slots');
+  if (!container) return;
+  container.innerHTML = '';
+  const groupSlots = cpGetGroupPlannerSlots(groupId);
+  if (!groupSlots || !groupSlots.length) {
+    const emptySpan = document.createElement('span');
+    emptySpan.className = 'planner-slot-empty';
+    emptySpan.textContent = t('cpNoPlannerSlotsForClass');
+    container.appendChild(emptySpan);
+    return;
+  }
+
+  const selectedList = cpNormalizeSlotList(currentSlots);
+
+  groupSlots.forEach(function (slot) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'planner-slot-chip';
+    chip.textContent = cpSlotLabel(slot);
+    chip.dataset.slot = JSON.stringify({ day: slot.day, time: slot.time || '', halfGroup: slot.halfGroup || '' });
+
+    const isSelected = selectedList.some(function (sel) {
+      return cpSlotsEqual(sel, slot);
+    });
+    if (isSelected) {
+      chip.classList.add('selected');
+    }
+
+    chip.addEventListener('click', function (e) {
+      e.preventDefault();
+      chip.classList.toggle('selected');
+    });
+
+    container.appendChild(chip);
+  });
+}
+
+function cpPopulatePlannerSlotSel(groupId, currentSlot) {
+  cpPopulatePlannerSlots(groupId, currentSlot);
+}
+
+function cpReadPlannerSlots() {
+  const container = document.getElementById('cfg-planner-slots');
+  if (!container) return [];
+  const selectedChips = container.querySelectorAll('.planner-slot-chip.selected');
+  const slots = [];
+  selectedChips.forEach(function (chip) {
+    try {
+      const slot = JSON.parse(chip.dataset.slot);
+      slots.push(slot);
+    } catch (e) {}
+  });
+  return slots;
 }
 
 function cpReadPlannerSlot() {
-  const sel = document.getElementById('cfg-planner-slot');
-  if (!sel || !sel.value) return null;
-  try { return JSON.parse(sel.value); } catch (e) { return null; }
+  const slots = cpReadPlannerSlots();
+  return slots.length ? slots[0] : null;
 }
 
 function loadPlansFromGlobals() {
@@ -516,6 +573,8 @@ function normalizePlan(p) {
   const plan = Object.assign({}, p);
   plan.layoutType = plan.layoutType || 'grid';
   plan.seats = normalizeSeats(plan);
+  plan.plannerSlots = cpGetPlanSlots(plan);
+  plan.plannerSlot = plan.plannerSlots[0] || null;
   return plan;
 }
 
@@ -666,7 +725,8 @@ function renderPlansList() {
     const card = document.createElement('div');
     card.className = 'plan-card' + (selectedPlan && selectedPlan.id === plan.id ? ' selected' : '');
     const dim = dimLabel(plan);
-    const slotStr = plan.plannerSlot ? cpSlotLabel(plan.plannerSlot) : '';
+    const slots = cpGetPlanSlots(plan);
+    const slotStr = slots.map(cpSlotLabel).filter(Boolean).join(', ');
     const meta = [dim, plan.roomNumber ? '📍 ' + plan.roomNumber : '', slotStr ? '🗓 ' + slotStr : ''].filter(Boolean).join('  ·  ');
     card.innerHTML =
       '<div class="plan-card-name">' + esc(plan.name) + '</div>' +
@@ -703,9 +763,11 @@ function showEmptyState() {
 
 function openEditor(plan) {
   selectedPlan = plan;
-  // Auto-activate half-group from linked planner slot
-  if (plan.plannerSlot && plan.plannerSlot.halfGroup) {
-    selectedHalf = plan.plannerSlot.halfGroup;
+  // Auto-activate half-group from linked planner slots
+  const slots = cpGetPlanSlots(plan);
+  const halfSlot = slots.find(function (s) { return s && s.halfGroup; });
+  if (halfSlot) {
+    selectedHalf = halfSlot.halfGroup;
     const halfSel = document.getElementById('cp-half-sel');
     if (halfSel) { halfSel.style.display = ''; halfSel.value = selectedHalf; }
   }
@@ -719,7 +781,8 @@ function openEditor(plan) {
 function buildEditor(plan) {
   document.getElementById('editor-plan-name').textContent = plan.name;
   const schedStr = schedSummary(plan);
-  const slotStr = plan.plannerSlot ? cpSlotLabel(plan.plannerSlot) : '';
+  const slots = cpGetPlanSlots(plan);
+  const slotStr = slots.map(cpSlotLabel).filter(Boolean).join(', ');
   const meta = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', slotStr ? '🗓 ' + slotStr : '', schedStr].filter(Boolean).join('  ·  ');
   document.getElementById('editor-plan-meta').textContent = meta;
   buildStudentChips(plan);
@@ -1197,7 +1260,7 @@ function openNewPlanConfig() {
     return '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(cpGroupDisplayName(g)) + '</option>';
   }).join('');
   groupSel.disabled = false;
-  cpPopulatePlannerSlotSel(selectedGroup, null);
+  cpPopulatePlannerSlots(selectedGroup, []);
 
   document.getElementById('cfg-modal').classList.add('open');
   setTimeout(function () { document.getElementById('cfg-name').focus(); }, 80);
@@ -1218,7 +1281,7 @@ function editPlanById(planId) {
   document.getElementById('cfg-room').value = plan.roomNumber || '';
   document.getElementById('cfg-name-display').value = plan.nameDisplay || 'full';
   document.getElementById('cfg-temp').checked = !!plan.isTemporary;
-  cpPopulatePlannerSlotSel(selectedGroup, plan.plannerSlot || null);
+  cpPopulatePlannerSlots(selectedGroup, cpGetPlanSlots(plan));
   renderScheduleSlots(plan.schedule || []);
   populateSavedLayoutsDropdown();
   const roomVal = plan.roomNumber || '';
@@ -1278,7 +1341,8 @@ function confirmPlanConfig() {
   const nameDisplay = document.getElementById('cfg-name-display').value;
   const temp = document.getElementById('cfg-temp').checked;
   const sched = collectSchedule();
-  const plannerSlot = cpReadPlannerSlot();
+  const plannerSlots = cpReadPlannerSlots();
+  const plannerSlot = plannerSlots.length ? plannerSlots[0] : null;
 
   const lt = _cfgLayout;
   let plan = editId ? getPlanById(editId) : null;
@@ -1307,6 +1371,7 @@ function confirmPlanConfig() {
     plan.nameDisplay = nameDisplay;
     plan.isTemporary = temp;
     plan.schedule = sched;
+    plan.plannerSlots = plannerSlots;
     plan.plannerSlot = plannerSlot;
     applyLayoutDims(plan, lt, true);
   } else {
@@ -1315,7 +1380,8 @@ function confirmPlanConfig() {
     const plans = classPlans[group];
     plan = {
       id: 'cp_' + Date.now(),
-      name: name, roomNumber: room, nameDisplay: nameDisplay, schedule: sched, plannerSlot: plannerSlot, seats: [],
+      name: name, roomNumber: room, nameDisplay: nameDisplay, schedule: sched,
+      plannerSlots: plannerSlots, plannerSlot: plannerSlot, seats: [],
       isTemporary: temp, isActive: !plans.length, createdAt: Date.now(),
       layoutType: lt
     };

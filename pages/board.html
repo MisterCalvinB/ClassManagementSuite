@@ -1049,6 +1049,48 @@
     .con-media-fullscreen .con-pdf-only-btn {
       display: none !important;
     }
+
+    .board-casing-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #ffffff;
+      border: 1.5px solid #111;
+      border-radius: 5px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      z-index: 10001;
+      min-width: 155px;
+      max-height: min(280px, calc(100vh - 24px));
+      overflow-y: auto;
+      padding: 3px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .board-casing-item {
+      padding: 5px 10px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: #111;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background 0.12s ease, color 0.12s ease;
+      user-select: none;
+    }
+
+    .board-casing-item:hover {
+      background: #f1f5f9;
+      color: #000;
+    }
+
+    .board-casing-item.active {
+      background: #111;
+      color: #fff;
+      font-weight: 700;
+    }
   </style>
 </head>
 
@@ -1282,6 +1324,20 @@
         title="Underline"><u>U</u></button>
       <button class="wn-sp-style-toggle" id="con-fmt-strike" onclick="conCtxToggleFmt('strike')"
         title="Strikethrough"><s>S</s></button>
+      <div style="position:relative; display:inline-block;">
+        <button class="wn-sp-style-toggle" id="con-fmt-case-btn" onclick="conCtxToggleCaseDropdown(event)"
+          title="Text Capitalisation / Casing" data-i18n-title="conFmtCaseTitle" style="display:flex;align-items:center;gap:2px;font-weight:700;">
+          <span>Aa</span><span style="font-size:0.55rem;line-height:1;">▼</span>
+        </button>
+        <div id="con-ctx-case-dropdown" class="board-casing-dropdown" style="display:none;">
+          <div class="board-casing-item" data-case="none" onclick="conCtxSetCasing('none')"><span data-i18n="conCaseDefault">Default (As typed)</span></div>
+          <div class="board-casing-item" data-case="uppercase" onclick="conCtxSetCasing('uppercase')"><span data-i18n="conCaseUppercase">UPPERCASE</span></div>
+          <div class="board-casing-item" data-case="lowercase" onclick="conCtxSetCasing('lowercase')"><span data-i18n="conCaseLowercase">lowercase</span></div>
+          <div class="board-casing-item" data-case="titlecase" onclick="conCtxSetCasing('titlecase')"><span data-i18n="conCaseTitlecase">Title Case</span></div>
+          <div class="board-casing-item" data-case="sentencecase" onclick="conCtxSetCasing('sentencecase')"><span data-i18n="conCaseSentencecase">Sentence case</span></div>
+          <div class="board-casing-item" data-case="smallcaps" onclick="conCtxSetCasing('smallcaps')"><span data-i18n="conCaseSmallcaps" style="font-variant:small-caps;">Small Caps</span></div>
+        </div>
+      </div>
     </div>
     <div id="con-ctx-multi-edit-row" style="display:none;">
       <div class="con-ctx-sep"></div>
@@ -2632,6 +2688,20 @@
               onclick="wnStyleToggle('underline')" style="text-decoration:underline">U</button>
             <button class="wn-sp-style-toggle" id="wn-sp-strike" onmousedown="event.preventDefault()"
               onclick="wnStyleToggle('strike')" style="text-decoration:line-through">S</button>
+            <div style="position:relative; display:inline-block;">
+              <button class="wn-sp-style-toggle" id="wn-sp-case-btn" onmousedown="event.preventDefault()"
+                onclick="wnStyleToggleCaseDropdown(event)" title="Text Capitalisation / Casing" data-i18n-title="conFmtCaseTitle" style="display:flex;align-items:center;gap:2px;font-weight:700;">
+                <span>Aa</span><span style="font-size:0.55rem;line-height:1;">▼</span>
+              </button>
+              <div id="wn-sp-case-dropdown" class="board-casing-dropdown" style="display:none;">
+                <div class="board-casing-item" data-case="none" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('none')"><span data-i18n="conCaseDefault">Default (As typed)</span></div>
+                <div class="board-casing-item" data-case="uppercase" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('uppercase')"><span data-i18n="conCaseUppercase">UPPERCASE</span></div>
+                <div class="board-casing-item" data-case="lowercase" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('lowercase')"><span data-i18n="conCaseLowercase">lowercase</span></div>
+                <div class="board-casing-item" data-case="titlecase" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('titlecase')"><span data-i18n="conCaseTitlecase">Title Case</span></div>
+                <div class="board-casing-item" data-case="sentencecase" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('sentencecase')"><span data-i18n="conCaseSentencecase">Sentence case</span></div>
+                <div class="board-casing-item" data-case="smallcaps" onmousedown="event.preventDefault()" onclick="wnStyleSetCasing('smallcaps')"><span data-i18n="conCaseSmallcaps" style="font-variant:small-caps;">Small Caps</span></div>
+              </div>
+            </div>
             <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()"
               onclick="wnInsertList('insertUnorderedList')" title="Bullet list">•</button>
             <button class="wn-sp-style-toggle" onmousedown="event.preventDefault()"
@@ -2904,6 +2974,17 @@
                   style="flex-direction:column;align-items:stretch;gap:4px;">
                   <!-- font select injected by JS -->
                 </div>
+                <label data-i18n="bcNodeDefaultCasing">Default capitalisation</label>
+                <div class="bc-field-row">
+                  <select id="bc-node-casing" class="bc-select">
+                    <option value="none">Default (As typed)</option>
+                    <option value="uppercase">UPPERCASE (ALL CAPS)</option>
+                    <option value="lowercase">lowercase</option>
+                    <option value="titlecase">Title Case</option>
+                    <option value="sentencecase">Sentence case</option>
+                    <option value="smallcaps">Small Caps</option>
+                  </select>
+                </div>
                 <label>Preview</label>
                 <div id="bc-node-font-preview"
                   style="padding:4px 8px;border:1.5px solid #e5e7eb;border-radius:4px;font-size:1.1rem;background:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -2998,6 +3079,17 @@
                 <div class="bc-field-row" id="bc-note-font-family-wrap"
                   style="flex-direction:column;align-items:stretch;gap:4px;">
                   <!-- font select injected by JS -->
+                </div>
+                <label data-i18n="bcNoteDefaultCasing">Default capitalisation</label>
+                <div class="bc-field-row">
+                  <select id="bc-note-casing" class="bc-select">
+                    <option value="none">Default (As typed)</option>
+                    <option value="uppercase">UPPERCASE (ALL CAPS)</option>
+                    <option value="lowercase">lowercase</option>
+                    <option value="titlecase">Title Case</option>
+                    <option value="sentencecase">Sentence case</option>
+                    <option value="smallcaps">Small Caps</option>
+                  </select>
                 </div>
                 <label>Preview</label>
                 <div id="bc-note-font-preview"
@@ -18091,6 +18183,8 @@
         conCtxNodeId = null;
         _conApplySizeUndoPushed = false;
         conCtxCloseArrangeMenus();
+        const caseDd = document.getElementById('con-ctx-case-dropdown');
+        if (caseDd) caseDd.style.display = 'none';
         document.getElementById('con-ctx-menu').classList.remove('visible');
       };
 
@@ -19238,7 +19332,31 @@
       }
       window.conLookupDbEntries = conLookupDbEntries;
 
-      // Each node stores: node.fmt = { bold, italic, underline, strike, showTrans, showIpa }
+      function boardTransformCasingText(text, casing) {
+        if (!text) return '';
+        const s = String(text);
+        if (!casing || casing === 'none' || casing === 'smallcaps') return s;
+        if (casing === 'uppercase') {
+          return s.toUpperCase();
+        }
+        if (casing === 'lowercase') {
+          return s.toLowerCase();
+        }
+        if (casing === 'titlecase') {
+          return s.replace(/\b[a-zA-ZÀ-ÿ]+/g, function (word) {
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          });
+        }
+        if (casing === 'sentencecase') {
+          return s.toLowerCase().replace(/(^\s*|\.\s+|\!\s+|\?\s+|<br\s*\/?>\s*)([a-zA-ZÀ-ÿ])/gi, function (match, sep, char) {
+            return sep + char.toUpperCase();
+          });
+        }
+        return s;
+      }
+      window.boardTransformCasingText = boardTransformCasingText;
+
+      // Each node stores: node.fmt = { bold, italic, underline, strike, showTrans, showIpa, casing }
       function conGetNodeFmt(node) {
         if (!node.fmt) {
           node.fmt = {
@@ -19247,10 +19365,12 @@
             underline: false,
             strike: false,
             showTrans: false,
-            showIpa: false
+            showIpa: false,
+            casing: 'none'
           };
         }
         if (typeof node.fmt.strike !== 'boolean') node.fmt.strike = false;
+        if (typeof node.fmt.casing !== 'string') node.fmt.casing = 'none';
         return node.fmt;
       }
 
@@ -19261,10 +19381,14 @@
         node.el.dataset.baseWord = baseWord;
 
         const fmt = conGetNodeFmt(node);
+        const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
         // Retrieve DB entries for translation / IPA (supports space-separated multi-word nodes)
         const dbEntries = conLookupDbEntries(baseWord, node.dbWord);
 
         let wordPart = baseWord;
+        if (casing && casing !== 'none' && casing !== 'smallcaps') {
+          wordPart = boardTransformCasingText(wordPart, casing);
+        }
         // Replace // with line break for two-line display
         if (wordPart.includes('//')) wordPart = wordPart.split('//').map(s => s.trim()).join('<br>');
         // Wrap in formatting tags
@@ -19282,7 +19406,8 @@
           : (node.relation === 'ipa'
             ? '<span class="con-node-rel-badge con-node-rel-badge-ipa">IPA</span>'
             : '');
-        const wordRow = `<span class="con-node-word-row">${wordPart}${relationBadge}${pageBadge}</span>`;
+        const smallCapsStyle = (casing === 'smallcaps') ? ' style="font-variant:small-caps;"' : '';
+        const wordRow = `<span class="con-node-word-row"${smallCapsStyle}>${wordPart}${relationBadge}${pageBadge}</span>`;
 
         // Build annotation lines below the word
         let annLines = '';
@@ -19301,6 +19426,11 @@
         }
 
         const el = node.el;
+        if (casing === 'smallcaps') {
+          el.style.fontVariant = 'small-caps';
+        } else {
+          el.style.fontVariant = 'normal';
+        }
         // Preserve resize handle, emoji dot, and star button across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
@@ -19319,10 +19449,22 @@
 
       function conSyncFmtButtons(node) {
         const fmt = conGetNodeFmt(node);
-        document.getElementById('con-fmt-bold').classList.toggle('active', fmt.bold);
-        document.getElementById('con-fmt-italic').classList.toggle('active', fmt.italic);
-        document.getElementById('con-fmt-under').classList.toggle('active', fmt.underline);
-        document.getElementById('con-fmt-strike').classList.toggle('active', fmt.strike);
+        document.getElementById('con-fmt-bold').classList.toggle('active', !!fmt.bold);
+        document.getElementById('con-fmt-italic').classList.toggle('active', !!fmt.italic);
+        document.getElementById('con-fmt-under').classList.toggle('active', !!fmt.underline);
+        document.getElementById('con-fmt-strike').classList.toggle('active', !!fmt.strike);
+
+        const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+        const caseBtn = document.getElementById('con-fmt-case-btn');
+        if (caseBtn) {
+          caseBtn.classList.toggle('active', casing !== 'none');
+        }
+        const caseDd = document.getElementById('con-ctx-case-dropdown');
+        if (caseDd) {
+          caseDd.querySelectorAll('.board-casing-item').forEach(item => {
+            item.classList.toggle('active', (item.dataset.case || 'none') === casing);
+          });
+        }
 
         // Check DB availability for annotation buttons (supports space-separated multi-word nodes)
         const baseWord = node.baseWord || node.el.dataset.baseWord || node.el.textContent.trim();
@@ -19353,6 +19495,79 @@
         }
 
       }
+
+      function boardPositionCasingDropdown(btn, dd) {
+        if (!btn || !dd) return;
+        dd.style.display = 'flex';
+        dd.style.top = '';
+        dd.style.bottom = '';
+        dd.style.left = '0';
+        dd.style.right = '';
+
+        const btnRect = btn.getBoundingClientRect();
+        const ddHeight = dd.offsetHeight || 190;
+        const spaceBelow = window.innerHeight - btnRect.bottom;
+        const spaceAbove = btnRect.top;
+
+        if (spaceBelow < ddHeight + 10 && spaceAbove > spaceBelow) {
+          dd.style.top = 'auto';
+          dd.style.bottom = 'calc(100% + 4px)';
+        } else {
+          dd.style.top = 'calc(100% + 4px)';
+          dd.style.bottom = 'auto';
+        }
+
+        const ddRect = dd.getBoundingClientRect();
+        if (ddRect.right > window.innerWidth - 8) {
+          dd.style.left = 'auto';
+          dd.style.right = '0';
+        }
+      }
+      window.boardPositionCasingDropdown = boardPositionCasingDropdown;
+
+      window.conCtxToggleCaseDropdown = function (event) {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        const dd = document.getElementById('con-ctx-case-dropdown');
+        const btn = document.getElementById('con-fmt-case-btn');
+        if (!dd) return;
+        const isVisible = dd.style.display !== 'none';
+        const wnDd = document.getElementById('wn-sp-case-dropdown');
+        if (wnDd) wnDd.style.display = 'none';
+        if (isVisible) {
+          dd.style.display = 'none';
+        } else {
+          if (conCtxNodeId) {
+            const node = conNodes.find(n => n.id === conCtxNodeId);
+            if (node) {
+              const fmt = conGetNodeFmt(node);
+              const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+              dd.querySelectorAll('.board-casing-item').forEach(item => {
+                item.classList.toggle('active', (item.dataset.case || 'none') === casing);
+              });
+            }
+          }
+          boardPositionCasingDropdown(btn, dd);
+        }
+      };
+
+      window.conCtxSetCasing = function (casingKey) {
+        const dd = document.getElementById('con-ctx-case-dropdown');
+        if (dd) dd.style.display = 'none';
+        if (!conCtxNodeId) return;
+        conPushUndo();
+        const targets = (conMultiSelected && conMultiSelected.size > 1 && conMultiSelected.has(conCtxNodeId))
+          ? conNodes.filter(n => conMultiSelected.has(n.id))
+          : [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean);
+
+        targets.forEach(node => {
+          const fmt = conGetNodeFmt(node);
+          fmt.casing = casingKey;
+          conRenderNodeLabel(node);
+        });
+        const activeNode = conNodes.find(n => n.id === conCtxNodeId);
+        if (activeNode) conSyncFmtButtons(activeNode);
+        conRedrawEdges();
+      };
 
       window.conCtxToggleFmt = function (type) {
         if (!conCtxNodeId) return;
@@ -20900,6 +21115,14 @@
 
       document.addEventListener('click', function (e) {
         if (!e.target.closest('#con-ctx-menu')) conCtxClose();
+        if (!e.target.closest('#con-fmt-case-btn') && !e.target.closest('#con-ctx-case-dropdown')) {
+          const dd = document.getElementById('con-ctx-case-dropdown');
+          if (dd) dd.style.display = 'none';
+        }
+        if (!e.target.closest('#wn-sp-case-btn') && !e.target.closest('#wn-sp-case-dropdown')) {
+          const dd = document.getElementById('wn-sp-case-dropdown');
+          if (dd) dd.style.display = 'none';
+        }
         if (!_boardMenuLocked && !e.target.closest('#con-board-ctx-menu')) {
           const bmenu = document.getElementById('con-board-ctx-menu');
           if (bmenu && bmenu.classList.contains('visible')) conBoardCtxClose();
@@ -23862,6 +24085,16 @@
       document.getElementById('wn-sp-italic').classList.toggle('active', !!noteData.italic);
       document.getElementById('wn-sp-underline').classList.toggle('active', !!noteData.underline);
       document.getElementById('wn-sp-strike').classList.toggle('active', !!noteData.strike);
+      const _curCasing = noteData.casing || window._bcNoteDefaultCasing || 'none';
+      const caseBtn = document.getElementById('wn-sp-case-btn');
+      if (caseBtn) caseBtn.classList.toggle('active', _curCasing !== 'none');
+      const caseDropdown = document.getElementById('wn-sp-case-dropdown');
+      if (caseDropdown) {
+        caseDropdown.style.display = 'none';
+        caseDropdown.querySelectorAll('.board-casing-item').forEach(item => {
+          item.classList.toggle('active', (item.dataset.case || 'none') === _curCasing);
+        });
+      }
       const _curAlign = noteData.textAlign || 'left';
       ['left', 'center', 'right', 'justify'].forEach(a => {
         const btn = document.getElementById('wn-sp-align-' + a);
@@ -24996,6 +25229,82 @@
       });
     }
 
+    function wnStyleToggleCaseDropdown(e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      const dd = document.getElementById('wn-sp-case-dropdown');
+      const btn = document.getElementById('wn-sp-case-btn');
+      if (!dd) return;
+      const isVisible = dd.style.display !== 'none';
+      const conDd = document.getElementById('con-ctx-case-dropdown');
+      if (conDd) conDd.style.display = 'none';
+      if (isVisible) {
+        dd.style.display = 'none';
+      } else {
+        const curCasing = (_wnActiveNote && _wnActiveNote.casing) || window._bcNoteDefaultCasing || 'none';
+        dd.querySelectorAll('.board-casing-item').forEach(item => {
+          item.classList.toggle('active', (item.dataset.case || 'none') === curCasing);
+        });
+        if (typeof boardPositionCasingDropdown === 'function') {
+          boardPositionCasingDropdown(btn, dd);
+        } else {
+          dd.style.display = 'flex';
+        }
+      }
+    }
+
+    function wnStyleSetCasing(casingKey) {
+      const dd = document.getElementById('wn-sp-case-dropdown');
+      if (dd) dd.style.display = 'none';
+      if (!_wnActiveNote) return;
+
+      const editor = wnGetActiveEditor();
+      if (editor && !wnSelectionInside(editor)) {
+        wnRestoreSelection(editor);
+      }
+      const sel = window.getSelection();
+      const hasTextSelected = editor && wnSelectionInside(editor) && sel && sel.rangeCount > 0 && !sel.isCollapsed;
+
+      if (hasTextSelected) {
+        editor.focus();
+        const rawSelected = sel.toString();
+        if (casingKey === 'smallcaps') {
+          const range = sel.getRangeAt(0);
+          const span = document.createElement('span');
+          span.style.fontVariant = 'small-caps';
+          span.textContent = rawSelected;
+          range.deleteContents();
+          range.insertNode(span);
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        } else if (casingKey === 'none') {
+          const range = sel.getRangeAt(0);
+          const span = document.createElement('span');
+          span.style.fontVariant = 'normal';
+          span.style.textTransform = 'none';
+          span.textContent = rawSelected;
+          range.deleteContents();
+          range.insertNode(span);
+        } else {
+          const transformed = boardTransformCasingText(rawSelected, casingKey);
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('insertText', false, transformed);
+        }
+        wnRememberSelection(editor);
+        wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+        if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      } else {
+        _wnActiveNote.casing = casingKey;
+        if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      }
+
+      const caseBtn = document.getElementById('wn-sp-case-btn');
+      if (caseBtn) {
+        caseBtn.classList.toggle('active', (_wnActiveNote.casing || 'none') !== 'none');
+      }
+    }
+
     function wnStyleSetSize(sizePx) {
       if (!_wnActiveNote) return;
       const value = Math.max(WN_SIZE_MIN, Math.min(WN_SIZE_MAX, Number(sizePx) || _wnActiveNote.fontSize || 16));
@@ -25743,6 +26052,33 @@
         if (noteData.underline) noteDecor.push('underline');
         if (noteData.strike) noteDecor.push('line-through');
         note.style.textDecoration = noteDecor.length ? noteDecor.join(' ') : 'none';
+        const noteCasing = noteData.casing || window._bcNoteDefaultCasing || 'none';
+        if (noteCasing === 'uppercase') {
+          note.style.textTransform = 'uppercase';
+          ta.style.textTransform = 'uppercase';
+          note.style.fontVariant = 'normal';
+          ta.style.fontVariant = 'normal';
+        } else if (noteCasing === 'lowercase') {
+          note.style.textTransform = 'lowercase';
+          ta.style.textTransform = 'lowercase';
+          note.style.fontVariant = 'normal';
+          ta.style.fontVariant = 'normal';
+        } else if (noteCasing === 'titlecase') {
+          note.style.textTransform = 'capitalize';
+          ta.style.textTransform = 'capitalize';
+          note.style.fontVariant = 'normal';
+          ta.style.fontVariant = 'normal';
+        } else if (noteCasing === 'smallcaps') {
+          note.style.textTransform = 'none';
+          ta.style.textTransform = 'none';
+          note.style.fontVariant = 'small-caps';
+          ta.style.fontVariant = 'small-caps';
+        } else {
+          note.style.textTransform = 'none';
+          ta.style.textTransform = 'none';
+          note.style.fontVariant = 'normal';
+          ta.style.fontVariant = 'normal';
+        }
         ta.style.fontSize = (noteData.fontSize * zoom) + 'px';
         ta.style.color = noteData.color;
         ta.style.fontWeight = noteData.bold ? '700' : '400';
@@ -29293,12 +29629,16 @@
     }
 
     function conGetNodeWordText(node, el) {
-      const baseWord = node.baseWord || el.dataset.baseWord;
-      if (baseWord) return baseWord.trim();
+      const baseWord = node.baseWord || (el && el.dataset ? el.dataset.baseWord : '');
+      const fmt = node && node.fmt ? node.fmt : {};
+      const casing = fmt.casing || window._bcNodeDefaultCasing || 'none';
+      if (baseWord) return boardTransformCasingText(baseWord.trim(), casing);
       let wordText = '';
-      el.childNodes.forEach(child => { if (child.nodeType === Node.TEXT_NODE) wordText += child.textContent; });
-      if (!wordText.trim()) { const primary = conGetPrimaryTextNode(el); wordText = primary ? primary.textContent : el.textContent; }
-      return wordText.trim();
+      if (el && el.childNodes) {
+        el.childNodes.forEach(child => { if (child.nodeType === Node.TEXT_NODE) wordText += child.textContent; });
+      }
+      if (!wordText.trim() && el) { const primary = conGetPrimaryTextNode(el); wordText = primary ? primary.textContent : el.textContent; }
+      return boardTransformCasingText(wordText.trim(), casing);
     }
 
     function conGetRelativeTextCenterY(el, target, fallbackHeight) {
@@ -36134,6 +36474,8 @@
       set('bc-node-font-size', bc.nodeDefaultFontSize !== undefined ? bc.nodeDefaultFontSize : 16);
       set('bc-note-font-free', bc.noteDefaultFontSizeFree !== undefined ? bc.noteDefaultFontSizeFree : 26);
       set('bc-note-font-linked', bc.noteDefaultFontSizeLinked !== undefined ? bc.noteDefaultFontSizeLinked : 14);
+      set('bc-node-casing', bc.nodeDefaultCasing || 'none');
+      set('bc-note-casing', bc.noteDefaultCasing || 'none');
       set('bc-node-border-width', bc.nodeDefaultBorderWidth !== undefined ? bc.nodeDefaultBorderWidth : 2);
       const bsEl = document.getElementById('bc-node-border-style');
       if (bsEl) bsEl.value = bc.nodeDefaultBorderStyle || 'solid';
@@ -36166,6 +36508,24 @@
       _bcBuildPenPresetList('bc-pen-preset-list', Array.isArray(bc.penPresets) && bc.penPresets.length ? bc.penPresets : _BC_PEN_PRESET_DEFAULTS.slice());
 
       // Font selects: inject into wrap containers
+      function _bcUpdateFontPreview(type) {
+        const isNode = type === 'node';
+        const preview = document.getElementById(isNode ? 'bc-node-font-preview' : 'bc-note-font-preview');
+        const casingSel = document.getElementById(isNode ? 'bc-node-casing' : 'bc-note-casing');
+        if (!preview) return;
+        const sample = "The quick brown fox";
+        const casing = casingSel ? casingSel.value : 'none';
+        if (casing === 'smallcaps') {
+          preview.style.fontVariant = 'small-caps';
+          preview.style.textTransform = 'none';
+          preview.textContent = sample;
+        } else {
+          preview.style.fontVariant = 'normal';
+          preview.style.textTransform = 'none';
+          preview.textContent = boardTransformCasingText(sample, casing);
+        }
+      }
+
       ['bc-node-font-family-wrap', 'bc-note-font-family-wrap'].forEach((wrapId, idx) => {
         const wrap = document.getElementById(wrapId);
         if (!wrap) return;
@@ -36183,6 +36543,17 @@
         const preview = document.getElementById(previewId);
         if (preview) preview.style.fontFamily = savedVal || '';
       });
+
+      const nodeCasingEl = document.getElementById('bc-node-casing');
+      if (nodeCasingEl) {
+        nodeCasingEl.onchange = () => _bcUpdateFontPreview('node');
+        _bcUpdateFontPreview('node');
+      }
+      const noteCasingEl = document.getElementById('bc-note-casing');
+      if (noteCasingEl) {
+        noteCasingEl.onchange = () => _bcUpdateFontPreview('note');
+        _bcUpdateFontPreview('note');
+      }
 
       // Initialize Node presets inline
       if (typeof window.conSetPresetEditorDraft === 'function' && typeof window._conPresetEditorRender === 'function' && typeof window.conGetNodePresets === 'function') {
@@ -36562,6 +36933,8 @@
         noteDefaultFontSizeLinked: getNum('bc-note-font-linked', 14),
         nodeDefaultFontFamily: getVal('bc-node-font-family', ''),
         noteDefaultFontFamily: getVal('bc-note-font-family', ''),
+        nodeDefaultCasing: getVal('bc-node-casing', 'none'),
+        noteDefaultCasing: getVal('bc-note-casing', 'none'),
         nodeDefaultBorderWidth: getNum('bc-node-border-width', 2),
         nodeDefaultBorderStyle: getVal('bc-node-border-style', 'solid'),
         nodeDefaultBorderColor: getVal('bc-node-border-color', '#111111'),
@@ -36634,11 +37007,28 @@
         window.conSetDefaultWordFontSize(bc.nodeDefaultFontSize);
       }
 
-      // 2b. Default font families
+      // 2b. Default font families & casing
       document.documentElement.style.setProperty('--bc-node-font-family', bc.nodeDefaultFontFamily || '');
       document.documentElement.style.setProperty('--bc-note-font-family', bc.noteDefaultFontFamily || '');
       window._bcNodeFontFamily = bc.nodeDefaultFontFamily || '';
       window._bcNoteFontFamily = bc.noteDefaultFontFamily || '';
+      window._bcNodeDefaultCasing = bc.nodeDefaultCasing || 'none';
+      window._bcNoteDefaultCasing = bc.noteDefaultCasing || 'none';
+      if (window.conNodes && Array.isArray(window.conNodes)) {
+        window.conNodes.forEach(node => {
+          if (!node.fmt || !node.fmt.casing || node.fmt.casing === 'none') {
+            if (typeof conRenderNodeLabel === 'function') conRenderNodeLabel(node);
+          }
+        });
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+      }
+      if (window.conNotes && Array.isArray(window.conNotes)) {
+        window.conNotes.forEach(note => {
+          if (!note.casing || note.casing === 'none') {
+            if (note._applyStyle) note._applyStyle();
+          }
+        });
+      }
 
       // 3. Default node border (CSS variables, affect all un-styled nodes)
       if (bc.nodeDefaultBorderWidth !== undefined) {

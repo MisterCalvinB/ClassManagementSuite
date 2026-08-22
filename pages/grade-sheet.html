@@ -1297,10 +1297,10 @@
 
     // Returns the descriptor text for a named xlsm criterion at the given grade level.
     // Grade is mapped to the nearest available descriptor level: 6, 5, 4, 3, 2, or 1.5.
-    function xlsmCommentForGrade(criterionName, grade) {
+    function xlsmCommentForGrade(criterionName, grade, points, minPts, maxPts) {
       const crit = XLSM_CRITERIA.find(c => c.name.trim().toLowerCase() === criterionName.trim().toLowerCase());
       if (!crit || !crit.comments) return null;
-      const key = nearestCriterionGradeKey(crit, grade);
+      const key = nearestCriterionGradeKey(crit, grade, points, minPts, maxPts);
       return crit.comments[key] || null;
     }
 
@@ -1383,28 +1383,106 @@
       };
     }
 
-    function buildManualPointsFromPercents(percentThresholds, totalPossible) {
+    function computeScaleGradeSteps(maxGrade = 6, minGrade = 1, interval = 0.5) {
+      let maxG = toNumber(maxGrade);
+      let minG = toNumber(minGrade);
+      let step = toNumber(interval);
+      if (maxG == null || Number.isNaN(maxG)) maxG = 6;
+      if (minG == null || Number.isNaN(minG)) minG = 1;
+      if (step == null || Number.isNaN(step) || step <= 0) step = 0.5;
+
+      if (minG > maxG) {
+        const tmp = minG;
+        minG = maxG;
+        maxG = tmp;
+      }
+      if (minG === maxG) {
+        return [maxG];
+      }
+
+      const steps = [];
+      const precision = step < 0.01 ? 4 : (step < 0.1 ? 3 : (step < 1 ? 2 : 1));
+      let current = maxG;
+      let maxIterations = 200;
+      while (current >= minG - 1e-6 && maxIterations > 0) {
+        steps.push(Number(current.toFixed(precision)));
+        current -= step;
+        maxIterations--;
+      }
+      if (steps.length && Math.abs(steps[steps.length - 1] - minG) > 1e-4) {
+        steps.push(Number(minG.toFixed(precision)));
+      }
+      return steps;
+    }
+
+    function getScaleModelGradeSteps(model) {
+      if (!model || typeof model !== "object") return GRADE_STEPS.slice();
+      if (model.maxGrade != null && model.minGrade != null && model.interval != null) {
+        return computeScaleGradeSteps(model.maxGrade, model.minGrade, model.interval);
+      }
+      if (model.thresholds && typeof model.thresholds === "object") {
+        const keys = Object.keys(model.thresholds)
+          .map(k => toNumber(k))
+          .filter(v => v != null);
+        if (keys.length > 1) {
+          keys.sort((a, b) => b - a);
+          return keys;
+        }
+      }
+      return GRADE_STEPS.slice();
+    }
+
+    function getTestGradeSteps(config) {
+      if (!config || !config.grading) return GRADE_STEPS.slice();
+      if (config.grading.modelKey) {
+        const model = getScaleModel(config.grading.modelKey);
+        if (model) return getScaleModelGradeSteps(model);
+      }
+      if (config.grading.maxGrade != null && config.grading.minGrade != null && config.grading.interval != null) {
+        return computeScaleGradeSteps(config.grading.maxGrade, config.grading.minGrade, config.grading.interval);
+      }
+      if (config.grading.manualThresholds && typeof config.grading.manualThresholds === "object") {
+        const keys = Object.keys(config.grading.manualThresholds)
+          .map(k => toNumber(k))
+          .filter(v => v != null);
+        if (keys.length > 1) {
+          keys.sort((a, b) => b - a);
+          return keys;
+        }
+      }
+      return GRADE_STEPS.slice();
+    }
+
+    function buildManualPointsFromPercents(percentThresholds, totalPossible, totalMin = 0, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
+      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
+      const span = safeTotal - safeMin;
+      const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
       const points = {};
-      GRADE_STEPS.forEach(grade => {
+      steps.forEach(grade => {
         const key = String(grade);
         const pct = Math.max(0, Math.min(100, toNumber(percentThresholds && percentThresholds[key]) ?? 0));
-        points[key] = safeTotal > 0 ? (pct / 100) * safeTotal : 0;
+        points[key] = span > 0 ? safeMin + (pct / 100) * span : (safeTotal > 0 ? (pct / 100) * safeTotal : 0);
       });
       return points;
     }
 
-    function buildManualPercentsFromPoints(pointsThresholds, totalPossible, fallbackPercents) {
+    function buildManualPercentsFromPoints(pointsThresholds, totalPossible, fallbackPercents, totalMin = 0, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
+      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
+      const span = safeTotal - safeMin;
+      const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
       const percents = {};
-      GRADE_STEPS.forEach(grade => {
+      steps.forEach(grade => {
         const key = String(grade);
         const fallback = Math.max(0, Math.min(100, toNumber(fallbackPercents && fallbackPercents[key]) ?? 0));
-        const pts = Math.max(0, toNumber(pointsThresholds && pointsThresholds[key]) ?? 0);
-        if (safeTotal <= 0) {
+        const pts = toNumber(pointsThresholds && pointsThresholds[key]);
+        if (pts == null) {
+          percents[key] = fallback;
+        } else if (span <= 0) {
           percents[key] = fallback;
         } else {
-          percents[key] = Math.max(0, Math.min(100, (pts / safeTotal) * 100));
+          percents[key] = Math.max(0, Math.min(100, ((pts - safeMin) / span) * 100));
         }
       });
       return percents;
@@ -1415,6 +1493,219 @@
     }
 
     const DEFAULT_CRITERION_GRADES = ["6", "5", "4", "3", "2", "1.5"];
+
+    const DEFAULT_GRADE_COLORS = {
+      "6": "#16a34a",
+      "5.5": "#4d7c0f",
+      "5": "#65a30d",
+      "4.5": "#ca8a04",
+      "4": "#d97706",
+      "3.5": "#f97316",
+      "3": "#ea580c",
+      "2.5": "#e11d48",
+      "2": "#dc2626",
+      "1.5": "#991b1b",
+      "1": "#7f1d1d"
+    };
+
+    const REF_GRADE_PALETTE_50 = [
+      // Row 1: Deep & Rich tones (Reds, Roses, Oranges, Ambers, Limes, Greens, Teals, Blues, Violets, Fuchsias)
+      "#991b1b", "#881337", "#9a3412", "#b45309", "#4d7c0f", "#14532d", "#115e59", "#1e3a8a", "#4c1d95", "#701a75",
+      // Row 2: Vivid & Bold standard
+      "#dc2626", "#be123c", "#ea580c", "#d97706", "#65a30d", "#16a34a", "#0d9488", "#1d4ed8", "#6d28d9", "#a21caf",
+      // Row 3: Bright & High-contrast
+      "#ef4444", "#f43f5e", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#2563eb", "#7c3aed", "#c026d3",
+      // Row 4: Flashy / Electric / Neon
+      "#ff1744", "#ff007f", "#ff6d00", "#ffd600", "#76ff03", "#00e676", "#00e5ff", "#2979ff", "#651fff", "#d500f9",
+      // Row 5: Luminous & Saturated Accents
+      "#ff4d6d", "#fb7185", "#ff9e00", "#ffea00", "#a3e635", "#2dd4bf", "#38bdf8", "#00b0ff", "#a855f7", "#f472b6"
+    ];
+
+    let _refColorPickerCleanup = null;
+    function openRefColorPicker(anchorEl, currentColor, onSelect) {
+      closeRefColorPicker();
+      let popover = document.getElementById("ref-color-picker-popover");
+      if (!popover) {
+        popover = document.createElement("div");
+        popover.id = "ref-color-picker-popover";
+        popover.className = "ref-color-popover hidden";
+        document.body.appendChild(popover);
+      }
+
+      popover.innerHTML = "";
+      const grid = document.createElement("div");
+      grid.className = "ref-color-popover-grid";
+
+      REF_GRADE_PALETTE_50.forEach(col => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ref-color-popover-swatch" + (col.toLowerCase() === (currentColor || "").toLowerCase() ? " active" : "");
+        btn.style.backgroundColor = col;
+        btn.title = col;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          onSelect(col);
+          closeRefColorPicker();
+        });
+        grid.appendChild(btn);
+      });
+      popover.appendChild(grid);
+
+      popover.classList.remove("hidden");
+      const rect = anchorEl.getBoundingClientRect();
+      const popW = 296;
+      const popH = 158;
+      let left = rect.left;
+      if (left + popW > window.innerWidth - 12) {
+        left = Math.max(12, window.innerWidth - popW - 12);
+      }
+      if (left < 12) left = 12;
+
+      let top = rect.bottom + 6;
+      if (top + popH > window.innerHeight - 12) {
+        top = Math.max(12, rect.top - popH - 6);
+      }
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+
+      const onDocClick = (e) => {
+        if (!popover.contains(e.target) && e.target !== anchorEl) {
+          closeRefColorPicker();
+        }
+      };
+      const onDocKey = (e) => {
+        if (e.key === "Escape") closeRefColorPicker();
+      };
+      _refColorPickerCleanup = () => {
+        document.removeEventListener("pointerdown", onDocClick, true);
+        document.removeEventListener("keydown", onDocKey, true);
+      };
+      setTimeout(() => {
+        document.addEventListener("pointerdown", onDocClick, true);
+        document.addEventListener("keydown", onDocKey, true);
+      }, 10);
+    }
+
+    function closeRefColorPicker() {
+      const popover = document.getElementById("ref-color-picker-popover");
+      if (popover) popover.classList.add("hidden");
+      if (_refColorPickerCleanup) {
+        _refColorPickerCleanup();
+        _refColorPickerCleanup = null;
+      }
+    }
+
+    function getHexRgb(hex) {
+      if (!hex || typeof hex !== "string") return [0, 0, 0];
+      let clean = hex.replace("#", "").trim();
+      if (clean.length === 3) clean = clean.split("").map(c => c + c).join("");
+      if (clean.length < 6) return [0, 0, 0];
+      return [
+        parseInt(clean.substring(0, 2), 16) || 0,
+        parseInt(clean.substring(2, 4), 16) || 0,
+        parseInt(clean.substring(4, 6), 16) || 0
+      ];
+    }
+
+    function getColorLuminance(hex) {
+      const [r, g, b] = getHexRgb(hex).map(v => v / 255);
+      const a = [r, g, b].map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+      return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+    }
+
+    function getHighContrastTextColor(hex) {
+      if (!hex || typeof hex !== "string") return "#111827";
+      const lum = getColorLuminance(hex);
+      if (lum > 0.35) {
+        const [r, g, b] = getHexRgb(hex);
+        const factor = lum > 0.65 ? 0.42 : (lum > 0.48 ? 0.55 : 0.68);
+        const dr = Math.round(r * factor);
+        const dg = Math.round(g * factor);
+        const db = Math.round(b * factor);
+        const toHex = v => v.toString(16).padStart(2, "0");
+        return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`;
+      }
+      return hex;
+    }
+
+    function getDefaultGradeColor(key, index, total) {
+      if (key != null && DEFAULT_GRADE_COLORS[String(key)]) {
+        return DEFAULT_GRADE_COLORS[String(key)];
+      }
+      const num = toNumber(key);
+      if (num != null) {
+        if (num >= 6) return "#16a34a";
+        if (num >= 5) return "#65a30d";
+        if (num >= 4) return "#d97706";
+        if (num >= 3) return "#ea580c";
+        if (num >= 2) return "#dc2626";
+        return "#991b1b";
+      }
+      if (total && total > 1 && index != null) {
+        const ratio = index / (total - 1);
+        const palette = ["#16a34a", "#65a30d", "#d97706", "#ea580c", "#dc2626", "#991b1b"];
+        const pIdx = Math.min(palette.length - 1, Math.floor(ratio * palette.length));
+        return palette[pIdx];
+      }
+      return "#d97706";
+    }
+
+    function getScaleGradeColor(gradeKey, modelKey = null) {
+      if (gradeKey == null) return null;
+      const k = String(gradeKey);
+      if (modelKey && typeof getScaleModel === "function") {
+        const model = getScaleModel(modelKey);
+        if (model && model.colors && model.colors[k]) return model.colors[k];
+      }
+      if (typeof appState !== "undefined" && appState && appState.activeTest && typeof getActiveClass === "function" && typeof getTestConfig === "function" && typeof getScaleModel === "function") {
+        const classObj = getActiveClass();
+        if (classObj) {
+          const cfg = getTestConfig(classObj, appState.activeTest.semester, appState.activeTest.testIndex);
+          if (cfg && cfg.grading && cfg.grading.modelKey) {
+            const model = getScaleModel(cfg.grading.modelKey);
+            if (model && model.colors && model.colors[k]) return model.colors[k];
+          }
+        }
+      }
+      if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
+        for (const m of XLSM_SCALE_MODELS) {
+          if (m && m.colors && m.colors[k]) return m.colors[k];
+        }
+      }
+      return getDefaultGradeColor(k);
+    }
+
+    function buildCriterionSliderGradient(criterion, minPts, maxPts) {
+      const critName = criterion && criterion.name ? criterion.name.trim().toLowerCase() : "";
+      const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
+        ? XLSM_CRITERIA.find(c => c.name.trim().toLowerCase() === critName)
+        : null;
+      const grades = normalizeCriterionGrades((xlsm && xlsm.grades) || (criterion && criterion.grades));
+      if (!grades.length) return "linear-gradient(to right, #dc2626 0%, #16a34a 100%)";
+
+      const numeric = grades
+        .map((key, idx) => ({
+          key,
+          value: toNumber(key),
+          color: (xlsm && xlsm.colors && xlsm.colors[key]) || (criterion && criterion.colors && criterion.colors[key]) || getDefaultGradeColor(key, idx, grades.length)
+        }))
+        .filter(entry => entry.value != null)
+        .sort((a, b) => a.value - b.value);
+
+      if (!numeric.length) return "linear-gradient(to right, #dc2626 0%, #16a34a 100%)";
+      if (numeric.length === 1) return numeric[0].color;
+
+      const stops = [];
+      const count = numeric.length;
+      for (let i = 0; i < count; i++) {
+        const color = numeric[i].color;
+        const startPct = i === 0 ? 0 : (i / count) * 100;
+        const endPct = i === count - 1 ? 100 : ((i + 1) / count) * 100;
+        stops.push(`${color} ${startPct.toFixed(1)}%`);
+        stops.push(`${color} ${endPct.toFixed(1)}%`);
+      }
+      return `linear-gradient(to right, ${stops.join(", ")})`;
+    }
 
     function parseCriterionGrades(value) {
       if (Array.isArray(value)) {
@@ -1431,20 +1722,43 @@
       return grades.length ? grades : DEFAULT_CRITERION_GRADES.slice();
     }
 
-    function nearestCriterionGradeKey(criterion, grade) {
+    function nearestCriterionGradeKey(criterion, grade, points, minPts, maxPts) {
       const available = normalizeCriterionGrades(criterion && criterion.grades);
-      const target = Number(grade);
-      if (Number.isNaN(target)) return available[available.length - 1] || null;
+      if (!available.length) return null;
 
       const numeric = available
         .map(key => ({ key, value: toNumber(key) }))
         .filter(entry => entry.value != null)
         .sort((a, b) => b.value - a.value);
 
+      if (!numeric.length) return available[available.length - 1] || null;
+
+      const maxKey = numeric[0].value;
+      const minKey = numeric[numeric.length - 1].value;
+      const keySpan = maxKey - minKey;
+
+      const safeMinPts = minPts != null ? minPts : (toNumber(criterion && criterion.minPoints) ?? 0);
+      const safeMaxPts = maxPts != null ? maxPts : (toNumber(criterion && criterion.maxPoints) ?? maxKey);
+
+      let target;
+      if (points != null && safeMaxPts >= safeMinPts) {
+        const ptsSpan = safeMaxPts - safeMinPts;
+        const ratio = ptsSpan > 0 ? Math.max(0, Math.min(1, (points - safeMinPts) / ptsSpan)) : 1;
+        target = keySpan > 0 ? minKey + ratio * keySpan : maxKey;
+      } else if (points != null) {
+        target = Number(points);
+      } else if (grade != null) {
+        target = Number(grade);
+      } else {
+        target = NaN;
+      }
+
+      if (Number.isNaN(target)) return available[available.length - 1] || null;
+
       for (const entry of numeric) {
         if (target >= entry.value - 1e-9) return entry.key;
       }
-      return numeric.length ? numeric[numeric.length - 1].key : (available[available.length - 1] || null);
+      return numeric[numeric.length - 1].key;
     }
 
     function loadReferenceDataOverrides() {
@@ -1503,14 +1817,18 @@
       const name = typeof source.name === "string" && source.name.trim() ? source.name.trim() : `Criterion ${index + 1}`;
       const grades = normalizeCriterionGrades(source.grades);
       const comments = {};
-      grades.forEach(key => {
+      const colors = {};
+      grades.forEach((key, idx) => {
         comments[key] = typeof source.comments?.[key] === "string" ? source.comments[key] : "";
+        colors[key] = typeof source.colors?.[key] === "string" && source.colors[key].trim()
+          ? source.colors[key].trim()
+          : getDefaultGradeColor(key, idx, grades.length);
       });
       const rawMin = toNumber(source.minPoints);
       const minPoints = rawMin != null ? rawMin : null;
       const rawMax = toNumber(source.maxPoints);
       const maxPoints = rawMax != null && rawMax >= 0 ? rawMax : null;
-      return { name, grades, comments, minPoints, maxPoints };
+      return { name, grades, comments, colors, minPoints, maxPoints };
     }
 
     function normalizeReferenceScaleModel(entry, index, existingKeys = new Set()) {
@@ -1527,12 +1845,23 @@
       existingKeys.add(key);
 
       const label = typeof source.label === "string" && source.label.trim() ? source.label.trim() : fallbackLabel;
+      const minGrade = toNumber(source.minGrade) != null ? toNumber(source.minGrade) : 1;
+      const maxGrade = toNumber(source.maxGrade) != null ? toNumber(source.maxGrade) : 6;
+      const interval = toNumber(source.interval) != null && toNumber(source.interval) > 0 ? toNumber(source.interval) : 0.5;
+
+      const steps = computeScaleGradeSteps(maxGrade, minGrade, interval);
       const thresholds = {};
-      GRADE_STEPS.forEach(grade => {
+      const colors = {};
+      const stepCount = steps.length;
+      steps.forEach((grade, gIdx) => {
         const gradeKey = String(grade);
-        thresholds[gradeKey] = Math.max(0, Math.min(100, toNumber(source.thresholds?.[gradeKey]) ?? 0));
+        const fallbackPct = stepCount > 1 ? Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2)) : 0;
+        thresholds[gradeKey] = Math.max(0, Math.min(100, toNumber(source.thresholds?.[gradeKey]) ?? fallbackPct));
+        colors[gradeKey] = typeof source.colors?.[gradeKey] === "string" && source.colors[gradeKey].trim()
+          ? source.colors[gradeKey].trim()
+          : getDefaultGradeColor(gradeKey, gIdx, stepCount);
       });
-      return { key, label, thresholds };
+      return { key, label, minGrade, maxGrade, interval, thresholds, colors };
     }
 
     function cloneReferenceDrafts() {
@@ -1553,19 +1882,28 @@
 
     function makeBlankCriterion(index) {
       const comments = {};
-      DEFAULT_CRITERION_GRADES.forEach(key => { comments[key] = ""; });
-      return { name: `Criterion ${index + 1}`, grades: DEFAULT_CRITERION_GRADES.slice(), comments, minPoints: null, maxPoints: null };
+      const colors = {};
+      DEFAULT_CRITERION_GRADES.forEach((key, idx) => {
+        comments[key] = "";
+        colors[key] = getDefaultGradeColor(key, idx, DEFAULT_CRITERION_GRADES.length);
+      });
+      return { name: `Criterion ${index + 1}`, grades: DEFAULT_CRITERION_GRADES.slice(), comments, colors, minPoints: null, maxPoints: null };
     }
 
     function makeBlankScaleModel(index) {
-      const linear = Array.isArray(XLSM_SCALE_MODELS) ? XLSM_SCALE_MODELS.find(m => m && m.key === "linear") : null;
-      const base = linear || { thresholds: {} };
+      const minGrade = 1;
+      const maxGrade = 6;
+      const interval = 0.5;
+      const steps = computeScaleGradeSteps(maxGrade, minGrade, interval);
       const thresholds = {};
-      GRADE_STEPS.forEach(grade => {
+      const colors = {};
+      const stepCount = steps.length;
+      steps.forEach((grade, gIdx) => {
         const gradeKey = String(grade);
-        thresholds[gradeKey] = Math.max(0, Math.min(100, toNumber(base.thresholds?.[gradeKey]) ?? 0));
+        thresholds[gradeKey] = Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2));
+        colors[gradeKey] = getDefaultGradeColor(gradeKey, gIdx, stepCount);
       });
-      return { key: `custom${index + 1}`, label: `Custom ${index + 1}`, thresholds };
+      return { key: `custom${index + 1}`, label: `Custom ${index + 1}`, minGrade, maxGrade, interval, thresholds, colors };
     }
 
     function makeBlankPersonalisedChipsGroup(index) {
@@ -1574,14 +1912,14 @@
 
     function duplicateCriterion(entry, index) {
       const copy = normalizeReferenceCriterion(entry, index);
-      copy.name = `${copy.name} copy`;
+      copy.name = `${copy.name} (Copy)`;
       return copy;
     }
 
     function duplicateScaleModel(entry, index) {
       const copy = normalizeReferenceScaleModel(entry, index, new Set());
       copy.key = `${copy.key}-copy`;
-      copy.label = `${copy.label} copy`;
+      copy.label = `${copy.label} (Copy)`;
       return copy;
     }
 
@@ -1675,12 +2013,17 @@
       criteriaList.innerHTML = draft.criteria.map((criterion, index) => {
         const gradeList = normalizeCriterionGrades(criterion.grades);
         const heading = getReferenceCriterionHeading(criterion, index);
-        const commentFields = gradeList.map(grade => {
+        const commentFields = gradeList.map((grade, gIdx) => {
           const value = escapeHtml(criterion.comments[grade] || "");
+          const color = (criterion.colors && criterion.colors[grade]) || getDefaultGradeColor(grade, gIdx, gradeList.length);
+          const textColor = getHighContrastTextColor(color);
           return `
             <label class="ref-field">
-              <span>${grade}</span>
-              <textarea data-kind="criterion" data-index="${index}" data-field="comment-${grade}">${value}</textarea>
+              <div class="ref-field-header">
+                <span class="ref-grade-badge" style="background:${color}18; color:${textColor}; border-color:${color};">${escapeHtml(grade)}</span>
+                <button type="button" class="ref-color-btn" data-action="pick-grade-color" data-index="${index}" data-grade="${escapeHtml(grade)}" style="background-color:${color};" title="Choose color (50 colors)"></button>
+              </div>
+              <textarea data-kind="criterion" data-index="${index}" data-field="comment-${escapeHtml(grade)}">${value}</textarea>
             </label>`;
         }).join("");
         return `
@@ -1720,12 +2063,18 @@
       scaleList.innerHTML = draft.scaleModels.map((model, index) => {
         const heading = getReferenceScaleHeading(model, index);
         const note = getReferenceScaleNote(model, index);
-        const thresholdFields = GRADE_STEPS.map(grade => {
+        const steps = getScaleModelGradeSteps(model);
+        const thresholdFields = steps.map((grade, gIdx) => {
           const gradeKey = String(grade);
-          const value = model.thresholds[gradeKey];
+          const value = model.thresholds[gradeKey] ?? 0;
+          const color = (model.colors && model.colors[gradeKey]) || getDefaultGradeColor(gradeKey, gIdx, steps.length);
+          const textColor = getHighContrastTextColor(color);
           return `
             <label class="ref-field">
-              <span>${grade}</span>
+              <div class="ref-field-header">
+                <span class="ref-grade-badge" style="background:${color}18; color:${textColor}; border-color:${color};">${grade}</span>
+                <button type="button" class="ref-color-btn" data-action="pick-scale-color" data-index="${index}" data-grade="${gradeKey}" style="background-color:${color};" title="Choose color for grade ${gradeKey} (50 colors)"></button>
+              </div>
               <input class="input" type="number" min="0" max="100" step="0.1" data-kind="scale" data-index="${index}" data-field="threshold-${gradeKey}" value="${escapeHtml(fmtN(value))}" />
             </label>`;
         }).join("");
@@ -1749,6 +2098,18 @@
               <label class="ref-field" style="grid-column:span 2;">
                 <span>${t('gsRefScaleLabel')}</span>
                 <input class="input" type="text" data-kind="scale" data-index="${index}" data-field="label" value="${escapeHtml(model.label)}" />
+              </label>
+              <label class="ref-field">
+                <span>Min Grade</span>
+                <input class="input" type="number" step="0.1" data-kind="scale" data-index="${index}" data-field="minGrade" value="${escapeHtml(fmtN(model.minGrade != null ? model.minGrade : 1))}" />
+              </label>
+              <label class="ref-field">
+                <span>Max Grade</span>
+                <input class="input" type="number" step="0.1" data-kind="scale" data-index="${index}" data-field="maxGrade" value="${escapeHtml(fmtN(model.maxGrade != null ? model.maxGrade : 6))}" />
+              </label>
+              <label class="ref-field">
+                <span>Interval</span>
+                <input class="input" type="number" step="0.05" min="0.01" data-kind="scale" data-index="${index}" data-field="interval" value="${escapeHtml(fmtN(model.interval != null ? model.interval : 0.5))}" />
               </label>
               ${thresholdFields}
             </div>
@@ -1779,16 +2140,45 @@
           if (fieldName === "grades") {
             const grades = normalizeCriterionGrades(evt.target.value);
             const nextComments = {};
-            grades.forEach(grade => {
+            const nextColors = {};
+            grades.forEach((grade, gIdx) => {
               nextComments[grade] = item.comments && typeof item.comments[grade] === "string" ? item.comments[grade] : "";
+              nextColors[grade] = item.colors && item.colors[grade] ? item.colors[grade] : getDefaultGradeColor(grade, gIdx, grades.length);
             });
             item.grades = grades;
             item.comments = nextComments;
+            item.colors = nextColors;
             renderReferenceDataEditor();
             return;
           }
           const grade = fieldName.replace("comment-", "");
           item.comments[grade] = evt.target.value;
+        });
+      });
+
+      criteriaList.querySelectorAll("[data-action='pick-grade-color']").forEach(btn => {
+        btn.addEventListener("click", evt => {
+          evt.stopPropagation();
+          const index = Number(btn.getAttribute("data-index"));
+          const grade = btn.getAttribute("data-grade");
+          const item = draft.criteria[index];
+          if (!item) return;
+          const currentColor = (item.colors && item.colors[grade]) || getDefaultGradeColor(grade);
+          openRefColorPicker(btn, currentColor, (newColor) => {
+            if (!item.colors) item.colors = {};
+            item.colors[grade] = newColor;
+            btn.style.backgroundColor = newColor;
+            const fieldEl = btn.closest(".ref-field");
+            if (fieldEl) {
+              const badge = fieldEl.querySelector(".ref-grade-badge");
+              if (badge) {
+                const textCol = getHighContrastTextColor(newColor);
+                badge.style.color = textCol;
+                badge.style.borderColor = newColor;
+                badge.style.backgroundColor = `${newColor}18`;
+              }
+            }
+          });
         });
       });
 
@@ -1810,8 +2200,54 @@
             updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "scale", item, index);
             return;
           }
+          if (fieldName === "minGrade" || fieldName === "maxGrade" || fieldName === "interval") {
+            const rawVal = toNumber(evt.target.value);
+            if (rawVal != null) {
+              item[fieldName] = rawVal;
+              const steps = computeScaleGradeSteps(item.maxGrade, item.minGrade, item.interval);
+              const nextThresholds = {};
+              const nextColors = {};
+              const stepCount = steps.length;
+              steps.forEach((g, gIdx) => {
+                const k = String(g);
+                const fallbackPct = stepCount > 1 ? Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2)) : 0;
+                nextThresholds[k] = item.thresholds && item.thresholds[k] != null ? item.thresholds[k] : fallbackPct;
+                nextColors[k] = item.colors && item.colors[k] ? item.colors[k] : getDefaultGradeColor(k, gIdx, stepCount);
+              });
+              item.thresholds = nextThresholds;
+              item.colors = nextColors;
+              renderReferenceDataEditor();
+            }
+            return;
+          }
           const grade = fieldName.replace("threshold-", "");
           item.thresholds[grade] = toNumber(evt.target.value) ?? 0;
+        });
+      });
+
+      scaleList.querySelectorAll("[data-action='pick-scale-color']").forEach(btn => {
+        btn.addEventListener("click", evt => {
+          evt.stopPropagation();
+          const index = Number(btn.getAttribute("data-index"));
+          const grade = btn.getAttribute("data-grade");
+          const item = draft.scaleModels[index];
+          if (!item) return;
+          const currentColor = (item.colors && item.colors[grade]) || getDefaultGradeColor(grade);
+          openRefColorPicker(btn, currentColor, (newColor) => {
+            if (!item.colors) item.colors = {};
+            item.colors[grade] = newColor;
+            btn.style.backgroundColor = newColor;
+            const fieldEl = btn.closest(".ref-field");
+            if (fieldEl) {
+              const badge = fieldEl.querySelector(".ref-grade-badge");
+              if (badge) {
+                const textCol = getHighContrastTextColor(newColor);
+                badge.style.color = textCol;
+                badge.style.borderColor = newColor;
+                badge.style.backgroundColor = `${newColor}18`;
+              }
+            }
+          });
         });
       });
 
@@ -2046,93 +2482,40 @@
 
       ["sem1", "sem2"].forEach(sem => {
         if (!Array.isArray(classObj.testConfigs[sem])) classObj.testConfigs[sem] = [];
-
-        // Truncate excess in-place (no new array)
         if (classObj.testConfigs[sem].length > TEST_COUNT_PER_SEM) {
           classObj.testConfigs[sem].length = TEST_COUNT_PER_SEM;
         }
 
-        // Normalise each slot in-place, preserving valid references
-        for (let i = 0; i < TEST_COUNT_PER_SEM; i++) {
-          // Patch missing metadata fields on otherwise-valid configs
-          const cfgPatch = classObj.testConfigs[sem][i];
-          if (cfgPatch && typeof cfgPatch === "object") {
-            if (typeof cfgPatch.testDate !== "string") cfgPatch.testDate = "";
-            if (typeof cfgPatch.scope !== "string") cfgPatch.scope = "";
-            if (typeof cfgPatch.type !== "string") cfgPatch.type = "";
-            if (toNumber(cfgPatch.nextGradeHighlightPoints) == null) cfgPatch.nextGradeHighlightPoints = 0;
-          }
-        }
         for (let i = 0; i < TEST_COUNT_PER_SEM; i++) {
           const cfg = classObj.testConfigs[sem][i];
-          if (cfg && typeof cfg === "object" &&
-              typeof cfg.coefficient === "number" && !Number.isNaN(cfg.coefficient) &&
-              Array.isArray(cfg.criteria) &&
-              cfg.grading && typeof cfg.grading === "object" &&
-              typeof cfg.grading.mode === "string" &&
-              cfg.grading.manualThresholds && typeof cfg.grading.manualThresholds === "object" &&
-              cfg.grading.manualPoints && typeof cfg.grading.manualPoints === "object" &&
-              (cfg.grading.manualInputMode === "percent" || cfg.grading.manualInputMode === "points")) {
-            continue; // already valid — keep the same reference
-          }
-          const defaults = defaultManualThresholdPercentMap();
-          const loaded = (cfg && cfg.grading && cfg.grading.manualThresholds &&
-            typeof cfg.grading.manualThresholds === "object") ? cfg.grading.manualThresholds : {};
-          const merged = {};
-          GRADE_STEPS.forEach(g => {
-            const key = String(g);
-            merged[key] = Math.max(0, Math.min(100, toNumber(loaded[key]) ?? defaults[key]));
-          });
-          const criteria = Array.isArray(cfg && cfg.criteria)
-            ? cfg.criteria.map(cr => ({
-                id: cr.id || uid(),
-                name: cr.name || "Criterion",
-                minPoints: toNumber(cr.minPoints) ?? 0,
-                maxPoints: toNumber(cr.maxPoints) ?? 1,
-                pointCoefficient: toNumber(cr.pointCoefficient) ?? 1,
-                showComment: cr.showComment !== false,
-                isBonus: !!cr.isBonus
-              }))
-            : [];
-          const totalPossible = calcCriteriaTotals({ criteria }, {}).totalPossible;
-          const loadedPoints = (cfg && cfg.grading && cfg.grading.manualPoints &&
-            typeof cfg.grading.manualPoints === "object") ? cfg.grading.manualPoints : null;
-          const mergedPoints = loadedPoints
-            ? GRADE_STEPS.reduce((acc, g) => {
-                const key = String(g);
-                const fallback = ((toNumber(merged[key]) ?? 0) / 100) * totalPossible;
-                acc[key] = Math.max(0, toNumber(loadedPoints[key]) ?? fallback);
-                return acc;
-              }, {})
-            : buildManualPointsFromPercents(merged, totalPossible);
-          classObj.testConfigs[sem][i] = {
-            coefficient: toNumber(cfg && cfg.coefficient) ?? 1,
-            fixedWeight: (cfg && typeof cfg.fixedWeight === "number") ? cfg.fixedWeight : null,
-            testName: (cfg && typeof cfg.testName === "string") ? cfg.testName : "",
-            testDate: (cfg && typeof cfg.testDate === "string") ? cfg.testDate : "",
-            scope: (cfg && typeof cfg.scope === "string") ? cfg.scope : "",
-            type: (cfg && typeof cfg.type === "string") ? cfg.type : "",
-            nextGradeHighlightPoints: Math.max(0, toNumber(cfg && cfg.nextGradeHighlightPoints) ?? 0),
-            observationSections: Array.isArray(cfg && cfg.observationSections)
-              ? cfg.observationSections.filter(s => typeof s === "string")
-              : [],
-            criteria,
-            grading: {
-              mode: (cfg && cfg.grading && cfg.grading.mode === "manual") ? "manual" : "formula",
-              passPercentGrade4: Math.max(0, Math.min(100, toNumber(cfg && cfg.grading && cfg.grading.passPercentGrade4) ?? 66.67)),
-              modelKey: (cfg && cfg.grading && typeof cfg.grading.modelKey === "string") ? cfg.grading.modelKey : "linear",
-              pendingModelKey: (cfg && cfg.grading && typeof cfg.grading.pendingModelKey === "string")
-                ? cfg.grading.pendingModelKey
-                : ((cfg && cfg.grading && typeof cfg.grading.modelKey === "string") ? cfg.grading.modelKey : "linear"),
-              manualInputMode: (cfg && cfg.grading && cfg.grading.manualInputMode === "points") ? "points" : "percent",
-              manualThresholds: merged,
-              manualPoints: mergedPoints
+          if (cfg && typeof cfg === "object") {
+            if (typeof cfg.testDate !== "string") cfg.testDate = "";
+            if (typeof cfg.scope !== "string") cfg.scope = "";
+            if (typeof cfg.type !== "string") cfg.type = "";
+            if (toNumber(cfg.nextGradeHighlightPoints) == null) cfg.nextGradeHighlightPoints = 0;
+
+            if (cfg.grading && typeof cfg.grading === "object") {
+              if (cfg.grading.minGrade == null) cfg.grading.minGrade = 1;
+              if (cfg.grading.maxGrade == null) cfg.grading.maxGrade = 6;
+              if (cfg.grading.interval == null) cfg.grading.interval = 0.5;
+              if (!cfg.grading.manualThresholds || typeof cfg.grading.manualThresholds !== "object") {
+                cfg.grading.manualThresholds = defaultManualThresholdPercentMap();
+              }
+              const totals = calcCriteriaTotals(cfg, {});
+              const steps = getTestGradeSteps(cfg);
+              if (!cfg.grading.manualPoints || typeof cfg.grading.manualPoints !== "object") {
+                cfg.grading.manualPoints = buildManualPointsFromPercents(
+                  cfg.grading.manualThresholds,
+                  totals.totalPossible,
+                  totals.totalMin || 0,
+                  steps
+                );
+              }
             }
-          };
+          }
         }
       });
 
-      // Initialise testCounts from existing data if not yet set
       if (!classObj.testCounts || typeof classObj.testCounts !== "object") {
         classObj.testCounts = {
           sem1: detectTestCount(classObj, "sem1"),
@@ -2176,11 +2559,9 @@
         }
         ["sem1", "sem2"].forEach(sem => {
           if (!Array.isArray(student.criteriaResults[sem])) student.criteriaResults[sem] = [];
-          // Truncate in-place
           if (student.criteriaResults[sem].length > TEST_COUNT_PER_SEM) {
             student.criteriaResults[sem].length = TEST_COUNT_PER_SEM;
           }
-          // Fill and fix each slot in-place
           while (student.criteriaResults[sem].length < TEST_COUNT_PER_SEM) {
             student.criteriaResults[sem].push({});
           }
@@ -2201,26 +2582,31 @@
     function calcCriteriaTotals(config, criteriaResultMap) {
       let totalPossible = 0;
       let totalScored = 0;
+      let totalMin = 0;
       let totalBonusPossible = 0;
       let totalBonusScored = 0;
+      let totalBonusMin = 0;
 
       config.criteria.forEach(criterion => {
         const minPts = toNumber(criterion.minPoints) ?? 0;
         const maxPts = Math.max(minPts, toNumber(criterion.maxPoints) ?? 0);
         const pointCoeff = Math.max(0, toNumber(criterion.pointCoefficient) ?? 1);
         const weightedMax = maxPts * pointCoeff;
+        const weightedMin = minPts * pointCoeff;
 
         const result = criteriaResultMap[criterion.id] || {};
         const points = toNumber(result.points);
 
         if (criterion.isBonus) {
           totalBonusPossible += weightedMax;
+          totalBonusMin += weightedMin;
           if (points != null) {
             const bounded = Math.max(minPts, Math.min(maxPts, points));
             totalBonusScored += bounded * pointCoeff;
           }
         } else {
           totalPossible += weightedMax;
+          totalMin += weightedMin;
           if (points != null) {
             const bounded = Math.max(minPts, Math.min(maxPts, points));
             totalScored += bounded * pointCoeff;
@@ -2228,67 +2614,81 @@
         }
       });
 
-      return { totalPossible, totalScored, totalBonusPossible, totalBonusScored };
+      return { totalPossible, totalScored, totalMin, totalBonusPossible, totalBonusScored, totalBonusMin };
     }
 
     function formulaThresholdForGrade(grade, passPercentGrade4) {
-      // New mapping:
-      // - grade 1.5 -> 0
-      // - grade 4   -> passPercentGrade4
-      // Both ranges (1.5->4 and 4->6) are divided into 5 equal half-step portions
-      // so each 0.5 step gets the same share.
       const passRatio = Math.max(0, Math.min(1, (passPercentGrade4 || 0) / 100));
-      // Below or equal to 4: divide passRatio into 5 equal parts over 1.5..4
       if (grade <= 4) {
-        const stepBelow = passRatio / 5; // five equal portions
-        const halfStepsBelow = (grade - 1.5) / 0.5; // 0..5
+        const stepBelow = passRatio / 5;
+        const halfStepsBelow = (grade - 1.5) / 0.5;
         const ratio = halfStepsBelow * stepBelow;
         return Math.max(0, Math.min(1, ratio));
       }
-      // Above 4: divide remaining (1 - passRatio) into 5 equal parts (4..6)
       const stepAbove = (1 - passRatio) / 5;
-      const halfStepsAbove = (grade - 4) / 0.5; // 0..4
+      const halfStepsAbove = (grade - 4) / 0.5;
       const ratioAbove = passRatio + halfStepsAbove * stepAbove;
       return Math.max(0, Math.min(1, ratioAbove));
     }
 
     function getThresholds(config) {
+      const steps = getTestGradeSteps(config);
       if (config.grading.mode === "manual") {
-        const totalPossible = Math.max(0, Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}).totalPossible : 0);
+        const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0, totalMin: 0 };
+        const totalPossible = Math.max(0, totals.totalPossible);
+        const totalMin = Math.max(0, totals.totalMin || 0);
+        const span = Math.max(0, totalPossible - totalMin);
         const usePoints = config.grading.manualInputMode === "points";
-        return GRADE_STEPS.map(grade => ({
-          grade,
-          ratio: usePoints
-            ? (totalPossible > 0
-              ? Math.max(0, Math.min(1, (toNumber(config.grading.manualPoints && config.grading.manualPoints[String(grade)]) ?? 0) / totalPossible))
-              : 0)
-            : Math.max(0, Math.min(1, (toNumber(config.grading.manualThresholds[String(grade)]) ?? 0) / 100))
-        })).sort((a, b) => b.grade - a.grade);
+        return steps.map(grade => {
+          const key = String(grade);
+          let ratio;
+          if (usePoints) {
+            if (span > 0) {
+              const pts = toNumber(config.grading.manualPoints && config.grading.manualPoints[key]) ?? totalMin;
+              ratio = Math.max(0, Math.min(1, (pts - totalMin) / span));
+            } else if (totalPossible > 0) {
+              const pts = toNumber(config.grading.manualPoints && config.grading.manualPoints[key]) ?? 0;
+              ratio = Math.max(0, Math.min(1, pts / totalPossible));
+            } else {
+              ratio = 0;
+            }
+          } else {
+            const pct = toNumber(config.grading.manualThresholds && config.grading.manualThresholds[key]) ?? 0;
+            ratio = Math.max(0, Math.min(1, pct / 100));
+          }
+          return { grade, ratio };
+        }).sort((a, b) => b.grade - a.grade);
       }
 
-      return GRADE_STEPS.map(grade => ({
+      return steps.map(grade => ({
         grade,
         ratio: formulaThresholdForGrade(grade, config.grading.passPercentGrade4)
       })).sort((a, b) => b.grade - a.grade);
     }
 
     function getScaleModel(key) {
-      return XLSM_SCALE_MODELS.find(m => m.key === key) || null;
+      if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
+        return XLSM_SCALE_MODELS.find(m => m.key === key) || null;
+      }
+      return null;
     }
 
     function detectScaleModelKey(thresholds) {
-      for (const model of XLSM_SCALE_MODELS) {
-        let ok = true;
-        for (const grade of GRADE_STEPS) {
-          const k = String(grade);
-          const a = toNumber(thresholds[k]) ?? 0;
-          const b = toNumber(model.thresholds[k]) ?? 0;
-          if (Math.abs(a - b) > 0.05) {
-            ok = false;
-            break;
+      if (typeof XLSM_SCALE_MODELS !== "undefined" && Array.isArray(XLSM_SCALE_MODELS)) {
+        for (const model of XLSM_SCALE_MODELS) {
+          const steps = getScaleModelGradeSteps(model);
+          let ok = true;
+          for (const grade of steps) {
+            const k = String(grade);
+            const a = toNumber(thresholds[k]) ?? 0;
+            const b = toNumber(model.thresholds[k]) ?? 0;
+            if (Math.abs(a - b) > 0.05) {
+              ok = false;
+              break;
+            }
           }
+          if (ok) return model.key;
         }
-        if (ok) return model.key;
       }
       return "custom";
     }
@@ -2296,14 +2696,23 @@
     function applyScaleModelToConfig(config, modelKey) {
       const model = getScaleModel(modelKey);
       if (!model) return;
-      const totalPossible = Math.max(0, Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}).totalPossible : 0);
-      GRADE_STEPS.forEach(g => {
+      const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0, totalMin: 0 };
+      const totalPossible = Math.max(0, totals.totalPossible);
+      const totalMin = Math.max(0, totals.totalMin || 0);
+      const steps = getScaleModelGradeSteps(model);
+      config.grading.manualThresholds = {};
+      config.grading.minGrade = model.minGrade != null ? model.minGrade : 1;
+      config.grading.maxGrade = model.maxGrade != null ? model.maxGrade : 6;
+      config.grading.interval = model.interval != null ? model.interval : 0.5;
+      steps.forEach(g => {
         const k = String(g);
         config.grading.manualThresholds[k] = toNumber(model.thresholds[k]) ?? 0;
       });
       config.grading.manualPoints = buildManualPointsFromPercents(
         config.grading.manualThresholds,
-        totalPossible
+        totalPossible,
+        totalMin,
+        steps
       );
       config.grading.mode = "manual";
       config.grading.modelKey = model.key;
@@ -2317,14 +2726,17 @@
       return found ? found.grade : 1;
     }
 
-    function getNextGradeDelta(scoredPoints, totalPossible, config, currentGradeHint) {
+    function getNextGradeDelta(scoredPoints, totalPossible, config, currentGradeHint, totalMin = 0) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      if (safeTotal <= 0) return null;
-      const safeScored = Math.max(0, toNumber(scoredPoints) ?? 0);
+      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
+      const span = safeTotal - safeMin;
+      if (span <= 0 && safeTotal <= 0) return null;
+      const safeScored = Math.max(safeMin, toNumber(scoredPoints) ?? safeMin);
 
       let currentGrade = asGrade(currentGradeHint);
       if (currentGrade == null) {
-        currentGrade = gradeFromRatio(safeScored / safeTotal, config);
+        const ratio = span > 0 ? (safeScored - safeMin) / span : (safeTotal > 0 ? safeScored / safeTotal : 0);
+        currentGrade = gradeFromRatio(ratio, config);
       }
 
       const nextGrade = [...GRADE_STEPS]
@@ -2336,7 +2748,7 @@
       const nextThreshold = thresholds.find(t => Math.abs(t.grade - nextGrade) < 1e-9);
       if (!nextThreshold) return null;
 
-      const targetPoints = nextThreshold.ratio * safeTotal;
+      const targetPoints = span > 0 ? safeMin + nextThreshold.ratio * span : nextThreshold.ratio * safeTotal;
       return {
         nextGrade,
         targetPoints,
@@ -2351,10 +2763,11 @@
       tdDelta.title = "";
 
       const safeTotal = Math.max(0, toNumber(totals && totals.totalPossible) ?? 0);
-      if (safeTotal <= 0) return;
+      const safeMin = Math.max(0, toNumber(totals && totals.totalMin) ?? 0);
+      if (safeTotal <= 0 && safeMin <= 0) return;
 
       const scored = (toNumber(totals.totalScored) ?? 0) + (toNumber(totals.totalBonusScored) ?? 0);
-      const info = getNextGradeDelta(scored, safeTotal, config, currentGradeHint);
+      const info = getNextGradeDelta(scored, safeTotal, config, currentGradeHint, safeMin);
       if (!info) return;
 
       const below = info.delta < 0 ? -info.delta : null;
@@ -2387,7 +2800,9 @@
       const criteriaMap = student.criteriaResults[sem][testIndex] || {};
       const totals = calcCriteriaTotals(config, criteriaMap);
       if (totals.totalPossible <= 0) return;
-      const ratio = (totals.totalScored + (totals.totalBonusScored || 0)) / totals.totalPossible;
+      const span = totals.totalPossible - (totals.totalMin || 0);
+      const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
+      const ratio = span > 0 ? Math.max(0, Math.min(1, (scored - (totals.totalMin || 0)) / span)) : (totals.totalPossible > 0 ? scored / totals.totalPossible : 0);
       const grade = gradeFromRatio(ratio, config);
       if (sem === "sem1") {
         student.sem1Tests[testIndex] = grade;
@@ -4389,10 +4804,22 @@
       function rebuildManualInputs() {
         const usePoints = draft.manualInputMode === "points";
         threshWrap.innerHTML = "";
-        GRADE_STEPS.forEach(g => {
+        const steps = getTestGradeSteps({ ...config, grading: draft });
+        const scaleModel = (draft.pendingModelKey && draft.pendingModelKey !== "custom")
+          ? getScaleModel(draft.pendingModelKey)
+          : (draft.modelKey ? getScaleModel(draft.modelKey) : null);
+
+        steps.forEach((g, gIdx) => {
           const key = String(g);
+          const color = (scaleModel && scaleModel.colors && scaleModel.colors[key]) || getScaleGradeColor(key, draft.pendingModelKey || draft.modelKey) || getDefaultGradeColor(key, gIdx, steps.length);
+          const textColor = getHighContrastTextColor(color);
           const label = document.createElement("label");
-          label.style.cssText = "display:flex;align-items:center;gap:4px;font-size:0.82rem;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:#fff;";
+          label.style.cssText = `display:flex;align-items:center;gap:6px;font-size:0.82rem;border:1px solid var(--line);border-left:4px solid ${color};border-radius:8px;padding:4px 8px;background:#fff;`;
+          
+          const badge = document.createElement("span");
+          badge.textContent = String(g);
+          badge.style.cssText = `display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:2px 6px;border-radius:5px;background:${color}18;color:${textColor};border:1px solid ${color};font-weight:700;font-size:0.82rem;`;
+
           const inp = document.createElement("input");
           inp.type = "number";
           inp.min = "0";
@@ -4409,7 +4836,7 @@
             }
           });
           label.append(
-            document.createTextNode(String(g) + " "),
+            badge,
             inp,
             document.createTextNode(usePoints ? " pts" : " %")
           );
@@ -4715,7 +5142,9 @@
       });
 
       // ── Grading Scale ──────────────────────────────────────────
-      const totalPossible = Math.max(0, calcCriteriaTotals(config, {}).totalPossible);
+      const totals = calcCriteriaTotals(config, {});
+      const totalPossible = Math.max(0, totals.totalPossible);
+      const totalMin = Math.max(0, totals.totalMin || 0);
       const gradingDraft = {
         mode: config.grading.mode,
         passPercentGrade4: config.grading.passPercentGrade4,
@@ -4724,7 +5153,7 @@
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
-          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible),
+          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible, totalMin),
           config.grading.manualPoints || {}
         )
       };
@@ -4766,17 +5195,29 @@
       function refreshGradingManualNote() {
         const noteEl = document.getElementById("topt-grading-manual-note");
         noteEl.textContent = gradingDraft.manualInputMode === "points"
-          ? (totalPossible > 0 ? `Total available points: ${fmtN(totalPossible)}.` : "Points mode needs criteria total points.")
+          ? (totalPossible > 0 ? (totalMin > 0 ? `Total points: ${fmtN(totalMin)} – ${fmtN(totalPossible)}.` : `Total available points: ${fmtN(totalPossible)}.`) : "Points mode needs criteria total points.")
           : "Set minimum percentages for each grade.";
       }
 
       function rebuildGradingManualInputs() {
         const usePoints = gradingDraft.manualInputMode === "points";
         gradingThreshWrap.innerHTML = "";
-        GRADE_STEPS.forEach(g => {
+        const steps = getTestGradeSteps({ ...config, grading: gradingDraft });
+        const scaleModel = (gradingDraft.pendingModelKey && gradingDraft.pendingModelKey !== "custom")
+          ? getScaleModel(gradingDraft.pendingModelKey)
+          : (gradingDraft.modelKey ? getScaleModel(gradingDraft.modelKey) : null);
+
+        steps.forEach((g, gIdx) => {
           const key = String(g);
+          const color = (scaleModel && scaleModel.colors && scaleModel.colors[key]) || getScaleGradeColor(key, gradingDraft.pendingModelKey || gradingDraft.modelKey) || getDefaultGradeColor(key, gIdx, steps.length);
+          const textColor = getHighContrastTextColor(color);
           const lbl = document.createElement("label");
-          lbl.style.cssText = "display:flex;align-items:center;gap:4px;font-size:0.82rem;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:#fff;";
+          lbl.style.cssText = `display:flex;align-items:center;gap:6px;font-size:0.82rem;border:1px solid var(--line);border-left:4px solid ${color};border-radius:8px;padding:4px 8px;background:#fff;`;
+          
+          const badge = document.createElement("span");
+          badge.textContent = String(g);
+          badge.style.cssText = `display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:2px 6px;border-radius:5px;background:${color}18;color:${textColor};border:1px solid ${color};font-weight:700;font-size:0.82rem;`;
+
           const inp = document.createElement("input");
           inp.type = "number"; inp.min = "0"; inp.max = usePoints ? "" : "100"; inp.step = "0.1";
           inp.value = fmt(usePoints ? gradingDraft.manualPoints[key] : gradingDraft.manualThresholds[key]);
@@ -4786,7 +5227,7 @@
             if (usePoints) gradingDraft.manualPoints[key] = Math.max(0, toNumber(inp.value) ?? 0);
             else gradingDraft.manualThresholds[key] = Math.max(0, Math.min(100, toNumber(inp.value) ?? 0));
           });
-          lbl.append(document.createTextNode(String(g) + " "), inp, document.createTextNode(usePoints ? " pts" : " %"));
+          lbl.append(badge, inp, document.createTextNode(usePoints ? " pts" : " %"));
           gradingThreshWrap.appendChild(lbl);
         });
         refreshGradingManualNote();
@@ -4801,13 +5242,13 @@
         const sel = chip.dataset.value;
         if (sel === "manual-points") {
           gradingDraft.mode = "manual"; gradingDraft.manualInputMode = "points";
-          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
+          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, totalMin);
           syncGradingModeSelect(); rebuildGradingManualInputs(); refreshGradingVis(); return;
         }
         gradingDraft.mode = sel;
         if (sel === "manual") {
           if (gradingDraft.manualInputMode === "points")
-            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
+            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, totalMin);
           gradingDraft.manualInputMode = "percent";
           rebuildGradingManualInputs();
         }
@@ -4827,8 +5268,8 @@
           applyScaleModelToConfig(tmpConfig, key);
           Object.assign(gradingDraft, tmpConfig.grading);
           gradingDraft.mode = tmpConfig.grading.mode;
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
-          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
+          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, totalMin);
+          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, totalMin);
           syncGradingModeSelect();
         }
         rebuildModelChips(); rebuildGradingManualInputs(); refreshGradingVis();
@@ -4841,22 +5282,30 @@
         const container = document.getElementById("topt-preview-content");
         if (!container) return;
         const currentCriteria = config.criteria || [];
-        const totPossible = Math.max(0, calcCriteriaTotals({ criteria: currentCriteria }, {}).totalPossible);
-        if (totPossible <= 0) {
+        const currentTotals = calcCriteriaTotals({ criteria: currentCriteria }, {});
+        const totPossible = Math.max(0, currentTotals.totalPossible);
+        const totMin = Math.max(0, currentTotals.totalMin || 0);
+        if (totPossible <= 0 && totMin <= 0) {
           container.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:0.88rem;">${t('gsNoCriteriaYet')}</div>`;
           return;
         }
         const tmpConfig = { criteria: currentCriteria, grading: Object.assign({}, gradingDraft) };
         let html = '<div class="topt-preview-table-wrap"><table class="topt-preview-table">';
         html += `<thead><tr><th>${t('gsToptPreviewPts')}</th><th>${t('gsToptPreviewPct')}</th><th>${t('gsToptPreviewGrade')}</th></tr></thead><tbody>`;
-        const stepCount = Math.min(20, Math.max(6, Math.ceil(totPossible)));
-        const step = totPossible / stepCount;
-        for (let p = totPossible; p >= -0.001; p -= step) {
-          const safeP = Math.max(0, Math.min(totPossible, p));
-          const ratio = totPossible > 0 ? safeP / totPossible : 0;
+        const span = Math.max(0, totPossible - totMin);
+        const stepCount = Math.min(20, Math.max(6, Math.ceil(span > 0 ? span : totPossible)));
+        const step = (span > 0 ? span : totPossible) / stepCount;
+        for (let p = totPossible; p >= totMin - 0.001; p -= step) {
+          const safeP = Math.max(totMin, Math.min(totPossible, p));
+          const ratio = span > 0 ? (safeP - totMin) / span : (totPossible > 0 ? safeP / totPossible : 0);
           const grade = gradeFromRatio(ratio, tmpConfig);
           const pct = Math.round(ratio * 100);
-          html += `<tr><td><strong>${fmtN(safeP)}</strong> / ${fmtN(totPossible)}</td><td>${pct}%</td><td><span style="font-weight:800;color:#111;">${fmt(grade)}</span></td></tr>`;
+          const color = getScaleGradeColor(grade, gradingDraft.pendingModelKey || gradingDraft.modelKey);
+          const textColor = getHighContrastTextColor(color);
+          const badgeStyle = color
+            ? `display:inline-block;padding:2px 8px;border-radius:5px;background:${color}18;color:${textColor};border:1px solid ${color};font-weight:800;`
+            : "font-weight:800;color:#111;";
+          html += `<tr><td><strong>${fmtN(safeP)}</strong> / ${fmtN(totPossible)}</td><td>${pct}%</td><td><span style="${badgeStyle}">${fmt(grade)}</span></td></tr>`;
         }
         html += '</tbody></table></div>';
         container.innerHTML = html;
@@ -5036,10 +5485,13 @@
         if (fixed) config.fixedWeight = Math.max(0, Math.min(100, toNumber(document.getElementById("topt-coeff-fixed-input").value) ?? 0));
         else { config.fixedWeight = null; config.coefficient = Math.max(0, toNumber(document.getElementById("topt-coeff-input").value) ?? 1); }
 
+        const curTotals = calcCriteriaTotals(config, {});
+        const curTotalPossible = Math.max(0, curTotals.totalPossible);
+        const curTotalMin = Math.max(0, curTotals.totalMin || 0);
         if (gradingDraft.manualInputMode === "points")
-          gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
+          gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, curTotalPossible, gradingDraft.manualThresholds, curTotalMin);
         else
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
+          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, curTotalPossible, curTotalMin);
         Object.assign(config.grading, gradingDraft);
 
         if (activeSem !== sem) {
@@ -5190,10 +5642,14 @@
       `;
 
       // Build grading scale section (shared across all pages)
+      const scaleModel = (typeof getScaleModel === "function" && config.grading && config.grading.modelKey) ? getScaleModel(config.grading.modelKey) : null;
       const thresholds = getThresholds(config);
-      const scaleGradeHeaders = thresholds.map(t =>
-        `<th>${t.grade === 4 ? `<span class="scale-grade-pass">${t.grade}*</span>` : t.grade}</th>`
-      ).join("");
+      const scaleGradeHeaders = thresholds.map(t => {
+        const color = (scaleModel && scaleModel.colors && scaleModel.colors[String(t.grade)]) || getScaleGradeColor(t.grade);
+        const textColor = getHighContrastTextColor(color);
+        const passMark = t.grade === 4 ? `*` : ``;
+        return `<th><span style="display:inline-block;padding:1px 6px;border-radius:4px;background:${color}20;color:${textColor};border:1px solid ${color};font-weight:800;">${t.grade}${passMark}</span></th>`;
+      }).join("");
       const scalePctCells = thresholds.map(t =>
         `<td>${Math.round(t.ratio * 100)}%</td>`
       ).join("");
@@ -5234,9 +5690,25 @@
             const pts = entry.points;
             const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
             const comment = entry.comment ? esc(entry.comment) : `<span class="no-data">—</span>`;
+            const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
+            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
+            const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
+            const cTextColor = getHighContrastTextColor(critColor);
+            const gradeBadge = (pts != null && key != null && critColor)
+              ? `<span style="display:inline-block;font-size:11px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:6px;background:${critColor}20;color:${cTextColor};border:1px solid ${critColor};">${esc(key)}</span>`
+              : "";
+            let ptsDisplay = "";
+            if (pts != null) {
+              const scoredSpan = critColor
+                ? `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:${critColor}18;color:${cTextColor};font-weight:800;">${esc(fmtN(pts))}</span>`
+                : `<span style="font-weight:800;color:#111;">${esc(fmtN(pts))}</span>`;
+              ptsDisplay = `${scoredSpan} <span style="color:#111;font-weight:600;">/ ${esc(fmtN(cr.maxPoints))}</span>`;
+            } else {
+              ptsDisplay = `<span style="color:#888;">—</span> <span style="color:#111;font-weight:600;">/ ${esc(fmtN(cr.maxPoints))}</span>`;
+            }
             return `<tr>
-              <td>${esc(cr.name)}</td>
-              <td class="pts-cell">${esc(ptsStr)}</td>
+              <td>${gradeBadge}${esc(cr.name)}</td>
+              <td class="pts-cell">${ptsDisplay}</td>
               <td>${comment}</td>
             </tr>`;
           }).join("");
@@ -5273,6 +5745,11 @@
         }
 
         const gradeDisplay = grade != null ? String(grade) : "—";
+        const gradeColorVal = grade != null ? ((scaleModel && scaleModel.colors && scaleModel.colors[String(grade)]) || getScaleGradeColor(grade)) : '#111';
+        const gradeTextColor = getHighContrastTextColor(gradeColorVal);
+        const gradeBadgeStyle = grade != null
+          ? `style="border-color:${gradeColorVal}; color:${gradeTextColor}; background:${gradeColorVal}18; box-shadow: 3px 3px 0 ${gradeColorVal};"`
+          : "";
         const fullName = esc(window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function' ? StudentNameUtils.formatStudentName(student, getGsNameDisplayMode()) : (student.firstName + " " + student.lastName).trim());
         const testLabel = esc(`${classObj.name} — ${sem.toUpperCase()} — Test T${testNo}`);
         const metaParts = [];
@@ -5288,7 +5765,7 @@
               <div class="test-label">${testLabel}</div>
               ${metaHtml}
             </div>
-            <div class="grade-badge">Grade: ${esc(gradeDisplay)}</div>
+            <div class="grade-badge" ${gradeBadgeStyle}>Grade: ${esc(gradeDisplay)}</div>
           </div>
           ${criteriaHtml}
           ${obsHtml}
@@ -5583,10 +6060,15 @@
           criteriaRows: config.criteria.map(cr => {
             const entry = criteriaMap[cr.id] || { points: null, comment: "" };
             const pts = entry.points;
-            const ptsStr = pts != null ? `${fmtN(pts)} / ${fmtN(cr.maxPoints)}` : `— / ${fmtN(cr.maxPoints)}`;
+            const key = nearestCriterionGradeKey(cr, null, pts, cr.minPoints, cr.maxPoints);
+            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA.find(x => x.name.trim().toLowerCase() === cr.name.trim().toLowerCase()) : null;
+            const critColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (cr && cr.colors && cr.colors[key]) || (key ? getDefaultGradeColor(key) : null);
             return {
               criterionName: cr.name,
-              pointsText: ptsStr,
+              gradeKey: key,
+              color: critColor,
+              scoredPts: pts,
+              maxPts: cr.maxPoints,
               commentHtml: entry.comment ? escapeHtml(entry.comment) : '<span class="no-data">—</span>'
             };
           }),
@@ -5609,6 +6091,7 @@
         testDate: config.testDate || "",
         scope: config.scope || "",
         type: config.type || "",
+        scaleModelKey: config.grading && config.grading.modelKey,
         printedDate: new Date().toLocaleDateString(),
         totalPossible: defaultTotals.totalPossible,
         thresholds,
@@ -5750,13 +6233,26 @@
 
         let criteriaHtml = "";
         if (student.criteriaRows.length > 0) {
-          const criteriaRows = student.criteriaRows.map(r => `
-            <tr>
-              <td>${esc(r.criterionName)}</td>
-              <td class="pts-cell">${esc(r.pointsText)}</td>
+          const criteriaRows = student.criteriaRows.map(r => {
+            const cTextColor = getHighContrastTextColor(r.color);
+            const gradeBadge = (r.gradeKey != null && r.color)
+              ? `<span style="display:inline-block;font-size:11px;font-weight:800;padding:1px 6px;border-radius:4px;margin-right:6px;background:${r.color}20;color:${cTextColor};border:1px solid ${r.color};">${esc(r.gradeKey)}</span>`
+              : "";
+            let ptsDisplay = "";
+            if (r.scoredPts != null) {
+              const scoredSpan = r.color
+                ? `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:${r.color}18;color:${cTextColor};font-weight:800;">${esc(fmtN(r.scoredPts))}</span>`
+                : `<span style="font-weight:800;color:#111;">${esc(fmtN(r.scoredPts))}</span>`;
+              ptsDisplay = `${scoredSpan} <span style="color:#111;font-weight:600;">/ ${esc(fmtN(r.maxPts))}</span>`;
+            } else {
+              ptsDisplay = `<span style="color:#888;">—</span> <span style="color:#111;font-weight:600;">/ ${esc(fmtN(r.maxPts))}</span>`;
+            }
+            return `<tr>
+              <td>${gradeBadge}${esc(r.criterionName)}</td>
+              <td class="pts-cell">${ptsDisplay}</td>
               <td>${r.commentHtml}</td>
-            </tr>
-          `).join("");
+            </tr>`;
+          }).join("");
 
           criteriaHtml = `
             <div>
@@ -5794,17 +6290,18 @@
             }).join("")}</div>`
           : "";
 
-        const scaleGradeHeaders = report.thresholds.map(t =>
-          `<th>${t.grade === 4 ? `<span class="scale-grade-pass">${t.grade}*</span>` : t.grade}<span class="col-resizer" data-col="${Number(t.grade) === Number(t.grade) ? report.thresholds.indexOf(t) + 1 : report.thresholds.indexOf(t) + 1}"></span></th>`
-        ).join("");
-        const scalePctCells = report.thresholds.map(t => `<td>${Math.round(t.ratio * 100)}%</td>`).join("");
-        const scalePtsCells = report.thresholds.map(t => `<td>${report.totalPossible > 0 ? fmtN(t.ratio * report.totalPossible) : "-"}</td>`).join("");
+        const scaleModel = (typeof getScaleModel === "function" && report.scaleModelKey) ? getScaleModel(report.scaleModelKey) : null;
         const scaleColGroup = ['<col data-col="0" style="width:20%">']
           .concat(report.thresholds.map((_, i2) => `<col data-col="${i2 + 1}" style="width:${(80 / Math.max(1, report.thresholds.length)).toFixed(4)}%">`))
           .join('');
-        const scaleHeaderResized = report.thresholds.map((t, i2) =>
-          `<th><span class="th-wrap">${t.grade === 4 ? `<span class="scale-grade-pass">${t.grade}*</span>` : t.grade}<span class="col-resizer" data-col="${i2 + 1}"></span></span></th>`
-        ).join("");
+        const scaleHeaderResized = report.thresholds.map((t, i2) => {
+          const color = (scaleModel && scaleModel.colors && scaleModel.colors[String(t.grade)]) || getScaleGradeColor(t.grade);
+          const textColor = getHighContrastTextColor(color);
+          const passMark = t.grade === 4 ? `*` : ``;
+          return `<th><span class="th-wrap"><span style="display:inline-block;padding:1px 6px;border-radius:4px;background:${color}20;color:${textColor};border:1px solid ${color};font-weight:800;">${t.grade}${passMark}</span><span class="col-resizer" data-col="${i2 + 1}"></span></span></th>`;
+        }).join("");
+        const scalePctCells = report.thresholds.map(t => `<td>${Math.round(t.ratio * 100)}%</td>`).join("");
+        const scalePtsCells = report.thresholds.map(t => `<td>${report.totalPossible > 0 ? fmtN(t.ratio * report.totalPossible) : "-"}</td>`).join("");
         const scaleHtml = `<div class="scale-wrap">
           <div class="section-title">Grading Scale</div>
           <table class="scale-table resizable-table" id="${scaleTableId}">
@@ -5823,6 +6320,12 @@
         if (report.type) metaParts.push(esc(report.type));
         const metaHtml = metaParts.length ? `<div class="test-meta">${metaParts.join(" &nbsp;·&nbsp; ")}</div>` : "";
 
+        const gradeColorVal = student.grade != null ? ((scaleModel && scaleModel.colors && scaleModel.colors[String(student.grade)]) || getScaleGradeColor(student.grade)) : '#111';
+        const gradeTextColor = getHighContrastTextColor(gradeColorVal);
+        const gradeBadgeStyle = student.grade != null
+          ? `style="border-color:${gradeColorVal}; color:${gradeTextColor}; background:${gradeColorVal}18; box-shadow: 3px 3px 0 ${gradeColorVal};"`
+          : "";
+
         return `<div class="student-page">
           <div class="page-header">
             <div>
@@ -5830,7 +6333,7 @@
               <div class="test-label">${esc(`${report.className} — ${report.sem.toUpperCase()} — Test T${report.testNo}`)}</div>
               ${metaHtml}
             </div>
-            <div class="grade-badge">Grade: ${student.grade != null ? esc(String(student.grade)) : '—'}</div>
+            <div class="grade-badge" ${gradeBadgeStyle}>Grade: ${student.grade != null ? esc(String(student.grade)) : '—'}</div>
           </div>
           ${criteriaHtml}
           ${obsHtml}
@@ -6230,7 +6733,9 @@
         });
         const totals = calcCriteriaTotals(config, draftMap);
         if (totals.totalPossible <= 0) return null;
-        const ratio = (totals.totalScored + (totals.totalBonusScored || 0)) / totals.totalPossible;
+        const span = totals.totalPossible - (totals.totalMin || 0);
+        const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
+        const ratio = span > 0 ? Math.max(0, Math.min(1, (scored - (totals.totalMin || 0)) / span)) : (totals.totalPossible > 0 ? scored / totals.totalPossible : 0);
         return gradeFromRatio(ratio, config);
       };
 
@@ -6374,24 +6879,67 @@
             datalist.appendChild(opt);
           }
 
-          ptsSlider.setAttribute("list", datalistId);
+          const sliderGradient = buildCriterionSliderGradient(criterion, minPts, maxPts);
+          ptsSlider.style.setProperty("background", sliderGradient, "important");
+          ptsSlider.style.setProperty("background-image", sliderGradient, "important");
 
-          function applyPtsValue(val) {
+          const tdComment = document.createElement("td");
+          const sentencePicker = document.createElement("div");
+          sentencePicker.className = "smod-sentence-picker";
+          sentencePickerEls[criterion.id] = sentencePicker;
+          const commentTa = document.createElement("textarea");
+          commentTa.placeholder = t('gsPlaceholderComment');
+          commentTa.value = dr.comment || "";
+          commentTa.addEventListener("input", () => { dr.comment = commentTa.value; });
+          commentEls[criterion.id] = commentTa;
+          tdComment.appendChild(sentencePicker);
+          tdComment.appendChild(commentTa);
+
+          function applyPtsValue(val, isInitial = false) {
             const raw = toNumber(String(val));
             dr.points = raw == null ? null : Math.max(minPts, Math.min(maxPts, raw));
+
+            // Dynamically update thumb accent, border, and input highlight to match selected grade band
+            const xlsm = (typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA))
+              ? XLSM_CRITERIA.find(c => c.name.trim().toLowerCase() === criterion.name.trim().toLowerCase())
+              : null;
+            const key = nearestCriterionGradeKey(criterion, null, dr.points, minPts, maxPts);
+            const activeColor = (xlsm && xlsm.colors && xlsm.colors[key]) || (criterion && criterion.colors && criterion.colors[key]) || getDefaultGradeColor(key);
+            if (activeColor) {
+              ptsSlider.style.color = activeColor;
+              ptsSlider.style.accentColor = activeColor;
+              ptsInput.style.borderColor = activeColor;
+              ptsInput.style.boxShadow = `0 0 0 1px ${activeColor}40`;
+              ptsInput.style.backgroundColor = `${activeColor}0d`;
+            } else {
+              ptsSlider.style.color = "";
+              ptsSlider.style.accentColor = "";
+              ptsInput.style.borderColor = "";
+              ptsInput.style.boxShadow = "";
+              ptsInput.style.backgroundColor = "";
+            }
             // Auto-fill comment as selectable sentence chips.
-            if (dr.points != null && maxPts > minPts) {
-              const ratio = (dr.points - minPts) / (maxPts - minPts);
+            if (dr.points != null && maxPts >= minPts) {
+              const ratio = maxPts > minPts ? (dr.points - minPts) / (maxPts - minPts) : 1;
               const g = gradeFromRatio(ratio, config);
-              const auto = xlsmCommentForGrade(criterion.name, g);
+              const auto = xlsmCommentForGrade(criterion.name, g, dr.points, minPts, maxPts);
               if (auto != null && sentencePickerEls[criterion.id]) {
                 const ta = commentEls[criterion.id];
                 const picker = sentencePickerEls[criterion.id];
                 picker.innerHTML = "";
-                ta.value = "";
-                dr.comment = "";
                 const sentences = splitIntoSentences(auto);
-                const selected = new Set();
+
+                const currentComment = dr.comment || ta.value || "";
+                let selected;
+                if (isInitial && currentComment.trim()) {
+                  selected = new Set(sentences.filter(s => currentComment.includes(s)));
+                } else if (!isInitial) {
+                  ta.value = "";
+                  dr.comment = "";
+                  selected = new Set();
+                } else {
+                  selected = new Set();
+                }
 
                 function refreshText() {
                   ta.value = sentences.filter(s => selected.has(s)).join(" ");
@@ -6431,13 +6979,15 @@
                   chip.type = "button";
                   chip.className = "smod-sentence-chip";
                   chip.textContent = sentence;
-                  chip.setAttribute("aria-pressed", "false");
+                  const on = selected.has(sentence);
+                  if (on) chip.classList.add("selected");
+                  chip.setAttribute("aria-pressed", on ? "true" : "false");
                   chip.addEventListener("click", () => {
                     if (selected.has(sentence)) selected.delete(sentence);
                     else selected.add(sentence);
-                    const on = selected.has(sentence);
-                    chip.classList.toggle("selected", on);
-                    chip.setAttribute("aria-pressed", on ? "true" : "false");
+                    const nowOn = selected.has(sentence);
+                    chip.classList.toggle("selected", nowOn);
+                    chip.setAttribute("aria-pressed", nowOn ? "true" : "false");
                     refreshText();
                     refreshAllChip();
                   });
@@ -6466,22 +7016,14 @@
             applyPtsValue(ptsSlider.value);
           });
 
+          if (dr.points != null) {
+            applyPtsValue(dr.points, true);
+          }
+
           ptsCellWrap.appendChild(ptsInput);
           ptsCellWrap.appendChild(ptsSlider);
           ptsCellWrap.appendChild(datalist);
           tdPts.appendChild(ptsCellWrap);
-
-          const tdComment = document.createElement("td");
-          const sentencePicker = document.createElement("div");
-          sentencePicker.className = "smod-sentence-picker";
-          sentencePickerEls[criterion.id] = sentencePicker;
-          const commentTa = document.createElement("textarea");
-          commentTa.placeholder = t('gsPlaceholderComment');
-          commentTa.value = dr.comment || "";
-          commentTa.addEventListener("input", () => { dr.comment = commentTa.value; });
-          commentEls[criterion.id] = commentTa;
-          tdComment.appendChild(sentencePicker);
-          tdComment.appendChild(commentTa);
 
           [tdName, tdPts, tdComment].forEach(td => tr2.appendChild(td));
           tbody.appendChild(tr2);
@@ -8048,6 +8590,7 @@
       window.addEventListener("resize", closeAllContextMenus);
       document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
+          closeRefColorPicker();
           closeAllContextMenus();
           const overlayIds = [
             "gs-pdf-export-overlay",
@@ -8150,11 +8693,13 @@
       const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
       const blocks = usedCriteria.length > 0 ? usedCriteria.map(({ configName, maxPoints, pointCoefficient, isBonus, grades, xlsm }) => {
-        const rows = grades.map(k => {
+        const rows = grades.map((k, kIdx) => {
           const text = (xlsm && xlsm.comments && xlsm.comments[k]) ? xlsm.comments[k] : "\u2014";
+          const color = (xlsm && xlsm.colors && xlsm.colors[k]) || getDefaultGradeColor(k, kIdx, grades.length);
+          const textColor = getHighContrastTextColor(color);
           return `
             <tr>
-              <th class="grade-col">${esc(k)}</th>
+              <th class="grade-col" style="background:${color}18; color:${textColor}; border-right: 2px solid #111; font-weight:800;"><span style="display:inline-block;padding:2px 8px;border-radius:999px;border:1.5px solid ${color};">${esc(k)}</span></th>
               <td class="desc-col">${esc(text)}</td>
             </tr>`;
         }).join("");
