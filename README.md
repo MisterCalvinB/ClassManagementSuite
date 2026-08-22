@@ -14,12 +14,12 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [2. First launch checklist](#2-first-launch-checklist)
 - [Overview](#overview)
 - [Cross-App Connections](#cross-app-connections)
-  - [Shared Class Data (`class-groups.js`)](#shared-class-data-class-groupsjs)
+  - [Shared Class Data & Student Display Names (`class-groups.js` & `students.js`)](#shared-class-data--student-display-names-class-groupsjs--studentsjs)
   - [Term Date Sync (Group Editor ↔ Planner)](#term-date-sync-group-editor--planner)
   - [Planner → Grade Sheet (Automatic Test Linking)](#planner--grade-sheet-automatic-test-linking)
   - [Board ↔ Planner (Lesson Tagging)](#board--planner-lesson-tagging)
-  - [Class Management ↔ Board (Live Sync)](#class-management--board-live-sync)
-  - [File Manager → Board (Reopen Saved Sessions)](#file-manager--board-reopen-saved-sessions)
+  - [Class Management ↔ Board (Live Sync & Floating Timer)](#class-management--board-live-sync--floating-timer)
+  - [File Manager → Board (Reopen Saved Sessions & `.cstz` Archives)](#file-manager--board-reopen-saved-sessions--cstz-archives)
   - [Class Plan ↔ Class Management (Shared Seating Plans)](#class-plan--class-management-shared-seating-plans)
   - [Presentation Windows](#presentation-windows)
 - [Tool Reference](#tool-reference)
@@ -81,23 +81,23 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 
 | File | Purpose | Key Connections |
 |---|---|---|
-| [`launcher.html`](#launcherhtml) | Home screen — one-click access to all tools, startup layout config, sidebar panels, and per-card notes | Central hub |
-| [`general-config.html`](#general-confightml) | Global settings across 4 tabs: App Identity, Language, Startup & Launch, Storage & Sync, Remote Server, and App Notes | Global application preferences |
-| [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, and Planner terms | Sinks to all roster-aware tools |
-| [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON, or copy media files | Populates `students.js`, database, sounds, docs |
-| [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Group Editor](#group-editorhtml) |
-| [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF and DOCX export | Shared with [Class Management](#class-managementhtml) |
+| [`launcher.html`](#launcherhtml) | Home screen — one-click access to all tools, startup layout config, sidebar panels (Upcoming Events, To-do, Recent Docs), and per-card customization (custom titles, notes, size %, screen positioning presets) | Central hub |
+| [`general-config.html`](#general-confightml) | Global settings across 4 tabs: General (App Identity, Language, PDF Export, Startup & Launch Window Arrangements/Split Screen), Storage & Sync (Data Location, Local Backup formats, Local Sync, Cloud/Server WebDAV/FTP/Google Drive, Backup Files Manager, App Reset), Remote Server (Hosted server & secret), and App Notes | Global application preferences |
+| [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, display name formatting (First/Last, Last/First, Nicknames), and Planner terms | Sinks to all roster-aware tools |
+| [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON (with custom static values mapping), or copy media files directly | Populates `students.js`, database, sounds, docs |
+| [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Group Editor](#group-editorhtml) |
+| [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
-| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool | Links directly to [Board](#boardhtml) & [Document Editor](#document-editorhtml) |
-| [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, modes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
-| [`board.html`](#boardhtml) | Infinite mind-map canvas, voice recordings, student input notes (beta), and live timer overlay | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
+| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml) & [Document Editor](#document-editorhtml) |
+| [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
+| [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, draggable floating presentation timer, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
-| [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor, and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
-| [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with PDF/DOCX export | Linked from [Planner](#plannerhtml) & [Oral Marking](#oral-markinghtml) |
-| [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard sourced from Class Management sessions | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
-| [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative & discipline tracking (demographics, medical/PAI, exam accommodations, infraction scoring, sanction rules, timeline, multi-format export) | Syncs with [Group Editor](#group-editorhtml) & master student roster |
-| [`document-editor.html`](#document-editorhtml) | Markdown + KaTeX editor with split live preview, custom CSS rules, and PDF/DOCX export | Edits `.md` / `.html` files suite-wide |
+| [`manage-database.html`](#manage-databasehtml) | Vocabulary database browser, multi-language editor (EN, FR, DE, IT), and bulk theme manager | Powers [Learning Tools](#learning-toolshtml) & [Board](#boardhtml) |
+| [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with drag-and-drop test reordering, grading scale models, and multi-format export (PDF/DOCX/CSV/HTML) | Linked from [Planner](#plannerhtml), [Oral Marking](#oral-markinghtml), [Participation Tracker](#participation-trackerhtml) |
+| [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard with weekly trend line charts, student score distributions, multi-group comparisons, dynamic window positioning, full i18n, and provisional grading rules | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
+| [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
+| [`document-editor.html`](#document-editorhtml) | Markdown + KaTeX editor with split live preview, inline CSS rules, and PDF/DOCX export | Edits `.md` / `.html` files suite-wide |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
 ---
@@ -106,20 +106,29 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 
 Class Management Tools features deep cross-tool synchronisation. Data edited in one tool instantly propagates across the entire suite.
 
-### Shared Class Data: `class-groups.js`
+### Shared Class Data & Student Display Names: `class-groups.js` & `students.js`
 
 [Group Editor](#group-editorhtml) is the single source of truth for all class groups and student data. Every other tool reads from `class-groups.js` and `students.js` dynamically at startup.
 
 | Tool | Shared Data Consumption |
 |---|---|
-| **Class Management** | Reads active class roster, student UUIDs, and group metadata |
-| **Participation Tracker** | Filters session logs by group and active term dates |
-| **Grade Sheet** | Loads student lists per class automatically |
+| **Class Management** | Reads active class roster, student UUIDs, group metadata, and student display name preferences |
+| **Participation Tracker** | Filters session logs by group and active term dates, displaying formatted student names |
+| **Grade Sheet** | Loads student lists per class automatically with formatted student display names |
 | **Planner** | Class selection dropdowns for lesson schedules |
 | **Learning Tools** | Populates Team Mode rosters |
 | **Schedule Maker** | Loads student lists and SEN accommodation flags |
 | **Class Plan** | Imports student lists for seat assignment |
 | **Administrative Groups** | Reads student rosters, UUIDs, classes, and synchronizes profile changes |
+
+<details>
+<summary><strong>Student Name Display Formatting & Custom Nicknames</strong></summary>
+
+The suite includes flexible student name formatting utilities (`js/student-name-utils.js`). In Group Editor, teachers can configure how student names appear across the application:
+- **Global & Group Conventions**: Choose display styles such as *First Last* (e.g., "John Doe"), *Last First* (e.g., "DOE John"), *First only*, or *Last only*.
+- **Custom / Preferred Display Names**: Set custom nicknames or preferred names per student without modifying their official legal record.
+- All tools across the suite automatically respect the chosen display format.
+</details>
 
 <details>
 <summary><strong>Live Cross-App Sync Notifications</strong></summary>
@@ -161,14 +170,14 @@ Creating an entry of type **Test** in [Planner](#plannerhtml) automatically veri
 
 ---
 
-### Class Management ↔ Board: Live Sync
+### Class Management ↔ Board: Live Sync & Floating Timer
 
-- **Live Timer**: Timers started in [Class Management](#class-managementhtml) automatically render as floating widgets on active [Board](#boardhtml) windows.
-- **Presentation Mode**: Classroom updates, active group selections, and score animations stream to Board presentation views in real time.
+- **Live Draggable Floating Timer**: Timers started in [Class Management](#class-managementhtml) automatically render as a draggable, resizable floating widget on active [Board](#boardhtml) windows.
+- **Presentation Mode**: Classroom updates, active group selections, working mode changes, and score animations stream to Board presentation views in real time.
 
 ---
 
-### File Manager → Board: Reopen Saved Sessions
+### File Manager → Board: Reopen Saved Sessions & `.cstz` Archives
 
 The [File Manager](#file-managerhtml) **Recent** and **Browse** tabs recognize `.cstz` zipped archives and legacy `.js` session files in `user/mindmaps/`, providing an **Open in Board** button to launch sessions directly into Board. Single-file `.cstz` archives also support clean single-file renaming, moving, and deletion.
 
@@ -202,9 +211,9 @@ The central entry point for the suite. Opens on app launch and provides quick na
 #### Key Features
 - **Customizable App Cards**: Hover over any card and click ⚙ to set custom titles, personal notes, card size (%), and screen position presets.
 - **Collapsible Sidebar**:
-  - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates.
-  - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red.
-  - **Recent Docs**: Quick links to recently modified Board constellation maps and Document Editor files.
+  - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates. Click any entry to jump directly to that date in Planner.
+  - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red. Click **+** to add a new to-do.
+  - **Recent Docs**: Quick links to recently modified Board constellation maps (`.cstz`) and Document Editor files. Includes real-time change tracking and item count selector (1–20).
 - **Header Actions**:
   - **⚙ Config**: Launches [General Config](#general-confightml).
   - **? How To**: Opens built-in documentation with direct *Reveal Folder* disk links.
@@ -220,7 +229,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 ┌──────────────────────────────────────────────────────────┐
 │  General Config                                          │
 ├───────────────┬──────────────────────────────────────────┤
-│ General       │  App Identity  · Language · Startup     │
+│ General       │  App Identity · Language · PDF · Startup │
 │ Storage & Sync│  Data Location · Backup · Sync · Cloud   │
 │ Remote Server │  Remote Classroom Server & Secret        │
 │ App Notes     │  Per-App Personal Notes Accordion        │
@@ -271,12 +280,13 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 
 ### group-editor.html
 
-Master roster and class group editor. Serves as the single source of truth for student records.
+Master roster and class group editor. Serves as the single source of truth for student records and display preferences.
 
 #### Features
 - **Active Context**: Set the current school year, term (S1/S2), and start/end dates.
 - **Planner Terms**: Manage semester start/end dates and school holiday periods directly.
 - **Group Management**: Create S1/S2 groups, edit rosters, set student levels, and toggle **SEN** (Special Educational Needs) flags.
+- **Student Display Name Formatting**: Configure student name display styles suite-wide (*First Last*, *Last First*, *First only*, *Last only*) and assign custom nicknames/preferred names per student.
 - **Student Roster & UUIDs**: Student data is stored cleanly in `user/students.js`. UUID keys preserve historical links when students or groups are renamed.
 - **Archiving**: Archive single groups or entire terms to hide them from active tools without deleting historical session data.
 
@@ -288,7 +298,7 @@ Wizard for bulk-importing structured data or copying media files into managed wo
 
 #### Supported Import Types
 - **Structured Data (CSV / XLSX / JSON)**: Students, Class Groups, Word Banks, Quizzes, Gap-Fill, Quotes, Error Correction, Dictation, Grammar, Sentences, Story.
-- **File Copy**: Sounds (`.mp3`, `.wav`, `.ogg`, `.m4a`) → `user/custom-data/sounds/`; Documents (`.html`, `.md`, `.txt`) → `user/document-editor/docs/`.
+- **File Copy**: Sounds (`.mp3`, `.wav`, `.ogg`, `.m4a`) → `user/custom-data/sounds/`; Documents (`.html`, `.md`, `.txt`) → `user/document-editor/docs/`; Books (`.epub`, `.html`, `.pdf`, `.txt`) → `user/custom-data/books/`.
 
 <details>
 <summary><strong>Wizard Steps & Custom Values</strong></summary>
@@ -310,7 +320,8 @@ Lesson, assessment, and holiday scheduling tool with export capabilities.
 - **Term Management**: Create terms, define weekly schedules, and flag holidays.
 - **Class Schedules**: Color-coded classes with lesson slot auto-population.
 - **Entries & Reminders**: Lesson, Test, and Assignment entries. Configurable pre-start and end-of-lesson reminder alerts.
-- **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map.
+- **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map (`.cstz`).
+- **Weeks Navigation Drawer**: Collapsible left sidebar displaying all weeks in the active term with auto-dimming of past weeks and smooth scrolling.
 - **To-do Drawer**: Integrated task list synced with `user/todos.js` and Launcher sidebar.
 - **Export Options**: Export schedule to **ICS**, **PDF**, **CSV**, **HTML Table**, or **DOCX**.
 
@@ -383,8 +394,8 @@ Data file manager with built-in search, rename, move, and synchronization featur
 Active classroom control panel for student scoring, timers, class working modes, and remote controls.
 
 #### Features
-- **Timer & Class Modes**: Full-screen timer with customizable working modes (Quiet Work 🤫, Group Work 👥, Conversation 💬). Includes background ambient noise (White/Pink/Brown noise), custom images, animations, and sound effects.
-- **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. Context menu for attendance, flagging, and role assignment.
+- **Timer & Class Modes**: Full-screen timer with customizable working modes (Quiet Work `shush.svg`, Group Work `people-group.svg`, Conversation `speech-bubbles.svg`). Includes background ambient soundscapes (Ocean waves `ocean.svg`, Wind `wind.svg`, Flower/Spring `flower.svg`, Music `music.svg`, White/Pink/Brown noise), custom images (`user/mode-image/`), animations, and sound effects.
+- **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. Context menu for attendance, flagging, and role assignment. Respects custom student display names.
 - **Team Maker & Picker**: Random student picker with drumroll sound, team auto-balancer, and role generator.
 - **Presentation View**: Projects roster state, active badges, and points onto a second screen with independent freeze controls.
 - **Phone Remote (beta)**:
@@ -402,6 +413,7 @@ Active classroom control panel for student scoring, timers, class working modes,
 | `1–9` (timer active) | Switch active class mode |
 | `W` (timer active) | Toggle white noise |
 | `M` (timer active) | Mute / unmute audio |
+| `[` / `]` | Decrease / increase white noise volume |
 </details>
 
 ---
@@ -413,14 +425,20 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 #### Features
 - **Mind-Map Canvas**: Draggable nodes, synonym/antonym connections, Wiktionary definition fetching, shape formatting, and color preset swatches.
 - **Zipped Archive Storage (`.cstz`)**: Saves all canvas data, multi-page layouts, version histories, and embedded media assets into a single portable `.cstz` archive in `user/mindmaps/`. Media assets are stored uncompressed for fast, spike-free saves.
-- **Hybrid Backward Compatibility**: Seamlessly loads both legacy multi-file `.js` folders and modern `.cstz` single-file archives.
+- **Autosave & Dirty-State Tracking**: Background autosave with configurable intervals and dirty tracking.
+- **Floating Live Timer**: Draggable and resizable presentation timer widget embedded directly in Board, synced live from [Class Management](#class-managementhtml).
+- **Custom Keyboard Shortcuts**: Configurable keyboard shortcut mapping within Board.
+- **Node Styling & Visuals**:
+  - **Fit Text**: One-click node boundary auto-fitting (`fit-text.svg`).
+  - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes (`blink.svg`).
+  - **Rich Hyperlinks**: Direct hyperlinks to web URLs, local files, or Planner lessons.
 - **Voice Recordings**: Record microphone audio directly and attach sound nodes to the board with built-in audio trimming (`✂ Trim`), bundled seamlessly into the `.cstz` package.
+- **High-Resolution PNG Snapshots**: One-click PNG snapshot capture with clean framing and metadata.
 - **Table Support**: Copy/paste HTML or TSV spreadsheet tables directly onto the canvas as draggable, resizable board elements.
-- **Live Sync**: Displays floating timer widgets streamed live from [Class Management](#class-managementhtml).
 - **Student Input Note (beta)**: Allows students to submit short text notes from their smartphones directly onto the board canvas via QR code or URL.
 
 <details>
-<summary><strong>Keyboard Shortcuts</strong></summary>
+<summary><strong>Default Keyboard Shortcuts</strong></summary>
 
 | Shortcut | Action |
 |---|---|
@@ -439,8 +457,8 @@ Infinite-canvas mind-mapping tool for vocabulary, draw overlays, sound nodes, an
 Student-facing activity suite featuring 12 vocabulary and grammar games powered by the central word bank.
 
 #### Games & Modes
-- **Vocabulary Games**: Definition Match 🧩, Hangman 😵, Scrambled Word 🔠, Word Quest 🔍, Phonetic Guess 🔉, Synonyms & Antonyms 🔗.
-- **Grammar Games**: Sentence Builder ✍️, Gap Fill 🕳️, Find the Error 🔴, Dictation 📝.
+- **Vocabulary Games**: Flash Cards 📖, Definition Match 🧩, Hangman 😵, Scrambled Word 🔠, Word Quest 🔍, Sentence Builder 🧩, Quote Analyser 💬, Gap Fill ✏️, Find the Error 🔴, Phonetic Guess 🔉, Synonyms & Antonyms 🔗, Word Search 🔎.
+- **Grammar Games**: Grammar Practice 📐, Choose Your Story 📖, Order Sentences 🔢, Dictation 🎤.
 - **Team Mode & Timer**: Score tracking across custom teams with progressive point deduction timers.
 - **Multiplayer Quiz (beta)**: Live classroom quiz host (Local WiFi or External relay) where students answer synchronously on their mobile devices.
 
@@ -460,22 +478,27 @@ Vocabulary and question bank database editor supporting multi-language translati
 
 ### grade-sheet.html
 
-Grade and assessment tracking spreadsheet supporting custom evaluation criteria and scale models.
+Grade and assessment tracking spreadsheet supporting custom evaluation criteria, scale models, and drag-and-drop test management.
 
 #### Features
 - **Class Summary & Test Sheets**: Track student grades across test slots (T1–T8). Auto-calculate averages based on weighted coefficients or fixed percentages.
 - **Drag & Drop Test Reordering**: Easily reorder tests (T1, T2, etc.) directly in the **All Tests** panel via drag-and-drop.
+- **Custom Display Names**: Displays student names according to the configured format or nicknames.
 - **Reference Data Editor**: Customize evaluation criteria descriptors (`user/correction-criteria.js`) and grading scale thresholds (`user/grade-scale-models.js`).
-- **Export**: Export grade reports to PDF, DOCX, or HTML with draggable column layouts.
+- **Import Participation Grades**: One-click import prompt when provisional grades are exported from Participation Tracker.
+- **Export**: Export grade reports to PDF, DOCX, CSV, or HTML with draggable column layouts.
 
 ---
 
 ### participation-tracker.html
 
-Analytics dashboard sourcing session data from [Class Management](#class-managementhtml).
+Comprehensive analytics dashboard sourcing session data from [Class Management](#class-managementhtml).
 
 #### Features
-- **Visual Analytics**: Participation trend line charts, total pick counts, and positive/negative point distributions.
+- **Visual Analytics**: Interactive participation trend line charts, total pick counts, positive/negative point distributions, gems, thumbs up/down, and strikes.
+- **Comparative Group Summaries**: Compare engagement across multiple classes and time periods.
+- **Dynamic Window Positioning & Safe Bounds**: Multi-monitor and safe-bound window positioning.
+- **Full Localization (i18n)**: Fully translated UI across English, French, German, and Italian.
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
 - **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
 
@@ -490,7 +513,7 @@ Comprehensive student administrative tracker, medical & SEN accommodation manage
 - **Sub-Tabs & Filtering**: Dedicated views (*Master Roster*, *Demographics*, *Emergency & Medical*, *Accommodations & SEN*, *Discipline & Sanctions*, plus custom tabs). Filter by class group or active term/period, with live student search.
 - **Infraction Tracking & Point Weighting**: Configurable infraction categories (forgotten equipment, tardiness, classroom disruptions, incomplete homework, attitude, etc.) with custom point weights and icons.
 - **Automated Sanction Rules Engine**: Evaluates accumulated student points against customizable threshold tiers to display recommended disciplinary actions (1-on-1 talks, parent notifications, reflection homework, detentions, official contracts, CPE referrals).
-- **Flexible Period Scope**: Configure sanction rules to trigger cumulatively across the whole year, per period individually, or on specific selected terms via interactive Period Chips.
+- **Flexible Period Scope & Chips**: Configure sanction rules to trigger cumulatively across the whole year, per period individually, or on specific selected terms via interactive Period Chips.
 - **Student Profile & Action Timeline**: Full modal profile per student displaying complete intervention history. Log new follow-up meetings and actions with type, title, date, notes, and student commitments.
 - **Direct Import & Wizard**: Import `.pdf`, `.xlsx`, `.xls`, `.csv`, or `.json` files with automatic column detection, period selection, and choice of merge mode (*Add / Accumulate* vs *Overwrite*).
 - **Multi-Category Export & Print**: Export specialized reports (*Master Roster*, *Emergency & Medical*, *Exam Accommodations Proctors Sheet*, *Discipline & Sanctions*) to **HTML** (editable), **XLSX** (Excel), **PDF** (print layout), **DOCX** (Word), or **CSV**.
