@@ -2753,11 +2753,13 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
           try { await copyOne(srcEntry.fullPath, path.join(destDir, rel)); copied++; added.push(rel); }
           catch (err) { errors.push({ path: rel, error: String(err?.message || err) }); }
         } else {
-          newFiles.push({ relativePath: rel, side: 'src-only', srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs, destSize: null, destMtimeMs: null });
+          newFiles.push({ relativePath: rel, kind: 'new', side: 'src-only', changeType: 'new', srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs, destSize: null, destMtimeMs: null });
         }
       } else if (!sameFile(srcEntry, destEntry)) {
         conflicts.push({
           relativePath: rel,
+          kind: 'conflict',
+          sideChanged: 'src',
           srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs,
           destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs
         });
@@ -2773,41 +2775,139 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
           try { await copyOne(destEntry.fullPath, path.join(srcDir, rel)); copied++; added.push(rel); }
           catch (err) { errors.push({ path: rel, error: String(err?.message || err) }); }
         } else {
-          newFiles.push({ relativePath: rel, side: 'dest-only', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
+          newFiles.push({ relativePath: rel, kind: 'new', side: 'dest-only', changeType: 'new', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
         }
       } else if (!sameFile(srcEntry, destEntry)) {
         conflicts.push({
           relativePath: rel,
+          kind: 'conflict',
+          sideChanged: 'dest',
           srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs,
           destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs
         });
       }
     }
   } else {
-    // both: unique files shown for approval (autoNew=false) or copied automatically; shared files that differ are conflicts
+    // both: 2-way sync with comprehensive diff detection (additions, deletions, modifications, conflicts)
     const allRels = new Set([...srcFiles.keys(), ...destFiles.keys()]);
+    // Also clean up obsolete baseline entries where file was deleted on BOTH sides
+    if (baseline && baseline.map) {
+      for (const [baseKey] of baseline.map) {
+        const rel = baseline.prefix && baseKey.startsWith(baseline.prefix + '/')
+          ? baseKey.slice(baseline.prefix.length + 1)
+          : baseKey;
+        if (!srcFiles.has(rel) && !destFiles.has(rel)) {
+          baseline.map.delete(baseKey);
+        }
+      }
+    }
+
     for (const rel of allRels) {
       const srcEntry  = srcFiles.get(rel);
       const destEntry = destFiles.get(rel);
+      const baseKey   = baseline ? (baseline.prefix ? baseline.prefix + '/' + rel : rel) : null;
+      const base      = (baseline && baseKey) ? baseline.map.get(baseKey) : null;
+
       try {
         if (srcEntry && !destEntry) {
           if (autoNew) {
             await copyOne(srcEntry.fullPath, path.join(destDir, rel)); copied++; added.push(rel);
           } else {
-            newFiles.push({ relativePath: rel, side: 'src-only', srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs, destSize: null, destMtimeMs: null });
+            if (base) {
+              const srcChanged = changedVsBase(srcEntry, base);
+              if (!srcChanged) {
+                // File in baseline and unchanged on src, but missing on dest → Deleted on dest (Sync)
+                newFiles.push({
+                  relativePath: rel,
+                  kind: 'deleted-dest',
+                  side: 'src-only',
+                  changeType: 'deleted-dest',
+                  srcSize: srcEntry.size,
+                  srcMtimeMs: srcEntry.mtimeMs,
+                  destSize: null,
+                  destMtimeMs: null,
+                  baseSize: base.size,
+                  baseMtimeMs: base.mtimeMs
+                });
+              } else {
+                // File modified on src, but deleted on dest → Delete vs Modify conflict
+                conflicts.push({
+                  relativePath: rel,
+                  kind: 'conflict-delete-dest',
+                  side: 'src-only',
+                  changeType: 'conflict-delete-dest',
+                  sideChanged: 'both',
+                  srcSize: srcEntry.size,
+                  srcMtimeMs: srcEntry.mtimeMs,
+                  destSize: null,
+                  destMtimeMs: null
+                });
+              }
+            } else {
+              // No baseline → Brand new file added on App
+              newFiles.push({
+                relativePath: rel,
+                kind: 'new',
+                side: 'src-only',
+                changeType: 'new',
+                srcSize: srcEntry.size,
+                srcMtimeMs: srcEntry.mtimeMs,
+                destSize: null,
+                destMtimeMs: null
+              });
+            }
           }
         } else if (!srcEntry && destEntry) {
           if (autoNew) {
             await copyOne(destEntry.fullPath, path.join(srcDir, rel)); copied++; added.push(rel);
           } else {
-            newFiles.push({ relativePath: rel, side: 'dest-only', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
+            if (base) {
+              const destChanged = changedVsBase(destEntry, base);
+              if (!destChanged) {
+                // File in baseline and unchanged on dest, but missing on src → Deleted on src (App)
+                newFiles.push({
+                  relativePath: rel,
+                  kind: 'deleted-src',
+                  side: 'dest-only',
+                  changeType: 'deleted-src',
+                  srcSize: null,
+                  srcMtimeMs: null,
+                  destSize: destEntry.size,
+                  destMtimeMs: destEntry.mtimeMs,
+                  baseSize: base.size,
+                  baseMtimeMs: base.mtimeMs
+                });
+              } else {
+                // File modified on dest, but deleted on src → Delete vs Modify conflict
+                conflicts.push({
+                  relativePath: rel,
+                  kind: 'conflict-delete-src',
+                  side: 'dest-only',
+                  changeType: 'conflict-delete-src',
+                  sideChanged: 'both',
+                  srcSize: null,
+                  srcMtimeMs: null,
+                  destSize: destEntry.size,
+                  destMtimeMs: destEntry.mtimeMs
+                });
+              }
+            } else {
+              // No baseline → Brand new file added on Sync
+              newFiles.push({
+                relativePath: rel,
+                kind: 'new',
+                side: 'dest-only',
+                changeType: 'new',
+                srcSize: null,
+                srcMtimeMs: null,
+                destSize: destEntry.size,
+                destMtimeMs: destEntry.mtimeMs
+              });
+            }
           }
         } else if (srcEntry && destEntry) {
           if (sameFile(srcEntry, destEntry)) continue;
 
-          // Consult baseline to detect which side actually changed
-          const baseKey = baseline ? (baseline.prefix ? baseline.prefix + '/' + rel : rel) : null;
-          const base    = baseKey ? baseline.map.get(baseKey) : null;
           if (base) {
             const srcChanged  = changedVsBase(srcEntry,  base);
             const destChanged = changedVsBase(destEntry, base);
@@ -2815,44 +2915,38 @@ async function syncTrees(srcDir, destDir, mode, { autoNew = true, baseline = nul
             if (!srcChanged && !destChanged) {
               // Platform rounding artefact — files are effectively identical
               continue;
-            } else if (srcChanged && !destChanged) {
-              // Only source changed → auto-copy to dest
-              try {
-                await copyOne(srcEntry.fullPath, path.join(destDir, rel));
-                const stat = await fs.stat(path.join(destDir, rel));
-                copied++;
-                synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
-              } catch (err) {
-                errors.push({ path: rel, error: String(err?.message || err) });
-              }
-              continue;
-            } else if (!srcChanged && destChanged) {
-              // Only dest changed → auto-copy to source
-              try {
-                await copyOne(destEntry.fullPath, path.join(srcDir, rel));
-                const stat = await fs.stat(path.join(srcDir, rel));
-                copied++;
-                synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
-              } catch (err) {
-                errors.push({ path: rel, error: String(err?.message || err) });
-              }
-              continue;
             }
-            // Both changed → fall through to conflict
-          }
 
-          conflicts.push({
-            relativePath: rel,
-            srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs,
-            destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs
-          });
+            const sideChanged = (srcChanged && destChanged) ? 'both' : (srcChanged ? 'src' : 'dest');
+            const kind = (srcChanged && destChanged) ? 'conflict' : (srcChanged ? 'modified-src' : 'modified-dest');
+
+            conflicts.push({
+              relativePath: rel,
+              kind: kind,
+              sideChanged: sideChanged,
+              srcSize: srcEntry.size,
+              srcMtimeMs: srcEntry.mtimeMs,
+              destSize: destEntry.size,
+              destMtimeMs: destEntry.mtimeMs
+            });
+          } else {
+            // No baseline record: treat differing file as conflict
+            conflicts.push({
+              relativePath: rel,
+              kind: 'conflict',
+              sideChanged: 'both',
+              srcSize: srcEntry.size,
+              srcMtimeMs: srcEntry.mtimeMs,
+              destSize: destEntry.size,
+              destMtimeMs: destEntry.mtimeMs
+            });
+          }
         }
       } catch (err) {
         errors.push({ path: rel, error: String(err?.message || err) });
       }
     }
   }
-
   return { copied, errors, conflicts, added, newFiles, synced, deleted };
 }
 
@@ -5804,9 +5898,33 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
     await fs.utimes(toPath, stat.atime, stat.mtime).catch(() => {});
   }
 
+  async function deleteAndPrune(targetDir, relativePath) {
+    const fullPath = path.join(targetDir, relativePath);
+    try {
+      await fs.unlink(fullPath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    let dir = path.dirname(fullPath);
+    const resolvedTarget = path.resolve(targetDir);
+    while (dir.startsWith(resolvedTarget) && dir !== resolvedTarget) {
+      try {
+        const entries = await fs.readdir(dir);
+        if (entries.length === 0) {
+          await fs.rmdir(dir);
+          dir = path.dirname(dir);
+        } else {
+          break;
+        }
+      } catch {
+        break;
+      }
+    }
+  }
+
   let applied = 0;
   const errors = [];
-  const archivedAllPaths = []; // D: paths where both sides were archived — removed from baseline
+  const archivedAllPaths = []; // paths where files were deleted/archived on both sides — removed from baseline
 
   for (const decision of decisions) {
     if (decision.action === 'skip') continue;
@@ -5833,25 +5951,40 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
 
     try {
       if (decision.action === 'keep-source') {
-        await copyOne(srcPath, destPath);
-        applied++;
-        // Record the agreed state for the baseline (read back the actual stored mtime)
-        try {
-          const stat = await fs.stat(destPath);
-          _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-        } catch {}
+        const srcExists = await fs.access(srcPath).then(() => true).catch(() => false);
+        if (srcExists) {
+          await copyOne(srcPath, destPath);
+          applied++;
+          try {
+            const stat = await fs.stat(destPath);
+            _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+          } catch {}
+        } else {
+          await deleteAndPrune(destDir, relPath);
+          archivedAllPaths.push(relPath);
+          applied++;
+        }
       } else if (decision.action === 'keep-target') {
-        await copyOne(destPath, srcPath);
-        applied++;
-        try {
-          const stat = await fs.stat(srcPath);
-          _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-        } catch {}
+        const destExists = await fs.access(destPath).then(() => true).catch(() => false);
+        if (destExists) {
+          await copyOne(destPath, srcPath);
+          applied++;
+          try {
+            const stat = await fs.stat(srcPath);
+            _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+          } catch {}
+        } else {
+          await deleteAndPrune(srcDir, relPath);
+          archivedAllPaths.push(relPath);
+          applied++;
+        }
       } else if (decision.action === 'delete-source') {
-        await fs.unlink(srcPath);
+        await deleteAndPrune(srcDir, relPath);
+        archivedAllPaths.push(relPath);
         applied++;
       } else if (decision.action === 'delete-target') {
-        await fs.unlink(destPath);
+        await deleteAndPrune(destDir, relPath);
+        archivedAllPaths.push(relPath);
         applied++;
       } else if (decision.action === 'archive-older') {
         const [srcStat, destStat] = await Promise.all([
@@ -5872,7 +6005,7 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
             const s = await fs.stat(destPath);
             _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: s.mtimeMs, size: s.size });
           } else {
-            // C: identical timestamps — archive both, neither wins
+            // identical timestamps — archive both, neither wins
             await bakIfExists(srcPath);
             await bakIfExists(destPath);
             archivedAllPaths.push(relPath);
@@ -5893,22 +6026,26 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
       } else if (decision.action === 'bak-source') {
         // Rename app (source) file to .bak, then copy sync → app if sync file exists
         await bakIfExists(srcPath);
-        try {
-          await fs.access(destPath);
+        const destExists = await fs.access(destPath).then(() => true).catch(() => false);
+        if (destExists) {
           await copyOne(destPath, srcPath);
           const stat = await fs.stat(srcPath);
           _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-        } catch {}
+        } else {
+          archivedAllPaths.push(relPath);
+        }
         applied++;
       } else if (decision.action === 'bak-target') {
         // Rename sync (target) file to .bak, then copy app → sync if app file exists
         await bakIfExists(destPath);
-        try {
-          await fs.access(srcPath);
+        const srcExists = await fs.access(srcPath).then(() => true).catch(() => false);
+        if (srcExists) {
           await copyOne(srcPath, destPath);
           const stat = await fs.stat(destPath);
           _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-        } catch {}
+        } else {
+          archivedAllPaths.push(relPath);
+        }
         applied++;
       }
     } catch (err) {
@@ -5916,20 +6053,24 @@ ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {})
     }
   }
 
-  // Commit the baseline — merge pending entries (auto-resolved during run-sync)
-  // with the newly resolved ones from this call.
+  // Commit the baseline
   try {
     const baselineMap = await loadSyncBaseline();
     for (const e of _pendingBaselineEntries) {
       baselineMap.set(e.relativePath, { mtimeMs: e.mtimeMs, size: e.size });
     }
-    for (const p of archivedAllPaths) baselineMap.delete(p); // D: keep baseline truthful
+    for (const p of archivedAllPaths) baselineMap.delete(p);
     await saveSyncBaseline(baselineMap);
   } catch (err) {
     console.error('Failed to update sync baseline after apply:', err);
   } finally {
     _pendingBaselineEntries = [];
   }
+
+  _broadcastDataChanged(_event, 'general-config.html', {
+    action: 'sync',
+    target: 'user'
+  });
 
   return { ok: true, applied, errors };
 });

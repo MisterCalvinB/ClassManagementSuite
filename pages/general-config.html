@@ -706,141 +706,63 @@
             once.
           </p>
 
-          <p style="margin-bottom:4px;font-weight:600;">Conflict rows — both sides changed since last sync</p>
+          <p style="margin-bottom:4px;font-weight:600;">Conflict &amp; Modification rows</p>
           <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
             <tr>
               <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep newer</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Compares file dates. The more recently modified version
-                overwrites the older one on the other side. The older file is lost.</td>
+              <td style="padding:3px 0;vertical-align:top;">Compares file dates. The more recently modified version overwrites the older one on the other side.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep current</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">Your app data wins. The sync folder copy is overwritten. The
-                sync version is lost.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep current (App)</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">Your app data wins and overwrites the sync folder copy.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep sync folder</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">The sync folder wins. Your app data copy is overwritten. The
-                current version is lost.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep sync folder</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">The sync folder wins and overwrites your app data copy.</td>
             </tr>
             <tr>
               <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Both files are left exactly as they are. The conflict will
-                reappear on the next sync.</td>
+              <td style="padding:3px 0;vertical-align:top;">Both files are left unchanged.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive app
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Renames your app file to a timestamped <code>.bak</code>
-                (e.g. <code>config.js.2026-06-26T14-30.bak</code>), then copies the sync version into the app. The app
-                now has the sync version; the old app version is preserved as a backup.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive sync
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Renames the sync file to a timestamped <code>.bak</code>,
-                then copies your app version to sync. The sync folder now has the app version; the old sync version is
-                preserved as a backup.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive older
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Compares file dates. The older file is renamed to a
-                <code>.bak</code> and the newer version replaces it on both sides. If both files have the exact same
-                date, both are archived and neither wins.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive both
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Both files are renamed to <code>.bak</code>. Neither version
-                remains active. Use when you want to discard both conflicting versions and start fresh.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive (.bak)</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">Archives the older or chosen version to a timestamped <code>.bak</code> file before replacing.</td>
             </tr>
           </table>
 
-          <p style="margin-bottom:4px;font-weight:600;">New file rows — file only exists on one side
-            <span
-              style="display:inline-block;background:#2da44e;color:#fff;border-radius:4px;font-size:0.72rem;padding:1px 6px;font-weight:600;vertical-align:middle;margin-left:4px;">New</span>
-          </p>
+          <p style="margin-bottom:4px;font-weight:600;">Additions &amp; Deletions</p>
           <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Copy to sync</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">(App-only files) Copies your app file to the sync folder so
-                both sides have it.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Added (+ Added)</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">A brand-new file exists on one side. Choose <em>Copy to sync/app</em> to replicate it or <em>Delete</em> to remove it.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Copy to app</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">(Sync-only files) Copies the sync file into your app data so
-                both sides have it.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Deleted (- Deleted)</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">A file that previously existed was deleted on one side. Choose <em>Delete on other side</em> to propagate the deletion, or <em>Restore</em> to bring it back.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Delete (app)</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">Permanently deletes the file from your app data. Cannot be
-                undone.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Delete (sync)</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">Permanently deletes the file from the sync folder. Cannot be
-                undone.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive app
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Renames the app file to a <code>.bak</code>. The file is
-                removed from active use but preserved on disk.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive sync
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Renames the sync file to a <code>.bak</code>. The file is
-                removed from the sync folder but preserved on disk.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive both
-                  (.bak)</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Archives whichever side has the file (since only one exists
-                here, the effect is the same as archiving that side).</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Leaves the file where it is. It will appear again on the
-                next sync.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Delete vs Modify (⚡)</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">The file was deleted on one side but modified on the other side.</td>
             </tr>
           </table>
 
           <p style="margin-bottom:4px;font-weight:600;">Bulk buttons</p>
           <table style="border-collapse:collapse;font-size:0.85rem;margin-bottom:10px;width:100%;">
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all current</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">Sets every row to "Keep current". App data wins everywhere.
-              </td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all current</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">App data wins everywhere (copies app additions/changes, propagates app deletions).</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all sync
-                  folder</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Sets every row to "Keep sync folder". Sync data wins
-                everywhere.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Keep all sync folder</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">Sync data wins everywhere (copies sync additions/changes, propagates sync deletions).</td>
             </tr>
             <tr>
               <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Skip all</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Sets every row to "Skip". Nothing is changed; conflicts
-                remain for next time.</td>
+              <td style="padding:3px 0;vertical-align:top;">Leaves everything unchanged.</td>
             </tr>
             <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive older</strong>
-              </td>
-              <td style="padding:3px 0;vertical-align:top;">Sets all <em>conflict</em> rows (both sides changed) to
-                "Archive older (.bak)". New-file rows are not affected since they don't have that option.</td>
-            </tr>
-            <tr>
-              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive all</strong></td>
-              <td style="padding:3px 0;vertical-align:top;">Sets every row to "Archive both (.bak)". All conflicting
-                files on both sides are backed up; none remain active.</td>
+              <td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;"><strong>Archive older / Archive all</strong></td>
+              <td style="padding:3px 0;vertical-align:top;">Creates <code>.bak</code> archives for conflicting versions.</td>
             </tr>
           </table>
 
@@ -1750,10 +1672,8 @@
         g.destMtimeMs = Math.max.apply(null, leaves.map(function (i) { return i.destMtimeMs || 0; }));
         g.srcSize = leaves.reduce(function (s, i) { return s + (i.srcSize || 0); }, 0);
         g.destSize = leaves.reduce(function (s, i) { return s + (i.destSize || 0); }, 0);
-        if (g.kind === 'new') {
-          var sides = new Set(leaves.map(function (i) { return i.side; }));
-          g.side = sides.size === 1 ? [...sides][0] : 'mixed';
-        }
+        var sides = new Set(leaves.map(function (i) { return i.side; }).filter(Boolean));
+        g.side = sides.size === 1 ? [...sides][0] : 'mixed';
       }
 
       var result = [];
@@ -1801,20 +1721,159 @@
       return result;
     }
 
+    function _getSyncBadge(kind, side) {
+      if (kind === 'new') {
+        if (side === 'src-only') return '<span class="new-file-badge badge-added-app">+ ' + t('gcStatusAddedApp') + '</span>';
+        if (side === 'dest-only') return '<span class="new-file-badge badge-added-sync">+ ' + t('gcStatusAddedSync') + '</span>';
+        return '<span class="new-file-badge badge-added-app">+ ' + t('gcStatusNew') + '</span>';
+      }
+      if (kind === 'deleted-src') return '<span class="new-file-badge badge-deleted-app">- ' + t('gcStatusDeletedApp') + '</span>';
+      if (kind === 'deleted-dest') return '<span class="new-file-badge badge-deleted-sync">- ' + t('gcStatusDeletedSync') + '</span>';
+      if (kind === 'modified-src') return '<span class="new-file-badge badge-mod-app">✎ ' + t('gcStatusModifiedApp') + '</span>';
+      if (kind === 'modified-dest') return '<span class="new-file-badge badge-mod-sync">✎ ' + t('gcStatusModifiedSync') + '</span>';
+      if (kind === 'conflict-delete-src') return '<span class="new-file-badge badge-conflict">⚡ ' + t('gcStatusConflictDeleteApp') + '</span>';
+      if (kind === 'conflict-delete-dest') return '<span class="new-file-badge badge-conflict">⚡ ' + t('gcStatusConflictDeleteSync') + '</span>';
+      if (kind === 'conflict') return '<span class="new-file-badge badge-conflict">⚡ ' + t('gcStatusConflict') + '</span>';
+      if (kind === 'mixed') return '<span class="group-count-badge">Mixed</span>';
+      return '';
+    }
+
+    function _getSyncRowClass(kind) {
+      if (kind === 'new') return 'new-row';
+      if (kind === 'deleted-src' || kind === 'deleted-dest') return 'deleted-row';
+      if (kind === 'modified-src' || kind === 'modified-dest') return 'modified-row';
+      if (kind === 'conflict' || (kind && kind.startsWith('conflict-'))) return 'conflict-row';
+      return '';
+    }
+
+    function _getSyncActionOptions(kind, side, isChild) {
+      var cls = isChild ? 'action-select child-action-select' : 'action-select';
+      var opt = [];
+      if (kind === 'new') {
+        if (side === 'src-only') {
+          opt.push({ val: 'keep-source', label: t('gcActionCopyToSync'), def: true });
+          opt.push({ val: 'skip', label: t('gcActionSkip') });
+          opt.push({ val: 'delete-source', label: t('gcActionDeleteApp') });
+          opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+          if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+        } else {
+          opt.push({ val: 'keep-target', label: t('gcActionCopyToApp'), def: true });
+          opt.push({ val: 'skip', label: t('gcActionSkip') });
+          opt.push({ val: 'delete-target', label: t('gcActionDeleteSync') });
+          opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+          if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+        }
+      } else if (kind === 'deleted-src') {
+        opt.push({ val: 'delete-target', label: t('gcActionDeleteSync'), def: true });
+        opt.push({ val: 'keep-target', label: t('gcActionRestoreApp') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+        if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else if (kind === 'deleted-dest') {
+        opt.push({ val: 'delete-source', label: t('gcActionDeleteApp'), def: true });
+        opt.push({ val: 'keep-source', label: t('gcActionRestoreSync') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+        if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else if (kind === 'conflict-delete-src') {
+        opt.push({ val: 'keep-target', label: t('gcActionKeepSync'), def: true });
+        opt.push({ val: 'delete-target', label: t('gcActionDeleteSync') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+        if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else if (kind === 'conflict-delete-dest') {
+        opt.push({ val: 'keep-source', label: t('gcActionKeepApp'), def: true });
+        opt.push({ val: 'delete-source', label: t('gcActionDeleteApp') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+        if (!isChild) opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else if (kind === 'modified-src') {
+        opt.push({ val: 'keep-source', label: t('gcActionKeepApp'), def: true });
+        opt.push({ val: 'keep-target', label: t('gcActionKeepSync') });
+        opt.push({ val: 'keep-newer', label: t('gcActionKeepNewer') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+        opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+        opt.push({ val: 'archive-older', label: t('gcActionArchiveOlder') });
+        opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else if (kind === 'modified-dest') {
+        opt.push({ val: 'keep-target', label: t('gcActionKeepSync'), def: true });
+        opt.push({ val: 'keep-source', label: t('gcActionKeepApp') });
+        opt.push({ val: 'keep-newer', label: t('gcActionKeepNewer') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+        opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+        opt.push({ val: 'archive-older', label: t('gcActionArchiveOlder') });
+        opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      } else {
+        // conflict or mixed
+        opt.push({ val: 'keep-newer', label: t('gcActionKeepNewer'), def: true });
+        opt.push({ val: 'keep-source', label: t('gcActionKeepApp') });
+        opt.push({ val: 'keep-target', label: t('gcActionKeepSync') });
+        opt.push({ val: 'skip', label: t('gcActionSkip') });
+        opt.push({ val: 'bak-source', label: t('gcActionBakSource') });
+        opt.push({ val: 'bak-target', label: t('gcActionBakTarget') });
+        opt.push({ val: 'archive-older', label: t('gcActionArchiveOlder') });
+        opt.push({ val: 'archive-all', label: t('gcActionArchiveAll') });
+      }
+      return { cls: cls, options: opt };
+    }
+
+    function _buildSelectHtml(nameEsc, conf) {
+      var html = '<select class="' + conf.cls + '" name="sync-action-' + nameEsc + '">';
+      for (var i = 0; i < conf.options.length; i++) {
+        var o = conf.options[i];
+        html += '<option value="' + o.val + '"' + (o.def ? ' selected' : '') + '>' + o.label + '</option>';
+      }
+      html += '</select>';
+      return html;
+    }
+
+    function _syncChildrenAction(parentKey, action) {
+      var children = _syncChildRows.get(parentKey) || [];
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i];
+        if (ch.isSubGroup) {
+          var sgSel = ch.tr.querySelector('select.action-select');
+          if (sgSel) {
+            var opt = sgSel.querySelector('option[value="' + action + '"]');
+            if (opt) sgSel.value = action;
+          }
+          var subLeaves = _syncSubGroupChildren.get(ch.key) || [];
+          for (var j = 0; j < subLeaves.length; j++) {
+            var leafSel = subLeaves[j].querySelector('select.child-action-select');
+            if (leafSel) {
+              var lOpt = leafSel.querySelector('option[value="' + action + '"]');
+              if (lOpt) leafSel.value = action;
+            }
+          }
+        } else {
+          var leafSel2 = ch.tr.querySelector('select.child-action-select');
+          if (leafSel2) {
+            var lOpt2 = leafSel2.querySelector('option[value="' + action + '"]');
+            if (lOpt2) leafSel2.value = action;
+          }
+        }
+      }
+    }
+
     function renderSyncRow(c) {
       var tr = document.createElement('tr');
       tr.dataset.path = c.relativePath;
+      tr.className = _getSyncRowClass(c.kind);
       function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
       var pathEsc = escHtml(c.relativePath);
       var nameEsc = CSS.escape(c.relativePath);
 
-      var srcAbsent = c.kind === 'new' && c.side === 'dest-only';
-      var destAbsent = c.kind === 'new' && c.side === 'src-only';
+      var srcAbsent = (c.kind === 'new' && c.side === 'dest-only') || c.kind === 'deleted-src' || c.kind === 'conflict-delete-src';
+      var destAbsent = (c.kind === 'new' && c.side === 'src-only') || c.kind === 'deleted-dest' || c.kind === 'conflict-delete-dest';
+      var isSrcDeleted = c.kind === 'deleted-src' || c.kind === 'conflict-delete-src';
+      var isDestDeleted = c.kind === 'deleted-dest' || c.kind === 'conflict-delete-dest';
 
-      var srcSizeHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize);
-      var srcDateHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs);
-      var destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize);
-      var destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs);
+      var srcSizeHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize));
+      var srcDateHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs));
+      var destSizeHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize));
+      var destDateHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs));
 
       var srcTime = c.srcMtimeMs || 0;
       var destTime = c.destMtimeMs || 0;
@@ -1824,43 +1883,23 @@
         if (c.side === 'src-only') { srcNewer = true; destNewer = false; }
         if (c.side === 'dest-only') { destNewer = true; srcNewer = false; }
       }
-      var srcCellClass = srcNewer ? 'newer-cell' : '';
-      var destCellClass = destNewer ? 'newer-cell' : '';
+      var srcCellClass = (srcNewer && !srcAbsent && !isSrcDeleted) ? 'newer-cell' : '';
+      var destCellClass = (destNewer && !destAbsent && !isDestDeleted) ? 'newer-cell' : '';
 
       var nameHtml, statusHtml, actionSelectHtml;
+      var badgeHtml = _getSyncBadge(c.kind, c.side);
 
       if (c.isGroup) {
-        var isSrcOnly = c.kind === 'new' && c.side === 'src-only';
-        var isDestOnly = c.kind === 'new' && c.side === 'dest-only';
-        var isPureNew = c.kind === 'new';
-        tr.className = isPureNew ? 'new-row' : '';
         tr.dataset.isGroup = '1';
-        var kindBadge = isSrcOnly ? '<span class="new-file-badge">' + t('gcStatusAppOnly') + '</span>'
-          : isDestOnly ? '<span class="new-file-badge">' + t('gcStatusSyncOnly') + '</span>'
-            : isPureNew ? '<span class="new-file-badge">' + t('gcStatusNew') + '</span>' : '';
-        nameHtml = '<button type="button" class="sync-expand-btn" title="+">+</button>' + pathEsc + '/ <span class="group-count-badge">' + c.fileCount + ' files</span>' + kindBadge;
-        statusHtml = isPureNew ? (isSrcOnly ? t('gcStatusAppOnly') : isDestOnly ? t('gcStatusSyncOnly') : t('gcStatusNew'))
-          : (c.kind === 'mixed' ? 'Mixed' : t('gcStatusConflict'));
-        if (isSrcOnly) {
-          actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option><option value="bak-source">' + t('gcActionBakSource') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
-        } else if (isDestOnly) {
-          actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option><option value="bak-target">' + t('gcActionBakTarget') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
-        } else {
-          actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="bak-source">' + t('gcActionBakSource') + '</option><option value="bak-target">' + t('gcActionBakTarget') + '</option><option value="archive-older">' + t('gcActionArchiveOlder') + '</option><option value="archive-all">' + t('gcActionArchiveAll') + '</option></select>';
-        }
-      } else if (c.kind === 'new') {
-        tr.className = 'new-row';
-        var isSrcOnlyRow = c.side === 'src-only';
-        nameHtml = pathEsc + '<span class="new-file-badge">' + (isSrcOnlyRow ? t('gcStatusAppOnly') : t('gcStatusSyncOnly')) + '</span>';
-        statusHtml = isSrcOnlyRow ? t('gcStatusAppOnly') : t('gcStatusSyncOnly');
-        actionSelectHtml = isSrcOnlyRow
-          ? '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option></select>'
-          : '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option></select>';
+        nameHtml = '<button type="button" class="sync-expand-btn" title="+">+</button>' + pathEsc + '/ <span class="group-count-badge">' + c.fileCount + ' files</span>' + badgeHtml;
+        statusHtml = badgeHtml;
+        var actConf = _getSyncActionOptions(c.kind, c.side, false);
+        actionSelectHtml = _buildSelectHtml(nameEsc, actConf);
       } else {
-        tr.className = '';
-        nameHtml = pathEsc;
-        statusHtml = t('gcStatusConflict');
-        actionSelectHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option></select>';
+        nameHtml = pathEsc + badgeHtml;
+        statusHtml = badgeHtml;
+        var actConfLeaf = _getSyncActionOptions(c.kind, c.side, false);
+        actionSelectHtml = _buildSelectHtml(nameEsc, actConfLeaf);
       }
 
       tr.innerHTML = '<td class="conflict-path-cell">' + nameHtml + '</td>' +
@@ -1870,86 +1909,112 @@
         '<td class="date-cell ' + destCellClass + '">' + destDateHtml + '</td>' +
         '<td class="status-cell">' + statusHtml + '</td>' +
         '<td class="action-cell">' + actionSelectHtml + '</td>';
+
+      if (c.isGroup) {
+        var sel = tr.querySelector('select.action-select');
+        if (sel) {
+          sel.addEventListener('change', function () {
+            _syncChildrenAction(c.relativePath, this.value);
+          });
+        }
+      }
+
       return tr;
     }
 
     function renderSyncSubGroupRow(sg, parentKey) {
       var tr = document.createElement('tr');
-      tr.className = 'sync-child-row sync-subgroup-row';
+      tr.className = 'sync-child-row sync-subgroup-row ' + _getSyncRowClass(sg.kind);
       tr.dataset.parentGroup = parentKey;
       tr.dataset.path = sg.relativePath;
-      if (sg.kind === 'new') tr.classList.add('new-row');
       function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
       var displayName = sg.relativePath.startsWith(parentKey + '/') ? sg.relativePath.slice(parentKey.length + 1) : sg.relativePath;
-      var srcAbsent = sg.kind === 'new' && sg.side === 'dest-only';
-      var destAbsent = sg.kind === 'new' && sg.side === 'src-only';
-      var srcSizeHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(sg.srcSize);
-      var srcDateHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(sg.srcMtimeMs);
-      var destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(sg.destSize);
-      var destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(sg.destMtimeMs);
+
+      var srcAbsent = (sg.kind === 'new' && sg.side === 'dest-only') || sg.kind === 'deleted-src' || sg.kind === 'conflict-delete-src';
+      var destAbsent = (sg.kind === 'new' && sg.side === 'src-only') || sg.kind === 'deleted-dest' || sg.kind === 'conflict-delete-dest';
+      var isSrcDeleted = sg.kind === 'deleted-src' || sg.kind === 'conflict-delete-src';
+      var isDestDeleted = sg.kind === 'deleted-dest' || sg.kind === 'conflict-delete-dest';
+
+      var srcSizeHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(sg.srcSize));
+      var srcDateHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(sg.srcMtimeMs));
+      var destSizeHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(sg.destSize));
+      var destDateHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(sg.destMtimeMs));
+
       var srcTime = sg.srcMtimeMs || 0, destTime = sg.destMtimeMs || 0;
       var srcNewer = srcTime > destTime, destNewer = destTime > srcTime;
       if (sg.kind === 'new') {
         if (sg.side === 'src-only') { srcNewer = true; destNewer = false; }
         if (sg.side === 'dest-only') { destNewer = true; srcNewer = false; }
       }
-      var isSrcOnly = sg.kind === 'new' && sg.side === 'src-only';
-      var isDestOnly = sg.kind === 'new' && sg.side === 'dest-only';
-      var kindBadge = isSrcOnly ? '<span class="new-file-badge">' + t('gcStatusAppOnly') + '</span>'
-        : isDestOnly ? '<span class="new-file-badge">' + t('gcStatusSyncOnly') + '</span>'
-          : sg.kind === 'new' ? '<span class="new-file-badge">' + t('gcStatusNew') + '</span>' : '';
-      var statusHtml = isSrcOnly ? t('gcStatusAppOnly')
-        : isDestOnly ? t('gcStatusSyncOnly')
-          : sg.kind === 'mixed' ? 'Mixed'
-            : sg.kind === 'conflict' ? t('gcStatusConflict') : t('gcStatusNew');
+      var badgeHtml = _getSyncBadge(sg.kind, sg.side);
       var nameEsc = CSS.escape(sg.relativePath);
-      var actionHtml;
-      if (isSrcOnly) {
-        actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-source" selected>' + t('gcActionCopyToSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-source">' + t('gcActionDeleteApp') + '</option></select>';
-      } else if (isDestOnly) {
-        actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-target" selected>' + t('gcActionCopyToApp') + '</option><option value="skip">' + t('gcActionSkip') + '</option><option value="delete-target">' + t('gcActionDeleteSync') + '</option></select>';
-      } else {
-        actionHtml = '<select class="action-select" name="sync-action-' + nameEsc + '"><option value="keep-newer" selected>' + t('gcActionKeepNewer') + '</option><option value="keep-source">' + t('gcActionKeepApp') + '</option><option value="keep-target">' + t('gcActionKeepSync') + '</option><option value="skip">' + t('gcActionSkip') + '</option></select>';
-      }
+      var actConf = _getSyncActionOptions(sg.kind, sg.side, false);
+      var actionHtml = _buildSelectHtml(nameEsc, actConf);
+
       tr.innerHTML = '<td class="conflict-path-cell sync-child-path">' +
         '<button type="button" class="sync-expand-btn" title="+">+</button>' +
-        escHtml(displayName) + '/ <span class="group-count-badge">' + sg.fileCount + ' files</span>' + kindBadge + '</td>' +
-        '<td class="size-cell ' + (srcNewer ? 'newer-cell' : '') + '">' + srcSizeHtml + '</td>' +
-        '<td class="date-cell ' + (srcNewer ? 'newer-cell' : '') + '">' + srcDateHtml + '</td>' +
-        '<td class="size-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
-        '<td class="date-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
-        '<td class="status-cell">' + statusHtml + '</td>' +
+        escHtml(displayName) + '/ <span class="group-count-badge">' + sg.fileCount + ' files</span>' + badgeHtml + '</td>' +
+        '<td class="size-cell ' + (srcNewer && !srcAbsent && !isSrcDeleted ? 'newer-cell' : '') + '">' + srcSizeHtml + '</td>' +
+        '<td class="date-cell ' + (srcNewer && !srcAbsent && !isSrcDeleted ? 'newer-cell' : '') + '">' + srcDateHtml + '</td>' +
+        '<td class="size-cell ' + (destNewer && !destAbsent && !isDestDeleted ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
+        '<td class="date-cell ' + (destNewer && !destAbsent && !isDestDeleted ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
+        '<td class="status-cell">' + badgeHtml + '</td>' +
         '<td class="action-cell">' + actionHtml + '</td>';
+
+      var sel = tr.querySelector('select.action-select');
+      if (sel) {
+        sel.addEventListener('change', function () {
+          var subLeaves = _syncSubGroupChildren.get(sg.relativePath) || [];
+          for (var j = 0; j < subLeaves.length; j++) {
+            var leafSel = subLeaves[j].querySelector('select.child-action-select');
+            if (leafSel) {
+              var lOpt = leafSel.querySelector('option[value="' + this.value + '"]');
+              if (lOpt) leafSel.value = this.value;
+            }
+          }
+        });
+      }
+
       return tr;
     }
 
     function renderSyncChildRow(c, groupKey, isDeep) {
       var tr = document.createElement('tr');
-      tr.className = 'sync-child-row';
+      tr.className = 'sync-child-row ' + _getSyncRowClass(c.kind);
       tr.dataset.parentGroup = groupKey;
+      tr.dataset.path = c.relativePath;
       function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
       var pathClass = isDeep ? 'sync-leaf-path' : 'sync-child-path';
       var displayPath = c.relativePath.startsWith(groupKey + '/') ? c.relativePath.slice(groupKey.length + 1) : c.relativePath;
-      var srcAbsent = c.kind === 'new' && c.side === 'dest-only';
-      var destAbsent = c.kind === 'new' && c.side === 'src-only';
-      var srcSizeHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize);
-      var srcDateHtml = srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs);
-      var destSizeHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize);
-      var destDateHtml = destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs);
+
+      var srcAbsent = (c.kind === 'new' && c.side === 'dest-only') || c.kind === 'deleted-src' || c.kind === 'conflict-delete-src';
+      var destAbsent = (c.kind === 'new' && c.side === 'src-only') || c.kind === 'deleted-dest' || c.kind === 'conflict-delete-dest';
+      var isSrcDeleted = c.kind === 'deleted-src' || c.kind === 'conflict-delete-src';
+      var isDestDeleted = c.kind === 'deleted-dest' || c.kind === 'conflict-delete-dest';
+
+      var srcSizeHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.srcSize));
+      var srcDateHtml = isSrcDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (srcAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.srcMtimeMs));
+      var destSizeHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtSize(c.destSize));
+      var destDateHtml = isDestDeleted ? '<span class="absent-cell cell-deleted">✕ ' + t('gcDeleted') + '</span>' : (destAbsent ? '<span class="absent-cell">—</span>' : fmtDate(c.destMtimeMs));
+
       var srcTime = c.srcMtimeMs || 0, destTime = c.destMtimeMs || 0;
       var srcNewer = srcTime > destTime, destNewer = destTime > srcTime;
-      if (c.kind === 'new' && c.side === 'src-only') { srcNewer = true; destNewer = false; }
-      if (c.kind === 'new' && c.side === 'dest-only') { destNewer = true; srcNewer = false; }
-      var statusHtml = c.kind === 'new'
-        ? (c.side === 'src-only' ? t('gcStatusAppOnly') : t('gcStatusSyncOnly'))
-        : t('gcStatusConflict');
+      if (c.kind === 'new') {
+        if (c.side === 'src-only') { srcNewer = true; destNewer = false; }
+        if (c.side === 'dest-only') { destNewer = true; srcNewer = false; }
+      }
+      var badgeHtml = _getSyncBadge(c.kind, c.side);
+      var nameEsc = CSS.escape(c.relativePath);
+      var actConf = _getSyncActionOptions(c.kind, c.side, true);
+      var actionSelectHtml = _buildSelectHtml(nameEsc, actConf);
+
       tr.innerHTML = '<td class="conflict-path-cell ' + pathClass + '">' + escHtml(displayPath) + '</td>' +
-        '<td class="size-cell ' + (srcNewer ? 'newer-cell' : '') + '">' + srcSizeHtml + '</td>' +
-        '<td class="date-cell ' + (srcNewer ? 'newer-cell' : '') + '">' + srcDateHtml + '</td>' +
-        '<td class="size-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
-        '<td class="date-cell ' + (destNewer ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
-        '<td class="status-cell">' + statusHtml + '</td>' +
-        '<td class="action-cell"></td>';
+        '<td class="size-cell ' + (srcNewer && !srcAbsent && !isSrcDeleted ? 'newer-cell' : '') + '">' + srcSizeHtml + '</td>' +
+        '<td class="date-cell ' + (srcNewer && !srcAbsent && !isSrcDeleted ? 'newer-cell' : '') + '">' + srcDateHtml + '</td>' +
+        '<td class="size-cell ' + (destNewer && !destAbsent && !isDestDeleted ? 'newer-cell' : '') + '">' + destSizeHtml + '</td>' +
+        '<td class="date-cell ' + (destNewer && !destAbsent && !isDestDeleted ? 'newer-cell' : '') + '">' + destDateHtml + '</td>' +
+        '<td class="status-cell">' + badgeHtml + '</td>' +
+        '<td class="action-cell">' + actionSelectHtml + '</td>';
       return tr;
     }
 
@@ -1966,8 +2031,8 @@
 
     function buildSyncConflictModal(conflicts, newFiles) {
       newFiles = newFiles || [];
-      var flat = conflicts.map(function (c) { return Object.assign({}, c, { kind: 'conflict' }); })
-        .concat(newFiles.map(function (f) { return Object.assign({}, f, { kind: 'new' }); }));
+      var flat = (conflicts || []).map(function (c) { return Object.assign({}, c, { kind: c.kind || 'conflict' }); })
+        .concat((newFiles || []).map(function (f) { return Object.assign({}, f, { kind: f.kind || 'new' }); }));
       _syncConflictsAll = groupSyncItems(flat);
       _syncConflictItems.clear();
       _syncChildRows.clear();
@@ -2055,8 +2120,6 @@
         return false;
       }
 
-      // Returns true when every conflict leaf under `item` satisfies `pred`.
-      // Non-conflict leaves (new files) are ignored — they don't count as passing.
       function allConflictLeaves(item, pred) {
         if (item.isGroup || item.isSubGroup) {
           return item.groupItems.every(function (child) { return allConflictLeaves(child, pred); });
@@ -2082,11 +2145,11 @@
         return true;
       });
 
-      var statusOrder = { 'new': 0, 'conflict': 1, 'mixed': 2 };
+      var statusOrder = { 'new': 0, 'deleted-src': 1, 'deleted-dest': 1, 'modified-src': 2, 'modified-dest': 2, 'conflict': 3, 'mixed': 4 };
       filtered.sort(function (a, b) {
         var va, vb;
         if (_syncSortCol === 'name') { va = a.relativePath; vb = b.relativePath; }
-        else if (_syncSortCol === 'status') { va = statusOrder[a.kind] != null ? statusOrder[a.kind] : 3; vb = statusOrder[b.kind] != null ? statusOrder[b.kind] : 3; }
+        else if (_syncSortCol === 'status') { va = statusOrder[a.kind] != null ? statusOrder[a.kind] : 5; vb = statusOrder[b.kind] != null ? statusOrder[b.kind] : 5; }
         else if (_syncSortCol === 'date-src') { va = a.srcMtimeMs || 0; vb = b.srcMtimeMs || 0; }
         else if (_syncSortCol === 'date-dest') { va = a.destMtimeMs || 0; vb = b.destMtimeMs || 0; }
         else if (_syncSortCol === 'size-src') { va = a.srcSize || 0; vb = b.srcSize || 0; }
@@ -2096,7 +2159,6 @@
         return _syncSortAsc ? cmp : -cmp;
       });
 
-      // Returns false if this child entry should be hidden by the active filters.
       function childVisible(entry) {
         var c = entry.data;
         if (!c) return true;
@@ -2142,26 +2204,52 @@
 
       var total = _syncConflictsAll.length;
       var shown = filtered.length;
-      var cCount = _syncConflictsAll.filter(function (c) { return c.kind === 'conflict'; }).length;
-      var nCount = _syncConflictsAll.filter(function (c) { return c.kind === 'new'; }).length;
+      var addedCount = _syncConflictsAll.filter(function (c) { return c.kind === 'new'; }).length;
+      var delCount = _syncConflictsAll.filter(function (c) { return c.kind === 'deleted-src' || c.kind === 'deleted-dest'; }).length;
+      var modCount = _syncConflictsAll.filter(function (c) { return c.kind === 'modified-src' || c.kind === 'modified-dest'; }).length;
+      var cCount = _syncConflictsAll.filter(function (c) { return c.kind === 'conflict' || (c.kind && c.kind.startsWith('conflict-')); }).length;
       var mCount = _syncConflictsAll.filter(function (c) { return c.kind === 'mixed'; }).length;
       var parts = [];
-      if (cCount > 0) parts.push(cCount + ' conflict' + (cCount !== 1 ? 's' : ''));
-      if (nCount > 0) parts.push(nCount + ' new');
+      if (addedCount > 0) parts.push(tFmt('gcCountAdded', { n: addedCount }));
+      if (delCount > 0) parts.push(tFmt('gcCountDeleted', { n: delCount }));
+      if (modCount > 0) parts.push(tFmt('gcCountModified', { n: modCount }));
+      if (cCount > 0) parts.push(tFmt('gcCountConflicts', { n: cCount }));
       if (mCount > 0) parts.push(mCount + ' mixed');
       var breakdown = parts.join(', ');
-      syncConflictCount.textContent = shown < total ? (shown + ' of ' + total + ' (' + breakdown + ')') : breakdown;
+      syncConflictCount.textContent = shown < total ? (shown + ' / ' + total + ' (' + breakdown + ')') : breakdown;
     }
 
     function setSyncBulkAction(action) {
-      function applyTo(item) {
-        var sel = item.querySelector('select.action-select');
+      function applyToSelect(sel) {
         if (!sel) return;
         var opt = sel.querySelector('option[value="' + action + '"]');
-        if (opt) sel.value = action;
+        if (opt) {
+          sel.value = action;
+        } else {
+          // If action is keep-source or keep-target on deletion/new files, pick the best matching valid action
+          if (action === 'keep-source') {
+            if (sel.querySelector('option[value="delete-target"]')) sel.value = 'delete-target';
+          } else if (action === 'keep-target') {
+            if (sel.querySelector('option[value="delete-source"]')) sel.value = 'delete-source';
+          }
+        }
       }
-      for (var [, item] of _syncConflictItems) applyTo(item);
-      for (var [, item] of _syncSubGroupItems) applyTo(item);
+      for (var [, item] of _syncConflictItems) {
+        applyToSelect(item.querySelector('select.action-select'));
+      }
+      for (var [, item] of _syncSubGroupItems) {
+        applyToSelect(item.querySelector('select.action-select'));
+      }
+      for (var [, children] of _syncChildRows) {
+        for (var ci = 0; ci < children.length; ci++) {
+          applyToSelect(children[ci].tr.querySelector('select.child-action-select'));
+        }
+      }
+      for (var [, subLeaves] of _syncSubGroupChildren) {
+        for (var si = 0; si < subLeaves.length; si++) {
+          applyToSelect(subLeaves[si].querySelector('select.child-action-select'));
+        }
+      }
     }
 
     function collectSyncDecisions() {
@@ -2176,32 +2264,34 @@
           var sel = item.querySelector('select.action-select');
           var groupAction = (isVisible && sel) ? sel.value : 'skip';
           if (!isVisible) groupAction = 'skip';
-          if (groupAction === 'keep-newer') {
-            groupAction = (entry.srcMtimeMs || 0) >= (entry.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
-          }
-          for (var j = 0; j < entry.groupItems.length; j++) {
-            var sub = entry.groupItems[j];
-            if (sub.isSubGroup) {
-              // Sub-group may have its own action override
-              var sgRow = _syncSubGroupItems.get(sub.relativePath);
+          var children = _syncChildRows.get(entry.relativePath) || [];
+          for (var j = 0; j < children.length; j++) {
+            var ch = children[j];
+            if (ch.isSubGroup) {
+              var sgRow = _syncSubGroupItems.get(ch.key);
               var sgVisible = sgRow && sgRow.parentElement === _syncConflictTbody;
               var sgSel = sgRow && sgRow.querySelector('select.action-select');
               var sgAction = sgVisible && sgSel ? sgSel.value : groupAction;
-              if (sgAction === 'keep-newer') {
-                sgAction = (sub.srcMtimeMs || 0) >= (sub.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
-              }
-              for (var k = 0; k < sub.groupItems.length; k++) {
-                var leaf = sub.groupItems[k];
-                var leafAct = sgAction;
-                if (leafAct === 'keep-source' && leaf.kind === 'new' && leaf.side === 'dest-only') leafAct = 'skip';
-                if (leafAct === 'keep-target' && leaf.kind === 'new' && leaf.side === 'src-only') leafAct = 'skip';
+              var subLeaves = _syncSubGroupChildren.get(ch.key) || [];
+              for (var k = 0; k < ch.data.groupItems.length; k++) {
+                var leaf = ch.data.groupItems[k];
+                var leafRow = subLeaves[k];
+                var leafSel = leafRow && leafRow.querySelector('select.child-action-select');
+                var leafAct = (leafSel && leafSel.value) ? leafSel.value : sgAction;
+                if (leafAct === 'keep-newer') {
+                  leafAct = (leaf.srcMtimeMs || 0) >= (leaf.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
+                }
                 decisions.push({ relativePath: leaf.relativePath, action: leafAct });
               }
             } else {
-              var act = groupAction;
-              if (act === 'keep-source' && sub.kind === 'new' && sub.side === 'dest-only') act = 'skip';
-              if (act === 'keep-target' && sub.kind === 'new' && sub.side === 'src-only') act = 'skip';
-              decisions.push({ relativePath: sub.relativePath, action: act });
+              var leafData = ch.data;
+              var leafRow2 = ch.tr;
+              var leafSel2 = leafRow2 && leafRow2.querySelector('select.child-action-select');
+              var leafAct2 = (leafSel2 && leafSel2.value) ? leafSel2.value : groupAction;
+              if (leafAct2 === 'keep-newer') {
+                leafAct2 = (leafData.srcMtimeMs || 0) >= (leafData.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
+              }
+              decisions.push({ relativePath: leafData.relativePath, action: leafAct2 });
             }
           }
         } else {
