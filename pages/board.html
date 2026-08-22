@@ -14105,14 +14105,6 @@
         if (_conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
           return _conPageSnapshotPngs[idx];
         }
-        if (conPageSnapshots && conPageSnapshots[idx] && typeof conBuildPageThumbnailDataUrl === 'function') {
-          const generated = conBuildPageThumbnailDataUrl(conPageSnapshots[idx]);
-          if (generated) {
-            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-            _conPageSnapshotPngs[idx] = generated;
-            return generated;
-          }
-        }
         if (!(window.Desktop && Desktop.isElectron())) return '';
         if (!_conCurrentFolderName) return '';
         const padded = String(idx + 1).padStart(3, '0');
@@ -14152,10 +14144,6 @@
         const hasSavedFile = (typeof _conCurrentFileName !== 'undefined') && !!String(_conCurrentFileName || '').trim();
         const show = hasSavedFile && total >= 2;
 
-        if (show && typeof conQueueCurrentPageSnapshotPng === 'function') {
-          conQueueCurrentPageSnapshotPng(cur);
-        }
-
         root.classList.toggle('active', show);
         if (!show) {
           strip.innerHTML = '';
@@ -14172,27 +14160,25 @@
           if (!forceRefresh && img.dataset.pngLoaded === '1' && img.src) return;
           conResolveMiniPageSnapshotUrl(i).then(url => {
             if (!url) return;
-            img.onload = function () {
-              canvas.style.display = 'none';
+            const applyImg = function () {
+              if (canvas) canvas.style.display = 'none';
               img.style.display = 'block';
               img.dataset.pngLoaded = '1';
             };
+            img.onload = applyImg;
             img.onerror = function () {
               img.style.display = 'none';
-              canvas.style.display = 'block';
+              if (canvas) canvas.style.display = 'block';
               img.dataset.pngLoaded = '0';
             };
             img.src = url;
             if (img.complete && img.naturalWidth > 0) {
-              canvas.style.display = 'none';
-              img.style.display = 'block';
-              img.dataset.pngLoaded = '1';
+              applyImg();
             }
           });
         };
 
         if (needsRebuild) {
-          const liveCurrent = conBuildPageSnapshot();
           const frag = document.createDocumentFragment();
           for (let i = 0; i < total; i += 1) {
             const btn = document.createElement('button');
@@ -14250,13 +14236,23 @@
             const canvas = document.createElement('canvas');
             canvas.width = 56;
             canvas.height = 36;
-            const snap = i === cur ? liveCurrent : (conPageSnapshots[i] || conBuildEmptyPageSnapshot());
+            const snap = conPageSnapshots[i] || conBuildEmptyPageSnapshot();
             conRenderPageThumbnail(snap, canvas);
+
+            const initialUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
+
             const img = document.createElement('img');
             img.alt = navTitle;
             img.className = 'con-page-mini-png';
-            img.style.display = 'none';
-            img.dataset.pngLoaded = '0';
+            if (initialUrl) {
+              img.src = initialUrl;
+              img.style.display = 'block';
+              img.dataset.pngLoaded = '1';
+              canvas.style.display = 'none';
+            } else {
+              img.style.display = 'none';
+              img.dataset.pngLoaded = '0';
+            }
 
             const num = document.createElement('span');
             num.className = 'con-page-mini-num';
@@ -14265,7 +14261,9 @@
             btn.appendChild(canvas);
             btn.appendChild(img);
             btn.appendChild(num);
-            refreshMiniThumbSnapshot(btn, i, true);
+            if (!initialUrl) {
+              refreshMiniThumbSnapshot(btn, i, false);
+            }
             frag.appendChild(btn);
           }
           strip.innerHTML = '';
@@ -14291,8 +14289,6 @@
       window.conAddPage = function () {
         // Capture the current live board into its slot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        // Save PNG of the page we're leaving
-        conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         // Create a new empty page and switch to it
         conPageSnapshots.push(conBuildEmptyPageSnapshot());
         if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
@@ -14303,10 +14299,8 @@
 
       window.conGoToPage = function (idx) {
         if (idx < 0 || idx >= conPageSnapshots.length || idx === conCurrentPageIndex) return;
-        // Save current live board
+        // Save current live board into in-memory snapshot
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        // Save PNG of the page we're leaving
-        conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
         conCurrentPageIndex = idx;
         _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
         conUpdatePageBar();
@@ -28441,11 +28435,14 @@
       if (boardAutosaveTimer) return;
       boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
 
-      // Debounced save: fires 3 s after the last structural change on the board
+      // Debounced save: fires 15s after the last structural change on the board
       let _boardMutationTimer = null;
       function _boardScheduleSave(section) {
         clearTimeout(_boardMutationTimer);
-        _boardMutationTimer = setTimeout(() => boardAutosaveSection(section, { force: false }), 3000);
+        _boardMutationTimer = setTimeout(() => {
+          if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
+          boardAutosaveSection(section, { force: false });
+        }, 15000);
       }
 
       // Watch constellation board for added/removed nodes and notes
@@ -28456,8 +28453,6 @@
           const structural = mutations.some(m => m.addedNodes.length || m.removedNodes.length);
           if (!structural) return;
           _boardIsDirty = true;
-          // First structural edit in a brand-new unsaved constellation: silently create the file.
-          conTrySilentInitialSave();
           _boardScheduleSave('constellation');
         }).observe(_conBoard, { childList: true, subtree: true });
       }
@@ -28998,12 +28993,10 @@
         ? dataToSave.pages
         : [dataToSave];
 
-      // Ensure current live page snapshot is fresh
+      // Ensure current live page snapshot is fresh and capture high-fidelity visual snapshot
       if (typeof conBuildPageSnapshot === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       }
-
-      // Try capturing live board canvas for the current page if available
       try {
         if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
           const liveRes = await _conBuildBoardCanvas();
@@ -30204,13 +30197,33 @@
     }
 
     // Save a PNG snapshot of the current board state for a given page index.
-    // Writes to mindmaps/<folderName>/page-snapshots/page-NNN.png (fire-and-forget).
+    // Save a PNG snapshot of the board state for a given page index (used on save/open).
+    // Captures full visual fidelity canvas and updates in-memory snapshot cache and disk.
     async function conSaveCurrentPageSnapshotPng(pageIndex, options = {}) {
       const idx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
       if (typeof idx !== 'number' || idx < 0) return;
-      const result = await _conBuildBoardCanvas();
-      if (!result) return;
-      const dataUrl = _conBuildThumbnailDataUrl(result.canvas, 600);
+      let dataUrl = '';
+      if (idx === conCurrentPageIndex && typeof _conBuildBoardCanvas === 'function') {
+        try {
+          const liveRes = await _conBuildBoardCanvas();
+          if (liveRes && liveRes.canvas) {
+            dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
+              ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
+              : liveRes.canvas.toDataURL('image/png');
+          }
+        } catch (_) {}
+      }
+      if (!dataUrl) {
+        const snap = (idx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
+          ? conBuildPageSnapshot()
+          : (conPageSnapshots && conPageSnapshots[idx]);
+        if (!snap) return;
+        dataUrl = (typeof conBuildPageThumbnailDataUrl === 'function')
+          ? conBuildPageThumbnailDataUrl(snap, 480, 320)
+          : '';
+      }
+      if (!dataUrl) return;
+
       if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
       _conPageSnapshotPngs[idx] = dataUrl;
 
@@ -30222,12 +30235,16 @@
           const img = thumbs[idx].querySelector('img');
           const canvas = thumbs[idx].querySelector('canvas');
           if (img) {
-            img.onload = function () {
+            const applyImg = function () {
               if (canvas) canvas.style.display = 'none';
               img.style.display = 'block';
               img.dataset.pngLoaded = '1';
             };
+            img.onload = applyImg;
             img.src = dataUrl;
+            if (img.complete && img.naturalWidth > 0) {
+              applyImg();
+            }
           }
         }
       }
@@ -30284,37 +30301,6 @@
       }, delayMs);
     }
     window.conTriggerLivePageSnapshot = conTriggerLivePageSnapshot;
-
-    // Attach event listeners to trigger live page snapshot on user interaction & PDF renders
-    (function _conInitLiveSnapshotListeners() {
-      const attach = function () {
-        const board = document.getElementById('constellation-board');
-        if (!board) return;
-        board.addEventListener('pointerup', () => conTriggerLivePageSnapshot(600), { passive: true });
-        board.addEventListener('keyup', () => conTriggerLivePageSnapshot(1000), { passive: true });
-        board.addEventListener('change', () => conTriggerLivePageSnapshot(400), { passive: true });
-
-        // Observe PDF canvas renders to refresh snapshot when PDF pages finish loading
-        try {
-          const obs = new MutationObserver(mutations => {
-            if (_conIsRestoringSession) return;
-            for (let i = 0; i < mutations.length; i += 1) {
-              const m = mutations[i];
-              if (m.target && (m.target.tagName === 'CANVAS' || (m.target.classList && m.target.classList.contains('con-media-pdf-canvas')))) {
-                conTriggerLivePageSnapshot(500);
-                break;
-              }
-            }
-          });
-          obs.observe(board, { childList: true, subtree: true, attributes: true, attributeFilter: ['width', 'height', 'style'] });
-        } catch (_) { }
-      };
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', attach);
-      } else {
-        attach();
-      }
-    })();
 
     async function conSaveSessionFolderBundle(sessionFilename, persistedData) {
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveBoardArchive === 'function') {
