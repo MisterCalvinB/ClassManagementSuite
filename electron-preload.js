@@ -174,6 +174,9 @@ const exposedApi = {
   exportFiles(request) {
     return invoke('app:export-files', request);
   },
+  zipAndDeleteArchived(request) {
+    return invoke('app:zip-and-delete-archived', request);
+  },
   saveToDisk(request) {
     return invoke('app:save-to-disk', request);
   },

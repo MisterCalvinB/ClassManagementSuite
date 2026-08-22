@@ -375,6 +375,16 @@
     });
   }
 
+  async function zipAndDeleteArchived(target, items, zipFilename, subdir) {
+    if (!isElectron()) return null;
+    return getDesktopApi().zipAndDeleteArchived({
+      target: target || 'mindmaps',
+      items: Array.isArray(items) ? items : [],
+      zipFilename,
+      subdir: subdir || 'archived'
+    });
+  }
+
   function extractWrappedJsonValue(rawText) {
     const normalized = String(rawText || "");
     const assignmentMatch = normalized.match(/(?:window\.[A-Za-z_$][\w$]*\s*=\s*|const\s+[A-Za-z_$][\w$]*\s*=\s*|let\s+[A-Za-z_$][\w$]*\s*=\s*|var\s+[A-Za-z_$][\w$]*\s*=\s*|export\s+default\s+)/m);
@@ -877,6 +887,7 @@
     pickFolder,
     pickAndReadFile,
     pickAndCopyFiles,
+    zipAndDeleteArchived,
     reloadPlannerReminders() {
       var api = getDesktopApi();
       if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();

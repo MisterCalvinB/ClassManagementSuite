@@ -218,11 +218,11 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
   [PAGE_FILES.classManagement]: new Set(['user', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
-  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user']),
+  [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
-  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation']),
+  [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint']),
   [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
   [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint']),
@@ -5589,6 +5589,153 @@ ipcMain.handle('app:export-files', async (event, request = {}) => {
   }
 
   return { ok: true, canceled: false, folderPath: destDir, exported, errors };
+});
+
+ipcMain.handle('app:zip-and-delete-archived', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = request.target || 'mindmaps';
+  const targetDir = resolveAllowedTargetDir(pageFile, target);
+  const destSubdir = sanitizeRelativePath(request.subdir || 'archived');
+  const archivedDir = path.resolve(targetDir, destSubdir);
+
+  const rawZipFilename = request.zipFilename || `archived-${new Date().toISOString().slice(0, 10)}.zip`;
+  let zipFilename = sanitizeFilename(rawZipFilename);
+  if (!zipFilename.toLowerCase().endsWith('.zip')) {
+    zipFilename += '.zip';
+  }
+
+  const items = Array.isArray(request.items) ? request.items : [];
+  if (!items.length) {
+    return { ok: false, error: 'No files provided to zip.' };
+  }
+
+  const zipEntries = [];
+  const entriesToDelete = [];
+  const processedFullPaths = new Set();
+
+  for (const item of items) {
+    const rawRel = typeof item === 'string' ? item : (item.relativePath || item.filename || '');
+    const relPath = sanitizeRelativePath(rawRel);
+    if (!relPath) continue;
+
+    let fullPath;
+    try {
+      fullPath = resolveAllowedTargetPath(pageFile, target, relPath).fullPath;
+    } catch {
+      continue;
+    }
+
+    if (processedFullPaths.has(fullPath)) continue;
+
+    let stats;
+    try {
+      stats = await fs.stat(fullPath);
+    } catch {
+      continue;
+    }
+
+    processedFullPaths.add(fullPath);
+
+    let entryZipPath = relPath.replace(/\\/g, '/');
+    if (destSubdir && entryZipPath.toLowerCase().startsWith(destSubdir.toLowerCase() + '/')) {
+      entryZipPath = entryZipPath.slice(destSubdir.length + 1);
+    }
+
+    if (stats.isDirectory()) {
+      const dirEntries = await collectDirEntries(fullPath, entryZipPath);
+      zipEntries.push(...dirEntries);
+      entriesToDelete.push({ fullPath, isDir: true, relPath });
+    } else if (stats.isFile()) {
+      try {
+        const data = await fs.readFile(fullPath);
+        zipEntries.push({
+          name: entryZipPath,
+          data,
+          mtimeMs: stats.mtimeMs,
+          ctimeMs: stats.ctimeMs,
+          birthtimeMs: stats.birthtimeMs
+        });
+        entriesToDelete.push({ fullPath, isDir: false, relPath });
+      } catch (err) {
+        console.warn('Failed to read file for zip:', fullPath, err);
+      }
+
+      if (target === 'mindmaps' && (relPath.endsWith('.js') || relPath.endsWith('.json'))) {
+        const parsed = path.parse(fullPath);
+        const companionFullPath = path.join(parsed.dir, parsed.name);
+        if (!processedFullPaths.has(companionFullPath)) {
+          try {
+            const compStats = await fs.stat(companionFullPath);
+            if (compStats.isDirectory()) {
+              processedFullPaths.add(companionFullPath);
+              const compZipPath = entryZipPath.replace(/\.(js|json)$/i, '');
+              const dirEntries = await collectDirEntries(companionFullPath, compZipPath);
+              zipEntries.push(...dirEntries);
+              const compRelPath = relPath.replace(/\.(js|json)$/i, '');
+              entriesToDelete.push({ fullPath: companionFullPath, isDir: true, relPath: compRelPath });
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  if (!zipEntries.length) {
+    return { ok: false, error: 'No files found to archive.' };
+  }
+
+  const zipBuffer = buildZip(zipEntries);
+  await fs.mkdir(archivedDir, { recursive: true });
+  const finalZipPath = path.join(archivedDir, zipFilename);
+  const tmpZipPath = finalZipPath + '.tmp';
+
+  try {
+    await fs.writeFile(tmpZipPath, zipBuffer);
+    try {
+      await fs.rename(tmpZipPath, finalZipPath);
+    } catch (renameErr) {
+      if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST') {
+        await fs.unlink(finalZipPath).catch(() => {});
+        await fs.rename(tmpZipPath, finalZipPath);
+      } else {
+        throw renameErr;
+      }
+    }
+  } catch (err) {
+    await fs.unlink(tmpZipPath).catch(() => {});
+    return { ok: false, error: 'Failed to write zip file: ' + (err && err.message ? err.message : String(err)) };
+  }
+
+  let deletedCount = 0;
+  for (const entry of entriesToDelete) {
+    if (path.resolve(entry.fullPath) === path.resolve(finalZipPath)) continue;
+    try {
+      if (entry.isDir) {
+        await fs.rm(entry.fullPath, { recursive: true, force: true });
+      } else {
+        await fs.unlink(entry.fullPath);
+      }
+      deletedCount++;
+    } catch (delErr) {
+      console.warn('Failed to delete original file after zip:', entry.fullPath, delErr);
+    }
+  }
+
+  _broadcastDataChanged(event, pageFile, {
+    action: 'zip-archived-files',
+    target,
+    zipFilename,
+    deletedCount
+  });
+
+  return {
+    ok: true,
+    zipFilename,
+    path: finalZipPath,
+    count: entriesToDelete.length,
+    deletedCount,
+    size: zipBuffer.length
+  };
 });
 
 ipcMain.handle('app:save-to-disk', async (_event, request = {}) => {

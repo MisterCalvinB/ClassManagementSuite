@@ -806,6 +806,21 @@
     </div>
   </div>
 
+  <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
+  <div id="gs-pdf-export-overlay" class="crit-popup-overlay hidden" onclick="if(event.target===this)closeGsPdfExportModal(null)">
+    <div class="crit-popup panel" role="dialog" aria-modal="true" style="max-width:420px;width:min(96vw,420px);" onclick="event.stopPropagation()">
+      <div class="crit-popup-title" id="gs-pdf-export-title" data-i18n="deExportPdfDestinationTitle">Export PDF</div>
+      <p id="gs-pdf-export-text" style="margin:0 0 16px;font-size:0.92rem;line-height:1.4;color:var(--text, #333);" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn primary" id="gs-btn-pdf-export-to-print" type="button" onclick="closeGsPdfExportModal('to-print')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
+        <button class="btn" id="gs-btn-pdf-export-picker" type="button" onclick="closeGsPdfExportModal('picker')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
+      </div>
+      <div class="crit-popup-footer" style="margin-top:16px;">
+        <button class="btn" type="button" onclick="closeGsPdfExportModal(null)" data-i18n="btnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Criterion edit popup -->
   <div id="criterion-popup-overlay" class="crit-popup-overlay hidden">
     <div class="crit-popup panel" role="dialog" aria-modal="true" aria-labelledby="crit-popup-heading">
@@ -5055,6 +5070,37 @@
     // ── Student modal ─────────────────────────────────────────────
     let _studentModalDraft = null;
 
+    let _gsPdfExportModalCallback = null;
+    function closeGsPdfExportModal(choice = null) {
+      const overlay = document.getElementById("gs-pdf-export-overlay");
+      if (overlay) overlay.classList.add("hidden");
+      const cb = _gsPdfExportModalCallback;
+      _gsPdfExportModalCallback = null;
+      if (cb) cb(choice);
+    }
+
+    function openGsPdfExportModal() {
+      const titleEl = document.getElementById("gs-pdf-export-title");
+      const textEl = document.getElementById("gs-pdf-export-text");
+      const toPrintBtn = document.getElementById("gs-btn-pdf-export-to-print");
+      const pickerBtn = document.getElementById("gs-btn-pdf-export-picker");
+      if (titleEl) titleEl.textContent = t('deExportPdfDestinationTitle') || 'Export PDF';
+      if (textEl) textEl.textContent = t('deExportPdfDestinationPrompt') || 'Where do you want to save the PDF?';
+      if (toPrintBtn) toPrintBtn.textContent = t('deExportPdfToPrintFolder') || 'Export to Print folder';
+      if (pickerBtn) pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
+
+      if (_gsPdfExportModalCallback) _gsPdfExportModalCallback(null);
+
+      return new Promise(resolve => {
+        _gsPdfExportModalCallback = resolve;
+        const overlay = document.getElementById("gs-pdf-export-overlay");
+        if (overlay) overlay.classList.remove("hidden");
+        setTimeout(() => {
+          if (toPrintBtn) toPrintBtn.focus();
+        }, 0);
+      });
+    }
+
     async function printTestResults() {
       const classObj = getActiveClass();
       if (!classObj || !appState.activeTest) return;
@@ -5255,10 +5301,34 @@
       const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Results — ${esc(classObj.name)} ${esc(sem.toUpperCase())} T${testNo}</title><style>${pageCSS}</style></head><body>${pages}</body></html>`;
       if (window.Desktop && Desktop.isElectron()) {
         try {
-          const res = await Desktop.printPdf({ html: htmlDoc });
-          console.log('printHtml result', res);
-          if (res && res.ok) return;
-          await showAlert(t('gsAlertPrintFailed') + (res && (res.failureReason || res.error) ? (res.failureReason || res.error) : 'unknown'));
+          const destination = await openGsPdfExportModal();
+          if (!destination) return;
+
+          const defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+          const pdfReq = {
+            html: htmlDoc,
+            pdfOptions: { pageSize: 'A4', landscape: false }
+          };
+          if (destination === 'to-print') {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = defaultName;
+          } else {
+            pdfReq.defaultName = defaultName;
+          }
+          const res = await Desktop.printPdf(pdfReq);
+          if (res && res.ok) {
+            showToast(
+              destination === 'to-print'
+                ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (res.name || defaultName))
+                : (t('deExportPdfSuccess') || 'PDF exported')
+            );
+            if (window.showExportSuccessPopup && res.path) {
+              showExportSuccessPopup(res.path, res.name || defaultName);
+            }
+            return;
+          } else if (res && !res.ok && !res.canceled) {
+            await showAlert(t('gsAlertPrintFailed') + (res && (res.failureReason || res.error) ? (res.failureReason || res.error) : 'unknown'));
+          }
           return;
         } catch (e) {
           console.error('Electron print failed', e);
@@ -7980,6 +8050,7 @@
         if (e.key === "Escape") {
           closeAllContextMenus();
           const overlayIds = [
+            "gs-pdf-export-overlay",
             "student-modal-overlay",
             "test-options-overlay",
             "coeff-popup-overlay",
@@ -7998,7 +8069,11 @@
           for (const id of overlayIds) {
             const el = document.getElementById(id);
             if (el && !el.classList.contains("hidden")) {
-              el.classList.add("hidden");
+              if (id === "gs-pdf-export-overlay") {
+                closeGsPdfExportModal(null);
+              } else {
+                el.classList.add("hidden");
+              }
               break;
             }
           }
@@ -8395,6 +8470,45 @@ ${blocks}
         return;
       }
       let html = buildCriteriaRefHtml(config, classObj, semester, testIndex);
+      const slug = slugifyForPath(classObj.name || "class");
+      const defaultName = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          const destination = await openGsPdfExportModal();
+          if (!destination) return;
+
+          const pdfReq = {
+            html,
+            pdfOptions: { pageSize: 'A4', landscape: false }
+          };
+          if (destination === 'to-print') {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = defaultName;
+          } else {
+            pdfReq.defaultName = defaultName;
+          }
+          const res = await Desktop.printPdf(pdfReq);
+          if (res && res.ok) {
+            showToast(
+              destination === 'to-print'
+                ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (res.name || defaultName))
+                : (t('deExportPdfSuccess') || 'PDF exported')
+            );
+            if (window.showExportSuccessPopup && res.path) {
+              showExportSuccessPopup(res.path, res.name || defaultName);
+            }
+            return;
+          } else if (res && !res.ok && !res.canceled) {
+            await showAlert(t('gsAlertPrintFailed') + (res && (res.failureReason || res.error) ? (res.failureReason || res.error) : 'unknown'));
+          }
+          return;
+        } catch (e) {
+          await showAlert(t('gsAlertPrintFailed') + (e && e.message ? e.message : String(e)));
+          return;
+        }
+      }
+
       const printScript = `<script>
         window.addEventListener('load', function() {
           setTimeout(function() {
@@ -8952,10 +9066,37 @@ ${blocks}
 
       if (window.Desktop && Desktop.isElectron()) {
         try {
+          const destination = await openGsPdfExportModal();
+          if (!destination) return;
+
           const pdfSettings = getPdfExportSettings();
-          const res = await Desktop.printPdf({ html, landscape: pdfSettings.isLandscape, pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape } });
-          if (res && res.ok) return;
-          await showAlert(t('gsAlertPrintFailed') + (res && (res.failureReason || res.error) ? (res.failureReason || res.error) : 'unknown'));
+          const slug = slugifyForPath(classObj.name || "class");
+          const defaultName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.pdf`;
+          const pdfReq = {
+            html,
+            landscape: pdfSettings.isLandscape,
+            pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
+          };
+          if (destination === 'to-print') {
+            pdfReq.target = 'toPrint';
+            pdfReq.filename = defaultName;
+          } else {
+            pdfReq.defaultName = defaultName;
+          }
+          const res = await Desktop.printPdf(pdfReq);
+          if (res && res.ok) {
+            showToast(
+              destination === 'to-print'
+                ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (res.name || defaultName))
+                : (t('deExportPdfSuccess') || 'PDF exported')
+            );
+            if (window.showExportSuccessPopup && res.path) {
+              showExportSuccessPopup(res.path, res.name || defaultName);
+            }
+            return;
+          } else if (res && !res.ok && !res.canceled) {
+            await showAlert(t('gsAlertPrintFailed') + (res && (res.failureReason || res.error) ? (res.failureReason || res.error) : 'unknown'));
+          }
           return;
         } catch (e) {
           await showAlert(t('gsAlertPrintFailed') + (e && e.message ? e.message : String(e)));

@@ -2036,6 +2036,9 @@
           <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button"
             onclick="historyUnarchiveSelected()" data-i18n="historyUnarchiveSelected"><img
               src="../assets/icons/unarchive.svg" class="btn-icon" alt="" /> Unarchive Selected</button>
+          <button id="history-zip-selected-btn" class="action-btn btn-grey" type="button"
+            onclick="historyZipSelected()" data-i18n="historyZipArchivedSelected"><img src="../assets/icons/archive.svg"
+              class="btn-icon" alt="" /> Zip Selected</button>
           <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button"
             onclick="historyDeleteSelected()" data-i18n="historyDeleteSelected"><img src="../assets/icons/delete.svg"
               class="btn-icon" alt="" /> Delete Selected</button>
@@ -31803,6 +31806,8 @@
       if (deleteSelectedBtn) deleteSelectedBtn.classList.toggle('visible', hasSelection);
       if (archiveSelectedBtn) archiveSelectedBtn.classList.toggle('visible', hasSelection && historyViewTab !== 'archived');
       if (unarchiveSelectedBtn) unarchiveSelectedBtn.classList.toggle('visible', hasSelection && historyViewTab === 'archived');
+      const zipSelectedBtn = document.getElementById('history-zip-selected-btn');
+      if (zipSelectedBtn) zipSelectedBtn.classList.toggle('visible', hasSelection && historyViewTab === 'archived');
 
       const allChk = document.getElementById('history-select-all');
       if (allChk) {
@@ -32030,6 +32035,74 @@
       }
       mdbToast(failed ? '⚠️ Unarchived ' + done + ', ' + failed + ' failed.' : '✔ Unarchived ' + done + ' file(s).');
       await historyRefreshList();
+    }
+
+    async function historyZipSingleEntry(entry) {
+      if (!entry) return;
+      await historyZipArchivedEntries([entry]);
+    }
+
+    async function historyZipSelected() {
+      const toZip = historyGetSortedEntries().filter(e => e && e.source === 'archived' && historySelectedKeys.has(historyEntryKey(e)));
+      if (!toZip.length) {
+        mdbToast('No archived files selected.');
+        return;
+      }
+      await historyZipArchivedEntries(toZip);
+    }
+
+    async function historyZipArchivedEntries(entries) {
+      if (!Array.isArray(entries) || !entries.length) return;
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.zipAndDeleteArchived === 'function')) {
+        mdbToast('⚠️ Zipping archived files requires the Electron desktop app.');
+        return;
+      }
+
+      let defaultZipName = '';
+      if (entries.length === 1) {
+        const base = entries[0].baseName || boardStripJsonExt(entries[0].filename) || 'archive';
+        defaultZipName = base + '.zip';
+      } else {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        defaultZipName = 'archived_sessions_' + dateStr + '.zip';
+      }
+
+      const promptMsg = (typeof i18n !== 'undefined' && i18n.t)
+        ? i18n.t('historyZipPrompt')
+        : 'Enter name for the ZIP archive (files will be zipped and originals deleted):';
+
+      let requestedName = defaultZipName;
+      if (typeof window.showPrompt === 'function') {
+        const entered = await window.showPrompt(promptMsg, defaultZipName);
+        if (entered === null || entered === undefined) return;
+        requestedName = String(entered).trim();
+      }
+
+      if (!requestedName) requestedName = defaultZipName;
+      if (!requestedName.toLowerCase().endsWith('.zip')) {
+        requestedName += '.zip';
+      }
+
+      const target = entries[0].target || 'mindmaps';
+      const items = entries.map(e => ({
+        target: e.target || target,
+        filename: e.filename,
+        relativePath: historyEntryRelativePath(e)
+      }));
+
+      try {
+        const res = await Desktop.zipAndDeleteArchived(target, items, requestedName, 'archived');
+        if (!res || !res.ok) {
+          throw new Error(res && res.error ? res.error : 'Zip creation failed.');
+        }
+
+        const count = res.deletedCount || res.count || entries.length;
+        mdbToast('✔ Created ' + res.zipFilename + ' and deleted ' + count + ' original file(s).');
+        historySelectedKeys.clear();
+        await historyRefreshList();
+      } catch (error) {
+        mdbToast('⚠️ Could not zip files: ' + (error && error.message ? error.message : String(error)));
+      }
     }
 
     function historyInit() {
@@ -32435,6 +32508,7 @@
 
         if (entry.source === 'archived') {
           menuItem('Unarchive', () => historyUnarchiveEntry(entry), false, '../assets/icons/unarchive.svg');
+          menuItem(typeof i18n !== 'undefined' && i18n.t ? i18n.t('historyZipSingle') : 'Zip to Archive', () => historyZipSingleEntry(entry), false, '../assets/icons/archive.svg');
         } else {
           if (entry.target === 'mindmaps') {
             menuItem('Versions', () => conShowVersionHistory(entry), false, '../assets/icons/history.svg');

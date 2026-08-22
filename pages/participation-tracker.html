@@ -507,6 +507,22 @@
                 <button onclick="closeSavedRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:6px 14px; font-weight:700; font-size:0.8rem; cursor:pointer;" data-i18n="ptBtnClose">Close</button>
             </div>
         </div>
+    <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
+    <div id="ptPdfExportModal" class="modal" onclick="if(event.target===this)closePtPdfExportModal(null)">
+        <div class="modal-content" style="max-width: 420px;" onclick="event.stopPropagation()">
+            <button class="close-modal" onclick="closePtPdfExportModal(null)" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+            <div class="pt-export-modal-header" style="margin-bottom:12px;">
+                <h2 id="pt-pdf-export-title" data-i18n="deExportPdfDestinationTitle"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export PDF</h2>
+                <div class="pt-export-subtitle" id="pt-pdf-export-text" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                <button class="btn btn-primary" id="btn-pt-pdf-export-to-print" type="button" onclick="closePtPdfExportModal('to-print')" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
+                <button class="btn btn-secondary" id="btn-pt-pdf-export-picker" type="button" onclick="closePtPdfExportModal('picker')" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+                <button class="btn btn-secondary" type="button" onclick="closePtPdfExportModal(null)" data-i18n="btnCancel">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Export Rules Modal (Neobrutalist Popup) -->
@@ -4791,6 +4807,37 @@
             document.body.removeChild(a);
         }
 
+        let ptPdfExportModalCallback = null;
+        function closePtPdfExportModal(choice = null) {
+            const modal = document.getElementById('ptPdfExportModal');
+            if (modal) modal.classList.remove('active');
+            const cb = ptPdfExportModalCallback;
+            ptPdfExportModalCallback = null;
+            if (cb) cb(choice);
+        }
+
+        function openPtPdfExportModal() {
+            const titleEl = document.getElementById('pt-pdf-export-title');
+            const textEl = document.getElementById('pt-pdf-export-text');
+            const toPrintBtn = document.getElementById('btn-pt-pdf-export-to-print');
+            const pickerBtn = document.getElementById('btn-pt-pdf-export-picker');
+            if (titleEl) titleEl.innerHTML = '<img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> ' + (typeof t === 'function' ? (t('deExportPdfDestinationTitle') || 'Export PDF') : 'Export PDF');
+            if (textEl) textEl.textContent = (typeof t === 'function' ? t('deExportPdfDestinationPrompt') : null) || 'Where do you want to save the PDF?';
+            if (toPrintBtn) toPrintBtn.textContent = (typeof t === 'function' ? t('deExportPdfToPrintFolder') : null) || 'Export to Print folder';
+            if (pickerBtn) pickerBtn.textContent = (typeof t === 'function' ? t('deExportPdfFilePicker') : null) || 'Choose with file picker';
+
+            if (ptPdfExportModalCallback) ptPdfExportModalCallback(null);
+
+            return new Promise(resolve => {
+                ptPdfExportModalCallback = resolve;
+                const modal = document.getElementById('ptPdfExportModal');
+                if (modal) modal.classList.add('active');
+                setTimeout(() => {
+                    if (toPrintBtn) toPrintBtn.focus();
+                }, 0);
+            });
+        }
+
         function openPtExportModal() {
             const modal = document.getElementById('ptExportModal');
             if (modal) modal.classList.add('active');
@@ -5571,17 +5618,29 @@
 
             if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
                 try {
-                    const result = await Desktop.printPdf({
+                    const destination = await openPtPdfExportModal();
+                    if (!destination) return;
+
+                    const pdfReq = {
                         html: html,
-                        defaultName: defaultName,
                         landscape: pdfSettings.isLandscape,
                         pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
-                    });
+                    };
+                    if (destination === 'to-print') {
+                        pdfReq.target = 'toPrint';
+                        pdfReq.filename = defaultName;
+                    } else {
+                        pdfReq.defaultName = defaultName;
+                    }
+                    const result = await Desktop.printPdf(pdfReq);
                     if (result && result.ok) {
+                        const msg = destination === 'to-print'
+                            ? ((typeof t === 'function' ? t('deExportPdfToPrintSuccess') : 'PDF saved to Print folder: ') + (result.name || defaultName))
+                            : ((typeof t === 'function' ? t('deExportPdfSuccess') : 'PDF exported') || 'PDF report exported successfully!');
                         if (window.showExportSuccessPopup && result.path) {
                             showExportSuccessPopup(result.path, result.name || defaultName);
                         } else {
-                            showMessage('PDF report exported successfully!', 'success');
+                            showMessage(msg, 'success');
                         }
                     } else if (result && !result.ok && !result.canceled) {
                         showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
@@ -6813,17 +6872,29 @@
 
             if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
                 try {
-                    const result = await Desktop.printPdf({
+                    const destination = await openPtPdfExportModal();
+                    if (!destination) return;
+
+                    const pdfReq = {
                         html: html,
-                        defaultName: defaultName,
                         landscape: false,
                         pdfOptions: { pageSize: pdfSettings.pageSize, landscape: false }
-                    });
+                    };
+                    if (destination === 'to-print') {
+                        pdfReq.target = 'toPrint';
+                        pdfReq.filename = defaultName;
+                    } else {
+                        pdfReq.defaultName = defaultName;
+                    }
+                    const result = await Desktop.printPdf(pdfReq);
                     if (result && result.ok) {
+                        const msg = destination === 'to-print'
+                            ? ((typeof t === 'function' ? t('deExportPdfToPrintSuccess') : 'PDF saved to Print folder: ') + (result.name || defaultName))
+                            : ((typeof t === 'function' ? t('ptRulesExportSuccessPdf') : 'PDF rules document exported successfully!') || 'PDF rules document exported successfully!');
                         if (window.showExportSuccessPopup && result.path) {
                             showExportSuccessPopup(result.path, result.name || defaultName);
                         } else {
-                            showMessage(t('ptRulesExportSuccessPdf') || 'PDF rules document exported successfully!', 'success');
+                            showMessage(msg, 'success');
                         }
                     } else if (result && !result.ok && !result.canceled) {
                         showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
@@ -7874,6 +7945,14 @@
                 rulesExportModal.addEventListener('click', function(e) {
                     if (e.target === this) {
                         closeExportRulesModal();
+                    }
+                });
+            }
+            const ptPdfExportModal = document.getElementById('ptPdfExportModal');
+            if (ptPdfExportModal) {
+                ptPdfExportModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closePtPdfExportModal(null);
                     }
                 });
             }
