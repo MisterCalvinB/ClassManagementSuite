@@ -937,6 +937,48 @@ tr:hover td {
   border-bottom-color: transparent;
 }
 
+.crit-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+  padding: 0 2px;
+}
+
+.crit-drag-handle:hover {
+  opacity: 0.9;
+}
+
+.crit-drag-handle:active {
+  cursor: grabbing;
+}
+
+.crit-item {
+  border-radius: 5px;
+  transition: transform 120ms ease, opacity 120ms ease;
+  position: relative;
+}
+
+.crit-item.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+.crit-item.drag-over .criteria-mgmt-row {
+  border-color: #3b82f6;
+}
+
+.crit-item.drag-over-top {
+  box-shadow: 0 -3px 0 0 #3b82f6;
+}
+
+.crit-item.drag-over-bottom {
+  box-shadow: 0 3px 0 0 #3b82f6;
+}
+
 .crit-item-detail {
   padding: 10px 10px 8px;
   border: 1px solid var(--line);
@@ -1586,25 +1628,36 @@ tr:hover td {
 
 .smod-pts-cell {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 200px;
 }
 
 .smod-pts-cell input[type="number"] {
-  width: 72px;
+  width: 68px;
   border: 1.5px solid var(--line);
   border-radius: 6px;
   padding: 4px 6px;
   font: inherit;
   font-weight: 600;
+  height: 30px;
+  flex-shrink: 0;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.smod-pts-slider-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 130px;
+  padding-top: 5px;
 }
 
 .smod-pts-cell input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  flex: 1;
-  min-width: 80px;
+  width: 100%;
   height: 10px;
   border-radius: 999px;
   outline: none;
@@ -1613,6 +1666,9 @@ tr:hover td {
   border: 1px solid rgba(0, 0, 0, 0.18);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
   transition: border-color 0.15s ease;
+  margin: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .smod-pts-cell input[type="range"]::-webkit-slider-runnable-track {
@@ -1660,6 +1716,71 @@ tr:hover td {
 
 .smod-pts-cell input[type="range"]::-moz-range-thumb:hover {
   transform: scale(1.18);
+}
+
+.smod-pts-notches-track {
+  position: relative;
+  width: 100%;
+  height: 22px;
+  margin-top: 5px;
+  user-select: none;
+}
+
+.smod-pts-notch {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+  z-index: 1;
+}
+
+.smod-pts-notch:hover {
+  transform: translateX(-50%) scale(1.15);
+  z-index: 3;
+}
+
+.smod-pts-notch-pip {
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+  margin-bottom: 2px;
+  background-color: var(--notch-color, currentColor);
+  box-shadow: 0 0 0 0.75px rgba(0, 0, 0, 0.4);
+}
+
+.smod-pts-notch-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  background-color: var(--notch-color, #fff);
+  color: var(--notch-text-color, #111);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+}
+
+.smod-pts-notch:hover .smod-pts-notch-label {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.smod-pts-notch.active {
+  z-index: 4;
+}
+
+.smod-pts-notch.active .smod-pts-notch-pip {
+  height: 6px;
+  box-shadow: 0 0 0 1px #0f172a;
+}
+
+.smod-pts-notch.active .smod-pts-notch-label {
+  box-shadow: 0 0 0 2px #0f172a, 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-weight: 800;
 }
 
 .smod-criteria-table textarea {
@@ -1788,11 +1909,37 @@ tr:hover td {
 .dropdown.dropdown-hover:focus-within .dropdown-menu {
   display: flex !important;
 }
+.dropdown-menu {
+  min-width: 310px;
+  max-width: 360px;
+  background: #fff;
+  border: 2px solid #111;
+  box-shadow: 4px 4px 0 #111;
+  border-radius: var(--radius, 4px);
+  padding: 0;
+  overflow: hidden;
+  z-index: 1000;
+}
+.dropdown-section-header {
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f0f0f0;
+  color: #555;
+  border-bottom: 1.5px solid #111;
+  border-top: 1.5px solid #111;
+  user-select: none;
+}
+.dropdown-section-header:first-child {
+  border-top: none;
+}
 .dropdown-item {
   background: none;
   border: none;
-  padding: 8px 12px;
-  font-size: 0.85rem;
+  padding: 9px 12px;
+  font-size: 0.84rem;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -1801,16 +1948,45 @@ tr:hover td {
   transition: background 0.1s, color 0.1s;
   color: #111;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid #111;
+  align-items: flex-start;
+  gap: 10px;
+  border-bottom: 1px solid #e0e0e0;
 }
 .dropdown-item:last-child {
   border-bottom: none;
 }
+.dropdown-item .btn-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.dropdown-item-title {
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: inherit;
+}
+.dropdown-item-desc {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.75;
+  line-height: 1.25;
+  color: inherit;
+}
 .dropdown-item:hover {
   background: #111;
   color: #fff;
+}
+.dropdown-item:hover .dropdown-item-desc {
+  opacity: 0.9;
+  color: #e5e5e5;
 }
 
 /* ── Unified Test Options Modal - Black & White Neobrutalist Layout ── */

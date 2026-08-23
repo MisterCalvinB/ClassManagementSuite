@@ -1427,6 +1427,10 @@
       if (!el && nav.classId) el = document.querySelector('.entry-row[data-date="' + nav.date + '"][data-classid="' + nav.classId + '"]');
       if (!el) el = document.querySelector('.entry-row[data-date="' + nav.date + '"]');
       if (!el) return;
+      var group = el.closest('.week-group, .at-week-block');
+      if (group && group.classList.contains('collapsed')) {
+        group.classList.remove('collapsed');
+      }
       if (doScroll) {
         var mainEl = document.getElementById('main');
         if (mainEl) {
@@ -1837,6 +1841,42 @@
       return Math.floor((d - s) / (7 * 24 * 60 * 60 * 1000)) + 1;
     }
 
+    function isPlannerWeekPast(weekNum, sem, lastDate) {
+      if (!sem || !sem.semesterStart || weekNum == null) {
+        if (lastDate) {
+          var todayStr = new Date().toISOString().slice(0, 10);
+          return lastDate < todayStr;
+        }
+        return false;
+      }
+      var wn = parseInt(weekNum, 10);
+      if (isNaN(wn)) return false;
+      var semStart = new Date(sem.semesterStart + 'T00:00:00');
+      var weekEnd = new Date(semStart.getTime() + wn * 7 * 24 * 60 * 60 * 1000);
+      return new Date() >= weekEnd;
+    }
+
+    function isPlannerWeekCollapsed(weekNum, isPast) {
+      if (weekNum == null) return false;
+      var key = (activeSemId || '') + ':' + weekNum;
+      if (window._plannerManualWeekCollapse && typeof window._plannerManualWeekCollapse[key] === 'boolean') {
+        return window._plannerManualWeekCollapse[key];
+      }
+      return !!isPast;
+    }
+
+    function togglePlannerWeek(headerEl, event) {
+      if (event && event.target && event.target.closest('button, a, input, select')) return;
+      var group = headerEl.closest('.week-group, .at-week-block');
+      if (!group) return;
+      var isCollapsed = group.classList.toggle('collapsed');
+      var weekAttr = headerEl.getAttribute('data-week');
+      if (weekAttr != null && activeSemId) {
+        if (!window._plannerManualWeekCollapse) window._plannerManualWeekCollapse = {};
+        window._plannerManualWeekCollapse[activeSemId + ':' + weekAttr] = isCollapsed;
+      }
+    }
+
     // ── Select population ──────────────────────────────────────────────────────
     function populateSelects() {
       var ids = getPlannerClassIds();
@@ -1946,8 +1986,6 @@
       }
 
       var activeSem = getActiveSem();
-      var semStart = activeSem && activeSem.semesterStart ? new Date(activeSem.semesterStart + 'T00:00:00') : null;
-      var nowTime = new Date();
 
       headers.forEach(function (hdr, idx) {
         var weekId = hdr.id;
@@ -1957,16 +1995,7 @@
         }
 
         var weekNumAttr = hdr.getAttribute('data-week');
-        var isPast = false;
-        if (semStart && weekNumAttr) {
-          var weekNum = parseInt(weekNumAttr, 10);
-          if (!isNaN(weekNum)) {
-            var weekEnd = new Date(semStart.getTime() + weekNum * 7 * 24 * 60 * 60 * 1000);
-            if (nowTime >= weekEnd) {
-              isPast = true;
-            }
-          }
-        }
+        var isPast = isPlannerWeekPast(weekNumAttr, activeSem);
 
         if (isPast) {
           hdr.classList.add('week-hdr-past');
@@ -1979,10 +2008,21 @@
         if (isPast) {
           item.classList.add('wn-past');
         }
-        item.textContent = hdr.textContent;
-        item.title = hdr.textContent;
+        var titleSpan = hdr.querySelector('.week-hdr-title');
+        var text = titleSpan ? titleSpan.textContent : hdr.textContent;
+        item.textContent = text;
+        item.title = text;
         item.onclick = function (e) {
           e.preventDefault();
+          var group = hdr.closest('.week-group, .at-week-block');
+          if (group && group.classList.contains('collapsed')) {
+            group.classList.remove('collapsed');
+            var weekAttr = hdr.getAttribute('data-week');
+            if (weekAttr != null && activeSemId) {
+              if (!window._plannerManualWeekCollapse) window._plannerManualWeekCollapse = {};
+              window._plannerManualWeekCollapse[activeSemId + ':' + weekAttr] = false;
+            }
+          }
           hdr.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
         listEl.appendChild(item);
@@ -2053,14 +2093,22 @@
         if (weekNum !== prevWeek) {
           if (prevWeek !== null) html += '</div>'; // close week-group
           prevWeek = weekNum;
-          html += '<div class="week-group">';
-          if (weekNum !== null && totalWeeks > 0)
-            html += '<div class="week-header" id="week-hdr-' + weekNum + '" data-week="' + weekNum + '">' + esc(tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks })) + '</div>';
+          var isPast = isPlannerWeekPast(weekNum, activeSem, date);
+          var isCollapsed = isPlannerWeekCollapsed(weekNum, isPast);
+          html += '<div class="week-group' + (isCollapsed ? ' collapsed' : '') + (isPast ? ' week-past' : '') + '" data-week="' + (weekNum != null ? weekNum : '') + '">';
+          if (weekNum !== null) {
+            var weekLabel = totalWeeks > 0 ? tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks }) : ('Week ' + weekNum);
+            html += '<div class="week-header' + (isPast ? ' week-hdr-past' : '') + '" id="week-hdr-' + weekNum + '" data-week="' + weekNum + '" onclick="togglePlannerWeek(this, event)">' +
+              '<span class="week-hdr-title">' + esc(weekLabel) + '</span>' +
+              '</div>';
+          }
         }
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var isPastDay = date < todayStr;
         var d = new Date(date + 'T12:00:00');
         var label = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        html += '<div class="date-group">';
-        html += '<div class="date-header"><span class="dh-date">' + esc(label) + '</span><span class="dh-line"></span></div>';
+        html += '<div class="date-group' + (isPastDay ? ' day-past' : '') + '">';
+        html += '<div class="date-header' + (isPastDay ? ' day-past' : '') + '"><span class="dh-date">' + esc(label) + '</span><span class="dh-line"></span></div>';
         if (!filterClasses.size && testCounts[date] >= 2)
           html += '<div class="conflict-banner">⚠ ' + esc(tFmt('pl_conflictWarning', { n: testCounts[date] })) + '</div>';
         byDate[date].forEach(function (s) { html += renderSlot(s); });
@@ -2544,6 +2592,7 @@
     function switchSem(id) {
       activeSemId = id;
       cfg.activeSemesterId = id;
+      window._plannerManualWeekCollapse = {};
       persistCfg();
       updateSemToolbar();
       render();
@@ -4078,12 +4127,8 @@
       } catch (e) { return; }
       if (!listResult || !listResult.ok || !Array.isArray(listResult.files)) return;
 
-      var gradeFilesMap = {};
-      listResult.files.forEach(function (f) {
-        if (f.relativePath) {
-          var norm = f.relativePath.replace(/\\/g, '/').toLowerCase();
-          gradeFilesMap[norm] = f;
-        }
+      var gradeFiles = listResult.files.map(function (f) {
+        return (f.relativePath || '').replace(/\\/g, '/').toLowerCase();
       });
 
       for (var i = 0; i < entries.length; i++) {
@@ -4091,18 +4136,23 @@
         if (e.type !== 'test' && e.gsLink) {
           e.gsLink = null;
           modified = true;
-        } else if (e.type === 'test' && e.gsLink) {
-          var link = e.gsLink;
-          if (!link.classSlug || !link.semester || link.testIndex == null) {
-            e.gsLink = null;
-            modified = true;
-            continue;
-          }
-          var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0') + '.js';
-          var relPathNorm = (link.classSlug + '/' + testLabel).toLowerCase();
-          if (!gradeFilesMap[relPathNorm]) {
-            e.gsLink = null;
-            modified = true;
+        } else if (e.type === 'test') {
+          if (e.gsLink) {
+            var link = e.gsLink;
+            if (!link.semester || link.testIndex == null) {
+              e.gsLink = null;
+              modified = true;
+              continue;
+            }
+            var testLabel = link.semester + '-test-' + String(link.testIndex + 1).padStart(2, '0') + '.js';
+            var slugPath = (link.classSlug ? link.classSlug + '/' + testLabel : '').toLowerCase();
+            var idPath = (link.classId ? link.classId + '/' + testLabel : '').toLowerCase();
+            var fileExists = gradeFiles.some(function (p) {
+              return (slugPath && p === slugPath) || (idPath && p === idPath) || p.endsWith('/' + testLabel.toLowerCase());
+            });
+            if (!fileExists) {
+              await syncTestToGradeSheet(e, false);
+            }
           }
         }
       }
@@ -5890,14 +5940,29 @@
           ? tFmt('pl_weekLabel', { n: parseInt(wk, 10), total: totalWeeks })
           : ('Week ' + wk);
 
-        html += '<div class="at-week-block">';
-        html += '<div class="at-week-title" id="week-hdr-' + wk + '" data-week="' + wk + '">' + esc(weekLabel) + '</div>';
+        var isPast = isPlannerWeekPast(wk, activeSem, bucket.firstDate);
+        var isCollapsed = isPlannerWeekCollapsed(wk, isPast);
+
+        html += '<div class="at-week-block' + (isCollapsed ? ' collapsed' : '') + (isPast ? ' week-past' : '') + '" data-week="' + wk + '">';
+        html += '<div class="at-week-title' + (isPast ? ' week-hdr-past' : '') + '" id="week-hdr-' + wk + '" data-week="' + wk + '" onclick="togglePlannerWeek(this, event)">' +
+          '<span class="week-hdr-title">' + esc(weekLabel) + '</span>' +
+          '</div>';
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var fd = new Date(bucket.firstDate + 'T12:00:00');
+        var fdDow = fd.getDay();
+        var fdFromMon = (fdDow + 6) % 7;
+        var mondayDate = new Date(fd.getTime() - fdFromMon * 24 * 60 * 60 * 1000);
+
         html += '<div class="table-wrap"><table class="agenda-table"><thead><tr>';
         var _timeHdr = t('pl_time');
         if (!_timeHdr || _timeHdr === 'pl_time') _timeHdr = 'Time';
         html += '<th class="at-time-cell">' + esc(_timeHdr) + '</th>';
         dayOrder.forEach(function (dow) {
-          html += '<th>' + esc(t(DAY_KEYS[dow])) + '</th>';
+          var targetFromMon = (dow + 6) % 7;
+          var dowDate = new Date(mondayDate.getTime() + targetFromMon * 24 * 60 * 60 * 1000);
+          var dowDateStr = dowDate.toISOString().slice(0, 10);
+          var isDowPast = dowDateStr < todayStr;
+          html += '<th class="' + (isDowPast ? 'at-day-hdr-past' : '') + '">' + esc(t(DAY_KEYS[dow])) + '</th>';
         });
         html += '</tr></thead><tbody><tr>';
         html += '<td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
@@ -5908,8 +5973,12 @@
         html += '</div></td>';
 
         dayOrder.forEach(function (dow) {
+          var targetFromMon = (dow + 6) % 7;
+          var dowDate = new Date(mondayDate.getTime() + targetFromMon * 24 * 60 * 60 * 1000);
+          var dowDateStr = dowDate.toISOString().slice(0, 10);
+          var isDowPast = dowDateStr < todayStr;
           var dayItems = bucket.byDay[dow] || [];
-          html += '<td class="at-day-col"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+          html += '<td class="at-day-col' + (isDowPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
           dayItems.forEach(function (it) {
             html += renderTableMatrixEntry(it.slot, {
               gridStart: gridStart,

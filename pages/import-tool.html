@@ -27,6 +27,7 @@
   <script src="../js/import-modules/sounds.js"></script>
   <script src="../js/import-modules/documents.js"></script>
   <script src="../js/import-modules/books.js"></script>
+  <script src="../js/import-modules/grade-sheet-criteria.js"></script>
   <link rel="stylesheet" href="../css/import-tool.css">
 </head>
 <body>
@@ -110,6 +111,7 @@
                   <option value="">—</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
+                  <option value="all">All (Full Year)</option>
                 </select>
               </div>
               <div class="grp-field">
@@ -320,6 +322,13 @@
         modules: [
           window.IMPORT_MODULE_DOCUMENTS
         ]
+      },
+      {
+        appI18nKey: 'app_gradeSheet_title',
+        defaultTitle: 'Grade Sheet',
+        modules: [
+          window.IMPORT_MODULE_GRADE_SHEET_CRITERIA
+        ]
       }
     ];
 
@@ -378,7 +387,8 @@
         story: tt('importDestStoryDesc', 'Add story metadata to a custom story bank'),
         sounds: tt('importDestSoundsDesc', 'Copy audio files into the custom sounds folder'),
         documents: tt('importDestDocumentsDesc', 'Copy document files into the Document Editor'),
-        books: tt('importDestBooksDesc', 'Copy book and text files into user/custom-data/books')
+        books: tt('importDestBooksDesc', 'Copy book and text files into user/custom-data/books'),
+        gradeSheetCriteria: tt('importDestGradeSheetCriteriaDesc', 'Import grading criteria descriptors, grades, colors, and point limits')
       };
 
       MODULE_GROUPS.forEach(function (grp) {
@@ -460,6 +470,9 @@
         if (pickLabel) pickLabel.textContent = tt(mod.filePickerLabelKey || 'importWbPickLabel', 'Target file');
         setWbMode(wbMode);
         loadWbFiles();
+      }
+      if (typeof mod.loadExisting === 'function') {
+        mod.loadExisting().catch(function (e) { console.warn('Failed to load module existing data:', e); });
       }
       updateFooterButtons();
     }
@@ -837,7 +850,9 @@
       conflictDecisions = {};
 
       var existingByKey = {};
-      var referenceList = selectedModule.hasWbStep ? existingWordbank : existingStudents;
+      var referenceList = (selectedModule && typeof selectedModule.getExistingList === 'function')
+        ? selectedModule.getExistingList()
+        : (selectedModule.hasWbStep ? existingWordbank : existingStudents);
       referenceList.forEach(function (s) {
         var k = selectedModule.conflictKey(s);
         existingByKey[k] = s;
@@ -857,10 +872,14 @@
       if (conflicts > 0) {
         conflictHeader.style.display = 'flex';
         okBanner.classList.remove('visible');
-        var conflictKey = selectedModule.hasWbStep ? 'importStep4ConflictsWb' : 'importStep4Conflicts';
-        var conflictFallback = selectedModule.hasWbStep
-          ? 'conflict(s) found — existing records matched'
-          : 'conflict(s) found — existing students matched by name';
+        var conflictKey = selectedModule.id === 'gradeSheetCriteria'
+          ? 'importStep4ConflictsCriteria'
+          : (selectedModule.hasWbStep ? 'importStep4ConflictsWb' : 'importStep4Conflicts');
+        var conflictFallback = selectedModule.id === 'gradeSheetCriteria'
+          ? 'conflict(s) found — existing criteria matched by name'
+          : (selectedModule.hasWbStep
+              ? 'conflict(s) found — existing records matched'
+              : 'conflict(s) found — existing students matched by name');
         document.getElementById('conflict-count-text').textContent =
           conflicts + ' ' + tt(conflictKey, conflictFallback);
       } else {
@@ -977,11 +996,13 @@
       showSaving(true);
       clearError('err-step4');
 
-      // Modules with their own write() (wordbank, quiz, gapfill, …)
-      if (selectedModule.hasWbStep && typeof selectedModule.write === 'function') {
-        var wbFile = wbMode === 'new'
-          ? (document.getElementById('wb-new-name').value.trim().replace(/\.js$/, '') + '.js')
-          : document.getElementById('wb-existing-select').value;
+      // Modules with their own write() (wordbank, quiz, gapfill, gradeSheetCriteria, …)
+      if (typeof selectedModule.write === 'function') {
+        var wbFile = selectedModule.hasWbStep
+          ? (wbMode === 'new'
+              ? (document.getElementById('wb-new-name').value.trim().replace(/\.js$/, '') + '.js')
+              : document.getElementById('wb-existing-select').value)
+          : selectedModule.targetFile;
         var result = await selectedModule.write(mappedRows, conflictDecisions, {
           targetFile: wbFile,
           target: selectedModule.target,
@@ -996,11 +1017,21 @@
         document.getElementById('done-updated').textContent = result.updated;
         document.getElementById('done-skipped').textContent = result.skipped;
         var btn = document.getElementById('btn-done-action');
-        btn.textContent = tt('importBtnOpenDb', 'Open Database');
-        btn.style.display = '';
-        window.doneAction = function () {
-          if (window.Desktop && Desktop.isElectron()) Desktop.openTool('manage-database.html');
-        };
+        if (selectedModule.doneToolPage) {
+          btn.textContent = tt(selectedModule.doneActionKey, 'Open');
+          btn.style.display = '';
+          window.doneAction = (function (tool) {
+            return function () {
+              if (window.Desktop && Desktop.isElectron()) Desktop.openTool(tool);
+            };
+          })(selectedModule.doneToolPage);
+        } else {
+          btn.textContent = tt('importBtnOpenDb', 'Open Database');
+          btn.style.display = '';
+          window.doneAction = function () {
+            if (window.Desktop && Desktop.isElectron()) Desktop.openTool('manage-database.html');
+          };
+        }
         goToStep(5);
         return;
       }
@@ -1095,13 +1126,15 @@
         if (groupMode === 'new') {
           var groupId = ImportUtils.generateGroupUuid();
           while (cg.classGroupsMeta[groupId]) groupId = ImportUtils.generateGroupUuid();
-          cg.classGroupsMeta[groupId] = {
-            year: document.getElementById('grp-year').value.trim() || (cg.activeYear || ''),
-            semester: parseInt(document.getElementById('grp-semester').value, 10) || cg.activeSemester || null,
-            level: document.getElementById('grp-level').value.trim() || '',
-            name: document.getElementById('grp-name').value.trim(),
-            students: newGroupUuids
-          };
+            var semVal = document.getElementById('grp-semester').value;
+            var parsedSem = (semVal === 'all' || semVal === 'both') ? 'all' : (parseInt(semVal, 10) || cg.activeSemester || null);
+            cg.classGroupsMeta[groupId] = {
+              year: document.getElementById('grp-year').value.trim() || (cg.activeYear || ''),
+              semester: parsedSem,
+              level: document.getElementById('grp-level').value.trim() || '',
+              name: document.getElementById('grp-name').value.trim(),
+              students: newGroupUuids
+            };
         } else {
           var selId = document.getElementById('grp-existing-select').value;
           if (selId && cg.classGroupsMeta[selId]) {

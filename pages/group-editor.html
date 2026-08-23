@@ -1193,7 +1193,7 @@
       localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
     } catch (e) {}
   }
-  function _buildTermSelectOptions(selectEl, currentVal) {
+  function _buildTermSelectOptions(selectEl, currentVal, allowAll = true) {
     if (!selectEl) return;
     const n = getTermsPerYear();
     const prev = currentVal !== undefined ? String(currentVal || '') : selectEl.value;
@@ -1204,7 +1204,19 @@
       opt.textContent = 'S' + i;
       selectEl.appendChild(opt);
     }
-    if (prev) selectEl.value = prev;
+    if (allowAll) {
+      const allOpt = document.createElement('option');
+      allOpt.value = 'all';
+      allOpt.textContent = n === 2
+        ? (typeof t === 'function' ? t('geSemBoth') : 'Both (S1 & S2)')
+        : (typeof tFmt === 'function' ? tFmt('geSemAllTerms', { n }) : ('All terms (S1–S' + n + ')'));
+      selectEl.appendChild(allOpt);
+    }
+    if (prev === 'both' || prev === 'all') {
+      selectEl.value = 'all';
+    } else if (prev) {
+      selectEl.value = prev;
+    }
   }
   function onTermsPerYearChange(val) {
     setTermsPerYear(Number(val) || 2);
@@ -1606,7 +1618,12 @@
   function _readActiveBanner() {
     return {
       activeYear: (document.getElementById('ge-active-year')?.value.trim()) || '',
-      activeSemester: (() => { const v = document.getElementById('ge-active-semester')?.value; return v ? Number(v) : null; })(),
+      activeSemester: (() => {
+        const v = document.getElementById('ge-active-semester')?.value;
+        if (!v) return null;
+        if (v === 'all' || v === 'both') return 'all';
+        return Number(v) || null;
+      })(),
       activeSemesterStart: (document.getElementById('ge-active-sem-start')?.value) || '',
       activeSemesterEnd: (document.getElementById('ge-active-sem-end')?.value) || ''
     };
@@ -2114,8 +2131,8 @@
     const semSelect = document.createElement('select');
     semSelect.className = 'eg-row-semester';
     semSelect.title = typeof t === 'function' ? t('geActiveSem') : 'Term';
-    semSelect.style.cssText = 'width:72px; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
-    _buildTermSelectOptions(semSelect, meta && meta.semester);
+    semSelect.style.cssText = 'min-width:76px; max-width:140px; width:auto; padding:5px 4px; border:1px solid #ccc; border-radius:4px; font-size:0.82rem;';
+    _buildTermSelectOptions(semSelect, meta && meta.semester, true);
 
     const lvlSelect = document.createElement('select');
     lvlSelect.className = 'eg-row-level';
@@ -2788,7 +2805,16 @@
 
     const label = document.createElement('span');
     label.className = 'ge-sem-label';
-    const semLabel = typeof tFmt === 'function' ? tFmt('geSemSectionLabel', { sem: semNum }) : 'S' + semNum;
+    const isAll = semNum === 'all' || semNum === 'both';
+    const nTerms = getTermsPerYear();
+    let semLabel = '';
+    if (isAll) {
+      semLabel = nTerms === 2
+        ? (typeof t === 'function' ? t('geSemBoth') : 'Both (S1 & S2)')
+        : (typeof t === 'function' ? t('geFullYearSection') : 'Full Year (All Terms)');
+    } else {
+      semLabel = typeof tFmt === 'function' ? tFmt('geSemSectionLabel', { sem: semNum }) : 'S' + semNum;
+    }
     label.textContent = semLabel + (year ? ' — ' + year : '');
 
     const toggleBtn = document.createElement('button');
@@ -2798,7 +2824,9 @@
     if (!isArchived) {
       const archiveBtn = document.createElement('button');
       archiveBtn.className = 'ge-sem-archive-btn';
-      archiveBtn.textContent = typeof tFmt === 'function' ? tFmt('geArchiveSemBtn', { sem: semNum }) : 'Archive S' + semNum;
+      archiveBtn.textContent = isAll
+        ? (typeof t === 'function' ? t('geFullYearSection') : 'Archive All')
+        : (typeof tFmt === 'function' ? tFmt('geArchiveSemBtn', { sem: semNum }) : 'Archive S' + semNum);
       archiveBtn.onclick = () => archiveSemester(semNum, year);
       header.appendChild(label);
       header.appendChild(archiveBtn);
@@ -2831,7 +2859,7 @@
 
     const label = document.createElement('span');
     label.className = 'ge-sem-label ge-sem-label-none';
-    label.textContent = typeof t === 'function' ? t('geNoSemSection') : 'No semester';
+    label.textContent = typeof t === 'function' ? t('geNoSemSection') : 'No term';
 
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'ge-sem-toggle';
@@ -2876,9 +2904,10 @@
     const noSemGroups = [];
     activeGroups.forEach(g => {
       const meta = rawMeta[g];
-      const sem = meta && meta.semester !== undefined && meta.semester !== ''
+      let sem = meta && meta.semester !== undefined && meta.semester !== ''
         ? String(meta.semester)
         : '';
+      if (sem === 'both') sem = 'all';
       if (!sem) { noSemGroups.push(g); return; }
       const year = (meta && meta.year) ? meta.year : contextYear;
       const key = year + '|' + sem;
@@ -2891,6 +2920,8 @@
       const yearA = a.substring(0, lastA), semA = a.substring(lastA + 1);
       const yearB = b.substring(0, lastB), semB = b.substring(lastB + 1);
       if (yearA !== yearB) return yearA < yearB ? -1 : 1;
+      if (semA === 'all') return -1;
+      if (semB === 'all') return 1;
       return Number(semA) - Number(semB);
     });
 
@@ -2974,10 +3005,17 @@
       const adminToggle = row.querySelector('.eg-admin-toggle');
       const isAdmin = adminToggle ? adminToggle.classList.contains('active') : false;
 
+      let semVal = '';
+      if (semEl) {
+        const rawSv = (semEl.value || '').trim();
+        if (rawSv === 'all' || rawSv === 'both') semVal = 'all';
+        else if (rawSv !== '') semVal = Number(rawSv);
+      }
+
       updatedMeta[uuid] = {
         name,
         year: yearEl ? yearEl.value.trim() : '',
-        semester: semEl ? (semEl.value === '' ? '' : Number(semEl.value)) : '',
+        semester: semVal,
         level: lvlEl ? (lvlEl.value === '' ? '' : Number(lvlEl.value)) : ''
       };
       if (isAdmin) updatedMeta[uuid].isAdminGroup = true;
@@ -3254,9 +3292,15 @@
   // ── Archive whole semester ───────────────────────────────────
   async function archiveSemester(semNum, filterYear) {
     const { meta: currentMeta } = collectGroupEdits();
+    const isAll = semNum === 'all' || semNum === 'both';
     const toArchive = Object.keys(currentMeta).filter(name => {
       if (currentMeta[name] && currentMeta[name].archived) return false;
-      if (String(currentMeta[name] && currentMeta[name].semester) !== String(semNum)) return false;
+      const gSem = currentMeta[name] && currentMeta[name].semester;
+      if (isAll) {
+        if (gSem !== 'all' && gSem !== 'both') return false;
+      } else {
+        if (String(gSem) !== String(semNum)) return false;
+      }
       if (filterYear && currentMeta[name] && currentMeta[name].year && currentMeta[name].year !== filterYear) return false;
       return true;
     });
@@ -3265,10 +3309,14 @@
       return;
     }
     const year = filterYear || (document.getElementById('ge-active-year')?.value.trim()) || _activeYear;
+    const nTerms = getTermsPerYear();
+    const semLabelText = isAll
+      ? (nTerms === 2 ? (typeof t === 'function' ? t('geSemBoth') : 'Both (S1 & S2)') : (typeof t === 'function' ? t('geFullYearSection') : 'Full Year'))
+      : ('S' + semNum);
     showConfirm(
       typeof tFmt === 'function'
-        ? tFmt('geConfirmArchiveSem', { n: toArchive.length, sem: semNum, year })
-        : `Archive all ${toArchive.length} group(s) in S${semNum} (${year})?\n\nThey will be hidden from the roster across all tools.`,
+        ? tFmt('geConfirmArchiveSem', { n: toArchive.length, sem: semLabelText, year })
+        : `Archive all ${toArchive.length} group(s) in ${semLabelText} (${year})?\n\nThey will be hidden from the roster across all tools.`,
       async () => {
         toArchive.forEach(name => {
           if (!currentMeta[name]) currentMeta[name] = {};
@@ -3288,7 +3336,7 @@
         }
         try { localStorage.setItem(`cmt-ge-sem-archived-${year}-${semNum}`, '1'); } catch (_) {}
         document.getElementById('ge-eos-banner').style.display = 'none';
-        showNotice(typeof tFmt === 'function' ? tFmt('geArchivedSem', { n: toArchive.length, sem: semNum }) : `${toArchive.length} group(s) in S${semNum} archived.`);
+        showNotice(typeof tFmt === 'function' ? tFmt('geArchivedSem', { n: toArchive.length, sem: semLabelText }) : `${toArchive.length} group(s) in ${semLabelText} archived.`);
         renderGroupsList();
       }
     );
@@ -3579,8 +3627,13 @@
 
       if (idx.year >= 0 && cols[idx.year]?.trim()) meta[gName].year = cols[idx.year].trim();
       if (idx.semester >= 0 && cols[idx.semester]?.trim()) {
-        const sv = Number(cols[idx.semester]);
-        if (sv === 1 || sv === 2) meta[gName].semester = sv;
+        const rawSv = cols[idx.semester].trim().toLowerCase();
+        if (rawSv === 'all' || rawSv === 'both') {
+          meta[gName].semester = 'all';
+        } else {
+          const sv = Number(rawSv);
+          if (!isNaN(sv) && sv >= 1) meta[gName].semester = sv;
+        }
       }
       if (idx.level >= 0 && cols[idx.level]?.trim()) {
         const lv = Number(cols[idx.level]);

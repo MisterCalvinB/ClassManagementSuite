@@ -7661,7 +7661,7 @@
                 return;
             }
 
-            // Build criteria definition array: [{ id, name, maxPoints }]
+            // Build criteria definition array: [{ id, name, minPoints, maxPoints, bonus, pointCoefficient }]
             const totalPossible = rules.reduce((sum, r) => {
                 const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
                 return sum + effMax;
@@ -7669,14 +7669,23 @@
             const criteria = rules.map((r, i) => {
                 const name = getRuleLabel(r, i);
                 const effMax = r.metric === 'formula' ? Number(r.maxPts || 0) : Math.max(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
+                const effMin = r.metric === 'formula' ? 0 : Math.min(Number(r.minPts || 0), Number(r.passPts || 0), Number(r.maxPts || 0));
                 const maxPointsRaw = scaleToMax && totalPossible > 0
                     ? ((effMax / totalPossible) * maxGrade)
                     : effMax;
-                const maxPoints = Math.round(maxPointsRaw * 2) / 2;
+                const minPointsRaw = scaleToMax && totalPossible > 0
+                    ? ((effMin / totalPossible) * maxGrade)
+                    : effMin;
+                const rawMax = Math.round(maxPointsRaw * 2) / 2;
+                const rawMin = Math.round(minPointsRaw * 2) / 2;
+                const minPoints = Math.min(rawMin, rawMax);
+                const maxPoints = Math.max(rawMin, rawMax);
                 return {
                     id: `rule_crit_${i + 1}`,
                     name: name,
+                    minPoints: minPoints,
                     maxPoints: maxPoints,
+                    pointCoefficient: 1,
                     bonus: false
                 };
             });

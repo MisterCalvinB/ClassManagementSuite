@@ -1004,6 +1004,7 @@ body {
 /* ── Week group ── */
 .week-group {
   margin-bottom: 20px;
+  transition: margin-bottom 0.15s ease;
 }
 
 .week-header {
@@ -1012,14 +1013,58 @@ body {
   text-transform: uppercase;
   letter-spacing: .7px;
   color: #333;
-  padding: 6px 0 5px;
-  margin-bottom: 4px;
+  padding: 6px 8px 5px;
+  margin: 0 -8px 4px;
   border-bottom: 2px solid #333;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.week-header:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.week-header::before {
+  content: '▼';
+  font-size: 0.65rem;
+  color: #555;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  flex-shrink: 0;
+  text-decoration: none !important;
+}
+
+.week-group.collapsed .week-header::before {
+  transform: rotate(-90deg);
+}
+
+.week-group.collapsed {
+  margin-bottom: 6px;
+}
+
+.week-group.collapsed > *:not(.week-header) {
+  display: none !important;
 }
 
 /* ── Date group ── */
 .date-group {
   margin-bottom: 8px;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.date-group.day-past {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+}
+
+.date-group.day-past:hover {
+  opacity: 0.95;
+  filter: grayscale(0);
 }
 
 .date-header {
@@ -1027,6 +1072,14 @@ body {
   align-items: center;
   gap: 10px;
   padding: 8px 0 4px;
+}
+
+.date-header.day-past .dh-date {
+  color: #777;
+}
+
+.date-header.day-past .dh-line {
+  background: #d1d5db;
 }
 
 .dh-date {
@@ -1776,6 +1829,7 @@ body {
 
 .at-week-block {
   margin-bottom: 14px;
+  transition: margin-bottom 0.15s ease;
 }
 
 .at-week-title {
@@ -1783,6 +1837,40 @@ body {
   font-weight: 800;
   color: #1e3a8a;
   margin: 0 0 6px 2px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.at-week-title:hover {
+  background-color: rgba(30, 58, 138, 0.07);
+}
+
+.at-week-title::before {
+  content: '▼';
+  font-size: 0.65rem;
+  color: #1e3a8a;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  flex-shrink: 0;
+  text-decoration: none !important;
+}
+
+.at-week-block.collapsed .at-week-title::before {
+  transform: rotate(-90deg);
+}
+
+.at-week-block.collapsed {
+  margin-bottom: 6px;
+}
+
+.at-week-block.collapsed > *:not(.at-week-title) {
+  display: none !important;
 }
 
 .agenda-table thead th {
@@ -1798,9 +1886,31 @@ body {
   z-index: 2;
 }
 
+.agenda-table thead th.at-day-hdr-past {
+  background: #374151;
+  color: #9ca3af;
+}
+
 .agenda-table td {
   border: 2px solid #111;
   vertical-align: top;
+}
+
+.at-day-col.at-day-col-past {
+  background: #f1f3f5;
+}
+
+.at-day-col.at-day-col-past .at-cell,
+.at-day-col.at-day-col-past .at-cell-empty {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+  transition: opacity 0.15s ease, filter 0.15s ease, transform 0.1s ease;
+}
+
+.at-day-col.at-day-col-past .at-cell:hover,
+.at-day-col.at-day-col-past .at-cell-empty:hover {
+  opacity: 1;
+  filter: grayscale(0);
 }
 
 .at-past-row {
@@ -2184,6 +2294,11 @@ body {
   text-decoration: line-through;
   color: #888;
   opacity: 0.7;
+}
+
+.week-header.week-hdr-past:hover,
+.at-week-title.week-hdr-past:hover {
+  opacity: 1;
 }
 
 /* Responsive */

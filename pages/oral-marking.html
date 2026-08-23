@@ -6,6 +6,7 @@
   <title>Oral Marking</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/dialogs.js"></script>
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
@@ -172,6 +173,15 @@
       white-space: nowrap;
     }
 
+    .btn-icon {
+      width: 14px;
+      height: 14px;
+      vertical-align: -2px;
+      display: inline-block;
+      object-fit: contain;
+    }
+    .om-btn-icon-mr { margin-right: 6px; }
+
     .om-header-right {
       display: flex;
       align-items: center;
@@ -189,10 +199,15 @@
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       transition: background 0.1s, color 0.1s;
     }
     .om-pill-btn:hover { background: #000; color: #fff; }
+    .om-pill-btn:hover .btn-icon { filter: invert(1); }
     .om-pill-btn.active { background: #000; color: #fff; }
+    .om-pill-btn.active .btn-icon { filter: invert(1); }
 
     /* ── SETUP SCREEN ───────────────────────────────────── */
     #om-setup {
@@ -214,6 +229,12 @@
     }
 
     .om-setup-icon { font-size: 3rem; }
+    .om-setup-icon-svg {
+      width: 54px;
+      height: 54px;
+      display: block;
+      margin: 0 auto 12px;
+    }
 
     .om-setup-desc {
       font-size: 0.9rem;
@@ -225,16 +246,22 @@
     .om-setup-btn {
       background: #000;
       color: #fff;
-      border: none;
+      border: 2px solid #000;
       border-radius: 8px;
       padding: 12px 28px;
       font-family: inherit;
       font-size: 1rem;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 2px 2px 0px #000;
+      transition: transform 0.1s, box-shadow 0.1s, opacity 0.15s;
     }
-    .om-setup-btn:hover { opacity: 0.82; }
+    .om-setup-btn .btn-icon { filter: invert(1); width: 18px; height: 18px; }
+    .om-setup-btn:hover { opacity: 0.9; transform: translate(-1px, -1px); box-shadow: 3px 3px 0px #000; }
+    .om-setup-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #000; }
 
     /* ── CRITERIA PICKER ────────────────────────────────── */
     .om-config-info {
@@ -278,10 +305,28 @@
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
     .om-save-tpl-btn:hover { background: #000; color: #fff; }
+    .om-save-tpl-btn:hover .btn-icon { filter: invert(1); }
     .om-save-tpl-btn.saved { background: #060; color: #fff; border-color: #060; }
+    .om-save-tpl-btn.saved .btn-icon { filter: invert(1); }
+
+    .om-picker-range {
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: #000;
+      color: #fff;
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-left: auto;
+      margin-right: 8px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.3px;
+    }
 
     .om-picker-list {
       flex: 1;
@@ -647,6 +692,7 @@
       border-radius: 8px;
       margin-bottom: 12px;
       overflow: hidden;
+      box-shadow: 2px 2px 0px #000;
     }
 
     .om-criterion-header {
@@ -662,6 +708,30 @@
     }
 
     .om-criterion-name { flex: 1; }
+
+    .om-crit-points-range {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #ccc;
+      margin-left: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    .om-criteria-summary-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8f9fa;
+      border: 2px solid #000;
+      border-radius: 6px;
+      padding: 8px 14px;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: 2px 2px 0px #000;
+    }
+    .om-summary-points { color: #111; display: flex; align-items: center; gap: 6px; }
+    .om-summary-grade { color: #060; font-size: 0.95rem; font-weight: 800; display: flex; align-items: center; gap: 6px; }
 
     .om-criterion-score-display {
       font-size: 1rem;
@@ -772,6 +842,7 @@
       font-size: 0.85rem;
       resize: none;
       margin-top: 8px;
+      box-shadow: 1px 1px 0px #000;
     }
     .om-notes-input:focus { outline: 2px solid #555; border-color: #555; }
 
@@ -780,6 +851,7 @@
       border-radius: 8px;
       margin-bottom: 12px;
       overflow: hidden;
+      box-shadow: 2px 2px 0px #000;
     }
 
     .om-overall-header {
@@ -829,20 +901,27 @@
       padding: 12px 24px;
       background: #000;
       color: #fff;
-      border: none;
+      border: 2px solid #000;
       border-radius: 8px;
       font-family: inherit;
       font-size: 1rem;
       font-weight: 800;
       cursor: pointer;
       letter-spacing: 0.3px;
-      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 2px 2px 0px #000;
+      transition: transform 0.1s, box-shadow 0.1s, opacity 0.15s;
     }
-    .om-action-primary:hover { opacity: 0.82; }
+    .om-action-primary .btn-icon { filter: invert(1); width: 18px; height: 18px; }
+    .om-action-primary:hover:not(:disabled) { opacity: 0.9; transform: translate(-1px, -1px); box-shadow: 3px 3px 0px #000; }
+    .om-action-primary:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #000; }
     .om-action-primary:disabled { opacity: 0.35; cursor: default; }
 
-    .om-action-primary.exam { background: #c00; }
-    .om-action-primary.save { background: #060; }
+    .om-action-primary.exam { background: #c00; border-color: #c00; }
+    .om-action-primary.save { background: #060; border-color: #060; }
 
     .om-action-secondary {
       padding: 10px 18px;
@@ -855,9 +934,15 @@
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
-      transition: background 0.1s, color 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 2px 2px 0px #000;
+      transition: transform 0.1s, box-shadow 0.1s, background 0.1s, color 0.1s;
     }
-    .om-action-secondary:hover { background: #000; color: #fff; }
+    .om-action-secondary:hover:not(:disabled) { background: #000; color: #fff; transform: translate(-1px, -1px); box-shadow: 3px 3px 0px #000; }
+    .om-action-secondary:hover:not(:disabled) .btn-icon { filter: invert(1); }
+    .om-action-secondary:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #000; }
     .om-action-secondary:disabled { opacity: 0.35; cursor: default; }
 
     .om-notice {
@@ -955,13 +1040,15 @@
 
   <!-- Header -->
   <header class="om-header">
-    <button class="om-back-btn" onclick="goBack()" data-i18n="omBack">← Launcher</button>
+    <button class="om-back-btn" onclick="goBack()"><img src="../assets/icons/arrow-left.svg" class="btn-icon om-btn-icon-mr" alt="" /><span data-i18n="omBack">← Launcher</span></button>
     <span class="om-header-title" id="om-exam-title" data-i18n="omTitle">Oral Marking</span>
     <span class="om-header-meta" id="om-exam-meta"></span>
     <div class="om-header-right">
-      <button class="om-pill-btn" id="om-load-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Load Schedule</button>
-      <button class="om-pill-btn hidden" id="om-save-gs-btn" onclick="saveGrades()" data-i18n="omBtnSaveGrades">Save to Grade Sheet</button>
-      <button class="om-pill-btn" id="om-presenter-btn" onclick="togglePresenter()" data-i18n="omPresent">Present</button>
+      <button class="om-pill-btn" id="om-load-btn" onclick="openScheduleModal()"><img src="../assets/icons/schedule-maker.svg" class="btn-icon" alt="" /><span data-i18n="omLoadSchedule">Load Schedule</span></button>
+      <button class="om-pill-btn hidden" id="om-save-gs-btn" onclick="saveGrades()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /><span data-i18n="omBtnSaveGrades">Save to Grade Sheet</span></button>
+      <button class="om-pill-btn hidden" id="om-open-gs-btn" onclick="openInGradeSheet()"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /><span data-i18n="omOpenGradeSheet">Open in Grade Sheet</span></button>
+      <button class="om-pill-btn hidden" id="om-reset-btn" onclick="confirmResetSession()"><img src="../assets/icons/eraser.svg" class="btn-icon" alt="" /><span data-i18n="omResetSession">Reset Session</span></button>
+      <button class="om-pill-btn" id="om-presenter-btn" onclick="togglePresenter()"><img src="../assets/icons/presentation.svg" class="btn-icon" alt="" /><span data-i18n="omPresent">Present</span></button>
     </div>
   </header>
 
@@ -969,9 +1056,9 @@
   <div id="om-setup">
     <!-- Initial: no schedule loaded -->
     <div id="om-setup-initial">
-      <div class="om-setup-icon">🎙</div>
+      <img src="../assets/icons/mic.svg" class="om-setup-icon-svg" alt="" />
       <div class="om-setup-desc" data-i18n="omSelectSchedule">Select a saved schedule to begin.</div>
-      <button class="om-setup-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Load Schedule</button>
+      <button class="om-setup-btn" onclick="openScheduleModal()"><img src="../assets/icons/schedule-maker.svg" class="btn-icon" alt="" /><span data-i18n="omLoadSchedule">Load Schedule</span></button>
     </div>
     <!-- Configured: schedule loaded — pick criteria, then begin -->
     <div id="om-setup-configured" class="hidden">
@@ -980,15 +1067,15 @@
           <div class="om-config-info-title" id="om-config-title"></div>
           <div class="om-config-info-meta" id="om-config-meta"></div>
         </div>
-        <button class="om-pill-btn" onclick="openScheduleModal()" data-i18n="omLoadSchedule">Change</button>
+        <button class="om-pill-btn" onclick="openScheduleModal()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /><span data-i18n="omLoadSchedule">Change</span></button>
       </div>
       <div class="om-picker-header">
         <span class="om-picker-heading" data-i18n="omPickerTitle">Criteria for this session</span>
-        <button class="om-save-tpl-btn" id="om-save-tpl-btn" onclick="saveTemplate()" data-i18n="omSaveTemplate">Save as Template</button>
+        <button class="om-save-tpl-btn" id="om-save-tpl-btn" onclick="saveTemplate()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /><span data-i18n="omSaveTemplate">Save as Template</span></button>
       </div>
       <div class="om-picker-list" id="om-picker-list"></div>
       <div class="om-begin-bar">
-        <button class="om-action-primary" onclick="beginSession()" data-i18n="omBeginSession">Begin Session</button>
+        <button class="om-action-primary" onclick="beginSession()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /><span data-i18n="omBeginSession">Begin Session</span></button>
       </div>
     </div>
   </div>
@@ -1035,9 +1122,9 @@
       <!-- Action bar -->
       <div class="om-action-bar">
         <div id="om-notice" class="om-notice hidden"></div>
-        <button class="om-action-secondary hidden" id="om-skip-btn" onclick="skipStudent()" data-i18n="omBtnSkip">Skip</button>
-        <button class="om-action-secondary hidden" id="om-pause-btn" onclick="togglePause()" data-i18n="omBtnPause">⏸ Pause</button>
-        <button class="om-action-primary" id="om-action-btn" onclick="handleActionBtn()">Begin</button>
+        <button class="om-action-secondary hidden" id="om-skip-btn" onclick="skipStudent()"><img src="../assets/icons/rewind.svg" class="btn-icon" style="transform:scaleX(-1);" alt="" /><span data-i18n="omBtnSkip">Skip</span></button>
+        <button class="om-action-secondary hidden" id="om-pause-btn" onclick="togglePause()"><img src="../assets/icons/pause.svg" class="btn-icon" alt="" /><span data-i18n="omBtnPause">Pause</span></button>
+        <button class="om-action-primary" id="om-action-btn" onclick="handleActionBtn()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /><span data-i18n="omBtnBegin">Begin</span></button>
       </div>
 
     </div>
@@ -1215,8 +1302,9 @@
     document.getElementById('om-setup-configured').classList.add('hidden');
     document.getElementById('om-marking').classList.add('hidden');
     document.getElementById('om-exam-title').setAttribute('data-i18n', 'omTitle');
-    document.getElementById('om-exam-title').textContent = t('omTitle');
+    document.getElementById('om-exam-title').textContent = t('omTitle') || 'Oral Marking';
     document.getElementById('om-exam-meta').textContent = '';
+    updateResetBtn();
   }
 
   function showSetupConfigured() {
@@ -1226,21 +1314,22 @@
     document.getElementById('om-setup-initial').classList.add('hidden');
     document.getElementById('om-setup-configured').classList.remove('hidden');
     document.getElementById('om-marking').classList.add('hidden');
-    document.getElementById('om-config-title').textContent = schedule.title || t('omTitle');
+    document.getElementById('om-config-title').textContent = schedule ? (schedule.title || t('omTitle')) : t('omTitle');
     const metaParts = [];
-    if (schedule.group && classGroupsMeta[schedule.group]?.name) {
+    if (schedule?.group && classGroupsMeta[schedule.group]?.name) {
       metaParts.push(classGroupsMeta[schedule.group].name);
-    } else if (schedule.group) {
+    } else if (schedule?.group) {
       metaParts.push(schedule.group);
     }
-    if (schedule.date) metaParts.push(schedule.date);
-    if (schedule.semester) metaParts.push(schedule.semester.toUpperCase());
+    if (schedule?.date) metaParts.push(schedule.date);
+    if (schedule?.semester) metaParts.push(schedule.semester.toUpperCase());
     document.getElementById('om-config-meta').textContent = metaParts.join(' · ');
     activeCriteria = buildActiveCriteria();
     renderCriteriaPicker();
     const btn = document.getElementById('om-save-tpl-btn');
     btn.classList.remove('saved');
     btn.textContent = t('omSaveTemplate');
+    updateResetBtn();
   }
 
   function buildActiveCriteria() {
@@ -1274,7 +1363,7 @@
 
       const drag = document.createElement('span');
       drag.className = 'om-picker-drag';
-      drag.textContent = '⠿';
+      drag.innerHTML = '<img src="../assets/icons/order.svg" class="btn-icon" style="opacity:0.45;cursor:grab;" alt="" />';
 
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -1290,9 +1379,21 @@
       nameEl.className = 'om-picker-name' + (item.selected ? '' : ' off');
       nameEl.textContent = item.name;
 
+      const crit = criteriaByName[item.name] || {};
+      const grades = getCritGrades(crit).filter(g => Number.isFinite(Number(g)));
+      const minFromCrit = crit.minPoints != null && !isNaN(Number(crit.minPoints)) ? Number(crit.minPoints) : null;
+      const maxFromCrit = crit.maxPoints != null && !isNaN(Number(crit.maxPoints)) ? Number(crit.maxPoints) : null;
+      const minPts = minFromCrit != null ? minFromCrit : (grades.length ? Math.min(...grades) : 0);
+      const maxPts = maxFromCrit != null ? maxFromCrit : (grades.length ? Math.max(...grades) : 6);
+
+      const rangeEl = document.createElement('span');
+      rangeEl.className = 'om-picker-range';
+      rangeEl.textContent = `${minPts} – ${maxPts} ${t('omPointsRange') || 'pts'}`;
+
       row.appendChild(drag);
       row.appendChild(cb);
       row.appendChild(nameEl);
+      row.appendChild(rangeEl);
 
       row.addEventListener('dragstart', e => {
         dragSrcIdx = i;
@@ -1332,10 +1433,10 @@
       templateCriteria = selected;
       const btn = document.getElementById('om-save-tpl-btn');
       btn.classList.add('saved');
-      btn.textContent = t('omTemplateSaved');
+      btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omTemplateSaved') + '</span>';
       setTimeout(() => {
         btn.classList.remove('saved');
-        btn.textContent = t('omSaveTemplate');
+        btn.innerHTML = '<img src="../assets/icons/save.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omSaveTemplate') + '</span>';
       }, 2200);
     }
   }
@@ -1453,19 +1554,40 @@
     linkedGradeTest = null;
 
     const nonBreaks = (obj.items || []).filter(i => i.type === 'student' && !i.excluded);
-    students = nonBreaks.map(item => ({
-      name:             item.name || '',
-      sen:              !!item.sen,
-      status:           'pending',
-      grade:            null,
-      criteriaScores:   {},
-      criteriaComments: {},
-      notes:            '',
-      prepStart:        null,
-      examStart:        null,
-      examEnd:          null,
-      actualDuration:   null
-    }));
+    students = nonBreaks.map(item => {
+      let studentId = item.studentId || item.id || null;
+      if (!studentId && obj.group && classGroups[obj.group]) {
+        const raw = classGroups[obj.group];
+        for (const entry of raw) {
+          if (typeof entry === 'string' && entry.startsWith('st-')) {
+            const sr = studentRoster[entry];
+            if (sr && matchesStudent(item, { id: entry, firstName: sr.firstName, lastName: sr.lastName, customName: sr.customName })) {
+              studentId = entry;
+              break;
+            }
+          } else if (typeof entry === 'object' && entry) {
+            if (matchesStudent(item, entry)) {
+              studentId = entry.id || entry.uuid;
+              break;
+            }
+          }
+        }
+      }
+      return {
+        name:             item.name || '',
+        studentId:        studentId,
+        sen:              !!item.sen,
+        status:           'pending',
+        grade:            null,
+        criteriaScores:   {},
+        criteriaComments: {},
+        notes:            '',
+        prepStart:        null,
+        examStart:        null,
+        examEnd:          null,
+        actualDuration:   null
+      };
+    });
 
     stopTimer();
     updateHeader();
@@ -1473,8 +1595,16 @@
   }
 
   function updateHeader() {
-    if (!schedule) return;
     const titleEl = document.getElementById('om-exam-title');
+    const metaEl  = document.getElementById('om-exam-meta');
+    if (!schedule) {
+      if (titleEl) {
+        titleEl.setAttribute('data-i18n', 'omTitle');
+        titleEl.textContent = t('omTitle') || 'Oral Marking';
+      }
+      if (metaEl) metaEl.textContent = '';
+      return;
+    }
     titleEl.removeAttribute('data-i18n');
     titleEl.textContent = schedule.title || t('omTitle');
 
@@ -1486,7 +1616,7 @@
     }
     if (schedule.date) metaParts.push(schedule.date);
     if (schedule.semester) metaParts.push(schedule.semester.toUpperCase());
-    document.getElementById('om-exam-meta').textContent = metaParts.join(' · ');
+    if (metaEl) metaEl.textContent = metaParts.join(' · ');
   }
 
   // ── Schedule time computation ────────────────────────────
@@ -1654,12 +1784,50 @@
     // Review banner (inside criteria pane, at the top)
     const banner = document.createElement('div');
     banner.className = 'om-review-banner';
-    banner.innerHTML = '<span class="om-review-icon">✏️</span>' +
+    banner.innerHTML = '<span class="om-review-icon"><img src="../assets/icons/edit-word.svg" class="btn-icon om-btn-icon-mr" alt="" /></span>' +
       '<span>' + t('omReviewMode').replace('{name}', fmtStudentName(s.name)) + '</span>';
     criteriaPane.appendChild(banner);
 
     // Now render full panel inline (reuse renderCriteria logic, skip clearing the panel)
     renderCriteria(idx, true);
+  }
+
+  function updateCriteriaSummary(idx) {
+    const summaryBar = document.getElementById('om-criteria-summary-bar');
+    if (!summaryBar || idx < 0 || !students[idx]) return;
+    const s = students[idx];
+    let totalScored = 0;
+    let totalPossible = 0;
+    let totalMin = 0;
+    let scoredCount = 0;
+
+    sessionCriteria.forEach(name => {
+      if (!name) return;
+      const crit = criteriaByName[name] || {};
+      const grades = getCritGrades(crit).filter(g => Number.isFinite(Number(g)));
+      const minFromCrit = crit.minPoints != null && !isNaN(Number(crit.minPoints)) ? Number(crit.minPoints) : null;
+      const maxFromCrit = crit.maxPoints != null && !isNaN(Number(crit.maxPoints)) ? Number(crit.maxPoints) : null;
+      const minPts = minFromCrit != null ? minFromCrit : (grades.length ? Math.min(...grades) : 0);
+      const maxPts = maxFromCrit != null ? maxFromCrit : (grades.length ? Math.max(...grades) : 6);
+      totalMin += minPts;
+      totalPossible += maxPts;
+      if (s.criteriaScores[name] != null) {
+        totalScored += Number(s.criteriaScores[name]);
+        scoredCount++;
+      }
+    });
+
+    const avg = computeAverage(s.criteriaScores);
+    const gradeVal = s.grade != null ? s.grade : (avg !== null ? snapToStep(avg) : null);
+
+    const ptsSpan = document.getElementById('om-summary-points-val');
+    const gradeSpan = document.getElementById('om-summary-grade-val');
+    if (ptsSpan) {
+      ptsSpan.textContent = scoredCount > 0 ? `${fmtGrade(totalScored)} / ${fmtGrade(totalPossible)} ${t('omPointsRange') || 'pts'}` : `— / ${fmtGrade(totalPossible)} ${t('omPointsRange') || 'pts'}`;
+    }
+    if (gradeSpan) {
+      gradeSpan.textContent = gradeVal != null ? fmtGrade(gradeVal) : '—';
+    }
   }
 
   // ── Criteria panel ───────────────────────────────────────
@@ -1686,6 +1854,24 @@
     notesPane.appendChild(notesHeader);
     notesPane.appendChild(notesInput);
 
+    // Live points summary bar at top of criteria panel
+    const summaryBar = document.createElement('div');
+    summaryBar.className = 'om-criteria-summary-bar';
+    summaryBar.id = 'om-criteria-summary-bar';
+    summaryBar.innerHTML = `
+      <div class="om-summary-points">
+        <img src="../assets/icons/award.svg" class="btn-icon" alt="" />
+        <span>${t('omScoreSummary') || 'Total Points'}:</span>
+        <strong id="om-summary-points-val">— / —</strong>
+      </div>
+      <div class="om-summary-grade">
+        <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
+        <span>${t('omOverallGrade') || 'Grade'}:</span>
+        <strong id="om-summary-grade-val">—</strong>
+      </div>
+    `;
+    panel.appendChild(summaryBar);
+
     const titleEl = document.createElement('div');
     titleEl.className = 'om-section-title';
     titleEl.textContent = t('omCriteriaTitle');
@@ -1695,6 +1881,11 @@
       if (!name) return;
       const crit   = criteriaByName[name] || name;
       const grades = getCritGrades(crit);
+      const minFromCrit = (typeof crit === 'object' && crit.minPoints != null && !isNaN(Number(crit.minPoints))) ? Number(crit.minPoints) : null;
+      const maxFromCrit = (typeof crit === 'object' && crit.maxPoints != null && !isNaN(Number(crit.maxPoints))) ? Number(crit.maxPoints) : null;
+      const minPts = minFromCrit != null ? minFromCrit : (grades.length ? Math.min(...grades) : 0);
+      const maxPts = maxFromCrit != null ? maxFromCrit : (grades.length ? Math.max(...grades) : 6);
+
       const block = document.createElement('div');
       block.className = 'om-criterion-block';
 
@@ -1702,7 +1893,7 @@
       header.className = 'om-criterion-header';
       const nameSpan = document.createElement('span');
       nameSpan.className = 'om-criterion-name';
-      nameSpan.textContent = name;
+      nameSpan.innerHTML = `<span>${name}</span> <span class="om-crit-points-range">[${minPts} – ${maxPts} ${t('omPointsRange') || 'pts'}]</span>`;
       const scoreSpan = document.createElement('span');
       scoreSpan.className = 'om-criterion-score-display';
       scoreSpan.id = 'om-crit-score-' + ci;
@@ -1786,10 +1977,23 @@
     });
     overallBlock.appendChild(overallPills);
     panel.appendChild(overallBlock);
+
+    updateCriteriaSummary(idx);
   }
 
   function setCritScore(idx, ci, name, g, clickedPill, scoreSpan) {
     const s = students[idx];
+    if (s.criteriaScores[name] === g) {
+      // Deselect when clicking the already selected pill
+      delete s.criteriaScores[name];
+      clickedPill.classList.remove('selected');
+      scoreSpan.textContent = '—';
+      const chipsDiv = document.getElementById('om-crit-desc-' + ci);
+      if (chipsDiv) chipsDiv.classList.add('hidden');
+      updateCriteriaSummary(idx);
+      refreshOverallPills(idx);
+      return;
+    }
     s.criteriaScores[name] = g;
     // Update pills
     const pillsRow = clickedPill.parentNode;
@@ -1806,18 +2010,20 @@
       const ta = commentDiv.querySelector('textarea');
       if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
     }
-    // Update auto-computed overall indicator
+    // Update auto-computed overall indicator and summary
+    updateCriteriaSummary(idx);
     refreshOverallPills(idx);
   }
 
   function setOverallGrade(idx, g, clickedPill) {
-    students[idx].grade = g;
-    const container = document.getElementById('om-overall-pills');
-    if (!container) return;
-    container.querySelectorAll('.om-overall-pill').forEach(p => {
-      p.classList.remove('selected', 'auto-computed');
-      if (parseFloat(p.dataset.grade) === g) p.classList.add('selected');
-    });
+    const s = students[idx];
+    if (s.grade === g) {
+      s.grade = null; // Toggle back to auto-calculated grade
+    } else {
+      s.grade = g;
+    }
+    updateCriteriaSummary(idx);
+    refreshOverallPills(idx);
   }
 
   function refreshOverallPills(idx) {
@@ -2166,38 +2372,124 @@
     // Review mode: show a "Done Editing" button regardless of timer phase
     if (reviewingIdx >= 0) {
       btn.className = 'om-action-primary save';
-      btn.textContent = t('omBtnDoneReview') || '✓ Done Editing';
+      btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + (t('omBtnDoneReview') || 'Done Editing') + '</span>';
       return;
     }
 
     if (phase === 'done-all') {
       btn.className = 'om-action-primary save';
-      btn.textContent = t('omBtnSaveGrades');
+      btn.innerHTML = '<img src="../assets/icons/save.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnSaveGrades') + '</span>';
       return;
     }
 
     if (phase === 'idle') {
-      btn.textContent = (currentIdx < 0) ? t('omBtnBegin') : t('omBtnNextStudent');
+      btn.innerHTML = '<img src="../assets/icons/play.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + ((currentIdx < 0) ? t('omBtnBegin') : t('omBtnNextStudent')) + '</span>';
       skipBtn.classList.remove('hidden');
+      skipBtn.innerHTML = '<img src="../assets/icons/rewind.svg" class="btn-icon om-btn-icon-mr" style="transform:scaleX(-1);" alt="" /><span>' + t('omBtnSkip') + '</span>';
       return;
     }
 
     if (phase === 'prep') {
       btn.className = 'om-action-primary exam';
-      btn.textContent = t('omBtnStartExam');
+      btn.innerHTML = '<img src="../assets/icons/mic.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnStartExam') + '</span>';
       skipBtn.classList.remove('hidden');
+      skipBtn.innerHTML = '<img src="../assets/icons/rewind.svg" class="btn-icon om-btn-icon-mr" style="transform:scaleX(-1);" alt="" /><span>' + t('omBtnSkip') + '</span>';
       pauseBtn.classList.remove('hidden');
-      pauseBtn.textContent = paused ? t('omBtnResume') : t('omBtnPause');
+      pauseBtn.innerHTML = paused
+        ? '<img src="../assets/icons/play.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnResume') + '</span>'
+        : '<img src="../assets/icons/pause.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnPause') + '</span>';
       return;
     }
 
     if (phase === 'exam') {
       btn.className = 'om-action-primary exam';
-      btn.textContent = t('omBtnFinishExam');
+      btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnFinishExam') + '</span>';
       skipBtn.classList.remove('hidden');
+      skipBtn.innerHTML = '<img src="../assets/icons/rewind.svg" class="btn-icon om-btn-icon-mr" style="transform:scaleX(-1);" alt="" /><span>' + t('omBtnSkip') + '</span>';
       pauseBtn.classList.remove('hidden');
-      pauseBtn.textContent = paused ? t('omBtnResume') : t('omBtnPause');
+      pauseBtn.innerHTML = paused
+        ? '<img src="../assets/icons/play.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnResume') + '</span>'
+        : '<img src="../assets/icons/pause.svg" class="btn-icon om-btn-icon-mr" alt="" /><span>' + t('omBtnPause') + '</span>';
       return;
+    }
+  }
+
+  function updateSaveBtn() {
+    const saveBtn = document.getElementById('om-save-gs-btn');
+    const openBtn = document.getElementById('om-open-gs-btn');
+    const hasDone = students.some(s => s.status === 'done');
+    if (saveBtn) {
+      saveBtn.classList.toggle('hidden', !hasDone);
+    }
+    if (openBtn) {
+      openBtn.classList.toggle('hidden', !linkedGradeTest);
+    }
+    updateResetBtn();
+  }
+
+  function updateResetBtn() {
+    const resetBtn = document.getElementById('om-reset-btn');
+    if (resetBtn) {
+      const hasSession = !!schedule || sessionStarted || (Array.isArray(students) && students.length > 0);
+      resetBtn.classList.toggle('hidden', !hasSession);
+    }
+  }
+
+  async function confirmResetSession() {
+    const hasMarks = students.some(s => s.status === 'done' || s.grade !== null || Object.keys(s.criteriaScores || {}).length > 0 || (s.notes && s.notes.trim()));
+    const msg = hasMarks ? t('omConfirmResetWithGrades') : t('omConfirmReset');
+    let confirmed = false;
+    if (typeof showConfirm === 'function') {
+      confirmed = await showConfirm(msg);
+    } else {
+      confirmed = confirm(msg);
+    }
+    if (!confirmed) return;
+    resetSession();
+  }
+
+  function resetSession() {
+    stopTimer();
+    schedule = null;
+    sessionStarted = false;
+    phase = 'idle';
+    currentIdx = -1;
+    reviewingIdx = -1;
+    students = [];
+    sessionCriteria = [];
+    oralSessionId = generateUuid();
+    linkedGradeTest = null;
+    activeCriteria = [];
+
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (e) {}
+
+    updateHeader();
+    showSetup();
+    updateSaveBtn();
+    updateResetBtn();
+
+    if (_presChannel) {
+      _presChannel.postMessage({
+        phase: 'idle',
+        studentName: '—',
+        elapsed: 0,
+        remaining: 0,
+        totalTime: 0,
+        warning: false,
+        reset: true
+      });
+    }
+
+    showNotice(t('omSessionResetDone') || 'Session reset successfully.');
+  }
+
+  function openInGradeSheet() {
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('grade-sheet.html');
+    } else {
+      window.location.href = 'grade-sheet.html';
     }
   }
 
@@ -2257,6 +2549,41 @@
     }
   }
 
+  function matchesStudent(s, cs) {
+    if (!s || !cs) return false;
+    if (s.studentId && cs.id && s.studentId === cs.id) return true;
+    if (s.id && cs.id && s.id === cs.id) return true;
+
+    const sName = normalizeStudentName(s.name || '');
+    if (!sName) return false;
+
+    const fn = normalizeStudentName(cs.firstName || '');
+    const ln = normalizeStudentName(cs.lastName || '');
+    const custom = normalizeStudentName(cs.customName || '');
+
+    const name1 = (fn + ' ' + ln).trim();
+    const name2 = (ln + ' ' + fn).trim();
+    if (sName === name1 || sName === name2) return true;
+    if (custom && (sName === custom || sName.includes(custom) || custom.includes(sName))) return true;
+
+    // Token comparison (set of words)
+    const sTokens = sName.split(/\s+/).filter(Boolean);
+    const csTokens = `${fn} ${ln} ${custom}`.split(/\s+/).filter(Boolean);
+    if (sTokens.length > 0 && csTokens.length > 0) {
+      const sSet = new Set(sTokens);
+      const matches = csTokens.filter(t => sSet.has(t));
+      if (matches.length >= 2 || (sTokens.length === 1 && csTokens.includes(sTokens[0]))) {
+        return true;
+      }
+    }
+
+    if (name1 && (sName.includes(name1) || name1.includes(sName))) return true;
+    if (name2 && (sName.includes(name2) || name2.includes(sName))) return true;
+    if (ln && sTokens.includes(ln)) return true;
+
+    return false;
+  }
+
   // ── Save grades ──────────────────────────────────────────
   async function saveGrades() {
     const doneStudents = students.filter(s => s.status === 'done');
@@ -2291,13 +2618,45 @@
           const r = await Desktop.readByPath('grades', cf.relativePath);
           if (!r?.content) continue;
           const data = parseJsVar(r.content, 'GRADE_CLASS');
-          if (data?.groupId === schedule?.group) {
+          if (data?.groupId === schedule?.group || (schedule?.group && data?.className === getGroupName(schedule.group))) {
             classId       = data.classId;
             classStudents = data.students || [];
             classMeta     = data;
             break;
           }
         }
+      }
+
+      if (!classId) {
+        // Also check if class exists in localStorage state
+        try {
+          const rawState = localStorage.getItem('cms_grade_sheet_state');
+          if (rawState) {
+            const parsedState = JSON.parse(rawState);
+            if (parsedState && Array.isArray(parsedState.classes)) {
+              const foundClass = parsedState.classes.find(c =>
+                (schedule?.group && c.groupId === schedule.group) ||
+                (schedule?.group && c.name && c.name.toLowerCase() === getGroupName(schedule.group).toLowerCase())
+              );
+              if (foundClass) {
+                classId = foundClass.id;
+                classStudents = foundClass.students || [];
+                classMeta = {
+                  _savedAt: now,
+                  classId: foundClass.id,
+                  groupId: foundClass.groupId || schedule?.group || '',
+                  className: foundClass.name || getGroupName(schedule?.group) || 'Oral',
+                  classYear: foundClass.year || classGroupsMeta[schedule?.group]?.year || '',
+                  classSemester: sem,
+                  classLevel: foundClass.level || '',
+                  classCreatedAt: foundClass.createdAt || new Date().toISOString(),
+                  testCounts: foundClass.testCounts || { sem1: 0, sem2: 0 },
+                  students: classStudents
+                };
+              }
+            }
+          }
+        } catch (e) {}
       }
 
       if (!classId) {
@@ -2388,24 +2747,35 @@
             .filter(Boolean);
 
       const criteriaDefs = selectedCriteriaNames.map((name, i) => {
-        const crit = criteriaByName[name] || name;
+        const crit = criteriaByName[name] || {};
         const grades = getCritGrades(crit).filter(g => Number.isFinite(Number(g)));
-        const maxPoints = grades.length ? Math.max(...grades.map(Number)) : 6;
+        const minFromCrit = (typeof crit === 'object' && crit.minPoints != null && !isNaN(Number(crit.minPoints))) ? Number(crit.minPoints) : null;
+        const maxFromCrit = (typeof crit === 'object' && crit.maxPoints != null && !isNaN(Number(crit.maxPoints))) ? Number(crit.maxPoints) : null;
+        const minPoints = minFromCrit != null ? minFromCrit : (grades.length ? Math.min(...grades) : 0);
+        const maxPoints = maxFromCrit != null ? maxFromCrit : (grades.length ? Math.max(...grades) : 6);
         return {
           id: `om-crit-${i + 1}`,
           name,
-          maxPoints: Math.max(1, maxPoints),
-          pointCoefficient: 1,
-          isBonus: false
+          minPoints: Math.max(0, minPoints),
+          maxPoints: Math.max(minPoints, maxPoints),
+          pointCoefficient: (typeof crit === 'object' && Number(crit.pointCoefficient)) ? Number(crit.pointCoefficient) : 1,
+          showComment: true,
+          isBonus: typeof crit === 'object' ? !!crit.isBonus : false
         };
       });
 
-      // Build results
+      // Build results matching class students
       const results = classStudents.map(cs => {
-        const fullName = ((cs.firstName || '') + ' ' + (cs.lastName || '')).toUpperCase().trim();
-        const match = doneStudents.find(s => normalizeStudentName(s.name) === fullName) ||
-                      doneStudents.find(s => normalizeStudentName(s.name).includes(fullName) || fullName.includes(normalizeStudentName(s.name)));
-        if (!match) return { studentId: cs.id, score: null, testNotes: [], criteriaResults: {}, correctionTime: null, gradeOverride: false };
+        const match = doneStudents.find(s => matchesStudent(s, cs));
+        if (!match) return {
+          studentId: cs.id,
+          name: (cs.firstName + ' ' + cs.lastName).trim() || cs.customName || '',
+          score: null,
+          testNotes: [],
+          criteriaResults: {},
+          correctionTime: null,
+          gradeOverride: false
+        };
 
         const criteriaResults = {};
         criteriaDefs.forEach(def => {
@@ -2421,7 +2791,8 @@
 
         return {
           studentId:       cs.id,
-          score:           match.grade,
+          name:            (cs.firstName + ' ' + cs.lastName).trim() || match.name || '',
+          score:           match.grade != null ? Number(match.grade) : null,
           testNotes:       match.notes
             ? [{ label: 'Teacher observations', text: match.notes, checklist: [] }]
             : [],
@@ -2453,6 +2824,83 @@
         `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
         classId);
 
+      // Save pending import payload in localStorage for dual-synchronization
+      try {
+        const studentScoresMap = {};
+        doneStudents.forEach(s => {
+          const sCrit = {};
+          criteriaDefs.forEach(def => {
+            if (s.criteriaScores && s.criteriaScores[def.name] != null) {
+              sCrit[def.id] = { points: Number(s.criteriaScores[def.name]), comment: s.criteriaComments ? s.criteriaComments[def.name] : '' };
+            }
+          });
+          studentScoresMap[s.name] = sCrit;
+        });
+
+        const pendingImport = {
+          _savedAt: now,
+          class: classMeta.className || getGroupName(schedule?.group) || 'Oral',
+          className: classMeta.className || getGroupName(schedule?.group) || 'Oral',
+          groupId: schedule?.group || '',
+          classId,
+          semester: semKey,
+          test: nextTestIndex + 1,
+          testIndex: nextTestIndex,
+          testUuid,
+          criteria: criteriaDefs,
+          studentCriteriaScores: studentScoresMap,
+          students: doneStudents.map(s => ({
+            name: s.name,
+            studentId: s.studentId || null,
+            grade: s.grade,
+            criteriaResults: studentScoresMap[s.name]
+          })),
+          grades: Object.fromEntries(doneStudents.filter(s => s.grade != null).map(s => [s.name, s.grade])),
+          testConfig,
+          results
+        };
+        localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(pendingImport));
+      } catch (e) { /* ignore */ }
+
+      // Also update in-memory/localStorage grade-sheet state for instant sync
+      try {
+        const rawState = localStorage.getItem('cms_grade_sheet_state');
+        if (rawState) {
+          const parsedState = JSON.parse(rawState);
+          if (parsedState && Array.isArray(parsedState.classes)) {
+            let gsClass = parsedState.classes.find(c => c.id === classId || (schedule?.group && c.groupId === schedule.group) || (classMeta.className && c.name.toLowerCase() === classMeta.className.toLowerCase()));
+            if (gsClass) {
+              if (!gsClass.testCounts) gsClass.testCounts = { sem1: 0, sem2: 0 };
+              gsClass.testCounts[semKey] = Math.max(gsClass.testCounts[semKey] || 0, nextTestIndex + 1);
+              if (!gsClass.testConfigs) gsClass.testConfigs = { sem1: [], sem2: [] };
+              if (!gsClass.testConfigs[semKey]) gsClass.testConfigs[semKey] = [];
+              while (gsClass.testConfigs[semKey].length <= nextTestIndex) {
+                gsClass.testConfigs[semKey].push({});
+              }
+              gsClass.testConfigs[semKey][nextTestIndex] = testConfig;
+
+              results.forEach(res => {
+                const st = (res.studentId && gsClass.students.find(s => s.id === res.studentId)) ||
+                           gsClass.students.find(s => matchesStudent({ name: res.name }, s));
+                if (!st) return;
+                const arr = semKey === 'sem1' ? st.sem1Tests : st.sem2Tests;
+                arr[nextTestIndex] = res.score;
+                if (!st.testNotes) st.testNotes = { sem1: [], sem2: [] };
+                if (!st.testNotes[semKey]) st.testNotes[semKey] = [];
+                st.testNotes[semKey][nextTestIndex] = res.testNotes || [];
+                if (!st.criteriaResults) st.criteriaResults = { sem1: [], sem2: [] };
+                if (!st.criteriaResults[semKey]) st.criteriaResults[semKey] = [];
+                st.criteriaResults[semKey][nextTestIndex] = res.criteriaResults || {};
+              });
+
+              localStorage.setItem('cms_grade_sheet_state', JSON.stringify(parsedState));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not sync to localStorage cms_grade_sheet_state:', e);
+      }
+
       linkedGradeTest = {
         classId,
         semester: semKey,
@@ -2460,6 +2908,7 @@
         testUuid
       };
       persistSession();
+      updateSaveBtn();
 
       const msg = isNewClass ? t('omSaveClassNew') : t('omSaveClassFound');
       showNotice(t('omSaved') + ' ' + msg, false);
@@ -2542,6 +2991,8 @@
       renderCriteria(-1);
       updateTimerBar();
       updateActionBar();
+      updateSaveBtn();
+      updateResetBtn();
       showMarking();
       return true;
     } catch (e) {
@@ -2687,8 +3138,11 @@
   window.togglePause        = togglePause;
   window.togglePresenter    = togglePresenter;
   window.saveGrades         = saveGrades;
+  window.openInGradeSheet   = openInGradeSheet;
   window.saveTemplate       = saveTemplate;
   window.beginSession       = beginSession;
+  window.confirmResetSession = confirmResetSession;
+  window.resetSession        = resetSession;
   window.openOmShortcutsModal = openOmShortcutsModal;
   window.startOmTutorial       = startOmTutorial;
 

@@ -541,7 +541,7 @@
           groupUuid: groupId,
           groupName: g.name || groupId,
           year: g.year !== undefined ? String(g.year) : '',
-          semester: g.semester !== undefined && g.semester !== '' ? Number(g.semester) : null,
+          semester: (g.semester === 'all' || g.semester === 'both') ? 'all' : (g.semester !== undefined && g.semester !== '' && !isNaN(Number(g.semester)) ? Number(g.semester) : null),
           level: g.level !== undefined && g.level !== '' ? Number(g.level) : null,
           archived: !!g.archived
         });
@@ -574,8 +574,8 @@
         var ya = String(a.year || '');
         var yb = String(b.year || '');
         if (ya !== yb) return yb.localeCompare(ya);
-        var sa = a.semester !== null && a.semester !== undefined ? Number(a.semester) : 0;
-        var sb = b.semester !== null && b.semester !== undefined ? Number(b.semester) : 0;
+        var sa = (a.semester === 'all' || a.semester === 'both') ? 99 : (a.semester !== null && a.semester !== undefined ? Number(a.semester) || 0 : 0);
+        var sb = (b.semester === 'all' || b.semester === 'both') ? 99 : (b.semester !== null && b.semester !== undefined ? Number(b.semester) || 0 : 0);
         return sb - sa;
       });
 
