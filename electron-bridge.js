@@ -692,6 +692,18 @@
 
   async function openTool(pageFile, opts) {
     if (!isElectron()) {
+      let url = pageFile;
+      if (opts && opts.query && typeof opts.query === 'object') {
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(opts.query)) {
+          if (v !== undefined && v !== null) params.set(k, String(v));
+        }
+        const qs = params.toString();
+        if (qs) url += (url.includes('?') ? '&' : '?') + qs;
+      }
+      try {
+        window.open(url, '_blank');
+      } catch (_) {}
       return null;
     }
     const req = { pageFile };

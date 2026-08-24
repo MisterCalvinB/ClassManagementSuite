@@ -1263,7 +1263,7 @@
   async function launcherRefreshDocsLive() {
     var sidebarOpen = (typeof sbIsOpen === 'function') ? sbIsOpen() : false;
     if (sidebarOpen && typeof sbLoadDocs === 'function') {
-      await sbLoadDocs().catch(function () {});
+      await sbLoadDocs(true).catch(function () {});
     }
     var rfModal = document.getElementById('rfModal');
     if (rfModal && rfModal.classList.contains('open') && window.Desktop && Desktop.isElectron()) {
@@ -1272,13 +1272,12 @@
     }
   }
 
-  var _launcherDocsRefreshTimer = null;
   function launcherScheduleDocsRefresh() {
-    if (_launcherDocsRefreshTimer) clearTimeout(_launcherDocsRefreshTimer);
-    _launcherDocsRefreshTimer = setTimeout(function() {
-      _launcherDocsRefreshTimer = null;
+    if (typeof sbScheduleSync === 'function') {
+      sbScheduleSync({ docs: true });
+    } else {
       launcherRefreshDocsLive().catch(function () {});
-    }, 180);
+    }
   }
 
   function closeRecentFilesModal() {
@@ -1464,10 +1463,13 @@
     return { lesson: 'sb-tag-lesson', test: 'sb-tag-test', assignment: 'sb-tag-assignment' }[type] || 'sb-tag-other';
   }
 
-  async function sbLoadPinned() {
+  async function sbLoadPinned(silent) {
     var list = document.getElementById('sbPinnedList');
     if (!list) return;
-    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    var hasItems = !!list.querySelector('.sb-item');
+    if (!silent && !hasItems) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    }
 
     var pins = [];
     try {
@@ -1476,12 +1478,12 @@
       console.error(e);
     }
 
-    list.innerHTML = '';
     if (!pins.length) {
       list.innerHTML = '<div class="sb-empty" data-i18n="sbNoPinnedItems">' + escHtml(typeof t === 'function' ? t('sbNoPinnedItems') : 'No pinned items') + '</div>';
       return;
     }
 
+    var fragment = document.createDocumentFragment();
     pins.forEach(function(item) {
       var el = document.createElement('div');
       el.className = 'sb-item';
@@ -1524,7 +1526,7 @@
           e.stopPropagation();
           if (window.Pins) {
             await Pins.unpinItem(item);
-            sbLoadPinned();
+            sbLoadPinned(true);
           }
         });
       }
@@ -1559,7 +1561,7 @@
               action: async function() {
                 if (window.Pins) {
                   await Pins.unpinItem(item);
-                  sbLoadPinned();
+                  sbLoadPinned(true);
                 }
               }
             }
@@ -1567,13 +1569,18 @@
         }
       });
 
-      list.appendChild(el);
+      fragment.appendChild(el);
     });
+    list.replaceChildren(fragment);
   }
 
-  async function sbLoadEvents() {
+  async function sbLoadEvents(silent) {
     var list = document.getElementById('sbEventsList');
-    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    if (!list) return;
+    var hasItems = !!list.querySelector('.sb-item');
+    if (!silent && !hasItems) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    }
     if (!window.Desktop || !Desktop.isElectron()) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
@@ -1736,11 +1743,12 @@
     });
     slots = slots.slice(0, count);
 
-    list.innerHTML = '';
     if (!slots.length) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
     }
+
+    var fragment = document.createDocumentFragment();
     slots.forEach(function(s) {
       var isPast = sbIsPastEvent(s);
       var ds = sbFormatDate(s.date);
@@ -1763,13 +1771,18 @@
         });
         if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
       })(s);
-      list.appendChild(item);
+      fragment.appendChild(item);
     });
+    list.replaceChildren(fragment);
   }
 
-  async function sbLoadDocs() {
+  async function sbLoadDocs(silent) {
     var list = document.getElementById('sbDocsList');
-    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    if (!list) return;
+    var hasItems = !!list.querySelector('.sb-item');
+    if (!silent && !hasItems) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    }
     if (!window.Desktop || !Desktop.isElectron()) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
@@ -1801,7 +1814,6 @@
     docs.sort(function(a, b) { return rfFileDateMs(b) - rfFileDateMs(a); });
     var count = Number(sbGetPrefs().docsCount) || 5;
     docs = docs.slice(0, count);
-    list.innerHTML = '';
     if (!docs.length) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
@@ -1815,6 +1827,12 @@
       return !rfIsTemplateFile(Object.assign({}, f, { target: 'mindmaps' }));
     });
 
+    if (!docs.length) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
+      return;
+    }
+
+    var fragment = document.createDocumentFragment();
     docs.forEach(function(f) {
       var isMm = f._type === 'mindmap';
       var tagLabel = isMm
@@ -1844,18 +1862,22 @@
         });
         if (typeof sbDocAttachCtx === 'function') sbDocAttachCtx(item, fileData);
       })(f);
-      list.appendChild(item);
+      fragment.appendChild(item);
     });
+    list.replaceChildren(fragment);
   }
 
   function sbOpenPlanner() {
     if (window.Desktop && Desktop.isElectron()) Desktop.openTool('planner.html');
   }
 
-  async function sbLoadTodos() {
+  async function sbLoadTodos(silent) {
     var list = document.getElementById('sbTodoList');
     if (!list) return;
-    list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    var hasItems = !!list.querySelector('.sb-item');
+    if (!silent && !hasItems) {
+      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
+    }
     if (!window.Desktop || !Desktop.isElectron()) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
@@ -1879,11 +1901,11 @@
       if (b.dueDate) return 1;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
-    list.innerHTML = '';
     if (!active.length) {
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbTodoEmpty') : 'No to-dos yet') + '</div>';
       return;
     }
+    var fragment = document.createDocumentFragment();
     active.slice(0, 10).forEach(function(td) {
       var overdue = td.dueDate && td.dueDate < today;
       var item = document.createElement('div');
@@ -1917,11 +1939,12 @@
         }
       }; })(td.id));
       if (typeof sbTodoAttachCtx === 'function') sbTodoAttachCtx(item, td);
-      list.appendChild(item);
+      fragment.appendChild(item);
     });
+    list.replaceChildren(fragment);
   }
 
-  async function sbLoadAll() {
+  async function sbLoadAll(silent) {
     // Pre-load group meta so rfPrettyName works in sidebar context menus
     if (window.Desktop && Desktop.isElectron() && Object.keys(rfGroupMeta).length === 0) {
       try {
@@ -1933,7 +1956,57 @@
         }
       } catch(e) {}
     }
-    await Promise.all([sbLoadPinned(), sbLoadEvents(), sbLoadTodos(), sbLoadDocs()]);
+    await Promise.all([
+      sbLoadPinned(silent),
+      sbLoadEvents(silent),
+      sbLoadTodos(silent),
+      sbLoadDocs(silent)
+    ]);
+  }
+
+  // Unified Coalesced Sync for background updates without lag or IPC storms
+  var _sbSyncTimer = null;
+  var _sbPendingTasks = { pinned: false, planner: false, docs: false };
+  var _sbSyncRunning = false;
+
+  function sbScheduleSync(tasks) {
+    if (!tasks) tasks = {};
+    if (tasks.pinned) _sbPendingTasks.pinned = true;
+    if (tasks.planner) _sbPendingTasks.planner = true;
+    if (tasks.docs) _sbPendingTasks.docs = true;
+
+    if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
+    _sbSyncTimer = setTimeout(async function() {
+      _sbSyncTimer = null;
+      if (_sbSyncRunning) {
+        sbScheduleSync({});
+        return;
+      }
+      _sbSyncRunning = true;
+      var runPinned = _sbPendingTasks.pinned;
+      var runPlanner = _sbPendingTasks.planner;
+      var runDocs = _sbPendingTasks.docs;
+      _sbPendingTasks = { pinned: false, planner: false, docs: false };
+
+      try {
+        var promises = [];
+        var sidebarOpen = (typeof sbIsOpen === 'function') ? sbIsOpen() : false;
+        if (sidebarOpen) {
+          if (runPinned && typeof sbLoadPinned === 'function') promises.push(sbLoadPinned(true));
+          if (runPlanner && typeof sbLoadEvents === 'function') promises.push(sbLoadEvents(true));
+          if (runPlanner && typeof sbLoadTodos === 'function') promises.push(sbLoadTodos(true));
+          if (runDocs && typeof sbLoadDocs === 'function') promises.push(sbLoadDocs(true));
+        }
+        var rfModal = document.getElementById('rfModal');
+        if (runDocs && rfModal && rfModal.classList.contains('open') && window.Desktop && Desktop.isElectron()) {
+          promises.push(rfLoadRecentSources().then(function() { rfApplyFilters(); }));
+        }
+        await Promise.all(promises);
+      } catch(e) {
+      } finally {
+        _sbSyncRunning = false;
+      }
+    }, 280);
   }
 
   // ── Count popup ─────────────────────────────────────────
@@ -2048,13 +2121,19 @@
       return;
     }
     if (data.filename === 'pinned-items.json') {
-      if (typeof sbLoadPinned === 'function' && sbIsOpen()) {
-        sbLoadPinned().catch(function () {});
+      if (typeof sbScheduleSync === 'function') {
+        sbScheduleSync({ pinned: true });
+      } else if (typeof sbLoadPinned === 'function' && sbIsOpen()) {
+        sbLoadPinned(true).catch(function () {});
       }
       return;
     }
-    if (isPlannerRelated && typeof sbLoadAll === 'function' && sbIsOpen()) {
-      sbLoadAll().catch(function () {});
+    if (isPlannerRelated) {
+      if (typeof sbScheduleSync === 'function') {
+        sbScheduleSync({ planner: true });
+      } else if (typeof sbLoadAll === 'function' && sbIsOpen()) {
+        sbLoadAll(true).catch(function () {});
+      }
     }
     if (isLauncherDocsRelated) {
       launcherScheduleDocsRefresh();
@@ -2153,7 +2232,7 @@
                 else if (pinType === 'schedule') name = name.replace(/^schedule-/, '').replace(/\.js$/, '');
                 await Pins.pinItem(Object.assign({ title: name }, itemInfo));
               }
-              sbLoadPinned();
+              sbLoadPinned(true);
             }
           });
           items.push('-');
@@ -2302,7 +2381,7 @@
               var name = isMm ? rfPrettyName(fileData.filename) : fileData.filename.replace(/\.(md|html)$/i, '');
               await Pins.pinItem(Object.assign({ title: name }, itemInfo));
             }
-            sbLoadPinned();
+            sbLoadPinned(true);
           }
         });
 
@@ -2370,10 +2449,10 @@
                 }
               }
             } catch(e) {}
-            sbLoadDocs();
+            sbLoadDocs(true);
           } else {
             var r = await Desktop.renameByPath(target, relPath, newRelPath);
-            if (r && r.ok) { sbLoadDocs(); }
+            if (r && r.ok) { sbLoadDocs(true); }
             else showToast(tl('fmRenameFailed', 'Rename failed.'), true);
           }
         } catch(ex) { showToast(tl('fmRenameFailed', 'Rename failed.'), true); }
@@ -2383,7 +2462,7 @@
         if (!await showConfirm(tl('fmDeleteConfirm', 'Delete this file? This cannot be undone.'))) return;
         try {
           var r = await Desktop.deleteByPath(target, relPath, { trash: true });
-          if (r && r.ok) { sbLoadDocs(); }
+          if (r && r.ok) { sbLoadDocs(true); }
           else showToast(tl('fmDeleteFailed', 'Delete failed.'), true);
         } catch(ex) { showToast(tl('fmDeleteFailed', 'Delete failed.'), true); }
       }});
@@ -2427,7 +2506,7 @@
                 if (className) displayTitle = className + ': ' + displayTitle;
                 await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
               }
-              sbLoadPinned();
+              sbLoadPinned(true);
             }
           }
         ];
@@ -2461,7 +2540,7 @@
                 if (className) displayTitle = '[' + className + '] ' + displayTitle;
                 await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
               }
-              sbLoadPinned();
+              sbLoadPinned(true);
             }
           }
         ]);

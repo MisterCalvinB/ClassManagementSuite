@@ -1281,13 +1281,10 @@
       // ── Drag-to-copy: set up delegated listeners on #agenda ────────────
       (function initAgendaDragListeners() {
         var agendaEl = document.getElementById('agenda');
-        console.log('[DragCopy] initAgendaDragListeners — #agenda found:', !!agendaEl, 'already bound:', !!(agendaEl && agendaEl._dragCopyBound));
         if (!agendaEl || agendaEl._dragCopyBound) return;
         agendaEl._dragCopyBound = true;
-        console.log('[DragCopy] Attaching drag listeners to #agenda');
 
         agendaEl.addEventListener('dragstart', function (e) {
-          console.log('[DragCopy] dragstart fired — target:', e.target && e.target.tagName, e.target && e.target.className, 'multiSelectMode:', multiSelectMode);
           if (multiSelectMode) return;
           var src = null;
           var el = e.target;
@@ -1299,7 +1296,6 @@
             }
             el = el.parentElement;
           }
-          console.log('[DragCopy] dragstart — src found:', !!src, src && src.getAttribute('data-entry-id'));
           if (!src) { e.preventDefault(); return; }
           _dragSourceEntryId = src.getAttribute('data-entry-id');
           e.dataTransfer.effectAllowed = 'copy';
@@ -1313,11 +1309,9 @@
           } catch (_) {}
           src.classList.add('drag-source');
           _clearDragPopover();
-          console.log('[DragCopy] dragstart OK — _dragSourceEntryId:', _dragSourceEntryId);
         });
 
         agendaEl.addEventListener('dragend', function (e) {
-          console.log('[DragCopy] dragend fired — _dragSourceEntryId was:', _dragSourceEntryId);
           _dragSourceEntryId = null;
           agendaEl.querySelectorAll('.drag-source').forEach(function (el) { el.classList.remove('drag-source'); });
           agendaEl.querySelectorAll('.drag-over-target').forEach(function (el) { el.classList.remove('drag-over-target'); });
@@ -1351,12 +1345,10 @@
         });
 
         agendaEl.addEventListener('drop', function (e) {
-          console.log('[DragCopy] drop fired — _dragSourceEntryId:', _dragSourceEntryId, 'target:', e.target && e.target.className);
           if (!_dragSourceEntryId || multiSelectMode) return;
           var tgt = e.target && e.target.closest
             ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
             : null;
-          console.log('[DragCopy] drop — tgt found:', !!tgt, tgt && tgt.getAttribute('data-entry-id'));
           if (!tgt) return;
           var srcId = _dragSourceEntryId;
           if (tgt.getAttribute('data-entry-id') === srcId) return;
@@ -1365,7 +1357,6 @@
           _dragTargetEl = null;
 
           var targetEntryId = tgt.getAttribute('data-entry-id') || '';
-          console.log('[DragCopy] drop — targetEntryId:', targetEntryId, 'srcId:', srcId);
           if (targetEntryId) {
             _showDragCopyPopover(srcId, { entryId: targetEntryId }, tgt, e);
           } else {
@@ -1375,18 +1366,9 @@
               time:    tgt.getAttribute('data-time')    || '',
               timeEnd: tgt.getAttribute('data-timeend') || ''
             };
-            console.log('[DragCopy] drop — empty slot:', slotInfo);
             _showDragCopyPopover(srcId, slotInfo, tgt, e);
           }
         });
-
-        // Also log any raw dragstart on the document to confirm the browser sees it
-        if (!document._dragCopyRawBound) {
-          document._dragCopyRawBound = true;
-          document.addEventListener('dragstart', function (e) {
-            console.log('[DragCopy] RAW document dragstart — target:', e.target && e.target.tagName, e.target && (e.target.className || '').toString().slice(0, 60), 'draggable attr:', e.target && e.target.getAttribute && e.target.getAttribute('draggable'));
-          }, true);
-        }
       })();
     });
 

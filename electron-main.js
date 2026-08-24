@@ -4154,12 +4154,22 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
     targetBounds = { x: vX, y: vY, width: vW, height: vH };
   }
 
-  // If an existing window for this page is already open (and no side-by-side or presentation query)
-  if (!query && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
+  const isLearningToolsPresentation =
+    pageFile === PAGE_FILES.learningTools
+    && query
+    && (String(query.wwPresentation || '') === '1' || String(query.ltPresentation || '') === '1');
+
+  // If an existing window for this page is already open (and no side-by-side, second screen, or presentation query)
+  if (!isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
     const existing = BrowserWindow.getAllWindows().find(
       w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
     );
     if (existing) {
+      if (query) {
+        loadTool(pageFile, existing, { query }).catch((err) => {
+          console.error(`Failed to navigate ${pageFile}:`, err);
+        });
+      }
       if (targetBounds) {
         _applySafeBounds(existing, targetBounds);
       }
@@ -4178,10 +4188,6 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   }
 
   const toolWin = createToolWindow(pageFile, toolOptions);
-  const isLearningToolsPresentation =
-    pageFile === PAGE_FILES.learningTools
-    && query
-    && (String(query.wwPresentation || '') === '1' || String(query.ltPresentation || '') === '1');
 
   if (isLearningToolsPresentation) {
     learningToolsPresentationWindow = toolWin;

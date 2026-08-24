@@ -941,9 +941,10 @@
   state.targetEraseStudentId = null;
 
   window.promptEraseStudent = function (uuid) {
-    if (!uuid) return;
-    state.targetEraseStudentId = uuid;
-    var s = state.students.find(function (st) { return st.uuid === uuid; });
+    var targetUuid = uuid || state.selectedStudentId;
+    if (!targetUuid) return;
+    state.targetEraseStudentId = targetUuid;
+    var s = state.students.find(function (st) { return st.uuid === targetUuid; });
     var titleEl = document.getElementById('eraseModalStudentTitle');
     if (titleEl && s) {
       titleEl.textContent = s.lastName.toUpperCase() + ' ' + s.firstName + (s.adminClass ? ' (' + s.adminClass + ')' : '');
@@ -1385,9 +1386,30 @@
   }
 
   // ── Export Modal (Modeled after Participation Tracker) ──
+  // ── Report Exporter & Analytics State ──
+  state.reportScope = 'whole_class';
+  state.reportPeriods = ['all'];
+  state.reportStudentId = null;
+  state.reportSelectedStudentUuids = [];
+  state.lastGeneratedReport = null;
+
+  // ── Open & Setup Report Exporter Modal ──
   window.openExportModal = function () {
     var modal = document.getElementById('agExportModal');
-    if (modal) modal.classList.add('active');
+    if (!modal) return;
+
+    var filteredStudents = getFilteredStudents();
+    state.reportScope = state.reportScope || 'whole_class';
+    state.reportPeriods = state.selectedPeriods ? state.selectedPeriods.slice() : ['all'];
+    state.reportSelectedStudentUuids = filteredStudents.map(function (s) { return s.uuid; });
+    state.reportStudentId = state.selectedStudentId || (filteredStudents[0] ? filteredStudents[0].uuid : null);
+
+    renderReportPeriodChips();
+    populateReportStudentPickers(filteredStudents);
+    window.selectReportScope(state.reportScope);
+    window.selectExportFormat(state.exportFormat || 'preview');
+
+    modal.classList.add('active');
   };
 
   window.closeExportModal = function () {
@@ -1395,11 +1417,22 @@
     if (modal) modal.classList.remove('active');
   };
 
+  window.selectReportScope = function (scope) {
+    state.reportScope = scope;
+    document.querySelectorAll('#agExportModal .ag-export-card').forEach(function (c) {
+      c.classList.toggle('selected', c.dataset.scope === scope);
+    });
+
+    var studentWrap = document.getElementById('agReportStudentSelectWrap');
+    var multiWrap = document.getElementById('agReportMultiStudentWrap');
+
+    if (studentWrap) studentWrap.style.display = (scope === 'student_dossier') ? 'block' : 'none';
+    if (multiWrap) multiWrap.style.display = (scope === 'multi_student') ? 'block' : 'none';
+  };
+
   window.selectExportCategory = function (cat) {
     state.exportCategory = cat;
-    document.querySelectorAll('.ag-export-card').forEach(function (c) {
-      c.classList.toggle('selected', c.dataset.cat === cat);
-    });
+    window.selectReportScope('category_table');
   };
 
   window.selectExportFormat = function (fmt) {
@@ -1407,40 +1440,312 @@
     document.querySelectorAll('.ag-format-pill').forEach(function (p) {
       p.classList.toggle('selected', p.dataset.fmt === fmt);
     });
+
+    var btnText = document.getElementById('agBtnExportActionText');
+    if (btnText) {
+      if (fmt === 'preview') btnText.textContent = (typeof t === 'function' && t('agBtnPreviewReport')) ? t('agBtnPreviewReport') : 'Open Live Preview';
+      else if (fmt === 'html') btnText.textContent = (typeof t === 'function' && t('agBtnDownloadHtml')) ? t('agBtnDownloadHtml') : 'Download HTML';
+      else if (fmt === 'pdf') btnText.textContent = (typeof t === 'function' && t('agBtnPrintReport')) ? t('agBtnPrintReport') : 'Print / Save PDF';
+      else if (fmt === 'xlsx') btnText.textContent = (typeof t === 'function' && t('agBtnExportXlsx')) ? t('agBtnExportXlsx') : 'Export Excel';
+      else btnText.textContent = (typeof t === 'function' && t('agBtnExportNow')) ? t('agBtnExportNow') : 'Export Now';
+    }
   };
 
+  function renderReportPeriodChips() {
+    var container = document.getElementById('agReportPeriodChipsContainer');
+    if (!container) return;
+
+    var periods = (state.config && state.config.periods) || [];
+    var isFr = isFrench();
+    var sel = state.reportPeriods || ['all'];
+    var isAll = sel.indexOf('all') !== -1 || sel.length === 0;
+
+    var html = '<button type="button" class="ag-period-chip' + (isAll ? ' active' : '') + '" onclick="window.toggleReportPeriodChip(\'all\')">' +
+      (isAll ? svgIcon('check') : '') + ' <span>' + (isFr ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)') + '</span></button>';
+
+    periods.forEach(function (p) {
+      var active = !isAll && sel.indexOf(p.id) !== -1;
+      var name = isFr ? (p.nameFr || p.name) : p.name;
+      html += '<button type="button" class="ag-period-chip' + (active ? ' active' : '') + '" onclick="window.toggleReportPeriodChip(\'' + escapeHtml(p.id) + '\')">' +
+        (active ? svgIcon('check') : '') + ' <span>' + escapeHtml(name || p.id) + '</span></button>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  window.toggleReportPeriodChip = function (periodId) {
+    if (periodId === 'all') {
+      state.reportPeriods = ['all'];
+    } else {
+      var cur = state.reportPeriods || ['all'];
+      if (cur.indexOf('all') !== -1) {
+        state.reportPeriods = [periodId];
+      } else {
+        var idx = cur.indexOf(periodId);
+        if (idx !== -1) {
+          cur.splice(idx, 1);
+          if (cur.length === 0) state.reportPeriods = ['all'];
+        } else {
+          cur.push(periodId);
+          state.reportPeriods = cur;
+        }
+      }
+    }
+    renderReportPeriodChips();
+  };
+
+  function populateReportStudentPickers(students) {
+    var sel = document.getElementById('agReportStudentSelect');
+    if (sel) {
+      sel.innerHTML = students.map(function (s) {
+        return '<option value="' + escapeHtml(s.uuid) + '"' + (s.uuid === state.reportStudentId ? ' selected' : '') + '>' +
+          escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName + ' (' + s.adminClass + ')') + '</option>';
+      }).join('');
+    }
+
+    var listContainer = document.getElementById('agReportStudentsCheckboxList');
+    if (listContainer) {
+      listContainer.innerHTML = students.map(function (s) {
+        var checked = state.reportSelectedStudentUuids.indexOf(s.uuid) !== -1;
+        return '<label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:700; background:#ffffff; border:1.5px solid #000; padding:4px 8px; border-radius:3px; cursor:pointer;">' +
+          '<input type="checkbox" value="' + escapeHtml(s.uuid) + '"' + (checked ? ' checked' : '') + ' onchange="window.onReportStudentCheck(this)" /> ' +
+          '<span>' + escapeHtml(s.lastName.toUpperCase() + ' ' + s.firstName) + '</span>' +
+          '</label>';
+      }).join('');
+    }
+  }
+
+  window.onReportStudentCheck = function (checkbox) {
+    var uuid = checkbox.value;
+    var list = state.reportSelectedStudentUuids || [];
+    if (checkbox.checked) {
+      if (list.indexOf(uuid) === -1) list.push(uuid);
+    } else {
+      state.reportSelectedStudentUuids = list.filter(function (id) { return id !== uuid; });
+    }
+  };
+
+  window.toggleAllReportStudents = function (selectAll) {
+    var raw = getFilteredStudents();
+    if (selectAll) {
+      state.reportSelectedStudentUuids = raw.map(function (s) { return s.uuid; });
+    } else {
+      state.reportSelectedStudentUuids = [];
+    }
+    var listContainer = document.getElementById('agReportStudentsCheckboxList');
+    if (listContainer) {
+      listContainer.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        cb.checked = selectAll;
+      });
+    }
+  };
+
+  // ── Quick Student Report (from Student Modal) ──
+  window.generateQuickStudentReport = function (studentId) {
+    var targetId = studentId || state.selectedStudentId;
+    var student = state.students.find(function (s) { return s.uuid === targetId; });
+    if (!student) {
+      if (window.showToast) window.showToast('Student not found.');
+      return;
+    }
+
+    var allStudents = getFilteredStudents();
+    var periods = (state.config && state.config.periods) || [];
+    var cohortStats = AdminReports.computeCohortAnalytics(allStudents, periods, state.config);
+    var allActions = (state.adminData && state.adminData.actions) || [];
+
+    var reportHtml = AdminReports.buildStudentDossierReport(student, cohortStats, periods, {
+      groupName: student.adminClass
+    }, allActions, state.config);
+
+    var title = student.lastName.toUpperCase() + ' ' + student.firstName + ' — Student Dossier';
+    openReportPreview(reportHtml, title, {
+      type: 'student_dossier',
+      student: student,
+      cohortStats: cohortStats,
+      periods: periods
+    });
+  };
+
+  // ── Execute Report Export ──
   window.executeExport = async function () {
-    var cat = state.exportCategory || 'all';
-    var fmt = state.exportFormat || 'html';
+    var scope = state.reportScope || 'whole_class';
+    var fmt = state.exportFormat || 'preview';
     var rawStudents = getFilteredStudents();
-    var students = rawStudents.map(function (s) {
-      var pInf = getStudentPeriodInfractions(s, state.selectedPeriods);
+
+    if (!rawStudents.length) {
+      if (window.showToast) window.showToast('No students available for report.');
+      return;
+    }
+
+    var periods = (state.config && state.config.periods) || [];
+    var activePeriods = periods;
+    if (state.reportPeriods && state.reportPeriods.indexOf('all') === -1) {
+      activePeriods = periods.filter(function (p) { return state.reportPeriods.indexOf(p.id) !== -1; });
+    }
+
+    // Build scoped student objects
+    var scopedStudents = rawStudents.map(function (s) {
+      var pInf = getStudentPeriodInfractions(s, state.reportPeriods);
       var pts = calculateDisciplinePoints(pInf);
-      var sanc = determineSanctionTier(pts, state.selectedPeriods);
+      var sanc = determineSanctionTier(pts, state.reportPeriods);
       return Object.assign({}, s, {
         points: pts,
         sanction: sanc,
         infractions: pInf
       });
     });
-    var groupName = state.currentGroupId === 'all' ? 'All_Classes' : (state.currentGroupId);
-    var timestamp = new Date().toISOString().split('T')[0];
-    var baseFilename = 'administrative_groups_' + groupName + '_' + cat + '_' + timestamp;
 
-    if (fmt === 'xlsx') {
-      exportToXlsx(students, cat, baseFilename);
-    } else if (fmt === 'csv') {
-      exportToCsv(students, cat, baseFilename);
-    } else if (fmt === 'html') {
-      exportToHtml(students, cat, baseFilename);
-    } else if (fmt === 'pdf') {
-      window.print();
-    } else if (fmt === 'docx') {
-      exportToDocx(students, cat, baseFilename);
+    var cohortStats = AdminReports.computeCohortAnalytics(scopedStudents, activePeriods, state.config);
+    var groupName = state.currentGroupId === 'all' ? (isFrench() ? 'Toutes les classes' : 'All Classes') : state.currentGroupId;
+    var periodLabel = (state.reportPeriods && state.reportPeriods.indexOf('all') !== -1)
+      ? (isFrench() ? 'Toute l\'année (Cumulatif)' : 'All Year (Cumulative)')
+      : activePeriods.map(function (p) { return isFrench() ? (p.nameFr || p.name) : p.name; }).join(', ');
+
+    var reportBodyHtml = '';
+    var reportTitle = 'Administrative Report — ' + groupName;
+
+    if (scope === 'whole_class') {
+      reportBodyHtml = AdminReports.buildWholeClassReport(scopedStudents, cohortStats, activePeriods, {
+        groupName: groupName,
+        periodLabel: periodLabel
+      });
+    } else if (scope === 'student_dossier') {
+      var selStudentSelect = document.getElementById('agReportStudentSelect');
+      var stId = (selStudentSelect && selStudentSelect.value) || state.reportStudentId || scopedStudents[0].uuid;
+      var targetStudent = scopedStudents.find(function (s) { return s.uuid === stId; }) || scopedStudents[0];
+      var allActions = (state.adminData && state.adminData.actions) || [];
+      
+      reportTitle = targetStudent.lastName.toUpperCase() + ' ' + targetStudent.firstName + ' — Student Dossier';
+      reportBodyHtml = AdminReports.buildStudentDossierReport(targetStudent, cohortStats, activePeriods, {
+        groupName: targetStudent.adminClass,
+        periodLabel: periodLabel
+      }, allActions, state.config);
+    } else if (scope === 'multi_student') {
+      var selUuids = state.reportSelectedStudentUuids || [];
+      var compStudents = scopedStudents.filter(function (s) { return selUuids.indexOf(s.uuid) !== -1; });
+      if (!compStudents.length) compStudents = scopedStudents.slice(0, 5);
+
+      reportTitle = 'Multi-Student Comparison (' + compStudents.length + ' students)';
+      reportBodyHtml = AdminReports.buildMultiStudentComparisonReport(compStudents, cohortStats, activePeriods, {
+        groupName: groupName,
+        periodLabel: periodLabel
+      }, state.config);
+    } else if (scope === 'category_table') {
+      var cat = state.exportCategory || 'all';
+      var timestamp = new Date().toISOString().split('T')[0];
+      var baseFilename = 'administrative_groups_' + (state.currentGroupId === 'all' ? 'All' : state.currentGroupId) + '_' + cat + '_' + timestamp;
+
+      if (fmt === 'xlsx') exportToXlsx(scopedStudents, cat, baseFilename);
+      else if (fmt === 'csv') exportToCsv(scopedStudents, cat, baseFilename);
+      else if (fmt === 'docx') exportToDocx(scopedStudents, cat, baseFilename);
+      else if (fmt === 'html') exportToHtml(scopedStudents, cat, baseFilename);
+      else if (fmt === 'pdf' || fmt === 'preview') window.print();
+
+      window.closeExportModal();
+      return;
     }
-    closeExportModal();
+
+    var timestampSlug = new Date().toISOString().split('T')[0];
+    var filenameSlug = 'report_' + (state.currentGroupId === 'all' ? 'All' : state.currentGroupId) + '_' + scope + '_' + timestampSlug;
+
+    // Handle Formats
+    if (fmt === 'preview') {
+      window.closeExportModal();
+      openReportPreview(reportBodyHtml, reportTitle, {
+        students: scopedStudents,
+        cohortStats: cohortStats,
+        activePeriods: activePeriods,
+        scope: scope,
+        groupName: groupName,
+        periodLabel: periodLabel,
+        filename: filenameSlug
+      });
+    } else if (fmt === 'html') {
+      var fullHtml = AdminReports.buildFullStandaloneHtmlReport(reportTitle, reportBodyHtml);
+      var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
+      downloadBlob(blob, filenameSlug + '.html');
+      window.closeExportModal();
+      if (window.showToast) window.showToast('HTML Report downloaded successfully.');
+    } else if (fmt === 'pdf') {
+      window.closeExportModal();
+      openReportPreview(reportBodyHtml, reportTitle, {
+        students: scopedStudents,
+        cohortStats: cohortStats,
+        activePeriods: activePeriods,
+        scope: scope,
+        groupName: groupName,
+        periodLabel: periodLabel,
+        filename: filenameSlug
+      });
+      setTimeout(function () { window.print(); }, 400);
+    } else if (fmt === 'xlsx') {
+      AdminReports.exportToXlsxWorkbook(scopedStudents, cohortStats, activePeriods, {
+        groupName: groupName,
+        periodLabel: periodLabel
+      }, state.config, filenameSlug);
+      window.closeExportModal();
+      if (window.showToast) window.showToast('Excel Workbook exported successfully.');
+    } else if (fmt === 'csv') {
+      exportToCsv(scopedStudents, 'all', filenameSlug);
+      window.closeExportModal();
+    } else if (fmt === 'docx') {
+      exportToDocx(scopedStudents, 'all', filenameSlug);
+      window.closeExportModal();
+    }
   };
 
+  // ── Live Interactive Report Preview Modal Handlers ──
+  function openReportPreview(htmlContent, title, rawData) {
+    state.lastGeneratedReport = {
+      html: htmlContent,
+      title: title || 'Administrative Report',
+      rawData: rawData || {}
+    };
+
+    var modal = document.getElementById('agReportPreviewModal');
+    var titleEl = document.getElementById('agPreviewReportTitle');
+    var contentEl = document.getElementById('agReportPreviewContent');
+
+    if (titleEl) titleEl.textContent = title || 'Report Live Preview';
+    if (contentEl) contentEl.innerHTML = htmlContent;
+    if (modal) modal.classList.add('active');
+  }
+
+  window.closeReportPreviewModal = function () {
+    var modal = document.getElementById('agReportPreviewModal');
+    if (modal) modal.classList.remove('active');
+  };
+
+  window.printPreviewReport = function () {
+    window.print();
+  };
+
+  window.downloadPreviewHtml = function () {
+    if (!state.lastGeneratedReport) return;
+    var title = state.lastGeneratedReport.title;
+    var fullHtml = AdminReports.buildFullStandaloneHtmlReport(title, state.lastGeneratedReport.html);
+    var filename = (title.toLowerCase().replace(/[^a-z0-9_-]/g, '_')) + '_' + (new Date().toISOString().split('T')[0]);
+    var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8;' });
+    downloadBlob(blob, filename + '.html');
+    if (window.showToast) window.showToast('Report HTML saved.');
+  };
+
+  window.exportPreviewXlsx = function () {
+    if (!state.lastGeneratedReport || !state.lastGeneratedReport.rawData) return;
+    var rd = state.lastGeneratedReport.rawData;
+    var students = rd.students || getFilteredStudents();
+    var periods = rd.activePeriods || ((state.config && state.config.periods) || []);
+    var cohortStats = rd.cohortStats || AdminReports.computeCohortAnalytics(students, periods, state.config);
+    var filename = rd.filename || ('report_' + (new Date().toISOString().split('T')[0]));
+
+    AdminReports.exportToXlsxWorkbook(students, cohortStats, periods, {
+      groupName: rd.groupName || 'All',
+      periodLabel: rd.periodLabel || 'Cumulative'
+    }, state.config, filename);
+  };
+
+  // ── Existing Helper Exporters for Legacy Tables ──
   function exportToXlsx(students, cat, filename) {
     if (typeof XLSX === 'undefined') {
       alert('XLSX library not loaded');

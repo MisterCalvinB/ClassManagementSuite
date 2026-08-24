@@ -363,16 +363,23 @@ document.addEventListener('DOMContentLoaded', async function () {
   const classId = params.get('classId');
   const planId = params.get('planId');
   if (classId) {
+    let targetClass = classId;
     const sel = document.getElementById('group-sel');
     if (sel) {
-      sel.value = classId;
-      onGroupChange(classId);
-      if (planId) {
-        const plans = classPlans[classId] || [];
-        const plan = plans.find(p => p.id === planId);
-        if (plan) {
-          openEditor(plan);
-        }
+      const options = Array.from(sel.options).map(o => o.value);
+      if (!options.includes(targetClass)) {
+        const meta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+          ? CLASS_GROUPS_DATA.classGroupsMeta
+          : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {});
+        const found = options.find(opt => opt === classId || meta[opt]?.id === classId || meta[opt]?.name === classId);
+        if (found) targetClass = found;
+      }
+      sel.value = targetClass;
+      onGroupChange(targetClass);
+      const plans = classPlans[targetClass] || [];
+      const plan = planId ? plans.find(p => p.id === planId) : (plans.find(p => p.isActive) || plans[0]);
+      if (plan) {
+        openEditor(plan);
       }
     }
   }

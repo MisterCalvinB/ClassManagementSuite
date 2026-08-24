@@ -186,7 +186,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.15s ease;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
         }
 
         #menu .floating-buttons button .btn-icon,
@@ -241,7 +241,7 @@
             border-radius: 8px;
             font-weight: 700;
             box-shadow: 2px 2px 0 #111111;
-            transition: all 0.15s ease;
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.1s ease, box-shadow 0.1s ease;
             transform: none !important;
         }
 
@@ -330,7 +330,7 @@
             font-size: 0.72rem !important;
             font-weight: 800 !important;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.1s ease, box-shadow 0.1s ease;
             box-shadow: 2px 2px 0 #111111 !important;
         }
 
@@ -402,7 +402,7 @@
             border-radius: 8px;
             padding: 8px 12px;
             margin-bottom: 6px;
-            transition: all 0.15s ease;
+            transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
             cursor: pointer;
         }
 
@@ -1062,7 +1062,7 @@
                 <small data-i18n="settings_edit_shortcuts_small">Customise shortcuts for roster toggles and classroom actions</small>
             </span>
         </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html');">
+        <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html', selectedGroupName ? { query: { classId: selectedGroupName } } : undefined);">
             <span class="db-popup-btn-icon"><img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
                 <strong data-i18n="settings_class_plan">Class Plan</strong>
@@ -1515,10 +1515,11 @@
                     </div>
                 </div>
                 <div id="cms-plan-chip"
-                    style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px;">
+                    style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px; cursor:pointer;"
+                    onclick="cmsOpenLinkedPlan()" title="Open seating plan in Class Plan">
                     <img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <button id="cms-plan-chip-btn"
                         style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:0.76rem;font-weight:600;padding:0;text-decoration:underline;"
-                        onclick="Desktop && Desktop.openTool('class-plan.html')"></button>
+                        onclick="event.stopPropagation(); cmsOpenLinkedPlan()"></button>
                 </div>
                 <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; flex-wrap:wrap; gap:2px;">
                     <button class="rsp-item rsp-item-black" onclick="cpAutoGroupByTeams()"
@@ -3017,7 +3018,7 @@
                 const dismissBtnTxt = typeof window.t === 'function' ? window.t('btnDismissPrompt') : 'Dismiss';
                 const banner = document.createElement('div');
                 banner.id = 'second-screen-prompt-banner';
-                banner.style.cssText = 'position:fixed;top:16px;right:20px;z-index:99999;display:flex;align-items:center;gap:12px;padding:10px 16px;border:1px solid rgba(74,144,217,0.4);border-radius:12px;background:rgba(18,24,38,0.92);box-shadow:0 8px 24px rgba(0,0,0,0.35);backdrop-filter:blur(10px);color:#fff;font-family:inherit;font-size:0.86rem;line-height:1.3;animation:slideDownPrompt 0.3s ease-out;';
+                banner.style.cssText = 'position:fixed;top:16px;right:20px;z-index:99999;display:flex;align-items:center;gap:12px;padding:10px 16px;border:1px solid rgba(74,144,217,0.4);border-radius:12px;background:#121826;box-shadow:0 8px 24px rgba(0,0,0,0.35);color:#fff;font-family:inherit;font-size:0.86rem;line-height:1.3;animation:slideDownPrompt 0.3s ease-out;';
                 if (!document.getElementById('second-screen-banner-styles')) {
                     const styleEl = document.createElement('style');
                     styleEl.id = 'second-screen-banner-styles';
@@ -3132,7 +3133,7 @@
             if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
             const popup = document.createElement('div');
             popup.id = 'cms-pres-popup';
-            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:rgba(255,255,255,0.94);box-shadow:0 6px 16px rgba(0,0,0,0.14);backdrop-filter:blur(6px);opacity:0.94;min-width:120px;font-family:inherit;cursor:move;user-select:none;';
+            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;flex-direction:column;gap:3px;padding:3px 6px;border:1px solid rgba(0,0,0,0.2);border-radius:8px;background:#ffffff;box-shadow:0 6px 16px rgba(0,0,0,0.18);min-width:120px;font-family:inherit;cursor:move;user-select:none;';
             popup.innerHTML = ''
                 + '<div style="font-size:0.54rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:#555;line-height:1;margin-bottom:1px;cursor:move;">' + t('pres_menu_title') + '</div>'
                 + '<button type="button" data-pres-action="close" style="padding:3px 6px;border:1px solid #444;border-radius:5px;background:#111;color:#fff;font-weight:800;font-size:0.50rem;line-height:1.1;cursor:pointer;">' + t('pres_stop') + '</button>'
@@ -5794,11 +5795,31 @@
             closeClassSelectionPopup();
         }
 
+        function cmsOpenLinkedPlan() {
+            const chip = document.getElementById('cms-plan-chip');
+            const classId = (chip && chip.dataset.groupId) || selectedGroupName;
+            const planId = (chip && chip.dataset.planId) || (cpGetActivePlan(classId)?.id) || null;
+            if (!classId) return;
+            const query = { classId };
+            if (planId) query.planId = planId;
+            if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+                window.Desktop.openTool('class-plan.html', { query });
+            } else {
+                const qs = new URLSearchParams(query).toString();
+                window.open('class-plan.html?' + qs, '_blank');
+            }
+        }
+
         function _cmsUpdatePlanChip() {
             const chip = document.getElementById('cms-plan-chip');
             const chipBtn = document.getElementById('cms-plan-chip-btn');
             if (!chip || !chipBtn) return;
-            if (!selectedPlannerSlot || !selectedGroupName) { chip.style.display = 'none'; return; }
+            if (!selectedPlannerSlot || !selectedGroupName) {
+                chip.style.display = 'none';
+                chip.dataset.groupId = '';
+                chip.dataset.planId = '';
+                return;
+            }
             const ps = selectedPlannerSlot;
             const plans = (classPlans[selectedGroupName] || []);
             const matched = plans.find(p => {
@@ -5813,18 +5834,18 @@
                         (s.halfGroup || '') === (ps.halfGroup || '');
                 });
             });
-            if (!matched) { chip.style.display = 'none'; return; }
+            if (!matched) {
+                chip.style.display = 'none';
+                chip.dataset.groupId = '';
+                chip.dataset.planId = '';
+                return;
+            }
+            chip.dataset.groupId = selectedGroupName;
+            chip.dataset.planId = matched.id;
             chipBtn.textContent = matched.name;
             chip.style.display = 'flex';
-            // Activate the linked plan and switch to plan view
+            // Activate the linked plan
             cpSetActive(selectedGroupName, matched.id);
-            if (!rosterPlanView) {
-                rosterPlanView = true;
-                const btn = document.getElementById('roster-plan-view-btn');
-                if (btn) btn.classList.add('active');
-                const toolbar = document.getElementById('roster-plan-toolbar');
-                if (toolbar) toolbar.style.display = 'flex';
-            }
         }
 
         function updateUtilityButtons() {
@@ -17077,7 +17098,7 @@ ${body}
             const plan = cpGetActivePlan(selectedGroupName);
             if (!plan) {
                 listEl.style.removeProperty('--cp-cols');
-                listEl.innerHTML = '<li style="grid-column:1/-1;padding:20px;text-align:center;color:#aaa;">No active class plan for this group. <button class="btn-mini" style="margin-left:6px;" onclick="Desktop.openTool(\'class-plan.html\')">Set up a plan →</button></li>';
+                listEl.innerHTML = '<li style="grid-column:1/-1;padding:20px;text-align:center;color:#aaa;">No active class plan for this group. <button class="btn-mini" style="margin-left:6px;" onclick="Desktop.openTool(\'class-plan.html\', selectedGroupName ? { query: { classId: selectedGroupName } } : undefined)">Set up a plan →</button></li>';
                 updatePresentCount();
                 return;
             }

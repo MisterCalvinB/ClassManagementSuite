@@ -14,6 +14,7 @@
   <script src="../js/import-utils.js"></script>
   <script src="../js/import-modules/admin-groups.js"></script>
   <script src="../js/admin-groups-defaults.js"></script>
+  <script src="../js/admin-reports.js"></script>
   <script src="../js/administrative-groups.js"></script>
   <link rel="stylesheet" href="../css/administrative-groups.css">
 </head>
@@ -109,17 +110,23 @@
         <button type="button" class="ag-modal-close" onclick="window.closeStudentModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
       </div>
       <div class="ag-modal-body">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
           <h3 style="font-size:0.95rem; font-weight:800;" data-i18n="agTimelineTitle">Disciplinary Action & Follow-up History</h3>
-          <button type="button" class="btn btn-primary" onclick="window.openQuickActionMenu()">
-            <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-            <span data-i18n="agBtnNewAction">+ Log New Action / Meeting</span>
-          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-outline-primary" onclick="window.generateQuickStudentReport()">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <span data-i18n="agBtnGenerateStudentDossier">Student Dossier Report</span>
+            </button>
+            <button type="button" class="btn btn-primary" onclick="window.openQuickActionMenu()">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <span data-i18n="agBtnNewAction">+ Log New Action / Meeting</span>
+            </button>
+          </div>
         </div>
         <div id="studentTimelineContainer"></div>
       </div>
       <div class="ag-modal-ft" style="justify-content:space-between;">
-        <button type="button" class="btn btn-danger" onclick="window.promptEraseStudent(state.selectedStudentId)">
+        <button type="button" class="btn btn-danger" onclick="window.promptEraseStudent()">
           <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
           <span data-i18n="agBtnEraseStudent">Erase Student</span>
         </button>
@@ -177,62 +184,129 @@
     </div>
   </div>
 
-  <!-- ── MODAL: Multi-Format Export ── -->
+  <!-- ── MODAL: Multi-Format Report Exporter & Analytics ── -->
   <div class="ag-modal-overlay" id="agExportModal">
-    <div class="ag-modal-box modal-wide">
+    <div class="ag-modal-box modal-xl">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
           <img src="../assets/icons/export.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-          <span data-i18n="agExportModalTitle">Export Administrative Data & Reports</span>
+          <span data-i18n="agReportModalTitle">Administrative Report Exporter & Analytics</span>
         </div>
         <button type="button" class="ag-modal-close" onclick="window.closeExportModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
       </div>
-      <div class="ag-modal-body">
-        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportScopeLabel">1. Select Report Category</h4>
+      <div class="ag-modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
+        
+        <!-- Step 1: Report Scope Selector -->
+        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportScopeLabel">1. Select Report Scope</h4>
         <div class="ag-export-grid">
-          <div class="ag-export-card selected" data-cat="all" onclick="window.selectExportCategory('all')">
-            <div class="ag-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Master Roster</div>
-            <div class="ag-export-card-desc">Complete administrative table with all demographics, SEN, and discipline data.</div>
+          <div class="ag-export-card selected" data-scope="whole_class" onclick="window.selectReportScope('whole_class')">
+            <div class="ag-export-card-title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeWholeClass">Whole Class / Cohort Analytics</span></div>
+            <div class="ag-export-card-desc" data-i18n="agReportScopeWholeClassDesc">Statistical overview, mean/median points, infraction breakdown, and risk distribution.</div>
           </div>
-          <div class="ag-export-card" data-cat="emergency" onclick="window.selectExportCategory('emergency')">
-            <div class="ag-export-card-title"><img src="../assets/icons/phone.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Emergency & Medical</div>
-            <div class="ag-export-card-desc">Guardian contact phones, emails, PAI medical notes, and exit authorizations.</div>
+          <div class="ag-export-card" data-scope="student_dossier" onclick="window.selectReportScope('student_dossier')">
+            <div class="ag-export-card-title"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeStudent">Individual Student Dossier</span></div>
+            <div class="ag-export-card-desc" data-i18n="agReportScopeStudentDesc">Detailed student profile, period progression, benchmark comparison vs class mean, and action timeline.</div>
           </div>
-          <div class="ag-export-card" data-cat="accommodations" onclick="window.selectExportCategory('accommodations')">
-            <div class="ag-export-card-title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Exam Accommodations</div>
-            <div class="ag-export-card-desc">Proctors summary sheet for PAP, PPRE, PPS, tiers-temps, and special needs.</div>
+          <div class="ag-export-card" data-scope="multi_student" onclick="window.selectReportScope('multi_student')">
+            <div class="ag-export-card-title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeMultiStudent">Multi-Student Comparative Analysis</span></div>
+            <div class="ag-export-card-desc" data-i18n="agReportScopeMultiStudentDesc">Side-by-side comparison of selected students against class medians and category profiles.</div>
           </div>
-          <div class="ag-export-card" data-cat="discipline" onclick="window.selectExportCategory('discipline')">
-            <div class="ag-export-card-title"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Discipline & Sanctions</div>
-            <div class="ag-export-card-desc">Infraction points summary, recommended sanctions, and action history.</div>
+          <div class="ag-export-card" data-scope="category_table" onclick="window.selectReportScope('category_table')">
+            <div class="ag-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeCategoryTable">Category Roster Export</span></div>
+            <div class="ag-export-card-desc" data-i18n="agReportScopeCategoryTableDesc">Direct export of specific tables: Demographics, Accommodations, or Discipline.</div>
           </div>
         </div>
 
-        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportFormatLabel">2. Select File Format</h4>
-        <div class="ag-format-pills">
-          <div class="ag-format-pill selected" data-fmt="html" onclick="window.selectExportFormat('html')">
-            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> HTML (Editable)
+        <!-- Dynamic Context Panels -->
+        <div id="agReportStudentSelectWrap" style="display:none; margin-bottom:14px; background:#f8fafc; border:2px solid #000; padding:12px; border-radius:4px;">
+          <label style="font-size:0.78rem; font-weight:900; text-transform:uppercase; display:block; margin-bottom:6px;" data-i18n="agReportSelectStudent">Select Student:</label>
+          <select class="ag-select" id="agReportStudentSelect" style="width:100%; font-weight:700;"></select>
+        </div>
+
+        <div id="agReportMultiStudentWrap" style="display:none; margin-bottom:14px; background:#f8fafc; border:2px solid #000; padding:12px; border-radius:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label style="font-size:0.78rem; font-weight:900; text-transform:uppercase;" data-i18n="agReportSelectStudents">Select Students to Compare:</label>
+            <div>
+              <button type="button" class="btn btn-secondary" style="padding:2px 8px; font-size:0.72rem;" onclick="window.toggleAllReportStudents(true)">Select All</button>
+              <button type="button" class="btn btn-secondary" style="padding:2px 8px; font-size:0.72rem;" onclick="window.toggleAllReportStudents(false)">Clear</button>
+            </div>
           </div>
-          <div class="ag-format-pill" data-fmt="xlsx" onclick="window.selectExportFormat('xlsx')">
-            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> XLSX (Excel)
-          </div>
-          <div class="ag-format-pill" data-fmt="pdf" onclick="window.selectExportFormat('pdf')">
-            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> PDF (Print)
-          </div>
-          <div class="ag-format-pill" data-fmt="docx" onclick="window.selectExportFormat('docx')">
-            <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> DOCX (Word)
-          </div>
-          <div class="ag-format-pill" data-fmt="csv" onclick="window.selectExportFormat('csv')">
-            <img src="../assets/icons/download.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> CSV Data
+          <div id="agReportStudentsCheckboxList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:6px; max-height:160px; overflow-y:auto; padding:4px;"></div>
+        </div>
+
+        <!-- Step 2: Period & Temporal Scope -->
+        <div style="margin-bottom:16px;">
+          <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agReportPeriodLabel">2. Period & Temporal Scope</h4>
+          <div id="agReportPeriodChipsContainer" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <!-- Populated dynamically with period toggle chips -->
           </div>
         </div>
+
+        <!-- Step 3: Output Format -->
+        <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportFormatLabel">3. Select Output Action & Format</h4>
+        <div class="ag-format-pills">
+          <div class="ag-format-pill selected" data-fmt="preview" onclick="window.selectExportFormat('preview')">
+            <img src="../assets/icons/search.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatPreview">Live Interactive Preview</span>
+          </div>
+          <div class="ag-format-pill" data-fmt="html" onclick="window.selectExportFormat('html')">
+            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatHtml">Standalone HTML Report</span>
+          </div>
+          <div class="ag-format-pill" data-fmt="pdf" onclick="window.selectExportFormat('pdf')">
+            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatPdf">Print / Direct PDF</span>
+          </div>
+          <div class="ag-format-pill" data-fmt="xlsx" onclick="window.selectExportFormat('xlsx')">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatXlsx">Excel Workbook (XLSX)</span>
+          </div>
+          <div class="ag-format-pill" data-fmt="csv" onclick="window.selectExportFormat('csv')">
+            <img src="../assets/icons/download.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatCsv">CSV Data</span>
+          </div>
+          <div class="ag-format-pill" data-fmt="docx" onclick="window.selectExportFormat('docx')">
+            <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatDocx">DOCX (Word)</span>
+          </div>
+        </div>
+
       </div>
       <div class="ag-modal-ft">
         <button type="button" class="btn btn-secondary" onclick="window.closeExportModal()" data-i18n="agBtnCancel">Cancel</button>
         <button type="button" class="btn btn-primary" onclick="window.executeExport()">
           <img src="../assets/icons/export.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
-          <span data-i18n="agBtnExportNow">Export Now</span>
+          <span id="agBtnExportActionText" data-i18n="agBtnExportNow">Generate & Export</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Live Interactive Report Preview ── -->
+  <div class="ag-modal-overlay" id="agReportPreviewModal" style="z-index: 10002;">
+    <div class="ag-modal-box ag-preview-modal-box">
+      <div class="ag-preview-toolbar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="filter: brightness(0) invert(1);" />
+          <strong id="agPreviewReportTitle" style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.5px;">Report Live Preview</strong>
+        </div>
+        <div class="ag-preview-toolbar-actions">
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.printPreviewReport()">
+            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <span data-i18n="agBtnPrintReport">Print / PDF</span>
+          </button>
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.downloadPreviewHtml()">
+            <img src="../assets/icons/download.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <span data-i18n="agBtnDownloadHtml">Download HTML</span>
+          </button>
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.exportPreviewXlsx()">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <span data-i18n="agBtnExportXlsx">Export Excel</span>
+          </button>
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.closeReportPreviewModal()">
+            <img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <span data-i18n="agBtnClose">Close</span>
+          </button>
+        </div>
+      </div>
+      <div class="ag-preview-scroll-area" id="agReportPreviewScrollArea">
+        <div class="ag-report-wrap" id="agReportPreviewContent">
+          <!-- Rendered Report Content -->
+        </div>
       </div>
     </div>
   </div>

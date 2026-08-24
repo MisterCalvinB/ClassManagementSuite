@@ -15694,14 +15694,6 @@
               }
               if (bgUrl) attachmentDataUrls[_bg.attachmentId] = bgUrl;
             }
-            console.log('[BoardPresenter] Broadcasting board-state:', {
-              revision: _conBoardRevision,
-              viewport: vp,
-              zoom: conCurrentZoom || 1,
-              nodes: (snap.nodes || []).length,
-              drawings: (snap.drawings || []).length,
-              hasBoardBg: !!(_bg || (_conBoardBg && _conBoardBg._cachedDataUrl))
-            });
             _mirrorCh.postMessage({
               type: 'board-state',
               snapshot: snap,
@@ -21726,12 +21718,29 @@
         const brd = board();
         if (!brd) return;
 
-        // Clicking outside a note editor should remove focus from it
-        brd.addEventListener('mousedown', function (e) {
+        // Clicking outside a note editor should unselect text and remove focus from it
+        document.addEventListener('mousedown', function (e) {
+          if (e.target && e.target.closest('#wn-style-popup, .con-ctx-menu, .custom-context-menu')) return;
+          const sel = window.getSelection();
+          let selectedEditor = null;
+          if (sel && sel.rangeCount > 0) {
+            const anchor = sel.anchorNode;
+            const anchorEl = anchor ? (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement) : null;
+            selectedEditor = anchorEl ? anchorEl.closest('.wn-note-editor') : null;
+          }
           const ae = document.activeElement;
-          if (!ae || !ae.classList.contains('wn-note-editor')) return;
-          if (e.target && e.target.closest('.wn-note-editor')) return;
-          ae.blur();
+          const aeEditor = ae ? (ae.classList && ae.classList.contains('wn-note-editor') ? ae : (ae.closest && ae.closest('.wn-note-editor'))) : null;
+          const targetEditor = selectedEditor || aeEditor;
+          if (!targetEditor && !aeEditor) return;
+          if (targetEditor && e.target && (e.target === targetEditor || targetEditor.contains(e.target))) return;
+          if (sel) {
+            sel.removeAllRanges();
+          }
+          if (aeEditor && typeof aeEditor.blur === 'function') {
+            aeEditor.blur();
+          } else if (ae && typeof ae.blur === 'function' && ae !== document.body) {
+            ae.blur();
+          }
         }, true);
 
         // Ctrl+J cross-type link mode: intercept the target click (capture phase
@@ -27439,7 +27448,7 @@
     let _noteCurrentFileName = null; // set when a .js file is loaded; enables direct overwrite on Save
 
     const BOARD_SAVED_SESSIONS_KEY = 'board_saved_sessions_v1';
-    const BOARD_AUTOSAVE_INTERVAL_MS = 60000;
+    const BOARD_AUTOSAVE_INTERVAL_MS = 150000;
     const BOARD_MAX_SESSIONS_PER_CLASS = 12;
     const BOARD_MAX_SESSIONS_PER_SECTION = 50;
     let boardAutosaveTimer = null;
@@ -28722,7 +28731,7 @@
         if (section === 'constellation') {
           const isArchive = _currentFileForSection.endsWith('.cstz') || _currentFileForSection.endsWith('.zip') || !_currentFileForSection.endsWith('.js');
           if (isArchive && typeof Desktop.saveBoardArchive === 'function') {
-            const savePromise = conSaveSessionFolderBundle(_currentFileForSection, persistedAutosaveData).catch(() => { });
+            const savePromise = conSaveSessionFolderBundle(_currentFileForSection, persistedAutosaveData, { isAutosave: true }).catch(() => { });
             boardPersistLocalSession(section, persistedAutosaveData, {
               source: 'autosave',
               classGroup,
@@ -28771,14 +28780,14 @@
       if (boardAutosaveTimer) return;
       boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
 
-      // Debounced save: fires 15s after the last structural change on the board
+      // Debounced save: fires 45s after the last structural change on the board
       let _boardMutationTimer = null;
       function _boardScheduleSave(section) {
         clearTimeout(_boardMutationTimer);
         _boardMutationTimer = setTimeout(() => {
           if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
           boardAutosaveSection(section, { force: false });
-        }, 15000);
+        }, 45000);
       }
 
       // Watch constellation board for added/removed nodes and notes
@@ -29275,7 +29284,8 @@
       return { files, metadata };
     }
 
-    async function conBuildSessionArchiveBundle(sessionFilename, persistedData) {
+    async function conBuildSessionArchiveBundle(sessionFilename, persistedData, options = {}) {
+      const isAutosave = !!(options && options.isAutosave);
       const normalizedFilename = sessionFilename.endsWith('.cstz')
         ? sessionFilename
         : (sessionFilename.endsWith('.js') || sessionFilename.endsWith('.json') || sessionFilename.endsWith('.zip'))
@@ -29333,18 +29343,20 @@
       if (typeof conBuildPageSnapshot === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       }
-      try {
-        if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
-          const liveRes = await _conBuildBoardCanvas();
-          if (liveRes && liveRes.canvas) {
-            const dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
-              ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
-              : liveRes.canvas.toDataURL('image/png');
-            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-            _conPageSnapshotPngs[conCurrentPageIndex] = dataUrl;
+      if (!isAutosave) {
+        try {
+          if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
+            const liveRes = await _conBuildBoardCanvas();
+            if (liveRes && liveRes.canvas) {
+              const dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
+                ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
+                : liveRes.canvas.toDataURL('image/png');
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[conCurrentPageIndex] = dataUrl;
+            }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
 
       const createdAtMs = Number(dataToSave._createdAt || dataToSave.createdAt)
         || (dataToSave.dateCreated ? Date.parse(String(dataToSave.dateCreated).replace(/_\d+$/, '')) : 0)
@@ -29384,7 +29396,7 @@
       // Add thumbnail entries for all pages into the archive
       for (let i = 0; i < pages.length; i += 1) {
         let pngDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
-        if (!pngDataUrl) {
+        if (!pngDataUrl && !isAutosave) {
           try {
             const offCanvas = document.createElement('canvas');
             offCanvas.width = 480;
@@ -30588,19 +30600,6 @@
           }
         }
       }
-
-      if (!options.force && !_boardIsDirty) return;
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveFiles === 'function')) return;
-      if (!_conCurrentFolderName) return;
-
-      const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
-      const padded = String(idx + 1).padStart(3, '0');
-      Desktop.saveFiles('mindmaps', [{
-        filename: 'page-' + padded + '.png',
-        subdir: _conCurrentFolderName + '/page-snapshots',
-        content: base64,
-        encoding: 'base64'
-      }]).catch(() => { });
     }
 
     let _conPageSnapshotSaveTimer = null;
@@ -30642,9 +30641,9 @@
     }
     window.conTriggerLivePageSnapshot = conTriggerLivePageSnapshot;
 
-    async function conSaveSessionFolderBundle(sessionFilename, persistedData) {
+    async function conSaveSessionFolderBundle(sessionFilename, persistedData, options = {}) {
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveBoardArchive === 'function') {
-        const archiveBundle = await conBuildSessionArchiveBundle(sessionFilename, persistedData);
+        const archiveBundle = await conBuildSessionArchiveBundle(sessionFilename, persistedData, options);
         const result = await Desktop.saveBoardArchive('mindmaps', archiveBundle.filename, archiveBundle.entries);
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Could not save Constellation archive.');
@@ -30662,7 +30661,7 @@
         };
       }
 
-      const bundle = await conBuildSessionFolderBundle(sessionFilename, persistedData);
+      const bundle = await conBuildSessionFolderBundle(sessionFilename, persistedData, options);
 
       const result = await Desktop.saveFiles('mindmaps', bundle.files);
       if (!result || !result.ok) {
@@ -30695,7 +30694,7 @@
       const requestedName = boardDefaultFileName('constellation', titleVal);
       const persistedData = boardBuildPersistedSessionData('constellation', data);
 
-      _conSilentInitialSavePromise = conSaveSessionFolderBundle(requestedName, persistedData)
+      _conSilentInitialSavePromise = conSaveSessionFolderBundle(requestedName, persistedData, { isAutosave: true })
         .then(saved => {
           boardPersistLocalSession('constellation', saved.data, {
             source: 'autosave',
