@@ -1609,20 +1609,70 @@
       return Number.isNaN(n) ? null : n;
     }
 
-    function defaultManualThresholdPercentMap() {
-      return {
-        "6": 93.33,
-        "5.5": 86.67,
-        "5": 80,
-        "4.5": 73.33,
-        "4": 66.67,
-        "3.5": 53.33,
-        "3": 40,
-        "2.5": 26.67,
-        "2": 13.33,
-        "1.5": 6.67,
-        "1": 0
-      };
+    function formulaThresholdForGrade(grade, passPercentGrade4, minGrade = 1.5, maxGrade = 6, passGrade = 4, interval = 0.5) {
+      const minG = Number(minGrade != null ? minGrade : 1.5);
+      const maxG = Number(maxGrade != null ? maxGrade : 6);
+      const passG = Number(passGrade != null ? passGrade : 4);
+      const step = Number(interval != null && interval > 0 ? interval : 0.5);
+      const passVal = evaluatePass4Formula(passPercentGrade4, 66.67);
+      const passRatio = Math.max(0, Math.min(1, (passVal || 0) / 100));
+
+      if (grade <= minG) return 0;
+      if (grade > maxG) return 1;
+
+      if (grade <= passG) {
+        const halfStepsBelow = (passG - minG) / step;
+        if (halfStepsBelow <= 0) return 0;
+        const currentHalfSteps = (grade - minG) / step;
+        const ratio = (currentHalfSteps / halfStepsBelow) * passRatio;
+        return Math.max(0, Math.min(1, ratio));
+      } else {
+        const halfStepsAboveTotal = Math.max(1, (maxG - passG + step) / step);
+        const currentHalfStepsAbove = (grade - passG) / step;
+        const ratioAbove = passRatio + (currentHalfStepsAbove / halfStepsAboveTotal) * (1 - passRatio);
+        return Math.max(0, Math.min(1, ratioAbove));
+      }
+    }
+
+    function getCriteriaMinMaxGrades(criteria = []) {
+      const allGrades = [];
+      if (Array.isArray(criteria) && criteria.length > 0) {
+        criteria.forEach(c => {
+          if (!c) return;
+          const grades = normalizeCriterionGrades(c.grades);
+          grades.forEach(g => {
+            const num = toNumber(g);
+            if (num != null) allGrades.push(num);
+          });
+        });
+      }
+      if (allGrades.length === 0 && typeof XLSM_CRITERIA !== "undefined" && Array.isArray(XLSM_CRITERIA)) {
+        XLSM_CRITERIA.forEach(c => {
+          if (!c) return;
+          const grades = normalizeCriterionGrades(c.grades);
+          grades.forEach(g => {
+            const num = toNumber(g);
+            if (num != null) allGrades.push(num);
+          });
+        });
+      }
+      const minG = allGrades.length > 0 ? Math.min(...allGrades) : 1.5;
+      const maxG = allGrades.length > 0 ? Math.max(...allGrades) : 6;
+      return { minGrade: minG, maxGrade: maxG };
+    }
+
+    function defaultManualThresholdPercentMap(minGrade = 1.5, maxGrade = 6, interval = 0.5) {
+      const minG = Number(minGrade != null ? minGrade : 1.5);
+      const maxG = Number(maxGrade != null ? maxGrade : 6);
+      const step = Number(interval != null && interval > 0 ? interval : 0.5);
+      const steps = computeScaleGradeSteps(maxG, minG, step);
+      const thresholds = {};
+      steps.forEach(g => {
+        const key = String(g);
+        const ratio = formulaThresholdForGrade(g, 66.67, minG, maxG, 4, step);
+        thresholds[key] = Math.round(ratio * 10000) / 100;
+      });
+      return thresholds;
     }
 
     function computeScaleGradeSteps(maxGrade = 6, minGrade = 1, interval = 0.5) {
@@ -2104,40 +2154,56 @@
     }
 
     function loadReferenceDataOverrides() {
-      try {
-        const critRaw = localStorage.getItem(REFERENCE_CRITERIA_STORAGE_KEY);
-        if (critRaw) {
-          const parsed = JSON.parse(critRaw);
-          if (Array.isArray(parsed)) {
-            XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...parsed);
+      const isElectron = window.Desktop && typeof Desktop.isElectron === "function" && Desktop.isElectron();
+
+      // In Electron, files loaded from disk (user/correction-criteria.js, user/grade-scale-models.js)
+      // are the source of truth. localStorage is only used as a fallback for browser mode or when files are empty.
+      if (!isElectron || typeof XLSM_CRITERIA === "undefined" || !Array.isArray(XLSM_CRITERIA) || XLSM_CRITERIA.length === 0) {
+        try {
+          const critRaw = localStorage.getItem(REFERENCE_CRITERIA_STORAGE_KEY);
+          if (critRaw) {
+            const parsed = JSON.parse(critRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (typeof XLSM_CRITERIA === "undefined" || !Array.isArray(XLSM_CRITERIA)) {
+                window.XLSM_CRITERIA = [];
+              }
+              XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...parsed);
+            }
           }
+        } catch (err) {
+          console.warn("Could not load saved correction criteria", err);
         }
-      } catch (err) {
-        console.warn("Could not load saved correction criteria", err);
       }
 
-      try {
-        const scaleRaw = localStorage.getItem(REFERENCE_SCALE_MODELS_STORAGE_KEY);
-        if (scaleRaw) {
-          const parsed = JSON.parse(scaleRaw);
-          if (Array.isArray(parsed)) {
-            XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...parsed);
+      if (!isElectron || typeof XLSM_SCALE_MODELS === "undefined" || !Array.isArray(XLSM_SCALE_MODELS) || XLSM_SCALE_MODELS.length === 0) {
+        try {
+          const scaleRaw = localStorage.getItem(REFERENCE_SCALE_MODELS_STORAGE_KEY);
+          if (scaleRaw) {
+            const parsed = JSON.parse(scaleRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (typeof XLSM_SCALE_MODELS === "undefined" || !Array.isArray(XLSM_SCALE_MODELS)) {
+                window.XLSM_SCALE_MODELS = [];
+              }
+              XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...parsed);
+            }
           }
+        } catch (err) {
+          console.warn("Could not load saved scale models", err);
         }
-      } catch (err) {
-        console.warn("Could not load saved scale models", err);
       }
 
-      try {
-        const chipsRaw = localStorage.getItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY);
-        if (chipsRaw) {
-          const parsed = JSON.parse(chipsRaw);
-          if (Array.isArray(parsed)) {
-            window.OBSERVATION_CHECKLIST_GROUPS = parsed;
+      if (!isElectron || typeof OBSERVATION_CHECKLIST_GROUPS === "undefined" || !Array.isArray(OBSERVATION_CHECKLIST_GROUPS) || OBSERVATION_CHECKLIST_GROUPS.length === 0) {
+        try {
+          const chipsRaw = localStorage.getItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY);
+          if (chipsRaw) {
+            const parsed = JSON.parse(chipsRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              window.OBSERVATION_CHECKLIST_GROUPS = parsed;
+            }
           }
+        } catch (err) {
+          console.warn("Could not load saved personalised chips", err);
         }
-      } catch (err) {
-        console.warn("Could not load saved personalised chips", err);
       }
     }
 
@@ -2347,14 +2413,54 @@
 
     let _referenceDataEditorDraft = null;
 
-    function renderReferenceDataEditor() {
+    function renderReferenceDataEditor(options = {}) {
       const draft = _referenceDataEditorDraft;
       if (!draft) return;
 
       const criteriaList = document.getElementById("ref-criteria-list");
       const scaleList = document.getElementById("ref-scale-list");
+      const chipsList = document.getElementById("ref-chips-list");
+      if (!criteriaList || !scaleList || !chipsList) return;
+
+      // Capture currently expanded cards before rebuilding DOM
+      const expandedCriteria = new Set();
+      const expandedScales = new Set();
+      const expandedChips = new Set();
+
+      if (!options.initial) {
+        criteriaList.querySelectorAll(".ref-item-card:not(.collapsed)").forEach(card => {
+          const idx = card.getAttribute("data-index");
+          if (idx != null) expandedCriteria.add(Number(idx));
+        });
+        scaleList.querySelectorAll(".ref-item-card:not(.collapsed)").forEach(card => {
+          const idx = card.getAttribute("data-index");
+          if (idx != null) expandedScales.add(Number(idx));
+        });
+        chipsList.querySelectorAll(".ref-item-card:not(.collapsed)").forEach(card => {
+          const idx = card.getAttribute("data-index");
+          if (idx != null) expandedChips.add(Number(idx));
+        });
+      }
+
+      if (options.expandCriterionIndex != null) expandedCriteria.add(options.expandCriterionIndex);
+      if (options.expandScaleIndex != null) expandedScales.add(options.expandScaleIndex);
+      if (options.expandChipsIndex != null) expandedChips.add(options.expandChipsIndex);
+
+      // Capture active element focus info to restore after re-render
+      const activeEl = document.activeElement;
+      let focusInfo = null;
+      if (activeEl && activeEl.matches && activeEl.matches("#reference-data-popup-overlay [data-field]")) {
+        focusInfo = {
+          kind: activeEl.getAttribute("data-kind"),
+          index: Number(activeEl.getAttribute("data-index")),
+          field: activeEl.getAttribute("data-field"),
+          selectionStart: typeof activeEl.selectionStart === "number" ? activeEl.selectionStart : null,
+          selectionEnd: typeof activeEl.selectionEnd === "number" ? activeEl.selectionEnd : null
+        };
+      }
 
       criteriaList.innerHTML = draft.criteria.map((criterion, index) => {
+        const isExpanded = expandedCriteria.has(index);
         const gradeList = normalizeCriterionGrades(criterion.grades);
         const heading = getReferenceCriterionHeading(criterion, index);
         const commentFields = gradeList.map((grade, gIdx) => {
@@ -2371,8 +2477,8 @@
             </label>`;
         }).join("");
         return `
-          <div class="ref-item-card criteria-card collapsed" data-kind="criterion" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="false" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
+          <div class="ref-item-card criteria-card ${isExpanded ? '' : 'collapsed'}" data-kind="criterion" data-index="${index}">
+            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
               <div>
                 <div class="ref-item-index">${escapeHtml(heading)}</div>
                 <div class="ref-inline-note">${escapeHtml(tFmt('gsRefCritBlankName', { n: index + 1 }))}</div>
@@ -2409,6 +2515,7 @@
       }).join("");
 
       scaleList.innerHTML = draft.scaleModels.map((model, index) => {
+        const isExpanded = expandedScales.has(index);
         const heading = getReferenceScaleHeading(model, index);
         const note = getReferenceScaleNote(model, index);
         const steps = getScaleModelGradeSteps(model);
@@ -2427,8 +2534,8 @@
             </label>`;
         }).join("");
         return `
-          <div class="ref-item-card scale-card collapsed" data-kind="scale" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="false" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
+          <div class="ref-item-card scale-card ${isExpanded ? '' : 'collapsed'}" data-kind="scale" data-index="${index}">
+            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
               <div>
                 <div class="ref-item-index">${escapeHtml(heading)}</div>
                 <div class="ref-inline-note">${escapeHtml(note)}</div>
@@ -2465,7 +2572,7 @@
       }).join("");
 
       criteriaList.querySelectorAll("[data-field]").forEach(field => {
-        field.addEventListener("input", evt => {
+        const handleCriteriaInputOrChange = (evt, isChange) => {
           const index = Number(evt.target.getAttribute("data-index"));
           const item = draft.criteria[index];
           if (!item) return;
@@ -2491,22 +2598,28 @@
             return;
           }
           if (fieldName === "grades") {
-            const grades = normalizeCriterionGrades(evt.target.value);
-            const nextComments = {};
-            const nextColors = {};
-            grades.forEach((grade, gIdx) => {
-              nextComments[grade] = item.comments && typeof item.comments[grade] === "string" ? item.comments[grade] : "";
-              nextColors[grade] = item.colors && item.colors[grade] ? item.colors[grade] : getDefaultGradeColor(grade, gIdx, grades.length);
-            });
-            item.grades = grades;
-            item.comments = nextComments;
-            item.colors = nextColors;
-            renderReferenceDataEditor();
+            if (isChange) {
+              const grades = normalizeCriterionGrades(evt.target.value);
+              const nextComments = {};
+              const nextColors = {};
+              grades.forEach((grade, gIdx) => {
+                nextComments[grade] = item.comments && typeof item.comments[grade] === "string" ? item.comments[grade] : "";
+                nextColors[grade] = item.colors && item.colors[grade] ? item.colors[grade] : getDefaultGradeColor(grade, gIdx, grades.length);
+              });
+              item.grades = grades;
+              item.comments = nextComments;
+              item.colors = nextColors;
+              renderReferenceDataEditor();
+            }
             return;
           }
           const grade = fieldName.replace("comment-", "");
+          if (!item.comments) item.comments = {};
           item.comments[grade] = evt.target.value;
-        });
+        };
+
+        field.addEventListener("input", evt => handleCriteriaInputOrChange(evt, false));
+        field.addEventListener("change", evt => handleCriteriaInputOrChange(evt, true));
       });
 
       criteriaList.querySelectorAll("[data-action='pick-grade-color']").forEach(btn => {
@@ -2538,7 +2651,7 @@
       attachReferenceCardCollapseHandlers(criteriaList, ".criteria-card .ref-item-head");
 
       scaleList.querySelectorAll("[data-field]").forEach(field => {
-        field.addEventListener("input", evt => {
+        const handleScaleInputOrChange = (evt, isChange) => {
           const index = Number(evt.target.getAttribute("data-index"));
           const item = draft.scaleModels[index];
           if (!item) return;
@@ -2557,25 +2670,31 @@
             const rawVal = toNumber(evt.target.value);
             if (rawVal != null) {
               item[fieldName] = rawVal;
-              const steps = computeScaleGradeSteps(item.maxGrade, item.minGrade, item.interval);
-              const nextThresholds = {};
-              const nextColors = {};
-              const stepCount = steps.length;
-              steps.forEach((g, gIdx) => {
-                const k = String(g);
-                const fallbackPct = stepCount > 1 ? Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2)) : 0;
-                nextThresholds[k] = item.thresholds && item.thresholds[k] != null ? item.thresholds[k] : fallbackPct;
-                nextColors[k] = item.colors && item.colors[k] ? item.colors[k] : getDefaultGradeColor(k, gIdx, stepCount);
-              });
-              item.thresholds = nextThresholds;
-              item.colors = nextColors;
-              renderReferenceDataEditor();
+              if (isChange) {
+                const steps = computeScaleGradeSteps(item.maxGrade, item.minGrade, item.interval);
+                const nextThresholds = {};
+                const nextColors = {};
+                const stepCount = steps.length;
+                steps.forEach((g, gIdx) => {
+                  const k = String(g);
+                  const fallbackPct = stepCount > 1 ? Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2)) : 0;
+                  nextThresholds[k] = item.thresholds && item.thresholds[k] != null ? item.thresholds[k] : fallbackPct;
+                  nextColors[k] = item.colors && item.colors[k] ? item.colors[k] : getDefaultGradeColor(k, gIdx, stepCount);
+                });
+                item.thresholds = nextThresholds;
+                item.colors = nextColors;
+                renderReferenceDataEditor();
+              }
             }
             return;
           }
           const grade = fieldName.replace("threshold-", "");
+          if (!item.thresholds) item.thresholds = {};
           item.thresholds[grade] = toNumber(evt.target.value) ?? 0;
-        });
+        };
+
+        field.addEventListener("input", evt => handleScaleInputOrChange(evt, false));
+        field.addEventListener("change", evt => handleScaleInputOrChange(evt, true));
       });
 
       scaleList.querySelectorAll("[data-action='pick-scale-color']").forEach(btn => {
@@ -2613,7 +2732,7 @@
           const action = evt.target.getAttribute("data-action");
           if (action === "criterion-duplicate") {
             draft.criteria.splice(index + 1, 0, duplicateCriterion(draft.criteria[index], index + 1));
-            renderReferenceDataEditor();
+            renderReferenceDataEditor({ expandCriterionIndex: index + 1 });
           } else if (action === "criterion-delete") {
             if (await showConfirm(t('gsConfirmDeleteCriterion'))) {
               draft.criteria.splice(index, 1);
@@ -2629,7 +2748,7 @@
           const action = evt.target.getAttribute("data-action");
           if (action === "scale-duplicate") {
             draft.scaleModels.splice(index + 1, 0, duplicateScaleModel(draft.scaleModels[index], index + 1));
-            renderReferenceDataEditor();
+            renderReferenceDataEditor({ expandScaleIndex: index + 1 });
           } else if (action === "scale-delete") {
             if (await showConfirm(t('gsConfirmDeleteScale'))) {
               draft.scaleModels.splice(index, 1);
@@ -2639,13 +2758,13 @@
         });
       });
 
-      const chipsList = document.getElementById("ref-chips-list");
       chipsList.innerHTML = draft.personalisedChips.map((group, index) => {
+        const isExpanded = expandedChips.has(index);
         const heading = group.type || `Category ${index + 1}`;
         const itemsVal = Array.isArray(group.items) ? group.items.join(", ") : "";
         return `
-          <div class="ref-item-card chips-card collapsed" data-kind="chips" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="false" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
+          <div class="ref-item-card chips-card ${isExpanded ? '' : 'collapsed'}" data-kind="chips" data-index="${index}">
+            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
               <div>
                 <div class="ref-item-index">${escapeHtml(heading)}</div>
                 <div class="ref-inline-note">${escapeHtml(tFmt('gsRefChipsBlankName', { n: index + 1 }))}</div>
@@ -2697,7 +2816,7 @@
           const action = evt.target.getAttribute("data-action");
           if (action === "chips-duplicate") {
             draft.personalisedChips.splice(index + 1, 0, duplicatePersonalisedChipsGroup(draft.personalisedChips[index], index + 1));
-            renderReferenceDataEditor();
+            renderReferenceDataEditor({ expandChipsIndex: index + 1 });
           } else if (action === "chips-delete") {
             if (await showConfirm(t('gsConfirmDeleteChipCategory'))) {
               draft.personalisedChips.splice(index, 1);
@@ -2706,6 +2825,23 @@
           }
         });
       });
+
+      // Restore focus & text selection if a field was previously focused
+      if (focusInfo) {
+        const container = focusInfo.kind === "criterion" ? criteriaList :
+                          (focusInfo.kind === "scale" ? scaleList : chipsList);
+        const targetInput = container.querySelector(
+          `[data-kind="${focusInfo.kind}"][data-index="${focusInfo.index}"][data-field="${focusInfo.field}"]`
+        );
+        if (targetInput) {
+          targetInput.focus();
+          if (focusInfo.selectionStart != null && focusInfo.selectionEnd != null && typeof targetInput.setSelectionRange === "function") {
+            try {
+              targetInput.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd);
+            } catch (e) {}
+          }
+        }
+      }
     }
 
     async function saveReferenceDataEditor() {
@@ -2762,7 +2898,7 @@
     function openReferenceDataEditor() {
       _referenceDataEditorDraft = cloneReferenceDrafts();
       document.getElementById("reference-data-popup-overlay").classList.remove("hidden");
-      renderReferenceDataEditor();
+      renderReferenceDataEditor({ initial: true });
       switchRefTab((typeof appState !== "undefined" && appState && appState.activeRefTab) || "criteria");
     }
 
@@ -2787,7 +2923,10 @@
     }
 
     function createDefaultTestConfig() {
-      const manualThresholds = defaultManualThresholdPercentMap();
+      const { minGrade, maxGrade } = getCriteriaMinMaxGrades();
+      const interval = 0.5;
+      const manualThresholds = defaultManualThresholdPercentMap(minGrade, maxGrade, interval);
+      const steps = computeScaleGradeSteps(maxGrade, minGrade, interval);
       return {
         coefficient: 1,
         fixedWeight: null,
@@ -2799,14 +2938,17 @@
         criteria: [],
         observationSections: [],
         grading: {
-          mode: "formula",
-          passPercentGrade4: 66.67,
-          modelKey: "linear",
-          pendingModelKey: "linear",
+          mode: "manual",
           manualInputMode: "percent",
+          passPercentGrade4: 66.67,
+          minGrade,
+          maxGrade,
+          interval,
+          modelKey: "custom",
+          pendingModelKey: "custom",
           manualThresholds,
-          manualPoints: buildManualPointsFromPercents(manualThresholds, 0),
-          equationFormula: "minGrade + 2 * (passGrade - minGrade) * (pts - minPts) / (totalPts - minPts)",
+          manualPoints: buildManualPointsFromPercents(manualThresholds, 0, steps),
+          equationFormula: "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
           equationRounding: "0.5"
         }
       };
@@ -3083,38 +3225,14 @@
       return defaultVal;
     }
 
-    function formulaThresholdForGrade(grade, passPercentGrade4, minGrade = 1.5, maxGrade = 6, passGrade = 4, interval = 0.5) {
-      const minG = Number(minGrade != null ? minGrade : 1.5);
-      const maxG = Number(maxGrade != null ? maxGrade : 6);
-      const passG = Number(passGrade != null ? passGrade : 4);
-      const step = Number(interval != null && interval > 0 ? interval : 0.5);
-      const passVal = evaluatePass4Formula(passPercentGrade4, 66.67);
-      const passRatio = Math.max(0, Math.min(1, (passVal || 0) / 100));
 
-      if (grade <= minG) return 0;
-      if (grade > maxG) return 1;
-
-      if (grade <= passG) {
-        const halfStepsBelow = (passG - minG) / step; // e.g. (4 - 1.5) / 0.5 = 5 intervals
-        if (halfStepsBelow <= 0) return 0;
-        const currentHalfSteps = (grade - minG) / step;
-        const ratio = (currentHalfSteps / halfStepsBelow) * passRatio;
-        return Math.max(0, Math.min(1, ratio));
-      } else {
-        // Above 4: exactly 5 intervals (4–4.5, 4.5–5, 5–5.5, 5.5–6, 6+)
-        const halfStepsAboveTotal = Math.max(1, (maxG - passG + step) / step);
-        const currentHalfStepsAbove = (grade - passG) / step;
-        const ratioAbove = passRatio + (currentHalfStepsAbove / halfStepsAboveTotal) * (1 - passRatio);
-        return Math.max(0, Math.min(1, ratioAbove));
-      }
-    }
 
     function getThresholds(config) {
       const steps = getTestGradeSteps(config);
       const minG = config && config.grading && config.grading.minGrade != null ? Number(config.grading.minGrade) : 1.5;
       const maxG = config && config.grading && config.grading.maxGrade != null ? Number(config.grading.maxGrade) : 6;
       const interval = config && config.grading && config.grading.interval != null ? Number(config.grading.interval) : 0.5;
-      const grading = (config && config.grading) || { mode: "formula", passPercentGrade4: 66.67 };
+      const grading = (config && config.grading) || { mode: "manual", manualInputMode: "percent", passPercentGrade4: 66.67 };
 
       if (grading.mode === "manual") {
         const totals = Array.isArray(config && config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
@@ -12424,20 +12542,23 @@ ${blocks}
 
     document.getElementById("ref-criteria-add").addEventListener("click", () => {
       if (!_referenceDataEditorDraft) return;
-      _referenceDataEditorDraft.criteria.push(makeBlankCriterion(_referenceDataEditorDraft.criteria.length));
-      renderReferenceDataEditor();
+      const newIdx = _referenceDataEditorDraft.criteria.length;
+      _referenceDataEditorDraft.criteria.push(makeBlankCriterion(newIdx));
+      renderReferenceDataEditor({ expandCriterionIndex: newIdx });
     });
 
     document.getElementById("ref-scale-add").addEventListener("click", () => {
       if (!_referenceDataEditorDraft) return;
-      _referenceDataEditorDraft.scaleModels.push(makeBlankScaleModel(_referenceDataEditorDraft.scaleModels.length));
-      renderReferenceDataEditor();
+      const newIdx = _referenceDataEditorDraft.scaleModels.length;
+      _referenceDataEditorDraft.scaleModels.push(makeBlankScaleModel(newIdx));
+      renderReferenceDataEditor({ expandScaleIndex: newIdx });
     });
 
     document.getElementById("ref-chips-add").addEventListener("click", () => {
       if (!_referenceDataEditorDraft) return;
-      _referenceDataEditorDraft.personalisedChips.push(makeBlankPersonalisedChipsGroup(_referenceDataEditorDraft.personalisedChips.length));
-      renderReferenceDataEditor();
+      const newIdx = _referenceDataEditorDraft.personalisedChips.length;
+      _referenceDataEditorDraft.personalisedChips.push(makeBlankPersonalisedChipsGroup(newIdx));
+      renderReferenceDataEditor({ expandChipsIndex: newIdx });
     });
 
     // ── Custom modal helpers (replace native alert/confirm/prompt) ──────────
