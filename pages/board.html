@@ -5605,16 +5605,13 @@
       _awFileSaveTimer = setTimeout(async () => {
         try {
           await Desktop.saveJson('customWordbanks', 'custom-words-backup.json', awGetCustomWords());
-          await Desktop.saveJson('customQuotes', 'custom-quotes-backup.json', awGetCustomQuotes());
-          await Desktop.saveJson('customGapfillbanks', 'custom-gaps-backup.json', awGetCustomGaps());
-          await Desktop.saveJson('customErrorbanks', 'custom-errors-backup.json', awGetCustomErrors());
         } catch (e) { }
       }, 400);
     }
     function awSaveCustomWords(w) { localStorage.setItem(AW_STORAGE_KEY, JSON.stringify(w)); _awScheduleFileSave(); }
-    function awSaveCustomQuotes(q) { localStorage.setItem(AW_QUOTES_KEY, JSON.stringify(q)); _awScheduleFileSave(); }
-    function awSaveCustomGaps(g) { localStorage.setItem(AW_GAP_KEY, JSON.stringify(g)); _awScheduleFileSave(); }
-    function awSaveCustomErrors(e) { localStorage.setItem(AW_ERROR_KEY, JSON.stringify(e)); _awScheduleFileSave(); }
+    function awSaveCustomQuotes(q) { localStorage.setItem(AW_QUOTES_KEY, JSON.stringify(q)); }
+    function awSaveCustomGaps(g) { localStorage.setItem(AW_GAP_KEY, JSON.stringify(g)); }
+    function awSaveCustomErrors(e) { localStorage.setItem(AW_ERROR_KEY, JSON.stringify(e)); }
 
     function awLoadCustomWords() {
       const custom = awGetCustomWords(); if (!custom.length) return;
@@ -6320,15 +6317,9 @@
         const starredPart = w.starred ? `, starred: true` : '';
         return `  { word: ${JSON.stringify(w.word)}, ipa: ${JSON.stringify(w.ipa || '')}, partOfSpeech: ${JSON.stringify(w.partOfSpeech || '')}, level: ${JSON.stringify(w.level || '')}, theme: ${JSON.stringify(themeVal)}, definition: ${JSON.stringify(_allVals(w.definition))}, french: ${JSON.stringify(w.french || '')}, exampleSentence: ${JSON.stringify(_allVals(w.exampleSentence))}, synonyms: ${JSON.stringify(w.synonyms || [])}, antonyms: ${JSON.stringify(w.antonyms || [])}, otherForms: ${JSON.stringify(w.otherForms || [])}${starredPart} }`;
       });
-      const quoteLines = quoteBank.map(strip).map(q => `  ${JSON.stringify(q)}`);
-      const gapLines = gapFillBank.map(strip).map(g => `  ${JSON.stringify(g)}`);
-      const errorLines = errorBank.map(strip).map(e => `  ${JSON.stringify(e)}`);
 
       return {
-        wordDb: `// wordDb.js\nconst vocabBank = [\n${wordLines.join(',\n')}\n];\n`,
-        quoteBank: `const quoteBank = [\n${quoteLines.join(',\n')}\n];\n`,
-        gapFillBank: `const gapFillBank = [\n${gapLines.join(',\n')}\n];\n`,
-        errorBank: `const errorBank = [\n${errorLines.join(',\n')}\n];\n`
+        wordDb: `// wordDb.js\nconst vocabBank = [\n${wordLines.join(',\n')}\n];\n`
       };
     }
 
@@ -6337,15 +6328,11 @@
 
       if (window.Desktop && Desktop.isElectron()) {
         await Desktop.saveText('customWordbanks', 'wordDb.js', files.wordDb);
-        await Desktop.saveText('customQuotes', 'quoteBank.js', files.quoteBank);
-        await Desktop.saveText('customGapfillbanks', 'gapFillBank.js', files.gapFillBank);
-        await Desktop.saveText('customErrorbanks', 'errorBank.js', files.errorBank);
         mdbToast('✅ Database files saved.');
         return;
       }
 
-      const combinedContent = `// wordDb.js\n${files.wordDb}\n${files.quoteBank}\n${files.gapFillBank}\n${files.errorBank}`;
-      downloadFile('wordDb.js', combinedContent, 'application/javascript');
+      downloadFile('wordDb.js', files.wordDb, 'application/javascript');
     }
 
     // ================================================================
@@ -22917,9 +22904,6 @@
         };
         await Promise.all([
           _restoreArrIfEmpty(AW_STORAGE_KEY, 'customWordbanks', 'custom-words-backup.json'),
-          _restoreArrIfEmpty(AW_QUOTES_KEY, 'customQuotes', 'custom-quotes-backup.json'),
-          _restoreArrIfEmpty(AW_GAP_KEY, 'customGapfillbanks', 'custom-gaps-backup.json'),
-          _restoreArrIfEmpty(AW_ERROR_KEY, 'customErrorbanks', 'custom-errors-backup.json'),
           _restoreArrIfEmpty(MDB_DELETED_KEY, 'customWordbanks', 'deleted-words-backup.json'),
           (async () => {
             try {
@@ -22942,9 +22926,6 @@
       }
       // Merge custom words from localStorage into vocabBank
       awLoadCustomWords();
-      awLoadCustomQuotes();
-      awLoadCustomGaps();
-      awLoadCustomErrors();
       historyInit();
       initClassGroupSelector();
       bpUpdateBtn();
