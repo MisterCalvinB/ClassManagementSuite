@@ -1616,22 +1616,47 @@
       return;
     }
 
+    state.pendingImportRawResult = res;
+    state.pendingImportFilename = file.name;
+
+    recomputeAdminImportMapping(res.headerRowIdx || 0);
+
+    if (!state.pendingImport || !state.pendingImport.rows || !state.pendingImport.rows.length) {
+      alert('No data rows found in file.');
+      return;
+    }
+
+    openImportConfirmModal();
+  };
+
+  function recomputeAdminImportMapping(headerIdx) {
+    if (!state.pendingImportRawResult) return;
+    ImportUtils.setStartRow(state.pendingImportRawResult, headerIdx);
+    var res = state.pendingImportRawResult;
+
     // Auto-map fields using window.IMPORT_MODULE_ADMIN_GROUPS
     var fields = (window.IMPORT_MODULE_ADMIN_GROUPS && window.IMPORT_MODULE_ADMIN_GROUPS.fields) || [];
     var mapping = ImportUtils.autoDetectMapping(res.headers, fields);
     var mapped = ImportUtils.applyMapping(res.rows, res.headers, mapping, fields);
 
-    if (!mapped.length) {
-      alert('No data rows found in file.');
-      return;
-    }
-
     state.pendingImport = {
       rows: mapped,
-      filename: file.name
+      filename: state.pendingImportFilename,
+      headerRowIdx: res.headerRowIdx,
+      rawResult: res
     };
 
-    openImportConfirmModal();
+    var count = mapped.length;
+    var banner = document.getElementById('agImportSummaryBanner');
+    if (banner) {
+      banner.textContent = (isFrench() ? 'Fichier analysé : ' : 'Parsed file: ') + (state.pendingImportFilename || '') + ' (' + count + (isFrench() ? ' élèves détectés)' : ' student rows detected)');
+    }
+  }
+
+  window.onAgImportStartRowChange = function (val) {
+    var idx = parseInt(val, 10);
+    if (isNaN(idx)) return;
+    recomputeAdminImportMapping(idx);
   };
 
   function openImportConfirmModal() {
@@ -1642,6 +1667,31 @@
     var banner = document.getElementById('agImportSummaryBanner');
     if (banner) {
       banner.textContent = (isFrench() ? 'Fichier analysé : ' : 'Parsed file: ') + (state.pendingImport.filename || '') + ' (' + count + (isFrench() ? ' élèves détectés)' : ' student rows detected)');
+    }
+
+    // Populate start row dropdown if multiple raw rows exist
+    var rawRes = state.pendingImportRawResult;
+    var rowWrap = document.getElementById('agImportStartRowWrap');
+    var rowSelect = document.getElementById('agImportStartRowSelect');
+    if (rowWrap && rowSelect && rawRes && rawRes.rawRows && rawRes.rawRows.length > 1) {
+      rowWrap.style.display = 'block';
+      rowSelect.innerHTML = '';
+      var maxOptions = Math.min(rawRes.rawRows.length, 25);
+      for (var i = 0; i < maxOptions; i++) {
+        var rowArr = rawRes.rawRows[i] || [];
+        var previewStr = rowArr.filter(function (c) { return c && String(c).trim(); }).slice(0, 5).join(' | ');
+        if (!previewStr) previewStr = '(Empty row)';
+        if (previewStr.length > 55) previewStr = previewStr.substring(0, 52) + '...';
+
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        var isH = (i === rawRes.headerRowIdx);
+        opt.textContent = (isH ? '★ ' : '') + 'Row ' + (i + 1) + (isH ? ' (' + t('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
+        if (isH) opt.selected = true;
+        rowSelect.appendChild(opt);
+      }
+    } else if (rowWrap) {
+      rowWrap.style.display = 'none';
     }
 
     var pSelect = document.getElementById('agImportPeriodSelect');
@@ -1672,6 +1722,8 @@
     var modal = document.getElementById('agImportConfirmModal');
     if (modal) modal.classList.remove('active');
     state.pendingImport = null;
+    state.pendingImportRawResult = null;
+    state.pendingImportFilename = null;
   };
 
   window.onImportPeriodSelectChange = function (val) {

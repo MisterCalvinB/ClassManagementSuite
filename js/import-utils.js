@@ -107,31 +107,21 @@
     return { ok: true, headers: headerSet, rows: rows };
   }
 
-  function _formatAoaResult(rawRows) {
-    var nonBlank = (rawRows || []).filter(function (r) {
-      return Array.isArray(r) && r.some(function (c) {
-        return c !== null && c !== undefined && String(c).trim() !== '';
-      });
-    });
-    if (!nonBlank.length) {
+  function _sliceRowsByHeaderIndex(rawRows, headerIdx, maxCols) {
+    if (!rawRows || !rawRows.length) {
       return { ok: true, headers: [], rows: [] };
     }
+    if (headerIdx < 0) headerIdx = 0;
+    if (headerIdx >= rawRows.length) headerIdx = rawRows.length - 1;
 
-    var maxCols = 0;
-    nonBlank.forEach(function (r) {
-      if (r.length > maxCols) maxCols = r.length;
-    });
-
-    var headerIdx = 0;
-    if (nonBlank.length > 1 && maxCols > 1) {
-      var row0Filled = nonBlank[0].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
-      var row1Filled = nonBlank[1].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
-      if (row0Filled === 1 && row1Filled > 1) {
-        headerIdx = 1;
-      }
+    if (!maxCols) {
+      maxCols = 0;
+      rawRows.forEach(function (r) {
+        if (r && r.length > maxCols) maxCols = r.length;
+      });
     }
 
-    var rawHeaders = nonBlank[headerIdx] || [];
+    var rawHeaders = rawRows[headerIdx] || [];
     var headers = [];
     for (var h = 0; h < maxCols; h++) {
       var val = rawHeaders[h];
@@ -139,11 +129,11 @@
       headers.push(hText || ('Col ' + (h + 1)));
     }
 
-    var dataRows = nonBlank.slice(headerIdx + 1);
+    var dataRows = rawRows.slice(headerIdx + 1);
     var rows = dataRows.map(function (r) {
       var cells = [];
       for (var c = 0; c < headers.length; c++) {
-        var val = r[c];
+        var val = r ? r[c] : undefined;
         if (val === undefined || val === null) {
           cells.push('');
         } else if (val instanceof Date) {
@@ -160,6 +150,36 @@
     });
 
     return { ok: true, headers: headers, rows: rows };
+  }
+
+  function _formatAoaResult(rawRows) {
+    var nonBlank = (rawRows || []).filter(function (r) {
+      return Array.isArray(r) && r.some(function (c) {
+        return c !== null && c !== undefined && String(c).trim() !== '';
+      });
+    });
+    if (!nonBlank.length) {
+      return { ok: true, headers: [], rows: [], rawRows: [], headerRowIdx: 0 };
+    }
+
+    var maxCols = 0;
+    nonBlank.forEach(function (r) {
+      if (r.length > maxCols) maxCols = r.length;
+    });
+
+    var headerIdx = 0;
+    if (nonBlank.length > 1 && maxCols > 1) {
+      var row0Filled = nonBlank[0].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
+      var row1Filled = nonBlank[1].filter(function (c) { return c !== null && c !== undefined && String(c).trim() !== ''; }).length;
+      if (row0Filled === 1 && row1Filled > 1) {
+        headerIdx = 1;
+      }
+    }
+
+    var res = _sliceRowsByHeaderIndex(nonBlank, headerIdx, maxCols);
+    res.rawRows = nonBlank;
+    res.headerRowIdx = headerIdx;
+    return res;
   }
 
   function _parseCsvText(text) {
@@ -386,11 +406,11 @@
       });
     }
 
-    if (!allRows.length) return { ok: true, headers: [], rows: [] };
+    if (!allRows.length) return { ok: true, headers: [], rows: [], rawRows: [], isPdf: true, headerRowIdx: 0 };
 
     // Find best header row (first row with at least 2 non-empty cells)
     var headerRowIdx = 0;
-    for (var i = 0; i < Math.min(allRows.length, 5); i++) {
+    for (var i = 0; i < Math.min(allRows.length, 8); i++) {
       var filled = allRows[i].filter(function (c) { return c && c.trim() !== ''; }).length;
       if (filled >= 2) {
         headerRowIdx = i;
@@ -398,25 +418,29 @@
       }
     }
 
-    var rawHeaders = allRows[headerRowIdx] || [];
-    var headers = [];
-    for (var h = 0; h < maxCols; h++) {
-      var hText = String(rawHeaders[h] || '').trim();
-      headers.push(hText || ('Col ' + (h + 1)));
-    }
+    var res = _sliceRowsByHeaderIndex(allRows, headerRowIdx, maxCols);
+    res.isPdf = true;
+    res.rawRows = allRows;
+    res.headerRowIdx = headerRowIdx;
+    return res;
+  }
 
-    var dataRows = allRows.slice(headerRowIdx + 1);
-    var rows = dataRows.map(function (r) {
-      var cells = [];
-      for (var c = 0; c < headers.length; c++) {
-        cells.push(r[c] !== undefined ? String(r[c]).trim() : '');
-      }
-      return cells;
-    }).filter(function (r) {
-      return r.some(function (c) { return c !== ''; });
+  function setStartRow(parsedResult, headerRowIndex) {
+    if (!parsedResult || !parsedResult.rawRows || !parsedResult.rawRows.length) return parsedResult;
+    var idx = parseInt(headerRowIndex, 10);
+    if (isNaN(idx) || idx < 0) idx = 0;
+    if (idx >= parsedResult.rawRows.length) idx = parsedResult.rawRows.length - 1;
+
+    var maxCols = 0;
+    parsedResult.rawRows.forEach(function (r) {
+      if (r && r.length > maxCols) maxCols = r.length;
     });
 
-    return { ok: true, headers: headers, rows: rows, isPdf: true };
+    var res = _sliceRowsByHeaderIndex(parsedResult.rawRows, idx, maxCols);
+    parsedResult.headers = res.headers;
+    parsedResult.rows = res.rows;
+    parsedResult.headerRowIdx = idx;
+    return parsedResult;
   }
 
   // Apply column mapping to raw rows → array of field-keyed objects
@@ -616,6 +640,7 @@
     normalizeHeader: normalizeHeader,
     autoDetectMapping: autoDetectMapping,
     parseFile: parseFile,
+    setStartRow: setStartRow,
     applyMapping: applyMapping,
     loadStudentRoster: loadStudentRoster,
     loadClassGroupsData: loadClassGroupsData,

@@ -77,7 +77,7 @@
           <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
           <span data-i18n="agBtnManageInGroupEditor">Manage Roster in Group Editor</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html')">
+        <button type="button" class="btn btn-secondary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html?dest=adminGroups');else window.location.href='import-tool.html?dest=adminGroups';">
           <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
           <span data-i18n="agBtnImportWizard">Import Wizard</span>
         </button>
@@ -476,6 +476,13 @@
       <div class="ag-modal-body">
         <div id="agImportSummaryBanner" class="badge" style="background:#e0f2fe; color:#0369a1; padding:8px 12px; margin-bottom:14px; width:100%; display:block; font-size:0.85rem; font-weight:800; border:2px solid #000;">
           Detected 0 student rows in file.
+        </div>
+
+        <!-- Start Row / Header Selection (for PDF & files with clutter headers) -->
+        <div id="agImportStartRowWrap" style="margin-bottom:14px; display:none; background:#f8fafc; border:2px solid #000; padding:10px 12px; border-radius:4px;">
+          <label for="agImportStartRowSelect" style="font-weight:800; font-size:0.85rem; display:block; margin-bottom:4px;" data-i18n="agImportStartRowLabel">Start import from row / Header:</label>
+          <p style="font-size:0.75rem; color:#64748b; margin-bottom:6px;" data-i18n="agImportStartRowHint">Change start row to skip file headers, document titles, or clutter.</p>
+          <select id="agImportStartRowSelect" class="ag-select" style="width:100%; font-weight:700;" onchange="window.onAgImportStartRowChange(this.value)"></select>
         </div>
 
         <!-- Import Mode: Add vs Overwrite -->

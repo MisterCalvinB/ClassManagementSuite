@@ -176,6 +176,19 @@
           <button class="file-info-remove" onclick="clearFile()" title="Remove">✕</button>
         </div>
 
+        <!-- Start Row & Header Selection Control -->
+        <div class="start-row-controls" id="start-row-controls" style="display:none;">
+          <div class="start-row-header">
+            <div class="start-row-title-wrap">
+              <label for="start-row-select" class="start-row-label" data-i18n="importStartRowLabel">Start import from row / Header:</label>
+              <span class="start-row-hint" data-i18n="importStartRowHint">Select the header row to skip document titles and clutter.</span>
+            </div>
+            <div class="start-row-picker-wrap">
+              <select id="start-row-select" class="start-row-select" onchange="onStartRowSelectChange(this.value)"></select>
+            </div>
+          </div>
+        </div>
+
         <div class="preview-wrap" id="raw-preview-wrap">
           <table class="preview-table" id="raw-preview-table"></table>
         </div>
@@ -367,6 +380,15 @@
       if (typeof initHamburger === 'function') initHamburger('app-hamburger');
       if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
       initKeyboardShortcuts();
+
+      var urlParams = new URLSearchParams(window.location.search);
+      var destParam = urlParams.get('dest');
+      if (destParam) {
+        var matchMod = MODULES.find(function (m) { return m && m.id === destParam; });
+        if (matchMod) {
+          selectModule(matchMod);
+        }
+      }
     })();
 
     function buildDestCards() {
@@ -602,6 +624,7 @@
 
     async function handleFile(file) {
       excludedRows = new Set();
+      columnMapping = {};
       clearError('err-step2');
       document.getElementById('file-info-name').textContent = file.name;
       document.getElementById('file-info').classList.add('visible');
@@ -614,28 +637,123 @@
         return;
       }
       parsedFile = result;
-      buildRawPreview(result.headers, result.rows);
+      buildStartRowControls();
+      buildRawPreview();
     }
 
     window.clearFile = function () {
       parsedFile = null;
       excludedRows = new Set();
+      columnMapping = {};
       document.getElementById('file-input').value = '';
       document.getElementById('file-info').classList.remove('visible');
       document.getElementById('drop-zone').classList.remove('has-file');
       document.getElementById('raw-preview-wrap').classList.remove('visible');
+      var startRowCtrl = document.getElementById('start-row-controls');
+      if (startRowCtrl) startRowCtrl.style.display = 'none';
       clearError('err-step2');
     };
 
-    function buildRawPreview(headers, rows) {
+    function buildStartRowControls() {
+      var container = document.getElementById('start-row-controls');
+      var select = document.getElementById('start-row-select');
+      if (!container || !select) return;
+
+      if (!parsedFile || !parsedFile.rawRows || parsedFile.rawRows.length <= 1) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = 'block';
+      select.innerHTML = '';
+
+      var maxOptions = Math.min(parsedFile.rawRows.length, 30);
+      for (var i = 0; i < maxOptions; i++) {
+        var rowArr = parsedFile.rawRows[i] || [];
+        var previewStr = rowArr.filter(function (c) { return c && String(c).trim(); }).slice(0, 5).join(' | ');
+        if (!previewStr) previewStr = '(Empty row)';
+        if (previewStr.length > 55) previewStr = previewStr.substring(0, 52) + '...';
+
+        var opt = document.createElement('option');
+        opt.value = String(i);
+        var isH = (i === parsedFile.headerRowIdx);
+        opt.textContent = (isH ? '★ ' : '') + 'Row ' + (i + 1) + (isH ? ' (' + tt('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
+        if (isH) opt.selected = true;
+        select.appendChild(opt);
+      }
+    }
+
+    window.onStartRowSelectChange = function (newHeaderIdx) {
+      if (!parsedFile) return;
+      var idx = parseInt(newHeaderIdx, 10);
+      if (isNaN(idx)) return;
+      ImportUtils.setStartRow(parsedFile, idx);
+      excludedRows = new Set();
+      columnMapping = {};
+      buildStartRowControls();
+      buildRawPreview();
+    };
+
+    function buildRawPreview() {
+      if (!parsedFile) return;
+      var wrap = document.getElementById('raw-preview-wrap');
       var table = document.getElementById('raw-preview-table');
-      var PREVIEW_ROWS = 5;
-      var head = '<tr>' + headers.map(function (h) { return '<th>' + esc(String(h)) + '</th>'; }).join('') + '</tr>';
-      var body = rows.slice(0, PREVIEW_ROWS).map(function (row) {
-        return '<tr>' + row.map(function (c) { return '<td>' + esc(String(c).substring(0, 50)) + '</td>'; }).join('') + '</tr>';
-      }).join('');
-      table.innerHTML = '<thead>' + head + '</thead><tbody>' + body + '</tbody>';
-      document.getElementById('raw-preview-wrap').classList.add('visible');
+      if (!wrap || !table) return;
+
+      var rawRows = parsedFile.rawRows || [parsedFile.headers].concat(parsedFile.rows);
+      var headerIdx = parsedFile.headerRowIdx || 0;
+      var PREVIEW_MAX = Math.min(rawRows.length, Math.max(headerIdx + 12, 15));
+
+      var maxCols = 0;
+      for (var r = 0; r < PREVIEW_MAX; r++) {
+        if (rawRows[r] && rawRows[r].length > maxCols) maxCols = rawRows[r].length;
+      }
+      if (maxCols === 0 && parsedFile.headers) maxCols = parsedFile.headers.length;
+
+      var headHtml = '<tr><th style="width:140px; text-align:center;">' + esc(tt('importStep4Status', 'Role / Row')) + '</th>';
+      for (var c = 0; c < maxCols; c++) {
+        var hName = (parsedFile.headers && parsedFile.headers[c]) ? parsedFile.headers[c] : ('Col ' + (c + 1));
+        headHtml += '<th>' + esc(hName) + '</th>';
+      }
+      headHtml += '</tr>';
+
+      var bodyHtml = '';
+      for (var i = 0; i < PREVIEW_MAX; i++) {
+        var isHeader = (i === headerIdx);
+        var isClutter = (i < headerIdx);
+        var rowClass = isHeader ? 'header-row-selected' : (isClutter ? 'clutter-row clickable-row' : 'clickable-row');
+        
+        var badgeHtml = '';
+        if (isHeader) {
+          badgeHtml = '<span class="row-badge-header">' + tt('importRowHeaderTag', '👑 Header') + ' (#' + (i + 1) + ')</span>';
+        } else if (isClutter) {
+          badgeHtml = '<span class="row-badge-clutter">' + tt('importRowClutterTag', 'Skipped') + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '">👑</button>';
+        } else {
+          badgeHtml = '<span class="row-badge-data">' + tt('importRowDataTag', 'Data') + ' ' + (i - headerIdx) + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '">👑</button>';
+        }
+
+        bodyHtml += '<tr class="' + rowClass + '" onclick="window.onStartRowSelectChange(' + i + ')" title="' + esc(isHeader ? 'Active Header Row' : 'Click to set as Header Row') + '">';
+        bodyHtml += '<td class="row-role-cell" style="text-align:center;">' + badgeHtml + '</td>';
+
+        var cells = rawRows[i] || [];
+        for (var col = 0; col < maxCols; col++) {
+          var val = cells[col] !== undefined && cells[col] !== null ? String(cells[col]).trim() : '';
+          bodyHtml += '<td>' + esc(val.substring(0, 60)) + '</td>';
+        }
+        bodyHtml += '</tr>';
+      }
+
+      var statsHtml = '<div class="preview-stats-bar">' +
+        '<span>👑 ' + tt('importRowHeaderTag', 'Header Row') + ': <strong>#' + (headerIdx + 1) + '</strong> (' + esc(parsedFile.headers.join(' | ').substring(0, 45)) + '...)</span>' +
+        '<span>📊 <strong>' + parsedFile.rows.length + '</strong> ' + tt('importRowsTotal', 'data rows') + (headerIdx > 0 ? (' (' + headerIdx + ' ' + tt('importRowsExcluded', 'clutter rows skipped') + ')') : '') + '</span>' +
+        '</div>';
+
+      table.innerHTML = '<thead>' + headHtml + '</thead><tbody>' + bodyHtml + '</tbody>';
+      
+      var existingStats = wrap.querySelector('.preview-stats-bar');
+      if (existingStats) existingStats.remove();
+      wrap.appendChild(document.createRange().createContextualFragment(statsHtml));
+      wrap.classList.add('visible');
     }
 
     // ── Column mapping ──────────────────────────────────────────

@@ -683,7 +683,6 @@
         <button type="button" class="topt-tab-btn" data-tab="coeff" data-i18n="gsToptTabCoeff">Weighting</button>
         <button type="button" class="topt-tab-btn" data-tab="grading" data-i18n="gsToptTabGrading">Grading Scale</button>
         <button type="button" class="topt-tab-btn" data-tab="criteria" data-i18n="gsToptTabCriteria">Criteria</button>
-        <button type="button" class="topt-tab-btn" data-tab="preview" data-i18n="gsToptTabPreview">Grade Preview</button>
       </div>
 
       <!-- Tab Content Panels Body -->
@@ -770,14 +769,100 @@
               <div class="form-group">
                 <label data-i18n="gsGradingLabelMode">Calculation Mode</label>
                 <div id="topt-grading-mode" class="chip-group">
-                  <button type="button" class="chip" data-value="formula" data-i18n="gsGradingModeFormula">Formula (one % reference)</button>
-                  <button type="button" class="chip" data-value="manual" data-i18n="gsToptModeManualPct">Manual % per grade</button>
-                  <button type="button" class="chip" data-value="manual-points" data-i18n="gsToptModeManualPts">Manual pts per grade</button>
+                  <button type="button" class="chip" data-value="formula" data-i18n="gsGradingModeFormula">Swiss Pivot</button>
+                  <button type="button" class="chip" data-value="linear" data-i18n="gsGradingModeLinear">Linear</button>
+                  <button type="button" class="chip" data-value="manual" data-i18n="gsGradingModeManual">Manual %</button>
+                  <button type="button" class="chip" data-value="manual-points" data-i18n="gsGradingModeManualPts">Manual pts</button>
+                  <button type="button" class="chip" data-value="equation" data-i18n="gsToptModeEquation">Equation</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+                  <div class="form-group" style="margin:0;">
+                    <label for="topt-grading-min-grade" data-i18n="gsGradingLabelMinGrade">Min Grade</label>
+                    <input id="topt-grading-min-grade" class="input" type="number" step="0.1" value="1.5" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label for="topt-grading-max-grade" data-i18n="gsGradingLabelMaxGrade">Max Grade</label>
+                    <input id="topt-grading-max-grade" class="input" type="number" step="0.1" value="6" />
+                  </div>
+                  <div class="form-group" style="margin:0;">
+                    <label for="topt-grading-interval" data-i18n="gsGradingLabelInterval">Grade Step</label>
+                    <select id="topt-grading-interval" class="input">
+                      <option value="0.5">0.5</option>
+                      <option value="0.25">0.25</option>
+                      <option value="0.1">0.1</option>
+                      <option value="1">1.0</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <div id="topt-grading-formula-wrap" class="form-group">
-                <label for="topt-grading-pass4" data-i18n="gsGradingLabelPass4">% required for grade 4</label>
-                <input id="topt-grading-pass4" class="input" type="number" min="0" max="100" step="0.1" />
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                  <label for="topt-grading-pass4" data-i18n="gsGradingLabelPass4">% required for grade 4</label>
+                  <span id="topt-grading-pass4-eval" style="font-size:0.75rem;font-weight:700;color:var(--primary,#2563eb);"></span>
+                </div>
+                <input id="topt-grading-pass4" class="input" type="text" placeholder="e.g. 60 or 3.75/6" />
+              </div>
+              <div id="topt-grading-equation-wrap" class="form-group hidden">
+                <div class="eq-builder-wrap">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                    <label for="topt-grading-equation-input" class="eq-section-label" style="margin:0;" data-i18n="gsGradingEqFormula">Custom Formula</label>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <label for="topt-grading-equation-round" class="eq-section-label" style="margin:0;font-size:0.68rem;" data-i18n="gsGradingEqRounding">Rounding</label>
+                      <select id="topt-grading-equation-round" class="input" style="padding:2px 6px;font-size:0.75rem;height:24px;width:68px;">
+                        <option value="0.5">0.5</option>
+                        <option value="0.25">0.25</option>
+                        <option value="0.1">0.1</option>
+                        <option value="0.01">0.01</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                  </div>
+                  <input id="topt-grading-equation-input" class="eq-formula-input" type="text" placeholder="e.g. minGrade + (maxGrade - minGrade) * (pts - minPts) / (totalPts - minPts)" data-i18n-placeholder="gsGradingEqPlaceholder" spellcheck="false" autocomplete="off" />
+                  
+                  <div>
+                    <div class="eq-section-label" data-i18n="gsGradingEqVars">Metrics &amp; Variables</div>
+                    <div class="eq-chips-row" id="topt-eq-var-chips">
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="pts" title="Student Scored Points" data-i18n-title="gsGradingEqVarPts">pts</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="totalPts" title="Total Available Test Points" data-i18n-title="gsGradingEqVarTotalPts">totalPts</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="minPts" title="Minimum Points" data-i18n-title="gsGradingEqVarMinPts">minPts</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="passPts" title="Passing Points (Grade 4)" data-i18n-title="gsGradingEqVarPassPts">passPts</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="maxGrade" title="Max Grade (e.g. 6)" data-i18n-title="gsGradingEqVarMaxGrade">maxGrade</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="minGrade" title="Min Grade (e.g. 1.5)" data-i18n-title="gsGradingEqVarMinGrade">minGrade</button>
+                      <button type="button" class="eq-chip eq-chip-var" data-insert="passGrade" title="Pass Grade (e.g. 4)" data-i18n-title="gsGradingEqVarPassGrade">passGrade</button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="eq-section-label" data-i18n="gsGradingEqOperators">Operators &amp; Math</div>
+                    <div class="eq-chips-row" id="topt-eq-op-chips">
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" + ">+</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" - ">-</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" * ">*</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" / ">/</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" ^ ">^</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert="()">()</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" >= ">&gt;=</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert=" ?  : ">? :</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert="min(, )">min</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert="max(, )">max</button>
+                      <button type="button" class="eq-chip eq-chip-op" data-insert="round(, 0.5)">round</button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="eq-section-label" data-i18n="gsGradingEqPresets">Presets</div>
+                    <div class="eq-chips-row" id="topt-eq-preset-chips">
+                      <button type="button" class="eq-chip eq-chip-preset" data-preset="swiss" data-i18n="gsGradingEqPresetSwiss" data-i18n-title="gsGradingEqPresetSwissDesc" title="Two-slope scale: 5 equal intervals below Grade 4, and 5 equal intervals above Grade 4.">Swiss Pivot (Pass %)</button>
+                      <button type="button" class="eq-chip eq-chip-preset" data-preset="linear" data-i18n="gsGradingEqPresetLinear" data-i18n-title="gsGradingEqPresetLinearDesc" title="Uniform slope from Min Grade (0%) to Max Grade (100%).">Pure Linear (100% = Max)</button>
+                      <button type="button" class="eq-chip eq-chip-preset" data-preset="linearBuffer" data-i18n="gsGradingEqPresetLinearBuffer" data-i18n-title="gsGradingEqPresetLinearBufferDesc" title="Linear slope reaching Max Grade at 90% with top buffer for full marks (6+).">Linear with Buffer (90% = Max)</button>
+                    </div>
+                  </div>
+
+                  <div class="eq-status-row">
+                    <span id="topt-eq-status" class="eq-status-badge valid" data-i18n="gsGradingEqValid">Valid formula</span>
+                    <div id="topt-eq-samples" class="eq-samples-bar"></div>
+                  </div>
+                </div>
               </div>
             </div>
             <div id="topt-grading-model-wrap" class="form-group" style="margin-top:8px;">
@@ -790,6 +875,17 @@
             <div class="topt-card-title" data-i18n="gsGradingManualTitle">Grade Step Thresholds</div>
             <div id="topt-grading-manual-note" style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;"></div>
             <div id="topt-grading-thresholds" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+          </div>
+
+          <!-- Live Grade Simulation Scale Preview in Grading Tab -->
+          <div class="topt-card" style="margin-top:16px;">
+            <div class="topt-card-title">
+              <span data-i18n="gsToptPreviewTitle">Live Grade Simulation</span>
+            </div>
+            <p style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;" data-i18n="gsToptPreviewHelp">
+              Visual horizontal grade scale with spatially proportioned intervals, points, and percentages.
+            </p>
+            <div id="topt-preview-content"></div>
           </div>
         </div>
 
@@ -840,19 +936,6 @@
               </div>
               <button id="topt-criteria-add" class="btn primary" type="button" style="width:100%;" data-i18n="gsRefAddCriterion"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Criterion</button>
             </div>
-          </div>
-        </div>
-
-        <!-- Tab 5: Live Grade Preview -->
-        <div class="topt-tab-panel" data-tab="preview">
-          <div class="topt-card">
-            <div class="topt-card-title">
-              <span data-i18n="gsToptPreviewTitle">Live Grade Simulation</span>
-            </div>
-            <p style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;" data-i18n="gsToptPreviewHelp">
-              Live point-to-grade mapping based on current criteria total and grading scale parameters.
-            </p>
-            <div id="topt-preview-content"></div>
           </div>
         </div>
 
@@ -1593,55 +1676,45 @@
 
     function getTestGradeSteps(config) {
       if (!config || !config.grading) return GRADE_STEPS.slice();
-      if (config.grading.modelKey) {
+      const minG = config.grading.minGrade != null ? Number(config.grading.minGrade) : 1.5;
+      const maxG = config.grading.maxGrade != null ? Number(config.grading.maxGrade) : 6;
+      const interval = config.grading.interval != null ? Number(config.grading.interval) : 0.5;
+
+      let steps = null;
+      if (config.grading.mode === "manual" && config.grading.modelKey && config.grading.modelKey !== "custom") {
         const model = getScaleModel(config.grading.modelKey);
-        if (model) return getScaleModelGradeSteps(model);
+        if (model) steps = getScaleModelGradeSteps(model);
       }
-      if (config.grading.maxGrade != null && config.grading.minGrade != null && config.grading.interval != null) {
-        return computeScaleGradeSteps(config.grading.maxGrade, config.grading.minGrade, config.grading.interval);
+      if (!steps) {
+        steps = computeScaleGradeSteps(maxG, minG, interval);
       }
-      if (config.grading.manualThresholds && typeof config.grading.manualThresholds === "object") {
-        const keys = Object.keys(config.grading.manualThresholds)
-          .map(k => toNumber(k))
-          .filter(v => v != null);
-        if (keys.length > 1) {
-          keys.sort((a, b) => b - a);
-          return keys;
-        }
-      }
-      return GRADE_STEPS.slice();
+      return steps.filter(g => g >= minG - 1e-4 && g <= maxG + 1e-4).sort((a, b) => b - a);
     }
 
-    function buildManualPointsFromPercents(percentThresholds, totalPossible, totalMin = 0, gradeSteps = null) {
+    function buildManualPointsFromPercents(percentThresholds, totalPossible, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
-      const span = safeTotal - safeMin;
       const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
       const points = {};
       steps.forEach(grade => {
         const key = String(grade);
         const pct = Math.max(0, Math.min(100, toNumber(percentThresholds && percentThresholds[key]) ?? 0));
-        points[key] = span > 0 ? safeMin + (pct / 100) * span : (safeTotal > 0 ? (pct / 100) * safeTotal : 0);
+        points[key] = safeTotal > 0 ? (pct / 100) * safeTotal : 0;
       });
       return points;
     }
 
-    function buildManualPercentsFromPoints(pointsThresholds, totalPossible, fallbackPercents, totalMin = 0, gradeSteps = null) {
+    function buildManualPercentsFromPoints(pointsThresholds, totalPossible, fallbackPercents, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
-      const span = safeTotal - safeMin;
       const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
       const percents = {};
       steps.forEach(grade => {
         const key = String(grade);
         const fallback = Math.max(0, Math.min(100, toNumber(fallbackPercents && fallbackPercents[key]) ?? 0));
         const pts = toNumber(pointsThresholds && pointsThresholds[key]);
-        if (pts == null) {
-          percents[key] = fallback;
-        } else if (span <= 0) {
+        if (pts == null || safeTotal <= 0) {
           percents[key] = fallback;
         } else {
-          percents[key] = Math.max(0, Math.min(100, ((pts - safeMin) / span) * 100));
+          percents[key] = Math.max(0, Math.min(100, (pts / safeTotal) * 100));
         }
       });
       return percents;
@@ -1897,61 +1970,72 @@
 
     function getCriterionGradeStops(criterion, minPts, maxPts) {
       const resolved = resolveCriterionProps(criterion);
-      const grades = resolved.grades;
-      if (!grades.length) return [];
-
-      const numeric = grades
-        .map((key, idx) => ({
-          key: String(key),
-          value: toNumber(key),
-          color: resolved.colors[key] || getDefaultGradeColor(key, idx, grades.length)
-        }))
-        .filter(entry => entry.value != null)
-        .sort((a, b) => a.value - b.value);
-
-      if (!numeric.length) return [];
-
-      const minGradeVal = numeric[0].value;
-      const maxGradeVal = numeric[numeric.length - 1].value;
-      const gradeSpan = maxGradeVal - minGradeVal;
       const safeMin = minPts != null ? minPts : resolved.minPoints;
       const safeMax = maxPts != null ? maxPts : resolved.maxPoints;
       const ptsSpan = Math.max(0, safeMax - safeMin);
       const critInterval = resolved.interval;
 
-      return numeric.map((item, idx) => {
-        const ratio = gradeSpan > 0 ? (item.value - minGradeVal) / gradeSpan : (numeric.length > 1 ? idx / (numeric.length - 1) : 0.5);
-        const clampedRatio = Math.max(0, Math.min(1, ratio));
-        const ptsValue = safeMin + clampedRatio * ptsSpan;
-        const roundedPts = Number((Math.round((ptsValue - safeMin) / critInterval) * critInterval + safeMin).toFixed(2));
-        return {
-          key: item.key,
-          value: item.value,
-          color: item.color,
-          ratio: clampedRatio,
-          ptsValue: Math.max(safeMin, Math.min(safeMax, roundedPts))
-        };
-      });
+      function getStopColorForPts(currentPts, ratio) {
+        const key = nearestCriterionGradeKey(criterion, null, currentPts, safeMin, safeMax);
+        if (key) {
+          const col = (resolved.colors && resolved.colors[key]) ||
+                      (resolved.xlsm && resolved.xlsm.colors && resolved.xlsm.colors[key]) ||
+                      (criterion && criterion.colors && criterion.colors[key]) ||
+                      getScaleGradeColor(key);
+          if (col) return col;
+        }
+        if (ratio <= 0.15) return "#ef4444";
+        if (ratio <= 0.35) return "#f97316";
+        if (ratio <= 0.55) return "#eab308";
+        if (ratio <= 0.75) return "#84cc16";
+        return "#10b981";
+      }
+
+      const stops = [];
+      const numSteps = ptsSpan > 0 ? Math.round(ptsSpan / critInterval) : 0;
+      
+      let stepJump = critInterval;
+      if (numSteps > 20) stepJump = critInterval * Math.ceil(numSteps / 6);
+      else if (numSteps > 10) stepJump = critInterval * 2;
+
+      for (let pts = safeMin; pts <= safeMax + 1e-4; pts += stepJump) {
+        const currentPts = Math.min(safeMax, Number(pts.toFixed(2)));
+        const ratio = ptsSpan > 0 ? (currentPts - safeMin) / ptsSpan : 0;
+        const color = getStopColorForPts(currentPts, ratio);
+        const key = nearestCriterionGradeKey(criterion, null, currentPts, safeMin, safeMax);
+        stops.push({
+          key: fmt(currentPts),
+          label: fmt(currentPts),
+          gradeKey: key,
+          value: currentPts,
+          color,
+          ratio: Math.max(0, Math.min(1, ratio)),
+          ptsValue: currentPts
+        });
+        if (currentPts >= safeMax) break;
+      }
+      if (stops.length === 0 || stops[stops.length - 1].ptsValue < safeMax) {
+        const color = getStopColorForPts(safeMax, 1.0);
+        const key = nearestCriterionGradeKey(criterion, null, safeMax, safeMin, safeMax);
+        stops.push({
+          key: fmt(safeMax),
+          label: fmt(safeMax),
+          gradeKey: key,
+          value: safeMax,
+          color,
+          ratio: 1.0,
+          ptsValue: safeMax
+        });
+      }
+      return stops;
     }
 
     function buildCriterionSliderGradient(criterion, minPts, maxPts) {
       const stops = getCriterionGradeStops(criterion, minPts, maxPts);
-      if (!stops.length) return "linear-gradient(to right, #dc2626 0%, #16a34a 100%)";
+      if (!stops.length) return "linear-gradient(to right, #ef4444 0%, #f59e0b 50%, #10b981 100%)";
       if (stops.length === 1) return stops[0].color;
 
-      const gradientStops = [];
-      const count = stops.length;
-
-      for (let i = 0; i < count; i++) {
-        const color = stops[i].color;
-        const prevRatio = i === 0 ? 0 : stops[i - 1].ratio;
-        const currRatio = stops[i].ratio;
-        const nextRatio = i === count - 1 ? 1 : stops[i + 1].ratio;
-        const startPct = i === 0 ? 0 : ((prevRatio + currRatio) / 2) * 100;
-        const endPct = i === count - 1 ? 100 : ((currRatio + nextRatio) / 2) * 100;
-        gradientStops.push(`${color} ${startPct.toFixed(1)}%`);
-        gradientStops.push(`${color} ${endPct.toFixed(1)}%`);
-      }
+      const gradientStops = stops.map(s => `${s.color} ${(s.ratio * 100).toFixed(1)}%`);
       return `linear-gradient(to right, ${gradientStops.join(", ")})`;
     }
 
@@ -1983,30 +2067,40 @@
 
       const maxKey = numeric[0].value;
       const minKey = numeric[numeric.length - 1].value;
-      const keySpan = maxKey - minKey;
+      const keySpan = Math.max(0, maxKey - minKey);
 
-      const safeMinPts = minPts != null ? minPts : (toNumber(criterion && criterion.minPoints) ?? 0);
-      const safeMaxPts = maxPts != null ? maxPts : (toNumber(criterion && criterion.maxPoints) ?? maxKey);
+      const safeMinPts = minPts != null ? Number(minPts) : (toNumber(criterion && criterion.minPoints) ?? minKey);
+      const safeMaxPts = maxPts != null ? Number(maxPts) : (toNumber(criterion && criterion.maxPoints) ?? maxKey);
+      const ptsSpan = Math.max(0, safeMaxPts - safeMinPts);
 
-      let target;
-      if (points != null && safeMaxPts >= safeMinPts) {
-        const ptsSpan = safeMaxPts - safeMinPts;
-        const ratio = ptsSpan > 0 ? Math.max(0, Math.min(1, (points - safeMinPts) / ptsSpan)) : 1;
-        target = keySpan > 0 ? minKey + ratio * keySpan : maxKey;
-      } else if (points != null) {
-        target = Number(points);
-      } else if (grade != null) {
-        target = Number(grade);
-      } else {
-        target = NaN;
+      if (points != null) {
+        const p = Number(points);
+        // Direct match if point scale aligns with criterion levels (e.g. 1.5 - 6 or 0 - 6):
+        if (Math.abs(safeMaxPts - maxKey) < 1e-4 && (Math.abs(safeMinPts - minKey) < 1e-4 || safeMinPts <= minKey)) {
+          for (const entry of numeric) {
+            if (p >= entry.value - 1e-4) return entry.key;
+          }
+          return numeric[numeric.length - 1].key;
+        }
+        // Proportional threshold mapping across [safeMinPts, safeMaxPts]:
+        for (let i = 0; i < numeric.length; i++) {
+          const entry = numeric[i];
+          const levelRatio = keySpan > 0 ? (entry.value - minKey) / keySpan : ((numeric.length - 1 - i) / (numeric.length - 1));
+          const levelPts = safeMinPts + levelRatio * ptsSpan;
+          if (p >= levelPts - 1e-4) return entry.key;
+        }
+        return numeric[numeric.length - 1].key;
       }
 
-      if (Number.isNaN(target)) return available[available.length - 1] || null;
-
-      for (const entry of numeric) {
-        if (target >= entry.value - 1e-9) return entry.key;
+      if (grade != null) {
+        const g = Number(grade);
+        for (const entry of numeric) {
+          if (g >= entry.value - 1e-4) return entry.key;
+        }
+        return numeric[numeric.length - 1].key;
       }
-      return numeric[numeric.length - 1].key;
+
+      return available[available.length - 1] || null;
     }
 
     function loadReferenceDataOverrides() {
@@ -2711,7 +2805,9 @@
           pendingModelKey: "linear",
           manualInputMode: "percent",
           manualThresholds,
-          manualPoints: buildManualPointsFromPercents(manualThresholds, 0)
+          manualPoints: buildManualPointsFromPercents(manualThresholds, 0),
+          equationFormula: "minGrade + 2 * (passGrade - minGrade) * (pts - minPts) / (totalPts - minPts)",
+          equationRounding: "0.5"
         }
       };
     }
@@ -2769,9 +2865,15 @@
             }
 
             if (cfg.grading && typeof cfg.grading === "object") {
-              if (cfg.grading.minGrade == null) cfg.grading.minGrade = 1;
+              if (cfg.grading.minGrade == null) cfg.grading.minGrade = 1.5;
               if (cfg.grading.maxGrade == null) cfg.grading.maxGrade = 6;
               if (cfg.grading.interval == null) cfg.grading.interval = 0.5;
+              if (typeof cfg.grading.equationFormula !== "string" || !cfg.grading.equationFormula) {
+                cfg.grading.equationFormula = "minGrade + 2 * (passGrade - minGrade) * (pts - minPts) / (totalPts - minPts)";
+              }
+              if (!cfg.grading.equationRounding) {
+                cfg.grading.equationRounding = "0.5";
+              }
               if (!cfg.grading.manualThresholds || typeof cfg.grading.manualThresholds !== "object") {
                 cfg.grading.manualThresholds = defaultManualThresholdPercentMap();
               }
@@ -2781,7 +2883,6 @@
                 cfg.grading.manualPoints = buildManualPointsFromPercents(
                   cfg.grading.manualThresholds,
                   totals.totalPossible,
-                  totals.totalMin || 0,
                   steps
                 );
               }
@@ -2891,52 +2992,198 @@
       return { totalPossible, totalScored, totalMin, totalBonusPossible, totalBonusScored, totalBonusMin };
     }
 
-    function formulaThresholdForGrade(grade, passPercentGrade4) {
-      const passRatio = Math.max(0, Math.min(1, (passPercentGrade4 || 0) / 100));
-      if (grade <= 4) {
-        const stepBelow = passRatio / 5;
-        const halfStepsBelow = (grade - 1.5) / 0.5;
-        const ratio = halfStepsBelow * stepBelow;
-        return Math.max(0, Math.min(1, ratio));
+    function evaluateGradingEquation(formulaStr, vars = {}) {
+      if (!formulaStr || typeof formulaStr !== "string" || !formulaStr.trim()) {
+        return { ok: false, error: "Empty formula", grade: null };
       }
-      const stepAbove = (1 - passRatio) / 5;
-      const halfStepsAbove = (grade - 4) / 0.5;
-      const ratioAbove = passRatio + halfStepsAbove * stepAbove;
-      return Math.max(0, Math.min(1, ratioAbove));
+      const clean = formulaStr.trim();
+      const forbidden = /\b(window|document|eval|Function|constructor|localStorage|sessionStorage|import|require|fetch|XMLHttpRequest|process|global|globalThis|setTimeout|setInterval|alert|prompt|confirm|console)\b/i;
+      if (forbidden.test(clean)) {
+        return { ok: false, error: "Disallowed token in formula", grade: null };
+      }
+
+      const minG = Number(vars.minGrade != null ? vars.minGrade : 1);
+      const maxG = Number(vars.maxGrade != null ? vars.maxGrade : 6);
+      const passG = Number(vars.passGrade != null ? vars.passGrade : 4);
+      const totalP = Number(vars.totalPts != null ? vars.totalPts : 100);
+      const minP = Number(vars.minPts != null ? vars.minPts : 0);
+      const passP = Number(vars.passPts != null ? vars.passPts : (minP + (totalP - minP) * 0.6667));
+      const pts = Number(vars.pts != null ? vars.pts : 0);
+
+      const expr = clean.replace(/\^/g, "**");
+
+      const mathScope = {
+        min: Math.min,
+        max: Math.max,
+        round: (x, step) => {
+          const s = Number(step);
+          if (s > 0) return Math.round(x / s) * s;
+          return Math.round(x);
+        },
+        floor: Math.floor,
+        ceil: Math.ceil,
+        abs: Math.abs,
+        sqrt: Math.sqrt,
+        pow: Math.pow,
+        log: Math.log,
+        pts, points: pts, point: pts, p: pts, score: pts, scored: pts,
+        totalPts: totalP, maxPts: totalP, totalPoints: totalP, total: totalP,
+        minPts: minP, minPoints: minP,
+        passPts: passP, passPoints: passP,
+        maxGrade: maxG,
+        minGrade: minG,
+        passGrade: passG
+      };
+
+      try {
+        const keys = Object.keys(mathScope);
+        const values = Object.values(mathScope);
+        const fn = new Function(...keys, `"use strict"; return (${expr});`);
+        const raw = fn(...values);
+        if (typeof raw !== "number" || isNaN(raw) || !isFinite(raw)) {
+          return { ok: false, error: "Result is not a finite number", grade: null };
+        }
+        let grade = Math.max(minG, Math.min(maxG, raw));
+        const rMode = String(vars.rounding || "0.5");
+        if (rMode === "0.5") {
+          grade = Math.round(grade * 2) / 2;
+        } else if (rMode === "0.25") {
+          grade = Math.round(grade * 4) / 4;
+        } else if (rMode === "0.1") {
+          grade = Math.round(grade * 10) / 10;
+        } else if (rMode === "0.01") {
+          grade = Math.round(grade * 100) / 100;
+        } else if (rMode !== "none" && !isNaN(Number(rMode)) && Number(rMode) > 0) {
+          const step = Number(rMode);
+          grade = Math.round(grade / step) * step;
+        }
+        return { ok: true, grade, raw };
+      } catch (err) {
+        return { ok: false, error: err.message || "Syntax error", grade: null };
+      }
+    }
+
+    function evaluatePass4Formula(inputStr, defaultVal = 66.67) {
+      if (inputStr == null) return defaultVal;
+      const str = String(inputStr).trim().replace(/%/g, "");
+      if (!str) return defaultVal;
+      const num = Number(str);
+      if (!isNaN(num)) {
+        if (num > 0 && num <= 1) return Math.max(0, Math.min(100, Math.round(num * 10000) / 100));
+        return Math.max(0, Math.min(100, num));
+      }
+      try {
+        if (!/^[0-9\.\s\+\-\*\/\(\)]+$/.test(str)) return defaultVal;
+        const res = new Function(`return (${str});`)();
+        if (typeof res === "number" && isFinite(res)) {
+          if (res > 0 && res <= 1) return Math.max(0, Math.min(100, Math.round(res * 10000) / 100));
+          return Math.max(0, Math.min(100, Math.round(res * 100) / 100));
+        }
+      } catch (e) {}
+      return defaultVal;
+    }
+
+    function formulaThresholdForGrade(grade, passPercentGrade4, minGrade = 1.5, maxGrade = 6, passGrade = 4, interval = 0.5) {
+      const minG = Number(minGrade != null ? minGrade : 1.5);
+      const maxG = Number(maxGrade != null ? maxGrade : 6);
+      const passG = Number(passGrade != null ? passGrade : 4);
+      const step = Number(interval != null && interval > 0 ? interval : 0.5);
+      const passVal = evaluatePass4Formula(passPercentGrade4, 66.67);
+      const passRatio = Math.max(0, Math.min(1, (passVal || 0) / 100));
+
+      if (grade <= minG) return 0;
+      if (grade > maxG) return 1;
+
+      if (grade <= passG) {
+        const halfStepsBelow = (passG - minG) / step; // e.g. (4 - 1.5) / 0.5 = 5 intervals
+        if (halfStepsBelow <= 0) return 0;
+        const currentHalfSteps = (grade - minG) / step;
+        const ratio = (currentHalfSteps / halfStepsBelow) * passRatio;
+        return Math.max(0, Math.min(1, ratio));
+      } else {
+        // Above 4: exactly 5 intervals (4–4.5, 4.5–5, 5–5.5, 5.5–6, 6+)
+        const halfStepsAboveTotal = Math.max(1, (maxG - passG + step) / step);
+        const currentHalfStepsAbove = (grade - passG) / step;
+        const ratioAbove = passRatio + (currentHalfStepsAbove / halfStepsAboveTotal) * (1 - passRatio);
+        return Math.max(0, Math.min(1, ratioAbove));
+      }
     }
 
     function getThresholds(config) {
       const steps = getTestGradeSteps(config);
-      if (config.grading.mode === "manual") {
-        const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0, totalMin: 0 };
+      const minG = config && config.grading && config.grading.minGrade != null ? Number(config.grading.minGrade) : 1.5;
+      const maxG = config && config.grading && config.grading.maxGrade != null ? Number(config.grading.maxGrade) : 6;
+      const interval = config && config.grading && config.grading.interval != null ? Number(config.grading.interval) : 0.5;
+      const grading = (config && config.grading) || { mode: "formula", passPercentGrade4: 66.67 };
+
+      if (grading.mode === "manual") {
+        const totals = Array.isArray(config && config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
         const totalPossible = Math.max(0, totals.totalPossible);
-        const totalMin = Math.max(0, totals.totalMin || 0);
-        const span = Math.max(0, totalPossible - totalMin);
-        const usePoints = config.grading.manualInputMode === "points";
+        const usePoints = grading.manualInputMode === "points";
         return steps.map(grade => {
           const key = String(grade);
           let ratio;
           if (usePoints) {
-            if (span > 0) {
-              const pts = toNumber(config.grading.manualPoints && config.grading.manualPoints[key]) ?? totalMin;
-              ratio = Math.max(0, Math.min(1, (pts - totalMin) / span));
-            } else if (totalPossible > 0) {
-              const pts = toNumber(config.grading.manualPoints && config.grading.manualPoints[key]) ?? 0;
+            if (totalPossible > 0) {
+              const pts = toNumber(grading.manualPoints && grading.manualPoints[key]) ?? 0;
               ratio = Math.max(0, Math.min(1, pts / totalPossible));
             } else {
               ratio = 0;
             }
           } else {
-            const pct = toNumber(config.grading.manualThresholds && config.grading.manualThresholds[key]) ?? 0;
+            const pct = toNumber(grading.manualThresholds && grading.manualThresholds[key]) ?? 0;
             ratio = Math.max(0, Math.min(1, pct / 100));
           }
           return { grade, ratio };
         }).sort((a, b) => b.grade - a.grade);
       }
 
+      if (grading.mode === "equation") {
+        const totals = Array.isArray(config && config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
+        const totalPossible = Math.max(0, totals.totalPossible);
+        const totalPts = totalPossible > 0 ? totalPossible : 100;
+        const passPercent = grading.passPercentGrade4 || 66.67;
+        const passPts = totalPts * (passPercent / 100);
+        const passGrade = 4;
+        const formula = grading.equationFormula || "minGrade + 2 * (passGrade - minGrade) * pts / totalPts";
+
+        return steps.map(grade => {
+          let lowestRatio = 1.0;
+          const numSamples = 1000;
+          for (let i = 0; i <= numSamples; i++) {
+            const r = i / numSamples;
+            const pts = r * totalPts;
+            const res = evaluateGradingEquation(formula, {
+              pts,
+              totalPts,
+              minPts: 0,
+              passPts,
+              maxGrade: maxG,
+              minGrade: minG,
+              passGrade,
+              rounding: "none"
+            });
+            const g = (res && res.ok && res.grade != null) ? res.grade : (minG + (maxG - minG) * r);
+            if (g + 1e-4 >= grade) {
+              lowestRatio = r;
+              break;
+            }
+          }
+          return { grade, ratio: lowestRatio };
+        }).sort((a, b) => b.grade - a.grade);
+      }
+
+      if (grading.mode === "linear") {
+        const spanGrade = maxG - minG;
+        return steps.map(grade => {
+          const ratio = spanGrade > 0 ? Math.max(0, Math.min(1, (grade - minG) / spanGrade)) : 0;
+          return { grade, ratio };
+        }).sort((a, b) => b.grade - a.grade);
+      }
+
       return steps.map(grade => ({
         grade,
-        ratio: formulaThresholdForGrade(grade, config.grading.passPercentGrade4)
+        ratio: formulaThresholdForGrade(grade, grading.passPercentGrade4, minG, maxG, 4, interval)
       })).sort((a, b) => b.grade - a.grade);
     }
 
@@ -2970,12 +3217,11 @@
     function applyScaleModelToConfig(config, modelKey) {
       const model = getScaleModel(modelKey);
       if (!model) return;
-      const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0, totalMin: 0 };
+      const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
       const totalPossible = Math.max(0, totals.totalPossible);
-      const totalMin = Math.max(0, totals.totalMin || 0);
       const steps = getScaleModelGradeSteps(model);
       config.grading.manualThresholds = {};
-      config.grading.minGrade = model.minGrade != null ? model.minGrade : 1;
+      config.grading.minGrade = model.minGrade != null ? model.minGrade : 1.5;
       config.grading.maxGrade = model.maxGrade != null ? model.maxGrade : 6;
       config.grading.interval = model.interval != null ? model.interval : 0.5;
       steps.forEach(g => {
@@ -2985,7 +3231,6 @@
       config.grading.manualPoints = buildManualPointsFromPercents(
         config.grading.manualThresholds,
         totalPossible,
-        totalMin,
         steps
       );
       config.grading.mode = "manual";
@@ -2996,24 +3241,24 @@
     function gradeFromRatio(ratio, config) {
       const safeRatio = Math.max(0, Math.min(1, ratio || 0));
       const thresholds = getThresholds(config);
+      const minG = config.grading && config.grading.minGrade != null ? config.grading.minGrade : 1.5;
       const found = thresholds.find(t => safeRatio + 1e-4 >= t.ratio);
-      return found ? found.grade : 1;
+      return found ? found.grade : minG;
     }
 
-    function getNextGradeDelta(scoredPoints, totalPossible, config, currentGradeHint, totalMin = 0) {
+    function getNextGradeDelta(scoredPoints, totalPossible, config, currentGradeHint) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      const safeMin = Math.max(0, Math.min(safeTotal, toNumber(totalMin) ?? 0));
-      const span = safeTotal - safeMin;
-      if (span <= 0 && safeTotal <= 0) return null;
-      const safeScored = Math.max(safeMin, toNumber(scoredPoints) ?? safeMin);
+      if (safeTotal <= 0) return null;
+      const safeScored = Math.max(0, toNumber(scoredPoints) ?? 0);
 
       let currentGrade = asGrade(currentGradeHint);
       if (currentGrade == null) {
-        const ratio = span > 0 ? (safeScored - safeMin) / span : (safeTotal > 0 ? safeScored / safeTotal : 0);
+        const ratio = safeTotal > 0 ? safeScored / safeTotal : 0;
         currentGrade = gradeFromRatio(ratio, config);
       }
 
-      const nextGrade = [...GRADE_STEPS]
+      const steps = getTestGradeSteps(config);
+      const nextGrade = [...steps]
         .sort((a, b) => a - b)
         .find(g => g > currentGrade + 1e-9);
       if (nextGrade == null) return null;
@@ -3022,7 +3267,7 @@
       const nextThreshold = thresholds.find(t => Math.abs(t.grade - nextGrade) < 1e-9);
       if (!nextThreshold) return null;
 
-      const targetPoints = span > 0 ? safeMin + nextThreshold.ratio * span : nextThreshold.ratio * safeTotal;
+      const targetPoints = nextThreshold.ratio * safeTotal;
       return {
         nextGrade,
         targetPoints,
@@ -3036,17 +3281,19 @@
       tdDelta.style.color = "";
       tdDelta.title = "";
 
-      const safeTotal = Math.max(0, toNumber(totals && totals.totalPossible) ?? 0);
-      const safeMin = Math.max(0, toNumber(totals && totals.totalMin) ?? 0);
-      if (safeTotal <= 0 && safeMin <= 0) return;
+      if (!config || totals.totalPossible <= 0) return;
+      const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
+      const deltaInfo = getNextGradeDelta(scored, totals.totalPossible, config, currentGradeHint);
+      if (!deltaInfo) return;
 
-      const scored = (toNumber(totals.totalScored) ?? 0) + (toNumber(totals.totalBonusScored) ?? 0);
-      const info = getNextGradeDelta(scored, safeTotal, config, currentGradeHint, safeMin);
-      if (!info) return;
+      const titleText = tFmt('gsNextGradeDeltaTitle', {
+        grade: fmt(deltaInfo.nextGrade),
+        target: fmtN(deltaInfo.targetPoints),
+        delta: fmtN(Math.abs(deltaInfo.delta))
+      });
 
-      const below = info.delta < 0 ? -info.delta : null;
-      const above = info.delta >= 0 ? info.delta : null;
-      const titleText = tFmt('gsNextGradeTitle', { grade: fmtN(info.nextGrade), pts: fmtN(info.targetPoints) });
+      const below = deltaInfo.delta < -1e-9 ? Math.abs(deltaInfo.delta) : null;
+      const above = deltaInfo.delta >= 1e-9 ? deltaInfo.delta : null;
 
       if (below != null) {
         tdDelta.textContent = `-${fmtN(below)}`;
@@ -3074,10 +3321,28 @@
       const criteriaMap = student.criteriaResults[sem][testIndex] || {};
       const totals = calcCriteriaTotals(config, criteriaMap);
       if (totals.totalPossible <= 0) return;
-      const span = totals.totalPossible - (totals.totalMin || 0);
       const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
-      const ratio = span > 0 ? Math.max(0, Math.min(1, (scored - (totals.totalMin || 0)) / span)) : (totals.totalPossible > 0 ? scored / totals.totalPossible : 0);
-      const grade = gradeFromRatio(ratio, config);
+      const ratio = totals.totalPossible > 0 ? Math.max(0, Math.min(1, scored / totals.totalPossible)) : 0;
+
+      let grade;
+      if (config.grading && config.grading.mode === "equation") {
+        const passPercent = config.grading.passPercentGrade4 || 66.67;
+        const passPts = totals.totalPossible * (passPercent / 100);
+        const res = evaluateGradingEquation(config.grading.equationFormula, {
+          pts: scored,
+          totalPts: totals.totalPossible,
+          minPts: 0,
+          passPts,
+          maxGrade: config.grading.maxGrade != null ? config.grading.maxGrade : 6,
+          minGrade: config.grading.minGrade != null ? config.grading.minGrade : 1.5,
+          passGrade: 4,
+          rounding: config.grading.equationRounding || "0.5"
+        });
+        grade = (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, config);
+      } else {
+        grade = gradeFromRatio(ratio, config);
+      }
+
       if (sem === "sem1") {
         student.sem1Tests[testIndex] = grade;
       } else {
@@ -4830,11 +5095,12 @@
 
       const configWrap = document.getElementById("test-config");
       const defaultTotal = calcCriteriaTotals(config, {});
+      const totalPossible = defaultTotal.totalPossible;
       const thresholds = getThresholds(config);
       const thresholdText = thresholds.map(t => {
         const pct = fmt(t.ratio * 100);
-        if (defaultTotal.totalPossible > 0) {
-          const pts = fmt(t.ratio * defaultTotal.totalPossible);
+        if (totalPossible > 0) {
+          const pts = fmt(t.ratio * totalPossible);
           return `${t.grade}=${pct}% (${pts} pts)`;
         }
         return `${t.grade}=${pct}%`;
@@ -4863,9 +5129,11 @@
       // Grading scale chip
       const gradingChip = document.createElement("div");
       gradingChip.className = "config-chip";
-      const scaleDesc = config.grading.mode === "manual"
-        ? (config.grading.manualInputMode === "points" ? t('gsGradingModeManualPts') : t('gsGradingModeManual'))
-        : `${fmt(config.grading.passPercentGrade4)}% → 4`;
+      const scaleDesc = config.grading.mode === "equation"
+        ? (t('gsToptModeEquation') || "Equation")
+        : (config.grading.mode === "manual"
+          ? (config.grading.manualInputMode === "points" ? t('gsGradingModeManualPts') : t('gsGradingModeManual'))
+          : `${fmt(config.grading.passPercentGrade4)}% → 4`);
       gradingChip.innerHTML = `<span class="chip-icon"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /></span><span class="chip-label">${t('gsGradingTitle')}</span><span class="chip-value">${scaleDesc}</span>`;
       gradingChip.addEventListener("click", () => openTestOptionsModal(config, classObj, sem, testIndex, "grading"));
       configWrap.appendChild(gradingChip);
@@ -4894,7 +5162,10 @@
       const infoSpan = document.createElement("span");
       infoSpan.className = "small";
       const totalPts = defaultTotal.totalPossible;
-      const scaleStr = thresholds.map(t => `${fmtN(t.grade)}≥${fmtN(parseFloat((t.ratio * totalPts).toFixed(2)))}pts`).join(" · ");
+      const scaleStr = thresholds.map(t => {
+        const pts = t.ratio * totalPts;
+        return `${fmtN(t.grade)}≥${fmtN(parseFloat(pts.toFixed(2)))}pts`;
+      }).join(" · ");
       const bonusAvail = defaultTotal.totalBonusPossible && defaultTotal.totalBonusPossible > 0 ? ` <span style="color:var(--muted);font-size:0.9em;margin-left:0.5rem;">${tFmt('gsBonusAvailableLabel', { pts: fmtN(defaultTotal.totalBonusPossible) })}</span>` : "";
       infoSpan.innerHTML = `${tFmt('gsTotalPointsLabel', { pts: fmt(totalPts) })} <span style="color:var(--muted);font-size:0.8em;margin-left:0.5em;">${scaleStr}</span>${bonusAvail}`;
       configWrap.appendChild(infoSpan);
@@ -5195,7 +5466,8 @@
 
     function openGradingPopup(config, classObj, sem, testIndex) {
       // Draft copy of grading
-      const totalPossible = Math.max(0, calcCriteriaTotals(config, {}).totalPossible);
+      const popTotals = calcCriteriaTotals(config, {});
+      const totalPossible = Math.max(0, popTotals.totalPossible);
       const draft = {
         mode: config.grading.mode,
         passPercentGrade4: config.grading.passPercentGrade4,
@@ -5362,7 +5634,7 @@
         refreshManualVis();
       };
 
-      pass4El.oninput = () => { draft.passPercentGrade4 = toNumber(pass4El.value) ?? 66.67; };
+      pass4El.oninput = () => { draft.passPercentGrade4 = evaluatePass4Formula(pass4El.value, draft.passPercentGrade4 || 66.67); };
 
       const overlay = document.getElementById("grading-popup-overlay");
       overlay.classList.remove("hidden");
@@ -5555,7 +5827,7 @@
         const targetTab = tabKey || "info";
         overlay.querySelectorAll(".topt-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === targetTab));
         overlay.querySelectorAll(".topt-tab-panel").forEach(p => p.classList.toggle("active", p.dataset.tab === targetTab));
-        if (targetTab === "preview") updateLiveGradePreview();
+        if (targetTab === "grading") updateLiveGradePreview();
       }
       window._toptSwitchTab = switchToptTab;
 
@@ -5608,24 +5880,378 @@
       // ── Grading Scale ──────────────────────────────────────────
       const totals = calcCriteriaTotals(config, {});
       const totalPossible = Math.max(0, totals.totalPossible);
-      const totalMin = Math.max(0, totals.totalMin || 0);
       const gradingDraft = {
         mode: config.grading.mode,
-        passPercentGrade4: config.grading.passPercentGrade4,
+        passPercentGrade4: evaluatePass4Formula(config.grading.passPercentGrade4Formula || config.grading.passPercentGrade4, 66.67),
+        passPercentGrade4Formula: config.grading.passPercentGrade4Formula || (config.grading.passPercentGrade4 != null ? String(config.grading.passPercentGrade4) : "66.67"),
+        minGrade: config.grading.minGrade != null ? config.grading.minGrade : 1.5,
+        maxGrade: config.grading.maxGrade != null ? config.grading.maxGrade : 6,
+        interval: config.grading.interval != null ? config.grading.interval : 0.5,
         modelKey: config.grading.modelKey,
         pendingModelKey: config.grading.pendingModelKey,
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
-          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible, totalMin),
+          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible),
           config.grading.manualPoints || {}
-        )
+        ),
+        equationFormula: config.grading.equationFormula || "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
+        equationRounding: config.grading.equationRounding || "0.5"
       };
 
       const gradingModeEl = document.getElementById("topt-grading-mode");
       const gradingPass4El = document.getElementById("topt-grading-pass4");
+      const gradingMinGradeEl = document.getElementById("topt-grading-min-grade");
+      const gradingMaxGradeEl = document.getElementById("topt-grading-max-grade");
+      const gradingIntervalEl = document.getElementById("topt-grading-interval");
       const gradingModelChips = document.getElementById("topt-grading-model");
       const gradingThreshWrap = document.getElementById("topt-grading-thresholds");
+      const gradingEqWrap = document.getElementById("topt-grading-equation-wrap");
+      const gradingEqInput = document.getElementById("topt-grading-equation-input");
+      const gradingEqRound = document.getElementById("topt-grading-equation-round");
+      const gradingEqStatus = document.getElementById("topt-eq-status");
+      const gradingEqSamples = document.getElementById("topt-eq-samples");
+
+      // ── Live Grade Simulation Preview ─────────────────────────
+      function updateLiveGradePreview() {
+        const container = document.getElementById("topt-preview-content");
+        if (!container) return;
+        const currentCriteria = config.criteria || [];
+        const currentTotals = calcCriteriaTotals({ criteria: currentCriteria }, {});
+        const rawTotPossible = Math.max(0, currentTotals.totalPossible);
+        const totPossible = rawTotPossible > 0 ? rawTotPossible : 100;
+
+        const tmpConfig = { criteria: currentCriteria, grading: Object.assign({}, gradingDraft) };
+        const rawThresholds = getThresholds(tmpConfig);
+        const stepsAsc = [...rawThresholds].sort((a, b) => a.grade - b.grade);
+
+        if (stepsAsc.length === 0) {
+          container.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:0.88rem;">${t('gsNoCriteriaYet')}</div>`;
+          return;
+        }
+
+        const scaleModel = (gradingDraft.pendingModelKey && gradingDraft.pendingModelKey !== "custom")
+          ? getScaleModel(gradingDraft.pendingModelKey)
+          : (gradingDraft.modelKey ? getScaleModel(gradingDraft.modelKey) : null);
+
+        let segmentsHtml = "";
+        let markersHtml = "";
+        let cardsHtml = "";
+
+        function getBadgeContrastTextColor(hex) {
+          if (!hex || typeof hex !== "string") return "#ffffff";
+          try {
+            const lum = getColorLuminance(hex);
+            return lum > 0.52 ? "#0f172a" : "#ffffff";
+          } catch (e) {
+            return "#ffffff";
+          }
+        }
+
+        const maxG = tmpConfig.grading && tmpConfig.grading.maxGrade != null ? tmpConfig.grading.maxGrade : 6;
+
+        stepsAsc.forEach((step, idx) => {
+          const grade = step.grade;
+          const key = String(grade);
+          const ratioStart = Math.max(0, Math.min(1, step.ratio || 0));
+          const nextStep = idx < stepsAsc.length - 1 ? stepsAsc[idx + 1] : null;
+          const ratioEnd = nextStep ? Math.max(ratioStart, Math.min(1, nextStep.ratio || 0)) : 1.0;
+          const segWidth = Math.max(0, (ratioEnd - ratioStart) * 100);
+
+          const ptsStart = ratioStart * totPossible;
+          const ptsEnd = ratioEnd * totPossible;
+          const pctStart = Math.round(ratioStart * 1000) / 10;
+          const pctEnd = Math.round(ratioEnd * 1000) / 10;
+
+          const color = (scaleModel && scaleModel.colors && scaleModel.colors[key]) || getScaleGradeColor(key, gradingDraft.pendingModelKey || gradingDraft.modelKey) || getDefaultGradeColor(key, idx, stepsAsc.length);
+          const textColor = getBadgeContrastTextColor(color);
+
+          // 1. Color Bar Segment
+          if (segWidth > 0.01) {
+            segmentsHtml += `<div class="topt-scale-segment" style="width:${segWidth}%;background:${color};color:${textColor};">${fmt(grade)}</div>`;
+          }
+
+          // 2. Spatial Marker below the bar: pip -> pts -> pct -> grade badge
+          const markerLeft = ratioStart * 100;
+          const isStaggered = (idx % 2 === 1) && stepsAsc.length > 7;
+          const markerTopStyle = isStaggered ? "top:20px;" : "top:0px;";
+          markersHtml += `
+            <div class="topt-scale-marker" style="left:${markerLeft}%;${markerTopStyle}">
+              <div class="topt-scale-pip" style="background:${color};"></div>
+              <div class="topt-scale-pts">${fmtN(ptsStart)}p</div>
+              <div class="topt-scale-pct">${fmtN(pctStart)}%</div>
+              <div class="topt-scale-badge" style="background:${color};color:${textColor};">${fmt(grade)}</div>
+            </div>
+          `;
+
+          // 3. Breakdown card
+          cardsHtml += `
+            <div class="topt-scale-step-card" style="border-left:5px solid ${color};">
+              <div class="topt-scale-step-header">
+                <span class="topt-scale-badge" style="background:${color};color:${textColor};margin:0;">${fmt(grade)}</span>
+                <span class="topt-scale-step-pct">${fmtN(pctStart)}% – ${fmtN(pctEnd)}%</span>
+              </div>
+              <div class="topt-scale-step-range">${fmtN(ptsStart)} – ${fmtN(ptsEnd)} pts</div>
+            </div>
+          `;
+        });
+
+        // Add 100% end marker with max grade
+        markersHtml += `
+          <div class="topt-scale-marker" style="left:100%;">
+            <div class="topt-scale-pip" style="background:#111;"></div>
+            <div class="topt-scale-pts">${fmtN(totPossible)}p</div>
+            <div class="topt-scale-pct">100%</div>
+            <div class="topt-scale-badge" style="background:#111;color:#fff;">${fmt(maxG)}</div>
+          </div>
+        `;
+
+        // Helper to evaluate grade for any points value
+        function calcGradeForPts(ptsVal) {
+          const safeP = Math.max(0, Math.min(totPossible, ptsVal));
+          const r = totPossible > 0 ? safeP / totPossible : 0;
+          if (tmpConfig.grading && tmpConfig.grading.mode === "equation") {
+            const passPercent = tmpConfig.grading.passPercentGrade4 || 66.67;
+            const passPts = totPossible * (passPercent / 100);
+            const res = evaluateGradingEquation(tmpConfig.grading.equationFormula, {
+              pts: safeP,
+              totalPts: totPossible,
+              minPts: 0,
+              passPts,
+              maxGrade: tmpConfig.grading.maxGrade != null ? tmpConfig.grading.maxGrade : 6,
+              minGrade: tmpConfig.grading.minGrade != null ? tmpConfig.grading.minGrade : 1.5,
+              passGrade: 4,
+              rounding: tmpConfig.grading.equationRounding || "0.5"
+            });
+            return (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(r, tmpConfig);
+          }
+          return gradeFromRatio(r, tmpConfig);
+        }
+
+        // Default test points at passing threshold or 60% of total
+        const defaultTestPassPercent = tmpConfig.grading.passPercentGrade4 || 66.67;
+        const initialTestPts = Math.round((totPossible * (defaultTestPassPercent / 100)) * 10) / 10;
+        const initialTestGrade = calcGradeForPts(initialTestPts);
+        const initialGradeColor = (scaleModel && scaleModel.colors && scaleModel.colors[String(initialTestGrade)]) || getScaleGradeColor(String(initialTestGrade), gradingDraft.pendingModelKey || gradingDraft.modelKey) || "#2563eb";
+        const initialGradeTextColor = getBadgeContrastTextColor(initialGradeColor);
+        const initialRatio = totPossible > 0 ? initialTestPts / totPossible : 0;
+
+        let html = `
+          <div class="topt-scale-preview-wrap">
+            <!-- 1. Live Test Score & Actual Grade Display Bar -->
+            <div class="topt-scale-tester-bar">
+              <div class="topt-scale-tester-inputs">
+                <label style="font-weight:700;font-size:0.85rem;color:#1e293b;display:flex;align-items:center;gap:6px;">
+                  <span>${t('gsToptPreviewProbeTitle') || 'Test Score'}:</span>
+                  <input type="number" id="topt-scale-test-pts" class="input" min="0" max="${totPossible}" step="0.5" value="${initialTestPts}" style="width:78px;font-weight:800;padding:4px 8px;border:2px solid #111;border-radius:6px;" />
+                  <span style="color:var(--muted);font-size:0.82rem;">/ ${fmtN(totPossible)} pts</span>
+                </label>
+                <input type="range" id="topt-scale-test-slider" min="0" max="${totPossible}" step="0.1" value="${initialTestPts}" style="width:160px;cursor:pointer;accent-color:#2563eb;" />
+              </div>
+              <div class="topt-scale-result-pill">
+                <span class="topt-scale-result-label">${t('gsToptPreviewGrade') || 'Grade'}:</span>
+                <span id="topt-scale-test-grade-badge" class="topt-scale-badge" style="background:${initialGradeColor};color:${initialGradeTextColor};font-size:1.35rem;padding:4px 14px;border:2px solid #111;box-shadow:2px 2px 0 #111;margin:0;">
+                  ${fmt(initialTestGrade)}
+                </span>
+              </div>
+            </div>
+
+            <!-- 2. Horizontal Scale Continuum Bar -->
+            <div class="topt-scale-track-container" id="topt-scale-interactive-zone">
+              <!-- Pin indicator for current test score -->
+              <div id="topt-scale-pin" class="topt-scale-pin-indicator" style="left:${initialRatio * 100}%;">
+                <div id="topt-scale-pin-head" class="topt-scale-pin-head" style="background:${initialGradeColor};color:${initialGradeTextColor};">
+                  ${fmt(initialTestGrade)}
+                </div>
+                <div class="topt-scale-pin-line"></div>
+              </div>
+
+              <!-- Live Hover Probe Line & Floating Tooltip -->
+              <div class="topt-scale-probe-line" id="topt-scale-probe">
+                <div class="topt-scale-probe-tooltip" id="topt-scale-probe-tip">0 pts</div>
+              </div>
+
+              <div class="topt-scale-bar" id="topt-scale-bar-track">
+                ${segmentsHtml}
+              </div>
+              <div class="topt-scale-markers-layer">
+                ${markersHtml}
+              </div>
+            </div>
+
+            <!-- 3. Grade Intervals Breakdown -->
+            <div style="margin-top:14px;">
+              <div style="font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:8px;">
+                ${t('gsToptPreviewInterval') || 'Grade Step Intervals'}
+              </div>
+              <div class="topt-scale-summary-grid">
+                ${cardsHtml}
+              </div>
+            </div>
+          </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Wire interactive score tester and scale pin
+        const testPtsInput = document.getElementById("topt-scale-test-pts");
+        const testSlider = document.getElementById("topt-scale-test-slider");
+        const testGradeBadge = document.getElementById("topt-scale-test-grade-badge");
+        const testPin = document.getElementById("topt-scale-pin");
+        const testPinHead = document.getElementById("topt-scale-pin-head");
+
+        function updateTesterScore(newPts) {
+          const safeP = Math.max(0, Math.min(totPossible, toNumber(newPts) ?? 0));
+          const gr = calcGradeForPts(safeP);
+          const grColor = (scaleModel && scaleModel.colors && scaleModel.colors[String(gr)]) || getScaleGradeColor(String(gr), gradingDraft.pendingModelKey || gradingDraft.modelKey) || "#2563eb";
+          const grText = getBadgeContrastTextColor(grColor);
+          const r = totPossible > 0 ? safeP / totPossible : 0;
+
+          if (testPtsInput && testPtsInput.value !== String(safeP)) testPtsInput.value = fmtN(safeP);
+          if (testSlider && testSlider.value !== String(safeP)) testSlider.value = String(safeP);
+          if (testGradeBadge) {
+            testGradeBadge.textContent = fmt(gr);
+            testGradeBadge.style.background = grColor;
+            testGradeBadge.style.color = grText;
+          }
+          if (testPin && testPinHead) {
+            testPin.style.left = `${r * 100}%`;
+            testPinHead.textContent = fmt(gr);
+            testPinHead.style.background = grColor;
+            testPinHead.style.color = grText;
+          }
+        }
+
+        if (testPtsInput) {
+          testPtsInput.addEventListener("input", () => updateTesterScore(testPtsInput.value));
+        }
+        if (testSlider) {
+          testSlider.addEventListener("input", () => updateTesterScore(testSlider.value));
+        }
+
+        // Wire interactive probe and click on scale bar
+        const barTrack = document.getElementById("topt-scale-bar-track");
+        const probeLine = document.getElementById("topt-scale-probe");
+        const probeTip = document.getElementById("topt-scale-probe-tip");
+
+        if (barTrack && probeLine && probeTip) {
+          barTrack.addEventListener("mousemove", e => {
+            const rect = barTrack.getBoundingClientRect();
+            if (rect.width <= 0) return;
+            const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+            const r = x / rect.width;
+            const probePts = r * totPossible;
+            const probeGrade = calcGradeForPts(probePts);
+
+            probeLine.style.display = "block";
+            probeLine.style.left = `${x}px`;
+            probeTip.textContent = `${fmtN(probePts)} / ${fmtN(totPossible)} pts (${Math.round(r * 100)}%) → ${t('gsToptPreviewGrade') || 'Grade'} ${fmt(probeGrade)}`;
+          });
+
+          barTrack.addEventListener("click", e => {
+            const rect = barTrack.getBoundingClientRect();
+            if (rect.width <= 0) return;
+            const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+            const r = x / rect.width;
+            const clickedPts = r * totPossible;
+            updateTesterScore(Math.round(clickedPts * 10) / 10);
+          });
+
+          barTrack.addEventListener("mouseleave", () => {
+            probeLine.style.display = "none";
+          });
+        }
+      }
+
+      function updateEquationValidation() {
+        if (!gradingEqInput || !gradingEqStatus || !gradingEqSamples) return;
+        const formula = gradingEqInput.value.trim();
+        gradingDraft.equationFormula = formula;
+        const rounding = gradingEqRound ? gradingEqRound.value : "0.5";
+        gradingDraft.equationRounding = rounding;
+
+        const minG = gradingDraft.minGrade != null ? gradingDraft.minGrade : (config.grading.minGrade != null ? config.grading.minGrade : 1.5);
+        const maxG = gradingDraft.maxGrade != null ? gradingDraft.maxGrade : (config.grading.maxGrade != null ? config.grading.maxGrade : 6);
+        const passG = 4;
+        const totP = totalPossible > 0 ? totalPossible : 100;
+        const passP = totP * ((gradingDraft.passPercentGrade4 || 66.67) / 100);
+
+        const testVars = {
+          pts: passP,
+          totalPts: totP,
+          minPts: 0,
+          passPts: passP,
+          maxGrade: maxG,
+          minGrade: minG,
+          passGrade: passG,
+          rounding
+        };
+
+        const testRes = evaluateGradingEquation(formula, testVars);
+        if (testRes.ok) {
+          gradingEqStatus.className = "eq-status-badge valid";
+          gradingEqStatus.textContent = t('gsGradingEqValid') || "Valid formula";
+          
+          const pts0 = 0;
+          const ptsPass = passP;
+          const ptsMax = totP;
+          const res0 = evaluateGradingEquation(formula, { ...testVars, pts: pts0 });
+          const resPass = evaluateGradingEquation(formula, { ...testVars, pts: ptsPass });
+          const resMax = evaluateGradingEquation(formula, { ...testVars, pts: ptsMax });
+
+          gradingEqSamples.innerHTML = `
+            <span class="eq-sample-pill">Min (${fmtN(pts0)}p): <strong>${res0.ok ? fmt(res0.grade) : '—'}</strong></span>
+            <span class="eq-sample-pill">Pass (${fmtN(ptsPass)}p): <strong>${resPass.ok ? fmt(resPass.grade) : '—'}</strong></span>
+            <span class="eq-sample-pill">Max (${fmtN(ptsMax)}p): <strong>${resMax.ok ? fmt(resMax.grade) : '—'}</strong></span>
+          `;
+        } else {
+          gradingEqStatus.className = "eq-status-badge invalid";
+          gradingEqStatus.textContent = (t('gsGradingEqInvalid') || "Syntax error") + (testRes.error ? `: ${testRes.error}` : "");
+          gradingEqSamples.innerHTML = "";
+        }
+        updateLiveGradePreview();
+      }
+
+      function insertTextAtCursor(inputEl, textToInsert) {
+        if (!inputEl) return;
+        const start = inputEl.selectionStart ?? inputEl.value.length;
+        const end = inputEl.selectionEnd ?? inputEl.value.length;
+        const before = inputEl.value.substring(0, start);
+        const after = inputEl.value.substring(end);
+        inputEl.value = before + textToInsert + after;
+        const nextPos = start + textToInsert.length;
+        inputEl.focus();
+        inputEl.setSelectionRange(nextPos, nextPos);
+        updateEquationValidation();
+      }
+
+      if (gradingEqWrap) {
+        gradingEqWrap.querySelectorAll(".eq-chip[data-insert]").forEach(chip => {
+          chip.onclick = () => insertTextAtCursor(gradingEqInput, chip.dataset.insert);
+        });
+        gradingEqWrap.querySelectorAll(".eq-chip[data-preset]").forEach(chip => {
+          chip.onclick = () => {
+            const preset = chip.dataset.preset;
+            if (preset === "swiss") {
+              gradingEqInput.value = "pts >= passPts ? min(maxGrade, passGrade + 2.5 * (pts - passPts) / (totalPts - passPts)) : (minGrade + (passGrade - minGrade) * (pts - minPts) / (passPts - minPts))";
+            } else if (preset === "linear") {
+              gradingEqInput.value = "minGrade + (maxGrade - minGrade) * (pts - minPts) / (totalPts - minPts)";
+            } else if (preset === "linearBuffer") {
+              gradingEqInput.value = "minGrade + 2 * (passGrade - minGrade) * (pts - minPts) / (totalPts - minPts)";
+            }
+            updateEquationValidation();
+          };
+        });
+        if (gradingEqInput) {
+          gradingEqInput.value = gradingDraft.equationFormula;
+          gradingEqInput.oninput = updateEquationValidation;
+        }
+        if (gradingEqRound) {
+          gradingEqRound.value = gradingDraft.equationRounding || "0.5";
+          gradingEqRound.onchange = updateEquationValidation;
+        }
+        updateEquationValidation();
+      }
 
       function syncGradingModeSelect() {
         const val = (gradingDraft.mode === "manual" && gradingDraft.manualInputMode === "points")
@@ -5639,27 +6265,86 @@
           XLSM_SCALE_MODELS.map(m => `<button type="button" class="chip${gradingDraft.pendingModelKey === m.key ? " active" : ""}" data-value="${m.key}">${m.label}</button>`).join("");
       }
 
+      const pass4EvalEl = document.getElementById("topt-grading-pass4-eval");
+      function updatePass4Display() {
+        const raw = (gradingPass4El.value || "").trim();
+        const evaluated = evaluatePass4Formula(raw, gradingDraft.passPercentGrade4 || 66.67);
+        gradingDraft.passPercentGrade4 = evaluated;
+        gradingDraft.passPercentGrade4Formula = raw;
+        if (pass4EvalEl) {
+          const reqPts = totalPossible > 0 ? Math.round((totalPossible * (evaluated / 100)) * 100) / 100 : null;
+          if (reqPts != null) {
+            pass4EvalEl.textContent = `= ${fmt(evaluated)}% → ${fmtN(reqPts)} / ${fmtN(totalPossible)} pts`;
+          } else {
+            const isExpr = /[\/\*\+\-\(\)]/.test(raw) || (Number(raw) > 0 && Number(raw) <= 1);
+            pass4EvalEl.textContent = isExpr ? `= ${fmt(evaluated)}%` : "";
+          }
+        }
+      }
+
       syncGradingModeSelect();
-      gradingPass4El.value = fmt(gradingDraft.passPercentGrade4);
+      gradingPass4El.value = gradingDraft.passPercentGrade4Formula || fmt(gradingDraft.passPercentGrade4);
+      updatePass4Display();
+
+      if (gradingMinGradeEl) {
+        gradingMinGradeEl.value = fmt(gradingDraft.minGrade != null ? gradingDraft.minGrade : 1.5);
+        gradingMinGradeEl.oninput = () => {
+          gradingDraft.minGrade = toNumber(gradingMinGradeEl.value) ?? 1.5;
+          rebuildGradingManualInputs();
+          updateEquationValidation();
+          updateLiveGradePreview();
+        };
+      }
+      if (gradingMaxGradeEl) {
+        gradingMaxGradeEl.value = fmt(gradingDraft.maxGrade != null ? gradingDraft.maxGrade : 6);
+        gradingMaxGradeEl.oninput = () => {
+          gradingDraft.maxGrade = toNumber(gradingMaxGradeEl.value) ?? 6;
+          rebuildGradingManualInputs();
+          updateEquationValidation();
+          updateLiveGradePreview();
+        };
+      }
+      if (gradingIntervalEl) {
+        gradingIntervalEl.value = String(gradingDraft.interval != null ? gradingDraft.interval : 0.5);
+        gradingIntervalEl.onchange = () => {
+          gradingDraft.interval = toNumber(gradingIntervalEl.value) ?? 0.5;
+          rebuildGradingManualInputs();
+          updateEquationValidation();
+          updateLiveGradePreview();
+        };
+      }
+
       rebuildModelChips();
       const gradSum = document.getElementById("topt-grading-summary");
       if (gradSum) {
-        gradSum.textContent = config.grading.mode === "manual"
-          ? (config.grading.manualInputMode === "points" ? "Manual pts" : "Manual %")
-          : `${fmt(config.grading.passPercentGrade4)}% → 4`;
+        const reqPts = totalPossible > 0 ? Math.round((totalPossible * (gradingDraft.passPercentGrade4 / 100)) * 100) / 100 : null;
+        gradSum.textContent = config.grading.mode === "equation"
+          ? (t('gsToptModeEquation') || "Equation")
+          : (config.grading.mode === "linear"
+            ? (t('gsGradingModeLinear') || "Linear")
+            : (config.grading.mode === "manual"
+              ? (config.grading.manualInputMode === "points" ? "Manual pts" : "Manual %")
+              : (reqPts != null ? `${fmt(config.grading.passPercentGrade4)}% (${fmtN(reqPts)}p) → 4` : `${fmt(config.grading.passPercentGrade4)}% → 4`)));
       }
 
       function refreshGradingVis() {
-        const isManualPercent = gradingDraft.mode === "manual" && gradingDraft.manualInputMode !== "points";
-        document.getElementById("topt-grading-manual-wrap").classList.toggle("hidden", gradingDraft.mode !== "manual");
-        document.getElementById("topt-grading-formula-wrap").classList.toggle("hidden", gradingDraft.mode === "manual");
+        const isManual = gradingDraft.mode === "manual";
+        const isFormula = gradingDraft.mode === "formula";
+        const isLinear = gradingDraft.mode === "linear";
+        const isEquation = gradingDraft.mode === "equation";
+        const isManualPercent = isManual && gradingDraft.manualInputMode !== "points";
+
+        document.getElementById("topt-grading-manual-wrap").classList.toggle("hidden", !isManual);
+        document.getElementById("topt-grading-formula-wrap").classList.toggle("hidden", !isFormula);
+        if (gradingEqWrap) gradingEqWrap.classList.toggle("hidden", !isEquation);
         document.getElementById("topt-grading-model-wrap").classList.toggle("hidden", !isManualPercent);
+        updateLiveGradePreview();
       }
 
       function refreshGradingManualNote() {
         const noteEl = document.getElementById("topt-grading-manual-note");
         noteEl.textContent = gradingDraft.manualInputMode === "points"
-          ? (totalPossible > 0 ? (totalMin > 0 ? `Total points: ${fmtN(totalMin)} – ${fmtN(totalPossible)}.` : `Total available points: ${fmtN(totalPossible)}.`) : "Points mode needs criteria total points.")
+          ? (totalPossible > 0 ? `Total available points: ${fmtN(totalPossible)}.` : "Points mode needs criteria total points.")
           : "Set minimum percentages for each grade.";
       }
 
@@ -5690,6 +6375,7 @@
           inp.addEventListener("input", () => {
             if (usePoints) gradingDraft.manualPoints[key] = Math.max(0, toNumber(inp.value) ?? 0);
             else gradingDraft.manualThresholds[key] = Math.max(0, Math.min(100, toNumber(inp.value) ?? 0));
+            updateLiveGradePreview();
           });
           lbl.append(badge, inp, document.createTextNode(usePoints ? " pts" : " %"));
           gradingThreshWrap.appendChild(lbl);
@@ -5706,15 +6392,18 @@
         const sel = chip.dataset.value;
         if (sel === "manual-points") {
           gradingDraft.mode = "manual"; gradingDraft.manualInputMode = "points";
-          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, totalMin);
+          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
           syncGradingModeSelect(); rebuildGradingManualInputs(); refreshGradingVis(); return;
         }
         gradingDraft.mode = sel;
         if (sel === "manual") {
           if (gradingDraft.manualInputMode === "points")
-            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, totalMin);
+            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
           gradingDraft.manualInputMode = "percent";
           rebuildGradingManualInputs();
+        }
+        if (sel === "equation") {
+          updateEquationValidation();
         }
         syncGradingModeSelect(); refreshGradingVis();
       });
@@ -5732,48 +6421,23 @@
           applyScaleModelToConfig(tmpConfig, key);
           Object.assign(gradingDraft, tmpConfig.grading);
           gradingDraft.mode = tmpConfig.grading.mode;
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, totalMin);
-          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, totalMin);
+          gradingDraft.minGrade = tmpConfig.grading.minGrade;
+          gradingDraft.maxGrade = tmpConfig.grading.maxGrade;
+          gradingDraft.interval = tmpConfig.grading.interval;
+          if (gradingMinGradeEl) gradingMinGradeEl.value = fmt(gradingDraft.minGrade);
+          if (gradingMaxGradeEl) gradingMaxGradeEl.value = fmt(gradingDraft.maxGrade);
+          if (gradingIntervalEl) gradingIntervalEl.value = String(gradingDraft.interval);
+          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
+          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
           syncGradingModeSelect();
         }
         rebuildModelChips(); rebuildGradingManualInputs(); refreshGradingVis();
       });
 
-      gradingPass4El.oninput = () => { gradingDraft.passPercentGrade4 = toNumber(gradingPass4El.value) ?? 66.67; };
-
-      // ── Live Grade Simulation Preview ─────────────────────────
-      function updateLiveGradePreview() {
-        const container = document.getElementById("topt-preview-content");
-        if (!container) return;
-        const currentCriteria = config.criteria || [];
-        const currentTotals = calcCriteriaTotals({ criteria: currentCriteria }, {});
-        const totPossible = Math.max(0, currentTotals.totalPossible);
-        const totMin = Math.max(0, currentTotals.totalMin || 0);
-        if (totPossible <= 0 && totMin <= 0) {
-          container.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:0.88rem;">${t('gsNoCriteriaYet')}</div>`;
-          return;
-        }
-        const tmpConfig = { criteria: currentCriteria, grading: Object.assign({}, gradingDraft) };
-        let html = '<div class="topt-preview-table-wrap"><table class="topt-preview-table">';
-        html += `<thead><tr><th>${t('gsToptPreviewPts')}</th><th>${t('gsToptPreviewPct')}</th><th>${t('gsToptPreviewGrade')}</th></tr></thead><tbody>`;
-        const span = Math.max(0, totPossible - totMin);
-        const stepCount = Math.min(20, Math.max(6, Math.ceil(span > 0 ? span : totPossible)));
-        const step = (span > 0 ? span : totPossible) / stepCount;
-        for (let p = totPossible; p >= totMin - 0.001; p -= step) {
-          const safeP = Math.max(totMin, Math.min(totPossible, p));
-          const ratio = span > 0 ? (safeP - totMin) / span : (totPossible > 0 ? safeP / totPossible : 0);
-          const grade = gradeFromRatio(ratio, tmpConfig);
-          const pct = Math.round(ratio * 100);
-          const color = getScaleGradeColor(grade, gradingDraft.pendingModelKey || gradingDraft.modelKey);
-          const textColor = getHighContrastTextColor(color);
-          const badgeStyle = color
-            ? `display:inline-block;padding:2px 8px;border-radius:5px;background:${color}18;color:${textColor};border:1px solid ${color};font-weight:800;`
-            : "font-weight:800;color:#111;";
-          html += `<tr><td><strong>${fmtN(safeP)}</strong> / ${fmtN(totPossible)}</td><td>${pct}%</td><td><span style="${badgeStyle}">${fmt(grade)}</span></td></tr>`;
-        }
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
-      }
+      gradingPass4El.oninput = () => {
+        updatePass4Display();
+        updateLiveGradePreview();
+      };
 
       // ── Criteria ───────────────────────────────────────────────
       let _openCritId = null;
@@ -6005,6 +6669,7 @@
         if (critSum) {
           critSum.textContent = config.criteria.length > 0 ? tFmt('gsCriteriaCountLabel', { n: config.criteria.length }) : t('gsCriteriaNone');
         }
+        updateLiveGradePreview();
       }
 
       const toptPresetSel = document.getElementById("topt-criteria-preset");
@@ -6046,6 +6711,7 @@
 
       // Default active tab
       switchToptTab(openSection || "info");
+      updateLiveGradePreview();
 
       // ── Save ───────────────────────────────────────────────────
       document.getElementById("topt-save").onclick = () => {
@@ -6061,11 +6727,16 @@
 
         const curTotals = calcCriteriaTotals(config, {});
         const curTotalPossible = Math.max(0, curTotals.totalPossible);
-        const curTotalMin = Math.max(0, curTotals.totalMin || 0);
         if (gradingDraft.manualInputMode === "points")
-          gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, curTotalPossible, gradingDraft.manualThresholds, curTotalMin);
+          gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, curTotalPossible, gradingDraft.manualThresholds);
         else
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, curTotalPossible, curTotalMin);
+          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, curTotalPossible);
+        if (gradingEqInput) {
+          gradingDraft.equationFormula = gradingEqInput.value.trim() || gradingDraft.equationFormula;
+        }
+        if (gradingEqRound) {
+          gradingDraft.equationRounding = gradingEqRound.value || gradingDraft.equationRounding || "0.5";
+        }
         Object.assign(config.grading, gradingDraft);
 
         if (activeSem !== sem) {
@@ -8998,9 +9669,23 @@
         });
         const totals = calcCriteriaTotals(config, draftMap);
         if (totals.totalPossible <= 0) return null;
-        const span = totals.totalPossible - (totals.totalMin || 0);
         const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
-        const ratio = span > 0 ? Math.max(0, Math.min(1, (scored - (totals.totalMin || 0)) / span)) : (totals.totalPossible > 0 ? scored / totals.totalPossible : 0);
+        const ratio = totals.totalPossible > 0 ? Math.max(0, Math.min(1, scored / totals.totalPossible)) : 0;
+        if (config.grading && config.grading.mode === "equation") {
+          const passPercent = config.grading.passPercentGrade4 || 66.67;
+          const passPts = totals.totalPossible * (passPercent / 100);
+          const res = evaluateGradingEquation(config.grading.equationFormula, {
+            pts: scored,
+            totalPts: totals.totalPossible,
+            minPts: 0,
+            passPts,
+            maxGrade: config.grading.maxGrade != null ? config.grading.maxGrade : 6,
+            minGrade: config.grading.minGrade != null ? config.grading.minGrade : 1.5,
+            passGrade: 4,
+            rounding: config.grading.equationRounding || "0.5"
+          });
+          return (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, config);
+        }
         return gradeFromRatio(ratio, config);
       };
 
@@ -9165,7 +9850,7 @@
             notch.style.setProperty("--notch-color", stop.color);
             const textColor = getNotchContrastTextColor(stop.color);
             notch.style.setProperty("--notch-text-color", textColor);
-            notch.title = `${t('gsScaleModelHeaderGrade') || 'Grade'} ${stop.key} (${fmt(stop.ptsValue)} pts)`;
+            notch.title = (stop.key !== fmt(stop.ptsValue)) ? `${stop.key} (${fmt(stop.ptsValue)} pts)` : `${fmt(stop.ptsValue)} pts`;
 
             const pip = document.createElement("span");
             pip.className = "smod-pts-notch-pip";
@@ -9232,27 +9917,22 @@
             });
 
             // Auto-fill comment as selectable sentence chips.
+            // Auto-fill comment as selectable sentence chips matching slider point value
             if (dr.points != null && maxPts >= minPts) {
-              const ratio = maxPts > minPts ? (dr.points - minPts) / (maxPts - minPts) : 1;
-              const g = gradeFromRatio(ratio, config);
-              const auto = xlsmCommentForGrade(criterion.name, g, dr.points, minPts, maxPts);
-              if (auto != null && sentencePickerEls[criterion.id]) {
+              const resolvedCrit = resolveCriterionProps(criterion);
+              const auto = (resolvedCrit.comments && resolvedCrit.comments[key]) ||
+                           (criterion.comments && criterion.comments[key]) ||
+                           (xlsm && xlsm.comments && xlsm.comments[key]) ||
+                           xlsmCommentForGrade(criterion.name, null, dr.points, minPts, maxPts) || "";
+
+              if (auto && sentencePickerEls[criterion.id]) {
                 const ta = commentEls[criterion.id];
                 const picker = sentencePickerEls[criterion.id];
                 picker.innerHTML = "";
                 const sentences = splitIntoSentences(auto);
 
                 const currentComment = dr.comment || ta.value || "";
-                let selected;
-                if (isInitial && currentComment.trim()) {
-                  selected = new Set(sentences.filter(s => currentComment.includes(s)));
-                } else if (!isInitial) {
-                  ta.value = "";
-                  dr.comment = "";
-                  selected = new Set();
-                } else {
-                  selected = new Set();
-                }
+                let selected = new Set(sentences.filter(s => currentComment.includes(s)));
 
                 function refreshText() {
                   ta.value = sentences.filter(s => selected.has(s)).join(" ");
@@ -9265,6 +9945,29 @@
                   allChip.classList.toggle("selected", allOn);
                   allChip.classList.toggle("partial", anyOn && !allOn);
                   allChip.setAttribute("aria-pressed", allOn ? "true" : "false");
+                  if (allOn && activeColor) {
+                    allChip.style.background = activeColor;
+                    allChip.style.borderColor = activeColor;
+                    allChip.style.color = getNotchContrastTextColor(activeColor);
+                  } else {
+                    allChip.style.background = "";
+                    allChip.style.borderColor = "";
+                    allChip.style.color = "";
+                  }
+                }
+
+                function updateChipVisual(chip, on) {
+                  chip.classList.toggle("selected", on);
+                  chip.setAttribute("aria-pressed", on ? "true" : "false");
+                  if (on && activeColor) {
+                    chip.style.background = activeColor;
+                    chip.style.borderColor = activeColor;
+                    chip.style.color = getNotchContrastTextColor(activeColor);
+                  } else {
+                    chip.style.background = "";
+                    chip.style.borderColor = "";
+                    chip.style.color = "";
+                  }
                 }
 
                 const allChip = document.createElement("button");
@@ -9277,8 +9980,7 @@
                   if (shouldSelectAll) sentences.forEach(s => selected.add(s));
                   sentenceBtns.forEach(({ sentence, btn }) => {
                     const on = selected.has(sentence);
-                    btn.classList.toggle("selected", on);
-                    btn.setAttribute("aria-pressed", on ? "true" : "false");
+                    updateChipVisual(btn, on);
                   });
                   refreshText();
                   refreshAllChip();
@@ -9293,14 +9995,12 @@
                   chip.className = "smod-sentence-chip";
                   chip.textContent = sentence;
                   const on = selected.has(sentence);
-                  if (on) chip.classList.add("selected");
-                  chip.setAttribute("aria-pressed", on ? "true" : "false");
+                  updateChipVisual(chip, on);
                   chip.addEventListener("click", () => {
                     if (selected.has(sentence)) selected.delete(sentence);
                     else selected.add(sentence);
                     const nowOn = selected.has(sentence);
-                    chip.classList.toggle("selected", nowOn);
-                    chip.setAttribute("aria-pressed", nowOn ? "true" : "false");
+                    updateChipVisual(chip, nowOn);
                     refreshText();
                     refreshAllChip();
                   });
@@ -9309,6 +10009,8 @@
                 });
 
                 refreshAllChip();
+              } else if (sentencePickerEls[criterion.id]) {
+                sentencePickerEls[criterion.id].innerHTML = "";
               }
             }
 
@@ -12037,10 +12739,25 @@ ${blocks}
               const criteriaMap = parsed.studentCriteriaScores[entry.name] || (entry.studentId && parsed.studentCriteriaScores[entry.studentId]);
               const totals = calcCriteriaTotals(mergedCfg, criteriaMap);
               if (totals.totalPossible > 0) {
-                const span = totals.totalPossible - (totals.totalMin || 0);
                 const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
-                const ratio = span > 0 ? Math.max(0, Math.min(1, (scored - (totals.totalMin || 0)) / span)) : (totals.totalPossible > 0 ? scored / totals.totalPossible : 0);
-                newGrade = gradeFromRatio(ratio, mergedCfg);
+                const ratio = totals.totalPossible > 0 ? Math.max(0, Math.min(1, scored / totals.totalPossible)) : 0;
+                if (mergedCfg.grading && mergedCfg.grading.mode === "equation") {
+                  const passPercent = mergedCfg.grading.passPercentGrade4 || 66.67;
+                  const passPts = totals.totalPossible * (passPercent / 100);
+                  const res = evaluateGradingEquation(mergedCfg.grading.equationFormula, {
+                    pts: scored,
+                    totalPts: totals.totalPossible,
+                    minPts: 0,
+                    passPts,
+                    maxGrade: mergedCfg.grading.maxGrade != null ? mergedCfg.grading.maxGrade : 6,
+                    minGrade: mergedCfg.grading.minGrade != null ? mergedCfg.grading.minGrade : 1.5,
+                    passGrade: 4,
+                    rounding: mergedCfg.grading.equationRounding || "0.5"
+                  });
+                  newGrade = (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, mergedCfg);
+                } else {
+                  newGrade = gradeFromRatio(ratio, mergedCfg);
+                }
               }
             }
             const willChange = newGrade !== current && newGrade != null;
