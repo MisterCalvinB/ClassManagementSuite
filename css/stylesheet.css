@@ -2653,8 +2653,11 @@ button.action-btn.btn-grey.con-panel-active {
 }
 
 @keyframes conNodeAttentionBlink {
-  50% {
+  0%, 49.9% {
     opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
   }
 }
 
@@ -2671,7 +2674,7 @@ button.action-btn.btn-grey.con-panel-active {
   border-radius: inherit;
   border: 3px solid #dc2626;
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.95), 0 0 8px 4px rgba(220, 38, 38, 0.4);
-  opacity: 0;
+  opacity: 1;
   pointer-events: none;
   z-index: 465;
   animation: conNodeAttentionBlink 600ms steps(1, end) infinite;
@@ -4103,6 +4106,20 @@ html.con-presentation-active:not(.con-mirror-mode) .con-word-note.wn-note-hidden
   color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
   transition: none !important;
+}
+
+/* Hide links connecting masked / hidden items in Presentation (Mirror) Mode */
+.con-mirror-mode .con-line-group.con-edge-masked,
+.con-mirror-mode .con-line-group.con-edge-both-masked,
+.con-mirror-mode .con-edge.con-edge-masked,
+.con-mirror-mode .con-edge.con-edge-both-masked {
+  display: none !important;
+}
+
+/* Ghost masked edges in main teacher presentation view */
+html.con-presentation-active:not(.con-mirror-mode) .con-line-group.con-edge-masked,
+html.con-presentation-active:not(.con-mirror-mode) .con-edge.con-edge-masked {
+  opacity: 0.35 !important;
 }
 
 html.con-presentation-active:not(.con-mirror-mode) .con-word-note.wn-note-hidden .wn-note-editor *,
@@ -7213,6 +7230,19 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
 
 .wn-emoji-sticker:hover .wn-emoji-sticker-delete {
   opacity: 1;
+}
+
+/* Presentation / Mirror Mode rules for stickers and emoji dots */
+.con-mirror-mode .con-emoji-dot {
+  display: none !important;
+}
+.con-mirror-mode .wn-emoji-sticker-delete,
+.con-mirror-mode .wn-emoji-sticker-resize {
+  display: none !important;
+}
+.con-mirror-mode .wn-emoji-sticker {
+  cursor: default !important;
+  pointer-events: none !important;
 }
 
 /* -- Emoji picker popup -- */

@@ -10906,7 +10906,10 @@
         }
 
         function setWhiteNoiseVolume(val) {
-            whiteNoiseVolume = Math.max(0, Math.min(1, val / 100));
+            whiteNoiseVolume = Math.max(0, Math.min(1, Number(val) / 100));
+            if (audioContext && audioContext.state === 'suspended' && whiteNoisePlaying && !whiteNoiseMuted) {
+                try { audioContext.resume(); } catch (e) { }
+            }
             if (_noiseType === 'file') {
                 const target = (!whiteNoiseMuted && whiteNoisePlaying) ? whiteNoiseVolume : 0;
                 if (_noiseFileAudio) _noiseFileAudio.volume = target;
@@ -10917,7 +10920,9 @@
                 }
             } else if (!whiteNoiseMuted && whiteNoisePlaying) {
                 _ensureNoiseNodes(_noiseType);
-                _noiseGains[_noiseType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.05);
+                if (_noiseGains[_noiseType] && audioContext) {
+                    _noiseGains[_noiseType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.05);
+                }
             }
             _syncWhiteNoiseUI();
         }
@@ -11004,12 +11009,21 @@
         }
 
         function overlayNoiseVolume(val) {
+            const numVal = Math.max(0, Math.min(100, Number(val) || 0));
             // Sync all sliders and value displays
             ['mode-noise-volume', 'timer-noise-volume', 'datetime-noise-volume'].forEach(id => {
-                const s = document.getElementById(id); if (s) s.value = val;
-                const v = document.getElementById(id + '-val'); if (v) v.textContent = val;
+                const s = document.getElementById(id); if (s) s.value = numVal;
+                const v = document.getElementById(id + '-val'); if (v) v.textContent = numVal;
             });
-            setWhiteNoiseVolume(val);
+            const wnSlider = document.getElementById('wn-volume-slider');
+            if (wnSlider) wnSlider.value = numVal;
+            setWhiteNoiseVolume(numVal);
+            if (activeWorkingModeId) {
+                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
+                if (curMode && curMode.sound) {
+                    curMode.sound.volume = numVal;
+                }
+            }
         }
 
         function toggleTimerPopup(event) {
@@ -13151,6 +13165,57 @@ syncState();
             persistSettingsToUserFile().catch(err => console.warn('saveModeFromEditor config save error:', err));
         }
 
+        async function playModeSound(mode) {
+            if (!mode || !mode.sound || !mode.sound.type || mode.sound.type === 'none') {
+                stopWhiteNoise();
+                return;
+            }
+
+            if (audioContext && audioContext.state === 'suspended') {
+                try { await audioContext.resume(); } catch (e) { }
+            }
+
+            const soundVol = typeof mode.sound.volume === 'number' ? mode.sound.volume : 20;
+            overlayNoiseVolume(soundVol);
+
+            const soundType = mode.sound.type;
+            if (soundType === 'file') {
+                if (mode.sound.file) {
+                    soundSettings = soundSettings || {};
+                    soundSettings.timerBackground = soundSettings.timerBackground || {};
+                    soundSettings.timerBackground.file = mode.sound.file;
+                }
+                ['white', 'pink', 'brown'].forEach(t => {
+                    if (_noiseGains[t] && audioContext) {
+                        try { _noiseGains[t].gain.setTargetAtTime(0, audioContext.currentTime, 0.05); } catch (e) { }
+                    }
+                });
+                _noiseType = 'file';
+                _resetNoiseFilePlayers(true);
+                whiteNoisePlaying = true;
+                whiteNoiseMuted = false;
+                const ok = await _playNoiseFileAudio();
+                if (!ok) {
+                    whiteNoisePlaying = false;
+                }
+            } else if (['white', 'pink', 'brown'].includes(soundType)) {
+                _stopNoiseFileAudio();
+                ['white', 'pink', 'brown'].forEach(t => {
+                    if (t !== soundType && _noiseGains[t] && audioContext) {
+                        try { _noiseGains[t].gain.setTargetAtTime(0, audioContext.currentTime, 0.05); } catch (e) { }
+                    }
+                });
+                _noiseType = soundType;
+                _ensureNoiseNodes(soundType);
+                whiteNoisePlaying = true;
+                whiteNoiseMuted = false;
+                if (_noiseGains[soundType] && audioContext) {
+                    _noiseGains[soundType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.15);
+                }
+            }
+            _syncWhiteNoiseUI();
+        }
+
         function activateMode(modeId) {
             closeModePicker();
             activeWorkingModeId = modeId;
@@ -13183,23 +13248,13 @@ syncState();
                 }
 
                 // Handle sound options
-                if (mode.sound && mode.sound.type && mode.sound.type !== 'none') {
-                    if (mode.sound.type === 'file') {
-                        if (mode.sound.file) {
-                            soundSettings = soundSettings || {};
-                            soundSettings.timerBackground = soundSettings.timerBackground || {};
-                            soundSettings.timerBackground.file = mode.sound.file;
-                        }
-                        if (typeof overlaySetNoise === 'function') overlaySetNoise('file');
-                    } else {
-                        if (typeof overlaySetNoise === 'function') overlaySetNoise(mode.sound.type);
-                    }
-                }
+                playModeSound(mode).catch(e => console.warn('Mode sound play error:', e));
                 if (mode.sound && mode.sound.chime) {
                     playTimerBeep(2, 600);
                 }
             } else {
                 content.innerHTML = buildQuietMode();
+                stopWhiteNoise();
             }
 
             overlay.classList.add('active');

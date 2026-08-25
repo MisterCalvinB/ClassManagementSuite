@@ -446,6 +446,25 @@ function setupWindowExternalLinkHandling(win) {
       });
     }
   });
+
+  win.webContents.on('render-process-gone', (event, details) => {
+    console.error(`[ProcessCrash] Render process gone for window (${getLoadedPageFile(win)}):`, details);
+    if (win === mirrorWindow) {
+      mirrorWindow = null;
+    } else if (win === cmsPresentationWindow) {
+      cmsPresentationWindow = null;
+    } else if (win === oralPresenterWindow) {
+      oralPresenterWindow = null;
+    } else if (win === docPresentationWindow) {
+      docPresentationWindow = null;
+    } else if (win === timerDetachedWindow) {
+      timerDetachedWindow = null;
+    }
+  });
+
+  win.webContents.on('unresponsive', () => {
+    console.warn(`[ProcessWarning] Window (${getLoadedPageFile(win)}) became unresponsive.`);
+  });
 }
 
 function createToolWindow(pageFile, options = {}) {
