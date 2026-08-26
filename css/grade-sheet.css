@@ -69,10 +69,131 @@ body {
   font-weight: 400;
 }
 
+/* ── Neobrutalist Menu Toolbar Container ────────────────────────── */
 .btn-row {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  background: var(--btn-row-bg, #ffffff);
+  border: 2px solid #111111;
+  border-radius: 8px;
+  padding: 6px 8px;
+  box-shadow: 3px 3px 0 #111111;
+}
+
+/* Neobrutalist Menu Item Buttons */
+.btn-row .btn {
+  background: #ffffff;
+  color: #111111;
+  border: 2px solid #111111;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 #111111;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-row .btn .btn-icon,
+.btn-row .btn img.btn-icon {
+  width: 15px !important;
+  height: 15px !important;
+  opacity: 1 !important;
+  filter: brightness(0); /* High contrast dark SVG icon for light button background */
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+/* Light background hover: keep high-contrast dark SVG icon */
+.btn-row .btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #111111;
+  border-color: #111111;
+  box-shadow: 3px 3px 0 #111111;
+  transform: translate(-1px, -1px);
+}
+
+.btn-row .btn:hover:not(:disabled) .btn-icon,
+.btn-row .btn:hover:not(:disabled) img.btn-icon {
+  filter: brightness(0); /* Ensure high contrast dark SVG when hover background is light */
+  transform: scale(1.08);
+}
+
+.btn-row .btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #111111;
+}
+
+/* Neobrutalist Primary Action Button (Gold/Yellow Accent) */
+.btn-row .btn.primary {
+  background: #ffd93d;
+  color: #111111;
+  border: 2px solid #111111;
+  font-weight: 900;
+  box-shadow: 2px 2px 0 #111111;
+}
+
+.btn-row .btn.primary .btn-icon,
+.btn-row .btn.primary img.btn-icon {
+  filter: brightness(0); /* High-contrast dark SVG on yellow background */
+  opacity: 1 !important;
+}
+
+.btn-row .btn.primary:hover:not(:disabled) {
+  background: #ffc107;
+  color: #111111;
+  box-shadow: 3px 3px 0 #111111;
+  transform: translate(-1px, -1px);
+}
+
+.btn-row .btn.primary:hover:not(:disabled) .btn-icon,
+.btn-row .btn.primary:hover:not(:disabled) img.btn-icon {
+  filter: brightness(0); /* High-contrast dark SVG on light yellow hover */
+}
+
+/* Neobrutalist Danger Action Button (Soft Red / Accent Red) */
+.btn-row .btn.danger {
+  background: #fff0f0;
+  color: #c53030;
+  border: 2px solid #111111;
+  box-shadow: 2px 2px 0 #111111;
+}
+
+.btn-row .btn.danger .btn-icon,
+.btn-row .btn.danger img.btn-icon {
+  filter: none;
+}
+
+.btn-row .btn.danger:hover:not(:disabled) {
+  background: #e53e3e;
+  color: #ffffff;
+  border-color: #111111;
+  box-shadow: 3px 3px 0 #111111;
+  transform: translate(-1px, -1px);
+}
+
+.btn-row .btn.danger:hover:not(:disabled) .btn-icon,
+.btn-row .btn.danger:hover:not(:disabled) img.btn-icon {
+  filter: brightness(0) invert(1); /* Invert to white when danger hover background is dark red */
+}
+
+/* Neobrutalist Dropdown Select inside .btn-row */
+.btn-row .dropdown select.btn {
+  background: #ffffff;
+  color: #111111;
+  border: 2px solid #111111;
+  border-radius: 6px;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 #111111;
+}
+
+.btn-row .dropdown select.btn:hover {
+  background: #f1f5f9;
+  box-shadow: 3px 3px 0 #111111;
+  transform: translate(-1px, -1px);
 }
 
 button,
@@ -2608,4 +2729,141 @@ tr:hover td {
   height: 48px;
   background: #111;
   border-radius: 1px;
+}
+
+/* ── Top Navigation Section Tabs ─────────────────────────────── */
+.gs-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gs-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #d1d5db;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  user-select: none;
+}
+
+.gs-nav-tab .btn-icon {
+  width: 14px;
+  height: 14px;
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.gs-nav-tab:hover:not(.disabled):not(.active) {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.gs-nav-tab.active {
+  background: #ffffff;
+  color: #111111;
+  border-color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.gs-nav-tab.active .btn-icon {
+  filter: none;
+  opacity: 1;
+}
+
+.gs-nav-tab.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  color: #9ca3af;
+}
+
+.gs-nav-tab-sep {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.85rem;
+  font-weight: 700;
+  user-select: none;
+}
+
+/* ── Action buttons row in top #app-nav ────────────────────────── */
+.gs-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.gs-nav-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nav-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 6px !important;
+  padding: 5px 11px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+}
+
+.nav-btn .btn-icon {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.9 !important;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  transform: translateY(-1px);
+}
+
+.nav-btn.primary {
+  background: #ffffff !important;
+  color: #111111 !important;
+  border-color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+.nav-btn.primary .btn-icon {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.nav-btn.danger {
+  background: rgba(239, 68, 68, 0.25) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+.nav-btn.danger:hover:not(:disabled) {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+.nav-btn.danger .btn-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+select.nav-btn option {
+  background: #1e293b;
+  color: #ffffff;
 }

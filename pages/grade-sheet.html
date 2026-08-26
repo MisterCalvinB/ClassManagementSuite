@@ -136,7 +136,24 @@
 <body>
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
-  <div id="app-hamburger" class="hm-wrap">
+  <div id="gs-section-tabs" class="gs-nav-tabs">
+    <button id="gs-tab-classes" class="gs-nav-tab active" type="button">
+      <img src="../assets/icons/grid.svg" class="btn-icon" alt="" />
+      <span id="gs-tab-classes-label" data-i18n="gsNavTabOverview">Overview</span>
+    </button>
+    <span class="gs-nav-tab-sep">›</span>
+    <button id="gs-tab-summary" class="gs-nav-tab disabled" type="button">
+      <img src="../assets/icons/class-management.svg" class="btn-icon" alt="" />
+      <span id="gs-tab-summary-label" data-i18n="gsNavTabSummary">Class Summary</span>
+    </button>
+    <span class="gs-nav-tab-sep">›</span>
+    <button id="gs-tab-test" class="gs-nav-tab disabled" type="button">
+      <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
+      <span id="gs-tab-test-label" data-i18n="gsNavTabTest">Test Sheet</span>
+    </button>
+  </div>
+
+  <div id="app-hamburger" class="hm-wrap" style="margin-left: auto;">
     <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
     <button class="tut-trigger-btn" onclick="showGsTour()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
@@ -153,7 +170,7 @@
         <div class="btn-row">
           <button id="btn-export" class="btn" data-i18n="gsBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export JSON</button>
           <button id="btn-import" class="btn" data-i18n="gsBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import JSON</button>
-          <button id="btn-edit-reference-data" class="btn" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
+          <button id="btn-edit-reference-data" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <button id="btn-add-test-overview" class="btn" data-i18n="gsBtnAddTest"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Test</button>
           <button id="btn-add-class" class="btn primary" data-i18n="gsBtnAddClass"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Class</button>
         </div>
@@ -256,6 +273,7 @@
             </div>
           </div>
           <button id="btn-import-grades" class="btn" data-i18n="gsBtnImportGrades"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import Grades</button>
+          <button id="btn-edit-reference-data-summary" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <button id="btn-edit-class" class="btn" data-i18n="gsBtnEditClass"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /> Edit Class</button>
           <button id="btn-delete-class" class="btn" data-i18n="gsBtnDeleteClass"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Class</button>
         </div>
@@ -286,6 +304,7 @@
           <button id="btn-back-summary" class="btn" data-i18n="gsBtnBackSummary"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Summary</button>
           <button id="btn-test-options" class="btn primary" data-i18n="gsBtnTestOptions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Options</button>
           <button id="btn-criteria-ref" class="btn" data-i18n="gsBtnCriteriaRef"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Criteria Reference</button>
+          <button id="btn-edit-reference-data-test" class="btn btn-edit-reference-data" data-i18n="gsBtnEditRef"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Edit Criteria / Scales</button>
           <div class="dropdown dropdown-hover" id="criteria-export-dropdown">
             <button id="btn-export-criteria-trigger" class="btn" data-i18n="gsBtnExportCriteriaRef"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Criteria ▾</button>
             <div class="dropdown-menu hidden" id="criteria-export-menu">
@@ -4480,10 +4499,78 @@
       return { orphaned, candidates };
     }
 
+    let _currentActiveScreen = "classes";
+
+    function updateNavTabs(activeScreen) {
+      if (activeScreen) _currentActiveScreen = activeScreen;
+      const current = _currentActiveScreen || "classes";
+
+      const tabClasses = document.getElementById("gs-tab-classes");
+      const tabSummary = document.getElementById("gs-tab-summary");
+      const tabTest = document.getElementById("gs-tab-test");
+      const labelSummary = document.getElementById("gs-tab-summary-label");
+      const labelTest = document.getElementById("gs-tab-test-label");
+
+      if (!tabClasses || !tabSummary || !tabTest) return;
+
+      const activeClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
+
+      // Tab 1: Overview
+      tabClasses.classList.toggle("active", current === "classes");
+      tabClasses.classList.remove("disabled");
+
+      // Tab 2: Class Summary
+      const hasSummary = !!(appState && appState.activeClassId && activeClass);
+      tabSummary.classList.toggle("disabled", !hasSummary);
+      tabSummary.classList.toggle("active", current === "summary");
+      if (labelSummary) {
+        const baseSummary = typeof t === 'function' ? (t('gsNavTabSummary') || 'Class Summary') : 'Class Summary';
+        labelSummary.textContent = hasSummary && activeClass ? `${baseSummary} (${activeClass.name})` : baseSummary;
+      }
+
+      // Tab 3: Test Sheet
+      const hasTest = !!(hasSummary && appState && appState.activeTest && appState.activeTest.semester);
+      let testName = "";
+      if (hasTest && activeClass) {
+        const { semester, testIndex } = appState.activeTest;
+        const cfg = typeof getTestConfig === 'function' ? getTestConfig(activeClass, semester, testIndex) : null;
+        testName = (cfg && cfg.testName) ? cfg.testName : `Test ${testIndex + 1}`;
+      }
+      tabTest.classList.toggle("disabled", !hasTest);
+      tabTest.classList.toggle("active", current === "test");
+      if (labelTest) {
+        const baseTest = typeof t === 'function' ? (t('gsNavTabTest') || 'Test Sheet') : 'Test Sheet';
+        labelTest.textContent = hasTest && testName ? `${baseTest} (${testName})` : baseTest;
+      }
+    }
+
     function showScreen(name) {
       Object.values(screens).forEach(el => el.classList.add("hidden"));
       screens[name].classList.remove("hidden");
+      updateNavTabs(name);
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("gs-tab-classes")?.addEventListener("click", () => {
+        appState.activeClassId = null;
+        appState.activeTest = null;
+        if (typeof renderClasses === 'function') renderClasses();
+        showScreen("classes");
+      });
+      document.getElementById("gs-tab-summary")?.addEventListener("click", () => {
+        if (appState && appState.activeClassId && typeof getActiveClass === 'function' && getActiveClass()) {
+          appState.activeTest = null;
+          if (typeof renderSummary === 'function') renderSummary();
+          showScreen("summary");
+        }
+      });
+      document.getElementById("gs-tab-test")?.addEventListener("click", () => {
+        if (appState && appState.activeClassId && appState.activeTest && typeof getActiveClass === 'function' && getActiveClass()) {
+          if (typeof renderTestSheet === 'function') renderTestSheet();
+          showScreen("test");
+        }
+      });
+    });
 
     function _getClassGroupStudents(classObj) {
       try {
@@ -5186,6 +5273,7 @@
         _renameBanner.classList.add('hidden');
       }
 
+      updateNavTabs();
     }
 
     function calcStats(values) {
@@ -5540,6 +5628,7 @@
           tbody.appendChild(str);
         });
       }
+      updateNavTabs();
     }
 
     // ── Config popups ─────────────────────────────────────────────
@@ -6561,6 +6650,7 @@
       let _openCritId = null;
       let _toptDragSrcIdx = null;
       let _toptIsDraggingCrit = false;
+      let _lastCritToastTime = 0;
 
       function rebuildToptCriteriaList() {
         const list = document.getElementById("topt-criteria-list");
@@ -6745,7 +6835,16 @@
             saveBtn.type = "button"; saveBtn.className = "btn primary"; saveBtn.textContent = t('gsBtnSave');
             btnRow.append(delBtn, saveBtn);
 
-            saveBtn.addEventListener("click", () => {
+            function showCriterionSavedToast() {
+              const now = Date.now();
+              if (now - _lastCritToastTime < 400) return;
+              _lastCritToastTime = now;
+              if (typeof showToast === 'function') {
+                showToast(t('gsCriterionSaved', 'Criterion saved'));
+              }
+            }
+
+            function applyAndSaveCriterion(showToastMsg = false) {
               const name = nameInput.value.trim();
               if (name) crit.name = name;
               const rawMin = minInput.value.trim();
@@ -6757,9 +6856,36 @@
               crit.interval = rawInt !== "" && !isNaN(Number(rawInt)) && Number(rawInt) > 0 ? Number(rawInt) : null;
               crit.isBonus = bonusCheck.checked;
               crit.showComment = commentYes.checked;
+
+              const minMeta = crit.minPoints != null && crit.minPoints !== 0 ? `min ${crit.minPoints}, ` : '';
+              const rowName = header.querySelector(".crit-row-name");
+              const rowMeta = header.querySelector(".crit-row-meta");
+              if (rowName) rowName.textContent = crit.name;
+              if (rowMeta) rowMeta.textContent = `${minMeta}max ${crit.maxPoints}, c=${crit.pointCoefficient}${crit.isBonus ? ', bonus' : ''}`;
+
               recalcAllStudentGradesForTest(classObj, sem, testIndex);
-              saveState(); renderTestSheet(); renderSummary();
-              _openCritId = null; rebuildToptCriteriaList();
+              saveState();
+              renderTestSheet();
+              renderSummary();
+              updateLiveGradePreview();
+
+              if (showToastMsg) {
+                showCriterionSavedToast();
+              }
+            }
+
+            nameInput.addEventListener("input", () => applyAndSaveCriterion(false));
+            minInput.addEventListener("input", () => applyAndSaveCriterion(false));
+            maxInput.addEventListener("input", () => applyAndSaveCriterion(false));
+            coeffInput.addEventListener("input", () => applyAndSaveCriterion(false));
+            intInput.addEventListener("input", () => applyAndSaveCriterion(false));
+
+            detail.addEventListener("change", () => applyAndSaveCriterion(true));
+
+            saveBtn.addEventListener("click", () => {
+              applyAndSaveCriterion(true);
+              _openCritId = null;
+              rebuildToptCriteriaList();
             });
 
             delBtn.addEventListener("click", () => {
@@ -11600,11 +11726,13 @@
 
       document.getElementById("btn-back-classes").addEventListener("click", () => {
         appState.activeClassId = null;
+        appState.activeTest = null;
         showScreen("classes");
         renderClasses();
       });
 
       document.getElementById("btn-back-summary").addEventListener("click", () => {
+        appState.activeTest = null;
         showScreen("summary");
         renderSummary();
       });
@@ -11633,7 +11761,9 @@
       document.getElementById("btn-import-test").addEventListener("click", openDuplicateTestPopup);
       document.getElementById("btn-delete-class").addEventListener("click", deleteActiveClass);
       document.getElementById("btn-edit-class").addEventListener("click", openEditClassPopup);
-      document.getElementById("btn-edit-reference-data").addEventListener("click", openReferenceDataEditor);
+      document.querySelectorAll(".btn-edit-reference-data, #btn-edit-reference-data").forEach(btn => {
+        btn.addEventListener("click", openReferenceDataEditor);
+      });
       document.getElementById("edit-class-save").addEventListener("click", saveEditClass);
       document.getElementById("edit-class-cancel").addEventListener("click", () => document.getElementById("edit-class-overlay").classList.add("hidden"));
       document.getElementById("edit-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("edit-class-overlay")) document.getElementById("edit-class-overlay").classList.add("hidden"); });

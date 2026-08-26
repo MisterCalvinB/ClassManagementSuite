@@ -82,10 +82,14 @@
 
         <!-- Controls Section -->
         <div class="controls-section">
-            <div class="control-group" style="min-width: 260px; max-width: 380px;">
-                <label data-i18n="ptSearchStudentsPlaceholder">Search Students</label>
-                <div style="position:relative; width: 100%;">
-                    <input type="text" id="ptStudentSearchInput" data-i18n-placeholder="ptSearchStudentsPlaceholder" placeholder="Search students across groups..." autocomplete="off" style="width:100%; padding:8px 32px 8px 12px; font-size:13px; font-weight:500; font-family:inherit; border:2px solid #ddd; border-radius:4px; background:#fff; color:#222; outline:none; transition:all 0.15s ease;">
+            <div class="control-group" style="width: 100%; flex: 1 1 100%; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
+                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
+                <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print</button>
+                <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge</button>
+
+                <div style="position:relative; min-width: 240px; max-width: 340px; flex: 1; margin-left: 6px;">
+                    <input type="text" id="ptStudentSearchInput" data-i18n-placeholder="ptSearchStudentsPlaceholder" placeholder="Search students across groups..." autocomplete="off" style="width:100%;">
                     <button id="ptStudentSearchClearBtn" type="button" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; cursor:pointer; color:#888; padding:0; line-height:1;" title="Clear search" aria-label="Clear search"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
                     <div id="ptSearchResultsDropdown" class="pt-search-results-dropdown hidden"></div>
                 </div>
@@ -94,9 +98,9 @@
             <div class="control-group">
                 <label data-i18n="ptSelectGroup">Select Group</label>
                 <div class="group-buttons" id="groupButtons"></div>
-                <div style="margin-top:4px;">
-                    <button id="toggleArchivedBtn" onclick="toggleShowArchived()" style="font-size:11px;padding:2px 8px;background:#eee;border:1px solid #bbb;border-radius:4px;cursor:pointer;color:#666;" data-i18n="ptShowArchived">Show archived</button>
-                    <button id="openCompareGroupsBtn" type="button" style="font-size:11px;padding:2px 8px;background:#f0f4ff;border:1px solid #9bb6e8;border-radius:4px;cursor:pointer;color:#1b4f9c;margin-left:6px;" data-i18n="ptCompareGroups">Compare groups</button>
+                <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+                    <button id="toggleArchivedBtn" class="btn-secondary" onclick="toggleShowArchived()" style="font-size:11px; padding:3px 10px;" data-i18n="ptShowArchived">Show archived</button>
+                    <button id="openCompareGroupsBtn" class="btn-secondary" type="button" style="font-size:11px; padding:3px 10px; background:#e0f2fe; color:#0369a1;" data-i18n="ptCompareGroups">Compare groups</button>
                 </div>
                 <div class="group-meta-info" id="groupMetaInfo"></div>
             </div>
@@ -118,19 +122,12 @@
 
             <div class="control-group" style="min-width: 140px;">
                 <label data-i18n="ptNameDisplay">Name Display</label>
-                <select id="ptNameDisplaySelect" style="padding:7px 10px;font-size:12px;font-weight:600;font-family:inherit;border:2px solid #ddd;border-radius:4px;background:#fff;color:#222;outline:none;cursor:pointer;width:100%;">
+                <select id="ptNameDisplaySelect" style="width:100%;">
                     <option value="full">Full Name</option>
                     <option value="first">First Name</option>
                     <option value="last">Last Name</option>
                     <option value="custom">Custom / Nickname</option>
                 </select>
-            </div>
-
-            <div class="control-group" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-                <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge</button>
-                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
-                <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print</button>
-                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
             </div>
         </div>
         <!-- Compare Groups Summary -->
@@ -173,7 +170,7 @@
         <!-- Drag & Drop Zone for File Import -->
         <div id="dragDropZone" class="drag-drop-zone hidden">
             <div class="drag-drop-content">
-                <p data-i18n="ptDragDrop">📎 Drop .json, .js, or legacy .txt files here to import and merge</p>
+                <p data-i18n="ptDragDrop"><img src="../assets/icons/import.svg" class="btn-icon" alt="" style="width:18px; height:18px; vertical-align:-3px; margin-right:6px;" /> Drop .json, .js, or legacy .txt files here to import and merge</p>
                 <p style="font-size: 12px; color: #999;">or <button type="button" class="link-button" data-i18n="ptDragDropClick">click to select files</button></p>
             </div>
             <input type="file" id="fileInput" multiple accept=".json,.js,.txt" style="display: none;">
@@ -222,7 +219,7 @@
                         <div class="stat-value" id="statBadges">0</div>
                         <div class="stat-subvalue" id="statBadgesPerSession">0/session</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="stat-card net">
                         <div class="stat-label" data-i18n="ptStatNet">Net</div>
                         <div class="stat-value" id="statNet">0</div>
                         <div class="stat-subvalue" id="statNetPerSession">0/session</div>
@@ -507,6 +504,8 @@
                 <button onclick="closeSavedRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:6px 14px; font-weight:700; font-size:0.8rem; cursor:pointer;" data-i18n="ptBtnClose">Close</button>
             </div>
         </div>
+    </div>
+
     <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
     <div id="ptPdfExportModal" class="modal" onclick="if(event.target===this)closePtPdfExportModal(null)">
         <div class="modal-content" style="max-width: 420px;" onclick="event.stopPropagation()">
@@ -588,6 +587,7 @@
 
             <div class="pt-export-footer">
                 <button type="button" class="btn-secondary" onclick="closeExportRulesModal()" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-secondary" onclick="previewExportRules()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
                 <button type="button" class="btn-primary" onclick="executeExportRules()" id="rulesConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
             </div>
         </div>
@@ -644,7 +644,7 @@
     <div id="resetWarn1Modal" class="modal">
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">
-                <h3 id="resetWarn1Title" data-i18n="ptResetWarn1Title">⚠️ Warning</h3>
+                <h3 id="resetWarn1Title" data-i18n="ptResetWarn1Title"><img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Warning</h3>
                 <button class="modal-close" onclick="closeResetModal1()">&times;</button>
             </div>
             <div class="reset-warn-box" id="resetWarn1Body"></div>
@@ -659,7 +659,7 @@
     <div id="resetWarn2Modal" class="modal">
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">
-                <h3 data-i18n="ptResetWarn2Title">🛑 Final Warning</h3>
+                <h3 data-i18n="ptResetWarn2Title"><img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Final Warning</h3>
                 <button class="modal-close" onclick="closeResetModal2()">&times;</button>
             </div>
             <div class="reset-warn-box2" id="resetWarn2Body"></div>
@@ -735,38 +735,63 @@
             <div class="pt-export-grid">
                 <!-- Category Selection -->
                 <div class="pt-export-section">
-                    <label class="pt-export-section-title">1. <span data-i18n="ptExportSelectCategory">Select Data Category</span></label>
+                    <label class="pt-export-section-title">1. <span data-i18n="ptExportSelectCategory">Select Data Category or Report</span></label>
                     <div class="pt-export-options-list">
+                        <label class="pt-export-option-card" style="background:#f0fdf4; border-color:#22c55e; border-width:2.5px;">
+                            <input type="radio" name="ptExportCategory" value="exhaustiveReport" onchange="togglePtReportSubOptions()">
+                            <div class="pt-export-card-body">
+                                <div class="pt-export-card-title" style="color:#15803d; font-weight:900;"><img src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatExhaustiveReport">Exhaustive Visual Report (with Charts & Graphs)</span></div>
+                                <div class="pt-export-card-desc">Comprehensive analytical report featuring embedded vector SVG charts, distribution graphs, student scorecards, and multi-class comparisons.</div>
+                            </div>
+                        </label>
+                        <div id="ptReportSubOptions" class="hidden" style="background:#fafaf7; border:2.5px solid #111; box-shadow:3.5px 3.5px 0 #111; border-radius:8px; padding:14px; margin-top:4px; margin-bottom:12px;">
+                            <div style="font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:0.6px; color:#111; margin-bottom:10px;">Select Report Target & Scope:</div>
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; cursor:pointer; background:#fff; padding:8px 12px; border:2px solid #111; border-radius:6px; box-shadow:2px 2px 0 #111;">
+                                    <input type="radio" name="ptReportType" value="class" checked style="accent-color:#111; width:16px; height:16px; cursor:pointer;">
+                                    <span><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Whole Class Analytical Report (Class stats, distribution chart, student roster)</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; cursor:pointer; background:#fff; padding:8px 12px; border:2px solid #111; border-radius:6px; box-shadow:2px 2px 0 #111;">
+                                    <input type="radio" name="ptReportType" value="student" style="accent-color:#111; width:16px; height:16px; cursor:pointer;">
+                                    <span><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /> Individual Student Scorecard (<span id="ptReportActiveStudentName">Active Student</span> — trend graph & session log)</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:800; cursor:pointer; background:#fff; padding:8px 12px; border:2px solid #111; border-radius:6px; box-shadow:2px 2px 0 #111;">
+                                    <input type="radio" name="ptReportType" value="multiClass" style="accent-color:#111; width:16px; height:16px; cursor:pointer;">
+                                    <span><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> Multi-Class Comparison Report (Cross-group averages chart & comparative tables)</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="classOverview" checked>
+                            <input type="radio" name="ptExportCategory" value="classOverview" checked onchange="togglePtReportSubOptions()">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatClassOverview">Class Overview / Student Stats</span></div>
                                 <div class="pt-export-card-desc">Aggregated statistics per student (picks, pluses, minuses, badges, prov. grade, net score, trends).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="history">
+                            <input type="radio" name="ptExportCategory" value="history" onchange="togglePtReportSubOptions()">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatSessionHistory">Session History</span></div>
                                 <div class="pt-export-card-desc">Session-by-session log with date, time, total picks, team points, badges, objectives, and notes.</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="studentDetail">
+                            <input type="radio" name="ptExportCategory" value="studentDetail" onchange="togglePtReportSubOptions()">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatStudentDetail">Individual Student History</span></div>
                                 <div class="pt-export-card-desc">Detailed session activity log (<span id="ptExportActiveStudentName">All Students</span>).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="groupComparison">
+                            <input type="radio" name="ptExportCategory" value="groupComparison" onchange="togglePtReportSubOptions()">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatGroupComparison">Group Comparison Summary</span></div>
                                 <div class="pt-export-card-desc">Cross-group comparison breakdown (sessions, picks/student, pos/neg rates, net scores).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="provisionalGrades">
+                            <input type="radio" name="ptExportCategory" value="provisionalGrades" onchange="togglePtReportSubOptions()">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatProvisionalGrades">Provisional Grades & Objectives</span></div>
                                 <div class="pt-export-card-desc">Detailed breakdown of objective rules met and calculated grades per student.</div>
@@ -827,7 +852,35 @@
 
             <div class="pt-export-footer">
                 <button type="button" class="btn-secondary" onclick="closePtExportModal()" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-secondary" onclick="previewPtExport()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
                 <button type="button" class="btn-primary" onclick="executePtExport()" id="ptConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════ LIVE REPORT & EXPORT PREVIEW MODAL ════ -->
+    <div id="ptExportPreviewModal" class="modal">
+        <div class="modal-content" style="max-width: 1100px; width: 95vw; height: 90vh; display: flex; flex-direction: column; padding: 20px;">
+            <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2.5px solid #111; padding-bottom: 10px; margin-bottom: 8px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">
+                    <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
+                    <span id="ptExportPreviewTitle">Live Export & Report Preview</span>
+                </h3>
+                <button class="modal-close" onclick="closePtExportPreviewModal()">&times;</button>
+            </div>
+            <div style="font-size: 11px; color: #555; font-weight: 700; margin-bottom: 10px;" id="ptExportPreviewSub">
+                Visualise full formatting, embedded charts, and formatted tables before downloading or printing.
+            </div>
+            
+            <div style="flex: 1; border: 2.5px solid #111; box-shadow: 4px 4px 0 #111; border-radius: 8px; overflow: hidden; background: #f4f4ee; min-height: 0;">
+                <iframe id="ptExportPreviewIframe" style="width: 100%; height: 100%; border: none; background: #fff;"></iframe>
+            </div>
+
+            <div class="button-group" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #111; padding-top: 12px;">
+                <button type="button" class="btn-secondary" onclick="closePtExportPreviewModal()"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Options</button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-primary" onclick="confirmExportFromPreview()" id="ptPreviewConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Confirm & Save File</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2281,14 +2334,24 @@
 
         function extractGroupsFromData() {
             const groups = new Set();
-            DB_EXPORT.forEach(session => {
-                Object.keys(session.groups || {}).forEach(groupId => {
-                    const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
+            if (typeof DB_EXPORT !== 'undefined' && Array.isArray(DB_EXPORT)) {
+                DB_EXPORT.forEach(session => {
+                    Object.keys(session.groups || {}).forEach(groupId => {
+                        const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
+                        if (!meta || !meta.archived || showArchivedGroups) {
+                            groups.add(groupId);
+                        }
+                    });
+                });
+            }
+            if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) {
+                Object.keys(CLASS_GROUPS_META).forEach(groupId => {
+                    const meta = CLASS_GROUPS_META[groupId];
                     if (!meta || !meta.archived || showArchivedGroups) {
                         groups.add(groupId);
                     }
                 });
-            });
+            }
             return Array.from(groups).sort((a, b) => groupDisplayName(a).localeCompare(groupDisplayName(b)));
         }
 
@@ -2600,7 +2663,7 @@
                     const netPerSessionPerStudent = row.net / sessionStudentDivisor;
                     return `
                 <tr>
-                    <td>${row.groupId}</td>
+                    <td>${groupDisplayName(row.groupId)}</td>
                     <td>${row.sessions}</td>
                     <td>${row.students}</td>
                     <td>${row.picks}</td>
@@ -3656,21 +3719,21 @@
                         
                         const isMet = rulePoints > (Number(rule.minPts) || 0);
                         if (isMet) {
-                            achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                            achievedRuleLabels.push(`<span style="color:#15803d; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(467%) hue-rotate(86deg) brightness(97%) contrast(90%);" /> ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
                         } else {
-                            achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
+                            achievedRuleLabels.push(`<span style="color:#64748b; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; opacity:0.6;" /> ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
                         }
                     }
                 });
 
                 provGradeHtml = `
-                    <div class="detail-stat" style="grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-left-color: #2ca02c; background: #f4faf4;">
+                    <div class="detail-stat" style="grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-left-color: #22c55e; background: #f0fdf4;">
                         <div>
-                            <div class="detail-stat-label" style="color: #2ca02c; font-weight:700;">${t('ptProvisionalGradeTitle')}</div>
-                            <div class="detail-stat-value" style="color: #2ca02c;">${formatSummaryNumber(provGrade)}${maxText}</div>
+                            <div class="detail-stat-label" style="color: #15803d; font-weight:800;">${t('ptProvisionalGradeTitle')}</div>
+                            <div class="detail-stat-value" style="color: #15803d;">${formatSummaryNumber(provGrade)}${maxText}</div>
                         </div>
-                        <div style="font-size:11px; text-align:left; border-left: 1px solid #c8e6c9; padding-left: 15px; margin-left: 15px; flex: 1;">
-                            <strong style="color:#555;">${t('ptAchievedRulesTitle')}</strong><br>
+                        <div style="font-size:11px; text-align:left; border-left: 2px solid #bbf7d0; padding-left: 15px; margin-left: 15px; flex: 1;">
+                            <strong style="color:#1e293b;">${t('ptAchievedRulesTitle')}</strong><br>
                             ${achievedRuleLabels.join('<br>')}
                         </div>
                     </div>
@@ -3709,27 +3772,27 @@
                 const pillsHtml = enrs.map(e => {
                     const isCurrent = e.groupUuid === currentGroupId;
                     const pillStyle = isCurrent
-                        ? 'background:#2563a8; color:#fff; font-weight:700;'
-                        : 'background:#fff; color:#334155; border:1px solid #cbd5e1;';
+                        ? 'background:#1e40af; color:#fff; font-weight:800; border:2px solid #111;'
+                        : 'background:#fff; color:#334155; border:2px solid #111;';
                     const yrSem = [e.year, e.semester ? 'S' + e.semester : '', e.level ? 'Lvl ' + e.level : ''].filter(Boolean).join(' ');
                     return `<span style="font-size:0.75rem; padding:3px 8px; border-radius:4px; ${pillStyle}">${escapeHtml(e.groupName || e.groupUuid)}${yrSem ? ' (' + escapeHtml(yrSem) + ')' : ''}</span>`;
                 }).join(' ');
 
                 crossGroupHtml = `
-                    <div class="detail-stat" style="grid-column: 1 / -1; background:#f0f7ff; border:1.5px solid #bfdbfe; border-radius:8px; padding:12px 16px; margin-top:8px; text-align:left;">
-                        <div style="font-size:0.78rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#1e40af; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between;">
-                            <span>📚 ${escapeHtml(t('ptEnrollmentHistory') || 'Enrollment History')} (${enrs.length} ${enrs.length === 1 ? 'group' : 'groups'})</span>
-                            <span style="font-size:0.7rem; font-family:monospace; color:#2563a8; background:#fff; padding:2px 6px; border-radius:3px; border:1px solid #bfdbfe;">${escapeHtml(rosterStudent.uuid)}</span>
+                    <div class="detail-stat" style="grid-column: 1 / -1; background:#f0f7ff; border:2.5px solid #111; box-shadow:3.5px 3.5px 0 #111; border-radius:8px; padding:14px 16px; margin-top:8px; text-align:left;">
+                        <div style="font-size:0.78rem; font-weight:900; text-transform:uppercase; letter-spacing:0.5px; color:#1e40af; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                            <span style="display:inline-flex; align-items:center; gap:6px;"><img src="../assets/icons/history.svg" class="btn-icon" alt="" style="width:16px; height:16px; vertical-align:-2px;" /> ${escapeHtml(t('ptEnrollmentHistory') || 'Enrollment History')} (${enrs.length} ${enrs.length === 1 ? 'group' : 'groups'})</span>
+                            <span style="font-size:0.7rem; font-family:monospace; color:#1e40af; background:#fff; padding:2px 6px; border-radius:4px; border:2px solid #111;">${escapeHtml(rosterStudent.uuid)}</span>
                         </div>
-                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
                             ${pillsHtml}
                         </div>
-                        <div style="font-size:0.78rem; color:#1e293b; background:#fff; padding:6px 10px; border-radius:5px; border:1px solid #e2e8f0; display:flex; gap:14px; flex-wrap:wrap;">
+                        <div style="font-size:0.78rem; color:#1e293b; background:#fff; padding:8px 12px; border-radius:6px; border:2px solid #111; box-shadow:2px 2px 0 #111; display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
                             <span><strong>${escapeHtml(t('ptAggregatedStats') || 'All-Groups Total')}:</strong></span>
-                            <span>🎯 <strong>${cgPicks}</strong> picks (${cgSessions} sessions)</span>
-                            <span style="color:#2ca02c;">+<strong>${cgPluses}</strong></span>
-                            <span style="color:#d62728;">-<strong>${cgMinuses}</strong></span>
-                            <span style="color:#7a5a00;">🏅 <strong>${cgBadges}</strong> badges</span>
+                            <span style="display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/class-management.svg" class="btn-icon" alt="" style="width:15px; height:15px; vertical-align:-2px;" /> <strong>${cgPicks}</strong> picks (${cgSessions} sessions)</span>
+                            <span style="color:#15803d; font-weight:800;">+<strong>${cgPluses}</strong></span>
+                            <span style="color:#dc2626; font-weight:800;">-<strong>${cgMinuses}</strong></span>
+                            <span style="color:#b45309; font-weight:800; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/award.svg" class="btn-icon" alt="" style="width:15px; height:15px; vertical-align:-2px;" /> <strong>${cgBadges}</strong> badges</span>
                         </div>
                     </div>
                 `;
@@ -4841,6 +4904,11 @@
         function openPtExportModal() {
             const modal = document.getElementById('ptExportModal');
             if (modal) modal.classList.add('active');
+            const nameEl = document.getElementById('ptExportActiveStudentName');
+            if (nameEl) nameEl.textContent = currentStudentName || 'All Students';
+            const repNameEl = document.getElementById('ptReportActiveStudentName');
+            if (repNameEl) repNameEl.textContent = currentStudentName || 'Active Student';
+            if (typeof togglePtReportSubOptions === 'function') togglePtReportSubOptions();
         }
 
         function closePtExportModal() {
@@ -4894,6 +4962,74 @@
                 const detail = e.detail || e.type || 'Event';
                 return formattedTime ? `[${formattedTime}] ${detail}` : detail;
             }).join('; ');
+        }
+
+
+
+
+
+        function aggregateMetricsForGroup(groupId, fromDate, toDate) {
+            const sessions = filterSessionsByDateAndGroup(groupId, fromDate, toDate);
+            const sessionCount = sessions.length;
+            
+            const studentSet = new Set();
+            let totalPicks = 0;
+            let totalPositive = 0;
+            let totalNegative = 0;
+            let totalBadgePositive = 0;
+            let totalBadgeNegative = 0;
+            let totalBadges = 0;
+
+            sessions.forEach(session => {
+                const students = (session.groups && session.groups[groupId]) ? session.groups[groupId] : [];
+                students.forEach(student => {
+                    studentSet.add(student.name);
+                    if (student.isPicked) totalPicks++;
+                    if (!student.isAbsent) {
+                        totalPositive += (student.pluses || 0) + (student.teamPluses || 0);
+                        totalNegative += (student.minuses || 0) + (student.teamMinuses || 0);
+                    }
+                    const badges = student.badges || [];
+                    totalBadges += badges.length;
+                    const sentiment = countBadgeSentiment(badges);
+                    totalBadgePositive += sentiment.positive;
+                    totalBadgeNegative += sentiment.negative;
+                });
+            });
+
+            const studentCount = studentSet.size;
+            const picksPerSession = sessionCount > 0 ? totalPicks / sessionCount : 0;
+            const posPerSession = sessionCount > 0 ? (totalPositive + totalBadgePositive) / sessionCount : 0;
+            const posPerSessionStudent = (sessionCount > 0 && studentCount > 0) ? (totalPositive + totalBadgePositive) / (sessionCount * studentCount) : 0;
+            
+            const negPerSession = sessionCount > 0 ? (totalNegative + totalBadgeNegative) / sessionCount : 0;
+            const negPerSessionStudent = (sessionCount > 0 && studentCount > 0) ? (totalNegative + totalBadgeNegative) / (sessionCount * studentCount) : 0;
+            
+            const badgesPerSessionStudent = (sessionCount > 0 && studentCount > 0) ? totalBadges / (sessionCount * studentCount) : 0;
+
+            const totalNet = (totalPositive + totalBadgePositive) - (totalNegative + totalBadgeNegative);
+            const netPerSession = sessionCount > 0 ? totalNet / sessionCount : 0;
+            const netPerSessionStudent = (sessionCount > 0 && studentCount > 0) ? totalNet / (sessionCount * studentCount) : 0;
+
+            return {
+                sessionCount,
+                studentCount,
+                totalPicks,
+                picksPerSession,
+                totalPositive: totalPositive + totalBadgePositive,
+                posPerSession,
+                posPerSessionStudent,
+                totalNegative: totalNegative + totalBadgeNegative,
+                negPerSession,
+                negPerSessionStudent,
+                totalBadgePositive,
+                totalBadgeNegative,
+                totalBadges,
+                badgesPerSessionStudent,
+                totalNet,
+                netPerSession,
+                netPerSessionStudent
+            };
         }
 
         function getExportDataForCategory(category) {
@@ -5265,9 +5401,540 @@
             return { title, description, groupName, dateStrLabel, headers, rows, filenameBase };
         }
 
+        function togglePtReportSubOptions() {
+            const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value;
+            const subContainer = document.getElementById('ptReportSubOptions');
+            if (subContainer) {
+                if (category === 'exhaustiveReport') {
+                    subContainer.classList.remove('hidden');
+                } else {
+                    subContainer.classList.add('hidden');
+                }
+            }
+        }
+
+        function buildNeobrutalistSvgBarChart(title, items, options = {}) {
+            if (!items || items.length === 0) return '';
+            const width = options.width || 640;
+            const height = options.height || 310;
+            const padding = { top: 40, right: 25, bottom: 85, left: 45 };
+            const chartW = width - padding.left - padding.right;
+            const chartH = height - padding.top - padding.bottom;
+
+            const maxVal = Math.max(1, ...items.map(i => Math.abs(i.value || 0)));
+            const barWidth = Math.max(10, Math.min(40, (chartW / items.length) - 10));
+            const step = chartW / items.length;
+
+            let barsHtml = '';
+            items.forEach((item, idx) => {
+                const val = item.value || 0;
+                const barH = (Math.abs(val) / maxVal) * (chartH - 20);
+                const x = padding.left + (idx * step) + (step - barWidth) / 2;
+                const y = padding.top + (chartH - barH);
+                const color = item.color || '#3b82f6';
+                const label = item.label ? escHtml(String(item.label).substring(0, 18)) : `Item ${idx+1}`;
+                const labelX = x + barWidth / 2;
+                const labelY = padding.top + chartH + 16;
+
+                barsHtml += `
+                    <rect x="${x}" y="${y}" width="${barWidth}" height="${barH}" fill="${color}" stroke="#111" stroke-width="2.5" rx="3" />
+                    <text x="${labelX}" y="${y - 6}" font-family="Lexend, sans-serif" font-size="10" font-weight="800" fill="#111" text-anchor="middle">${val}</text>
+                    <text x="${labelX}" y="${labelY}" transform="rotate(-40 ${labelX} ${labelY})" font-family="Lexend, sans-serif" font-size="10" font-weight="800" fill="#111" text-anchor="end">${label}</text>
+                `;
+            });
+
+            return `
+                <div style="background:#fff; border:2.5px solid #111; box-shadow:4px 4px 0 #111; border-radius:8px; padding:14px; margin-bottom:20px;">
+                    <h3 style="font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.5px; color:#111; margin-bottom:12px;">${escHtml(title)}</h3>
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible;">
+                        <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="#111" stroke-width="2.5" />
+                        <line x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${padding.top + chartH}" stroke="#111" stroke-width="2.5" />
+                        ${barsHtml}
+                    </svg>
+                </div>
+            `;
+        }
+
+        function buildNeobrutalistSvgLineChart(title, points, options = {}) {
+            if (!points || points.length === 0) return '';
+            const width = options.width || 640;
+            const height = options.height || 260;
+            const padding = { top: 35, right: 30, bottom: 65, left: 45 };
+            const chartW = width - padding.left - padding.right;
+            const chartH = height - padding.top - padding.bottom;
+
+            const maxVal = Math.max(1, ...points.map(p => Math.abs(p.value || 0)));
+            const step = points.length > 1 ? chartW / (points.length - 1) : chartW;
+
+            const coords = points.map((p, idx) => {
+                const val = p.value || 0;
+                const x = padding.left + (points.length > 1 ? idx * step : chartW / 2);
+                const y = padding.top + chartH - ((val / maxVal) * (chartH - 20));
+                return { x, y, val, label: p.label || '' };
+            });
+
+            const pathD = coords.map((c, i) => (i === 0 ? `M ${c.x} ${c.y}` : `L ${c.x} ${c.y}`)).join(' ');
+
+            let dotsHtml = coords.map(c => {
+                const labelY = padding.top + chartH + 14;
+                return `
+                    <circle cx="${c.x}" cy="${c.y}" r="5.5" fill="#ffde59" stroke="#111" stroke-width="2.5" />
+                    <text x="${c.x}" y="${c.y - 9}" font-family="Lexend, sans-serif" font-size="10" font-weight="800" fill="#111" text-anchor="middle">${c.val}</text>
+                    <text x="${c.x}" y="${labelY}" transform="rotate(-35 ${c.x} ${labelY})" font-family="Lexend, sans-serif" font-size="9" font-weight="700" fill="#333" text-anchor="end">${escHtml(c.label)}</text>
+                `;
+            }).join('');
+
+            return `
+                <div style="background:#fff; border:2.5px solid #111; box-shadow:4px 4px 0 #111; border-radius:8px; padding:14px; margin-bottom:20px;">
+                    <h3 style="font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.5px; color:#111; margin-bottom:12px;">${escHtml(title)}</h3>
+                    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible;">
+                        <line x1="${padding.left}" y1="${padding.top + chartH}" x2="${width - padding.right}" y2="${padding.top + chartH}" stroke="#111" stroke-width="2.5" />
+                        <path d="${pathD}" fill="none" stroke="#3b82f6" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                        ${dotsHtml}
+                    </svg>
+                </div>
+            `;
+        }
+
+        function buildClassExhaustiveReportHtml(groupName, dateStrLabel) {
+            const overviewData = getExportDataForCategory('classOverview');
+            const historyData = getExportDataForCategory('history');
+
+            const totalStudents = overviewData.rows ? overviewData.rows.length : 0;
+            const totalSessions = historyData.rows ? historyData.rows.length : 0;
+
+            let totalPicks = 0, totalPos = 0, totalNeg = 0, totalBadges = 0, totalNet = 0;
+            const studentBarItems = [];
+
+            if (overviewData.rows) {
+                overviewData.rows.forEach(r => {
+                    const name = r[0];
+                    const picks = Number(r[2]) || 0;
+                    const pos = (Number(r[4]) || 0) + (Number(r[6]) || 0) + (Number(r[8]) || 0);
+                    const neg = (Number(r[5]) || 0) + (Number(r[7]) || 0) + (Number(r[9]) || 0);
+                    const badges = Number(r[10]) || 0;
+                    const net = (Number(r[14]) || 0);
+
+                    totalPicks += picks;
+                    totalPos += pos;
+                    totalNeg += neg;
+                    totalBadges += badges;
+                    totalNet += net;
+
+                    studentBarItems.push({
+                        label: name,
+                        value: net,
+                        color: net >= 0 ? '#4ade80' : '#f87171'
+                    });
+                });
+            }
+
+            const pointsComparisonItems = [
+                { label: 'Positive (+)', value: totalPos, color: '#4ade80' },
+                { label: 'Negative (-)', value: totalNeg, color: '#f87171' },
+                { label: 'Total Picks', value: totalPicks, color: '#7dd3fc' },
+                { label: 'Badges Awarded', value: totalBadges, color: '#facc15' }
+            ];
+
+            const barChartHtml = buildNeobrutalistSvgBarChart('Student Net Scores Across Class', studentBarItems.slice(0, 18), { height: 250 });
+            const metricsChartHtml = buildNeobrutalistSvgBarChart('Point & Action Breakdown Overview', pointsComparisonItems, { height: 230 });
+
+            const rosterHeaders = overviewData.headers.map(h => `<th>${escHtml(h)}</th>`).join('');
+            const rosterRows = overviewData.rows.map(r => `<tr>${r.map(c => `<td>${escHtml(String(c))}</td>`).join('')}</tr>`).join('');
+
+            return `
+                <div class="report-header">
+                    <div>
+                        <h1>Class Participation Report — ${escHtml(groupName)}</h1>
+                        <div class="report-meta">
+                            <span>Date Range: <strong>${escHtml(dateStrLabel)}</strong></span> | 
+                            <span>Exported: <strong>${new Date().toLocaleString()}</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-box" style="background:#7dd3fc;">
+                        <div class="stat-box-title">Total Students</div>
+                        <div class="stat-box-num">${totalStudents}</div>
+                    </div>
+                    <div class="stat-box" style="background:#4ade80;">
+                        <div class="stat-box-title">Total Sessions</div>
+                        <div class="stat-box-num">${totalSessions}</div>
+                    </div>
+                    <div class="stat-box" style="background:#facc15;">
+                        <div class="stat-box-title">Total Picks</div>
+                        <div class="stat-box-num">${totalPicks}</div>
+                    </div>
+                    <div class="stat-box" style="background:#e2e8f0;">
+                        <div class="stat-box-title">Class Net Score</div>
+                        <div class="stat-box-num">${totalNet >= 0 ? '+' + totalNet : totalNet}</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    ${barChartHtml}
+                    ${metricsChartHtml}
+                </div>
+
+                <h2 style="font-size:16px; font-weight:900; text-transform:uppercase; margin-bottom:12px; border-bottom:2.5px solid #111; padding-bottom:6px;">Student Performance Roster</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>${rosterHeaders}</tr></thead>
+                        <tbody>${rosterRows}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function buildStudentExhaustiveReportHtml(studentName, groupName, dateStrLabel) {
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+
+            const timelinePoints = [];
+            let stPicks = 0, stPluses = 0, stMinuses = 0, stTeamPluses = 0, stTeamMinuses = 0, stBadges = 0, stAttended = 0;
+
+            sessions.forEach(sess => {
+                const students = sess.groups[currentGroupId] || [];
+                const st = students.find(s => s.name === studentName);
+                if (st) {
+                    if (!st.isAbsent) stAttended++;
+                    if (st.isPicked) stPicks++;
+                    stPluses += st.pluses || 0;
+                    stMinuses += st.minuses || 0;
+                    stTeamPluses += st.teamPluses || 0;
+                    stTeamMinuses += st.teamMinuses || 0;
+                    stBadges += (st.badges || []).length;
+
+                    const dateStr = new Date(sess.id).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    const net = getStudentSessionNet(st);
+                    timelinePoints.push({ label: dateStr, value: net });
+                }
+            });
+
+            const netScore = (stPluses + stTeamPluses) - (stMinuses + stTeamMinuses);
+            const lineChartHtml = buildNeobrutalistSvgLineChart(`Participation Timeline Net Score — ${escHtml(studentName)}`, timelinePoints, { height: 230 });
+
+            const categoryItems = [
+                { label: 'Pluses (+)', value: stPluses, color: '#4ade80' },
+                { label: 'Minuses (-)', value: stMinuses, color: '#f87171' },
+                { label: 'Team (+)', value: stTeamPluses, color: '#38bdf8' },
+                { label: 'Team (-)', value: stTeamMinuses, color: '#fb7185' },
+                { label: 'Badges', value: stBadges, color: '#facc15' }
+            ];
+            const barChartHtml = buildNeobrutalistSvgBarChart('Activity Category Breakdown', categoryItems, { height: 230 });
+
+            return `
+                <div class="report-header">
+                    <div>
+                        <h1>Individual Student Scorecard — ${escHtml(studentName)}</h1>
+                        <div class="report-meta">
+                            <span>Class: <strong>${escHtml(groupName)}</strong></span> | 
+                            <span>Date Range: <strong>${escHtml(dateStrLabel)}</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-box" style="background:#7dd3fc;">
+                        <div class="stat-box-title">Sessions Attended</div>
+                        <div class="stat-box-num">${stAttended} / ${sessions.length}</div>
+                    </div>
+                    <div class="stat-box" style="background:#4ade80;">
+                        <div class="stat-box-title">Picks Count</div>
+                        <div class="stat-box-num">${stPicks}</div>
+                    </div>
+                    <div class="stat-box" style="background:#facc15;">
+                        <div class="stat-box-title">Badges Earned</div>
+                        <div class="stat-box-num">${stBadges}</div>
+                    </div>
+                    <div class="stat-box" style="background:#e2e8f0;">
+                        <div class="stat-box-title">Net Score</div>
+                        <div class="stat-box-num">${netScore >= 0 ? '+' + netScore : netScore}</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    ${lineChartHtml}
+                    ${barChartHtml}
+                </div>
+            `;
+        }
+
+        function buildMultiClassExhaustiveReportHtml(dateStrLabel) {
+            const data = getExportDataForCategory('groupComparison');
+
+            const barItems = data.rows.map(r => ({
+                label: String(r[0]).substring(0, 10),
+                value: parseFloat(r[17]) || 0,
+                color: (parseFloat(r[17]) || 0) >= 0 ? '#4ade80' : '#f87171'
+            }));
+
+            const chartHtml = buildNeobrutalistSvgBarChart('Cross-Group Average Net Score per Student', barItems, { height: 260 });
+
+            const headersHtml = data.headers.map(h => `<th>${escHtml(h)}</th>`).join('');
+            const rowsHtml = data.rows.map(r => `<tr>${r.map(c => `<td>${escHtml(String(c))}</td>`).join('')}</tr>`).join('');
+
+            return `
+                <div class="report-header">
+                    <div>
+                        <h1>Multi-Class Participation Comparison Report</h1>
+                        <div class="report-meta">
+                            <span>Date Range: <strong>${escHtml(dateStrLabel)}</strong></span> | 
+                            <span>Total Groups: <strong>${data.rows.length}</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid" style="grid-template-columns: 1fr;">
+                    ${chartHtml}
+                </div>
+
+                <h2 style="font-size:16px; font-weight:900; text-transform:uppercase; margin-bottom:12px; border-bottom:2.5px solid #111; padding-bottom:6px;">Comparative Metrics Table</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>${headersHtml}</tr></thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function generateExhaustiveReportDocument(reportType) {
+            const dateRange = getDateRange();
+            const dateStrLabel = (dateRange.from && dateRange.to) ? `${dateRange.from} to ${dateRange.to}` : (dateRange.from ? `From ${dateRange.from}` : 'All Data');
+            const rawGroupName = (typeof groupDisplayName === 'function')
+                ? groupDisplayName(currentGroupId)
+                : ((typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META && CLASS_GROUPS_META[currentGroupId]) ? CLASS_GROUPS_META[currentGroupId].name : (currentGroupId || 'Class'));
+            const groupName = rawGroupName || 'Class';
+
+            let title = '';
+            let bodyHtml = '';
+            let filenameBase = '';
+
+            if (reportType === 'class') {
+                title = `Exhaustive Class Participation Report — ${groupName}`;
+                filenameBase = `class_report_${groupName}_${Date.now()}`;
+                bodyHtml = buildClassExhaustiveReportHtml(groupName, dateStrLabel);
+            } else if (reportType === 'student') {
+                const studentName = currentStudentName || 'Active Student';
+                title = `Exhaustive Student Scorecard & Activity Report — ${studentName} (${groupName})`;
+                filenameBase = `student_report_${studentName}_${groupName}_${Date.now()}`;
+                bodyHtml = buildStudentExhaustiveReportHtml(studentName, groupName, dateStrLabel);
+            } else if (reportType === 'multiClass') {
+                title = `Multi-Class Participation Comparison Report`;
+                filenameBase = `multiclass_report_${Date.now()}`;
+                bodyHtml = buildMultiClassExhaustiveReportHtml(dateStrLabel);
+            }
+
+            const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escHtml(title)}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Lexend', Arial, sans-serif; background: #f4f4ee; color: #111; padding: 20px; line-height: 1.4; }
+        .report-card { max-width: 1200px; margin: 0 auto; background: #fff; border: 3px solid #111; box-shadow: 6px 6px 0 #111; border-radius: 10px; padding: 24px; }
+        .report-header { border-bottom: 3.5px solid #111; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+        .report-header h1 { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; color: #111; }
+        .report-meta { font-size: 12px; font-weight: 700; color: #555; display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        .stat-box { background: #f1f5f9; border: 2.5px solid #111; box-shadow: 3.5px 3.5px 0 #111; border-radius: 8px; padding: 14px; text-align: center; }
+        .stat-box-title { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.6px; color: #111; margin-bottom: 4px; }
+        .stat-box-num { font-size: 26px; font-weight: 900; color: #111; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-bottom: 24px; }
+        .table-wrap { border: 3px solid #111; box-shadow: 5px 5px 0 #111; border-radius: 8px; overflow-x: auto; margin-bottom: 24px; background: #fff; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; font-weight: 600; }
+        th { background: #111; color: #fff; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; padding: 10px; border-bottom: 3px solid #111; border-right: 1px solid #333; text-align: center; }
+        td { padding: 8px 10px; border-bottom: 2px solid #111; border-right: 1.5px solid #111; text-align: center; color: #111; vertical-align: middle; }
+        tr:nth-child(even) td { background: #fafaf9; }
+        tfoot td { font-weight: 900; background: #f1f5f9; border-top: 3px solid #111; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 18px; justify-content: flex-end; }
+        .btn { padding: 8px 16px; border: 2.5px solid #111; border-radius: 6px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 3px 3px 0 #111; background: #fff; color: #111; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px; }
+        .btn:hover { background: #ffde59; transform: translate(-1px, -1px); box-shadow: 4px 4px 0 #111; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-icon { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .toolbar { display: none !important; }
+            .report-card { border: none; box-shadow: none; padding: 0; }
+            .stat-box, .charts-grid > div, .table-wrap { box-shadow: none !important; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button class="btn btn-primary" onclick="window.print()"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print / Save as PDF</button>
+        <button class="btn" onclick="downloadHtmlReport()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save Report HTML</button>
+    </div>
+    <div class="report-card">
+        ${bodyHtml}
+    </div>
+    <script>
+        function downloadHtmlReport() {
+            var blob = new Blob(['<!DOCTYPE html>\\n' + document.documentElement.outerHTML], { type: 'text/html' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '${filenameBase}.html';
+            a.click();
+        }
+    <\/script>
+</body>
+</html>`;
+
+            return { title, filenameBase, fullHtml };
+        }
+
+        let activePreviewExportType = 'ptExport';
+
+        function previewPtExport() {
+            activePreviewExportType = 'ptExport';
+            const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value || 'classOverview';
+            let previewHtml = '';
+            let title = 'Report & Export Live Preview';
+
+            if (category === 'exhaustiveReport') {
+                const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
+                const doc = generateExhaustiveReportDocument(reportType);
+                previewHtml = doc.fullHtml;
+                title = doc.title;
+            } else {
+                const data = getExportDataForCategory(category);
+                if (!data || !data.rows || data.rows.length === 0) {
+                    showMessage('No records found to preview.', 'error');
+                    return;
+                }
+                title = data.title;
+                previewHtml = generatePrintableHtmlReport(data);
+            }
+
+            showExportPreviewModal(title, previewHtml);
+        }
+
+        function previewExportRules() {
+            activePreviewExportType = 'rulesExport';
+            const format = document.querySelector('input[name="ptRulesExportFormat"]:checked')?.value || 'html';
+            const rulesData = getRulesExportData();
+
+            if (!rulesData || !rulesData.rules || rulesData.rules.length === 0) {
+                showMessage(typeof t === 'function' ? (t('ptRulesExportNoRules') || 'No rules configured to export.') : 'No rules configured to export.', 'error');
+                return;
+            }
+
+            let previewHtml = '';
+            if (format === 'md') {
+                const mdText = generateRulesMarkdown(rulesData);
+                previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:monospace;padding:20px;background:#f8f9fa;color:#111;white-space:pre-wrap;line-height:1.5;}</style></head><body>${escHtml(mdText)}</body></html>`;
+            } else {
+                previewHtml = generateRulesPrintableHtml(rulesData);
+            }
+
+            showExportPreviewModal(rulesData.title, previewHtml);
+        }
+
+        function showExportPreviewModal(title, htmlContent) {
+            const modal = document.getElementById('ptExportPreviewModal');
+            const titleEl = document.getElementById('ptExportPreviewTitle');
+            const iframe = document.getElementById('ptExportPreviewIframe');
+
+            if (titleEl) titleEl.textContent = title || 'Live Export & Report Preview';
+            if (iframe) iframe.srcdoc = htmlContent;
+
+            if (modal) modal.classList.add('active');
+        }
+
+        function closePtExportPreviewModal() {
+            const modal = document.getElementById('ptExportPreviewModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function confirmExportFromPreview() {
+            closePtExportPreviewModal();
+            if (activePreviewExportType === 'rulesExport') {
+                executeExportRules();
+            } else {
+                executePtExport();
+            }
+        }
+
+        async function executeExhaustiveReport(reportType, format) {
+            const doc = generateExhaustiveReportDocument(reportType);
+            const fullHtml = doc.fullHtml;
+            const filenameBase = doc.filenameBase;
+
+            if (format === 'pdf') {
+                const pdfSettings = getPdfExportSettings();
+                const defaultName = `${filenameBase}.pdf`;
+
+                if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+                    try {
+                        const destination = await openPtPdfExportModal();
+                        if (!destination) return;
+
+                        const pdfReq = {
+                            html: fullHtml,
+                            landscape: false,
+                            pdfOptions: { pageSize: 'A4', landscape: false }
+                        };
+                        if (destination === 'to-print') {
+                            pdfReq.target = 'toPrint';
+                            pdfReq.filename = defaultName;
+                        } else {
+                            pdfReq.defaultName = defaultName;
+                        }
+                        const result = await Desktop.printPdf(pdfReq);
+                        if (result && result.ok) {
+                            const msg = destination === 'to-print'
+                                ? ('PDF saved to Print folder: ' + (result.name || defaultName))
+                                : 'PDF report exported successfully!';
+                            if (window.showExportSuccessPopup && result.path) {
+                                showExportSuccessPopup(result.path, result.name || defaultName);
+                            } else {
+                                showMessage(msg, 'success');
+                            }
+                        } else if (result && !result.ok && !result.canceled) {
+                            showMessage('PDF export error: ' + (result?.error || 'failed'), 'error');
+                        }
+                    } catch (err) {
+                        showMessage('PDF export error: ' + (err?.message || String(err)), 'error');
+                    }
+                } else {
+                    const win = window.open('', '_blank');
+                    if (win && win.document) {
+                        win.document.write(fullHtml);
+                        win.document.close();
+                        win.focus();
+                        setTimeout(() => win.print(), 500);
+                    } else {
+                        downloadFile(`${filenameBase}.html`, fullHtml, 'text/html');
+                        showMessage('Exhaustive report exported as HTML!', 'success');
+                    }
+                }
+            } else {
+                const win = window.open('', '_blank');
+                if (win && win.document) {
+                    win.document.write(fullHtml);
+                    win.document.close();
+                } else {
+                    downloadFile(`${filenameBase}.html`, fullHtml, 'text/html');
+                    showMessage('Exhaustive report exported as HTML!', 'success');
+                }
+            }
+        }
+
         async function executePtExport() {
             const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value || 'classOverview';
             const format = document.querySelector('input[name="ptExportFormat"]:checked')?.value || 'html';
+
+            if (category === 'exhaustiveReport') {
+                const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
+                closePtExportModal();
+                executeExhaustiveReport(reportType, format);
+                return;
+            }
 
             const data = getExportDataForCategory(category);
             if (!data || !data.rows || data.rows.length === 0) {
