@@ -837,10 +837,43 @@
     });
   }
 
+  async function clipboardReadText() {
+    const api = getDesktopApi();
+    if (api && typeof api.clipboardReadText === 'function') {
+      try {
+        return await api.clipboardReadText();
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async function clipboardReadHtml() {
+    const api = getDesktopApi();
+    if (api && typeof api.clipboardReadHtml === 'function') {
+      try {
+        return await api.clipboardReadHtml();
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  async function clipboardReadImage() {
+    const api = getDesktopApi();
+    if (api && typeof api.clipboardReadImage === 'function') {
+      try {
+        return await api.clipboardReadImage();
+      } catch (e) {}
+    }
+    return null;
+  }
+
   window.Desktop = Object.freeze({
     applyRestoreChoices,
     arrangeSideBySide,
     backupZip,
+    clipboardReadText,
+    clipboardReadHtml,
+    clipboardReadImage,
     duplicateByPath,
     exportFiles,
     goToLauncher,

@@ -1,5 +1,5 @@
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
-const { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
@@ -7456,6 +7456,32 @@ function _getDocxExporter() {
   _docxExporter = { _markedDocx, MM2T, parseCssColor, parseCssLineHeight, parseCssFontSize, PAGE_SIZES_MM_DOCX, docxBlockTokens, Document, Packer, Paragraph };
   return _docxExporter;
 }
+
+ipcMain.handle('app:clipboard-read-text', () => {
+  try {
+    return clipboard ? clipboard.readText() : '';
+  } catch (e) {
+    return '';
+  }
+});
+
+ipcMain.handle('app:clipboard-read-html', () => {
+  try {
+    return clipboard ? clipboard.readHTML() : '';
+  } catch (e) {
+    return '';
+  }
+});
+
+ipcMain.handle('app:clipboard-read-image', () => {
+  try {
+    if (!clipboard) return '';
+    const img = clipboard.readImage();
+    return (img && !img.isEmpty()) ? img.toDataURL() : '';
+  } catch (e) {
+    return '';
+  }
+});
 
 ipcMain.handle('app:export-docx', async (event, request = {}) => {
   try {

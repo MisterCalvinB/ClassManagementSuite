@@ -21249,24 +21249,195 @@
         return true;
       };
 
-      window.conClipboardPaste = function (opts) {
+      window.conClipboardPaste = async function (opts) {
         if (!conClipboardIsConstellationVisible()) return false;
         if (document.body.classList.contains('laser-active')) return false;
         const allowWhileTyping = !opts || opts.allowWhileTyping !== false;
         if (!allowWhileTyping && conClipboardTypingFocus()) return false;
+
+        const brd = board();
+        const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || Number(window._boardCtxNoteX);
+        const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
+        const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2 - 60) : 60);
+        const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2 - 20) : 60);
+
+        // 1. Try reading via Desktop / Electron native clipboard first (synchronous & guaranteed)
+        let osPlainText = null;
+        let osHtml = '';
+        let osImageDataUrl = '';
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadText === 'function') {
+          try { osPlainText = await window.Desktop.clipboardReadText(); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadText === 'function') {
+          try { osPlainText = await window.electronApi.clipboardReadText(); } catch (e) {}
+        }
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadHtml === 'function') {
+          try { osHtml = (await window.Desktop.clipboardReadHtml()) || ''; } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadHtml === 'function') {
+          try { osHtml = (await window.electronApi.clipboardReadHtml()) || ''; } catch (e) {}
+        }
+
+        if (window.Desktop && typeof window.Desktop.clipboardReadImage === 'function') {
+          try { osImageDataUrl = (await window.Desktop.clipboardReadImage()) || ''; } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadImage === 'function') {
+          try { osImageDataUrl = (await window.electronApi.clipboardReadImage()) || ''; } catch (e) {}
+        }
+
+        // 2. Fallback to Web standard navigator.clipboard (for browser mode)
+        if (!osImageDataUrl && navigator.clipboard && navigator.clipboard.read) {
+          try {
+            const clipItems = await navigator.clipboard.read();
+            for (const item of clipItems) {
+              for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                  const blob = await item.getType(type);
+                  osImageDataUrl = await new Promise((res) => {
+                    const r = new FileReader();
+                    r.onload = () => res(r.result);
+                    r.onerror = () => res('');
+                    r.readAsDataURL(blob);
+                  });
+                  break;
+                }
+              }
+              if (osImageDataUrl) break;
+            }
+          } catch (e) {}
+        }
+
+        if (osPlainText === null && navigator.clipboard && navigator.clipboard.readText) {
+          try { osPlainText = await navigator.clipboard.readText(); } catch (e) {}
+        }
+
+        // 3. Handle image paste from OS clipboard
+        if (osImageDataUrl) {
+          try {
+            const parts = osImageDataUrl.split(',');
+            const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+            const bstr = atob(parts[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) u8arr[n] = bstr.charCodeAt(n);
+            const blob = new Blob([u8arr], { type: mime });
+
+            const ext = (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const name = 'pasted-image-' + Date.now() + '.' + ext;
+            _conAttachmentCounter += 1;
+            const attachmentId = 'att_' + _conAttachmentCounter;
+            conAttachments.push({
+              id: attachmentId,
+              name: conSanitizeAttachmentName(name),
+              mime,
+              kind: 'pics',
+              size: Number(blob.size) || 0,
+              file: blob,
+              relativePath: ''
+            });
+            conRenderAttachmentSummary();
+            const brdEl = document.getElementById('constellation-board');
+            const baseW = window._bcImageInsertWidth || 260;
+            const baseH = 200;
+            const pos = brdEl
+              ? {
+                x: Math.max(12, Math.round((brdEl.clientWidth - baseW) / 2)),
+                y: Math.max(12, Math.round((brdEl.clientHeight - baseH) / 2))
+              }
+              : { x: 40, y: 40 };
+            window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
+            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+            return true;
+          } catch (err) {}
+        }
+
         const _pasteTarget = _conClipboardRead();
-        if (!_pasteTarget) {
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length));
+
+        if (osPlainText != null) {
+          const plain = String(osPlainText || '').trim();
+
+          // Check if internal payload was copied and OS clipboard text matches it or is empty
+          const isInternalCopyMatch = hasValidInternalPayload && (
+            !plain ||
+            plain === (_pasteTarget.plainText || '').trim() ||
+            plain === (_lastConCopiedText || '').trim()
+          );
+
+          if (isInternalCopyMatch) {
+            if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+            conPushUndo();
+            const ok = conClipboardPastePayload(_pasteTarget);
+            if (ok && typeof mdbToast === 'function') {
+              const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+              mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+            }
+            return ok;
+          }
+
+          // Check for Table (HTML / TSV) from OS clipboard
+          const mockClip = {
+            getData: (t) => t === 'text/html' ? osHtml : (t === 'text/plain' ? (osPlainText || '') : '')
+          };
+          if (typeof wnPasteAsConTable === 'function' && ((osHtml && osHtml.includes('<table')) || (plain && plain.includes('\t') && plain.includes('\n')))) {
+            if (wnPasteAsConTable(mockClip, x, y)) {
+              if (typeof mdbToast === 'function') mdbToast('📊 Pasted table onto the board.');
+              return true;
+            }
+          }
+
+          // External plain text: paste as a new text note
+          if (plain) {
+            conPushUndo();
+            if (window.conCreateTextNote) {
+              const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
+              if (note) {
+                conClipboardClearVisualSelection();
+                if (typeof conNoteSelected !== 'undefined') {
+                  conNoteSelected.add(note.id);
+                  const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+                  if (el) el.classList.add('wn-selected');
+                }
+                if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+                return true;
+              }
+            }
+          }
+
+          // If no plain text in OS clipboard but internal payload exists
+          if (hasValidInternalPayload) {
+            if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+            conPushUndo();
+            const ok = conClipboardPastePayload(_pasteTarget);
+            if (ok && typeof mdbToast === 'function') {
+              const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+              mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+            }
+            return ok;
+          }
+
           if (typeof mdbToast === 'function') mdbToast('ℹ️ Clipboard is empty. Copy something first.');
           return false;
         }
-        if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
-        conPushUndo();
-        const ok = conClipboardPastePayload(_pasteTarget);
-        if (ok && typeof mdbToast === 'function') {
-          const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
-          mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+
+        // If OS clipboard text was not accessible, fallback to internal clipboard
+        if (hasValidInternalPayload) {
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return ok;
         }
-        return ok;
+
+        if (typeof mdbToast === 'function') mdbToast('ℹ️ Clipboard is empty. Copy something first.');
+        return false;
       };
 
 
@@ -21677,7 +21848,19 @@
         // 4. Fallback: If external plain text exists in OS clipboard, create a text note
         if (plain) {
           e.preventDefault();
-          if (window.conCreateTextNote) window.conCreateTextNote(plain, x, y, { fontSize: 24 });
+          conPushUndo();
+          if (window.conCreateTextNote) {
+            const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
+            if (note) {
+              conClipboardClearVisualSelection();
+              if (typeof conNoteSelected !== 'undefined') {
+                conNoteSelected.add(note.id);
+                const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+                if (el) el.classList.add('wn-selected');
+              }
+              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+            }
+          }
           return;
         }
 
