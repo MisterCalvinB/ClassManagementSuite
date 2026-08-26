@@ -2184,7 +2184,7 @@
       <div class="search-sep"></div>
       <button class="action-btn btn-grey" onclick="searchOpenImport()" title="Import book from HTML/EPUB">Import
         Book</button>
-      <select id="search-book-select" title="Load a book from the books folder" onchange="searchLoadShortcutBook()">
+      <select id="search-book-select" title="Load a book from the books folder" onchange="searchLoadShortcutBook()" onfocus="searchInitShortcutMenu()">
         <option value="">Books folder…</option>
       </select>
       <span id="search-book-status">No book loaded.</span>
@@ -34441,27 +34441,12 @@
     // SEARCH
     // ================================================================
 
-    const SEARCH_BOOK_SHORTCUTS = [
-      {
-        label: 'Catcher in the Rye',
-        fileName: 'Catcher in the Rye - J.D. Salinger.epub',
-        path: 'books/Catcher in the Rye - J.D. Salinger.epub'
-      },
-      {
-        label: 'Looking for Alaska',
-        fileName: 'Looking for Alaska - John Green.epub',
-        path: 'books/Looking for Alaska - John Green.epub'
-      },
-      {
-        label: 'Never Let Me Go',
-        fileName: 'Never Let Me Go - Kazuo Ishiguro.epub',
-        path: 'books/Never Let Me Go - Kazuo Ishiguro.epub'
-      }
-    ];
+
 
     let searchBookText = '';  // The full text of the imported book
     let searchParagraphs = [];
     let searchResults = [];   // Array of search result objects
+    let searchAvailableBooks = [];
 
     function searchBuildParagraphs(text) {
       const paragraphs = [];
@@ -34562,16 +34547,59 @@
       searchRenderResults(document.getElementById('search-word').value.trim());
     }
 
-    function searchInitShortcutMenu() {
+    async function searchInitShortcutMenu() {
       const select = document.getElementById('search-book-select');
-      if (!select || select.options.length > 1) return;
-      SEARCH_BOOK_SHORTCUTS.forEach(book => {
-        const option = document.createElement('option');
-        option.value = book.path;
-        option.textContent = book.label;
-        select.appendChild(option);
+      if (!select) return;
+
+      const previousValue = select.value;
+      searchAvailableBooks = [];
+
+      const canList = !!(
+        window.Desktop &&
+        Desktop.isElectron &&
+        Desktop.isElectron() &&
+        typeof Desktop.listFiles === 'function'
+      );
+
+      if (canList) {
+        try {
+          const result = await Desktop.listFiles('customBooks', {
+            extensions: ['.epub', '.html', '.htm', '.xhtml', '.txt']
+          });
+          const files = result && result.ok && Array.isArray(result.files) ? result.files : [];
+          files.forEach(file => {
+            const relPath = file.relativePath || file.filename;
+            const label = String(file.filename || '').replace(/\.(epub|html?|xhtml|txt)$/i, '');
+            searchAvailableBooks.push({
+              id: 'customBooks:' + relPath,
+              label: label || file.filename,
+              fileName: file.filename,
+              path: relPath,
+              target: 'customBooks',
+              isCustom: true
+            });
+          });
+        } catch (e) {
+          console.warn('Could not list customBooks for search menu:', e);
+        }
+      }
+
+      select.innerHTML = '<option value="">Books folder…</option>';
+
+      searchAvailableBooks.forEach(book => {
+        const opt = document.createElement('option');
+        opt.value = book.id;
+        opt.textContent = book.label;
+        select.appendChild(opt);
       });
-      searchSetBookStatus('No book loaded.');
+
+      if (previousValue && searchAvailableBooks.some(b => b.id === previousValue)) {
+        select.value = previousValue;
+      }
+
+      if (!searchBookText) {
+        searchSetBookStatus('No book loaded.');
+      }
     }
 
     function searchSetBookStatus(message, state = '') {
@@ -34590,7 +34618,8 @@
     function searchSyncShortcutSelection(path = '') {
       const select = document.getElementById('search-book-select');
       if (!select) return;
-      select.value = SEARCH_BOOK_SHORTCUTS.some(book => book.path === path) ? path : '';
+      const match = searchAvailableBooks.find(b => b.path === path || b.id === path);
+      select.value = match ? match.id : '';
     }
 
     function searchApplyBookText(text, label, sourcePath = '') {
@@ -34601,7 +34630,7 @@
       searchSetBookStatus(`Loaded: ${label}`, 'is-ready');
     }
 
-    async function searchReadShortcutBook(relativePath) {
+    async function searchReadShortcutBook(relativePath, target = 'customBooks') {
       const normalizedPath = relativePath.replace(/\\/g, '/');
       const lowerPath = normalizedPath.toLowerCase();
       const canReadViaDesktop = !!(
@@ -34611,8 +34640,9 @@
         typeof Desktop.readByPath === 'function'
       );
 
-      if (canReadViaDesktop && normalizedPath.startsWith('books/')) {
-        const result = await Desktop.readByPath('data', normalizedPath, {
+      if (canReadViaDesktop) {
+        const readTarget = target || (normalizedPath.startsWith('books/') ? 'data' : 'customBooks');
+        const result = await Desktop.readByPath(readTarget, normalizedPath, {
           encoding: 'base64'
         });
         if (!result || !result.ok || !result.content) {
@@ -34656,17 +34686,19 @@
     async function searchLoadShortcutBook() {
       const select = document.getElementById('search-book-select');
       if (!select || !select.value) {
-        searchSetBookStatus(searchBookText ? 'Book still loaded. Choose another shortcut to replace it.' : 'No book loaded.');
+        searchSetBookStatus(searchBookText ? 'Book still loaded. Choose another book to replace it.' : 'No book loaded.');
         return;
       }
 
-      const shortcut = SEARCH_BOOK_SHORTCUTS.find(book => book.path === select.value);
-      const label = shortcut ? shortcut.label : select.options[select.selectedIndex].textContent;
+      const item = searchAvailableBooks.find(b => b.id === select.value);
+      const label = item ? item.label : select.options[select.selectedIndex].textContent;
+      const relPath = item ? item.path : select.value;
+      const target = item ? item.target : (relPath.startsWith('books/') ? 'data' : 'customBooks');
 
       try {
         select.disabled = true;
         searchSetBookStatus(`Loading ${label}…`, 'is-loading');
-        const text = await searchReadShortcutBook(select.value);
+        const text = await searchReadShortcutBook(relPath, target);
         if (!text) throw new Error('The selected file did not produce readable text.');
         searchApplyBookText(text, label, select.value);
       } catch (err) {
@@ -35121,9 +35153,9 @@
       } else {
         const titleEl = document.getElementById('ta-imp-title');
         const fileLabel = titleEl ? titleEl.textContent.replace('📂 ', '') : 'Book';
-        const shortcut = SEARCH_BOOK_SHORTCUTS.find(book => book.fileName === fileLabel);
-        searchApplyBookText(text, shortcut ? shortcut.label : fileLabel, shortcut ? shortcut.path : '');
+        searchApplyBookText(text, fileLabel, '');
         taCloseImport();
+        searchInitShortcutMenu();
         mdbToast('📖 Book imported. You can now search for words.');
       }
     }
@@ -40718,7 +40750,7 @@
   <!-- Voice recording popup -->
   <div id="con-record-popup"
     style="display:none;position:fixed;z-index:9500;background:#fff;border:1.5px solid #111;border-radius:8px;box-shadow:3px 3px 0 #bbb;padding:18px 22px;min-width:340px;font-family:inherit;">
-    <div style="font-weight:700;font-size:1.05rem;margin-bottom:14px;" data-i18n="recordAudioTitle">🎙 Record Audio
+    <div style="font-weight:700;font-size:1.05rem;margin-bottom:14px;" data-i18n="recordAudioTitle">Record Audio
     </div>
     <div id="con-record-no-const"
       style="display:none;background:#fff8e1;border:1px solid #e6b800;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:0.82rem;">

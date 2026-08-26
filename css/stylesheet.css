@@ -2771,24 +2771,34 @@ button.action-btn.btn-grey.con-panel-active {
 /* --- Picked student blink animation --- */
 @keyframes pickBlink {
   0% {
-    background-color: rgba(0, 0, 0, 0.95);
+    background-color: #111111;
+    color: #ffffff;
+    outline: 3px solid #f59e0b;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.9);
   }
 
   50% {
-    background-color: transparent;
+    background-color: #f59e0b;
+    color: #111111;
+    outline: 3px solid #111111;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 1);
   }
 
   100% {
-    background-color: rgba(0, 0, 0, 0.95);
+    background-color: #111111;
+    color: #ffffff;
+    outline: 3px solid #f59e0b;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.9);
   }
 }
 
 .picked-blink {
-  animation-name: pickBlink;
-  animation-duration: 0.50s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: 8;
-  animation-fill-mode: none;
+  animation: pickBlink 0.45s ease-in-out 8;
+  z-index: 10;
+}
+
+.picked-blink * {
+  color: inherit !important;
 }
 
 /* Slightly stronger highlight when showing on presentation screens */
@@ -8788,9 +8798,9 @@ body {
   background: #ffffff;
   color: #111;
   margin: 0;
-  padding: 52px 12px 12px 12px;
-  display: block;
-  justify-content: center;
+  padding: 0 12px 12px 12px;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   box-sizing: border-box;
   width: 100%;
@@ -8845,11 +8855,11 @@ h3 {
 #menu {
   display: flex;
   flex-wrap: wrap;
-  position: fixed;
+  position: relative;
   background: #111;
   border-bottom: 2px solid #222;
-  top: 0;
-  left: 0;
+  top: auto;
+  left: auto;
   width: 100%;
   flex-direction: row;
   align-items: center;
@@ -8859,41 +8869,10 @@ h3 {
   box-sizing: border-box;
   z-index: 2001;
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  flex: 0 0 auto;
 }
 
-#menu.menu-collapsed {
-  transform: translateY(calc(-100% + 14px));
-}
 
-#menu-minimize-btn {
-  position: absolute;
-  right: 12px;
-  bottom: -16px;
-  padding: 0px 4px !important;
-  font-size: 0.4rem !important;
-  font-weight: 900;
-  letter-spacing: 0.4px;
-  line-height: 1;
-  background: #111;
-  color: #ccc;
-  border: 1px solid #444;
-  border-top: none;
-  border-radius: 0 0 5px 5px;
-  cursor: pointer;
-  z-index: 2002;
-}
-
-#menu-minimize-btn:hover {
-  background: #222;
-  color: #fff;
-  border-color: #666;
-}
-
-#menu.menu-collapsed #menu-minimize-btn {
-  background: #111;
-  color: #fff;
-  border-color: #444;
-}
 
 #datetime {
   position: static;
@@ -10954,14 +10933,15 @@ button:hover {
   background: transparent;
   border-radius: 6px;
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 6px;
   font-size: 0.85rem;
   font-weight: 600;
   color: #222;
 }
 
 .roster-context-menu button:hover {
-  background: #ffffff;
+  background: black;
+  color: white;
 }
 
 .roster-context-menu button[data-action="delete"] {
@@ -11361,6 +11341,8 @@ h1#main-title {
   min-width: 260px;
   width: 310px;
   max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 65px);
+  overflow-y: auto;
   background: #ffffff;
   border: 2px solid #111;
   border-radius: 12px;
@@ -12634,19 +12616,20 @@ button > img.btn-icon:only-child {
 .header-container {
   position: relative;
   width: 100%;
-  margin-top: 10px;
-  margin-bottom: 20px;
+  margin: 0;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
 }
 
 .top-right-controls {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
+  position: sticky;
+  top: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 1000;
+  z-index: 1500;
+  pointer-events: auto;
 }
 
 #roster-settings-anchor,
@@ -12701,8 +12684,11 @@ button > img.btn-icon:only-child {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
+  left: auto;
   width: 340px;
   max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 65px);
+  overflow-y: auto;
   background: #ffffff;
   border: 2px solid #111;
   border-radius: 12px;
@@ -12758,6 +12744,8 @@ button > img.btn-icon:only-child {
   right: 0;
   width: 320px;
   max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 65px);
+  overflow-y: auto;
   background: #ffffff;
   border: 2px solid #111;
   border-radius: 12px;
@@ -14405,7 +14393,7 @@ button > img.btn-icon:only-child {
 
 @media (max-width: 900px) {
   body {
-    padding: 52px 6px 6px 6px;
+    padding: 0px 6px 6px 6px;
     font-size: 14px;
   }
 
@@ -14431,7 +14419,7 @@ button > img.btn-icon:only-child {
 
 @media (max-width: 600px) {
   body {
-    padding: 100px 6px 6px 6px;
+    padding: 0 6px 6px 6px;
   }
 
   /* Stack menu items */
@@ -14443,30 +14431,7 @@ button > img.btn-icon:only-child {
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  #menu.menu-collapsed {
-    transform: translateY(calc(-100% + 10px));
-    box-shadow: 0 4px 0 0 #111;
-  }
 
-  /* Drag-handle tab that stays visible when collapsed */
-  #menu::after {
-    content: '? menu';
-    display: block;
-    width: 100%;
-    text-align: center;
-    font-size: 0.55rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #999;
-    padding: 2px 0 1px;
-    cursor: pointer;
-  }
-
-  #menu.menu-collapsed::after {
-    content: '?';
-    color: #bbb;
-  }
 
   .roster-list {
     columns: 2;
@@ -14515,44 +14480,49 @@ button > img.btn-icon:only-child {
   /* Main content */
   .header-container {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-    margin-bottom: 12px;
-  }
-
-  h1#main-title {
-    font-size: 1rem;
-    letter-spacing: 0;
-    padding-left: 10px;
-    padding-right: 10px;
+    justify-content: flex-end;
+    width: 100%;
     margin: 0;
-    width: auto;
+    pointer-events: none;
   }
 
   .top-right-controls {
-    position: relative;
-    transform: none;
-    width: auto;
-    justify-content: center;
+    position: sticky;
+    top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1500;
+    pointer-events: auto;
   }
 
   #class-selection-anchor,
   #timer-anchor,
   #roster-settings-anchor {
-    position: static;
+    position: static !important;
   }
 
   .class-selection-popup,
   #timer-popup,
   .roster-settings-popup {
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    width: 95vw !important;
-    max-width: 340px !important;
-    top: calc(100% + 8px) !important;
+    position: absolute !important;
+    left: auto !important;
+    right: 0 !important;
+    transform: none !important;
+    top: calc(100% + 6px) !important;
+    max-height: calc(100vh - 65px) !important;
+    overflow-y: auto !important;
+  }
+
+  .class-selection-popup {
+    width: min(320px, calc(100vw - 16px)) !important;
+    max-width: 320px !important;
+  }
+
+  #timer-popup,
+  .roster-settings-popup {
+    width: min(295px, calc(100vw - 16px)) !important;
+    max-width: 295px !important;
   }
 
   h2 {

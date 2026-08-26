@@ -209,25 +209,7 @@
             filter: brightness(0) invert(1) !important;
         }
 
-        #menu-minimize-btn {
-            background: #222222 !important;
-            color: #ffffff !important;
-            border: 1px solid #444444 !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
 
-        #menu-minimize-btn .btn-icon {
-            filter: brightness(0) invert(1) !important;
-            margin-right: 0 !important;
-        }
-
-        #menu-minimize-btn:hover {
-            background: #111111 !important;
-            border-color: #444444 !important;
-            color: #ffffff !important;
-        }
 
         /* ------------------------------------------------------------
            2. TOP RIGHT CONTROLS (.top-right-controls)
@@ -842,14 +824,57 @@
                 <div class="hm-menu"></div>
             </div>
 
-            <button id="menu-minimize-btn" onclick="toggleMenuCollapse(event)" title="Minimise menu"
-                aria-label="Minimise menu" data-i18n-title="menu_minimize_title"
-                data-i18n-aria="menu_minimize_title"><img src="../assets/icons/minimize.svg" class="btn-icon"
-                    alt="" /></button>
             <div id="utility-section" style="display: contents;"></div>
         </div>
     </div>
 
+
+    <!-- Roster Context Menu -->
+    <div id="roster-context-menu" class="roster-context-menu">
+        <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
+            data-i18n="ctx_absent">Absent</button>
+        <details id="ctx-flags-details" class="ctx-flags-details"
+            style="border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
+            <summary
+                style="padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: #222; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; list-style: none; outline: none; border-radius: 6px; transition: background 0.1s ease;">
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                    <img src="../assets/icons/flag.svg" class="btn-icon" alt="" />
+                    <span data-i18n="ctx_flags">Flags</span>
+                    <span id="ctx-flags-summary-count"
+                        style="font-size: 0.75rem; color: #e11d48; font-weight: 700;"></span>
+                </span>
+                <span class="ctx-flags-arrow"
+                    style="font-size: 0.7rem; color: #777; transition: transform 0.15s ease;">▼</span>
+            </summary>
+            <div style="padding: 6px 10px; background: #fafafa; border-top: 1px solid #eee;">
+                <div
+                    style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span data-i18n="ctx_select_flags">Select flags:</span>
+                    <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
+                        style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;" data-i18n="btn_clear">Clear</button>
+                </div>
+                <div id="ctx-flag-palette"
+                    style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                    <!-- Flag color buttons dynamically generated -->
+                </div>
+            </div>
+        </details>
+        <button type="button" data-action="role" onclick="openRoleChangePopup()"
+            data-i18n="ctx_add_role">Add Role</button>
+        <button type="button" data-action="stats" onclick="openStudentStatsPopup(rosterContextStudentId)"
+            title="View participation stats" data-i18n="ctx_stats" data-i18n-title="ctx_stats_title"><img
+                src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
+            Stats</button>
+        <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
+            title="View grades from Grade Sheet" data-i18n="ctx_grades"
+            data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
+                alt="" /> Grades</button>
+        <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;"></div>
+        <button type="button" data-action="copy-roster" onclick="copyRosterPlainText()"
+            title="Copy roster names (with teams and roles) to clipboard, without badges or scores"
+            data-i18n-title="ctx_copy_roster_title"><img src="../assets/icons/copy.svg" class="btn-icon"
+                alt="" /> Copy roster</button>
+    </div>
 
     <!-- MP3 Picker Popup -->
     <div id="mp3-picker-popup">
@@ -1091,11 +1116,8 @@
             style="display:none;" onchange="startupImportDbFromInput(event)">
     </div>
     <div class="main-wrapper">
-        <!-- Header Container (Title & Controls) -->
+        <!-- Header Container (Controls) -->
         <div class="header-container">
-            <!-- Title -->
-            <h1 id="main-title" data-i18n="cms_title">Class Management</h1>
-
             <!-- Top Right Controls (Class Selection & Settings) -->
             <div class="top-right-controls">
                 <div id="class-selection-anchor">
@@ -1515,10 +1537,10 @@
                     </div>
                 </div>
                 <div id="cms-plan-chip"
-                    style="display:none; font-size:0.76rem; padding:1px 0 3px; color:#0f766e; align-items:center; gap:4px; cursor:pointer;"
+                    style="display:none; font-size:0.76rem; padding:3px 8px; color:#0f766e; background:#f0fdf4; border:1px solid #ccfbf1; border-radius:6px; align-items:center; gap:4px; cursor:pointer; width:fit-content; max-width:max-content; align-self:flex-start; margin:2px 0 6px;"
                     onclick="cmsOpenLinkedPlan()" title="Open seating plan in Class Plan">
                     <img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <button id="cms-plan-chip-btn"
-                        style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:0.76rem;font-weight:600;padding:0;text-decoration:underline;"
+                        style="background:none;border:none;color:#0f766e;cursor:pointer;font-size:0.76rem;font-weight:700;padding:0;text-decoration:underline;"
                         onclick="event.stopPropagation(); cmsOpenLinkedPlan()"></button>
                 </div>
                 <div id="roster-plan-toolbar" style="display:none; padding:2px 4px 4px; flex-wrap:wrap; gap:2px;">
@@ -1539,67 +1561,6 @@
                     <li style="color:#999; padding: 20px; text-align: center;" data-i18n="roster_select_group">Select a
                         group...</li>
                 </ul>
-                <div id="roster-context-menu" class="roster-context-menu">
-                    <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
-                        data-i18n="ctx_absent">Absent</button>
-                    <details id="ctx-flags-details" class="ctx-flags-details"
-                        style="border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
-                        <summary
-                            style="padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: #222; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; list-style: none; outline: none; border-radius: 6px; transition: background 0.1s ease;">
-                            <span style="display: inline-flex; align-items: center; gap: 6px;">
-                                <img src="../assets/icons/flag.svg" class="btn-icon" alt="" />
-                                <span data-i18n="ctx_flags">Flags</span>
-                                <span id="ctx-flags-summary-count"
-                                    style="font-size: 0.75rem; color: #e11d48; font-weight: 700;"></span>
-                            </span>
-                            <span class="ctx-flags-arrow"
-                                style="font-size: 0.7rem; color: #777; transition: transform 0.15s ease;">▼</span>
-                        </summary>
-                        <div style="padding: 6px 10px; background: #fafafa; border-top: 1px solid #eee;">
-                            <div
-                                style="font-size: 0.72rem; font-weight: 700; color: #555; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                                <span data-i18n="ctx_select_flags">Select flags:</span>
-                                <button type="button" onclick="clearStudentManualFlags(rosterContextStudentId)"
-                                    style="background:none; border:none; color:#999; font-size:0.7rem; cursor:pointer; padding:0; text-decoration:underline;" data-i18n="btn_clear">Clear</button>
-                            </div>
-                            <div id="ctx-flag-palette"
-                                style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                                <!-- Flag color buttons dynamically generated -->
-                            </div>
-                        </div>
-                    </details>
-                    <button type="button" data-action="role" onclick="openRoleChangePopup()"
-                        data-i18n="ctx_add_role">Add Role</button>
-                    <button type="button" data-action="stats" onclick="openStudentStatsPopup(rosterContextStudentId)"
-                        title="View participation stats" data-i18n="ctx_stats" data-i18n-title="ctx_stats_title"><img
-                            src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
-                        Stats</button>
-                    <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
-                        title="View grades from Grade Sheet" data-i18n="ctx_grades"
-                        data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
-                            alt="" /> Grades</button>
-                    <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;" title="Shortcuts"></div>
-                    <button type="button" data-action="timer" onclick="handleRosterContextAction('timer')"
-                        title="Open timer" data-i18n-title="ctx_timer_title"><img src="../assets/icons/clock.svg"
-                            class="btn-icon" alt="" /> Timer</button>
-                    <button type="button" data-action="quiet-mode" onclick="handleRosterContextAction('quiet-mode')"
-                        title="Activate Quiet Work mode" data-i18n="ctx_quiet" data-i18n-title="ctx_quiet_title"><img
-                            src="../assets/icons/shush.svg" class="btn-icon" alt="" />
-                        Quiet</button>
-                    <button type="button" data-action="conversation-mode"
-                        onclick="handleRosterContextAction('conversation-mode')" title="Activate Conversation mode"
-                        data-i18n="ctx_conversation" data-i18n-title="ctx_conv_title"><img
-                            src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /> Conversation</button>
-                    <button type="button" data-action="group-mode" onclick="handleRosterContextAction('group-mode')"
-                        title="Activate Group mode" data-i18n="ctx_group_mode" data-i18n-title="ctx_group_title"><img
-                            src="../assets/icons/people-group.svg" class="btn-icon" alt="" />
-                        Group</button>
-                    <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;"></div>
-                    <button type="button" data-action="copy-roster" onclick="copyRosterPlainText()"
-                        title="Copy roster names (with teams and roles) to clipboard, without badges or scores"
-                        data-i18n-title="ctx_copy_roster_title"><img src="../assets/icons/copy.svg" class="btn-icon"
-                            alt="" /> Copy roster</button>
-                </div>
                 <div id='drumroll-and-pick'>
                     <div id="custom-action-buttons"></div>
                     <button class="btn-pick" id="pick-btn" onclick="pickStudent()" disabled data-i18n="btn_pick">Random
@@ -2822,21 +2783,35 @@
             } catch (_) { }
         }
 
+        let _activeBlinkStudentId = null;
+        let _activeBlinkTime = 0;
+
+        function triggerStudentPickBlink(studentId) {
+            if (!studentId) return;
+            _activeBlinkStudentId = studentId;
+            _activeBlinkTime = Date.now();
+
+            const applyBlink = () => {
+                try {
+                    const els = document.querySelectorAll(`[data-student-id="${studentId}"]`);
+                    els.forEach(el => {
+                        el.classList.remove('picked-blink');
+                        void el.offsetWidth;
+                        el.classList.add('picked-blink');
+                    });
+                } catch (_) { }
+            };
+
+            applyBlink();
+            setTimeout(applyBlink, 40);
+        }
+
         function _applyPresentationState(data) {
             if (!data) return;
             if (data.type === 'animation') {
                 if (data.kind === 'pick-blink') {
                     if (!_presAnimEnabled) return;
-                    try {
-                        const el = document.querySelector(`[data-student-id="${data.studentId}"]`);
-                        if (el) {
-                            el.classList.remove('picked-blink');
-                            void el.offsetWidth;
-                            el.classList.add('picked-blink');
-                            const _end = function (e) { if (e.animationName === 'pickBlink') { el.classList.remove('picked-blink'); el.removeEventListener('animationend', _end); } };
-                            el.addEventListener('animationend', _end);
-                        }
-                    } catch (_) { }
+                    triggerStudentPickBlink(data.studentId);
                     return;
                 }
                 if (data.kind === 'mode-activate') { activateMode(data.mode); return; }
@@ -5843,7 +5818,7 @@
             chip.dataset.groupId = selectedGroupName;
             chip.dataset.planId = matched.id;
             chipBtn.textContent = matched.name;
-            chip.style.display = 'flex';
+            chip.style.display = 'inline-flex';
             // Activate the linked plan
             cpSetActive(selectedGroupName, matched.id);
         }
@@ -7230,8 +7205,9 @@
                     lastTeamId = student.teamId;
                 }
 
+                const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
                 const li = document.createElement('li');
-                li.className = `roster-item ${student.isPicked ? 'picked' : ''} ${student.isAbsent ? 'absent' : ''} ${student.isFlagged ? 'flagged-student' : ''}`;
+                li.className = `roster-item ${student.isPicked ? 'picked' : ''} ${student.isAbsent ? 'absent' : ''} ${student.isFlagged ? 'flagged-student' : ''} ${isBlinking ? 'picked-blink' : ''}`;
                 li.setAttribute('draggable', currentTeamsActive && !student.isAbsent ? 'true' : 'false');
                 li.setAttribute('data-student-id', student.id);
                 li.addEventListener('contextmenu', function (event) {
@@ -7384,8 +7360,13 @@
                 event.stopPropagation();
             }
 
-            const menu = document.getElementById('roster-context-menu');
+            let menu = document.getElementById('roster-context-menu');
             if (!menu) return;
+
+            // Ensure menu is attached to body so position: fixed uses TRUE viewport screen coordinates
+            if (menu.parentNode !== document.body) {
+                document.body.appendChild(menu);
+            }
 
             rosterContextStudentId = studentId;
 
@@ -7427,22 +7408,39 @@
                 }
             }
 
+            const studentEl = (event && event.target && event.target.closest && event.target.closest('[data-student-id]')) || document.querySelector(`[data-student-id="${studentId}"]`);
+
+            const pad = 6;
+            let clickX, clickY;
+
+            if (event && Number.isFinite(event.clientX) && (event.clientX > 0 || event.clientY > 0)) {
+                clickX = event.clientX;
+                clickY = event.clientY;
+            } else if (studentEl) {
+                const rect = studentEl.getBoundingClientRect();
+                clickX = rect.left + 20;
+                clickY = rect.top + rect.height / 2;
+            } else {
+                clickX = window.innerWidth / 2;
+                clickY = window.innerHeight / 2;
+            }
+
+            // Position menu synchronously right under the click
+            menu.style.visibility = 'hidden';
             menu.classList.add('open');
 
-            if (event) {
-                const pad = 8;
-                const x = event.clientX;
-                const y = event.clientY;
+            const menuWidth = menu.offsetWidth || 180;
+            const menuHeight = menu.offsetHeight || 200;
 
-                requestAnimationFrame(function () {
-                    const w = menu.offsetWidth;
-                    const h = menu.offsetHeight;
-                    const left = Math.min(x, window.innerWidth - w - pad);
-                    const top = Math.min(y, window.innerHeight - h - pad);
-                    menu.style.left = Math.max(pad, left) + 'px';
-                    menu.style.top = Math.max(pad, top) + 'px';
-                });
-            }
+            let finalLeft = Math.min(clickX, window.innerWidth - menuWidth - pad);
+            let finalTop = Math.min(clickY, window.innerHeight - menuHeight - pad);
+
+            finalLeft = Math.max(pad, finalLeft);
+            finalTop = Math.max(pad, finalTop);
+
+            menu.style.left = finalLeft + 'px';
+            menu.style.top = finalTop + 'px';
+            menu.style.visibility = 'visible';
         }
 
         function closeRosterContextMenu() {
@@ -9754,24 +9752,11 @@
                 dn.classList.remove('blinking');
                 dn.style.color = '';
             }, 4000);
+            _activeBlinkStudentId = winner.id;
+            _activeBlinkTime = Date.now();
             renderRoster();
 
-            // Apply blink animation class to the picked student's roster item (normal view)
-            try {
-                const el = document.querySelector(`[data-student-id="${winner.id}"]`);
-                if (el) {
-                    el.classList.remove('picked-blink');
-                    void el.offsetWidth; // reflow
-                    el.classList.add('picked-blink');
-                    const onEnd = function (e) {
-                        if (e.animationName === 'pickBlink') {
-                            el.classList.remove('picked-blink');
-                            el.removeEventListener('animationend', onEnd);
-                        }
-                    };
-                    el.addEventListener('animationend', onEnd);
-                }
-            } catch (err) { }
+            triggerStudentPickBlink(winner.id);
 
             // Notify presentation windows to also animate the picked student and sync state
             if (!PRESENTATION_MODE) {
@@ -9894,85 +9879,7 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // Menu: manual minimise button + auto-collapse on narrow screens
-        (function () {
-            const menu = document.getElementById('menu');
-            const minimizeBtn = document.getElementById('menu-minimize-btn');
-            let collapseTimer = null;
-            let manuallyCollapsed = false;
-
-            function isNarrow() { return window.innerWidth <= 600; }
-
-            function syncMenuButton() {
-                if (!minimizeBtn) return;
-                const collapsed = menu.classList.contains('menu-collapsed');
-                minimizeBtn.innerHTML = collapsed ? '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/minimize.svg" class="btn-icon" alt="" />';
-                minimizeBtn.title = collapsed ? 'Expand menu' : 'Minimise menu';
-                minimizeBtn.setAttribute('aria-label', minimizeBtn.title);
-            }
-
-            function collapse(force = false) {
-                if (force || isNarrow() || manuallyCollapsed) {
-                    menu.classList.add('menu-collapsed');
-                    syncMenuButton();
-                }
-            }
-
-            function expand() {
-                menu.classList.remove('menu-collapsed');
-                syncMenuButton();
-            }
-
-            function scheduleCollapse() {
-                clearTimeout(collapseTimer);
-                if (!manuallyCollapsed) collapseTimer = setTimeout(() => collapse(), 1800);
-            }
-
-            window.toggleMenuCollapse = function (event) {
-                if (event) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-                clearTimeout(collapseTimer);
-                if (menu.classList.contains('menu-collapsed')) {
-                    manuallyCollapsed = false;
-                    expand();
-                    if (isNarrow()) scheduleCollapse();
-                } else {
-                    manuallyCollapsed = true;
-                    collapse(true);
-                }
-            };
-
-            syncMenuButton();
-
-            if (isNarrow()) scheduleCollapse();
-
-            menu.addEventListener('mouseenter', () => {
-                clearTimeout(collapseTimer);
-                if (!manuallyCollapsed) expand();
-            });
-
-            menu.addEventListener('mouseleave', () => {
-                if (isNarrow() && !manuallyCollapsed) scheduleCollapse();
-            });
-
-            menu.addEventListener('touchstart', (e) => {
-                if (menu.classList.contains('menu-collapsed') && !manuallyCollapsed) {
-                    e.preventDefault();
-                    expand();
-                    scheduleCollapse();
-                }
-            }, { passive: false });
-
-            window.addEventListener('resize', () => {
-                if (!isNarrow() && !manuallyCollapsed) {
-                    expand();
-                } else if (isNarrow() && !manuallyCollapsed) {
-                    scheduleCollapse();
-                }
-            });
-        })();
+        window.toggleMenuCollapse = function () {};
 
         let datetimeOverlayInterval = null;
         function openDatetimeOverlay() {
@@ -14839,8 +14746,10 @@ syncState();
                 banner = document.createElement('div');
                 banner.id = 'tm-live-banner';
                 banner.style.cssText = 'background:#5a2d82;color:#fff;padding:8px 16px;border-radius:5px;font-size:0.8rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;';
-                const title = document.getElementById('main-title');
-                title.parentNode.insertBefore(banner, title.nextSibling);
+                const headerContainer = document.querySelector('.header-container') || document.querySelector('.main-wrapper');
+                if (headerContainer && headerContainer.parentNode) {
+                    headerContainer.parentNode.insertBefore(banner, headerContainer);
+                }
             }
             banner.innerHTML = `
         <span>⏪ TIME MACHINE — Viewing session: ${label} <span class="tm-readonly-badge">Read Only</span></span>
@@ -17297,10 +17206,12 @@ ${body}
                             continue;
                         }
 
+                        const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
                         li.className = 'roster-plan-cell' +
                             (student.isPicked ? ' picked' : '') +
                             (student.isAbsent ? ' absent' : '') +
-                            (student.isFlagged ? ' flagged' : '');
+                            (student.isFlagged ? ' flagged' : '') +
+                            (isBlinking ? ' picked-blink' : '');
                         li.setAttribute('data-student-id', student.id);
                         li.setAttribute('data-row', r);
                         li.setAttribute('data-col', c);
@@ -17385,10 +17296,12 @@ ${body}
                 listEl.appendChild(li);
                 return li;
             }
+            const isBlinking = typeof _activeBlinkStudentId !== 'undefined' && _activeBlinkStudentId === student.id && (Date.now() - _activeBlinkTime < 4000);
             li.className = 'roster-plan-cell' +
                 (student.isPicked ? ' picked' : '') +
                 (student.isAbsent ? ' absent' : '') +
-                (student.isFlagged ? ' flagged' : '');
+                (student.isFlagged ? ' flagged' : '') +
+                (isBlinking ? ' picked-blink' : '');
             li.setAttribute('data-student-id', student.id);
             li.setAttribute('data-seat-id', seatId);
             li.draggable = true;
