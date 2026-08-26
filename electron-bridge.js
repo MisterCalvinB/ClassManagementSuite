@@ -239,6 +239,23 @@
     return getDesktopApi().migrateClassUuids();
   }
 
+  async function fetchUrl(url) {
+    if (isElectron() && getDesktopApi() && typeof getDesktopApi().fetchUrl === 'function') {
+      return getDesktopApi().fetchUrl({ url });
+    }
+    // Web fallback
+    try {
+      let fetchUrl = String(url || '').trim();
+      if (fetchUrl.startsWith('webcal://')) fetchUrl = 'https://' + fetchUrl.slice(9);
+      const resp = await fetch(fetchUrl, { method: 'GET', cache: 'no-cache' });
+      if (!resp.ok) return { ok: false, status: resp.status, error: `HTTP ${resp.status} ${resp.statusText || ''}` };
+      const content = await resp.text();
+      return { ok: true, content, status: resp.status };
+    } catch (e) {
+      return { ok: false, error: e.message || 'Fetch failed' };
+    }
+  }
+
   async function resetSyncBaseline() {
     if (!isElectron()) return null;
     return getDesktopApi().resetSyncBaseline();
@@ -900,6 +917,7 @@
     pickAndReadFile,
     pickAndCopyFiles,
     zipAndDeleteArchived,
+    fetchUrl,
     reloadPlannerReminders() {
       var api = getDesktopApi();
       if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();

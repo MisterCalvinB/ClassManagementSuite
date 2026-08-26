@@ -99,6 +99,9 @@ const exposedApi = {
   openExternal(request) {
     return invoke('app:open-external', request);
   },
+  fetchUrl(request) {
+    return invoke('app:fetch-url', request);
+  },
   openNative(request) {
     return invoke('app:open-native', request);
   },

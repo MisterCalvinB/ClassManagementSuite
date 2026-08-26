@@ -107,6 +107,8 @@
           <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)">
             <span data-i18n="pl_viewCustom">Custom fields</span></label>
           <hr style="border:none;border-top:1px solid #e0e0e0;margin:6px 0">
+          <label class="cb-label"><input type="checkbox" id="vo-sub-future" checked
+              onchange="setSubFutureOnly(this.checked)"> <span data-i18n="pl_subFutureOnly">Show only upcoming / future events</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked
               onchange="setAutoEnd5Min(this.checked)"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5
               min)</span></label>
@@ -120,6 +122,7 @@
         Entry</button>
       <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
       <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
+      <button class="tb-btn" onclick="openSubscriptionsModal()"><img src="../assets/icons/feed.svg" class="btn-icon" alt="" /> <span data-i18n="pl_btnSubscriptions">Calendar Feeds</span></button>
       <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()"
         data-i18n="pl_btnMultiSelect">Select</button>
       <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;"
@@ -842,6 +845,103 @@
     </div>
   </div>
 
+  <!-- ════ CALENDAR SUBSCRIPTIONS MODAL ════ -->
+  <div class="modal-overlay" id="subscriptionsModal" onclick="if(event.target===this)closeModal('subscriptionsModal')">
+    <div class="modal-box wide" onclick="event.stopPropagation()" style="width:740px;max-width:95vw;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/feed.svg" class="btn-icon" style="width:20px;height:20px;" alt="" />
+          <h2 data-i18n="pl_subModalTitle">Calendar Subscriptions (Google / iCal)</h2>
+        </div>
+        <button class="modal-close" onclick="closeModal('subscriptionsModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Add / Edit Subscription Form -->
+        <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.82rem;font-weight:800;color:#0f172a;margin-bottom:8px;" id="sub-form-title" data-i18n="pl_subAddTitle">Add Calendar Subscription</div>
+          <input type="hidden" id="sub-edit-id" value="" />
+          
+          <div class="field-group" style="margin-bottom:8px;">
+            <label data-i18n="pl_subUrl">iCal / Google Calendar URL</label>
+            <input type="url" id="sub-url-input" class="field-input" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics or webcal://..." style="font-family:monospace;font-size:.8rem;" />
+            <p style="font-size:.73rem;color:#64748b;margin:3px 0 0;" data-i18n="pl_subUrlHint">Paste your Google Calendar secret iCal address or any public .ics / webcal feed link.</p>
+          </div>
+
+          <div class="field-row" style="margin-bottom:8px;">
+            <div class="field-group" style="flex:2;">
+              <label data-i18n="pl_subName">Feed Name (optional)</label>
+              <input type="text" id="sub-name-input" class="field-input" placeholder="Auto-detected from calendar header if empty" data-i18n-placeholder="pl_subNamePlaceholder" />
+            </div>
+            <div class="field-group" style="flex:2;">
+              <label data-i18n="pl_subAssignMode">Class Assignment</label>
+              <select id="sub-assign-select" class="field-select">
+                <option value="auto" data-i18n="pl_subAssignAuto">Auto-match by calendar name</option>
+                <option value="__unassigned__" data-i18n="pl_subAssignUnassigned">No assigned class (General)</option>
+              </select>
+            </div>
+            <div class="field-group" style="flex:1.5;">
+              <label data-i18n="pl_subDefaultType">Default type</label>
+              <select id="sub-type-select" class="field-select">
+                <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
+                <option value="test" data-i18n="pl_typeTest">Test</option>
+                <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
+                <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:10px;">
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+              <label class="cb-label" style="font-size:.8rem;font-weight:600;color:#334155;">
+                <input type="checkbox" id="sub-futureonly-cb" checked /> <span data-i18n="pl_subFutureOnly">Show only upcoming / future events</span>
+              </label>
+              <label class="cb-label" style="font-size:.8rem;font-weight:600;color:#334155;">
+                <input type="checkbox" id="sub-autosync-cb" checked /> <span data-i18n="pl_subAutoSync">Sync automatically on launch</span>
+              </label>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button class="tb-btn" id="sub-cancel-edit-btn" onclick="resetSubscriptionForm()" style="display:none;" data-i18n="btnCancel">Cancel</button>
+              <button class="tb-btn primary" id="sub-save-btn" onclick="saveSubscriptionForm()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> <span id="sub-save-btn-text" data-i18n="pl_subBtnAdd">+ Add Subscription</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Subscriptions List -->
+        <div style="margin-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#475569;" data-i18n="pl_btnSubscriptions">Active Subscriptions</div>
+            <button class="tb-btn" id="sub-sync-all-btn" onclick="syncAllSubscriptions(false)" style="padding:4px 8px;font-size:.74rem;"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subSyncAll">Sync All Feeds</span></button>
+          </div>
+          <div class="feed-list" id="sub-feed-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span id="sub-global-status" style="font-size:.75rem;font-weight:700;color:#64748b;margin-right:auto;"></span>
+        <button class="tb-btn" onclick="closeModal('subscriptionsModal')" data-i18n="exportCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ SUBSCRIBED EVENT DETAIL MODAL ════ -->
+  <div class="modal-overlay" id="subscribedEventModal" onclick="if(event.target===this)closeModal('subscribedEventModal')">
+    <div class="modal-box" onclick="event.stopPropagation()" style="width:520px;max-width:92vw;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/feed.svg" class="btn-icon" style="width:18px;height:18px;" alt="" />
+          <h2 data-i18n="pl_subEventDetailTitle">Calendar Event Details</h2>
+        </div>
+        <button class="modal-close" onclick="closeModal('subscribedEventModal')">✕</button>
+      </div>
+      <div class="modal-body" id="sub-event-modal-body" style="font-size:.85rem;line-height:1.5;">
+        <!-- Filled dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="tb-btn" onclick="closeModal('subscribedEventModal')" data-i18n="exportCloseBtn">Close</button>
+        <button class="tb-btn primary" id="sub-event-convert-btn" onclick="convertCurrentSubscribedToLocal()"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subConvertToLocal">Convert to Local Planner Entry</span></button>
+      </div>
+    </div>
+  </div>
+
   <script>
     'use strict';
 
@@ -899,7 +999,7 @@
     }
 
     // ── State ──────────────────────────────────────────────────────────────────
-    var cfg = { semesters: [], classes: {}, customFields: [], customTypes: [] };
+    var cfg = { semesters: [], classes: {}, customFields: [], customTypes: [], subscriptions: [] };
     var BUILT_IN_TYPES = ['lesson', 'test', 'assignment', 'holiday', 'no-class'];
     var activeSemId = '';
     var entries = [];
@@ -909,6 +1009,8 @@
     var classGroupsMeta = {};
     var partDates = {};
     var boardSessionsByEntryId = {};
+    var _currentSubscribedEvent = null;
+    window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
     var plannerKnownClassFiles = window.__plannerKnownClassFiles || {};
     var plannerDeletedClassFiles = window.__plannerDeletedClassFiles || {};
     window.__plannerKnownClassFiles = plannerKnownClassFiles;
@@ -1219,6 +1321,11 @@
       persistCfg();
       if (window.Desktop && typeof Desktop.reloadPlannerReminders === 'function') Desktop.reloadPlannerReminders();
     }
+    function setSubFutureOnly(val) {
+      cfg.subFutureOnly = !!val;
+      persistCfg();
+      render();
+    }
 
     // ── Tutorial ───────────────────────────────────────────────────────────────
     function startPlTutorial() {
@@ -1470,8 +1577,14 @@
           if (!cfg.semesters) cfg.semesters = [];
           if (!cfg.customFields) cfg.customFields = [];
           if (!cfg.customTypes) cfg.customTypes = [];
+          if (!cfg.subscriptions) cfg.subscriptions = [];
           if (cfg.semesters.length) activeSemId = cfg.activeSemesterId || cfg.semesters[0].id;
         }
+      }
+      if (!cfg.subscriptions) cfg.subscriptions = [];
+      await loadSubscriptionsCache();
+      if ((cfg.subscriptions || []).some(function (s) { return s.enabled !== false && s.autoSync !== false; })) {
+        syncAllSubscriptions(true).catch(function () { });
       }
       var _ebcKeys = Object.keys(window.PLANNER_ENTRIES_BY_CLASS || {});
       var _hasClassData = _ebcKeys.some(function (k) { return k !== ''; });
@@ -1508,6 +1621,8 @@
       // Sync auto-end-reminder checkbox from cfg
       var aeEl = document.getElementById('vo-auto-end5');
       if (aeEl) aeEl.checked = !!(cfg.reminderSettings ? cfg.reminderSettings.autoLessonEnd5Min !== false : true);
+      var subFutEl = document.getElementById('vo-sub-future');
+      if (subFutEl) subFutEl.checked = cfg.subFutureOnly !== false;
 
       loadTodos();
       validateGradeSheetLinks(); // non-blocking link integrity check
@@ -2136,14 +2251,15 @@
       var topicCls = topicText ? 'entry-topic' : 'entry-topic empty-topic';
       var topicDisp = topicText;
 
+      var isSubscribed = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
       var timeLabel = s.time || '';
       if (s.timeEnd) timeLabel += '–' + s.timeEnd;
       var isSelected = entry && selectedEntryIds.has(entry.id);
-      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '" draggable="true"' : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
+      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSubscribed ? ' entry-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' + (isSubscribed ? '' : ' draggable="true"') : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
         esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' +
         esc(s.timeEnd || '') + '\',\'' + (entry ? entry.id : '') + '\')">';
       r += '<div class="entry-color-bar"></div>';
-      if (entry) r += '<span class="drag-handle" title="Drag to copy content" draggable="false">&#8942;</span>';
+      if (entry && !isSubscribed) r += '<span class="drag-handle" title="Drag to copy content" draggable="false">&#8942;</span>';
       if (multiSelectMode && entry) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
@@ -2154,6 +2270,9 @@
         r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(plannerClassDisplayName(s.classId)) + '</span>';
       else
         r += '<span class="entry-class-pill" style="background:#888">' + esc(t('pl_noClass')) + '</span>';
+      if (isSubscribed) {
+        r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
+      }
       if (viewOpts.badges)
         r += '<span class="entry-type-badge ' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (viewOpts.topic && topicDisp)
@@ -2176,13 +2295,17 @@
       }
       r += '<div class="entry-actions" onclick="event.stopPropagation()">';
       if (entry) {
-        var isPinned = plannerPins.some(function(p) {
-          return p.type === 'planner-entry' && p.entryId === entry.id;
-        });
-        var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
-        var pinIcon = isPinned ? '📌' : '📍';
-        r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
-        r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
+        if (isSubscribed) {
+          r += '<button class="entry-btn" onclick="openSubscribedEventModal(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_subEventDetailTitle')) + '"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /></button>';
+        } else {
+          var isPinned = plannerPins.some(function(p) {
+            return p.type === 'planner-entry' && p.entryId === entry.id;
+          });
+          var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
+          var pinIcon = isPinned ? '📌' : '📍';
+          r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
+          r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
+        }
       } else
         r += '<button class="entry-btn add-btn" onclick="openAddEntry(\'' + esc(s.classId) +
           '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">+</button>';
@@ -2228,13 +2351,26 @@
         }
         return;
       }
-      if (entryId) openEditEntry(entryId);
-      else openAddEntry(classId, date, time, timeEnd);
+      if (entryId) {
+        var _subEv = getSubscribedEntryById(entryId);
+        if (_subEv) {
+          openSubscribedEventModal(_subEv);
+          return;
+        }
+        openEditEntry(entryId);
+      } else {
+        openAddEntry(classId, date, time, timeEnd);
+      }
     }
 
     function atCellClick(event, entryId) {
       if (multiSelectMode) {
         if (entryId) toggleEntrySelection(entryId);
+        return;
+      }
+      var _subEv = getSubscribedEntryById(entryId);
+      if (_subEv) {
+        openSubscribedEventModal(_subEv);
         return;
       }
       openEditEntry(entryId);
@@ -2296,7 +2432,10 @@
       });
 
       var emap = {}, consumed = {};
-      entries.forEach(function (e) {
+      var allCombinedEntries = entries.slice();
+      var subEvents = getActiveSubscribedEntries();
+      subEvents.forEach(function (se) { allCombinedEntries.push(se); });
+      allCombinedEntries.forEach(function (e) {
         var cids = entryClassIds(e);
         var dates = expandEntryDates(e);
         if (!cids.length) {
@@ -2422,7 +2561,7 @@
       var activeSemKey = getSemToggleKeyFor(activeSem);
 
       // Orphan entries (clamped to semester range; excluded from holiday dates)
-      entries.forEach(function (e) {
+      allCombinedEntries.forEach(function (e) {
         var cids = entryClassIds(e);
         var dates = expandEntryDates(e);
         var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
@@ -6024,12 +6163,16 @@
         });
       }
 
+      var isSubscribed = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
       var isSelected = selectedEntryIds.has(entry.id);
-      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" draggable="true" style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      var r = '<div class="at-cell' + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
       if (multiSelectMode) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
       r += '<span class="at-class-title">' + esc(classLabel) + '</span>';
+      if (isSubscribed) {
+        r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
+      }
       if (viewOpts.badges && badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
@@ -6191,7 +6334,11 @@
 
     // ── ICS file parser ──────────────────────────────────────────────────────────
 
-    function parseIcsFile(text) {
+    function parseIcsFile(text, options) {
+      options = options || {};
+      var minDateStr = options.minDate || '';
+      var maxLimit = typeof options.maxLimit === 'number' ? options.maxLimit : 25000;
+
       // Unfold RFC 5545 line continuations (CRLF/LF + whitespace = continuation)
       var unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\r[ \t]/g, '').replace(/\n[ \t]/g, '');
       var lines = unfolded.split(/\r\n|\r|\n/);
@@ -6240,24 +6387,32 @@
       var expanded = [];
 
       rawEvents.forEach(function (ev) {
-        if (expanded.length >= 1000) return;
+        if (expanded.length >= maxLimit) return;
 
         // Time component of dtend applies to all recurrences
         var timeEnd = (ev.dtend && !ev.dtend.allDay && ev.dtend.time) ? ev.dtend.time : '';
 
         var occurrences;
         if (ev.rrule) {
-          // Expand up to 2 years from dtstart so out-of-semester occurrences are visible
-          var expandLimit = new Date(ev.dtstart.date + 'T23:59:59');
-          expandLimit.setFullYear(expandLimit.getFullYear() + 2);
+          // Expand up to 2 years into the future from today or past semesterEnd
+          var maxFuture = new Date();
+          maxFuture.setFullYear(maxFuture.getFullYear() + 2);
+          if (semEnd) {
+            var sEndD = new Date(semEnd + 'T23:59:59');
+            if (sEndD > maxFuture) maxFuture = sEndD;
+          }
           occurrences = icsExpandRRule(ev.rrule, ev.dtstart.date, ev.dtstart.time, ev.dtstart.allDay,
-            expandLimit.toISOString().slice(0, 10), ev.exdates);
+            maxFuture.toISOString().slice(0, 10), ev.exdates, minDateStr);
         } else {
-          occurrences = [{ date: ev.dtstart.date, time: ev.dtstart.time, allDay: ev.dtstart.allDay }];
+          if (!minDateStr || ev.dtstart.date >= minDateStr) {
+            occurrences = [{ date: ev.dtstart.date, time: ev.dtstart.time, allDay: ev.dtstart.allDay }];
+          } else {
+            occurrences = [];
+          }
         }
 
         occurrences.forEach(function (occ) {
-          if (expanded.length >= 1000) return;
+          if (expanded.length >= maxLimit) return;
           var inSem = semStart && semEnd
             ? (occ.date >= semStart && occ.date <= semEnd)
             : true;
@@ -6379,7 +6534,7 @@
 
     var _ICS_DAYS = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
 
-    function icsExpandRRule(rruleStr, startDateStr, startTime, startAllDay, limitDateStr, exdates) {
+    function icsExpandRRule(rruleStr, startDateStr, startTime, startAllDay, limitDateStr, exdates, minDateStr) {
       var exSet = new Set(exdates || []);
 
       // Parse RRULE params; uppercase both keys and values for uniform comparisons
@@ -6430,20 +6585,23 @@
         var ds = d.getFullYear() + '-' +
           String(d.getMonth() + 1).padStart(2, '0') + '-' +
           String(d.getDate()).padStart(2, '0');
+        if (minDateStr && ds < minDateStr) return;
         if (!exSet.has(ds)) {
           results.push({ date: ds, time: startTime || '', allDay: !!startAllDay });
         }
       }
 
       function overLimit() {
-        return results.length >= 500 || (count !== null && results.length >= count);
+        return results.length >= 5000 || (count !== null && results.length >= count);
       }
 
       if (freq === 'DAILY') {
         var cur = new Date(startDate);
-        while (cur <= limitDate && !overLimit()) {
+        var iters = 0;
+        while (cur <= limitDate && !overLimit() && iters < 10000) {
           if (!byDay || byDay.indexOf(cur.getDay()) >= 0) push(cur);
           cur.setDate(cur.getDate() + interval);
+          iters++;
         }
 
       } else if (freq === 'WEEKLY') {
@@ -6455,7 +6613,7 @@
 
           var wk = new Date(weekBase);
           var iters = 0;
-          while (wk <= limitDate && !overLimit() && iters < 600) {
+          while (wk <= limitDate && !overLimit() && iters < 5000) {
             byDay.forEach(function (dow) {
               var off = (dow - wkstDay + 7) % 7;
               var occ = new Date(wk);
@@ -6469,24 +6627,30 @@
           }
         } else {
           var cur = new Date(startDate);
-          while (cur <= limitDate && !overLimit()) {
+          var iters = 0;
+          while (cur <= limitDate && !overLimit() && iters < 5000) {
             push(cur);
             cur.setDate(cur.getDate() + 7 * interval);
+            iters++;
           }
         }
 
       } else if (freq === 'MONTHLY') {
         var cur = new Date(startDate);
-        while (cur <= limitDate && !overLimit()) {
+        var iters = 0;
+        while (cur <= limitDate && !overLimit() && iters < 1000) {
           push(cur);
           cur.setMonth(cur.getMonth() + interval);
+          iters++;
         }
 
       } else if (freq === 'YEARLY') {
         var cur = new Date(startDate);
-        while (cur <= limitDate && !overLimit()) {
+        var iters = 0;
+        while (cur <= limitDate && !overLimit() && iters < 100) {
           push(cur);
           cur.setFullYear(cur.getFullYear() + interval);
+          iters++;
         }
       }
 
@@ -6633,6 +6797,568 @@
       closeModal('icsImportModal');
       render();
       showToast(tFmt('pl_icsImpDone', { n: toImport.length }));
+    }
+
+    // ── Calendar Subscriptions (Google / iCal Feeds) ───────────────────────────
+
+    function getActiveSubscribedEntries() {
+      var list = [];
+      var subs = cfg.subscriptions || [];
+      var activeSem = getActiveSem();
+      var semStart = activeSem && activeSem.semesterStart || '';
+      var semEnd = activeSem && activeSem.semesterEnd || '';
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var globalFutureOnly = cfg.subFutureOnly !== false;
+
+      subs.forEach(function (sub) {
+        if (sub.enabled === false) return;
+        var cache = (window.PLANNER_SUBSCRIPTION_CACHE || {})[sub.id];
+        if (cache && Array.isArray(cache.events)) {
+          var isSubFutureOnly = sub.futureOnly !== undefined ? (sub.futureOnly !== false) : globalFutureOnly;
+          cache.events.forEach(function (ev) {
+            // If future-only is active on this feed or globally, filter out events before today
+            if (isSubFutureOnly && ev.date < todayStr) {
+              return;
+            }
+            // Apply assigned or auto-matched class ID
+            var cid = sub.assignMode === 'fixed' ? (sub.classId || '') : (ev.classId || '');
+            list.push(Object.assign({}, ev, {
+              classId: cid,
+              subName: sub.name || cache.calName || t('pl_subFeedHeaderFallback'),
+              type: ev.type || sub.defaultType || 'lesson',
+              _isSubscribed: true
+            }));
+          });
+        }
+      });
+      return list;
+    }
+
+    function getSubscribedEntryById(id) {
+      if (!id) return null;
+      var subs = cfg.subscriptions || [];
+      for (var i = 0; i < subs.length; i++) {
+        var sub = subs[i];
+        var cache = (window.PLANNER_SUBSCRIPTION_CACHE || {})[sub.id];
+        if (cache && Array.isArray(cache.events)) {
+          var found = cache.events.find(function (e) { return e.id === id; });
+          if (found) {
+            var cid = sub.assignMode === 'fixed' ? (sub.classId || '') : (found.classId || '');
+            return Object.assign({}, found, {
+              classId: cid,
+              subName: sub.name || cache.calName || t('pl_subFeedHeaderFallback'),
+              type: found.type || sub.defaultType || 'lesson',
+              _isSubscribed: true
+            });
+          }
+        }
+      }
+      return null;
+    }
+
+    async function loadSubscriptionsCache() {
+      window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      try {
+        var r = await Desktop.readByPath('user', 'planner/subscription-cache.json');
+        if (r && r.ok && r.content) {
+          window.PLANNER_SUBSCRIPTION_CACHE = JSON.parse(r.content);
+        }
+      } catch (e) { }
+    }
+
+    async function persistSubscriptionsCache() {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      try {
+        var content = JSON.stringify(window.PLANNER_SUBSCRIPTION_CACHE || {}, null, 2);
+        await Desktop.saveText('user', 'subscription-cache.json', content, 'planner');
+      } catch (e) {
+        console.warn('Could not persist subscription cache:', e);
+      }
+    }
+
+    function openSubscriptionsModal() {
+      // Populate class assignment dropdown
+      var sel = document.getElementById('sub-assign-select');
+      if (sel) {
+        while (sel.options.length > 2) sel.remove(2);
+        getPlannerClassIds().forEach(function (id) {
+          sel.add(new Option(plannerClassDisplayName(id), id));
+        });
+      }
+
+      // Populate custom types
+      var typeSel = document.getElementById('sub-type-select');
+      if (typeSel) {
+        for (var i = typeSel.options.length - 1; i >= 0; i--) {
+          if (typeSel.options[i].dataset.custom) typeSel.remove(i);
+        }
+        (cfg.customTypes || []).forEach(function (name) {
+          var o = new Option(name, name);
+          o.dataset.custom = '1';
+          typeSel.add(o);
+        });
+      }
+
+      resetSubscriptionForm();
+      renderSubscriptionsModalList();
+      openModal('subscriptionsModal');
+    }
+
+    function resetSubscriptionForm() {
+      document.getElementById('sub-edit-id').value = '';
+      document.getElementById('sub-url-input').value = '';
+      document.getElementById('sub-name-input').value = '';
+      document.getElementById('sub-assign-select').value = 'auto';
+      document.getElementById('sub-type-select').value = 'lesson';
+      document.getElementById('sub-futureonly-cb').checked = true;
+      document.getElementById('sub-autosync-cb').checked = true;
+      document.getElementById('sub-form-title').textContent = t('pl_subAddTitle');
+      document.getElementById('sub-save-btn-text').textContent = t('pl_subBtnAdd');
+      document.getElementById('sub-cancel-edit-btn').style.display = 'none';
+      document.getElementById('sub-global-status').textContent = '';
+    }
+
+    function renderSubscriptionsModalList() {
+      var listEl = document.getElementById('sub-feed-list');
+      if (!listEl) return;
+      var subs = cfg.subscriptions || [];
+
+      if (!subs.length) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#64748b;font-size:.82rem;font-weight:600;">' + esc(t('pl_subNoFeeds')) + '</div>';
+        return;
+      }
+
+      var html = '';
+      subs.forEach(function (sub) {
+        var cache = (window.PLANNER_SUBSCRIPTION_CACHE || {})[sub.id] || {};
+        var evCount = (cache.events || []).length;
+        var displayName = sub.name || cache.calName || t('pl_subFeedHeaderFallback');
+        var isEnabled = sub.enabled !== false;
+        
+        var classTag = '';
+        if (sub.assignMode === 'fixed' && sub.classId) {
+          classTag = '<span style="background:#f1f5f9;color:#334155;padding:1px 6px;border-radius:4px;font-size:.68rem;font-weight:700;">' + esc(plannerClassDisplayName(sub.classId)) + '</span>';
+        } else if (sub.assignMode === 'auto') {
+          var matchedName = cache.calName || 'Auto';
+          classTag = '<span style="background:#eff6ff;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-size:.68rem;font-weight:700;">' + esc(tFmt('pl_subFeedNameAutoMatched', { cls: matchedName })) + '</span>';
+        } else {
+          classTag = '<span style="background:#f8fafc;color:#64748b;padding:1px 6px;border-radius:4px;font-size:.68rem;font-weight:700;">' + esc(t('pl_subAssignUnassigned')) + '</span>';
+        }
+
+        var syncTimeText = sub.lastSync ? tFmt('pl_subLastSync', { time: new Date(sub.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }) : t('pl_subNeverSynced');
+
+        html += '<div class="feed-item' + (!isEnabled ? ' feed-item-disabled' : '') + '" id="feed-item-' + esc(sub.id) + '">'
+          + '<div class="feed-info">'
+          + '<div class="feed-title-row">'
+          + '<span class="feed-title">' + esc(displayName) + '</span>'
+          + classTag
+          + '</div>'
+          + '<div class="feed-meta">'
+          + '<span class="feed-meta-url" title="' + esc(sub.url) + '">' + esc(sub.url) + '</span>'
+          + '<span>• ' + esc(evCount + ' ' + (evCount === 1 ? 'event' : 'events')) + '</span>'
+          + '<span>• ' + esc(syncTimeText) + '</span>'
+          + (sub.lastStatus === 'error' ? '<span style="color:#b91c1c;font-weight:700;">• ' + esc(sub.errorMsg || 'Error') + '</span>' : '')
+          + '</div>'
+          + '</div>'
+          + '<div class="feed-actions">'
+          + '<button class="tb-btn" onclick="syncSubscription(\'' + esc(sub.id) + '\')" title="' + esc(t('pl_subSyncNow')) + '"><img src="../assets/icons/refresh.svg" class="btn-icon" id="sync-icon-' + esc(sub.id) + '" alt="" /> <span data-i18n="pl_subSyncNow">' + esc(t('pl_subSyncNow')) + '</span></button>'
+          + '<button class="tb-btn" onclick="editSubscription(\'' + esc(sub.id) + '\')" title="Edit"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>'
+          + '<button class="tb-btn" onclick="toggleSubscription(\'' + esc(sub.id) + '\')" title="' + (isEnabled ? 'Disable' : 'Enable') + '"><img src="../assets/icons/' + (isEnabled ? 'eye.svg' : 'lock.svg') + '" class="btn-icon" alt="" /></button>'
+          + '<button class="tb-btn" onclick="deleteSubscription(\'' + esc(sub.id) + '\')" title="Delete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>'
+          + '</div>'
+          + '</div>';
+      });
+
+      listEl.innerHTML = html;
+    }
+
+    async function saveSubscriptionForm() {
+      var urlInput = document.getElementById('sub-url-input');
+      var url = (urlInput.value || '').trim();
+      if (!url) {
+        showToast(t('pl_subUrlHint'), true);
+        urlInput.focus();
+        return;
+      }
+
+      var editId = document.getElementById('sub-edit-id').value;
+      var name = document.getElementById('sub-name-input').value.trim();
+      var assignMode = document.getElementById('sub-assign-select').value;
+      var classId = (assignMode !== 'auto' && assignMode !== '__unassigned__') ? assignMode : '';
+      var defaultType = document.getElementById('sub-type-select').value || 'lesson';
+      var futureOnly = document.getElementById('sub-futureonly-cb').checked;
+      var autoSync = document.getElementById('sub-autosync-cb').checked;
+
+      if (!cfg.subscriptions) cfg.subscriptions = [];
+
+      var subObj;
+      if (editId) {
+        subObj = cfg.subscriptions.find(function (s) { return s.id === editId; });
+        if (subObj) {
+          subObj.url = url;
+          subObj.name = name;
+          subObj.assignMode = assignMode === 'auto' ? 'auto' : (assignMode === '__unassigned__' ? 'unassigned' : 'fixed');
+          subObj.classId = classId;
+          subObj.defaultType = defaultType;
+          subObj.futureOnly = futureOnly;
+          subObj.autoSync = autoSync;
+        }
+      } else {
+        subObj = {
+          id: uid(),
+          url: url,
+          name: name,
+          assignMode: assignMode === 'auto' ? 'auto' : (assignMode === '__unassigned__' ? 'unassigned' : 'fixed'),
+          classId: classId,
+          defaultType: defaultType,
+          futureOnly: futureOnly,
+          autoSync: autoSync,
+          enabled: true,
+          lastSync: null,
+          lastStatus: null,
+          errorMsg: null
+        };
+        cfg.subscriptions.push(subObj);
+      }
+
+      await persistCfg();
+      resetSubscriptionForm();
+      renderSubscriptionsModalList();
+
+      // Trigger immediate sync for this subscription
+      if (subObj) {
+        syncSubscription(subObj.id);
+      }
+    }
+
+    function editSubscription(id) {
+      var sub = (cfg.subscriptions || []).find(function (s) { return s.id === id; });
+      if (!sub) return;
+
+      document.getElementById('sub-edit-id').value = sub.id;
+      document.getElementById('sub-url-input').value = sub.url || '';
+      document.getElementById('sub-name-input').value = sub.name || '';
+      
+      var assignSel = document.getElementById('sub-assign-select');
+      if (sub.assignMode === 'auto') assignSel.value = 'auto';
+      else if (sub.assignMode === 'unassigned') assignSel.value = '__unassigned__';
+      else assignSel.value = sub.classId || 'auto';
+
+      document.getElementById('sub-type-select').value = sub.defaultType || 'lesson';
+      document.getElementById('sub-futureonly-cb').checked = sub.futureOnly !== false;
+      document.getElementById('sub-autosync-cb').checked = sub.autoSync !== false;
+
+      document.getElementById('sub-form-title').textContent = t('pl_subEditTitle');
+      document.getElementById('sub-save-btn-text').textContent = t('saved');
+      document.getElementById('sub-cancel-edit-btn').style.display = 'inline-flex';
+      document.getElementById('sub-url-input').focus();
+    }
+
+    function deleteSubscription(id) {
+      showConfirm(t('pl_subDeleteConfirm'), async function () {
+        cfg.subscriptions = (cfg.subscriptions || []).filter(function (s) { return s.id !== id; });
+        if (window.PLANNER_SUBSCRIPTION_CACHE) {
+          delete window.PLANNER_SUBSCRIPTION_CACHE[id];
+        }
+        await persistCfg();
+        await persistSubscriptionsCache();
+        renderSubscriptionsModalList();
+        render();
+      });
+    }
+
+    async function toggleSubscription(id) {
+      var sub = (cfg.subscriptions || []).find(function (s) { return s.id === id; });
+      if (!sub) return;
+      sub.enabled = !(sub.enabled !== false);
+      await persistCfg();
+      renderSubscriptionsModalList();
+      render();
+    }
+
+    async function fetchSubscriptionFeed(sub) {
+      var rawUrl = (sub.url || '').trim();
+      if (!rawUrl) throw new Error('Missing URL');
+
+      var fetchUrl = rawUrl;
+      if (fetchUrl.startsWith('webcal://')) {
+        fetchUrl = 'https://' + fetchUrl.slice(9);
+      }
+
+      var icsText = '';
+      if (window.Desktop && typeof Desktop.fetchUrl === 'function') {
+        var r = await Desktop.fetchUrl(fetchUrl);
+        if (!r || !r.ok) {
+          throw new Error(r ? (r.error || 'HTTP ' + r.status) : 'Network error');
+        }
+        icsText = r.content || '';
+      } else {
+        var resp = await fetch(fetchUrl, { method: 'GET', cache: 'no-cache' });
+        if (!resp.ok) {
+          throw new Error('HTTP ' + resp.status + ' ' + (resp.statusText || ''));
+        }
+        icsText = await resp.text();
+      }
+
+      return parseSubscriptionIcs(icsText, sub);
+    }
+
+    function parseSubscriptionIcs(text, sub) {
+      if (!text || typeof text !== 'string') {
+        throw new Error('Empty response from calendar feed');
+      }
+
+      if (/^\s*<!DOCTYPE\s+html/i.test(text) || /^\s*<html/i.test(text)) {
+        throw new Error('Received HTML webpage instead of an .ics calendar. Please copy the "Secret address in iCal format" from Google Calendar Settings.');
+      }
+
+      if (text.indexOf('BEGIN:VCALENDAR') === -1 && text.indexOf('BEGIN:VEVENT') === -1) {
+        throw new Error('Feed does not contain valid iCal (RFC 5545) data.');
+      }
+
+      var calName = '';
+      var mName = text.match(/X-WR-CALNAME:(.+)/i);
+      if (mName && mName[1]) {
+        calName = icsUnescape(mName[1].trim());
+      }
+
+      var targetClassId = '';
+      if (sub.assignMode === 'fixed') {
+        targetClassId = sub.classId || '';
+      } else if (sub.assignMode === 'unassigned') {
+        targetClassId = '';
+      } else {
+        // Auto-match mode: match against existing classes by name or id
+        var searchName = (calName || sub.name || '').trim().toLowerCase();
+        if (searchName) {
+          var allCids = getPlannerClassIds();
+          for (var i = 0; i < allCids.length; i++) {
+            var cid = allCids[i];
+            var dName = plannerClassDisplayName(cid).trim().toLowerCase();
+            if (dName === searchName || cid.toLowerCase() === searchName) {
+              targetClassId = cid;
+              break;
+            }
+          }
+          // If no matching class exists, create a planner class dynamically
+          if (!targetClassId && calName) {
+            targetClassId = calName;
+            if (!cfg.classes[targetClassId]) {
+              cfg.classes[targetClassId] = {
+                color: PRESET_COLORS[Object.keys(cfg.classes).length % PRESET_COLORS.length],
+                schedule: [],
+                objectives: [],
+                manual: true
+              };
+              persistCfg();
+              populateSelects();
+            }
+          }
+        }
+      }
+
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var minDate = (sub && sub.futureOnly !== false) ? todayStr : '';
+      var rawParsed = parseIcsFile(text, { minDate: minDate, maxLimit: 25000 });
+      var events = [];
+      rawParsed.forEach(function (ev, idx) {
+        events.push({
+          id: 'sub_' + sub.id + '_' + ev.date + '_' + (ev.time ? ev.time.replace(':', '') : 'all') + '_' + idx,
+          subId: sub.id,
+          subName: sub.name || calName || t('pl_subFeedHeaderFallback'),
+          calName: calName,
+          classId: targetClassId,
+          date: ev.date,
+          time: ev.time || '',
+          timeEnd: ev.timeEnd || '',
+          type: sub.defaultType || 'lesson',
+          topic: ev.summary || '',
+          notes: [ev.description, ev.location ? ('Location: ' + ev.location) : ''].filter(Boolean).join('\n'),
+          location: ev.location || '',
+          _isSubscribed: true
+        });
+      });
+
+      return { calName: calName, resolvedClassId: targetClassId, events: events };
+    }
+
+    async function syncSubscription(id) {
+      var sub = (cfg.subscriptions || []).find(function (s) { return s.id === id; });
+      if (!sub) return;
+
+      var iconEl = document.getElementById('sync-icon-' + id);
+      if (iconEl) iconEl.classList.add('spinning');
+      var statusEl = document.getElementById('sub-global-status');
+      if (statusEl) statusEl.textContent = t('pl_subSyncing');
+
+      try {
+        var res = await fetchSubscriptionFeed(sub);
+        window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
+        window.PLANNER_SUBSCRIPTION_CACHE[sub.id] = {
+          calName: res.calName,
+          resolvedClassId: res.resolvedClassId,
+          lastSync: new Date().toISOString(),
+          events: res.events
+        };
+        sub.lastSync = new Date().toISOString();
+        sub.lastStatus = 'ok';
+        sub.errorMsg = null;
+
+        await persistCfg();
+        await persistSubscriptionsCache();
+
+        var activeSem = getActiveSem();
+        var semStart = activeSem && activeSem.semesterStart || '';
+        var semEnd = activeSem && activeSem.semesterEnd || '';
+        var hasInSem = semStart && semEnd ? res.events.some(function (ev) { return ev.date >= semStart && ev.date <= semEnd; }) : true;
+        if (!showOutsideTerm && !hasInSem && res.events.length > 0) {
+          showOutsideTerm = true;
+          var _ob = document.getElementById('outsideBtn');
+          if (_ob) {
+            _ob.classList.add('active');
+            _ob.textContent = t('pl_hideOutside');
+          }
+        }
+
+        renderSubscriptionsModalList();
+        render();
+        showToast(tFmt('pl_subSyncSuccess', { n: res.events.length }));
+      } catch (err) {
+        console.warn('Subscription sync error:', err);
+        sub.lastStatus = 'error';
+        sub.errorMsg = err.message || 'Network error';
+        await persistCfg();
+        renderSubscriptionsModalList();
+        showToast(tFmt('pl_subSyncFail', { err: sub.errorMsg }), true);
+      } finally {
+        if (iconEl) iconEl.classList.remove('spinning');
+        if (statusEl) statusEl.textContent = '';
+      }
+    }
+
+    async function syncAllSubscriptions(silent) {
+      var subs = (cfg.subscriptions || []).filter(function (s) { return s.enabled !== false; });
+      if (!subs.length) return;
+
+      var allBtn = document.getElementById('sub-sync-all-btn');
+      var allIcon = allBtn ? allBtn.querySelector('img') : null;
+      if (allIcon) allIcon.classList.add('spinning');
+
+      var totalEvents = 0;
+      var errors = [];
+
+      for (var i = 0; i < subs.length; i++) {
+        var sub = subs[i];
+        try {
+          var res = await fetchSubscriptionFeed(sub);
+          window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
+          window.PLANNER_SUBSCRIPTION_CACHE[sub.id] = {
+            calName: res.calName,
+            resolvedClassId: res.resolvedClassId,
+            lastSync: new Date().toISOString(),
+            events: res.events
+          };
+          sub.lastSync = new Date().toISOString();
+          sub.lastStatus = 'ok';
+          sub.errorMsg = null;
+          totalEvents += res.events.length;
+        } catch (err) {
+          sub.lastStatus = 'error';
+          sub.errorMsg = err.message || 'Network error';
+          errors.push(sub.name || 'Feed #' + (i + 1));
+        }
+      }
+
+      await persistCfg();
+      await persistSubscriptionsCache();
+      renderSubscriptionsModalList();
+      render();
+
+      if (allIcon) allIcon.classList.remove('spinning');
+
+      if (!silent) {
+        if (errors.length) {
+          showToast(tFmt('pl_subSyncFail', { err: errors.join(', ') }), true);
+        } else {
+          showToast(tFmt('pl_subSyncSuccess', { n: totalEvents }));
+        }
+      }
+    }
+
+    function openSubscribedEventModal(entryOrId) {
+      var entry = typeof entryOrId === 'string' ? getSubscribedEntryById(entryOrId) : entryOrId;
+      if (!entry) return;
+      _currentSubscribedEvent = entry;
+
+      var bodyEl = document.getElementById('sub-event-modal-body');
+      if (!bodyEl) return;
+
+      var d = new Date(entry.date + 'T12:00:00');
+      var dateLabel = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      var timeLabel = entry.time ? (entry.time + (entry.timeEnd ? ' – ' + entry.timeEnd : '')) : t('pl_allDay');
+      var className = entry.classId ? plannerClassDisplayName(entry.classId) : t('pl_noClass');
+
+      var html = '<div style="display:flex;flex-direction:column;gap:10px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e2e8f0;padding-bottom:8px;">'
+        + '<div><div style="font-size:1.05rem;font-weight:800;color:#0f172a;">' + esc(entry.topic || 'Untitled Event') + '</div>'
+        + '<div style="font-size:.76rem;color:#64748b;font-weight:600;margin-top:2px;">' + esc(dateLabel) + ' • ' + esc(timeLabel) + '</div></div>'
+        + '<span class="sub-feed-badge" style="font-size:.75rem;padding:3px 8px;"><img src="../assets/icons/feed.svg" class="sub-badge-icon" alt="" /> ' + esc(entry.subName || 'Calendar Feed') + '</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:12px;font-size:.78rem;color:#475569;">'
+        + '<div><strong>Class:</strong> ' + esc(className) + '</div>'
+        + '<div><strong>Type:</strong> ' + esc(typeLabel(entry.type || 'lesson')) + '</div>'
+        + '</div>';
+
+      if (entry.notes) {
+        html += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;font-size:.8rem;color:#334155;white-space:pre-wrap;max-height:160px;overflow-y:auto;">'
+          + esc(entry.notes)
+          + '</div>';
+      }
+
+      html += '<div style="font-size:.74rem;color:#64748b;font-style:italic;">'
+        + 'This event is synchronized from an external Google / iCal calendar feed. Click below to convert it into an editable local planner entry.'
+        + '</div>'
+        + '</div>';
+
+      bodyEl.innerHTML = html;
+      openModal('subscribedEventModal');
+    }
+
+    function convertCurrentSubscribedToLocal() {
+      if (!_currentSubscribedEvent) return;
+      var subEv = _currentSubscribedEvent;
+
+      var newEntry = {
+        id: uid(),
+        classId: subEv.classId || '',
+        date: subEv.date,
+        time: subEv.time || '',
+        timeEnd: subEv.timeEnd || '',
+        type: subEv.type || 'lesson',
+        topic: subEv.topic || '',
+        objective: '',
+        notes: subEv.notes || '',
+        customFields: undefined,
+        gsLink: null
+      };
+
+      if (newEntry.classId && !cfg.classes[newEntry.classId]) {
+        cfg.classes[newEntry.classId] = {
+          color: PRESET_COLORS[Object.keys(cfg.classes).length % PRESET_COLORS.length],
+          schedule: [],
+          objectives: [],
+          manual: true
+        };
+        persistCfg();
+      }
+
+      entries.push(newEntry);
+      persistEntries();
+      populateSelects();
+      closeModal('subscribedEventModal');
+      render();
+      showToast(t('pl_subConvertedSuccess'));
     }
   </script>
   <script>

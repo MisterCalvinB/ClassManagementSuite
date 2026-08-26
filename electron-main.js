@@ -4441,6 +4441,57 @@ ipcMain.handle('app:read-by-path', async (event, request = {}) => {
   }
 });
 
+ipcMain.handle('app:fetch-url', async (event, request = {}) => {
+  const targetUrl = String(request.url || '').trim();
+  if (!targetUrl) return { ok: false, error: 'Empty URL' };
+
+  let clean = targetUrl;
+  if (clean.startsWith('webcal://')) clean = 'https://' + clean.slice(9);
+
+  return new Promise((resolve) => {
+    function doFetch(curUrl, redirectCount = 0) {
+      if (redirectCount > 5) {
+        return resolve({ ok: false, error: 'Too many redirects' });
+      }
+      try {
+        const urlObj = new URL(curUrl);
+        const client = urlObj.protocol === 'https:' ? require('https') : require('http');
+        const req = client.get(curUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ClassManagementSuite/1.0',
+            'Accept': 'text/calendar, text/plain, */*'
+          },
+          timeout: 20000
+        }, (res) => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            const nextUrl = new URL(res.headers.location, curUrl).toString();
+            return doFetch(nextUrl, redirectCount + 1);
+          }
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return resolve({ ok: false, status: res.statusCode, error: `HTTP ${res.statusCode} ${res.statusMessage || ''}` });
+          }
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', chunk => { data += chunk; });
+          res.on('end', () => { resolve({ ok: true, content: data, status: res.statusCode }); });
+        });
+
+        req.on('error', (err) => {
+          resolve({ ok: false, error: err.message });
+        });
+        req.on('timeout', () => {
+          req.destroy();
+          resolve({ ok: false, error: 'Request timed out' });
+        });
+      } catch (err) {
+        resolve({ ok: false, error: err.message });
+      }
+    }
+
+    doFetch(clean, 0);
+  });
+});
+
 ipcMain.handle('app:open-timer-window', async (event, request = {}) => {
   if (timerDetachedWindow && !timerDetachedWindow.isDestroyed()) {
     timerDetachedWindow.focus();
