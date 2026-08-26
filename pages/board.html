@@ -11068,6 +11068,25 @@
           }
         }
 
+        let _conTableMirrorSyncTimer = null;
+        function conCancelTableMirrorUpdate() {
+          if (_conTableMirrorSyncTimer) {
+            clearTimeout(_conTableMirrorSyncTimer);
+            _conTableMirrorSyncTimer = null;
+          }
+        }
+        function conScheduleTableMirrorUpdate() {
+          conCancelTableMirrorUpdate();
+          _conTableMirrorSyncTimer = setTimeout(() => {
+            _conTableMirrorSyncTimer = null;
+            if (typeof window._conMirrorBroadcast === 'function') {
+              window._conMirrorBroadcast();
+            }
+          }, 100);
+        }
+        window.conScheduleTableMirrorUpdate = conScheduleTableMirrorUpdate;
+        window.conCancelTableMirrorUpdate = conCancelTableMirrorUpdate;
+
         function _renderCellContent(tbl, r, c) {
           const gridEl = tbl.el && tbl.el.querySelector('.con-table-grid');
           if (!gridEl) return;
@@ -11108,9 +11127,37 @@
               e.stopPropagation();
               if (!tbl.locked) { te.contentEditable = 'true'; te.focus(); }
             });
+            const _syncCell = () => {
+              cell.text = te.textContent || '';
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({
+                  type: 'table-cell-text',
+                  id: String(tbl.id),
+                  row: r,
+                  col: c,
+                  text: cell.text
+                });
+              }
+              if (typeof conScheduleTableMirrorUpdate === 'function') {
+                conScheduleTableMirrorUpdate();
+              }
+            };
+            te.addEventListener('input', () => {
+              _syncCell();
+            });
+            te.addEventListener('keyup', () => {
+              _syncCell();
+            });
+            te.addEventListener('paste', () => {
+              setTimeout(_syncCell, 0);
+            });
             te.addEventListener('blur', function () {
               cell.text = te.textContent || '';
               te.contentEditable = 'false';
+              _syncCell();
+              if (typeof window._conMirrorBroadcast === 'function') {
+                window._conMirrorBroadcast();
+              }
             });
             te.addEventListener('keydown', function (e) { e.stopPropagation(); });
             cellEl.appendChild(te);
@@ -23063,7 +23110,9 @@
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
       if (activeSection === 'main-menu') {
-        if (typeof historyRefreshList === 'function') historyRefreshList();
+        if (typeof historyRefreshList === 'function') {
+          setTimeout(() => { historyRefreshList(); }, 50);
+        }
       }
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
@@ -27679,7 +27728,13 @@
         || (boardSessionDateCreated[section] ? Date.parse(String(boardSessionDateCreated[section]).replace(/_\d+$/, '')) : 0)
         || now;
       const savedAt = Number(now) || Date.now();
-      const persisted = Object.assign({}, data, {
+      const persisted = Object.assign({
+        _type: boardSessionType(section),
+        _classGroup: activeClassGroup || undefined,
+        _plannerEntryId: activePlannerEntryId || undefined,
+        _createdAt: createdAt,
+        _savedAt: savedAt
+      }, data, {
         _createdAt: createdAt,
         _savedAt: savedAt,
         _plannerEntryId: activePlannerEntryId || undefined,
@@ -30918,7 +30973,11 @@
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
         try {
-          const listed = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true });
+          const listed = await Desktop.listByPath('mindmaps', '.', {
+            extensions: ['.js', '.json', '.cstz', '.zip'],
+            recursive: true,
+            excludeDirs: ['history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+          });
           const files = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
           files.forEach(file => {
             const rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
@@ -32728,7 +32787,18 @@
       if (createdAt && modifiedAt && createdAt === modifiedAt && fsCreatedAt && fsCreatedAt !== modifiedAt) {
         createdAt = fsCreatedAt;
       }
-      const classGroup = (file && file.classGroup) || historyInferClassGroup(baseName);
+      let classGroup = (file && file.classGroup) || historyInferClassGroup(baseName);
+      const plannerEntryId = (file && file.plannerEntryId) || '';
+      if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
+        const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+        for (const cid of Object.keys(byClass)) {
+          const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+          if (arr.some(e => e.id === plannerEntryId)) {
+            classGroup = cid;
+            break;
+          }
+        }
+      }
       const isArchived = relativePath.startsWith('archived/');
       const source = isArchived ? 'archived'
         : ((file && file.source === 'autosave') || /autosave/i.test(baseName))
@@ -32742,6 +32812,7 @@
         relativePath,
         baseName,
         classGroup,
+        plannerEntryId,
         classLabel: getClassGroupLabel(classGroup),
         dateKey: historyExtractDateKey(baseName, createdAt || modifiedAt),
         createdAt,
@@ -33051,7 +33122,11 @@
 
       try {
         const mindmapsRes = (typeof Desktop.listByPath === 'function')
-          ? await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true })
+          ? await Desktop.listByPath('mindmaps', '.', {
+              extensions: ['.js', '.json', '.cstz', '.zip'],
+              recursive: true,
+              excludeDirs: ['history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+            })
           : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json', '.cstz', '.zip'] });
 
         const mindmapsFiles = Array.isArray(mindmapsRes && mindmapsRes.files) ? mindmapsRes.files : [];
@@ -33088,15 +33163,16 @@
       } finally {
         historyLoading = false;
         historyRenderList();
-        historyEnrichEntryClassGroups();
+        setTimeout(() => { historyEnrichEntryClassGroups(); }, 60);
       }
     }
 
     async function historyEnrichEntryClassGroups() {
       if (!(window.Desktop && Desktop.isElectron())) return;
-      const toEnrich = historyEntries.filter(e => !e.classGroup);
+      const toEnrich = historyEntries.filter(e => !e.classGroup && !e._enrichAttempted);
       if (!toEnrich.length) return;
-      const BATCH = 5;
+      toEnrich.forEach(e => { e._enrichAttempted = true; });
+      const BATCH = 12;
       let changed = false;
       for (let i = 0; i < toEnrich.length; i += BATCH) {
         const batch = toEnrich.slice(i, i + BATCH);
@@ -37424,9 +37500,7 @@
       if (level) level.style.width = '0%';
 
       var noConst = document.getElementById('con-record-no-const');
-      var sfBtn = document.getElementById('con-record-savefirst-btn');
-      if (noConst) noConst.style.display = _conCurrentFolderName ? 'none' : '';
-      if (sfBtn) { sfBtn.disabled = false; sfBtn.textContent = t ? t('saveConstellationFirst') : '💾 Save constellation & proceed'; }
+      if (noConst) noConst.style.display = 'none';
 
       popup.style.display = 'block';
       requestAnimationFrame(function () {
@@ -37499,7 +37573,7 @@
           var preview = document.getElementById('con-record-preview');
           if (preview) { preview.src = URL.createObjectURL(_recBlob); preview.style.display = 'block'; }
           var saveBtn = document.getElementById('con-record-save-btn');
-          if (saveBtn && _conCurrentFolderName) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+          if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
         };
         _recMediaRecorder.start(250);
       }).catch(function (e) {
@@ -37533,18 +37607,16 @@
     };
 
     window.conRecordSave = async function () {
-      if (!_conCurrentFolderName) { mdbToast('⚠️ ' + (t ? t('noConstellationForAudio') : 'Save your constellation first.')); return; }
       if (!_recBlob) { mdbToast('⚠️ No recording to save.'); return; }
 
       var ts = Date.now();
       var filename = 'rec-' + ts + '.webm';
-      var subdir = _conCurrentFolderName + '/audio';
+      var cachedUrl = URL.createObjectURL(_recBlob);
 
-      try {
-        await Desktop.saveBlob('mindmaps', filename, _recBlob, subdir);
-      } catch (e) {
-        mdbToast('⚠️ Could not save recording: ' + (e && e.message ? e.message : String(e)));
-        return;
+      if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.saveBlob === 'function') {
+        try {
+          await Desktop.saveBlob('mindmaps', filename, _recBlob, _conCurrentFolderName + '/audio');
+        } catch (_) { }
       }
 
       var newAtt = {
@@ -37553,8 +37625,9 @@
         mime: _recBlob.type || 'audio/webm',
         kind: 'sounds',
         size: _recBlob.size,
-        relativePath: _conCurrentFolderName + '/audio/' + filename,
-        file: null
+        file: _recBlob,
+        _cachedObjectUrl: cachedUrl,
+        relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/audio/' + filename) : ''
       };
       conAttachments.push(newAtt);
       conRenderAttachmentSummary();
@@ -37566,25 +37639,10 @@
     };
 
     window.conRecordSaveAndProceed = function () {
-      var sfBtn = document.getElementById('con-record-savefirst-btn');
-      if (sfBtn) { sfBtn.disabled = true; sfBtn.textContent = '⏳ Saving…'; }
-      conSaveSession();
-
-      var attempts = 0;
-      _recSaveCheckInterval = setInterval(function () {
-        attempts++;
-        if (_conCurrentFolderName) {
-          clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
-          var noConst = document.getElementById('con-record-no-const');
-          if (noConst) noConst.style.display = 'none';
-          var saveBtn = document.getElementById('con-record-save-btn');
-          if (saveBtn && _recBlob) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
-          mdbToast('✅ Constellation saved. You can now save your recording.');
-        } else if (attempts > 60) {
-          clearInterval(_recSaveCheckInterval); _recSaveCheckInterval = null;
-          if (sfBtn) { sfBtn.disabled = false; sfBtn.textContent = t ? t('saveConstellationFirst') : '💾 Save constellation & proceed'; }
-        }
-      }, 500);
+      var saveBtn = document.getElementById('con-record-save-btn');
+      if (saveBtn && _recBlob) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+      var noConst = document.getElementById('con-record-no-const');
+      if (noConst) noConst.style.display = 'none';
     };
 
     // ================================================================
@@ -37704,13 +37762,15 @@
 
         var wavAb = audioBufferToWav(trimmedBuf);
 
-        if (!_conCurrentFolderName) { mdbToast('⚠️ No constellation open.'); return; }
         var baseName = (_trimItem.name || 'recording').replace(/\.(webm|wav|mp3|ogg)$/i, '');
         var trimFile = baseName + '-trimmed.wav';
-        var subdir = _conCurrentFolderName + '/audio';
         var wavBlob = new Blob([wavAb], { type: 'audio/wav' });
 
-        await Desktop.saveBlob('mindmaps', trimFile, wavBlob, subdir);
+        if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.saveBlob === 'function') {
+          try {
+            await Desktop.saveBlob('mindmaps', trimFile, wavBlob, _conCurrentFolderName + '/audio');
+          } catch (_) { }
+        }
 
         var newAtt = {
           id: 'trim-' + Date.now(),
@@ -37718,8 +37778,9 @@
           mime: 'audio/wav',
           kind: 'sounds',
           size: wavAb.byteLength,
-          relativePath: _conCurrentFolderName + '/audio/' + trimFile,
-          file: null
+          file: wavBlob,
+          _cachedObjectUrl: URL.createObjectURL(wavBlob),
+          relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/audio/' + trimFile) : ''
         };
         conAttachments.push(newAtt);
         conRenderAttachmentSummary();
@@ -39079,6 +39140,29 @@
                 noteObj.text = d.text || '';
                 if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteObj);
               }
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'table-cell-text') {
+          if (_mirrorIsFrozen) return;
+          var tblEl = document.querySelector('.con-table-el[data-tid="' + d.id + '"]');
+          if (tblEl) {
+            var cellEl = tblEl.querySelector('.con-table-cell[data-row="' + d.row + '"][data-col="' + d.col + '"]');
+            if (cellEl) {
+              var textEl = cellEl.querySelector('.con-table-cell-text');
+              if (textEl && textEl.textContent !== (d.text || '')) {
+                textEl.textContent = d.text || '';
+              }
+            }
+          }
+          var _liveTables = window.conGetTables ? window.conGetTables() : [];
+          var tblObj = _liveTables.find(function (t) { return String(t.id) === String(d.id); });
+          if (tblObj) {
+            var cellObj = tblObj.cells && tblObj.cells[d.row * tblObj.cols + d.col];
+            if (cellObj) {
+              cellObj.text = d.text || '';
             }
           }
           return;

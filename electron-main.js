@@ -838,7 +838,7 @@ function readSessionTimestampMeta(rawText, ext) {
   return meta;
 }
 
-async function readSessionTimestampMetaFast(filePath, ext) {
+async function readSessionTimestampMetaFast(filePath, ext, knownSize) {
   const meta = {};
   if (ext === '.cstz' || ext === '.zip') {
     try {
@@ -850,7 +850,10 @@ async function readSessionTimestampMetaFast(filePath, ext) {
         const normName = normalizeZipEntryPath(entry.name) || entry.name;
         if (normName === 'manifest.json') {
           try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
-        } else if (normName === 'board.json') {
+          if (manifest && (manifest.classGroup || manifest.plannerEntryId || manifest.createdAt || manifest.updatedAt)) {
+            break;
+          }
+        } else if (normName === 'board.json' && !manifest) {
           try { boardData = JSON.parse(entry.data.toString('utf8')); } catch {}
         }
       }
@@ -878,39 +881,56 @@ async function readSessionTimestampMetaFast(filePath, ext) {
   let fileHandle;
   try {
     fileHandle = await fs.open(filePath, 'r');
-    const buf = Buffer.alloc(4096);
-    const { bytesRead } = await fileHandle.read(buf, 0, 4096, 0);
-    const text = buf.toString('utf8', 0, bytesRead).replace(/^\uFEFF/, '');
+    const headBuf = Buffer.alloc(8192);
+    const { bytesRead: headRead } = await fileHandle.read(headBuf, 0, 8192, 0);
+    const headText = headBuf.toString('utf8', 0, headRead).replace(/^\uFEFF/, '');
 
-    const createdComment = text.match(/^\s*\/\/\s*_createdAt:\s*(\d+)\s*$/m);
-    const savedComment = text.match(/^\s*\/\/\s*_savedAt:\s*(\d+)\s*$/m);
-    if (createdComment) meta.createdAt = Number(createdComment[1]) || 0;
-    if (savedComment) meta.savedAt = Number(savedComment[1]) || 0;
+    const parseTextMeta = (text) => {
+      const createdComment = text.match(/^\s*\/\/\s*_createdAt:\s*(\d+)\s*$/m);
+      const savedComment = text.match(/^\s*\/\/\s*_savedAt:\s*(\d+)\s*$/m);
+      if (createdComment && !meta.createdAt) meta.createdAt = Number(createdComment[1]) || 0;
+      if (savedComment && !meta.savedAt) meta.savedAt = Number(savedComment[1]) || 0;
 
-    const typeMatch = text.match(/"_type"\s*:\s*"([^"]+)"/) || text.match(/"_typ"\s*:\s*"([^"]+)"/);
-    if (typeMatch) meta.sessionType = typeMatch[1];
+      const typeMatch = text.match(/"_type"\s*:\s*"([^"]+)"/) || text.match(/"_typ"\s*:\s*"([^"]+)"/);
+      if (typeMatch && !meta.sessionType) meta.sessionType = typeMatch[1];
 
-    const cgMatch = text.match(/"_classGroup"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_classGroup:\s*([^\s]+)\s*$/m);
-    if (cgMatch && cgMatch[1]) meta.classGroup = cgMatch[1];
+      const cgMatch = text.match(/"_classGroup"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_classGroup:\s*([^\s]+)\s*$/m);
+      if (cgMatch && cgMatch[1] && !meta.classGroup) meta.classGroup = cgMatch[1];
 
-    const pidMatch = text.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_plannerEntryId:\s*([^\s]+)\s*$/m);
-    if (pidMatch && pidMatch[1]) meta.plannerEntryId = pidMatch[1];
+      const pidMatch = text.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_plannerEntryId:\s*([^\s]+)\s*$/m);
+      if (pidMatch && pidMatch[1] && !meta.plannerEntryId) meta.plannerEntryId = pidMatch[1];
 
-    if (!meta.createdAt) {
-      const createdKey = text.match(/"_createdAt"\s*:\s*(\d+)/);
-      if (createdKey) meta.createdAt = Number(createdKey[1]) || 0;
-    }
-    if (!meta.savedAt) {
-      const savedKey = text.match(/"_savedAt"\s*:\s*(\d+)/);
-      if (savedKey) meta.savedAt = Number(savedKey[1]) || 0;
-    }
+      if (!meta.createdAt) {
+        const createdKey = text.match(/"_createdAt"\s*:\s*(\d+)/);
+        if (createdKey) meta.createdAt = Number(createdKey[1]) || 0;
+      }
+      if (!meta.savedAt) {
+        const savedKey = text.match(/"_savedAt"\s*:\s*(\d+)/);
+        if (savedKey) meta.savedAt = Number(savedKey[1]) || 0;
+      }
 
-    if (!meta.createdAt) {
-      const dcMatch = text.match(/"dateCreated"\s*:\s*"([^"]+)"/);
-      if (dcMatch) {
-        const stripped = dcMatch[1].replace(/_\d+$/, '');
-        const ms = Date.parse(stripped);
-        if (Number.isFinite(ms) && ms > 0) meta.createdAt = ms;
+      if (!meta.createdAt) {
+        const dcMatch = text.match(/"dateCreated"\s*:\s*"([^"]+)"/);
+        if (dcMatch) {
+          const stripped = dcMatch[1].replace(/_\d+$/, '');
+          const ms = Date.parse(stripped);
+          if (Number.isFinite(ms) && ms > 0) meta.createdAt = ms;
+        }
+      }
+    };
+
+    parseTextMeta(headText);
+
+    // If classGroup, plannerEntryId, or createdAt/savedAt is missing and file is larger than headRead, also inspect the tail
+    const fileSize = typeof knownSize === 'number' ? knownSize : (await fileHandle.stat().then(s => s.size).catch(() => 0));
+    if ((!meta.classGroup || !meta.plannerEntryId || !meta.createdAt || !meta.savedAt) && fileSize > headRead) {
+      const tailLen = Math.min(8192, fileSize);
+      const tailPos = Math.max(0, fileSize - tailLen);
+      if (tailPos >= headRead) {
+        const tailBuf = Buffer.alloc(tailLen);
+        const { bytesRead: tailRead } = await fileHandle.read(tailBuf, 0, tailLen, tailPos);
+        const tailText = tailBuf.toString('utf8', 0, tailRead);
+        parseTextMeta(tailText);
       }
     }
   } catch {} finally {
@@ -931,38 +951,36 @@ async function listAllowedFiles(pageFile, target, request = {}) {
 
   await fs.mkdir(targetDir, { recursive: true });
   const dirents = await fs.readdir(targetDir, { withFileTypes: true });
-  const files = [];
+  const fileDirents = dirents.filter(d => d.isFile());
 
-  for (const dirent of dirents) {
-    if (!dirent.isFile()) continue;
+  const fileResults = await Promise.all(fileDirents.map(async (dirent) => {
     const ext = path.extname(dirent.name).toLowerCase();
-    if (normalizedExtensions.length && !normalizedExtensions.includes(ext)) continue;
+    if (normalizedExtensions.length && !normalizedExtensions.includes(ext)) return null;
 
     const filePath = path.join(targetDir, dirent.name);
     let stats;
     try {
       stats = await fs.stat(filePath);
     } catch {
-      continue;
+      return null;
     }
 
     let jsonMeta = {};
     if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
       try {
-        jsonMeta = await readSessionTimestampMetaFast(filePath, ext);
+        jsonMeta = await readSessionTimestampMetaFast(filePath, ext, stats.size);
       } catch {}
     }
 
     if (!jsonMeta.createdAt) {
       const birthtimeMs = Number(stats.birthtimeMs) || 0;
       const mtimeMs = Number(stats.mtimeMs) || 0;
-      // Restored/imported files on Windows can get a fresh birthtime even when mtime is restored.
       if (birthtimeMs > 0 && mtimeMs > 0 && (birthtimeMs - mtimeMs) > 60_000) {
         jsonMeta.createdAt = mtimeMs;
       }
     }
 
-    files.push({
+    return {
       filename: dirent.name,
       path: filePath,
       size: stats.size,
@@ -970,9 +988,10 @@ async function listAllowedFiles(pageFile, target, request = {}) {
       ctimeMs: stats.ctimeMs,
       mtimeMs: stats.mtimeMs,
       ...jsonMeta
-    });
-  }
+    };
+  }));
 
+  const files = fileResults.filter(Boolean);
   files.sort((a, b) => (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
   return files;
 }
@@ -1054,7 +1073,6 @@ async function readAllowedPathFile(pageFile, target, relativePath, encoding = 'u
     content
   };
 }
-
 async function listAllowedPathFiles(pageFile, target, relativePath, request = {}) {
   const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
   const extensions = Array.isArray(request.extensions) ? request.extensions : [];
@@ -1064,6 +1082,9 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
     .map((ext) => (ext.startsWith('.') ? ext : `.${ext}`));
   const recursive = request.recursive !== false;
   const includeDirectories = request.includeDirectories === true;
+  const excludeDirs = Array.isArray(request.excludeDirs)
+    ? new Set(request.excludeDirs.map((d) => String(d || '').trim().toLowerCase()).filter(Boolean))
+    : null;
 
   const candidateDirs = [fullPath];
   if (target === 'data') {
@@ -1083,7 +1104,20 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       throw error;
     }
 
+    const subDirs = [];
+    const fileDirents = [];
+
     for (const dirent of dirents) {
+      if (dirent.isDirectory()) {
+        const dirNameLower = dirent.name.toLowerCase();
+        if (excludeDirs && excludeDirs.has(dirNameLower)) continue;
+        subDirs.push(dirent);
+      } else if (dirent.isFile()) {
+        fileDirents.push(dirent);
+      }
+    }
+
+    for (const dirent of subDirs) {
       const absolutePath = path.join(currentDir, dirent.name);
       const childRelative = relativeDir
         ? path.posix.join(relativeDir, dirent.name)
@@ -1091,44 +1125,49 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       const relativePathFromTarget = path.posix.join(safeRelative, childRelative);
       const dedupeKey = relativePathFromTarget.toLowerCase();
 
-      if (dirent.isDirectory()) {
-        if (includeDirectories && !seen.has(dedupeKey)) {
-          let stats;
-          try {
-            stats = await fs.stat(absolutePath);
-          } catch {
-            stats = null;
-          }
-
-          seen.add(dedupeKey);
-          files.push({
-            filename: dirent.name,
-            relativePath: relativePathFromTarget,
-            path: absolutePath,
-            size: 0,
-            birthtimeMs: stats ? stats.birthtimeMs : 0,
-            mtimeMs: stats ? stats.mtimeMs : 0,
-            isDirectory: true
-          });
+      if (includeDirectories && !seen.has(dedupeKey)) {
+        let stats;
+        try {
+          stats = await fs.stat(absolutePath);
+        } catch {
+          stats = null;
         }
 
-        if (recursive) {
-          await walkDirectory(baseDir, absolutePath, childRelative);
-        }
-        continue;
+        seen.add(dedupeKey);
+        files.push({
+          filename: dirent.name,
+          relativePath: relativePathFromTarget,
+          path: absolutePath,
+          size: 0,
+          birthtimeMs: stats ? stats.birthtimeMs : 0,
+          mtimeMs: stats ? stats.mtimeMs : 0,
+          isDirectory: true
+        });
       }
 
-      if (!dirent.isFile()) continue;
-      const ext = path.extname(dirent.name).toLowerCase();
-      if (normalizedExtensions.length && !normalizedExtensions.includes(ext)) continue;
+      if (recursive) {
+        await walkDirectory(baseDir, absolutePath, childRelative);
+      }
+    }
 
-      if (seen.has(dedupeKey)) continue;
+    const fileResults = await Promise.all(fileDirents.map(async (dirent) => {
+      const ext = path.extname(dirent.name).toLowerCase();
+      if (normalizedExtensions.length && !normalizedExtensions.includes(ext)) return null;
+
+      const absolutePath = path.join(currentDir, dirent.name);
+      const childRelative = relativeDir
+        ? path.posix.join(relativeDir, dirent.name)
+        : dirent.name;
+      const relativePathFromTarget = path.posix.join(safeRelative, childRelative);
+      const dedupeKey = relativePathFromTarget.toLowerCase();
+
+      if (seen.has(dedupeKey)) return null;
 
       let stats;
       try {
         stats = await fs.stat(absolutePath);
       } catch {
-        continue;
+        return null;
       }
 
       seen.add(dedupeKey);
@@ -1136,7 +1175,7 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
       let jsonMeta = {};
       if (ext === '.json' || ext === '.js' || ext === '.cstz' || ext === '.zip') {
         try {
-          jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext);
+          jsonMeta = await readSessionTimestampMetaFast(absolutePath, ext, stats.size);
         } catch {}
       }
 
@@ -1148,16 +1187,21 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
         }
       }
 
-      files.push({
+      return {
         filename: dirent.name,
         relativePath: relativePathFromTarget,
         path: absolutePath,
         size: stats.size,
         birthtimeMs: stats.birthtimeMs,
+        ctimeMs: stats.ctimeMs,
         mtimeMs: stats.mtimeMs,
         isDirectory: false,
         ...jsonMeta
-      });
+      };
+    }));
+
+    for (const f of fileResults) {
+      if (f) files.push(f);
     }
   }
 
@@ -1173,11 +1217,6 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
 
   files.sort((a, b) => a.relativePath.localeCompare(b.relativePath, undefined, { sensitivity: 'base' }));
   return files;
-}
-
-async function createAllowedPathDirectory(pageFile, target, relativePath) {
-  const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
-  await fs.mkdir(fullPath, { recursive: true });
   return {
     relativePath: safeRelative,
     path: fullPath
