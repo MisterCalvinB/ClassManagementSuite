@@ -6522,7 +6522,7 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   border: 1px dotted #cdc9c9;
   border-radius: 4px;
   padding: 4px 8px 8px 6px;
-  z-index: 500;
+  z-index: 300;
   font-family: inherit;
   font-size: 18px;
   font-weight: 700;
@@ -7001,7 +7001,7 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   border: 1px dotted #cdc9c9;
   border-radius: 6px;
   padding: 6px 12px 10px 8px;
-  z-index: 500;
+  z-index: 300;
   font-family: var(--bc-note-font-family, inherit);
   font-size: 16px;
   font-weight: 700;
@@ -7303,14 +7303,70 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   background-color: transparent !important;
 }
 
-.con-word-note.wn-selected {
+.con-word-note.wn-selected,
+.ta-word-note.wn-selected {
   outline: 2px solid #2563eb;
   border-color: #2563eb;
+  z-index: 350;
 }
 
-.con-word-note.wn-multi-selected {
+.con-word-note.wn-multi-selected,
+.ta-word-note.wn-multi-selected {
   outline: 2px dashed #2563eb;
   border-color: #2563eb;
+  z-index: 350;
+}
+
+/* --- Background Autosave Toast Indicator --- */
+#con-autosave-toast {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#con-autosave-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.con-autosave-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: conAutosaveSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes conAutosaveSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.con-autosave-check {
+  color: #4ade80;
+  font-weight: 800;
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .con-word-note textarea {
