@@ -621,5 +621,31 @@
     return lm[key] || defaultVal;
   }
 
+  async function checkPreviousSessionCrash() {
+    try {
+      if (!window.electronApi || typeof window.electronApi.getLatestCrashDump !== 'function') return;
+      const res = await window.electronApi.getLatestCrashDump();
+      if (res && res.ok && res.dump) {
+        const dump = res.dump;
+        const dumpTime = new Date(dump.timestamp).getTime();
+        const lastDismissed = Number(localStorage.getItem('cmt_last_dismissed_crash') || 0);
+        if (dumpTime > lastDismissed) {
+          const msg = `Notice: A crash or memory warning was recorded on ${new Date(dump.timestamp).toLocaleString()} (${dump.crashType}).`;
+          if (typeof showToast === 'function') {
+            showToast(msg, true);
+          }
+          localStorage.setItem('cmt_last_dismissed_crash', String(dumpTime));
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(checkPreviousSessionCrash, 2000));
+  } else {
+    setTimeout(checkPreviousSessionCrash, 2000);
+  }
+
+  window.checkPreviousSessionCrash = checkPreviousSessionCrash;
   window.showExportSuccessPopup = _showExportSuccessPopup;
 })();

@@ -1,5 +1,15 @@
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
-const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
+const { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
+
+try {
+  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096 --expose-gc');
+  app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+} catch (swErr) {
+  console.warn('Could not append Electron commandLine switches:', swErr?.message || swErr);
+}
+
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
@@ -8,6 +18,16 @@ const os     = require('os');
 const http   = require('http');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+
+try {
+  crashReporter.start({
+    submitURL: '',
+    uploadToServer: false,
+    compress: true
+  });
+} catch (err) {
+  console.warn('CrashReporter initialization warning:', err?.message || err);
+}
 
 const ROOT_DIR = __dirname;
 const PAGE_FILES = {
@@ -178,6 +198,135 @@ function getWritableRootDir() {
   }
 
   return app.getPath('userData');
+}
+
+function getCrashDumpsDir() {
+  const writableRoot = getWritableRootDir();
+  const dir = path.join(writableRoot, 'user', 'logs', 'crash-dumps');
+  try {
+    if (!fsSync.existsSync(dir)) {
+      fsSync.mkdirSync(dir, { recursive: true });
+    }
+  } catch (e) {}
+  return dir;
+}
+
+function writeCrashDump(type, details = {}, error = null) {
+  try {
+    const crashDir = getCrashDumpsDir();
+    const now = new Date();
+    const isoString = now.toISOString();
+    const fileTimestamp = isoString.replace(/[:.]/g, '-');
+    const dumpPath = path.join(crashDir, `crash-dump_${fileTimestamp}.json`);
+    const latestPath = path.join(crashDir, 'latest-crash-dump.json');
+
+    const processMem = typeof process.memoryUsage === 'function' ? process.memoryUsage() : {};
+    const freeMemBytes = typeof os.freemem === 'function' ? os.freemem() : 0;
+    const totalMemBytes = typeof os.totalmem === 'function' ? os.totalmem() : 0;
+
+    const activeWindows = [];
+    try {
+      const allWins = BrowserWindow.getAllWindows();
+      for (const win of allWins) {
+        if (win && !win.isDestroyed()) {
+          activeWindows.push({
+            id: win.id,
+            page: typeof getLoadedPageFile === 'function' ? getLoadedPageFile(win) : 'unknown',
+            isVisible: win.isVisible(),
+            isMinimized: win.isMinimized(),
+            isFocused: win.isFocused()
+          });
+        }
+      }
+    } catch (winErr) {}
+
+    const dumpData = {
+      timestamp: isoString,
+      crashType: type,
+      appVersion: typeof app.getVersion === 'function' ? app.getVersion() : '1.0.0',
+      electronVersion: process.versions.electron || '',
+      nodeVersion: process.versions.node || '',
+      platform: process.platform,
+      arch: process.arch,
+      uptimeSeconds: Math.round(typeof process.uptime === 'function' ? process.uptime() : 0),
+      systemMemory: {
+        totalMB: Math.round(totalMemBytes / (1024 * 1024)),
+        freeMB: Math.round(freeMemBytes / (1024 * 1024))
+      },
+      processMemory: {
+        rssMB: Math.round((processMem.rss || 0) / (1024 * 1024)),
+        heapTotalMB: Math.round((processMem.heapTotal || 0) / (1024 * 1024)),
+        heapUsedMB: Math.round((processMem.heapUsed || 0) / (1024 * 1024)),
+        externalMB: Math.round((processMem.external || 0) / (1024 * 1024))
+      },
+      activeWindowsCount: activeWindows.length,
+      activeWindows,
+      details: details || {},
+      error: error ? {
+        message: error.message || String(error),
+        name: error.name || 'Error',
+        stack: error.stack || ''
+      } : null
+    };
+
+    const jsonStr = JSON.stringify(dumpData, null, 2);
+    fsSync.writeFileSync(dumpPath, jsonStr, 'utf8');
+    fsSync.writeFileSync(latestPath, jsonStr, 'utf8');
+
+    try {
+      const files = fsSync.readdirSync(crashDir)
+        .filter(f => f.startsWith('crash-dump_') && f.endsWith('.json'))
+        .sort();
+      if (files.length > 20) {
+        for (let i = 0; i < files.length - 20; i++) {
+          try { fsSync.unlinkSync(path.join(crashDir, files[i])); } catch (e) {}
+        }
+      }
+    } catch (purgeErr) {}
+
+    return dumpPath;
+  } catch (err) {
+    console.error('Failed to write crash dump:', err);
+    return null;
+  }
+}
+
+process.on('uncaughtException', (error) => {
+  console.error('[CRASH] Uncaught Exception in Main Process:', error);
+  writeCrashDump('uncaughtException', {}, error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] Unhandled Rejection in Main Process:', reason);
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  writeCrashDump('unhandledRejection', {}, err);
+});
+
+app.on('child-process-gone', (event, details) => {
+  console.error('[ProcessCrash] Child process gone:', details);
+  writeCrashDump('child-process-gone', { details });
+});
+
+let _memoryCheckInterval = null;
+function startMemoryHeartbeat() {
+  if (_memoryCheckInterval) clearInterval(_memoryCheckInterval);
+  _memoryCheckInterval = setInterval(() => {
+    try {
+      const mem = process.memoryUsage();
+      const heapMB = mem.heapUsed / (1024 * 1024);
+      const rssMB = mem.rss / (1024 * 1024);
+      if (heapMB > 1200 || rssMB > 1800) {
+        console.warn(`[MemoryWarning] High memory footprint: Heap ${Math.round(heapMB)}MB, RSS ${Math.round(rssMB)}MB`);
+        writeCrashDump('diagnostic-memory-warning', { heapMB, rssMB });
+        if (typeof global.gc === 'function') {
+          try {
+            global.gc();
+            console.log('[MemoryCleanup] Triggered Garbage Collection.');
+          } catch (gcErr) {}
+        }
+      }
+    } catch (e) {}
+  }, 5 * 60 * 1000);
 }
 
 function getSaveTargets() {
@@ -456,7 +605,9 @@ function setupWindowExternalLinkHandling(win) {
   });
 
   win.webContents.on('render-process-gone', (event, details) => {
-    console.error(`[ProcessCrash] Render process gone for window (${getLoadedPageFile(win)}):`, details);
+    const pageFile = typeof getLoadedPageFile === 'function' ? getLoadedPageFile(win) : 'unknown';
+    console.error(`[ProcessCrash] Render process gone for window (${pageFile}):`, details);
+    writeCrashDump('render-process-gone', { pageFile, details });
     if (win === mirrorWindow) {
       mirrorWindow = null;
     } else if (win === cmsPresentationWindow) {
@@ -471,7 +622,9 @@ function setupWindowExternalLinkHandling(win) {
   });
 
   win.webContents.on('unresponsive', () => {
-    console.warn(`[ProcessWarning] Window (${getLoadedPageFile(win)}) became unresponsive.`);
+    const pageFile = typeof getLoadedPageFile === 'function' ? getLoadedPageFile(win) : 'unknown';
+    console.warn(`[ProcessWarning] Window (${pageFile}) became unresponsive.`);
+    writeCrashDump('window-unresponsive', { pageFile });
   });
 }
 
@@ -7758,7 +7911,66 @@ ipcMain.on('planner:reminder-dismiss', () => {
   }
 });
 
+ipcMain.handle('app:report-renderer-error', async (_event, data) => {
+  try {
+    const errObj = data?.error || {};
+    const page = data?.page || 'unknown';
+    writeCrashDump('renderer-error', { page, url: data?.url, line: data?.line, col: data?.col }, {
+      message: errObj.message || data?.message || 'Renderer Error',
+      name: errObj.name || 'RendererError',
+      stack: errObj.stack || ''
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('app:get-crash-dumps', async () => {
+  try {
+    const dir = getCrashDumpsDir();
+    if (!fsSync.existsSync(dir)) return { ok: true, dumps: [] };
+    const files = (await fs.readdir(dir))
+      .filter(f => f.startsWith('crash-dump_') && f.endsWith('.json'))
+      .sort()
+      .reverse();
+    const dumps = [];
+    for (const file of files.slice(0, 20)) {
+      try {
+        const content = await fs.readFile(path.join(dir, file), 'utf8');
+        dumps.push({ filename: file, data: JSON.parse(content) });
+      } catch (e) {}
+    }
+    return { ok: true, dumps };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('app:open-crash-dumps-dir', async () => {
+  try {
+    const dir = getCrashDumpsDir();
+    shell.openPath(dir);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('app:get-latest-crash-dump', async () => {
+  try {
+    const dir = getCrashDumpsDir();
+    const latestPath = path.join(dir, 'latest-crash-dump.json');
+    if (!fsSync.existsSync(latestPath)) return { ok: true, dump: null };
+    const content = await fs.readFile(latestPath, 'utf8');
+    return { ok: true, dump: JSON.parse(content) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 app.whenReady().then(async () => {
+  startMemoryHeartbeat();
   let initialPageFile = getInitialPageFile();
 
   try {

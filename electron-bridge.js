@@ -1027,5 +1027,47 @@
     wireHamburger();
     wireReminderToast();
   }
+
+  try {
+    if (isElectron()) {
+      window.addEventListener('error', function(event) {
+        try {
+          const desktopApi = getDesktopApi();
+          if (desktopApi && typeof desktopApi.reportRendererError === 'function') {
+            desktopApi.reportRendererError({
+              page: window.location.pathname.split('/').pop() || 'unknown',
+              message: event.message,
+              url: event.filename,
+              line: event.lineno,
+              col: event.colno,
+              error: {
+                message: event.error ? event.error.message : event.message,
+                name: event.error ? event.error.name : 'Error',
+                stack: event.error ? event.error.stack : ''
+              }
+            });
+          }
+        } catch (e) {}
+      });
+
+      window.addEventListener('unhandledrejection', function(event) {
+        try {
+          const desktopApi = getDesktopApi();
+          if (desktopApi && typeof desktopApi.reportRendererError === 'function') {
+            const reason = event.reason || {};
+            desktopApi.reportRendererError({
+              page: window.location.pathname.split('/').pop() || 'unknown',
+              message: reason.message || String(reason),
+              error: {
+                message: reason.message || String(reason),
+                name: reason.name || 'UnhandledRejection',
+                stack: reason.stack || ''
+              }
+            });
+          }
+        } catch (e) {}
+      });
+    }
+  } catch (e) {}
 })();
 

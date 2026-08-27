@@ -32,6 +32,18 @@ function invoke(channel, request) {
 
 const exposedApi = {
   isElectron: !!(contextBridge && ipcRenderer),
+  reportRendererError(data) {
+    return invoke('app:report-renderer-error', data);
+  },
+  getCrashDumps() {
+    return invoke('app:get-crash-dumps');
+  },
+  openCrashDumpsDir() {
+    return invoke('app:open-crash-dumps-dir');
+  },
+  getLatestCrashDump() {
+    return invoke('app:get-latest-crash-dump');
+  },
   saveFile(request) {
     return invoke('app:save-file', request);
   },

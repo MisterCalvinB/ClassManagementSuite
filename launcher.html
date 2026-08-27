@@ -1327,10 +1327,12 @@
 
   function init() {
     const popup = document.getElementById('cfgPopup');
-    popup.querySelector('.cfg-label-input').addEventListener('input',  persistPopupConfig);
-    popup.querySelector('.cfg-notes').addEventListener('input',        persistPopupConfig);
-    popup.querySelector('.cfg-size-input').addEventListener('input',   persistPopupConfig);
-    popup.querySelector('.cfg-pos-select').addEventListener('change',  persistPopupConfig);
+    if (popup) {
+      popup.querySelector('.cfg-label-input')?.addEventListener('input',  persistPopupConfig);
+      popup.querySelector('.cfg-notes')?.addEventListener('input',        persistPopupConfig);
+      popup.querySelector('.cfg-size-input')?.addEventListener('input',   persistPopupConfig);
+      popup.querySelector('.cfg-pos-select')?.addEventListener('change',  persistPopupConfig);
+    }
 
     applyTitle();
     renderSections();
@@ -1340,7 +1342,9 @@
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
       Desktop.readJson('user', 'config.js').then(function(cfgResult) {
         if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
-          const merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+          const baseConfig = getGeneralConfig() || {};
+          const settings = (typeof cfgResult.data.launcherSettings === 'object' && cfgResult.data.launcherSettings) ? cfgResult.data.launcherSettings : {};
+          const merged = Object.assign({}, baseConfig, settings);
           localStorage.setItem('cmt-general-config', JSON.stringify(merged));
           applyTitle();
         }
@@ -1350,24 +1354,38 @@
     // Sidebar
     var _sbPrefs = sbGetPrefs();
     var _sbOpen  = _sbPrefs.open !== false;
-    document.getElementById('launcherLayout').classList.toggle('sb-collapsed', !_sbOpen);
-    document.getElementById('sbToggleBtn').classList.toggle('active', _sbOpen);
-    document.getElementById('sbEventsCountBtn').textContent = String(_sbPrefs.eventsCount || 5);
-    document.getElementById('sbDocsCountBtn').textContent   = String(_sbPrefs.docsCount   || 5);
-    document.getElementById('sbToggleBtn').addEventListener('click', sbToggle);
-    document.getElementById('sbEventsCountBtn').addEventListener('click', function(e) {
-      e.stopPropagation(); sbShowCountPopup(this, 'events');
-    });
-    document.getElementById('sbDocsCountBtn').addEventListener('click', function(e) {
-      e.stopPropagation(); sbShowCountPopup(this, 'docs');
-    });
-    document.getElementById('sbCountInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter')  { e.preventDefault(); sbApplyCount(this.value); }
-      if (e.key === 'Escape') sbHideCountPopup();
-    });
-    document.getElementById('sbCountInput').addEventListener('blur', function() {
-      if (!document.getElementById('sbCountPopup').hidden) sbApplyCount(this.value);
-    });
+    var layoutEl = document.getElementById('launcherLayout');
+    if (layoutEl) layoutEl.classList.toggle('sb-collapsed', !_sbOpen);
+    var toggleBtn = document.getElementById('sbToggleBtn');
+    if (toggleBtn) {
+      toggleBtn.classList.toggle('active', _sbOpen);
+      toggleBtn.addEventListener('click', sbToggle);
+    }
+    var evBtn = document.getElementById('sbEventsCountBtn');
+    if (evBtn) {
+      evBtn.textContent = String(_sbPrefs.eventsCount || 5);
+      evBtn.addEventListener('click', function(e) {
+        e.stopPropagation(); sbShowCountPopup(this, 'events');
+      });
+    }
+    var docBtn = document.getElementById('sbDocsCountBtn');
+    if (docBtn) {
+      docBtn.textContent = String(_sbPrefs.docsCount || 5);
+      docBtn.addEventListener('click', function(e) {
+        e.stopPropagation(); sbShowCountPopup(this, 'docs');
+      });
+    }
+    var countInput = document.getElementById('sbCountInput');
+    if (countInput) {
+      countInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter')  { e.preventDefault(); sbApplyCount(this.value); }
+        if (e.key === 'Escape') sbHideCountPopup();
+      });
+      countInput.addEventListener('blur', function() {
+        var countPopup = document.getElementById('sbCountPopup');
+        if (countPopup && !countPopup.hidden) sbApplyCount(this.value);
+      });
+    }
 
     // Defer sidebar file loading slightly so main launcher grid renders instantly
     if (_sbOpen) {
@@ -1975,12 +1993,30 @@
   var _sbSyncTimer = null;
   var _sbPendingTasks = { pinned: false, planner: false, docs: false };
   var _sbSyncRunning = false;
+  var _sbDirtyTasksWhileHidden = { pinned: false, planner: false, docs: false };
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      if (_sbDirtyTasksWhileHidden.pinned || _sbDirtyTasksWhileHidden.planner || _sbDirtyTasksWhileHidden.docs) {
+        var tasksToRun = Object.assign({}, _sbDirtyTasksWhileHidden);
+        _sbDirtyTasksWhileHidden = { pinned: false, planner: false, docs: false };
+        sbScheduleSync(tasksToRun);
+      }
+    }
+  });
 
   function sbScheduleSync(tasks) {
     if (!tasks) tasks = {};
     if (tasks.pinned) _sbPendingTasks.pinned = true;
     if (tasks.planner) _sbPendingTasks.planner = true;
     if (tasks.docs) _sbPendingTasks.docs = true;
+
+    if (document.hidden) {
+      if (tasks.pinned) _sbDirtyTasksWhileHidden.pinned = true;
+      if (tasks.planner) _sbDirtyTasksWhileHidden.planner = true;
+      if (tasks.docs) _sbDirtyTasksWhileHidden.docs = true;
+      return;
+    }
 
     if (_sbSyncTimer) clearTimeout(_sbSyncTimer);
     _sbSyncTimer = setTimeout(async function() {
@@ -2013,7 +2049,7 @@
       } finally {
         _sbSyncRunning = false;
       }
-    }, 280);
+    }, 1200);
   }
 
   // ── Count popup ─────────────────────────────────────────

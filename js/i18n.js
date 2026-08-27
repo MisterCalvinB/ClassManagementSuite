@@ -11,6 +11,7 @@
 
   var STRINGS = {
     en: {
+      gcOpenCrashDumps: "Open Crash Logs",
       btnBack: "← Back",
       btnCancel: "Cancel",
       btnOk: "OK",

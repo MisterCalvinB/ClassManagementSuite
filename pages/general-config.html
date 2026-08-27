@@ -239,6 +239,7 @@
               <button class="btn btn-outline" id="changeDataBtn" data-i18n="gcChangeFolder">Change folder…</button>
               <button class="btn btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
               <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
+              <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" onclick="gcOpenCrashDumps()" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
             </div>
             <div class="status" style="margin-top:8px;" id="dataStatus"></div>
 
@@ -3360,6 +3361,15 @@
     }
 
     window.addEventListener('hashchange', handleInitialNavigation);
+
+    function gcOpenCrashDumps() {
+      if (window.electronApi && typeof window.electronApi.openCrashDumpsDir === 'function') {
+        window.electronApi.openCrashDumpsDir();
+      } else if (typeof showToast === 'function') {
+        showToast('Crash dump directory is available when running in Electron desktop mode.');
+      }
+    }
+    window.gcOpenCrashDumps = gcOpenCrashDumps;
 
     document.addEventListener('DOMContentLoaded', async function () {
       await init();  // reads config from file, populates path boxes
