@@ -289,7 +289,6 @@
         .top-right-controls #timer-open-btn.active .btn-icon,
         .top-right-controls #roster-settings-btn.active .btn-icon,
         #group-view-toggle.active .btn-icon,
-        #rsp-pin-btn.active .btn-icon,
         .rsp-tab-btn.active .btn-icon,
         .rsp-inline-btn.active .btn-icon,
         .rsp-inline-btn:not(.is-off) .btn-icon,
@@ -440,36 +439,6 @@
         #roster-settings-popup .rsp-header-title {
             color: #111111 !important;
             font-weight: 800;
-        }
-
-        /* Pin button */
-        #rsp-pin-btn {
-            background: #f1f5f9 !important;
-            color: #0f172a !important;
-            border: 1.5px solid #cbd5e1 !important;
-            border-radius: 6px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        #rsp-pin-btn .btn-icon {
-            filter: none !important;
-        }
-
-        #rsp-pin-btn:hover,
-        #rsp-pin-btn.active,
-        #rsp-pin-btn:not(.is-off) {
-            background: #0f172a !important;
-            color: #ffffff !important;
-            border-color: #0f172a !important;
-        }
-
-        #rsp-pin-btn:hover .btn-icon,
-        #rsp-pin-btn.active .btn-icon,
-        #rsp-pin-btn:not(.is-off) .btn-icon {
-            filter: brightness(0) invert(1) !important;
         }
 
         /* Navigation Tabs */
@@ -1260,10 +1229,6 @@
                     <div id="roster-settings-popup" class="roster-settings-popup">
                         <div class="rsp-header">
                             <span class="rsp-header-title" data-i18n="rsp_roster_settings_title">Roster Settings</span>
-                            <button class="rsp-inline-btn rsp-pin-btn" id="rsp-pin-btn"
-                                onclick="toggleRosterSettingsPin()" title="Pin/unpin roster settings"
-                                data-i18n-title="rsp_pin_title"><img src="../assets/icons/pin.svg" class="btn-icon"
-                                    alt="" /> <span data-i18n="rsp_pin_btn">Pin menu</span></button>
                         </div>
 
                         <div class="rsp-tabs-nav">
@@ -1603,7 +1568,6 @@
                     <button class="btn-pick" id="pick-team-btn" onclick="pickTeam()" disabled data-i18n="btn_pick_team"
                         style="display:none">Random Team</button>
                 </div>
-                <div id="roster-settings-dock" class="roster-settings-dock" aria-hidden="true"></div>
             </div>
         </div>
     </div>
@@ -1685,16 +1649,16 @@
                         src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><span>3</span></button>
             </div>
             <div class="overlay-noise-panel" id="timer-overlay-noise-panel" style="margin-top:8px;">
-                <button class="overlay-noise-type-btn" id="timer-noise-btn-white" onclick="overlaySetNoise('white')"
+                <button class="overlay-noise-type-btn" id="timer-noise-btn-white" onclick="overlaySetNoise('white', event)"
                     title="White noise" data-i18n-title="overlay_white_title"><img src="../assets/icons/wind.svg"
                         class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="timer-noise-btn-pink" onclick="overlaySetNoise('pink')"
+                <button class="overlay-noise-type-btn" id="timer-noise-btn-pink" onclick="overlaySetNoise('pink', event)"
                     title="Pink noise" data-i18n-title="overlay_pink_title"><img src="../assets/icons/flower.svg"
                         class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="timer-noise-btn-brown" onclick="overlaySetNoise('brown')"
+                <button class="overlay-noise-type-btn" id="timer-noise-btn-brown" onclick="overlaySetNoise('brown', event)"
                     title="Brown noise" data-i18n-title="overlay_brown_title"><img src="../assets/icons/ocean.svg"
                         class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="timer-noise-btn-file" onclick="overlaySetNoise('file')"
+                <button class="overlay-noise-type-btn" id="timer-noise-btn-file" onclick="overlaySetNoise('file', event)"
                     title="Timer audio file" data-i18n-title="overlay_file_title"><img src="../assets/icons/music.svg"
                         class="btn-icon" alt="" /></button>
                 <div class="overlay-noise-vol-wrap">
@@ -2521,13 +2485,13 @@
             <button class="mode-overlay-shortcut-btn" onclick="activateMode('conversation')"><img src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /><kbd>2</kbd></button>
             <button class="mode-overlay-shortcut-btn" onclick="activateMode('group')"><img src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><kbd>3</kbd></button>
             <div class="overlay-noise-panel" id="mode-overlay-noise-panel">
-                <button class="overlay-noise-type-btn" id="mode-noise-btn-white" onclick="overlaySetNoise('white')"
+                <button class="overlay-noise-type-btn" id="mode-noise-btn-white" onclick="overlaySetNoise('white', event)"
                     title="White noise (W)" data-i18n-title="overlay_file_mode_title"><img src="../assets/icons/wind.svg" class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="mode-noise-btn-pink" onclick="overlaySetNoise('pink')"
+                <button class="overlay-noise-type-btn" id="mode-noise-btn-pink" onclick="overlaySetNoise('pink', event)"
                     title="Pink noise" data-i18n-title="overlay_pink_title"><img src="../assets/icons/flower.svg" class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="mode-noise-btn-brown" onclick="overlaySetNoise('brown')"
+                <button class="overlay-noise-type-btn" id="mode-noise-btn-brown" onclick="overlaySetNoise('brown', event)"
                     title="Brown noise" data-i18n-title="overlay_brown_title"><img src="../assets/icons/ocean.svg" class="btn-icon" alt="" /></button>
-                <button class="overlay-noise-type-btn" id="mode-noise-btn-file" onclick="overlaySetNoise('file')"
+                <button class="overlay-noise-type-btn" id="mode-noise-btn-file" onclick="overlaySetNoise('file', event)"
                     title="Timer audio file" data-i18n-title="overlay_file_title"><img src="../assets/icons/music.svg" class="btn-icon" alt="" /></button>
                 <div class="overlay-noise-vol-wrap">
                     <span class="overlay-noise-vol-label" data-i18n="noise_volume">Volume</span>
@@ -9842,60 +9806,6 @@
         let autoFlagVisible = true;
         let animationsEnabled = true;
         let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false, sen: false };
-        let rosterSettingsPinned = false;
-        const ROSTER_SETTINGS_PIN_KEY = 'cmt-cms-roster-settings-pinned';
-
-        function updateRosterSettingsPinUi() {
-            const pinBtn = document.getElementById('rsp-pin-btn');
-            if (!pinBtn) return;
-            const labelKey = rosterSettingsPinned ? 'rsp_unpin_btn' : 'rsp_pin_btn';
-            const titleKey = rosterSettingsPinned ? 'rsp_unpin_title' : 'rsp_pin_title';
-            pinBtn.innerHTML = `<img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> ${t(labelKey)}`;
-            pinBtn.title = t(titleKey);
-            pinBtn.classList.toggle('is-off', !rosterSettingsPinned);
-        }
-
-        function setRosterSettingsPinned(pinned, persist = true) {
-            const popup = document.getElementById('roster-settings-popup');
-            const anchor = document.getElementById('roster-settings-anchor');
-            const dock = document.getElementById('roster-settings-dock');
-            const btn = document.getElementById('roster-settings-btn');
-            if (!popup || !anchor || !dock) return;
-
-            rosterSettingsPinned = !!pinned;
-            if (persist) {
-                try {
-                    localStorage.setItem(ROSTER_SETTINGS_PIN_KEY, rosterSettingsPinned ? '1' : '0');
-                } catch (_) { }
-            }
-
-            if (rosterSettingsPinned) {
-                dock.appendChild(popup);
-                popup.classList.add('pinned', 'open');
-                dock.classList.add('active');
-                if (btn) btn.classList.add('active');
-                updateRosterSettingsPopupContext();
-            } else {
-                anchor.appendChild(popup);
-                popup.classList.remove('pinned', 'open');
-                dock.classList.remove('active');
-                if (btn) btn.classList.remove('active');
-            }
-
-            updateRosterSettingsPinUi();
-        }
-
-        function toggleRosterSettingsPin() {
-            setRosterSettingsPinned(!rosterSettingsPinned, true);
-        }
-
-        function initRosterSettingsPinState() {
-            let saved = '0';
-            try {
-                saved = localStorage.getItem(ROSTER_SETTINGS_PIN_KEY) || '0';
-            } catch (_) { }
-            setRosterSettingsPinned(saved === '1', false);
-        }
 
         function updateDateTime() {
             const now = new Date();
@@ -10542,21 +10452,19 @@
                 await audio.play();
                 _startNoiseFileMonitor();
 
-                const fadeTarget = _getNoiseFileTargetVolume();
-                if (fadeTarget > 0) {
-                    const startTs = performance.now();
-                    const fadeInMs = 260;
-                    const tick = (now) => {
-                        const progress = Math.min(1, (now - startTs) / fadeInMs);
-                        try {
-                            audio.volume = fadeTarget * progress;
-                        } catch { }
-                        if (progress < 1 && _noiseType === 'file' && whiteNoisePlaying && !whiteNoiseMuted) {
-                            requestAnimationFrame(tick);
-                        }
-                    };
-                    requestAnimationFrame(tick);
-                }
+                const fadeInMs = 260;
+                const startTs = performance.now();
+                const tick = (now) => {
+                    const progress = Math.min(1, (now - startTs) / fadeInMs);
+                    const currentTarget = _getNoiseFileTargetVolume();
+                    try {
+                        audio.volume = currentTarget * progress;
+                    } catch { }
+                    if (progress < 1 && _noiseType === 'file' && whiteNoisePlaying && !whiteNoiseMuted) {
+                        requestAnimationFrame(tick);
+                    }
+                };
+                requestAnimationFrame(tick);
                 return true;
             } catch (error) {
                 console.warn('Unable to play timer audio file:', error);
@@ -10684,10 +10592,15 @@
 
         function _ensureWhiteNoiseNodes() { if (_noiseType !== 'file') _ensureNoiseNodes(_noiseType); } // legacy alias
 
-        function showMp3Picker(event) {
-            event.stopPropagation();
+        async function showMp3Picker(event) {
+            if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
             const popup = document.getElementById('mp3-picker-popup');
             const list = document.getElementById('mp3-picker-list');
+            if (!popup || !list) return;
+
+            if (!availableSoundFiles || !availableSoundFiles.length) {
+                await refreshSoundFileList(false);
+            }
 
             const currentFile = normalizeSoundFilePath(soundSettings?.timerBackground?.file || '');
 
@@ -10702,10 +10615,19 @@
             }
 
             // Position near the clicked button
-            const btn = event.currentTarget;
-            const rect = btn.getBoundingClientRect();
-            popup.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
-            popup.style.top = (rect.bottom + 4) + 'px';
+            const btn = event ? (event.currentTarget || event.target) : null;
+            if (btn && typeof btn.getBoundingClientRect === 'function') {
+                const rect = btn.getBoundingClientRect();
+                const popupWidth = 240;
+                const popupEstimatedHeight = 200;
+                let left = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
+                let top = rect.bottom + 4;
+                if (top + popupEstimatedHeight > window.innerHeight) {
+                    top = Math.max(10, rect.top - popupEstimatedHeight - 4);
+                }
+                popup.style.left = left + 'px';
+                popup.style.top = top + 'px';
+            }
             popup.classList.add('open');
 
             // Close on outside click
@@ -10716,9 +10638,18 @@
 
         function _closeMp3PickerOutside(e) {
             const popup = document.getElementById('mp3-picker-popup');
-            if (popup && !popup.contains(e.target)) {
+            if (!popup) return;
+
+            const triggerBtns = ['mode-noise-btn-file', 'timer-noise-btn-file', 'datetime-noise-btn-file', 'wn-type-file'];
+            const isTrigger = triggerBtns.some(id => {
+                const btn = document.getElementById(id);
+                return btn && (btn === e.target || btn.contains(e.target));
+            });
+            if (isTrigger) return;
+
+            if (!popup.contains(e.target)) {
                 popup.classList.remove('open');
-            } else if (popup && popup.classList.contains('open')) {
+            } else if (popup.classList.contains('open')) {
                 // clicked inside; re-attach listener if still open after a tick
                 setTimeout(() => {
                     if (popup.classList.contains('open')) {
@@ -10852,18 +10783,18 @@
             if (audioContext && audioContext.state === 'suspended' && whiteNoisePlaying && !whiteNoiseMuted) {
                 try { audioContext.resume(); } catch (e) { }
             }
+            const target = (!whiteNoiseMuted && whiteNoisePlaying) ? whiteNoiseVolume : 0;
             if (_noiseType === 'file') {
-                const target = (!whiteNoiseMuted && whiteNoisePlaying) ? whiteNoiseVolume : 0;
                 if (_noiseFileAudio) _noiseFileAudio.volume = target;
                 if (!_noiseFileCrossfading) {
                     _noiseFileAudioPool.forEach(audio => {
                         if (audio && audio !== _noiseFileAudio) audio.volume = 0;
                     });
                 }
-            } else if (!whiteNoiseMuted && whiteNoisePlaying) {
+            } else {
                 _ensureNoiseNodes(_noiseType);
                 if (_noiseGains[_noiseType] && audioContext) {
-                    _noiseGains[_noiseType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.05);
+                    _noiseGains[_noiseType].gain.setTargetAtTime(target, audioContext.currentTime, 0.05);
                 }
             }
             _syncWhiteNoiseUI();
@@ -10920,28 +10851,43 @@
         }
 
         // Shared handler for overlay noise type buttons
-        async function overlaySetNoise(type) {
+        async function overlaySetNoise(type, event) {
             if (audioContext.state === 'suspended') audioContext.resume();
-            if (whiteNoisePlaying && !whiteNoiseMuted && _noiseType === type) {
-                if (_noiseType === 'file') {
-                    _stopNoiseFileAudio();
+
+            if (type === 'file') {
+                const popup = document.getElementById('mp3-picker-popup');
+                const isPopupOpen = popup && popup.classList.contains('open');
+
+                if (whiteNoisePlaying && !whiteNoiseMuted && _noiseType === 'file') {
+                    if (isPopupOpen) {
+                        closeMp3Picker();
+                    } else if (event) {
+                        await showMp3Picker(event);
+                    }
                 } else {
-                    _noiseGains[_noiseType].gain.setTargetAtTime(0, audioContext.currentTime, 0.15);
-                }
-                whiteNoisePlaying = false;
-            } else {
-                await setNoiseType(type);
-                if (!whiteNoisePlaying || whiteNoiseMuted) {
+                    await setNoiseType('file');
                     whiteNoisePlaying = true;
                     whiteNoiseMuted = false;
-                    if (_noiseType === 'file') {
-                        const ok = await _playNoiseFileAudio();
-                        if (!ok) {
-                            whiteNoisePlaying = false;
-                            if (typeof mdbToast === 'function') mdbToast('🎵 Pick a timer background audio file in Edit Sounds first');
-                            else showToast('Pick a timer background audio file in Edit Sounds first.');
-                        }
-                    } else {
+                    const ok = await _playNoiseFileAudio();
+                    if (!ok) {
+                        whiteNoisePlaying = false;
+                    }
+                    if (event) {
+                        await showMp3Picker(event);
+                    }
+                }
+            } else {
+                closeMp3Picker();
+                if (whiteNoisePlaying && !whiteNoiseMuted && _noiseType === type) {
+                    if (_noiseGains[_noiseType]) {
+                        _noiseGains[_noiseType].gain.setTargetAtTime(0, audioContext.currentTime, 0.15);
+                    }
+                    whiteNoisePlaying = false;
+                } else {
+                    await setNoiseType(type);
+                    if (!whiteNoisePlaying || whiteNoiseMuted) {
+                        whiteNoisePlaying = true;
+                        whiteNoiseMuted = false;
                         _ensureNoiseNodes(_noiseType);
                         _noiseGains[_noiseType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.15);
                     }
@@ -15102,12 +15048,6 @@ syncState();
             if (event) { event.stopPropagation(); event.preventDefault(); }
             const popup = document.getElementById('roster-settings-popup');
             const btn = document.getElementById('roster-settings-btn');
-            if (rosterSettingsPinned) {
-                popup.classList.add('open');
-                if (btn) btn.classList.add('active');
-                updateRosterSettingsPopupContext();
-                return;
-            }
             const isOpen = popup.classList.contains('open');
             if (isOpen) {
                 closeRosterSettingsPopup();
@@ -15120,10 +15060,6 @@ syncState();
         }
 
         function closeRosterSettingsPopup(force = false) {
-            if (rosterSettingsPinned && !force) {
-                updateRosterSettingsPopupContext();
-                return;
-            }
             const popup = document.getElementById('roster-settings-popup');
             const btn = document.getElementById('roster-settings-btn');
             if (popup) popup.classList.remove('open');
@@ -15180,7 +15116,7 @@ syncState();
 
             const rosterSettingsPopup = document.getElementById('roster-settings-popup');
             const rosterSettingsBtn = document.getElementById('roster-settings-btn');
-            if (!rosterSettingsPinned && rosterSettingsPopup && rosterSettingsPopup.classList.contains('open') && !rosterSettingsPopup.contains(e.target) && e.target !== rosterSettingsBtn && !rosterSettingsBtn.contains(e.target)) {
+            if (rosterSettingsPopup && rosterSettingsPopup.classList.contains('open') && !rosterSettingsPopup.contains(e.target) && e.target !== rosterSettingsBtn && !rosterSettingsBtn.contains(e.target)) {
                 closeRosterSettingsPopup();
             }
 
@@ -15721,29 +15657,29 @@ syncState();
         <div id="datetime-overlay-time">00:00:00</div>
         <div id="datetime-overlay-date"></div>
         <div id="datetime-noise-shortcuts" onclick="event.stopPropagation()">
-            <button class="datetime-noise-shortcut" id="datetime-noise-btn-white" onclick="overlaySetNoise('white')"
+            <button class="datetime-noise-shortcut" id="datetime-noise-btn-white" onclick="overlaySetNoise('white', event)"
                 title="Use timer white noise">
                 <span class="noise-shortcut-icon">🌬</span>
                 <span class="noise-shortcut-label">White</span>
             </button>
-            <button class="datetime-noise-shortcut" id="datetime-noise-btn-pink" onclick="overlaySetNoise('pink')"
+            <button class="datetime-noise-shortcut" id="datetime-noise-btn-pink" onclick="overlaySetNoise('pink', event)"
                 title="Use timer pink noise">
                 <span class="noise-shortcut-icon">🌸</span>
                 <span class="noise-shortcut-label">Pink</span>
             </button>
-            <button class="datetime-noise-shortcut" id="datetime-noise-btn-brown" onclick="overlaySetNoise('brown')"
+            <button class="datetime-noise-shortcut" id="datetime-noise-btn-brown" onclick="overlaySetNoise('brown', event)"
                 title="Use timer brown noise">
                 <span class="noise-shortcut-icon">🌊</span>
                 <span class="noise-shortcut-label">Brown</span>
             </button>
-            <button class="datetime-noise-shortcut" id="datetime-noise-btn-file" onclick="overlaySetNoise('file')"
+            <button class="datetime-noise-shortcut" id="datetime-noise-btn-file" onclick="overlaySetNoise('file', event)"
                 title="Use timer audio file">
                 <span class="noise-shortcut-icon">🎵</span>
                 <span class="noise-shortcut-label">MP3</span>
             </button>
             <div class="datetime-noise-volume-wrap">
                 <span class="datetime-noise-volume-label">Volume</span>
-                <input type="range" id="datetime-noise-volume" class="overlay-noise-vol-slider" min="0" max="50"
+                <input type="range" id="datetime-noise-volume" class="overlay-noise-vol-slider" min="0" max="100"
                     value="5" oninput="overlayNoiseVolume(this.value)">
                 <span class="overlay-noise-vol-value" id="datetime-noise-volume-val">5</span>
             </div>
@@ -15963,7 +15899,6 @@ syncState();
 
             // Dynamic utility buttons (re-render)
             if (typeof renderUtilityButtons === 'function') renderUtilityButtons();
-            if (typeof updateRosterSettingsPinUi === 'function') updateRosterSettingsPinUi();
             if (typeof syncRosterInlineToggleButtonStates === 'function') syncRosterInlineToggleButtonStates();
 
             // Roles modal (re-render if open)
@@ -15997,7 +15932,6 @@ syncState();
 
         // Override renderUtilityButtons after DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            if (typeof initRosterSettingsPinState === 'function') initRosterSettingsPinState();
             const origRender = window.renderUtilityButtons;
             if (origRender) {
                 window.renderUtilityButtons = function () {

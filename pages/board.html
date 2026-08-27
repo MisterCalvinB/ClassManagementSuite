@@ -602,14 +602,15 @@
     .ssm-item img,
     .bst-tab img,
     .history-actions-menu button img,
-    #con-board-ctx-menu .con-ctx-item img,
-    #con-board-ctx-menu button img,
     #con-ctx-menu .con-ctx-icon-btn img,
     #con-ctx-menu button img,
     .con-sp-popup button img,
     .wn-sp-action-btn img,
-    .wn-sp-style-toggle img {
-      filter: none;
+    .wn-sp-action-btn:hover img,
+    .wn-sp-style-toggle img,
+    .wn-sp-style-toggle:hover img,
+    .wn-sp-style-toggle.active img {
+      filter: none !important;
     }
 
     /* Hover state: when light-background buttons turn dark (#111), invert icon to white */
@@ -624,13 +625,33 @@
     .history-actions-menu button:hover img,
     .history-actions-menu.open button:hover img,
     .history-actions-menu button.danger:hover img,
-    #con-board-ctx-menu .con-ctx-item:hover img,
-    #con-board-ctx-menu button:hover img,
-    .con-sp-popup button:hover img,
-    .wn-sp-action-btn:hover img,
-    .wn-sp-style-toggle:hover img,
-    .wn-sp-style-toggle.active img {
+    .con-sp-popup button:hover img {
       filter: brightness(0) invert(1);
+    }
+
+    /* Board right-click context menu SVG contrast rules */
+    #con-board-ctx-menu img,
+    #con-board-ctx-menu .con-ctx-item img,
+    #con-board-ctx-menu .con-ctx-item:hover img {
+      filter: none !important;
+    }
+
+    #con-board-ctx-menu .con-ctx-item.disabled img {
+      opacity: 0.4;
+    }
+
+    #con-board-ctx-menu button img,
+    #con-board-ctx-menu button:hover img {
+      filter: brightness(0) invert(1) !important;
+    }
+
+    #con-board-ctx-menu button[style*="background:#f5f5f5"] img,
+    #con-board-ctx-menu button[style*="background: #f5f5f5"] img,
+    #con-board-ctx-menu button[style*="background:#fff"] img,
+    #con-board-ctx-menu button[style*="background: #fff"] img,
+    #con-board-ctx-menu button[style*="background:white"] img,
+    #con-board-ctx-menu button[style*="background: white"] img {
+      filter: none !important;
     }
 
     /* Keep icons black when hovering on con-ctx-icon-row buttons (only background changes to light grey) */
@@ -28403,6 +28424,9 @@
       } catch (e) {
         boardAutosaveFingerprint[section] = String(Date.now()) + '|' + (activeClassGroup || '');
       }
+      if (typeof boardResetAutosaveInterval === 'function') {
+        boardResetAutosaveInterval();
+      }
     }
 
     // ================================================================
@@ -29143,6 +29167,7 @@
 
       boardAutosaveFingerprint[section] = fp;
       _boardIsDirty = false;
+      boardResetAutosaveInterval();
 
       boardShowAutosaveToast();
       let _finished = false;
@@ -29210,20 +29235,30 @@
       _finishSave();
     }
 
+    function boardResetAutosaveInterval() {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (boardAutosaveTimer) {
+        clearInterval(boardAutosaveTimer);
+        boardAutosaveTimer = null;
+      }
+      boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
+    }
+
     function boardAutosaveAllNow(options = {}) {
       boardAutosaveSection('constellation', options);
     }
 
     function initBoardSessionAutosave() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
-      if (boardAutosaveTimer) return;
-      boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
+      boardResetAutosaveInterval();
 
       // Debounced save: fires 45s after the last structural change on the board
       let _boardMutationTimer = null;
       function _boardScheduleSave(section) {
         clearTimeout(_boardMutationTimer);
+        boardResetAutosaveInterval();
         _boardMutationTimer = setTimeout(() => {
+          _boardMutationTimer = null;
           if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
           boardAutosaveSection(section, { force: false });
         }, 45000);
