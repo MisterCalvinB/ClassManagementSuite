@@ -52,7 +52,7 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuView">View</button>
         <div class="nav-group-popup">
-          <button class="nav-pop-item" onclick="lcToggleDrawer()"><span data-i18n="lcToggleDrawer">Toggle Descriptors</span> <span class="nav-pop-hint">Ctrl+B</span></button>
+          <button class="nav-pop-item" onclick="lcToggleDrawer()"><span data-i18n="lcToggleDrawer">Toggle Competences</span> <span class="nav-pop-hint">Ctrl+B</span></button>
           <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
         </div>
       </div>
@@ -65,8 +65,8 @@
           <button class="nav-pop-item" onclick="lcOpenBoardExportModal()"><span data-i18n="lcExportBoard">Export to Board (Mindmap)…</span></button>
           <button class="nav-pop-item" onclick="lcOpenPlannerLinkModal()"><span data-i18n="lcLinkPlanner">Link to Planner Slot…</span></button>
           <hr class="nav-pop-sep">
-          <button class="nav-pop-item" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenDescriptorDb">Open Descriptors Database…</span></button>
-          <button class="nav-pop-item" onclick="lcOpenDescriptorImporter()"><span data-i18n="lcImportDescriptors">Import Descriptors (CSV/JSON)…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open Competences Database…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenDescriptorImporter()"><span data-i18n="lcImportCompetences">Import Competences (CSV/JSON)…</span></button>
         </div>
       </div>
 
@@ -133,7 +133,7 @@
         <div class="meta-actions">
           <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
           <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
-          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer()"><span data-i18n="lcDescriptors">Descriptors</span></button>
+          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer()"><span data-i18n="lcCompetences">Competences</span></button>
         </div>
       </div>
 
@@ -182,14 +182,14 @@
         </div>
       </div>
 
-      <!-- Right Panel: Descriptor Bank Drawer -->
+      <!-- Right Panel: Competence Bank Drawer -->
       <div class="descriptor-drawer" id="descriptorDrawer">
         <div class="drawer-header">
-          <div class="drawer-title"><span data-i18n="lcDescriptorBank">Descriptor Bank</span></div>
+          <div class="drawer-title"><span data-i18n="lcCompetenceBank">Competence Bank</span></div>
           <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
         </div>
 
-        <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search criteria, code, words…" data-i18n-placeholder="lcSearchDescriptors" oninput="lcFilterDrawer()">
+        <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search competences, code, words…" data-i18n-placeholder="lcSearchCompetences" oninput="lcFilterDrawer()">
 
         <div class="drawer-filter-grid">
           <select id="drawerFilterSubject" class="drawer-select" onchange="lcFilterDrawer()">
@@ -212,7 +212,7 @@
             <option value="title" data-i18n="lcSortTitle">Sort: Title (A–Z)</option>
             <option value="level" data-i18n="lcSortLevel">Sort: Level / Tier</option>
           </select>
-          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenDescriptorDb">Open DB</span></button>
+          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open DB</span></button>
           <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorImporter()">+ <span data-i18n="lcImport">Import</span></button>
         </div>
 
@@ -231,12 +231,12 @@
   <div id="coverageModal" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width:960px;">
       <div class="modal-header">
-        <div><span data-i18n="lcCoverageTitle">Curriculum Descriptor Coverage Matrix</span></div>
+        <div><span data-i18n="lcCoverageTitle">Curriculum Competence Coverage Matrix</span></div>
         <button class="icon-btn" onclick="lcCloseModal('coverageModal')">&times;</button>
       </div>
       <div class="modal-body">
         <div class="coverage-stats-bar">
-          <span id="coverageSummaryText">Total Descriptors: 18 | Covered: 14 (78%) | Remaining: 4</span>
+          <span id="coverageSummaryText">Total Competences: 18 | Covered: 14 (78%) | Remaining: 4</span>
           <div style="display:flex;gap:6px;">
             <select id="covFilterYear" class="meta-select" onchange="lcRenderCoverageMatrix()">
               <option value="all">All Years</option>
@@ -467,7 +467,8 @@
 
       var currentPlan = LessonCreatorService.createBlankLessonPlan();
       var currentSequence = null;
-      var allDescriptors = [];
+      var allCompetences = [];
+      var allDescriptors = allCompetences;
       var allSavedPlans = [];
       var allClassGroups = {};
       var isDirty = false;
@@ -504,48 +505,34 @@
       });
 
       // ── Dropdown & Select Initializers ───────────────────────────────────
+      function getSubjectLabel(sId) {
+        if (!sId) return '';
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_SUBJECTS)) {
+          var found = LessonCreatorService.DEFAULT_SUBJECTS.find(function (s) { return s.id === sId; });
+          if (found && found.name) return found.name;
+        }
+        return sId.charAt(0).toUpperCase() + sId.slice(1).replace(/_/g, ' ');
+      }
+
+      function getYearLevelLabel(yId) {
+        if (!yId) return '';
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_YEAR_LEVELS)) {
+          var found = LessonCreatorService.DEFAULT_YEAR_LEVELS.find(function (y) { return y.id === yId; });
+          if (found && found.name) return found.name;
+        }
+        return yId;
+      }
+
+      function getClassLabel(cId) {
+        if (!cId) return '';
+        if (allClassGroups && allClassGroups[cId] && allClassGroups[cId].name) {
+          return allClassGroups[cId].name;
+        }
+        return cId;
+      }
+
       function initDropdowns() {
-        var subSelect = document.getElementById('planSubject');
-        var drawerSubSelect = document.getElementById('drawerFilterSubject');
-        var yrSelect = document.getElementById('planYearLevel');
-        var drawerYrSelect = document.getElementById('drawerFilterYear');
-        var covYrSelect = document.getElementById('covFilterYear');
         var semSelect = document.getElementById('planSemester');
-
-        subSelect.innerHTML = '';
-        drawerSubSelect.innerHTML = '<option value="all">All Subjects</option>';
-        LessonCreatorService.DEFAULT_SUBJECTS.forEach(function (s) {
-          var opt1 = document.createElement('option');
-          opt1.value = s.id;
-          opt1.textContent = s.name;
-          subSelect.appendChild(opt1);
-
-          var opt2 = document.createElement('option');
-          opt2.value = s.id;
-          opt2.textContent = s.name;
-          drawerSubSelect.appendChild(opt2);
-        });
-
-        yrSelect.innerHTML = '';
-        drawerYrSelect.innerHTML = '<option value="all">All Year Levels</option>';
-        covYrSelect.innerHTML = '<option value="all">All Year Levels</option>';
-        LessonCreatorService.DEFAULT_YEAR_LEVELS.forEach(function (y) {
-          var opt = document.createElement('option');
-          opt.value = y.id;
-          opt.textContent = y.name;
-          yrSelect.appendChild(opt);
-
-          var optD = document.createElement('option');
-          optD.value = y.id;
-          optD.textContent = y.name;
-          drawerYrSelect.appendChild(optD);
-
-          var optC = document.createElement('option');
-          optC.value = y.id;
-          optC.textContent = y.name;
-          covYrSelect.appendChild(optC);
-        });
-
         semSelect.innerHTML = '';
         LessonCreatorService.DEFAULT_SEMESTERS.forEach(function (sm) {
           var opt = document.createElement('option');
@@ -568,17 +555,9 @@
           }
         } catch (_) {}
 
-        var classSelect = document.getElementById('planClass');
-        classSelect.innerHTML = '<option value="">Select Class…</option>';
         var groups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
         allClassGroups = groups;
-        Object.keys(groups).forEach(function (cId) {
-          var grp = groups[cId];
-          var opt = document.createElement('option');
-          opt.value = cId;
-          opt.textContent = (grp && grp.name) || cId;
-          classSelect.appendChild(opt);
-        });
+        updateFilterDropdownOptions();
       }
 
       function parseDescriptorContent(content) {
@@ -593,8 +572,10 @@
         if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
           try {
             var obj = JSON.parse(trimmed);
+            if (Array.isArray(obj.competences)) return obj.competences;
             if (Array.isArray(obj.descriptors)) return obj.descriptors;
             if (Array.isArray(obj.records)) return obj.records;
+            if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
             if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
           } catch (_) {}
         }
@@ -603,9 +584,9 @@
           var varName = varMatch[1] || varMatch[2];
           try {
             var fn = new Function(content + '\n;try{return ' + varName + ';}catch(e){return [];}');
-            var data = fn();
-            if (Array.isArray(data)) return data;
-          } catch (e) { }
+            var res2 = fn();
+            if (Array.isArray(res2)) return res2;
+          } catch (_) {}
         }
         try {
           var firstBracket = trimmed.indexOf('[');
@@ -625,51 +606,144 @@
         var yrSelect = document.getElementById('drawerFilterYear');
         var catSelect = document.getElementById('drawerFilterCategory');
         var subCatSelect = document.getElementById('drawerFilterSubCategory');
+        var planSubSelect = document.getElementById('planSubject');
+        var planYrSelect = document.getElementById('planYearLevel');
+        var planClassSelect = document.getElementById('planClass');
+        var covYrSelect = document.getElementById('covFilterYear');
 
-        var currentSub = subSelect ? subSelect.value : 'all';
-        var currentYr = yrSelect ? yrSelect.value : 'all';
+        var currentDrawerSub = subSelect ? subSelect.value : 'all';
+        var currentDrawerYr = yrSelect ? yrSelect.value : 'all';
         var currentCat = catSelect ? catSelect.value : 'all';
         var currentSubCat = subCatSelect ? subCatSelect.value : 'all';
+        var currentPlanSub = planSubSelect ? planSubSelect.value : (currentPlan ? currentPlan.subjectId : '');
+        var currentPlanYr = planYrSelect ? planYrSelect.value : (currentPlan ? currentPlan.yearLevel : '');
+        var currentPlanClass = planClassSelect ? planClassSelect.value : (currentPlan ? currentPlan.classId : '');
 
         var subjects = new Set();
         var yearLevels = new Set();
         var categories = new Set();
         var subCategories = new Set();
+        var classes = new Set();
 
-        if (typeof LessonCreatorService !== 'undefined') {
-          (LessonCreatorService.DEFAULT_SUBJECTS || []).forEach(function (s) { subjects.add(s.id); });
-          (LessonCreatorService.DEFAULT_YEAR_LEVELS || []).forEach(function (y) { yearLevels.add(y.id); });
-        }
+        allCompetences.forEach(function (d) {
+          if (d) {
+            var s = d.subjectId || d.subject;
+            if (s && s !== 'all') subjects.add(s);
 
-        allDescriptors.forEach(function (d) {
-          if (d.subjectId) subjects.add(d.subjectId);
-          if (d.yearLevel && d.yearLevel !== 'all') yearLevels.add(d.yearLevel);
-          if (d.category) categories.add(d.category);
-          if (d.subCategory) subCategories.add(d.subCategory);
+            var y = d.yearLevel || d.year;
+            if (y && y !== 'all') yearLevels.add(y);
+
+            var c = d.classId || d.class || d.classGroup;
+            if (c && c !== 'all') classes.add(c);
+
+            if (d.category) categories.add(d.category);
+            if (d.subCategory) subCategories.add(d.subCategory);
+          }
         });
 
+        // 1. drawerFilterSubject (drawn ONLY from competence list in user)
         if (subSelect) {
-          subSelect.innerHTML = '<option value="all">All Subjects</option>';
-          subjects.forEach(function (s) {
+          subSelect.innerHTML = '<option value="all" data-i18n="lcAllSubjects">All Subjects</option>';
+          subjects.forEach(function (sId) {
             var opt = document.createElement('option');
-            opt.value = s;
-            opt.textContent = s;
+            opt.value = sId;
+            opt.textContent = getSubjectLabel(sId);
             subSelect.appendChild(opt);
           });
-          if (subjects.has(currentSub)) subSelect.value = currentSub;
+          if (subjects.has(currentDrawerSub)) subSelect.value = currentDrawerSub;
         }
 
+        // 2. planSubject (drawn ONLY from competence list in user)
+        if (planSubSelect) {
+          planSubSelect.innerHTML = '';
+          if (subjects.size === 0) {
+            var optEmpty = document.createElement('option');
+            optEmpty.value = '';
+            optEmpty.textContent = 'No subjects in competences';
+            planSubSelect.appendChild(optEmpty);
+          } else {
+            subjects.forEach(function (sId) {
+              var opt = document.createElement('option');
+              opt.value = sId;
+              opt.textContent = getSubjectLabel(sId);
+              planSubSelect.appendChild(opt);
+            });
+            if (subjects.has(currentPlanSub)) {
+              planSubSelect.value = currentPlanSub;
+            } else if (planSubSelect.options.length > 0) {
+              planSubSelect.value = planSubSelect.options[0].value;
+            }
+          }
+          if (currentPlan) currentPlan.subjectId = planSubSelect.value;
+        }
+
+        // 3. drawerFilterYear & covFilterYear & planYearLevel (drawn ONLY from competence list in user)
         if (yrSelect) {
-          yrSelect.innerHTML = '<option value="all">All Year Levels</option>';
-          yearLevels.forEach(function (y) {
+          yrSelect.innerHTML = '<option value="all" data-i18n="lcAllYears">All Year Levels</option>';
+          yearLevels.forEach(function (yId) {
             var opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y;
+            opt.value = yId;
+            opt.textContent = getYearLevelLabel(yId);
             yrSelect.appendChild(opt);
           });
-          if (yearLevels.has(currentYr)) yrSelect.value = currentYr;
+          if (yearLevels.has(currentDrawerYr)) yrSelect.value = currentDrawerYr;
         }
 
+        if (covYrSelect) {
+          var curCovYr = covYrSelect.value || 'all';
+          covYrSelect.innerHTML = '<option value="all" data-i18n="lcAllYears">All Year Levels</option>';
+          yearLevels.forEach(function (yId) {
+            var opt = document.createElement('option');
+            opt.value = yId;
+            opt.textContent = getYearLevelLabel(yId);
+            covYrSelect.appendChild(opt);
+          });
+          if (yearLevels.has(curCovYr)) covYrSelect.value = curCovYr;
+        }
+
+        if (planYrSelect) {
+          planYrSelect.innerHTML = '';
+          if (yearLevels.size === 0) {
+            var optEmptyYr = document.createElement('option');
+            optEmptyYr.value = 'all';
+            optEmptyYr.textContent = 'All Years / Levels';
+            planYrSelect.appendChild(optEmptyYr);
+          } else {
+            yearLevels.forEach(function (yId) {
+              var opt = document.createElement('option');
+              opt.value = yId;
+              opt.textContent = getYearLevelLabel(yId);
+              planYrSelect.appendChild(opt);
+            });
+            if (yearLevels.has(currentPlanYr)) {
+              planYrSelect.value = currentPlanYr;
+            } else if (planYrSelect.options.length > 0) {
+              planYrSelect.value = planYrSelect.options[0].value;
+            }
+          }
+          if (currentPlan) currentPlan.yearLevel = planYrSelect.value;
+        }
+
+        // 4. planClass (drawn ONLY from competence list in user or user rosters)
+        if (planClassSelect) {
+          planClassSelect.innerHTML = '<option value="" data-i18n="lcSelectClass">Select Class…</option>';
+          var availableClasses = new Set(classes);
+          if (availableClasses.size === 0 && typeof allClassGroups === 'object') {
+            Object.keys(allClassGroups).forEach(function (cId) { availableClasses.add(cId); });
+          }
+
+          availableClasses.forEach(function (cId) {
+            var opt = document.createElement('option');
+            opt.value = cId;
+            opt.textContent = getClassLabel(cId);
+            planClassSelect.appendChild(opt);
+          });
+          if (availableClasses.has(currentPlanClass)) {
+            planClassSelect.value = currentPlanClass;
+          }
+        }
+
+        // 5. Categories & Subcategories
         if (catSelect) {
           catSelect.innerHTML = '<option value="all">All Categories</option>';
           categories.forEach(function (c) {
@@ -694,83 +768,115 @@
       }
 
       async function loadSavedDescriptors() {
-        var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_DESCRIPTORS))
-          ? LessonCreatorService.DEFAULT_DESCRIPTORS.slice()
+        var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS))
+          ? (LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS).slice()
           : [];
         var map = new Map();
-        baseList.forEach(function (d) {
-          if (d && d.id) map.set(d.id, d);
-        });
 
-        try {
-          if (window.Desktop && Desktop.isElectron()) {
-            if (typeof Desktop.listFiles === 'function') {
-              var filesResult = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
-              var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
-              for (var i = 0; i < list.length; i++) {
-                var f = list[i];
-                var filename = typeof f === 'string' ? f : (f && f.filename);
-                if (!filename) continue;
-                var rawRes = await Desktop.readText('customDescriptors', filename);
-                if (rawRes && rawRes.ok && rawRes.content) {
-                  var arr = parseDescriptorContent(rawRes.content);
-                  if (Array.isArray(arr)) {
-                    arr.forEach(function (d) {
-                      if (d && typeof d === 'object') {
-                        var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
-                        d.id = id;
-                        map.set(id, d);
-                      }
-                    });
-                  }
-                }
-              }
-            }
+        function addOrUpdateItem(d) {
+          if (!d || typeof d !== 'object') return;
+          var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
+          d.id = id;
 
-            if (typeof Desktop.readText === 'function') {
-              var res = await Desktop.readText('user', 'lesson-descriptors.json');
-              if (res && res.ok && res.content) {
-                try {
-                  var parsed = JSON.parse(res.content);
-                  var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.descriptors) ? parsed.descriptors : []);
-                  list2.forEach(function (d) {
-                    if (d && typeof d === 'object') {
-                      var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
-                      d.id = id;
-                      map.set(id, d);
-                    }
-                  });
-                } catch (_) {}
+          if (d.code) {
+            var cCode = String(d.code).trim().toLowerCase();
+            map.forEach(function (v, k) {
+              if (v && v.code && String(v.code).trim().toLowerCase() === cCode && k !== id) {
+                map.delete(k);
               }
-            }
+            });
           }
-        } catch (e) {
-          console.warn('loadSavedDescriptors error:', e);
+          map.set(id, d);
         }
 
+        // 1. Base default list
+        baseList.forEach(addOrUpdateItem);
+
+        // 2. Local storage (web fallback or previous session cache)
         try {
-          var localStored = localStorage.getItem('cmt-lesson-descriptors');
+          var localStored = localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors');
           if (localStored) {
             var parsedLocal = JSON.parse(localStored);
             if (Array.isArray(parsedLocal)) {
-              parsedLocal.forEach(function (d) {
-                if (d && typeof d === 'object') {
-                  var id = d.id || ('desc_' + Math.random().toString(36).substr(2, 9));
-                  d.id = id;
-                  map.set(id, d);
-                }
-              });
+              parsedLocal.forEach(addOrUpdateItem);
             }
           }
         } catch (_) {}
 
-        allDescriptors = Array.from(map.values());
+        // 3. User root file: lesson-competences.json
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'lesson-competences.json');
+            if (!res || !res.ok) res = await Desktop.readText('user', 'lesson-descriptors.json');
+            if (res && res.ok && res.content) {
+              try {
+                var parsed = JSON.parse(res.content);
+                var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.competences || parsed.descriptors) ? (parsed.competences || parsed.descriptors) : []);
+                list2.forEach(addOrUpdateItem);
+              } catch (_) {}
+            }
+          }
+        } catch (e) {}
+
+        // 4. Custom competence files in user/custom-data/competences/ (LAST = HIGHEST PRECEDENCE for user edits)
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var filesResult = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
+            var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
+            if (!list.length) {
+              var legacyResult = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+              list = Array.isArray(legacyResult) ? legacyResult : (legacyResult && Array.isArray(legacyResult.files) ? legacyResult.files : []);
+            }
+            for (var i = 0; i < list.length; i++) {
+              var f = list[i];
+              var filename = typeof f === 'string' ? f : (f && f.filename);
+              if (!filename) continue;
+              var rawRes = await Desktop.readText('customCompetences', filename);
+              if (!rawRes || !rawRes.ok) rawRes = await Desktop.readText('customDescriptors', filename);
+              if (rawRes && rawRes.ok && rawRes.content) {
+                var arr = parseDescriptorContent(rawRes.content);
+                if (Array.isArray(arr)) {
+                  arr.forEach(addOrUpdateItem);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('loadSavedDescriptors customCompetences error:', e);
+        }
+
+        allCompetences = Array.from(map.values());
+        allDescriptors = allCompetences;
         updateFilterDropdownOptions();
       }
 
       window.addEventListener('focus', async function () {
         await loadSavedDescriptors();
         renderDrawer();
+      });
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          var _compCh = new BroadcastChannel('cmt-competences');
+          _compCh.onmessage = async function () {
+            await loadSavedDescriptors();
+            renderDrawer();
+          };
+        } catch (_) {}
+      }
+
+      if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+        Desktop.onDataChanged(async function () {
+          await loadSavedDescriptors();
+          renderDrawer();
+        });
+      }
+
+      window.addEventListener('storage', async function (e) {
+        if (e.key === 'cmt-lesson-competences' || e.key === 'cmt-lesson-descriptors') {
+          await loadSavedDescriptors();
+          renderDrawer();
+        }
       });
 
       async function loadSavedPlansIndex() {
@@ -799,9 +905,44 @@
       // ── Main Render Routines ──────────────────────────────────────────────
       function renderPlan() {
         document.getElementById('planTitle').value = currentPlan.title || '';
-        document.getElementById('planSubject').value = currentPlan.subjectId || 'science';
-        document.getElementById('planClass').value = currentPlan.classId || '';
-        document.getElementById('planYearLevel').value = currentPlan.yearLevel || 'all';
+        
+        var subEl = document.getElementById('planSubject');
+        if (currentPlan.subjectId) {
+          if (!Array.from(subEl.options).some(function (o) { return o.value === currentPlan.subjectId; })) {
+            var optS = document.createElement('option');
+            optS.value = currentPlan.subjectId;
+            optS.textContent = getSubjectLabel(currentPlan.subjectId);
+            subEl.appendChild(optS);
+          }
+          subEl.value = currentPlan.subjectId;
+        } else if (subEl.options.length > 0) {
+          subEl.value = subEl.options[0].value;
+        }
+
+        var clsEl = document.getElementById('planClass');
+        if (currentPlan.classId) {
+          if (!Array.from(clsEl.options).some(function (o) { return o.value === currentPlan.classId; })) {
+            var optC = document.createElement('option');
+            optC.value = currentPlan.classId;
+            optC.textContent = getClassLabel(currentPlan.classId);
+            clsEl.appendChild(optC);
+          }
+          clsEl.value = currentPlan.classId;
+        }
+
+        var yrEl = document.getElementById('planYearLevel');
+        if (currentPlan.yearLevel) {
+          if (!Array.from(yrEl.options).some(function (o) { return o.value === currentPlan.yearLevel; })) {
+            var optY = document.createElement('option');
+            optY.value = currentPlan.yearLevel;
+            optY.textContent = getYearLevelLabel(currentPlan.yearLevel);
+            yrEl.appendChild(optY);
+          }
+          yrEl.value = currentPlan.yearLevel;
+        } else if (yrEl.options.length > 0) {
+          yrEl.value = yrEl.options[0].value;
+        }
+
         document.getElementById('planSemester').value = currentPlan.semester || 'all';
         document.getElementById('planDate').value = currentPlan.date || '';
         document.getElementById('planTargetDuration').value = currentPlan.targetDuration || 60;
@@ -927,7 +1068,7 @@
             '<div class="phase-field"><label class="phase-label">Resources & Materials:</label><input type="text" class="phase-input" value="' + escapeHtml(sec.resources || '') + '" placeholder="Cards, slides, whiteboards…" oninput="lcOnPhaseFieldChange(' + idx + ', \'resources\', this.value)"></div>',
             '<div class="phase-field"><label class="phase-label">Teacher Actions / Prompts:</label><textarea class="phase-textarea" rows="2" placeholder="Instructions to give, questions to ask…" oninput="lcOnPhaseFieldChange(' + idx + ', \'teacherAction\', this.value)">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
             '<div class="phase-field"><label class="phase-label">Student Actions / Tasks:</label><textarea class="phase-textarea" rows="2" placeholder="Student tasks, partner work, notes…" oninput="lcOnPhaseFieldChange(' + idx + ', \'studentAction\', this.value)">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
-            '<div class="phase-field full-width"><label class="phase-label">Tagged Descriptors & Standards:</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>'
+            '<div class="phase-field full-width"><label class="phase-label">Tagged Competences & Standards:</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>'
           ].join('');
           card.appendChild(body);
 
@@ -1042,7 +1183,7 @@
 
         list.innerHTML = '';
         if (filtered.length === 0) {
-          list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">No descriptors matching filters</div>';
+          list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">No competences matching filters</div>';
           return;
         }
 
@@ -1634,11 +1775,12 @@
       // ── Helper Utilities ─────────────────────────────────────────────────
       window.lcOpenDescriptorDb = function () {
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
-          Desktop.openTool('manage-database.html', { query: { type: 'descriptors' } });
+          Desktop.openTool('manage-database.html', { query: { type: 'competences' } });
         } else {
-          window.open('manage-database.html?type=descriptors', '_blank');
+          window.open('manage-database.html?type=competences', '_blank');
         }
       };
+      window.lcOpenCompetenceDb = window.lcOpenDescriptorDb;
 
       window.lcOpenDescriptorImporter = function () {
         document.getElementById('descFileInput').value = '';
@@ -1693,25 +1835,25 @@
           }
 
           if (!imported.length) {
-            statusEl.textContent = 'Could not parse descriptors from file.';
+            statusEl.textContent = 'Could not parse competences from file.';
             return;
           }
 
           var saveFilename = 'imported_' + file.name.replace(/[^a-zA-Z0-9_-]/g, '_') + '.js';
-          var jsContent = '// customDescriptorBank\nconst customDescriptorBank = ' + JSON.stringify(imported, null, 2) + ';\n';
+          var jsContent = '// customCompetenceBank\nconst customCompetenceBank = ' + JSON.stringify(imported, null, 2) + ';\n';
 
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
-            await Desktop.saveText('customDescriptors', saveFilename, jsContent);
+            await Desktop.saveText('customCompetences', saveFilename, jsContent);
           } else {
-            var existing = JSON.parse(localStorage.getItem('cmt-lesson-descriptors') || '[]');
+            var existing = JSON.parse(localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors') || '[]');
             var combined = existing.concat(imported);
-            localStorage.setItem('cmt-lesson-descriptors', JSON.stringify(combined));
+            localStorage.setItem('cmt-lesson-competences', JSON.stringify(combined));
           }
 
           lcCloseModal('descriptorImportModal');
           await loadSavedDescriptors();
           renderDrawer();
-          if (typeof showToast === 'function') showToast('Imported ' + imported.length + ' descriptors!');
+          if (typeof showToast === 'function') showToast('Imported ' + imported.length + ' competences!');
         } catch (err) {
           statusEl.textContent = 'Import error: ' + err.message;
         }

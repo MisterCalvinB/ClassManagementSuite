@@ -356,7 +356,7 @@
       { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'chips' },
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
-      { key: 'descriptors', labelKey: 'mdbTypeDescriptors', icon: 'file-text.svg', target: 'customDescriptors', defaultView: 'table' },
+      { key: 'competences', labelKey: 'mdbTypeCompetences', icon: 'file-text.svg', target: 'customCompetences', defaultView: 'table' },
     ];
 
     const VAR_NAME_DEFAULTS = {
@@ -364,7 +364,7 @@
       dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
-      quizzes: 'customQuizBank', descriptors: 'customDescriptorBank',
+      quizzes: 'customQuizBank', competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -450,8 +450,10 @@
       if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
         try {
           const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj.competences)) return obj.competences;
           if (Array.isArray(obj.descriptors)) return obj.descriptors;
           if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
           if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
         } catch (_) {}
       }
@@ -539,6 +541,7 @@
 
       var params = new URLSearchParams(window.location.search);
       var initialType = params.get('type');
+      if (initialType === 'descriptors') initialType = 'competences';
       if (initialType && TYPE_DEFS.some(d => d.key === initialType)) {
         selectType(initialType);
       }
@@ -786,7 +789,7 @@
         addStr('correctAnswer');
         addStr('theme');
         addStr('keyword');
-      } else if (typeKey === 'descriptors') {
+      } else if (typeKey === 'competences' || typeKey === 'descriptors') {
         addStr('id');
         addStr('code');
         addStr('title');
@@ -806,7 +809,7 @@
 
     function normalizeRecords(records, typeKey) {
       if (!records || !Array.isArray(records)) return records;
-      if (typeKey === 'descriptors') {
+      if (typeKey === 'competences' || typeKey === 'descriptors') {
         for (const rec of records) {
           if (rec && typeof rec === 'object') {
             if (typeof rec.tags === 'string') {
@@ -1362,7 +1365,7 @@
       const hasHelp = helpText !== helpKey;
 
       let typeBadge = '';
-      if (S.typeKey === 'descriptors') {
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
         if (field.type === 'array') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Array</span>`;
         else if (field.isLong) typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:3px;margin-left:6px;">Multiline</span>`;
         else if (field.type === 'number') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;padding:1px 5px;border-radius:3px;margin-left:6px;">Number</span>`;
@@ -1460,10 +1463,10 @@
       _activeFormSchema = activeSchema;
 
       let infoBanner = '';
-      if (S.typeKey === 'descriptors') {
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
         infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
           <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
-            <span>Curriculum Descriptors Guide</span>
+            <span>Curriculum Competences Guide</span>
             <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Schema Info</span>
           </div>
           <div>Standards link directly to <strong>Lesson Creator</strong> phases and coverage analytics. Use <strong>code</strong> and <strong>title</strong> for compact tags, <strong>description</strong> for the full standard syllabus statement, and <strong>tags</strong> (comma-separated array) for cross-subject searching.</div>
@@ -2046,6 +2049,23 @@
       const result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
       if (!result?.ok) { showToast(t('mdbErrSaveFailed') + (result?.error || ''), true); return false; }
       if (_gsc[S.typeKey]) _gsc[S.typeKey][file.name] = { records: file.records.slice(), varName: file.varName };
+
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+        try {
+          localStorage.setItem('cmt-lesson-competences', JSON.stringify(file.records));
+          localStorage.setItem('cmt-lesson-descriptors', JSON.stringify(file.records));
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'lesson-competences.json', JSON.stringify(file.records, null, 2));
+          }
+        } catch (_) {}
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-competences');
+            ch.postMessage({ type: 'competences-updated', timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      }
       return true;
     }
 

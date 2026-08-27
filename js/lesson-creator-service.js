@@ -57,7 +57,8 @@
     { id: 'blooms', name: "Bloom's Taxonomy (Cognitive)", icon: 'award.svg', color: '#4b5563' }
   ];
 
-  LessonCreatorService.DEFAULT_DESCRIPTORS = [];
+  LessonCreatorService.DEFAULT_COMPETENCES = [];
+  LessonCreatorService.DEFAULT_DESCRIPTORS = LessonCreatorService.DEFAULT_COMPETENCES;
 
   // ── 5. Pedagogical Lesson Templates ─────────────────────────────────────────
   LessonCreatorService.LESSON_TEMPLATES = [
