@@ -64,12 +64,28 @@
   }
 
   function _show(index) {
+    if (!Array.isArray(_steps) || index < 0 || index >= _steps.length) {
+      _teardown();
+      return;
+    }
     var step = _steps[index];
-    if (step && typeof step.onShow === 'function') {
+    if (!step) { _next(); return; }
+    if (typeof step.onShow === 'function') {
       try { step.onShow(); } catch (e) { console.warn('Tutorial onShow error:', e); }
     }
-    var target = document.querySelector(step.selector);
-    if (!target) { _next(); return; }
+    var selector = step.selector || step.element || step.target;
+    var target = null;
+    if (selector) {
+      try { target = document.querySelector(selector); } catch (_) {}
+    }
+    if (!target) {
+      if (index < _steps.length - 1) {
+        _next();
+      } else {
+        _teardown();
+      }
+      return;
+    }
 
     if (_highlighted) _highlighted.classList.remove('tut-target');
     _highlighted = target;

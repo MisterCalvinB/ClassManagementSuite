@@ -39,24 +39,38 @@
     document.head.appendChild(s);
   }
 
-  function renderKeys(keys) {
-    return keys.map(function (k) { return '<kbd>' + k + '</kbd>'; }).join(' ');
+  function parseKeys(input) {
+    if (Array.isArray(input)) return input;
+    if (typeof input === 'string' && input.trim()) {
+      return input.split('+').map(function (k) { return k.trim(); }).filter(Boolean);
+    }
+    return [];
+  }
+
+  function renderKeys(input) {
+    var keys = parseKeys(input);
+    if (!keys.length) return '';
+    return keys.map(function (k) {
+      return '<kbd>' + String(k || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</kbd>';
+    }).join(' ');
   }
 
   function renderTable(rows, noShortcutsText) {
     if (!rows || rows.length === 0) {
-      return '<p class="skm-none">' + (noShortcutsText || 'No keyboard shortcuts yet.') + '</p>';
+      return '<p class="skm-none">' + (noShortcutsText || 'No keyboard shortcuts defined.') + '</p>';
     }
     var html = '<table class="skm-table"><tbody>';
     rows.forEach(function (row) {
       if (row.section !== undefined) {
         html += '<tr class="skm-sec-row"><td colspan="2">' + row.section + '</td></tr>';
       } else {
-        html += '<tr><td class="skm-keys">' + renderKeys(row.keys);
+        var rawKeys = row.keys || row.key || [];
+        var kHtml = renderKeys(rawKeys);
+        html += '<tr><td class="skm-keys">' + kHtml;
         if (row.alt) {
           html += ' <span class="skm-or">' + (row.orText || 'or') + '</span> ' + renderKeys(row.alt);
         }
-        html += '</td><td class="skm-desc">' + row.desc + '</td></tr>';
+        html += '</td><td class="skm-desc">' + (row.desc || '') + '</td></tr>';
       }
     });
     html += '</tbody></table>';

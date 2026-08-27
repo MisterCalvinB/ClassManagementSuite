@@ -356,6 +356,7 @@
       { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'chips' },
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
+      { key: 'descriptors', labelKey: 'mdbTypeDescriptors', icon: 'file-text.svg', target: 'customDescriptors', defaultView: 'table' },
     ];
 
     const VAR_NAME_DEFAULTS = {
@@ -363,7 +364,7 @@
       dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
-      quizzes: 'customQuizBank',
+      quizzes: 'customQuizBank', descriptors: 'customDescriptorBank',
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -431,14 +432,49 @@
     // ─────────────────────────────────────────────────────────────────────
     const _gsc = {};
 
+    function _normalizeFileList(res) {
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.files)) return res.files;
+      return [];
+    }
+
     function _parseRecords(content) {
-      const varMatch = content.match(/\b(?:const|let|var)\s+(\w+)\s*=\s*\[/);
-      if (!varMatch) return null;
+      if (!content || typeof content !== 'string') return null;
+      const trimmed = content.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const obj = JSON.parse(trimmed);
+          if (Array.isArray(obj.descriptors)) return obj.descriptors;
+          if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+        } catch (_) {}
+      }
+      const varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
+      if (varMatch) {
+        const varName = varMatch[1] || varMatch[2];
+        try {
+          const fn = new Function(content + `\n;try{return ${varName};}catch(e){return [];}`);
+          const data = fn();
+          return Array.isArray(data) ? data : null;
+        } catch (e) { }
+      }
       try {
-        const fn = new Function(content + `\n;try{return ${varMatch[1]};}catch(e){return [];}`);
-        const data = fn();
-        return Array.isArray(data) ? data : null;
-      } catch (e) { return null; }
+        const firstBracket = trimmed.indexOf('[');
+        const lastBracket = trimmed.lastIndexOf(']');
+        if (firstBracket !== -1 && lastBracket > firstBracket) {
+          const slice = trimmed.slice(firstBracket, lastBracket + 1);
+          const fn2 = new Function('return ' + slice + ';');
+          const res2 = fn2();
+          if (Array.isArray(res2)) return res2;
+        }
+      } catch (_) {}
+      return null;
     }
 
     // Unified file reader: tries fast JSON parse first, falls back to JS eval via _parseRecords.
@@ -471,17 +507,20 @@
       if (!window.Desktop || !Desktop.isElectron()) return;
       for (const def of TYPE_DEFS) {
         try {
-          const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
-          S.counts[def.key] = list?.files?.length || 0;
+          const list = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
+          const fileEntries = _normalizeFileList(list);
+          S.counts[def.key] = fileEntries.length;
           updateSidebarCount(def.key);
-          if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
+          if (!fileEntries.length) { _gsc[def.key] = {}; continue; }
           const typeFiles = {};
-          for (const fi of list.files) {
+          for (const fi of fileEntries) {
+            const filename = typeof fi === 'string' ? fi : fi.filename;
+            if (!filename) continue;
             // Re-use anything already seeded by a user-triggered load
-            if (_gsc[def.key]?.[fi.filename]) { typeFiles[fi.filename] = _gsc[def.key][fi.filename]; continue; }
+            if (_gsc[def.key]?.[filename]) { typeFiles[filename] = _gsc[def.key][filename]; continue; }
             try {
-              const result = await readRecords(def.target, fi.filename, def.key);
-              if (result) typeFiles[fi.filename] = result;
+              const result = await readRecords(def.target, filename, def.key);
+              if (result) typeFiles[filename] = result;
             } catch (e) { }
           }
           _gsc[def.key] = typeFiles;
@@ -497,6 +536,12 @@
       if (window.applyTranslations) applyTranslations();
       renderSidebar();
       setTimeout(startBackgroundLoad, 0);
+
+      var params = new URLSearchParams(window.location.search);
+      var initialType = params.get('type');
+      if (initialType && TYPE_DEFS.some(d => d.key === initialType)) {
+        selectType(initialType);
+      }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -568,10 +613,13 @@
         });
       } else {
         // Cache not yet warm — fall back to listFiles IPC
-        const listResult = await Desktop.listFiles(def.target, { extensions: ['.js'] });
-        const freshFiles = (listResult?.ok && listResult.files?.length)
-          ? listResult.files.map(fi => ({ name: fi.filename, varName: null, records: [], status: 'pending', size: fi.size || 0 }))
-          : [];
+        const listResult = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
+        const listEntries = _normalizeFileList(listResult);
+        const freshFiles = listEntries.map(fi => {
+          const name = typeof fi === 'string' ? fi : fi.filename;
+          const size = (typeof fi === 'object' && fi) ? (fi.size || 0) : 0;
+          return { name, varName: null, records: [], status: 'pending', size };
+        });
         S.files = freshFiles.map(ff => prevLoaded.find(cf => cf.name === ff.name && cf.status === 'loaded') || ff);
       }
 
@@ -738,13 +786,37 @@
         addStr('correctAnswer');
         addStr('theme');
         addStr('keyword');
+      } else if (typeKey === 'descriptors') {
+        addStr('id');
+        addStr('code');
+        addStr('title');
+        addStr('subjectId');
+        addStr('category');
+        addStr('subCategory');
+        addStr('yearLevel');
+        addStr('semester');
+        addStr('level');
+        addStr('description', { isLong: true });
+        addArr('tags');
+        addStr('comments', { isLong: true });
+        addStr('sampleTasks', { isLong: true });
       }
       return schema;
     }
 
     function normalizeRecords(records, typeKey) {
       if (!records || !Array.isArray(records)) return records;
-      if (typeKey === 'wordbanks') {
+      if (typeKey === 'descriptors') {
+        for (const rec of records) {
+          if (rec && typeof rec === 'object') {
+            if (typeof rec.tags === 'string') {
+              rec.tags = rec.tags.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (!Array.isArray(rec.tags)) {
+              rec.tags = [];
+            }
+          }
+        }
+      } else if (typeKey === 'wordbanks') {
         for (const rec of records) {
           if (rec && typeof rec === 'object') {
             let kws = [];
@@ -1285,6 +1357,18 @@
     function buildFieldInputHtml(field, rec) {
       const id = `ff-${field.key}`;
       const val = rec[field.key];
+      const helpKey = `mdbHelp_${S.typeKey}_${field.key.replace(/\s+/g, '_')}`;
+      const helpText = t(helpKey);
+      const hasHelp = helpText !== helpKey;
+
+      let typeBadge = '';
+      if (S.typeKey === 'descriptors') {
+        if (field.type === 'array') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Array</span>`;
+        else if (field.isLong) typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:3px;margin-left:6px;">Multiline</span>`;
+        else if (field.type === 'number') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;padding:1px 5px;border-radius:3px;margin-left:6px;">Number</span>`;
+        else typeBadge = `<span style="font-size:0.68rem;font-weight:600;color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;padding:1px 5px;border-radius:3px;margin-left:6px;">Text</span>`;
+      }
+
       let input = '';
       if (field.type === 'boolean') {
         input = `<input type="checkbox" id="${id}"${val ? ' checked' : ''} style="width:auto">`;
@@ -1293,11 +1377,11 @@
       } else if (field.type === 'array') {
         if (field.longArray) {
           const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
-          input = `<textarea id="${id}" rows="4">${escHtml(sv)}</textarea>
+          input = `<textarea id="${id}" rows="4" placeholder="item 1\nitem 2\nitem 3">${escHtml(sv)}</textarea>
                <div class="form-hint">${t('mdbHintOnePerLine')}</div>`;
         } else {
           const sv = Array.isArray(val) ? val.join(', ') : String(val ?? '');
-          input = `<input type="text" id="${id}" value="${esc(sv)}">
+          input = `<input type="text" id="${id}" value="${esc(sv)}" placeholder="tag1, tag2, tag3">
                <div class="form-hint">${t('mdbHintCommaSep')}</div>`;
         }
       } else if (field.type === 'object') {
@@ -1305,15 +1389,13 @@
         input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
              <div class="form-hint">${t('mdbHintJsonFormat')}</div>`;
       } else if (field.isLong) {
-        input = `<textarea id="${id}" rows="3">${escHtml(String(val ?? ''))}</textarea>`;
+        input = `<textarea id="${id}" rows="3" placeholder="Enter details...">${escHtml(String(val ?? ''))}</textarea>`;
       } else {
         input = `<input type="text" id="${id}" value="${esc(String(val ?? ''))}">`;
       }
 
-      const helpKey = `mdbHelp_${S.typeKey}_${field.key.replace(/\s+/g, '_')}`;
-      const helpText = t(helpKey);
-      const helpIcon = helpText !== helpKey
-        ? `<span class="field-help-icon" title="${esc(helpText)}" style="cursor:help;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#eee;color:#666;font-size:0.65rem;font-weight:bold;text-transform:none;letter-spacing:normal;vertical-align:middle;user-select:none;">?</span>`
+      const helpDescription = hasHelp
+        ? `<div class="form-hint" style="color:#4b5563;margin-top:3px;font-size:0.75rem;line-height:1.35;">${escHtml(helpText)}</div>`
         : '';
 
       const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word));
@@ -1321,12 +1403,15 @@
         ? `<button type="button" class="btn btn-secondary btn-sm" onclick="triggerWordAutofill()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Autofill</button>`
         : '';
 
-      return `<div class="form-field">
+      return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <label class="form-lbl" for="${id}" style="margin-bottom:0;">${esc(cap(field.key))}${helpIcon}</label>
+      <label class="form-lbl" for="${id}" style="margin-bottom:0;display:flex;align-items:center;">
+        <span>${esc(cap(field.key))}</span>${typeBadge}
+      </label>
       ${autofillBtn}
     </div>
     ${input}
+    ${helpDescription}
   </div>`;
     }
 
@@ -1374,12 +1459,25 @@
       const activeSchema = getMergedFormSchema(rec);
       _activeFormSchema = activeSchema;
 
+      let infoBanner = '';
+      if (S.typeKey === 'descriptors') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Curriculum Descriptors Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Schema Info</span>
+          </div>
+          <div>Standards link directly to <strong>Lesson Creator</strong> phases and coverage analytics. Use <strong>code</strong> and <strong>title</strong> for compact tags, <strong>description</strong> for the full standard syllabus statement, and <strong>tags</strong> (comma-separated array) for cross-subject searching.</div>
+        </div>`;
+      }
+
       if (isAdd) {
         // Tab bar
         html += `<div style="display:flex;margin-bottom:14px;border:1.5px solid #bbb;border-radius:5px;overflow:hidden;">
       <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="filter:brightness(0) invert(1);" /> ${t('mdbTabSingle')}</button>
       <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> ${t('mdbTabBulkJson')}</button>
     </div>`;
+
+        html += infoBanner;
 
         // File selector (shared)
         if (S.files.length > 0) {
@@ -1419,6 +1517,7 @@
       if (fi !== null) {
         html += `<div class="form-source">${t('mdbFilePrefix')}<strong>${esc(S.files[fi].name)}</strong></div>`;
       }
+      html += infoBanner;
       if (!activeSchema.length) {
         html += `<div class="form-field">
       <label class="form-lbl">${t('mdbRecordJson')}</label>
@@ -2883,18 +2982,21 @@ Rules:
             }
           } else {
             // Cache cold — load on demand and populate for future searches
-            const list = await Desktop.listFiles(def.target, { extensions: ['.js'] });
-            if (!list?.ok || !list.files?.length) { _gsc[def.key] = {}; continue; }
+            const list = await Desktop.listFiles(def.target, { extensions: ['.js', '.json'] });
+            const fileEntries = _normalizeFileList(list);
+            if (!fileEntries.length) { _gsc[def.key] = {}; continue; }
             const typeFiles = {};
-            for (const fi of list.files) {
-              const raw = await Desktop.readText(def.target, fi.filename);
+            for (const fi of fileEntries) {
+              const filename = typeof fi === 'string' ? fi : fi.filename;
+              if (!filename) continue;
+              const raw = await Desktop.readText(def.target, filename);
               if (!raw?.ok || !raw.content) continue;
               const varName = detectVarName(raw.content) || VAR_NAME_DEFAULTS[def.key] || 'customData';
               const records = _parseRecords(raw.content);
               if (!records) continue;
               normalizeRecords(records, def.key);
-              typeFiles[fi.filename] = { records, varName };
-              if (searchRecords(records, def.key, t(def.labelKey), fi.filename)) break;
+              typeFiles[filename] = { records, varName };
+              if (searchRecords(records, def.key, t(def.labelKey), filename)) break;
             }
             _gsc[def.key] = typeFiles;
           }

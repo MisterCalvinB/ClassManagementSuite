@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson Creator</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/lesson-creator.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/shortcuts-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
+  <script src="../js/menus.js"></script>
+  <script src="../js/import-utils.js"></script>
+  <script src="../js/lesson-creator-service.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- ── 1. Top App Navigation Bar ──────────────────────────────────────── -->
+    <nav id="app-nav">
+      <span class="nav-brand"><span data-i18n="lcAppTitle">Lesson Creator</span></span>
+      
+      <!-- File menu -->
+      <div class="nav-group">
+        <button class="nav-btn" data-i18n="menuFile">File</button>
+        <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcNewPlan()"><span data-i18n="lcNewPlan">New Plan</span> <span class="nav-pop-hint">Ctrl+N</span></button>
+          <button class="nav-pop-item" onclick="lcOpenPlanPicker()"><span data-i18n="lcOpenPlan">Open Plan…</span> <span class="nav-pop-hint">Ctrl+O</span></button>
+          <button class="nav-pop-item" onclick="lcSavePlan()"><span data-i18n="lcSavePlan">Save Plan</span> <span class="nav-pop-hint">Ctrl+S</span></button>
+          <button class="nav-pop-item" onclick="lcDuplicatePlan()"><span data-i18n="lcDuplicatePlan">Duplicate Plan</span> <span class="nav-pop-hint">Ctrl+D</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="lcOpenSequenceModal()"><span data-i18n="lcManageSequences">Unit Sequences…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenTemplatePicker()"><span data-i18n="lcApplyTemplate">Lesson Templates…</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="lcResetPlan()"><span data-i18n="lcResetPlan">Reset to Blank</span></button>
+        </div>
+      </div>
+
+      <!-- Edit menu -->
+      <div class="nav-group">
+        <button class="nav-btn" data-i18n="menuEdit">Edit</button>
+        <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcAddPhase()"><span data-i18n="lcAddPhase">Add Phase</span> <span class="nav-pop-hint">Ctrl+Shift+A</span></button>
+          <button class="nav-pop-item" onclick="lcOpenTeamModal()"><span data-i18n="lcTeamConfig">Cooperative Teams…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenSoundModal()"><span data-i18n="lcSoundAlert">Phase Sound Alert…</span></button>
+        </div>
+      </div>
+
+      <!-- View menu -->
+      <div class="nav-group">
+        <button class="nav-btn" data-i18n="menuView">View</button>
+        <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcToggleDrawer()"><span data-i18n="lcToggleDrawer">Toggle Descriptors</span> <span class="nav-pop-hint">Ctrl+B</span></button>
+          <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
+        </div>
+      </div>
+
+      <!-- Tools menu -->
+      <div class="nav-group">
+        <button class="nav-btn" data-i18n="menuTools">Tools</button>
+        <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcRunInClassManagement()"><span data-i18n="lcRunCMS">Run in Class Management</span> <span class="nav-pop-hint">Ctrl+R</span></button>
+          <button class="nav-pop-item" onclick="lcOpenBoardExportModal()"><span data-i18n="lcExportBoard">Export to Board (Mindmap)…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenPlannerLinkModal()"><span data-i18n="lcLinkPlanner">Link to Planner Slot…</span></button>
+          <hr class="nav-pop-sep">
+          <button class="nav-pop-item" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenDescriptorDb">Open Descriptors Database…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenDescriptorImporter()"><span data-i18n="lcImportDescriptors">Import Descriptors (CSV/JSON)…</span></button>
+        </div>
+      </div>
+
+      <!-- Export menu -->
+      <div class="nav-group">
+        <button class="nav-btn" data-i18n="menuExport">Export</button>
+        <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcExportPdf()"><span data-i18n="lcPrintPdf">Print / PDF Document</span> <span class="nav-pop-hint">Ctrl+P</span></button>
+          <button class="nav-pop-item" onclick="lcExportStandaloneHtml()"><span data-i18n="lcExportHtml">Standalone HTML File</span></button>
+          <button class="nav-pop-item" onclick="lcExportJson()"><span data-i18n="lcExportJson">Export Plan JSON</span></button>
+        </div>
+      </div>
+
+      <!-- Action buttons & Hamburger -->
+      <div class="hm-wrap" id="hmWrap">
+        <button id="skm-trigger" class="tut-trigger-btn" onclick="lcOpenShortcuts()" title="Keyboard Shortcuts">?</button>
+        <button id="tut-trigger" class="tut-trigger-btn" onclick="lcStartTutorial()" data-i18n="tourBtnLabel">Tour</button>
+        <button class="hm-btn" data-i18n-aria="navOpenMenu">Menu</button>
+        <div class="hm-menu"></div>
+      </div>
+    </nav>
+
+    <!-- ── 2. Sequence Bar ────────────────────────────────────────────────── -->
+    <div class="sequence-bar" id="sequenceBar" style="display:none;">
+      <div class="seq-info-wrap">
+        <span><span data-i18n="lcSequenceLabel">Unit Sequence</span>: <span id="seqTitleDisplay">Unit 3</span></span>
+        <span id="seqIndexDisplay" style="background:#111;color:#fff;padding:2px 8px;border-radius:4px;font-size:0.8rem;">Lesson 1 of 5</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="seq-nav-btn" id="seqPrevBtn" onclick="lcNavSequence(-1)"><span data-i18n="lcPrevLesson">Prev</span></button>
+        <button class="seq-nav-btn" id="seqNextBtn" onclick="lcNavSequence(1)"><span data-i18n="lcNextLesson">Next</span></button>
+        <button class="seq-nav-btn" onclick="lcOpenSequenceModal()"><span data-i18n="lcManage">Manage</span></button>
+      </div>
+    </div>
+
+    <!-- ── 3. Top Metadata Panel ──────────────────────────────────────────── -->
+    <div class="meta-panel">
+      <div class="meta-row-main">
+        <input type="text" id="planTitle" class="meta-title-input" placeholder="Lesson Title (e.g. Ecosystems & Food Webs)" data-i18n-placeholder="lcTitlePlaceholder" oninput="lcOnPlanDirty()">
+        
+        <select id="planSubject" class="meta-select" onchange="lcOnSubjectChange()">
+          <!-- Populated from LessonCreatorService.DEFAULT_SUBJECTS -->
+        </select>
+
+        <select id="planClass" class="meta-select" onchange="lcOnClassChange()">
+          <option value="" data-i18n="lcSelectClass">Select Class…</option>
+        </select>
+
+        <select id="planYearLevel" class="meta-select" onchange="lcOnYearLevelChange()">
+          <!-- Populated from LessonCreatorService.DEFAULT_YEAR_LEVELS -->
+        </select>
+
+        <select id="planSemester" class="meta-select" onchange="lcOnPlanDirty()">
+          <!-- Populated from LessonCreatorService.DEFAULT_SEMESTERS -->
+        </select>
+
+        <input type="date" id="planDate" class="meta-input" onchange="lcOnPlanDirty()">
+
+        <div style="display:flex;align-items:center;gap:4px;font-weight:800;font-size:0.88rem;">
+          <input type="number" id="planTargetDuration" class="meta-input" style="width:64px;text-align:center;" value="60" min="5" max="360" step="5" oninput="lcOnDurationChange()">
+          <span>min</span>
+        </div>
+
+        <div class="meta-actions">
+          <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
+          <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
+          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer()"><span data-i18n="lcDescriptors">Descriptors</span></button>
+        </div>
+      </div>
+
+      <div class="meta-row-sub">
+        <div class="tag-input-wrap" id="planTagsWrap">
+          <span style="font-weight:800;font-size:0.8rem;color:var(--neo-gray-dark);" data-i18n="lcTagsLabel">Tags:</span>
+          <div id="planTagsContainer" style="display:inline-flex;gap:4px;flex-wrap:wrap;"></div>
+          <input type="text" id="newTagInput" class="meta-input" style="width:110px;padding:3px 6px;font-size:0.78rem;" placeholder="+ Tag" onkeydown="lcOnTagKeyDown(event)">
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <button class="neo-btn purple" style="padding:4px 10px;font-size:0.8rem;" onclick="lcOpenTeamModal()"><span id="teamBadgeText" data-i18n="lcTeamsOff">Teams: Off</span></button>
+          <button class="neo-btn teal" style="padding:4px 10px;font-size:0.8rem;" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageBtn">Coverage Matrix</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 4. Main Workspace Layout ────────────────────────────────────────── -->
+    <div class="main-workspace drawer-open" id="mainWorkspace">
+      
+      <!-- Left Panel: Timeline Builder -->
+      <div class="timeline-card">
+        <div class="timeline-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h2 style="font-size:1.1rem;font-weight:900;text-transform:uppercase;" data-i18n="lcLessonTimeline">Lesson Phases & Timeline</h2>
+            <div class="duration-meter-wrap">
+              <span class="duration-badge balanced" id="durationBadge">Total: 60 / 60m</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="neo-btn" style="padding:5px 10px;font-size:0.82rem;" onclick="lcOpenTemplatePicker()"><span data-i18n="lcTemplates">Templates</span></button>
+            <button class="neo-btn primary" style="padding:5px 10px;font-size:0.82rem;" onclick="lcAddPhase()">+ <span data-i18n="lcAddPhase">Add Phase</span></button>
+          </div>
+        </div>
+
+        <!-- Draggable Phase Cards List -->
+        <div class="section-list" id="phaseCardsList">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Add Phase Bottom Bar -->
+        <div class="add-phase-bar">
+          <button class="neo-btn primary" onclick="lcAddPhase()">+ <span data-i18n="lcAddPhase">Add Phase</span></button>
+          <button class="neo-btn" onclick="lcOpenTemplatePicker()"><span data-i18n="lcLoadTemplate">Load Template…</span></button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Descriptor Bank Drawer -->
+      <div class="descriptor-drawer" id="descriptorDrawer">
+        <div class="drawer-header">
+          <div class="drawer-title"><span data-i18n="lcDescriptorBank">Descriptor Bank</span></div>
+          <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+        </div>
+
+        <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search criteria, code, words…" data-i18n-placeholder="lcSearchDescriptors" oninput="lcFilterDrawer()">
+
+        <div class="drawer-filter-grid">
+          <select id="drawerFilterSubject" class="drawer-select" onchange="lcFilterDrawer()">
+            <option value="all" data-i18n="lcAllSubjects">All Subjects</option>
+          </select>
+          <select id="drawerFilterYear" class="drawer-select" onchange="lcFilterDrawer()">
+            <option value="all" data-i18n="lcAllYears">All Year Levels</option>
+          </select>
+          <select id="drawerFilterCategory" class="drawer-select" onchange="lcOnDrawerCategoryChange()">
+            <option value="all" data-i18n="lcAllCategories">All Categories</option>
+          </select>
+          <select id="drawerFilterSubCategory" class="drawer-select" onchange="lcFilterDrawer()">
+            <option value="all" data-i18n="lcAllSubCategories">All Subcategories</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <select id="drawerSort" class="drawer-select" style="flex:1;" onchange="lcFilterDrawer()">
+            <option value="code" data-i18n="lcSortCode">Sort: Code (A–Z)</option>
+            <option value="title" data-i18n="lcSortTitle">Sort: Title (A–Z)</option>
+            <option value="level" data-i18n="lcSortLevel">Sort: Level / Tier</option>
+          </select>
+          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenDescriptorDb">Open DB</span></button>
+          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorImporter()">+ <span data-i18n="lcImport">Import</span></button>
+        </div>
+
+        <div class="drawer-items-list" id="drawerDescriptorsList">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ── 5. Modals ────────────────────────────────────────────────────────── -->
+
+  <!-- Coverage Matrix Modal -->
+  <div id="coverageModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:960px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcCoverageTitle">Curriculum Descriptor Coverage Matrix</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('coverageModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="coverage-stats-bar">
+          <span id="coverageSummaryText">Total Descriptors: 18 | Covered: 14 (78%) | Remaining: 4</span>
+          <div style="display:flex;gap:6px;">
+            <select id="covFilterYear" class="meta-select" onchange="lcRenderCoverageMatrix()">
+              <option value="all">All Years</option>
+            </select>
+            <select id="covFilterSem" class="meta-select" onchange="lcRenderCoverageMatrix()">
+              <option value="all">All Semesters</option>
+              <option value="s1">Semester 1</option>
+              <option value="s2">Semester 2</option>
+            </select>
+          </div>
+        </div>
+        <div class="coverage-accordion" id="coverageAccordionContainer">
+          <!-- Accordion tree populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcExportCoverageCsv()"><span data-i18n="lcExportCsv">Export CSV</span></button>
+        <button class="neo-btn primary" onclick="lcCloseModal('coverageModal')"><span data-i18n="btnClose">Close</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Team & Role Modal -->
+  <div id="teamModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:580px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcTeamConfigTitle">Cooperative Learning & Team Roles</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('teamModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="font-weight:900;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="teamEnableCheck" onchange="lcOnTeamToggle()">
+          <span data-i18n="lcEnableTeams">Enable Cooperative Teams for this Lesson</span>
+        </label>
+        
+        <div id="teamSettingsBody" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <label style="font-weight:800;font-size:0.88rem;" data-i18n="lcTeamSize">Team Size (students per group):</label>
+            <input type="number" id="teamSizeInput" class="meta-input" style="width:60px;text-align:center;" value="4" min="2" max="10">
+          </div>
+
+          <div style="font-weight:800;font-size:0.85rem;margin-top:6px;" data-i18n="lcRoleDefinitions">Designated Roles & Responsibilities:</div>
+          <div id="teamRolesList" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <button class="neo-btn" style="align-self:flex-start;padding:4px 10px;font-size:0.8rem;" onclick="lcAddTeamRole()">+ Add Role</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn primary" onclick="lcSaveTeamConfig()"><span data-i18n="btnOk">OK</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Split Phase Modal -->
+  <div id="splitModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcSplitPhaseTitle">Split Lesson Phase</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('splitModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.88rem;" data-i18n="lcSplitPrompt">Divide this phase into two consecutive parts with customized durations.</p>
+        <input type="hidden" id="splitPhaseId">
+        
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-weight:800;font-size:0.82rem;" data-i18n="lcPhasePartA">Part A (Minutes & Title):</label>
+          <div style="display:flex;gap:6px;">
+            <input type="number" id="splitDurationA" class="meta-input" style="width:64px;text-align:center;" min="1">
+            <input type="text" id="splitTitleA" class="meta-input" style="flex:1;">
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label style="font-weight:800;font-size:0.82rem;" data-i18n="lcPhasePartB">Part B (Minutes & Title):</label>
+          <div style="display:flex;gap:6px;">
+            <input type="number" id="splitDurationB" class="meta-input" style="width:64px;text-align:center;" min="1">
+            <input type="text" id="splitTitleB" class="meta-input" style="flex:1;">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('splitModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <button class="neo-btn primary" onclick="lcApplySplitPhase()"><span data-i18n="lcApplySplit">Split Phase</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Board Export Modal -->
+  <div id="boardExportModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:540px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcBoardExportTitle">Export to Constellation Board</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('boardExportModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="font-weight:800;font-size:0.88rem;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="radio" name="boardExportMode" value="new" checked onchange="lcOnBoardModeChange()">
+          <span data-i18n="lcExportNewMindmap">Create as New Mindmap Session</span>
+        </label>
+        
+        <label style="font-weight:800;font-size:0.88rem;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="radio" name="boardExportMode" value="merge" onchange="lcOnBoardModeChange()">
+          <span data-i18n="lcExportMergeMindmap">Merge / Append into Existing Mindmap…</span>
+        </label>
+
+        <div id="boardMergeSelectWrap" style="display:none;flex-direction:column;gap:6px;padding-left:24px;">
+          <label style="font-size:0.8rem;font-weight:700;" data-i18n="lcSelectExistingMindmap">Select saved mindmap to merge into:</label>
+          <select id="boardExistingSelect" class="meta-select"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('boardExportModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <button class="neo-btn primary" onclick="lcExecuteBoardExport()"><span data-i18n="lcOpenInBoard">Export & Open Board</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sound Alert Customizer Modal -->
+  <div id="soundModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcSoundModalTitle">Phase Transition Sound Alert</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('soundModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="font-weight:800;font-size:0.85rem;" data-i18n="lcSoundPresetLabel">Sound Preset:</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="soundPresetSelect" class="meta-select" style="flex:1;">
+            <option value="chime">Chime (High Arpeggio)</option>
+            <option value="bell">Temple Bell</option>
+            <option value="marimba">Marimba</option>
+            <option value="gavel">Gavel Knock</option>
+            <option value="beep">Classic Beep</option>
+          </select>
+          <button class="neo-btn" onclick="lcPreviewSound()"><span data-i18n="lcTestSound">Test</span></button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+          <label style="font-weight:800;font-size:0.85rem;" data-i18n="lcVolumeLabel">Volume:</label>
+          <input type="range" id="soundVolumeRange" min="10" max="100" value="90" style="flex:1;">
+          <span id="soundVolumeValue" style="font-weight:900;font-size:0.85rem;">90%</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn primary" onclick="lcSaveSoundSettings()"><span data-i18n="btnOk">OK</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Picker Modal -->
+  <div id="templateModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:580px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcChooseTemplate">Choose Lesson Template</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('templateModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="templateOptionsList" style="display:flex;flex-direction:column;gap:10px;">
+        <!-- Populated from LessonCreatorService.LESSON_TEMPLATES -->
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('templateModal')"><span data-i18n="btnCancel">Cancel</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Open Plan Picker Modal -->
+  <div id="openPlanModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:680px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcSavedPlans">Saved Lesson Plans</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('openPlanModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="openPlanSearch" class="drawer-search-input" placeholder="Search saved plans…" oninput="lcFilterSavedPlans()">
+        <div id="savedPlansList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;padding-right:4px;">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('openPlanModal')"><span data-i18n="btnClose">Close</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sequence Manager Modal -->
+  <div id="sequenceModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:720px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcSequenceManager">Unit Sequence Manager</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('sequenceModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="seqTitleInput" class="meta-input" style="flex:1;" placeholder="Unit Title (e.g. Unit 3: Ecology & Biodiversity)">
+          <button class="neo-btn primary" onclick="lcSaveSequence()"><span data-i18n="btnSave">Save Sequence</span></button>
+        </div>
+        <div style="font-weight:800;font-size:0.85rem;" data-i18n="lcLessonsInSequence">Lessons in this Sequence:</div>
+        <div id="sequenceLessonsList" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('sequenceModal')"><span data-i18n="btnClose">Close</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Descriptor Importer Modal -->
+  <div id="descriptorImportModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcImportTitle">Import Descriptors Bank (CSV / JSON)</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('descriptorImportModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.88rem;" data-i18n="lcImportDesc">Select a CSV, XLSX, or JSON file containing curriculum standards with columns: Code, Title, Category, Subcategory, Level, Description, Tags, Comments.</p>
+        <input type="file" id="descFileInput" accept=".csv,.xlsx,.json,.txt" class="meta-input">
+        <div id="importPreviewStatus" style="font-size:0.84rem;font-weight:700;color:var(--neo-gray-dark);"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('descriptorImportModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <button class="neo-btn primary" onclick="lcExecuteDescriptorImport()"><span data-i18n="lcImportBtn">Import to Bank</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 6. Client Logic Script ─────────────────────────────────────────── -->
+  <script>
+    (function () {
+      'use strict';
+
+      var currentPlan = LessonCreatorService.createBlankLessonPlan();
+      var currentSequence = null;
+      var allDescriptors = [];
+      var allSavedPlans = [];
+      var allClassGroups = {};
+      var isDirty = false;
+      var activeDraggingIndex = -1;
+
+      // ── Initialization ───────────────────────────────────────────────────
+      window.addEventListener('DOMContentLoaded', async function () {
+        if (typeof _cmtApplyNavBrand === 'function') _cmtApplyNavBrand();
+        if (typeof initHamburger === 'function') initHamburger();
+
+        initDropdowns();
+        await loadClassRosters();
+        await loadSavedDescriptors();
+        await loadSavedPlansIndex();
+
+        // Check URL parameters for linked planner slot or plan ID
+        var params = new URLSearchParams(window.location.search);
+        var planId = params.get('planId');
+        var classIdParam = params.get('classId');
+        var dateParam = params.get('date');
+        var topicParam = params.get('topic');
+
+        if (planId) {
+          await loadPlanById(planId);
+        } else if (classIdParam) {
+          currentPlan.classId = classIdParam;
+          if (dateParam) currentPlan.date = dateParam;
+          if (topicParam) currentPlan.title = topicParam;
+        }
+
+        renderPlan();
+        renderDrawer();
+        setupShortcuts();
+      });
+
+      // ── Dropdown & Select Initializers ───────────────────────────────────
+      function initDropdowns() {
+        var subSelect = document.getElementById('planSubject');
+        var drawerSubSelect = document.getElementById('drawerFilterSubject');
+        var yrSelect = document.getElementById('planYearLevel');
+        var drawerYrSelect = document.getElementById('drawerFilterYear');
+        var covYrSelect = document.getElementById('covFilterYear');
+        var semSelect = document.getElementById('planSemester');
+
+        subSelect.innerHTML = '';
+        drawerSubSelect.innerHTML = '<option value="all">All Subjects</option>';
+        LessonCreatorService.DEFAULT_SUBJECTS.forEach(function (s) {
+          var opt1 = document.createElement('option');
+          opt1.value = s.id;
+          opt1.textContent = s.name;
+          subSelect.appendChild(opt1);
+
+          var opt2 = document.createElement('option');
+          opt2.value = s.id;
+          opt2.textContent = s.name;
+          drawerSubSelect.appendChild(opt2);
+        });
+
+        yrSelect.innerHTML = '';
+        drawerYrSelect.innerHTML = '<option value="all">All Year Levels</option>';
+        covYrSelect.innerHTML = '<option value="all">All Year Levels</option>';
+        LessonCreatorService.DEFAULT_YEAR_LEVELS.forEach(function (y) {
+          var opt = document.createElement('option');
+          opt.value = y.id;
+          opt.textContent = y.name;
+          yrSelect.appendChild(opt);
+
+          var optD = document.createElement('option');
+          optD.value = y.id;
+          optD.textContent = y.name;
+          drawerYrSelect.appendChild(optD);
+
+          var optC = document.createElement('option');
+          optC.value = y.id;
+          optC.textContent = y.name;
+          covYrSelect.appendChild(optC);
+        });
+
+        semSelect.innerHTML = '';
+        LessonCreatorService.DEFAULT_SEMESTERS.forEach(function (sm) {
+          var opt = document.createElement('option');
+          opt.value = sm.id;
+          opt.textContent = sm.name;
+          semSelect.appendChild(opt);
+        });
+      }
+
+      async function loadClassRosters() {
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'class-groups.js');
+            if (res && res.ok && res.content) {
+              var s = document.createElement('script');
+              s.text = res.content;
+              document.head.appendChild(s);
+              if (s.parentNode) s.parentNode.removeChild(s);
+            }
+          }
+        } catch (_) {}
+
+        var classSelect = document.getElementById('planClass');
+        classSelect.innerHTML = '<option value="">Select Class…</option>';
+        var groups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
+        allClassGroups = groups;
+        Object.keys(groups).forEach(function (cId) {
+          var grp = groups[cId];
+          var opt = document.createElement('option');
+          opt.value = cId;
+          opt.textContent = (grp && grp.name) || cId;
+          classSelect.appendChild(opt);
+        });
+      }
+
+      function parseDescriptorContent(content) {
+        if (!content || typeof content !== 'string') return null;
+        var trimmed = content.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            var parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+          } catch (_) {}
+        }
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            var obj = JSON.parse(trimmed);
+            if (Array.isArray(obj.descriptors)) return obj.descriptors;
+            if (Array.isArray(obj.records)) return obj.records;
+            if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+          } catch (_) {}
+        }
+        var varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
+        if (varMatch) {
+          var varName = varMatch[1] || varMatch[2];
+          try {
+            var fn = new Function(content + '\n;try{return ' + varName + ';}catch(e){return [];}');
+            var data = fn();
+            if (Array.isArray(data)) return data;
+          } catch (e) { }
+        }
+        try {
+          var firstBracket = trimmed.indexOf('[');
+          var lastBracket = trimmed.lastIndexOf(']');
+          if (firstBracket !== -1 && lastBracket > firstBracket) {
+            var slice = trimmed.slice(firstBracket, lastBracket + 1);
+            var fn2 = new Function('return ' + slice + ';');
+            var res2 = fn2();
+            if (Array.isArray(res2)) return res2;
+          }
+        } catch (_) {}
+        return null;
+      }
+
+      function updateFilterDropdownOptions() {
+        var subSelect = document.getElementById('drawerFilterSubject');
+        var yrSelect = document.getElementById('drawerFilterYear');
+        var catSelect = document.getElementById('drawerFilterCategory');
+        var subCatSelect = document.getElementById('drawerFilterSubCategory');
+
+        var currentSub = subSelect ? subSelect.value : 'all';
+        var currentYr = yrSelect ? yrSelect.value : 'all';
+        var currentCat = catSelect ? catSelect.value : 'all';
+        var currentSubCat = subCatSelect ? subCatSelect.value : 'all';
+
+        var subjects = new Set();
+        var yearLevels = new Set();
+        var categories = new Set();
+        var subCategories = new Set();
+
+        if (typeof LessonCreatorService !== 'undefined') {
+          (LessonCreatorService.DEFAULT_SUBJECTS || []).forEach(function (s) { subjects.add(s.id); });
+          (LessonCreatorService.DEFAULT_YEAR_LEVELS || []).forEach(function (y) { yearLevels.add(y.id); });
+        }
+
+        allDescriptors.forEach(function (d) {
+          if (d.subjectId) subjects.add(d.subjectId);
+          if (d.yearLevel && d.yearLevel !== 'all') yearLevels.add(d.yearLevel);
+          if (d.category) categories.add(d.category);
+          if (d.subCategory) subCategories.add(d.subCategory);
+        });
+
+        if (subSelect) {
+          subSelect.innerHTML = '<option value="all">All Subjects</option>';
+          subjects.forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            subSelect.appendChild(opt);
+          });
+          if (subjects.has(currentSub)) subSelect.value = currentSub;
+        }
+
+        if (yrSelect) {
+          yrSelect.innerHTML = '<option value="all">All Year Levels</option>';
+          yearLevels.forEach(function (y) {
+            var opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            yrSelect.appendChild(opt);
+          });
+          if (yearLevels.has(currentYr)) yrSelect.value = currentYr;
+        }
+
+        if (catSelect) {
+          catSelect.innerHTML = '<option value="all">All Categories</option>';
+          categories.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            catSelect.appendChild(opt);
+          });
+          if (categories.has(currentCat)) catSelect.value = currentCat;
+        }
+
+        if (subCatSelect) {
+          subCatSelect.innerHTML = '<option value="all">All Subcategories</option>';
+          subCategories.forEach(function (sc) {
+            var opt = document.createElement('option');
+            opt.value = sc;
+            opt.textContent = sc;
+            subCatSelect.appendChild(opt);
+          });
+          if (subCategories.has(currentSubCat)) subCatSelect.value = currentSubCat;
+        }
+      }
+
+      async function loadSavedDescriptors() {
+        var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_DESCRIPTORS))
+          ? LessonCreatorService.DEFAULT_DESCRIPTORS.slice()
+          : [];
+        var map = new Map();
+        baseList.forEach(function (d) {
+          if (d && d.id) map.set(d.id, d);
+        });
+
+        try {
+          if (window.Desktop && Desktop.isElectron()) {
+            if (typeof Desktop.listFiles === 'function') {
+              var filesResult = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+              var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
+              for (var i = 0; i < list.length; i++) {
+                var f = list[i];
+                var filename = typeof f === 'string' ? f : (f && f.filename);
+                if (!filename) continue;
+                var rawRes = await Desktop.readText('customDescriptors', filename);
+                if (rawRes && rawRes.ok && rawRes.content) {
+                  var arr = parseDescriptorContent(rawRes.content);
+                  if (Array.isArray(arr)) {
+                    arr.forEach(function (d) {
+                      if (d && typeof d === 'object') {
+                        var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
+                        d.id = id;
+                        map.set(id, d);
+                      }
+                    });
+                  }
+                }
+              }
+            }
+
+            if (typeof Desktop.readText === 'function') {
+              var res = await Desktop.readText('user', 'lesson-descriptors.json');
+              if (res && res.ok && res.content) {
+                try {
+                  var parsed = JSON.parse(res.content);
+                  var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.descriptors) ? parsed.descriptors : []);
+                  list2.forEach(function (d) {
+                    if (d && typeof d === 'object') {
+                      var id = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
+                      d.id = id;
+                      map.set(id, d);
+                    }
+                  });
+                } catch (_) {}
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('loadSavedDescriptors error:', e);
+        }
+
+        try {
+          var localStored = localStorage.getItem('cmt-lesson-descriptors');
+          if (localStored) {
+            var parsedLocal = JSON.parse(localStored);
+            if (Array.isArray(parsedLocal)) {
+              parsedLocal.forEach(function (d) {
+                if (d && typeof d === 'object') {
+                  var id = d.id || ('desc_' + Math.random().toString(36).substr(2, 9));
+                  d.id = id;
+                  map.set(id, d);
+                }
+              });
+            }
+          }
+        } catch (_) {}
+
+        allDescriptors = Array.from(map.values());
+        updateFilterDropdownOptions();
+      }
+
+      window.addEventListener('focus', async function () {
+        await loadSavedDescriptors();
+        renderDrawer();
+      });
+
+      async function loadSavedPlansIndex() {
+        allSavedPlans = [];
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
+            if (Array.isArray(files)) {
+              for (var i = 0; i < files.length; i++) {
+                var f = files[i];
+                if (f && f.filename && f.filename.endsWith('.json')) {
+                  var contentRes = await Desktop.readText('user', 'lessons/' + f.filename);
+                  if (contentRes && contentRes.ok && contentRes.content) {
+                    try {
+                      var p = JSON.parse(contentRes.content);
+                      allSavedPlans.push(p);
+                    } catch (_) {}
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // ── Main Render Routines ──────────────────────────────────────────────
+      function renderPlan() {
+        document.getElementById('planTitle').value = currentPlan.title || '';
+        document.getElementById('planSubject').value = currentPlan.subjectId || 'science';
+        document.getElementById('planClass').value = currentPlan.classId || '';
+        document.getElementById('planYearLevel').value = currentPlan.yearLevel || 'all';
+        document.getElementById('planSemester').value = currentPlan.semester || 'all';
+        document.getElementById('planDate').value = currentPlan.date || '';
+        document.getElementById('planTargetDuration').value = currentPlan.targetDuration || 60;
+
+        renderTags();
+        renderTeamBadge();
+        renderPhaseCards();
+        updateDurationMeter();
+      }
+
+      function renderTags() {
+        var container = document.getElementById('planTagsContainer');
+        container.innerHTML = '';
+        (currentPlan.tags || []).forEach(function (tag, i) {
+          var pill = document.createElement('span');
+          pill.className = 'tag-pill';
+          pill.innerHTML = '<span>' + escapeHtml(tag) + '</span><span class="tag-pill-remove" onclick="lcRemoveTag(' + i + ')">&times;</span>';
+          container.appendChild(pill);
+        });
+      }
+
+      function renderTeamBadge() {
+        var badge = document.getElementById('teamBadgeText');
+        if (currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+          badge.textContent = 'Teams: ' + currentPlan.teamConfig.teamSize + ' students (' + (currentPlan.teamConfig.roles || []).length + ' roles)';
+        } else {
+          badge.textContent = 'Teams: Off';
+        }
+      }
+
+      function renderPhaseCards() {
+        var list = document.getElementById('phaseCardsList');
+        list.innerHTML = '';
+
+        (currentPlan.sections || []).forEach(function (sec, idx) {
+          var card = document.createElement('div');
+          card.className = 'phase-card';
+          card.dataset.index = idx;
+          card.draggable = true;
+
+          // Drag and drop listeners
+          card.addEventListener('dragstart', function (e) {
+            activeDraggingIndex = idx;
+            card.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', String(idx));
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          card.addEventListener('dragend', function () {
+            card.classList.remove('dragging');
+          });
+          card.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            var types = Array.from(e.dataTransfer.types || []);
+            if (types.includes('application/json')) {
+              e.dataTransfer.dropEffect = 'copy';
+            } else {
+              e.dataTransfer.dropEffect = 'move';
+            }
+            card.classList.add('drag-over');
+          });
+          card.addEventListener('dragleave', function (e) {
+            if (!card.contains(e.relatedTarget)) {
+              card.classList.remove('drag-over');
+            }
+          });
+          card.addEventListener('drop', function (e) {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+
+            // 1. Check application/json payload for descriptor
+            var jsonStr = e.dataTransfer.getData('application/json');
+            if (jsonStr) {
+              try {
+                var payload = JSON.parse(jsonStr);
+                if (payload && payload.type === 'descriptor' && payload.descriptorId) {
+                  lcTagDescriptorToActivePhase(payload.descriptorId, idx);
+                  return;
+                }
+              } catch (_) {}
+            }
+
+            // 2. Check text/plain for descriptor ID string vs phase index number
+            var plainText = (e.dataTransfer.getData('text/plain') || '').trim();
+            if (plainText && !/^\d+$/.test(plainText)) {
+              lcTagDescriptorToActivePhase(plainText, idx);
+              return;
+            }
+
+            // 3. Reorder phase cards
+            var fromIdx = parseInt(plainText, 10);
+            if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < currentPlan.sections.length) {
+              var moved = currentPlan.sections.splice(fromIdx, 1)[0];
+              currentPlan.sections.splice(idx, 0, moved);
+              renderPhaseCards();
+              updateDurationMeter();
+              lcOnPlanDirty();
+            }
+          });
+
+          // Header Row
+          var header = document.createElement('div');
+          header.className = 'phase-card-header';
+          header.innerHTML = [
+            '<span class="phase-handle" title="Drag to reorder">:::</span>',
+            '<span class="phase-number-badge">' + (idx + 1) + '</span>',
+            '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value)">',
+            '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + (sec.duration || 0) + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
+            '<select class="phase-activity-select" onchange="lcOnPhaseActivityChange(' + idx + ', this.value)">' + buildActivityOptions(sec.activityTypeId) + '</select>',
+            '<select class="phase-mode-select" onchange="lcOnPhaseModeChange(' + idx + ', this.value)">' + buildModeOptions(sec.interactionTypeId) + '</select>',
+            '<div class="phase-actions-group">',
+            '  <button class="icon-btn" onclick="lcOpenSplitModal(' + idx + ')" title="Split Phase">Split</button>',
+            '  <button class="icon-btn" onclick="lcDuplicatePhase(' + idx + ')" title="Duplicate Phase">Duplicate</button>',
+            '  <button class="icon-btn danger" onclick="lcDeletePhase(' + idx + ')" title="Delete Phase">Delete</button>',
+            '</div>'
+          ].join('');
+          card.appendChild(header);
+
+          // Body Row
+          var body = document.createElement('div');
+          body.className = 'phase-card-body';
+          body.innerHTML = [
+            '<div class="phase-field"><label class="phase-label">Learning Objective:</label><input type="text" class="phase-input" value="' + escapeHtml(sec.objective || '') + '" placeholder="Core learning target for this phase" oninput="lcOnPhaseFieldChange(' + idx + ', \'objective\', this.value)"></div>',
+            '<div class="phase-field"><label class="phase-label">Resources & Materials:</label><input type="text" class="phase-input" value="' + escapeHtml(sec.resources || '') + '" placeholder="Cards, slides, whiteboards…" oninput="lcOnPhaseFieldChange(' + idx + ', \'resources\', this.value)"></div>',
+            '<div class="phase-field"><label class="phase-label">Teacher Actions / Prompts:</label><textarea class="phase-textarea" rows="2" placeholder="Instructions to give, questions to ask…" oninput="lcOnPhaseFieldChange(' + idx + ', \'teacherAction\', this.value)">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
+            '<div class="phase-field"><label class="phase-label">Student Actions / Tasks:</label><textarea class="phase-textarea" rows="2" placeholder="Student tasks, partner work, notes…" oninput="lcOnPhaseFieldChange(' + idx + ', \'studentAction\', this.value)">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
+            '<div class="phase-field full-width"><label class="phase-label">Tagged Descriptors & Standards:</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>'
+          ].join('');
+          card.appendChild(body);
+
+          list.appendChild(card);
+        });
+      }
+
+      function buildActivityOptions(selectedId) {
+        return LessonCreatorService.DEFAULT_ACTIVITY_TYPES.map(function (a) {
+          return '<option value="' + a.id + '"' + (a.id === selectedId ? ' selected' : '') + '>' + a.name + '</option>';
+        }).join('');
+      }
+
+      function buildModeOptions(selectedId) {
+        return LessonCreatorService.DEFAULT_INTERACTION_TYPES.map(function (m) {
+          return '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + m.name + '</option>';
+        }).join('');
+      }
+
+      function buildPhaseDescriptorChips(descIds, phaseIndex) {
+        descIds = Array.isArray(descIds) ? descIds : [];
+        if (descIds.length === 0) {
+          return '<span style="font-size:0.75rem;color:#888;">(Click "+ Tag" or drag standards from drawer to attach)</span>';
+        }
+        return descIds.map(function (id) {
+          var targetIdStr = String(id || '').toLowerCase().trim();
+          var desc = allDescriptors.find(function (d) {
+            if (!d) return false;
+            return String(d.id || '').toLowerCase().trim() === targetIdStr || String(d.code || '').toLowerCase().trim() === targetIdStr;
+          });
+          var codeStr = desc ? (desc.code || desc.title || desc.id) : id;
+          var titleStr = desc ? desc.title : '';
+          var fullTooltip = desc ? ((desc.code ? (desc.code + ': ') : '') + (desc.title || '') + (desc.description ? ('\n' + desc.description) : '')) : id;
+          var subCls = desc ? String(desc.subjectId || '').toLowerCase() : '';
+
+          var displayText = escapeHtml(codeStr || id || 'Standard');
+          var titleSnippet = (titleStr && titleStr !== codeStr) ? ' <span style="font-weight:500;color:#555;font-size:0.72rem;">(' + escapeHtml(titleStr.length > 32 ? titleStr.slice(0, 30) + '…' : titleStr) + ')</span>' : '';
+
+          return '<span class="desc-chip ' + escapeHtml(subCls) + '" title="' + escapeHtml(fullTooltip) + '">' +
+            '<strong>' + displayText + '</strong>' + titleSnippet +
+            ' <span class="desc-chip-remove" onclick="lcRemoveDescriptorFromPhase(' + phaseIndex + ', \'' + escapeHtml(String(id).replace(/'/g, "\\'")) + '\')" title="Remove descriptor">&times;</span>' +
+            '</span>';
+        }).join('');
+      }
+
+      function updateDurationMeter() {
+        var total = LessonCreatorService.recalculateDuration(currentPlan);
+        var target = Number(currentPlan.targetDuration) || 60;
+        var badge = document.getElementById('durationBadge');
+        badge.textContent = 'Total: ' + total + ' / ' + target + 'm';
+        badge.className = 'duration-badge';
+        if (total === target) {
+          badge.classList.add('balanced');
+        } else if (total > target) {
+          badge.classList.add('over');
+        } else {
+          badge.classList.add('under');
+        }
+      }
+
+      // ── Drawer & Descriptor Bank Rendering ───────────────────────────────
+      function renderDrawer() {
+        var list = document.getElementById('drawerDescriptorsList');
+        var query = (document.getElementById('drawerSearch').value || '').trim().toLowerCase();
+        var subId = (document.getElementById('drawerFilterSubject').value || 'all').toLowerCase();
+        var yrId = (document.getElementById('drawerFilterYear').value || 'all').toLowerCase();
+        var catId = (document.getElementById('drawerFilterCategory').value || 'all').toLowerCase();
+        var subCatId = (document.getElementById('drawerFilterSubCategory').value || 'all').toLowerCase();
+        var sortMode = document.getElementById('drawerSort').value;
+
+        // Populate Category dropdown dynamically
+        populateCategoryDropdown(subId);
+
+        var filtered = allDescriptors.filter(function (d) {
+          var dSub = String(d.subjectId || '').toLowerCase();
+          var dYr = String(d.yearLevel || '').toLowerCase();
+          var dCat = String(d.category || '').toLowerCase();
+          var dSubCat = String(d.subCategory || '').toLowerCase();
+
+          if (subId !== 'all' && dSub && dSub !== 'all' && dSub !== subId) return false;
+          if (yrId !== 'all' && dYr && dYr !== 'all' && dYr !== yrId) return false;
+          if (catId !== 'all' && dCat && dCat !== 'all' && dCat !== catId) return false;
+          if (subCatId !== 'all' && dSubCat && dSubCat !== 'all' && dSubCat !== subCatId) return false;
+
+          if (query) {
+            var tagsStr = Array.isArray(d.tags) ? d.tags.join(' ') : String(d.tags || '');
+            var fullText = [
+              d.code || '',
+              d.title || '',
+              d.description || '',
+              d.category || '',
+              d.subCategory || '',
+              d.subjectId || '',
+              d.yearLevel || '',
+              d.level || '',
+              tagsStr,
+              d.comments || '',
+              d.sampleTasks || ''
+            ].join(' ').toLowerCase();
+
+            if (fullText.indexOf(query) === -1) return false;
+          }
+          return true;
+        });
+
+        // Sort
+        filtered.sort(function (a, b) {
+          if (sortMode === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+          if (sortMode === 'level') return String(a.level || '').localeCompare(String(b.level || ''));
+          return String(a.code || '').localeCompare(String(b.code || ''));
+        });
+
+        list.innerHTML = '';
+        if (filtered.length === 0) {
+          list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">No descriptors matching filters</div>';
+          return;
+        }
+
+        filtered.forEach(function (d) {
+          var card = document.createElement('div');
+          card.className = 'drawer-desc-card';
+          card.draggable = true;
+          card.dataset.id = d.id;
+
+          card.addEventListener('dragstart', function (e) {
+            card.classList.add('dragging');
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              type: 'descriptor',
+              descriptorId: d.id,
+              code: d.code || d.id,
+              title: d.title || ''
+            }));
+            e.dataTransfer.setData('text/plain', d.id);
+            e.dataTransfer.effectAllowed = 'copy';
+          });
+
+          card.addEventListener('dragend', function () {
+            card.classList.remove('dragging');
+          });
+
+          var levelBadge = d.level ? '<span class="drawer-desc-level">' + escapeHtml(d.level) + '</span>' : '';
+          var tagDisplay = (Array.isArray(d.tags) && d.tags.length)
+            ? '<div style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + escapeHtml(d.tags.join(', ')) + '</div>'
+            : (d.tags && typeof d.tags === 'string' ? '<div style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + escapeHtml(d.tags) + '</div>' : '');
+          card.innerHTML = [
+            '<div class="drawer-desc-header">',
+            '  <span class="drawer-desc-code">' + escapeHtml(d.code || d.id || '') + '</span>',
+            '  ' + levelBadge,
+            '</div>',
+            '<div class="drawer-desc-title">' + escapeHtml(d.title || 'Untitled Descriptor') + '</div>',
+            d.description ? '<div class="drawer-desc-text">' + escapeHtml(d.description) + '</div>' : '',
+            tagDisplay,
+            d.comments ? '<div class="drawer-desc-comment">' + escapeHtml(d.comments) + '</div>' : '',
+            '<div class="drawer-desc-actions">',
+            '  <span style="font-size:0.72rem;font-weight:800;color:#666;">' + escapeHtml(d.subCategory || d.category || d.subjectId || '') + '</span>',
+            '  <button class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="lcTagDescriptorToActivePhase(\'' + escapeHtml(d.id) + '\')">+ Tag</button>',
+            '</div>'
+          ].join('');
+          list.appendChild(card);
+        });
+      }
+
+      function populateCategoryDropdown(subId) {
+        var catSelect = document.getElementById('drawerFilterCategory');
+        if (!catSelect) return;
+        var currentVal = catSelect.value;
+        var subIdLower = String(subId || 'all').toLowerCase();
+        var categories = new Set();
+        allDescriptors.forEach(function (d) {
+          var dSub = String(d.subjectId || '').toLowerCase();
+          if (subIdLower === 'all' || !dSub || dSub === 'all' || dSub === subIdLower) {
+            if (d.category) categories.add(d.category);
+          }
+        });
+
+        catSelect.innerHTML = '<option value="all">All Categories</option>';
+        categories.forEach(function (cat) {
+          var opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          catSelect.appendChild(opt);
+        });
+        if (categories.has(currentVal)) catSelect.value = currentVal;
+      }
+
+      // ── Actions & Event Handlers ─────────────────────────────────────────
+      window.lcOnPlanDirty = function () {
+        isDirty = true;
+        currentPlan.title = document.getElementById('planTitle').value;
+        currentPlan.date = document.getElementById('planDate').value;
+        currentPlan.targetDuration = Number(document.getElementById('planTargetDuration').value) || 60;
+        updateDurationMeter();
+      };
+
+      window.lcOnSubjectChange = function () {
+        currentPlan.subjectId = document.getElementById('planSubject').value;
+        document.getElementById('drawerFilterSubject').value = currentPlan.subjectId;
+        renderDrawer();
+        lcOnPlanDirty();
+      };
+
+      window.lcOnClassChange = function () {
+        currentPlan.classId = document.getElementById('planClass').value;
+        lcOnPlanDirty();
+      };
+
+      window.lcOnYearLevelChange = function () {
+        currentPlan.yearLevel = document.getElementById('planYearLevel').value;
+        document.getElementById('drawerFilterYear').value = currentPlan.yearLevel;
+        renderDrawer();
+        lcOnPlanDirty();
+      };
+
+      window.lcOnDurationChange = function () {
+        currentPlan.targetDuration = Number(document.getElementById('planTargetDuration').value) || 60;
+        updateDurationMeter();
+        lcOnPlanDirty();
+      };
+
+      window.lcOnTagKeyDown = function (e) {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          var input = document.getElementById('newTagInput');
+          var val = input.value.trim();
+          if (val) {
+            if (!val.startsWith('#')) val = '#' + val;
+            currentPlan.tags = currentPlan.tags || [];
+            if (currentPlan.tags.indexOf(val) === -1) {
+              currentPlan.tags.push(val);
+              renderTags();
+              lcOnPlanDirty();
+            }
+            input.value = '';
+          }
+        }
+      };
+
+      window.lcRemoveTag = function (idx) {
+        if (currentPlan.tags && currentPlan.tags[idx]) {
+          currentPlan.tags.splice(idx, 1);
+          renderTags();
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcToggleDrawer = function () {
+        var ws = document.getElementById('mainWorkspace');
+        ws.classList.toggle('drawer-open');
+      };
+
+      window.lcFilterDrawer = function () {
+        renderDrawer();
+      };
+
+      window.lcOnDrawerCategoryChange = function () {
+        var cat = document.getElementById('drawerFilterCategory').value;
+        var subCatSelect = document.getElementById('drawerFilterSubCategory');
+        var subCats = new Set();
+        allDescriptors.forEach(function (d) {
+          if (cat === 'all' || d.category === cat) {
+            if (d.subCategory) subCats.add(d.subCategory);
+          }
+        });
+        subCatSelect.innerHTML = '<option value="all">All Subcategories</option>';
+        subCats.forEach(function (sub) {
+          var opt = document.createElement('option');
+          opt.value = sub;
+          opt.textContent = sub;
+          subCatSelect.appendChild(opt);
+        });
+        renderDrawer();
+      };
+
+      // ── Phase Operations ─────────────────────────────────────────────────
+      window.lcAddPhase = function () {
+        var newSec = {
+          id: LessonCreatorService.generateId('sec'),
+          title: 'New Phase',
+          duration: 10,
+          activityTypeId: 'guided_practice',
+          interactionTypeId: 'pairs',
+          objective: '',
+          teacherAction: '',
+          studentAction: '',
+          descriptorIds: [],
+          resources: ''
+        };
+        currentPlan.sections = currentPlan.sections || [];
+        currentPlan.sections.push(newSec);
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+      };
+
+      window.lcOnPhaseTitleChange = function (idx, val) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections[idx].title = val;
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcOnPhaseDurationChange = function (idx, val) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections[idx].duration = Number(val) || 0;
+          updateDurationMeter();
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcOnPhaseActivityChange = function (idx, val) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections[idx].activityTypeId = val;
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcOnPhaseModeChange = function (idx, val) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections[idx].interactionTypeId = val;
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcOnPhaseFieldChange = function (idx, field, val) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections[idx][field] = val;
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcDuplicatePhase = function (idx) {
+        if (currentPlan.sections[idx]) {
+          var cloned = JSON.parse(JSON.stringify(currentPlan.sections[idx]));
+          cloned.id = LessonCreatorService.generateId('sec');
+          cloned.title = cloned.title + ' (Copy)';
+          currentPlan.sections.splice(idx + 1, 0, cloned);
+          renderPhaseCards();
+          updateDurationMeter();
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcDeletePhase = function (idx) {
+        if (currentPlan.sections[idx]) {
+          currentPlan.sections.splice(idx, 1);
+          renderPhaseCards();
+          updateDurationMeter();
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcTagDescriptorToActivePhase = function (descId, targetPhaseIdx) {
+        var phases = currentPlan.sections || [];
+        if (phases.length === 0) {
+          lcAddPhase();
+          phases = currentPlan.sections || [];
+        }
+        var pIdx = (typeof targetPhaseIdx === 'number' && targetPhaseIdx >= 0 && targetPhaseIdx < phases.length)
+          ? targetPhaseIdx
+          : phases.length - 1;
+        var targetPhase = phases[pIdx];
+        if (!targetPhase) return;
+        targetPhase.descriptorIds = targetPhase.descriptorIds || [];
+        if (targetPhase.descriptorIds.indexOf(descId) === -1) {
+          targetPhase.descriptorIds.push(descId);
+          renderPhaseCards();
+          if (typeof showToast === 'function') showToast('Tagged standard to Phase ' + (pIdx + 1));
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcRemoveDescriptorFromPhase = function (phaseIdx, descId) {
+        if (currentPlan.sections[phaseIdx] && currentPlan.sections[phaseIdx].descriptorIds) {
+          var arr = currentPlan.sections[phaseIdx].descriptorIds;
+          var i = arr.indexOf(descId);
+          if (i !== -1) {
+            arr.splice(i, 1);
+            renderPhaseCards();
+            lcOnPlanDirty();
+          }
+        }
+      };
+
+      // ── Split Modal Operations ───────────────────────────────────────────
+      window.lcOpenSplitModal = function (idx) {
+        var sec = currentPlan.sections[idx];
+        if (!sec) return;
+        document.getElementById('splitPhaseId').value = idx;
+        var dur = Number(sec.duration) || 10;
+        var half = Math.floor(dur / 2);
+        document.getElementById('splitDurationA').value = half;
+        document.getElementById('splitDurationB').value = dur - half;
+        document.getElementById('splitTitleA').value = sec.title + ' — Part 1';
+        document.getElementById('splitTitleB').value = sec.title + ' — Part 2';
+        document.getElementById('splitModal').style.display = 'flex';
+      };
+
+      window.lcApplySplitPhase = function () {
+        var idx = parseInt(document.getElementById('splitPhaseId').value, 10);
+        var sec = currentPlan.sections[idx];
+        if (!sec) return;
+
+        var durA = Number(document.getElementById('splitDurationA').value) || 5;
+        var durB = Number(document.getElementById('splitDurationB').value) || 5;
+        var titA = document.getElementById('splitTitleA').value || 'Part 1';
+        var titB = document.getElementById('splitTitleB').value || 'Part 2';
+
+        var partA = JSON.parse(JSON.stringify(sec));
+        partA.title = titA;
+        partA.duration = durA;
+
+        var partB = JSON.parse(JSON.stringify(sec));
+        partB.id = LessonCreatorService.generateId('sec');
+        partB.title = titB;
+        partB.duration = durB;
+
+        currentPlan.sections.splice(idx, 1, partA, partB);
+        lcCloseModal('splitModal');
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+      };
+
+      // ── Save & Open Plan Routines ────────────────────────────────────────
+      window.lcSavePlan = async function () {
+        currentPlan.title = document.getElementById('planTitle').value || 'Untitled Lesson Plan';
+        var slug = currentPlan.title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+        var filename = 'lp_' + (currentPlan.classId || 'general') + '_' + (currentPlan.date || 'date') + '_' + slug + '.json';
+
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'lessons/' + filename, currentPlan);
+          } else {
+            localStorage.setItem('cmt-lesson-' + currentPlan.id, JSON.stringify(currentPlan));
+          }
+          isDirty = false;
+          await loadSavedPlansIndex();
+          if (typeof showToast === 'function') showToast('Lesson Plan Saved: ' + currentPlan.title);
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Save failed: ' + e.message, true);
+        }
+      };
+
+      window.lcNewPlan = function () {
+        if (isDirty && !confirm('You have unsaved changes. Create a new blank plan?')) return;
+        currentPlan = LessonCreatorService.createBlankLessonPlan();
+        renderPlan();
+      };
+
+      window.lcDuplicatePlan = function () {
+        var cloned = JSON.parse(JSON.stringify(currentPlan));
+        cloned.id = LessonCreatorService.generateId('lp');
+        cloned.title = cloned.title + ' (Copy)';
+        currentPlan = cloned;
+        renderPlan();
+        if (typeof showToast === 'function') showToast('Plan duplicated! Click Save to write to disk.');
+      };
+
+      window.lcOpenPlanPicker = function () {
+        renderSavedPlansList();
+        document.getElementById('openPlanModal').style.display = 'flex';
+      };
+
+      function renderSavedPlansList() {
+        var list = document.getElementById('savedPlansList');
+        var query = (document.getElementById('openPlanSearch').value || '').toLowerCase();
+        list.innerHTML = '';
+
+        var filtered = allSavedPlans.filter(function (p) {
+          if (!query) return true;
+          return (p.title + ' ' + p.classId + ' ' + (p.tags || []).join(' ')).toLowerCase().indexOf(query) !== -1;
+        });
+
+        if (filtered.length === 0) {
+          list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">No saved lesson plans found</div>';
+          return;
+        }
+
+        filtered.forEach(function (p) {
+          var item = document.createElement('div');
+          item.className = 'phase-card';
+          item.style.cursor = 'pointer';
+          item.innerHTML = [
+            '<div style="display:flex;justify-content:space-between;align-items:center;">',
+            '  <strong>' + escapeHtml(p.title || 'Untitled') + '</strong>',
+            '  <span style="font-size:0.78rem;background:#111;color:#fff;padding:2px 6px;border-radius:4px;">' + escapeHtml(p.classId || 'All') + ' | ' + (p.date || '') + '</span>',
+            '</div>',
+            '<div style="font-size:0.8rem;color:#666;">' + (p.sections || []).length + ' phases | ' + (p.totalDuration || 0) + ' min</div>'
+          ].join('');
+          item.onclick = function () {
+            currentPlan = p;
+            renderPlan();
+            lcCloseModal('openPlanModal');
+          };
+          list.appendChild(item);
+        });
+      }
+
+      async function loadPlanById(planId) {
+        var match = allSavedPlans.find(function (p) { return p.id === planId; });
+        if (match) {
+          currentPlan = match;
+        }
+      }
+
+      // ── Coverage Matrix Operations ───────────────────────────────────────
+      window.lcOpenCoverageModal = function () {
+        lcRenderCoverageMatrix();
+        document.getElementById('coverageModal').style.display = 'flex';
+      };
+
+      window.lcRenderCoverageMatrix = function () {
+        var subId = currentPlan.subjectId || 'science';
+        var yrId = document.getElementById('covFilterYear').value;
+        var semId = document.getElementById('covFilterSem').value;
+
+        var compiled = LessonCreatorService.compileCurriculumCoverage(allSavedPlans, allDescriptors, {
+          subjectId: subId,
+          yearLevel: yrId,
+          semester: semId,
+          classId: currentPlan.classId
+        });
+
+        var st = compiled.stats;
+        document.getElementById('coverageSummaryText').textContent =
+          'Total: ' + st.total + ' | Covered: ' + st.covered + ' (' + st.percentage + '%) | Remaining: ' + st.remaining;
+
+        var container = document.getElementById('coverageAccordionContainer');
+        container.innerHTML = '';
+
+        Object.keys(compiled.categories).forEach(function (catName) {
+          var catObj = compiled.categories[catName];
+          var catCard = document.createElement('div');
+          catCard.className = 'coverage-cat-card';
+
+          var hd = document.createElement('div');
+          hd.className = 'coverage-cat-hd';
+          hd.innerHTML = '<span>' + escapeHtml(catName) + '</span><span>' + catObj.covered + ' / ' + catObj.total + ' (' + Math.round((catObj.covered / catObj.total) * 100) + '%)</span>';
+          catCard.appendChild(hd);
+
+          var table = document.createElement('table');
+          table.className = 'coverage-desc-table';
+          table.innerHTML = '<thead><tr><th>Code</th><th>Standard / Description</th><th>Subcategory</th><th>Status</th></tr></thead><tbody></tbody>';
+          var tbody = table.querySelector('tbody');
+
+          Object.keys(catObj.subCategories).forEach(function (subName) {
+            var subObj = catObj.subCategories[subName];
+            subObj.items.forEach(function (item) {
+              var tr = document.createElement('tr');
+              var isCovered = item.count > 0 || item.isTicked;
+              var statusBadge = isCovered
+                ? '<span style="background:var(--neo-green);padding:2px 6px;border-radius:4px;font-weight:800;">Done (' + item.count + ')</span>'
+                : '<span style="background:var(--neo-yellow);padding:2px 6px;border-radius:4px;font-weight:800;">Left to teach</span>';
+
+              tr.innerHTML = [
+                '<td><strong>' + escapeHtml(item.descriptor.code) + '</strong></td>',
+                '<td>' + escapeHtml(item.descriptor.title) + '<br><small style="color:#666;">' + escapeHtml(item.descriptor.description) + '</small></td>',
+                '<td>' + escapeHtml(subName) + '</td>',
+                '<td>' + statusBadge + '</td>'
+              ].join('');
+              tbody.appendChild(tr);
+            });
+          });
+
+          catCard.appendChild(table);
+          container.appendChild(catCard);
+        });
+      };
+
+      // ── Board Export Operations ──────────────────────────────────────────
+      window.lcOpenBoardExportModal = async function () {
+        var select = document.getElementById('boardExistingSelect');
+        select.innerHTML = '<option value="">Select a mindmap file…</option>';
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var files = await Desktop.listFiles('user', { subfolder: 'mindmaps' });
+            if (Array.isArray(files)) {
+              files.forEach(function (f) {
+                if (f && f.filename) {
+                  var opt = document.createElement('option');
+                  opt.value = f.filename;
+                  opt.textContent = f.filename;
+                  select.appendChild(opt);
+                }
+              });
+            }
+          }
+        } catch (_) {}
+        document.getElementById('boardExportModal').style.display = 'flex';
+      };
+
+      window.lcOnBoardModeChange = function () {
+        var mode = document.querySelector('input[name="boardExportMode"]:checked').value;
+        document.getElementById('boardMergeSelectWrap').style.display = mode === 'merge' ? 'flex' : 'none';
+      };
+
+      window.lcExecuteBoardExport = async function () {
+        var mode = document.querySelector('input[name="boardExportMode"]:checked').value;
+        var isMerge = mode === 'merge';
+        var selectedFile = document.getElementById('boardExistingSelect').value;
+        var existingSession = null;
+
+        if (isMerge && selectedFile && window.Desktop && Desktop.isElectron()) {
+          try {
+            var r = await Desktop.readText('user', 'mindmaps/' + selectedFile);
+            if (r && r.ok && r.content) {
+              existingSession = JSON.parse(r.content.replace(/^window\.CONSTELLATION_SESSION_EXPORT\s*=\s*/, '').replace(/;$/, ''));
+            }
+          } catch (_) {}
+        }
+
+        var sessionData = LessonCreatorService.buildConstellationSession(currentPlan, {
+          isMerge: isMerge,
+          existingSession: existingSession
+        });
+
+        var exportFilename = isMerge && selectedFile ? selectedFile : ('mindmap_' + (currentPlan.classId || 'class') + '_' + (currentPlan.date || 'date') + '.js');
+        var jsFileContent = 'window.CONSTELLATION_SESSION_EXPORT = ' + JSON.stringify(sessionData, null, 2) + ';\n';
+
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'mindmaps/' + exportFilename, jsFileContent);
+            lcCloseModal('boardExportModal');
+            if (typeof showToast === 'function') showToast('Exported to Board! Opening canvas…');
+            Desktop.openTool('board.html', {
+              query: {
+                openSession: '1',
+                openTarget: 'mindmaps',
+                openFilename: exportFilename,
+                openRelPath: 'mindmaps/' + exportFilename
+              }
+            });
+          } else {
+            if (typeof showToast === 'function') showToast('Mindmap export generated.');
+          }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Board export failed: ' + e.message, true);
+        }
+      };
+
+      // ── Class Management Live Launcher ───────────────────────────────────
+      window.lcRunInClassManagement = function () {
+        lcSavePlan();
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('class-management.html', {
+            query: {
+              loadLessonPlanId: currentPlan.id,
+              classId: currentPlan.classId
+            }
+          });
+        } else {
+          window.location.href = 'class-management.html?loadLessonPlanId=' + encodeURIComponent(currentPlan.id);
+        }
+      };
+
+      // ── Sound & Audio Preview ────────────────────────────────────────────
+      window.lcOpenSoundModal = function () {
+        document.getElementById('soundPresetSelect').value = currentPlan.soundAlert ? currentPlan.soundAlert.preset : 'chime';
+        document.getElementById('soundModal').style.display = 'flex';
+      };
+
+      window.lcPreviewSound = function () {
+        var preset = document.getElementById('soundPresetSelect').value;
+        var vol = document.getElementById('soundVolumeRange').value;
+        LessonCreatorService.playPresetSound(preset, vol);
+      };
+
+      window.lcSaveSoundSettings = function () {
+        currentPlan.soundAlert = {
+          preset: document.getElementById('soundPresetSelect').value,
+          volume: Number(document.getElementById('soundVolumeRange').value) || 90
+        };
+        lcCloseModal('soundModal');
+        lcOnPlanDirty();
+      };
+
+      // ── Templates ────────────────────────────────────────────────────────
+      window.lcOpenTemplatePicker = function () {
+        var container = document.getElementById('templateOptionsList');
+        container.innerHTML = '';
+        LessonCreatorService.LESSON_TEMPLATES.forEach(function (tpl) {
+          var card = document.createElement('div');
+          card.className = 'phase-card';
+          card.style.cursor = 'pointer';
+          card.innerHTML = [
+            '<strong>' + escapeHtml(tpl.name) + ' (' + tpl.targetDuration + 'm)</strong>',
+            '<div style="font-size:0.82rem;color:#555;">' + escapeHtml(tpl.description) + '</div>'
+          ].join('');
+          card.onclick = function () {
+            if (confirm('Load template "' + tpl.name + '"? This will replace current phases.')) {
+              currentPlan.sections = JSON.parse(JSON.stringify(tpl.sections));
+              currentPlan.targetDuration = tpl.targetDuration;
+              renderPhaseCards();
+              updateDurationMeter();
+              lcCloseModal('templateModal');
+              lcOnPlanDirty();
+            }
+          };
+          container.appendChild(card);
+        });
+        document.getElementById('templateModal').style.display = 'flex';
+      };
+
+      // ── Helper Utilities ─────────────────────────────────────────────────
+      window.lcOpenDescriptorDb = function () {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('manage-database.html', { query: { type: 'descriptors' } });
+        } else {
+          window.open('manage-database.html?type=descriptors', '_blank');
+        }
+      };
+
+      window.lcOpenDescriptorImporter = function () {
+        document.getElementById('descFileInput').value = '';
+        document.getElementById('importPreviewStatus').textContent = '';
+        document.getElementById('descriptorImportModal').style.display = 'flex';
+      };
+
+      window.lcExecuteDescriptorImport = async function () {
+        var fileInput = document.getElementById('descFileInput');
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) {
+          if (typeof showToast === 'function') showToast('Please select a file to import.', true);
+          return;
+        }
+
+        var statusEl = document.getElementById('importPreviewStatus');
+        statusEl.textContent = 'Reading and importing file…';
+
+        try {
+          var text = await file.text();
+          var imported = [];
+          if (file.name.endsWith('.json')) {
+            var parsed = JSON.parse(text);
+            imported = Array.isArray(parsed) ? parsed : (parsed.descriptors || parsed.customDescriptorBank || []);
+          } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+            var lines = text.split(/\r?\n/).filter(Boolean);
+            if (lines.length > 1) {
+              var headers = lines[0].split(',').map(function (h) { return h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); });
+              for (var i = 1; i < lines.length; i++) {
+                var cols = lines[i].split(',');
+                var obj = {};
+                headers.forEach(function (h, idx) {
+                  obj[h] = (cols[idx] || '').trim();
+                });
+                var descObj = {
+                  id: obj.id || (obj.code ? ('desc_' + obj.code.toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9))),
+                  code: obj.code || obj.standard || ('STD.' + i),
+                  title: obj.title || obj.name || obj.standard || 'Curriculum Standard',
+                  category: obj.category || obj.domain || 'General',
+                  subCategory: obj.subcategory || obj.substrand || '',
+                  subjectId: obj.subjectid || obj.subject || currentPlan.subjectId || 'science',
+                  yearLevel: obj.yearlevel || obj.year || obj.grade || 'all',
+                  semester: obj.semester || obj.term || 'all',
+                  level: obj.level || obj.tier || '',
+                  description: obj.description || obj.desc || obj.title || '',
+                  tags: obj.tags ? obj.tags.split(';').map(function (s) { return s.trim(); }) : [],
+                  comments: obj.comments || obj.notes || ''
+                };
+                imported.push(descObj);
+              }
+            }
+          }
+
+          if (!imported.length) {
+            statusEl.textContent = 'Could not parse descriptors from file.';
+            return;
+          }
+
+          var saveFilename = 'imported_' + file.name.replace(/[^a-zA-Z0-9_-]/g, '_') + '.js';
+          var jsContent = '// customDescriptorBank\nconst customDescriptorBank = ' + JSON.stringify(imported, null, 2) + ';\n';
+
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('customDescriptors', saveFilename, jsContent);
+          } else {
+            var existing = JSON.parse(localStorage.getItem('cmt-lesson-descriptors') || '[]');
+            var combined = existing.concat(imported);
+            localStorage.setItem('cmt-lesson-descriptors', JSON.stringify(combined));
+          }
+
+          lcCloseModal('descriptorImportModal');
+          await loadSavedDescriptors();
+          renderDrawer();
+          if (typeof showToast === 'function') showToast('Imported ' + imported.length + ' descriptors!');
+        } catch (err) {
+          statusEl.textContent = 'Import error: ' + err.message;
+        }
+      };
+
+      window.lcCloseModal = function (modalId) {
+        var m = document.getElementById(modalId);
+        if (m) m.style.display = 'none';
+      };
+
+      window.lcOpenShortcuts = function () {
+        if (typeof ShortcutsModal !== 'undefined') {
+          ShortcutsModal.open({
+            title: 'Lesson Creator Shortcuts',
+            rows: [
+              { keys: ['Ctrl', 'S'], desc: 'Save active lesson plan' },
+              { keys: ['Ctrl', 'O'], desc: 'Open saved lesson plan picker' },
+              { keys: ['Ctrl', 'N'], desc: 'New blank lesson plan' },
+              { keys: ['Ctrl', 'P'], desc: 'Print / Export PDF' },
+              { keys: ['Ctrl', 'B'], desc: 'Toggle Descriptor Bank Drawer' },
+              { keys: ['Ctrl', 'R'], desc: 'Run active plan in Class Management' },
+              { keys: ['Ctrl', 'Shift', 'A'], desc: 'Add new phase to timeline' }
+            ]
+          });
+        }
+      };
+
+      window.lcStartTutorial = function () {
+        if (typeof Tutorial !== 'undefined') {
+          Tutorial.start([
+            { selector: '#planTitle', title: 'Lesson Title & Subject', text: 'Set your lesson topic, target subject, class group, and planned duration.' },
+            { selector: '#phaseCardsList', title: 'Interactive Timeline Builder', text: 'Add, drag to reorder, split, and edit timing, objectives, and instructions for each lesson phase.' },
+            { selector: '#descriptorDrawer', title: 'Descriptor Bank', text: 'Filter curriculum standards by year, semester, and category. Click "+ Tag" to link standards to phases.' },
+            { selector: '#app-nav', title: 'Tools & Navigation', text: 'Instantly launch your plan in Class Management, export to mindmaps, or manage your descriptor database.' }
+          ]);
+        }
+      };
+
+      function setupShortcuts() {
+        window.addEventListener('keydown', function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            lcSavePlan();
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+            e.preventDefault();
+            lcOpenPlanPicker();
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+            e.preventDefault();
+            lcNewPlan();
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+            e.preventDefault();
+            lcExportPdf();
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+            e.preventDefault();
+            lcToggleDrawer();
+          } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+            e.preventDefault();
+            lcRunInClassManagement();
+          }
+        });
+      }
+
+      window.lcExportPdf = function () {
+        window.print();
+      };
+
+      window.lcExportStandaloneHtml = function () {
+        var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml(currentPlan.title) + '</title><style>' +
+          'body{font-family:sans-serif;padding:24px;color:#111;} table{width:100%;border-collapse:collapse;margin-top:16px;} th,td{border:1px solid #111;padding:8px 12px;text-align:left;} th{background:#fcd34d;}' +
+          '</style></head><body><h1>' + escapeHtml(currentPlan.title) + '</h1><p>Class: ' + escapeHtml(currentPlan.classId || 'All') + ' | Date: ' + (currentPlan.date || '') + ' | Duration: ' + (currentPlan.totalDuration || 0) + ' min</p>' +
+          '<table><thead><tr><th>Phase</th><th>Duration</th><th>Activity & Mode</th><th>Teacher / Student Instructions</th></tr></thead><tbody>';
+        
+        (currentPlan.sections || []).forEach(function (sec, idx) {
+          html += '<tr><td><strong>' + (idx + 1) + '. ' + escapeHtml(sec.title) + '</strong></td><td>' + (sec.duration || 0) + ' min</td><td>' + escapeHtml(sec.activityTypeId || '') + ' (' + escapeHtml(sec.interactionTypeId || '') + ')</td><td><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction || '') + '<br><strong>Student:</strong> ' + escapeHtml(sec.studentAction || '') + '</td></tr>';
+        });
+        html += '</tbody></table></body></html>';
+
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + '.html';
+        a.click();
+      };
+
+      window.lcExportJson = function () {
+        var blob = new Blob([JSON.stringify(currentPlan, null, 2)], { type: 'application/json;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + '.json';
+        a.click();
+      };
+
+      function escapeHtml(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+    })();
+  </script>
+</body>
+</html>

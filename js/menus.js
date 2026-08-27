@@ -42,6 +42,7 @@
     { href: 'group-editor.html',     icon: 'group-editor.svg',     label: 'Group Editor'     },
     { href: 'class-plan.html',       icon: 'class-plan.svg',       label: 'Class Plan'       },
     { href: 'planner.html',          icon: 'planner.svg',          label: 'Planner'          },
+    { href: 'lesson-creator.html',   icon: 'file-text.svg',        label: 'Lesson Creator'   },
     { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
     { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
@@ -97,7 +98,10 @@
   // wrapperId defaults to 'app-hamburger'.
   window.initHamburger = function (wrapperId) {
     var id = wrapperId || 'app-hamburger';
-    var wrap = document.getElementById(id);
+    var wrap = (wrapperId && document.getElementById(wrapperId))
+      || document.getElementById('app-hamburger')
+      || document.getElementById('hmWrap')
+      || document.querySelector('.hm-wrap');
     if (!wrap) return;
 
     // Detect current page and base directory for assets/icons/ relative path.

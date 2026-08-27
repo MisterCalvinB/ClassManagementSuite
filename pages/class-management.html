@@ -13,6 +13,7 @@
     <script src="../js/menus.js"></script>
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
+    <script src="../js/lesson-creator-service.js"></script>
     <script>
         (function () {
             function injectClassicScript(source, name) {
@@ -1519,6 +1520,40 @@
                 </div>
                 <div id="timer-resize-handle" title="Drag to resize timer" data-i18n-title="timer_resize_title"></div>
             </div>
+            <!-- Lesson Runner HUD Container (Scoped for Lesson Creator integration) -->
+            <div id="cms-lesson-runner-container" style="display:none; margin-bottom:10px; background:#fff; border:2.5px solid #111; border-radius:8px; box-shadow:3px 3px 0 #111; padding:10px 14px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1.5px solid #111; padding-bottom:6px; margin-bottom:6px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="background:#111; color:#fff; font-weight:800; font-size:0.75rem; padding:2px 6px; border-radius:4px;" id="clr-phase-num">PHASE 1 / 4</span>
+                        <strong id="clr-phase-title" style="font-size:0.95rem;">Phase Title</strong>
+                        <span id="clr-phase-badge" style="background:#fef3c7; border:1px solid #111; font-size:0.75rem; font-weight:800; padding:2px 6px; border-radius:4px;">WARM-UP</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.prevPhase()">Prev</button>
+                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.nextPhase()">Next</button>
+                        <button class="action-btn btn-success" style="padding:4px 8px; font-size:0.78rem; background:#10b981; color:#fff; border-color:#111;" onclick="CmsLessonRunner.completePhase()">Complete</button>
+                        <button class="action-btn" style="padding:4px 6px; font-size:0.78rem;" onclick="CmsLessonRunner.unloadPlan()" title="Unload lesson plan">Close</button>
+                    </div>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82rem;">
+                    <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Teacher:</span> <span id="clr-teacher-prompt">—</span></div>
+                    <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Student:</span> <span id="clr-student-prompt">—</span></div>
+                    <div id="clr-teams-wrap" style="display:none; font-size:0.8rem; background:#ede9fe; padding:2px 6px; border-radius:4px; border:1px solid #111;"><span style="font-weight:800;">Teams:</span> <span id="clr-teams-text"></span></div>
+                </div>
+            </div>
+
+            <!-- Lesson Plan Load Confirmation Modal -->
+            <div class="modal-overlay" id="clr-plan-detected-modal" style="display:none; z-index:99999;">
+                <div class="modal-content" style="max-width:500px; border:3px solid #111; box-shadow:5px 5px 0 #111; border-radius:8px; padding:20px;">
+                    <h3 style="margin-bottom:12px; font-weight:900; font-size:1.1rem;"><span>Lesson Plan Detected</span></h3>
+                    <p id="clr-plan-detected-desc" style="font-size:0.9rem; margin-bottom:16px; line-height:1.4;">A lesson plan is available for this class today. Would you like to load it into the Lesson Runner?</p>
+                    <div style="display:flex; justify-content:flex-end; gap:10px;">
+                        <button class="action-btn" onclick="CmsLessonRunner.dismissDetectedModal()">Dismiss</button>
+                        <button class="action-btn btn-primary" id="clr-confirm-load-btn" style="background:#fcd34d; border-color:#111; color:#111; font-weight:800;" onclick="CmsLessonRunner.acceptDetectedPlan()">Load Lesson Plan</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Lesson Objectives Bar -->
             <div id="objectives-bar">
                 <div id="objectives-bar-label" data-i18n="objectives_label">Lesson Objectives</div>
@@ -11697,6 +11732,9 @@ syncState();
                 const beeps = parseInt(document.getElementById('timer-beeps').value);
                 const freq = parseInt(document.getElementById('timer-freq').value);
                 playBeeps(beeps, freq);
+                if (window.CmsLessonRunner && CmsLessonRunner.activePlan) {
+                    try { CmsLessonRunner.onTimerFinished(); } catch (_) {}
+                }
                 if (!PRESENTATION_MODE) _broadcastTimerTick();
                 return;
             }
@@ -18134,6 +18172,215 @@ ${body}
                 }
             });
         }
+
+        // ── Lesson Runner Integration (Lesson Creator) ───────────────────────────
+        (function () {
+            window.CmsLessonRunner = {
+                activePlan: null,
+                activePhaseIndex: 0,
+                pendingDetectedPlan: null,
+
+                init: async function () {
+                    var params = new URLSearchParams(window.location.search);
+                    var planId = params.get('loadLessonPlanId');
+                    if (planId) {
+                        await this.loadPlanById(planId);
+                    }
+                },
+
+                checkClassPlanOnSelect: async function (classId) {
+                    if (!classId || this.activePlan) return;
+                    try {
+                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+                            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
+                            if (Array.isArray(files)) {
+                                var todayStr = new Date().toISOString().slice(0, 10);
+                                for (var i = 0; i < files.length; i++) {
+                                    var f = files[i];
+                                    if (f && f.filename && f.filename.endsWith('.json')) {
+                                        var res = await Desktop.readText('user', 'lessons/' + f.filename);
+                                        if (res && res.ok && res.content) {
+                                            var p = JSON.parse(res.content);
+                                            if (p && (p.classId === classId || p.classId === selectedGroupName)) {
+                                                this.promptDetectedPlan(p);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_) {}
+                },
+
+                promptDetectedPlan: function (plan) {
+                    this.pendingDetectedPlan = plan;
+                    var desc = document.getElementById('clr-plan-detected-desc');
+                    if (desc) {
+                        desc.textContent = 'A lesson plan "' + (plan.title || 'Untitled') + '" (' + (plan.sections || []).length + ' phases, ' + (plan.totalDuration || 60) + 'm) is scheduled for this class. Would you like to load it into the Lesson Runner?';
+                    }
+                    var modal = document.getElementById('clr-plan-detected-modal');
+                    if (modal) modal.style.display = 'flex';
+                },
+
+                dismissDetectedModal: function () {
+                    this.pendingDetectedPlan = null;
+                    var modal = document.getElementById('clr-plan-detected-modal');
+                    if (modal) modal.style.display = 'none';
+                },
+
+                acceptDetectedPlan: function () {
+                    if (this.pendingDetectedPlan) {
+                        this.loadPlan(this.pendingDetectedPlan);
+                    }
+                    this.dismissDetectedModal();
+                },
+
+                loadPlanById: async function (planId) {
+                    try {
+                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+                            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
+                            if (Array.isArray(files)) {
+                                for (var i = 0; i < files.length; i++) {
+                                    var res = await Desktop.readText('user', 'lessons/' + files[i].filename);
+                                    if (res && res.ok && res.content) {
+                                        var p = JSON.parse(res.content);
+                                        if (p && p.id === planId) {
+                                            this.loadPlan(p);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_) {}
+                },
+
+                loadPlan: function (plan) {
+                    if (!plan || !Array.isArray(plan.sections)) return;
+                    this.activePlan = plan;
+                    this.activePhaseIndex = 0;
+                    var container = document.getElementById('cms-lesson-runner-container');
+                    if (container) container.style.display = 'block';
+                    this.renderCurrentPhase();
+                    if (typeof showToast === 'function') showToast('Lesson Plan Loaded: ' + plan.title);
+                },
+
+                unloadPlan: function () {
+                    this.activePlan = null;
+                    this.activePhaseIndex = 0;
+                    var container = document.getElementById('cms-lesson-runner-container');
+                    if (container) container.style.display = 'none';
+                },
+
+                renderCurrentPhase: function () {
+                    if (!this.activePlan || !this.activePlan.sections) return;
+                    var phases = this.activePlan.sections;
+                    var phase = phases[this.activePhaseIndex];
+                    if (!phase) return;
+
+                    var numEl = document.getElementById('clr-phase-num');
+                    if (numEl) numEl.textContent = 'PHASE ' + (this.activePhaseIndex + 1) + ' / ' + phases.length;
+
+                    var titleEl = document.getElementById('clr-phase-title');
+                    if (titleEl) titleEl.textContent = (phase.title || 'Phase') + ' (' + (phase.duration || 0) + 'm)';
+
+                    var badgeEl = document.getElementById('clr-phase-badge');
+                    if (badgeEl) badgeEl.textContent = (phase.activityTypeId || 'ACTIVITY').replace(/_/g, ' ').toUpperCase();
+
+                    var tpEl = document.getElementById('clr-teacher-prompt');
+                    if (tpEl) tpEl.textContent = phase.teacherAction || phase.objective || '—';
+
+                    var spEl = document.getElementById('clr-student-prompt');
+                    if (spEl) spEl.textContent = phase.studentAction || '—';
+
+                    var teamsWrap = document.getElementById('clr-teams-wrap');
+                    var teamsText = document.getElementById('clr-teams-text');
+                    if (teamsWrap && teamsText) {
+                        if (this.activePlan.teamConfig && this.activePlan.teamConfig.enabled) {
+                            teamsWrap.style.display = 'inline-flex';
+                            teamsText.textContent = 'Teams of ' + this.activePlan.teamConfig.teamSize;
+                        } else {
+                            teamsWrap.style.display = 'none';
+                        }
+                    }
+
+                    // Auto-preset timer duration
+                    var durMins = Number(phase.duration) || 5;
+                    var minsInput = document.getElementById('overlay-timer-minutes');
+                    var hrsInput = document.getElementById('overlay-timer-hours');
+                    if (minsInput && hrsInput) {
+                        hrsInput.value = 0;
+                        minsInput.value = durMins;
+                        if (typeof syncOverlaySettingsToPopup === 'function') syncOverlaySettingsToPopup();
+                    }
+
+                    // Broadcast to presentation window
+                    if (_presChannel && !PRESENTATION_MODE) {
+                        try {
+                            _presChannel.postMessage({
+                                type: 'lesson-phase',
+                                phaseIndex: this.activePhaseIndex,
+                                totalPhases: phases.length,
+                                title: phase.title || '',
+                                duration: durMins,
+                                studentPrompt: phase.studentAction || '',
+                                activityType: phase.activityTypeId || ''
+                            });
+                        } catch (_) {}
+                    }
+                },
+
+                nextPhase: function () {
+                    if (!this.activePlan || !this.activePlan.sections) return;
+                    if (this.activePhaseIndex < this.activePlan.sections.length - 1) {
+                        this.activePhaseIndex++;
+                        this.renderCurrentPhase();
+                    } else {
+                        if (typeof showToast === 'function') showToast('All lesson phases completed!');
+                    }
+                },
+
+                prevPhase: function () {
+                    if (!this.activePlan || !this.activePlan.sections) return;
+                    if (this.activePhaseIndex > 0) {
+                        this.activePhaseIndex--;
+                        this.renderCurrentPhase();
+                    }
+                },
+
+                completePhase: function () {
+                    if (!this.activePlan || !this.activePlan.sections) return;
+                    var phase = this.activePlan.sections[this.activePhaseIndex];
+                    var sndPreset = (this.activePlan.soundAlert && this.activePlan.soundAlert.preset) || 'chime';
+                    var sndVol = (this.activePlan.soundAlert && this.activePlan.soundAlert.volume) || 90;
+
+                    if (typeof LessonCreatorService !== 'undefined' && LessonCreatorService.playPresetSound) {
+                        LessonCreatorService.playPresetSound(sndPreset, sndVol);
+                    }
+
+                    var isLast = this.activePhaseIndex >= this.activePlan.sections.length - 1;
+                    var nextTitle = !isLast ? this.activePlan.sections[this.activePhaseIndex + 1].title : '';
+
+                    if (typeof showToast === 'function') {
+                        showToast('Phase ' + (this.activePhaseIndex + 1) + ' completed!' + (nextTitle ? ' Ready for: ' + nextTitle : ''));
+                    }
+
+                    if (!isLast) {
+                        this.nextPhase();
+                    }
+                },
+
+                onTimerFinished: function () {
+                    this.completePhase();
+                }
+            };
+
+            // Initialize runner
+            window.addEventListener('DOMContentLoaded', function () {
+                setTimeout(function () { CmsLessonRunner.init(); }, 400);
+            });
+        })();
     </script>
 
 </body>

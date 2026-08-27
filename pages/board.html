@@ -4309,7 +4309,13 @@
 
         refreshCurrentGame();
         renderGameTeamUI();
-        if (sectionId === 'history-section') historyRefreshList();
+        if (sectionId === 'history-section') {
+          if (!historyHasLoaded && typeof historyRefreshList === 'function') {
+            historyRefreshList();
+          } else if (typeof historyRenderList === 'function') {
+            historyRenderList();
+          }
+        }
         if (sectionId === 'constellation-section') {
           if (typeof window.conScheduleLayoutRefresh === 'function') {
             window.conScheduleLayoutRefresh();
@@ -4320,7 +4326,11 @@
         }
       } else {
         populateAllThemeMenus();
-        if (typeof historyRefreshList === 'function') historyRefreshList();
+        if (!historyHasLoaded && typeof historyRefreshList === 'function') {
+          historyRefreshList();
+        } else if (typeof historyRenderList === 'function') {
+          historyRenderList();
+        }
       }
     }
     window.navTo = navTo;
@@ -4892,7 +4902,11 @@
         if (window.conSetTitle) window.conSetTitle(newFolder);
         const titleEl = document.getElementById('con-title-input');
         if (titleEl) titleEl.value = newFolder;
-        if (typeof historyRefreshList === 'function') await historyRefreshList();
+        if (typeof historyUpdateRenamedEntry === 'function') {
+          historyUpdateRenamedEntry('mindmaps', oldFileValue, nextFilename, newFolder ? (newFolder + '/' + nextFilename) : nextFilename);
+        } else if (typeof historyRenderList === 'function') {
+          historyRenderList();
+        }
         conUpdateRenameButtonVisibility();
         mdbToast('✅ Renamed to slot: ' + nextFilename);
         return true;
@@ -5022,7 +5036,11 @@
 
         if (window.conSetTitle) window.conSetTitle(newFolder);
         if (input) input.value = newFolder;
-        if (typeof historyRefreshList === 'function') await historyRefreshList();
+        if (typeof historyUpdateRenamedEntry === 'function') {
+          historyUpdateRenamedEntry('mindmaps', oldFileValue, nextFilename, newFolder ? (newFolder + '/' + nextFilename) : nextFilename);
+        } else if (typeof historyRenderList === 'function') {
+          historyRenderList();
+        }
         conUpdateRenameButtonVisibility();
         mdbToast('✅ File renamed to: ' + cleanBase);
       } catch (error) {
@@ -23292,10 +23310,8 @@
       bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
-      if (activeSection === 'main-menu') {
-        if (typeof historyRefreshList === 'function') {
-          setTimeout(() => { historyRefreshList(); }, 50);
-        }
+      if (typeof historyRefreshList === 'function' && !historyHasLoaded) {
+        setTimeout(() => { historyRefreshList(); }, 50);
       }
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
@@ -31038,6 +31054,9 @@
         if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
         conSetAttachmentsFromSession(archiveBundle.attachments);
         if (window.conUpdatePageBar) window.conUpdatePageBar();
+        if (typeof historyUpsertEntry === 'function') {
+          historyUpsertEntry('mindmaps', archiveBundle.filename, archiveBundle.filename, archiveBundle.data, options);
+        }
         return {
           filename: archiveBundle.filename,
           folderName: null,
@@ -31057,6 +31076,10 @@
       if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
       conSetAttachmentsFromSession(bundle.attachments);
       if (window.conUpdatePageBar) window.conUpdatePageBar();
+      if (typeof historyUpsertEntry === 'function') {
+        const rel = bundle.folderName ? (bundle.folderName + '/' + bundle.filename) : bundle.filename;
+        historyUpsertEntry('mindmaps', bundle.filename, rel, bundle.data, options);
+      }
       return {
         filename: bundle.filename,
         folderName: bundle.folderName,
@@ -31247,7 +31270,7 @@
         boardSetAutosaveFingerprint('constellation', saved.data);
         conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
 
-        if (typeof historyRefreshList === 'function') historyRefreshList();
+        if (typeof historyRenderList === 'function') historyRenderList();
 
         mdbToast('✅ Duplicated: ' + saved.filename);
 
@@ -32445,6 +32468,7 @@
 
     var historyEntries = [];
     var historyLoading = false;
+    var historyHasLoaded = false;
     var historySelectedKeys = new Set();
     var historyFilterDateFrom = '';
     var historyFilterDateTo = '';
@@ -32712,7 +32736,7 @@
         const result = await Desktop.renameByPath(entry.target, move.from, move.to);
         if (!result || !result.ok) throw new Error(result && result.error ? result.error : 'Archive failed.');
         mdbToast('✔ Archived.');
-        await historyRefreshList();
+        historyUpdateArchiveState(entry, 'archive');
       } catch (error) {
         mdbToast('⚠️ Could not archive: ' + (error && error.message ? error.message : String(error)));
       }
@@ -32730,7 +32754,7 @@
         const result = await Desktop.renameByPath(entry.target, move.from, move.to);
         if (!result || !result.ok) throw new Error(result && result.error ? result.error : 'Unarchive failed.');
         mdbToast('✔ Unarchived.');
-        await historyRefreshList();
+        historyUpdateArchiveState(entry, 'unarchive');
       } catch (error) {
         mdbToast('⚠️ Could not unarchive: ' + (error && error.message ? error.message : String(error)));
       }
@@ -32753,7 +32777,7 @@
         } catch { failed++; }
       }
       mdbToast(failed ? '⚠️ Archived ' + done + ', ' + failed + ' failed.' : '✔ Archived ' + done + ' file(s).');
-      await historyRefreshList();
+      historyUpdateArchiveState(toArchive, 'archive');
     }
 
     async function historyUnarchiveSelected() {
@@ -32773,7 +32797,7 @@
         } catch { failed++; }
       }
       mdbToast(failed ? '⚠️ Unarchived ' + done + ', ' + failed + ' failed.' : '✔ Unarchived ' + done + ' file(s).');
-      await historyRefreshList();
+      historyUpdateArchiveState(toUnarchive, 'unarchive');
     }
 
     async function historyZipSingleEntry(entry) {
@@ -32838,7 +32862,7 @@
         const count = res.deletedCount || res.count || entries.length;
         mdbToast('✔ Created ' + res.zipFilename + ' and deleted ' + count + ' original file(s).');
         historySelectedKeys.clear();
-        await historyRefreshList();
+        historyRecordZipped(entries, res.zipFilename || requestedName, 'archived/' + (res.zipFilename || requestedName), target);
       } catch (error) {
         mdbToast('⚠️ Could not zip files: ' + (error && error.message ? error.message : String(error)));
       }
@@ -33002,6 +33026,169 @@
         modifiedAt,
         size: Number(file && file.size) || 0
       };
+    }
+
+    function historyFindEntryIndex(target, relOrFilename) {
+      if (!relOrFilename) return -1;
+      target = target || 'mindmaps';
+      const normRel = historyNormalizeRelativePath(relOrFilename);
+      const normBase = boardStripJsonExt(relOrFilename).toLowerCase();
+      const normFile = String(relOrFilename || '').replace(/\\/g, '/').split('/').pop().toLowerCase();
+      return historyEntries.findIndex(e => {
+        if (!e || e.target !== target) return false;
+        const eRel = historyNormalizeRelativePath(historyEntryRelativePath(e));
+        if (eRel === normRel) return true;
+        const eFile = String(e.filename || '').toLowerCase();
+        if (eFile === normFile) return true;
+        const eBase = String(e.baseName || '').toLowerCase();
+        if (eBase === normBase) return true;
+        return false;
+      });
+    }
+
+    function historyUpsertEntry(target, filename, relativePath, sessionData, options = {}) {
+      if (!filename) return;
+      target = target || 'mindmaps';
+      const rel = String(relativePath || filename).replace(/\\/g, '/');
+      const baseName = boardStripJsonExt(filename);
+      const existingIdx = historyFindEntryIndex(target, rel);
+
+      const now = Date.now();
+      let classGroup = (sessionData && (sessionData._classGroup || sessionData.classGroup)) || historyInferClassGroup(baseName);
+      let plannerEntryId = (sessionData && (sessionData._plannerEntryId || sessionData.plannerEntryId)) || '';
+      if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
+        const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+        for (const cid of Object.keys(byClass)) {
+          const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+          if (arr.some(e => e.id === plannerEntryId)) {
+            classGroup = cid;
+            break;
+          }
+        }
+      }
+      const isArchived = rel.startsWith('archived/');
+      const source = isArchived ? 'archived' : (options.isAutosave ? 'autosave' : 'manual-save');
+      const createdAt = (sessionData && Number(sessionData._createdAt || sessionData.createdAt)) || now;
+
+      const entryData = {
+        target,
+        section: historySectionFromTarget(target),
+        source,
+        filename,
+        relativePath: rel,
+        baseName,
+        classGroup,
+        plannerEntryId,
+        classLabel: getClassGroupLabel(classGroup),
+        dateKey: historyExtractDateKey(baseName, createdAt),
+        createdAt,
+        modifiedAt: now,
+        size: Number(options.size) || 0
+      };
+
+      if (existingIdx !== -1) {
+        const existing = historyEntries[existingIdx];
+        entryData.createdAt = existing.createdAt || entryData.createdAt;
+        entryData.size = (options.size !== undefined && options.size !== null && Number(options.size) > 0) ? Number(options.size) : (existing.size || 0);
+        historyEntries[existingIdx] = Object.assign(existing, entryData);
+        const key = historyEntryKey(existing);
+        if (key) historyContentCache.delete(key);
+      } else {
+        historyEntries.unshift(entryData);
+      }
+
+      historyRenderList();
+    }
+
+    function historyRemoveEntry(target, relOrFilename) {
+      const idx = historyFindEntryIndex(target, relOrFilename);
+      if (idx !== -1) {
+        const entry = historyEntries[idx];
+        const key = historyEntryKey(entry);
+        if (key) {
+          historySelectedKeys.delete(key);
+          historyContentCache.delete(key);
+        }
+        historyEntries.splice(idx, 1);
+        historyRenderList();
+      }
+    }
+
+    function historyRemoveEntries(entries) {
+      if (!Array.isArray(entries) || !entries.length) return;
+      const toRemoveKeys = new Set(entries.map(e => historyEntryKey(e)).filter(Boolean));
+      historyEntries = historyEntries.filter(e => {
+        const k = historyEntryKey(e);
+        if (k && toRemoveKeys.has(k)) {
+          historySelectedKeys.delete(k);
+          historyContentCache.delete(k);
+          return false;
+        }
+        return true;
+      });
+      historyRenderList();
+    }
+
+    function historyUpdateRenamedEntry(target, oldRelOrFilename, newFilename, newRelativePath) {
+      const idx = historyFindEntryIndex(target, oldRelOrFilename);
+      if (idx === -1) return;
+      const entry = historyEntries[idx];
+      const oldKey = historyEntryKey(entry);
+      if (oldKey) {
+        historySelectedKeys.delete(oldKey);
+        historyContentCache.delete(oldKey);
+      }
+      const rel = (newRelativePath || newFilename).replace(/\\/g, '/');
+      entry.filename = newFilename;
+      entry.relativePath = rel;
+      entry.baseName = boardStripJsonExt(newFilename);
+      entry.classGroup = historyInferClassGroup(entry.baseName) || entry.classGroup;
+      entry.classLabel = getClassGroupLabel(entry.classGroup);
+      entry.dateKey = historyExtractDateKey(entry.baseName, entry.createdAt || entry.modifiedAt);
+      entry.modifiedAt = Date.now();
+      historyRenderList();
+    }
+
+    function historyUpdateArchiveState(entries, mode) {
+      if (!Array.isArray(entries)) entries = [entries];
+      entries.forEach(entry => {
+        if (!entry) return;
+        const oldKey = historyEntryKey(entry);
+        if (oldKey) {
+          historySelectedKeys.delete(oldKey);
+          historyContentCache.delete(oldKey);
+        }
+        const move = historyArchiveMovePaths(entry, mode);
+        if (move) {
+          entry.relativePath = move.to.replace(/\\/g, '/');
+          entry.source = (mode === 'archive') ? 'archived' : 'manual-save';
+        }
+      });
+      historyRenderList();
+    }
+
+    function historyRecordZipped(deletedEntries, zipFilename, zipRelativePath, target) {
+      historyRemoveEntries(deletedEntries);
+      target = target || 'mindmaps';
+      const rel = (zipRelativePath || ('archived/' + zipFilename)).replace(/\\/g, '/');
+      const baseName = boardStripJsonExt(zipFilename);
+      const now = Date.now();
+      historyEntries.unshift({
+        target,
+        section: historySectionFromTarget(target),
+        source: 'archived',
+        filename: zipFilename,
+        relativePath: rel,
+        baseName,
+        classGroup: '',
+        plannerEntryId: '',
+        classLabel: '',
+        dateKey: historyExtractDateKey(baseName, now),
+        createdAt: now,
+        modifiedAt: now,
+        size: 0
+      });
+      historyRenderList();
     }
 
     function historySetStatus(text) {
@@ -33345,6 +33532,7 @@
         }
       } finally {
         historyLoading = false;
+        historyHasLoaded = true;
         historyRenderList();
         setTimeout(() => { historyEnrichEntryClassGroups(); }, 60);
       }
@@ -33570,11 +33758,13 @@
       historyBulkDeleteOpen('Delete ' + entriesToDelete.length + ' selected file(s)? This cannot be undone.', async () => {
         let deleted = 0;
         let failed = 0;
+        const deletedEntries = [];
         for (const entry of entriesToDelete) {
           try {
             const result = await historyDeleteSavedEntry(entry);
             if (result && result.ok) {
               deleted += 1;
+              deletedEntries.push(entry);
             } else {
               failed += 1;
             }
@@ -33587,7 +33777,7 @@
         } else {
           mdbToast('✔ Deleted ' + deleted + ' selected file(s).');
         }
-        await historyRefreshList();
+        historyRemoveEntries(deletedEntries);
       });
     }
 
@@ -33607,11 +33797,13 @@
       historyBulkDeleteOpen('Delete ' + entriesToDelete.length + ' file(s) in this view (' + scopeLabel + ')? This cannot be undone.', async () => {
         let deleted = 0;
         let failed = 0;
+        const deletedEntries = [];
         for (const entry of entriesToDelete) {
           try {
             const result = await historyDeleteSavedEntry(entry);
             if (result && result.ok) {
               deleted += 1;
+              deletedEntries.push(entry);
             } else {
               failed += 1;
             }
@@ -33624,7 +33816,7 @@
         } else {
           mdbToast('✔ Deleted ' + deleted + ' file(s).');
         }
-        await historyRefreshList();
+        historyRemoveEntries(deletedEntries);
       });
     }
 
@@ -33950,7 +34142,19 @@
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Rename failed.');
         }
-        await historyRefreshList();
+        let newRelPath = newFilename;
+        if (historyEntryIsNestedPath(entry)) {
+          const rel = historyEntryRelativePath(entry);
+          const parts = rel.split('/').filter(Boolean);
+          if (entry.target === 'mindmaps' && parts.length === 2) {
+            const newFolder = boardStripJsonExt(newFilename);
+            newRelPath = (newFolder || parts[0]) + '/' + newFilename;
+          } else {
+            const parent = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+            newRelPath = parent ? (parent + '/' + newFilename) : newFilename;
+          }
+        }
+        historyUpdateRenamedEntry(entry.target, historyEntryRelativePath(entry), newFilename, newRelPath);
       } catch (error) {
         mdbToast('⚠️ Could not rename file: ' + (error && error.message ? error.message : String(error)));
       }
@@ -34028,7 +34232,7 @@
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Delete failed.');
         }
-        await historyRefreshList();
+        historyRemoveEntry(entry.target, historyEntryRelativePath(entry));
       } catch (error) {
         mdbToast('⚠️ Could not delete file: ' + (error && error.message ? error.message : String(error)));
       }
@@ -34197,7 +34401,12 @@
           throw new Error(saveResult && saveResult.error ? saveResult.error : 'Duplicate failed.');
         }
 
-        await historyRefreshList();
+        const dupRelPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
+          ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
+          : duplicateFilename;
+        let parsedData = null;
+        try { parsedData = boardParseSessionText(duplicateContent); } catch (e) { }
+        historyUpsertEntry(entry.target, duplicateFilename, dupRelPath, parsedData || {});
 
         if (entry.section === 'constellation' && relinkAfterDuplicate) {
           const relPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))

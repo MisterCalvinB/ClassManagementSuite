@@ -23,42 +23,46 @@
       window.__plannerBoot = (async function () {
         if (!window.Desktop || !Desktop.isElectron()) return;
         window.__plannerKnownClassFiles = window.__plannerKnownClassFiles || {};
-        async function load(target, file) {
-          try {
-            var r = await Desktop.readText(target, file);
-            if (r && r.ok) injectScript(r.content, target + '/' + file);
-          } catch (e) { }
+        window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};
+
+        var pClassGroups = Desktop.readText('user', 'class-groups.js').catch(function () { return null; });
+        var pPlannerConfig = Desktop.readText('user', 'planner-config.js').catch(function () { return null; });
+        var pTodos = Desktop.readText('user', 'todos.js').catch(function () { return null; });
+        var pSubCache = Desktop.readByPath('user', 'planner/subscription-cache.json').catch(function () { return null; });
+        var pListPlanner = Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] }).catch(function () { return null; });
+
+        var res = await Promise.all([pClassGroups, pPlannerConfig, pTodos, pSubCache, pListPlanner]);
+        var rGroups = res[0], rCfg = res[1], rTodos = res[2], rSub = res[3], _lr = res[4];
+
+        if (rGroups && rGroups.ok && rGroups.content) injectScript(rGroups.content, 'user/class-groups.js');
+        if (rCfg && rCfg.ok && rCfg.content) injectScript(rCfg.content, 'user/planner-config.js');
+        if (rTodos && rTodos.ok && rTodos.content) injectScript(rTodos.content, 'user/todos.js');
+        if (rSub && rSub.ok && rSub.content) {
+          try { window.PLANNER_SUBSCRIPTION_CACHE = JSON.parse(rSub.content); } catch (_) { }
         }
-        window.PLANNER_ENTRIES_BY_CLASS = {};
-        async function loadByPath(target, relPath) {
-          try {
-            var r = await Desktop.readByPath(target, relPath);
-            if (r && r.ok) injectScript(r.content, target + '/' + relPath);
-          } catch (e) { }
-        }
-        await load('user', 'class-groups.js');
-        await load('user', 'planner-config.js');
-        // Load every .js file in user/planner/ (covers Group Editor classes AND planner-only classes)
-        try {
-          var _lr = await Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] });
-          if (_lr && _lr.ok && Array.isArray(_lr.files)) {
-            for (var _i = 0; _i < _lr.files.length; _i++) {
-              var _rp = String((_lr.files[_i] && _lr.files[_i].relativePath) || '');
-              var _base = _rp.split('/').pop() || '';
-              if (/\.js$/i.test(_base)) {
-                var _cid = _base.replace(/\.js$/i, '');
-                if (_cid === '__unassigned') _cid = '';
-                window.__plannerKnownClassFiles[_cid] = true;
-              }
-              await loadByPath('user', _lr.files[_i].relativePath);
+
+        if (_lr && _lr.ok && Array.isArray(_lr.files) && _lr.files.length) {
+          var classFileTasks = _lr.files.map(async function (f) {
+            var _rp = String((f && f.relativePath) || '');
+            var _base = _rp.split('/').pop() || '';
+            if (/\.js$/i.test(_base)) {
+              var _cid = _base.replace(/\.js$/i, '');
+              if (_cid === '__unassigned') _cid = '';
+              window.__plannerKnownClassFiles[_cid] = true;
             }
-          }
-        } catch (_e) { }
+            var r = await Desktop.readByPath('user', _rp);
+            if (r && r.ok && r.content) injectScript(r.content, 'user/' + _rp);
+          });
+          await Promise.all(classFileTasks);
+        }
+
         var _hasClassFiles = Object.keys(window.PLANNER_ENTRIES_BY_CLASS).some(function (k) { return k !== ''; });
         if (!_hasClassFiles) {
-          await load('user', 'planner-entries.js');
+          try {
+            var rLegacy = await Desktop.readText('user', 'planner-entries.js');
+            if (rLegacy && rLegacy.ok && rLegacy.content) injectScript(rLegacy.content, 'user/planner-entries.js');
+          } catch (_) { }
         }
-        await load('user', 'todos.js');
       })();
     })();
   </script>
@@ -1553,10 +1557,19 @@
         plannerPins = [];
       }
 
-      // CLASS_GROUPS_DATA uses const — accessible as bare global, not window.*
+      // CLASS_GROUPS_DATA uses const — accessible as bare global, or on window
       if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
         classGroups = CLASS_GROUPS_DATA.classGroups || {};
         classGroupsMeta = CLASS_GROUPS_DATA.classGroupsMeta || {};
+      } else if (typeof window.CLASS_GROUPS_DATA !== 'undefined' && window.CLASS_GROUPS_DATA) {
+        classGroups = window.CLASS_GROUPS_DATA.classGroups || {};
+        classGroupsMeta = window.CLASS_GROUPS_DATA.classGroupsMeta || {};
+      } else if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) {
+        classGroupsMeta = CLASS_GROUPS_META;
+      } else if (typeof window.CLASS_GROUPS_META !== 'undefined' && window.CLASS_GROUPS_META) {
+        classGroupsMeta = window.CLASS_GROUPS_META;
+      } else if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) {
+        classGroups = CLASS_GROUPS;
       }
       if (window.PLANNER_CONFIG) {
         var raw = window.PLANNER_CONFIG;
@@ -1724,29 +1737,46 @@
     async function loadPartDates() {
       if (!window.Desktop || !Desktop.isElectron()) return;
       var ids = getActiveClassIds();
-      for (var i = 0; i < ids.length; i++) {
-        var cid = ids[i];
+      if (!ids.length) return;
+      var hadDates = false;
+      await Promise.all(ids.map(async function (cid) {
         try {
           var r = await Desktop.readText('groupParticipation', cid + '.js');
-          if (!r || !r.ok) continue;
+          if (!r || !r.ok || !r.content) return;
           var dates = new Set(), re = /"id"\s*:\s*"(\d{4}-\d{2}-\d{2})/g, m;
           while ((m = re.exec(r.content)) !== null) dates.add(m[1]);
-          partDates[cid] = dates;
+          if (dates.size > 0) {
+            partDates[cid] = dates;
+            hadDates = true;
+          }
         } catch (e) { }
-      }
-      renderAgenda();
+      }));
+      if (hadDates) renderAgenda();
+    }
+
+    var _plannerBoardMetaCache = (function () {
+      try {
+        return JSON.parse(sessionStorage.getItem('cmt-planner-board-cache') || '{}');
+      } catch (e) { return {}; }
+    })();
+
+    function _savePlannerBoardMetaCache() {
+      try {
+        sessionStorage.setItem('cmt-planner-board-cache', JSON.stringify(_plannerBoardMetaCache));
+      } catch (e) { }
     }
 
     async function loadBoardSessions() {
       if (!window.Desktop || !Desktop.isElectron()) return;
       function addLinkedBoardSession(linkId, session, dedupe) {
-        if (!linkId || !session) return;
+        if (!linkId || !session) return false;
         if (!boardSessionsByEntryId[linkId]) boardSessionsByEntryId[linkId] = [];
         var key = String(dedupe || session.id || '') + '|' + String(session.openKind || 'local');
         var arr = boardSessionsByEntryId[linkId];
-        if (arr.some(function (x) { return (String(x._k || '') === key); })) return;
+        if (arr.some(function (x) { return (String(x._k || '') === key); })) return false;
         session._k = key;
         arr.push(session);
+        return true;
       }
 
       function extractPlannerEntryId(content) {
@@ -1769,6 +1799,7 @@
         return false;
       }
 
+      var hadChanges = false;
       try {
         var r = await Desktop.readJson('user', 'board-sessions-backup.json');
         boardSessionsByEntryId = {};
@@ -1783,13 +1814,15 @@
               if (section === 'constellation') return;
               var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
               if (!eid) return;
-              addLinkedBoardSession(eid, {
+              if (addLinkedBoardSession(eid, {
                 id: String(e.id),
                 name: String(e.name || ''),
                 section: section,
                 savedAt: Number(e.savedAt) || 0,
                 openKind: 'local'
-              }, section + ':' + String(e.id));
+              }, section + ':' + String(e.id))) {
+                hadChanges = true;
+              }
             });
           });
         }
@@ -1798,27 +1831,41 @@
           var filesRes = await Desktop.listByPath('mindmaps', '.', { extensions: ['.js', '.json', '.cstz', '.zip'], recursive: true });
           var files = (filesRes && filesRes.ok && Array.isArray(filesRes.files)) ? filesRes.files : [];
           var candidates = files.filter(isMindmapSessionFile);
-          for (var i = 0; i < candidates.length; i++) {
-            var f = candidates[i];
-            var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
-            if (!relPath) continue;
-            try {
-              var isArchive = relPath.endsWith('.cstz') || relPath.endsWith('.zip');
+          var cacheUpdated = false;
+
+          var BATCH = 8;
+          for (var i = 0; i < candidates.length; i += BATCH) {
+            var batch = candidates.slice(i, i + BATCH);
+            await Promise.all(batch.map(async function (f) {
+              var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
+              if (!relPath) return;
+              var cacheKey = relPath + ':' + (f.mtimeMs || f.size || 0);
               var peid = '';
-              if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
-                var inspectRes = await Desktop.inspectBoardArchive('mindmaps', relPath);
-                if (inspectRes && inspectRes.ok) {
-                  peid = inspectRes.plannerEntryId || '';
-                }
-              } else if (typeof Desktop.readByPath === 'function') {
-                var fileRes = await Desktop.readByPath('mindmaps', relPath);
-                if (fileRes && fileRes.ok && fileRes.content) {
-                  peid = extractPlannerEntryId(fileRes.content);
-                }
+
+              if (_plannerBoardMetaCache && typeof _plannerBoardMetaCache[cacheKey] === 'string') {
+                peid = _plannerBoardMetaCache[cacheKey];
+              } else {
+                try {
+                  var isArchive = relPath.endsWith('.cstz') || relPath.endsWith('.zip');
+                  if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+                    var inspectRes = await Desktop.inspectBoardArchive('mindmaps', relPath);
+                    if (inspectRes && inspectRes.ok) {
+                      peid = inspectRes.plannerEntryId || '';
+                    }
+                  } else if (typeof Desktop.readByPath === 'function') {
+                    var fileRes = await Desktop.readByPath('mindmaps', relPath);
+                    if (fileRes && fileRes.ok && fileRes.content) {
+                      peid = extractPlannerEntryId(fileRes.content);
+                    }
+                  }
+                  _plannerBoardMetaCache[cacheKey] = peid;
+                  cacheUpdated = true;
+                } catch (_fileErr) { }
               }
-              if (!peid) continue;
+
+              if (!peid) return;
               var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json|cstz|zip)$/i, '');
-              addLinkedBoardSession(peid, {
+              if (addLinkedBoardSession(peid, {
                 id: 'path:' + relPath,
                 name: label,
                 section: 'constellation',
@@ -1827,14 +1874,17 @@
                 target: 'mindmaps',
                 filename: String(f.filename || relPath.split('/').pop() || ''),
                 relativePath: relPath
-              }, 'file:' + relPath);
-            } catch (_fileErr) { }
+              }, 'file:' + relPath)) {
+                hadChanges = true;
+              }
+            }));
           }
+          if (cacheUpdated) _savePlannerBoardMetaCache();
         }
       } catch (_) { }
 
       if (typeof tdPruneMissingMindmapLinks === 'function') tdPruneMissingMindmapLinks();
-      renderAgenda();
+      if (hadChanges) renderAgenda();
     }
 
     function openLinkedBoard(entryId) {
@@ -6857,6 +6907,7 @@
     }
 
     async function loadSubscriptionsCache() {
+      if (window.PLANNER_SUBSCRIPTION_CACHE && Object.keys(window.PLANNER_SUBSCRIPTION_CACHE).length) return;
       window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
       if (!window.Desktop || !Desktop.isElectron()) return;
       try {
