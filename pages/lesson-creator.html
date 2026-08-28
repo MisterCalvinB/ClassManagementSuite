@@ -33,6 +33,7 @@
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcOpenSequenceModal()"><span data-i18n="lcManageSequences">Unit Sequences…</span></button>
           <button class="nav-pop-item" onclick="lcOpenTemplatePicker()"><span data-i18n="lcApplyTemplate">Lesson Templates…</span></button>
+          <button class="nav-pop-item" onclick="lcSaveAsTemplate()"><span data-i18n="lcSaveAsTemplate">Save as Template…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcResetPlan()"><span data-i18n="lcResetPlan">Reset to Blank</span></button>
         </div>
@@ -184,9 +185,13 @@
 
       <!-- Right Panel: Competence Bank Drawer -->
       <div class="descriptor-drawer" id="descriptorDrawer">
+        <div class="drawer-resizer-handle" id="drawerResizer" title="Drag to resize panel width"></div>
         <div class="drawer-header">
           <div class="drawer-title"><span data-i18n="lcCompetenceBank">Competence Bank</span></div>
-          <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenCompetenceCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
+            <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+          </div>
         </div>
 
         <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search competences, code, words…" data-i18n-placeholder="lcSearchCompetences" oninput="lcFilterDrawer()">
@@ -204,6 +209,11 @@
           <select id="drawerFilterSubCategory" class="drawer-select" onchange="lcFilterDrawer()">
             <option value="all" data-i18n="lcAllSubCategories">All Subcategories</option>
           </select>
+        </div>
+
+        <div class="drawer-top-info">
+          <span id="drawerMatchCount" class="drawer-match-badge">0 competences</span>
+          <div id="drawerActiveFilters" class="drawer-active-filters-bar"></div>
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
@@ -226,6 +236,118 @@
   </div>
 
   <!-- ── 5. Modals ────────────────────────────────────────────────────────── -->
+
+  <!-- Competence Customise View Modal -->
+  <div id="competenceCustomizeModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <div><span data-i18n="lcCustomiseTitle">Customise Competence Panel</span></div>
+        <button class="icon-btn" onclick="lcCloseModal('competenceCustomizeModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Display Preset Selection -->
+        <div>
+          <label style="font-weight:900;font-size:0.9rem;display:block;margin-bottom:6px;" data-i18n="lcPresetLabel">Display Presets:</label>
+          <div style="display:flex;gap:16px;">
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="detailed" onchange="lcOnPresetChange('detailed')">
+              <span data-i18n="lcPresetDetailed">Detailed (Full)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="compact" onchange="lcOnPresetChange('compact')">
+              <span data-i18n="lcPresetCompact">Compact (Summary)</span>
+            </label>
+            <label style="font-weight:700;font-size:0.85rem;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="compPresetMode" value="minimal" onchange="lcOnPresetChange('minimal')">
+              <span data-i18n="lcPresetMinimal">Minimal (Code & Title)</span>
+            </label>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px dashed var(--neo-gray-mid);margin:8px 0;">
+
+        <!-- Field Visibility Toggles Grid -->
+        <div style="font-weight:900;font-size:0.9rem;margin-bottom:8px;" data-i18n="lcFieldVisibility">Competence Card Field Visibility:</div>
+        <div class="customize-field-grid">
+          
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowCode">Competence Code</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowCode" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowTitle">Title & Name</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowTitle" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowDescription">Full Description</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowDescription" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowLevel">Level / Tier Badge</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowLevel" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowCategory">Category Tags</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowCategory" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowTags">Keywords & Tag Pills</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowTags" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowComments">Notes & Sample Tasks</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowComments" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+          <div class="customize-toggle-item">
+            <span data-i18n="lcShowActions">Action Buttons (+ Tag)</span>
+            <label class="neo-switch">
+              <input type="checkbox" id="cfgShowActions" checked>
+              <span class="neo-switch-slider"></span>
+            </label>
+          </div>
+
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn danger" onclick="lcResetCompetenceConfig()"><span data-i18n="lcResetDefaults">Reset Defaults</span></button>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="neo-btn" onclick="lcCloseModal('competenceCustomizeModal')"><span data-i18n="btnCancel">Cancel</span></button>
+          <button class="neo-btn primary" onclick="lcSaveCompetenceConfig()"><span data-i18n="btnSave">Save & Apply</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Coverage Matrix Modal -->
   <div id="coverageModal" class="modal-overlay" style="display:none;">
@@ -387,16 +509,19 @@
 
   <!-- Template Picker Modal -->
   <div id="templateModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:580px;">
+    <div class="modal-box" style="max-width:620px;">
       <div class="modal-header">
         <div><span data-i18n="lcChooseTemplate">Choose Lesson Template</span></div>
         <button class="icon-btn" onclick="lcCloseModal('templateModal')">&times;</button>
       </div>
+      <div style="padding:12px 20px 0 20px;display:flex;justify-content:flex-end;">
+        <button class="neo-btn success" style="padding:5px 12px;font-size:0.82rem;" onclick="lcSaveAsTemplate()">+ <span data-i18n="lcSaveAsTemplate">Save Current Plan as Template…</span></button>
+      </div>
       <div class="modal-body" id="templateOptionsList" style="display:flex;flex-direction:column;gap:10px;">
-        <!-- Populated from LessonCreatorService.LESSON_TEMPLATES -->
+        <!-- Populated from LessonCreatorService.LESSON_TEMPLATES & userCustomTemplates -->
       </div>
       <div class="modal-footer">
-        <button class="neo-btn" onclick="lcCloseModal('templateModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <button class="neo-btn" onclick="lcCloseModal('templateModal')"><span data-i18n="btnClose">Close</span></button>
       </div>
     </div>
   </div>
@@ -465,14 +590,207 @@
     (function () {
       'use strict';
 
-      var currentPlan = LessonCreatorService.createBlankLessonPlan();
+      var currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
       var currentSequence = null;
       var allCompetences = [];
       var allDescriptors = allCompetences;
       var allSavedPlans = [];
+      var userCustomTemplates = [];
       var allClassGroups = {};
       var isDirty = false;
       var activeDraggingIndex = -1;
+
+      async function loadCustomTemplates() {
+        userCustomTemplates = [];
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'custom-lesson-templates.json');
+            if (res && res.ok && res.content) {
+              var parsed = JSON.parse(res.content);
+              if (Array.isArray(parsed)) userCustomTemplates = parsed;
+            }
+          }
+        } catch (_) {}
+
+        if (!userCustomTemplates.length) {
+          try {
+            var local = localStorage.getItem('cmt-custom-lesson-templates');
+            if (local) {
+              var parsedLocal = JSON.parse(local);
+              if (Array.isArray(parsedLocal)) userCustomTemplates = parsedLocal;
+            }
+          } catch (_) {}
+        }
+      }
+
+      async function saveCustomTemplatesToDisk() {
+        try {
+          localStorage.setItem('cmt-custom-lesson-templates', JSON.stringify(userCustomTemplates));
+        } catch (_) {}
+
+        try {
+          if (window.Desktop && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'custom-lesson-templates.json', userCustomTemplates);
+          } else if (window.Desktop && typeof Desktop.readText === 'function' && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'custom-lesson-templates.json', JSON.stringify(userCustomTemplates, null, 2));
+          }
+        } catch (_) {}
+      }
+
+      var DEFAULT_COMPETENCE_CONFIG = {
+        preset: 'detailed',
+        showCode: true,
+        showTitle: true,
+        showDescription: true,
+        showLevel: true,
+        showCategory: true,
+        showTags: true,
+        showComments: true,
+        showActions: true,
+        drawerWidth: 400
+      };
+
+      var competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+
+      function applyDrawerWidth() {
+        var workspace = document.getElementById('mainWorkspace');
+        if (workspace && competenceDisplayConfig && competenceDisplayConfig.drawerWidth) {
+          workspace.style.setProperty('--drawer-width', competenceDisplayConfig.drawerWidth + 'px');
+        }
+      }
+
+      async function loadCompetenceDisplayConfig() {
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'competence-display-config.json');
+            if (res && res.ok && res.content) {
+              var parsed = JSON.parse(res.content);
+              if (parsed && typeof parsed === 'object') {
+                competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsed);
+                applyDrawerWidth();
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+
+        try {
+          var local = localStorage.getItem('cmt-competence-display-config');
+          if (local) {
+            var parsedLocal = JSON.parse(local);
+            if (parsedLocal && typeof parsedLocal === 'object') {
+              competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsedLocal);
+              applyDrawerWidth();
+            }
+          }
+        } catch (_) {}
+      }
+
+      async function saveCompetenceDisplayConfigToDisk() {
+        try {
+          localStorage.setItem('cmt-competence-display-config', JSON.stringify(competenceDisplayConfig));
+        } catch (_) {}
+
+        try {
+          if (window.Desktop && typeof Desktop.saveJson === 'function') {
+            await Desktop.saveJson('user', 'competence-display-config.json', competenceDisplayConfig);
+          } else if (window.Desktop && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'competence-display-config.json', JSON.stringify(competenceDisplayConfig, null, 2));
+          }
+        } catch (_) {}
+      }
+
+      function initDrawerResizer() {
+        var resizer = document.getElementById('drawerResizer');
+        var workspace = document.getElementById('mainWorkspace');
+        var drawer = document.getElementById('descriptorDrawer');
+        if (!resizer || !workspace || !drawer) return;
+
+        applyDrawerWidth();
+
+        var startX = 0;
+        var startWidth = 0;
+        var isResizing = false;
+
+        function onMouseDown(e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          isResizing = true;
+          startX = e.clientX;
+          startWidth = drawer.offsetWidth;
+          workspace.classList.add('resizing');
+          resizer.classList.add('resizing');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        }
+
+        function onMouseMove(e) {
+          if (!isResizing) return;
+          var deltaX = startX - e.clientX;
+          var newWidth = Math.max(260, Math.min(850, startWidth + deltaX));
+          workspace.style.setProperty('--drawer-width', newWidth + 'px');
+        }
+
+        function onMouseUp() {
+          if (!isResizing) return;
+          isResizing = false;
+          workspace.classList.remove('resizing');
+          resizer.classList.remove('resizing');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+
+          var computedWidth = drawer.offsetWidth;
+          if (computedWidth && computedWidth > 100) {
+            competenceDisplayConfig.drawerWidth = computedWidth;
+            saveCompetenceDisplayConfigToDisk();
+          }
+        }
+
+        function onTouchStart(e) {
+          if (!e.touches || !e.touches[0]) return;
+          isResizing = true;
+          startX = e.touches[0].clientX;
+          startWidth = drawer.offsetWidth;
+          workspace.classList.add('resizing');
+          resizer.classList.add('resizing');
+
+          window.addEventListener('touchmove', onTouchMove, { passive: false });
+          window.addEventListener('touchend', onTouchEnd);
+        }
+
+        function onTouchMove(e) {
+          if (!isResizing || !e.touches || !e.touches[0]) return;
+          e.preventDefault();
+          var deltaX = startX - e.touches[0].clientX;
+          var newWidth = Math.max(260, Math.min(850, startWidth + deltaX));
+          workspace.style.setProperty('--drawer-width', newWidth + 'px');
+        }
+
+        function onTouchEnd() {
+          if (!isResizing) return;
+          isResizing = false;
+          workspace.classList.remove('resizing');
+          resizer.classList.remove('resizing');
+
+          window.removeEventListener('touchmove', onTouchMove);
+          window.removeEventListener('touchend', onTouchEnd);
+
+          var computedWidth = drawer.offsetWidth;
+          if (computedWidth && computedWidth > 100) {
+            competenceDisplayConfig.drawerWidth = computedWidth;
+            saveCompetenceDisplayConfigToDisk();
+          }
+        }
+
+        resizer.addEventListener('mousedown', onMouseDown);
+        resizer.addEventListener('touchstart', onTouchStart, { passive: true });
+      }
 
       // ── Initialization ───────────────────────────────────────────────────
       window.addEventListener('DOMContentLoaded', async function () {
@@ -480,9 +798,12 @@
         if (typeof initHamburger === 'function') initHamburger();
 
         initDropdowns();
+        await loadCompetenceDisplayConfig();
+        initDrawerResizer();
         await loadClassRosters();
         await loadSavedDescriptors();
         await loadSavedPlansIndex();
+        await loadCustomTemplates();
 
         // Check URL parameters for linked planner slot or plan ID
         var params = new URLSearchParams(window.location.search);
@@ -724,13 +1045,25 @@
           if (currentPlan) currentPlan.yearLevel = planYrSelect.value;
         }
 
-        // 4. planClass (drawn ONLY from competence list in user or user rosters)
+        // 4. planClass (drawn from student rosters in CLASS_GROUPS and competence list)
         if (planClassSelect) {
           planClassSelect.innerHTML = '<option value="" data-i18n="lcSelectClass">Select Class…</option>';
-          var availableClasses = new Set(classes);
-          if (availableClasses.size === 0 && typeof allClassGroups === 'object') {
-            Object.keys(allClassGroups).forEach(function (cId) { availableClasses.add(cId); });
+          var availableClasses = new Set();
+
+          // Always add teacher's class rosters first
+          if (allClassGroups && typeof allClassGroups === 'object') {
+            Object.keys(allClassGroups).forEach(function (cId) {
+              if (cId) availableClasses.add(cId);
+            });
           }
+
+          // Also include any specific classes tagged in competences
+          classes.forEach(function (cId) {
+            if (cId && cId !== 'all') availableClasses.add(cId);
+          });
+
+          // Ensure current plan's classId is included if set
+          if (currentPlanClass) availableClasses.add(currentPlanClass);
 
           availableClasses.forEach(function (cId) {
             var opt = document.createElement('option');
@@ -738,8 +1071,11 @@
             opt.textContent = getClassLabel(cId);
             planClassSelect.appendChild(opt);
           });
-          if (availableClasses.has(currentPlanClass)) {
+
+          if (currentPlanClass && availableClasses.has(currentPlanClass)) {
             planClassSelect.value = currentPlanClass;
+          } else {
+            planClassSelect.value = '';
           }
         }
 
@@ -882,20 +1218,50 @@
       async function loadSavedPlansIndex() {
         allSavedPlans = [];
         try {
-          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
-            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
-            if (Array.isArray(files)) {
-              for (var i = 0; i < files.length; i++) {
-                var f = files[i];
-                if (f && f.filename && f.filename.endsWith('.json')) {
-                  var contentRes = await Desktop.readText('user', 'lessons/' + f.filename);
-                  if (contentRes && contentRes.ok && contentRes.content) {
-                    try {
-                      var p = JSON.parse(contentRes.content);
-                      allSavedPlans.push(p);
-                    } catch (_) {}
-                  }
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+            var itemsToScan = [];
+
+            // 1. Scan user/lessons/
+            var listRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
+            var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+            files.forEach(function (f) {
+              if (f && f.filename) {
+                itemsToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename) });
+              }
+            });
+
+            // 2. Scan user/ root for legacy/flat lp_ files
+            if (typeof Desktop.listFiles === 'function') {
+              var rootRes = await Desktop.listFiles('user', { extensions: ['.json'] });
+              var rootFiles = (rootRes && rootRes.ok && Array.isArray(rootRes.files)) ? rootRes.files : [];
+              rootFiles.forEach(function (rf) {
+                if (rf && rf.filename && rf.filename.startsWith('lp_')) {
+                  itemsToScan.push({ target: 'user', relPath: rf.filename });
                 }
+              });
+            }
+
+            for (var i = 0; i < itemsToScan.length; i++) {
+              var item = itemsToScan[i];
+              var contentRes = await Desktop.readByPath(item.target, item.relPath);
+              if (contentRes && contentRes.ok && contentRes.content) {
+                try {
+                  var p = JSON.parse(contentRes.content);
+                  if (p && p.id && !allSavedPlans.some(function (x) { return x.id === p.id; })) {
+                    allSavedPlans.push(p);
+                  }
+                } catch (_) {}
+              }
+            }
+          } else {
+            for (var k in localStorage) {
+              if (k && k.indexOf('cmt-lesson-') === 0) {
+                try {
+                  var p = JSON.parse(localStorage.getItem(k));
+                  if (p && p.id && !allSavedPlans.some(function (x) { return x.id === p.id; })) {
+                    allSavedPlans.push(p);
+                  }
+                } catch (_) {}
               }
             }
           }
@@ -928,6 +1294,8 @@
             clsEl.appendChild(optC);
           }
           clsEl.value = currentPlan.classId;
+        } else {
+          clsEl.value = '';
         }
 
         var yrEl = document.getElementById('planYearLevel');
@@ -946,6 +1314,22 @@
         document.getElementById('planSemester').value = currentPlan.semester || 'all';
         document.getElementById('planDate').value = currentPlan.date || '';
         document.getElementById('planTargetDuration').value = currentPlan.targetDuration || 60;
+
+        var tagInput = document.getElementById('newTagInput');
+        if (tagInput) tagInput.value = '';
+
+        var seqBar = document.getElementById('sequenceBar');
+        if (seqBar) {
+          if (currentPlan.unitSequence && currentPlan.unitSequence.title) {
+            seqBar.style.display = 'flex';
+            var seqTitle = document.getElementById('seqTitleDisplay');
+            var seqIdx = document.getElementById('seqIndexDisplay');
+            if (seqTitle) seqTitle.textContent = currentPlan.unitSequence.title;
+            if (seqIdx) seqIdx.textContent = 'Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1);
+          } else {
+            seqBar.style.display = 'none';
+          }
+        }
 
         renderTags();
         renderTeamBadge();
@@ -976,6 +1360,12 @@
       function renderPhaseCards() {
         var list = document.getElementById('phaseCardsList');
         list.innerHTML = '';
+
+        if (!currentPlan.sections || currentPlan.sections.length === 0) {
+          list.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--neo-gray-dark);font-size:0.9rem;">' +
+            '<strong>Timeline is empty</strong><br><span style="font-size:0.8rem;opacity:0.8;margin-top:6px;display:block;">Click "<strong>+ Add Phase</strong>" or load a "<strong>Template</strong>" to start building your lesson plan.</span></div>';
+          return;
+        }
 
         (currentPlan.sections || []).forEach(function (sec, idx) {
           var card = document.createElement('div');
@@ -1130,9 +1520,61 @@
       }
 
       // ── Drawer & Descriptor Bank Rendering ───────────────────────────────
+      function highlightMatchText(text, rawQuery) {
+        if (!text) return '';
+        var str = String(text);
+        if (!rawQuery) return escapeHtml(str);
+        var q = rawQuery.trim();
+        if (!q) return escapeHtml(str);
+        var escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        var regex = new RegExp('(' + escapedQuery + ')', 'gi');
+        var parts = str.split(regex);
+        return parts.map(function (part) {
+          if (part.toLowerCase() === q.toLowerCase()) {
+            return '<mark class="search-highlight">' + escapeHtml(part) + '</mark>';
+          }
+          return escapeHtml(part);
+        }).join('');
+      }
+
+      function updateDrawerInfoBars(filteredCount, totalCount, rawQuery, subId, yrId, catId, subCatId) {
+        var countEl = document.getElementById('drawerMatchCount');
+        if (countEl) {
+          countEl.textContent = 'Showing ' + filteredCount + ' of ' + totalCount + ' competences';
+        }
+
+        var filterBar = document.getElementById('drawerActiveFilters');
+        if (!filterBar) return;
+        filterBar.innerHTML = '';
+
+        var activePills = [];
+        if (rawQuery) {
+          activePills.push('<span class="drawer-filter-pill">Search: "' + escapeHtml(rawQuery) + '" <span class="drawer-filter-pill-remove" onclick="lcClearActiveFilter(\'search\')">&times;</span></span>');
+        }
+        if (subId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Subject: ' + escapeHtml(getSubjectLabel(subId)) + ' <span class="drawer-filter-pill-remove" onclick="lcClearActiveFilter(\'subject\')">&times;</span></span>');
+        }
+        if (yrId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Year: ' + escapeHtml(getYearLevelLabel(yrId)) + ' <span class="drawer-filter-pill-remove" onclick="lcClearActiveFilter(\'year\')">&times;</span></span>');
+        }
+        if (catId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Cat: ' + escapeHtml(catId) + ' <span class="drawer-filter-pill-remove" onclick="lcClearActiveFilter(\'category\')">&times;</span></span>');
+        }
+        if (subCatId !== 'all') {
+          activePills.push('<span class="drawer-filter-pill">Subcat: ' + escapeHtml(subCatId) + ' <span class="drawer-filter-pill-remove" onclick="lcClearActiveFilter(\'subcategory\')">&times;</span></span>');
+        }
+
+        if (activePills.length > 0) {
+          activePills.push('<button class="neo-btn danger" style="padding:1px 6px;font-size:0.7rem;" onclick="lcResetAllDrawerFilters()">Clear All</button>');
+        }
+
+        filterBar.innerHTML = activePills.join('');
+      }
+
       function renderDrawer() {
         var list = document.getElementById('drawerDescriptorsList');
-        var query = (document.getElementById('drawerSearch').value || '').trim().toLowerCase();
+        var rawQuery = (document.getElementById('drawerSearch').value || '').trim();
+        var query = rawQuery.toLowerCase();
         var subId = (document.getElementById('drawerFilterSubject').value || 'all').toLowerCase();
         var yrId = (document.getElementById('drawerFilterYear').value || 'all').toLowerCase();
         var catId = (document.getElementById('drawerFilterCategory').value || 'all').toLowerCase();
@@ -1181,15 +1623,26 @@
           return String(a.code || '').localeCompare(String(b.code || ''));
         });
 
+        updateDrawerInfoBars(filtered.length, allDescriptors.length, rawQuery, subId, yrId, catId, subCatId);
+
         list.innerHTML = '';
         if (filtered.length === 0) {
           list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">No competences matching filters</div>';
           return;
         }
 
+        var cfg = competenceDisplayConfig;
+
         filtered.forEach(function (d) {
           var card = document.createElement('div');
-          card.className = 'drawer-desc-card';
+          
+          var rawSub = String(d.subjectId || d.subject || 'general').toLowerCase();
+          var subClass = 'subject-' + rawSub.replace(/[^a-z0-9_]/g, '_');
+          
+          card.className = 'drawer-desc-card ' + subClass;
+          if (cfg.preset === 'compact') {
+            card.classList.add('compact-mode');
+          }
           card.draggable = true;
           card.dataset.id = d.id;
 
@@ -1209,27 +1662,156 @@
             card.classList.remove('dragging');
           });
 
-          var levelBadge = d.level ? '<span class="drawer-desc-level">' + escapeHtml(d.level) + '</span>' : '';
-          var tagDisplay = (Array.isArray(d.tags) && d.tags.length)
-            ? '<div style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + escapeHtml(d.tags.join(', ')) + '</div>'
-            : (d.tags && typeof d.tags === 'string' ? '<div style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + escapeHtml(d.tags) + '</div>' : '');
-          card.innerHTML = [
-            '<div class="drawer-desc-header">',
-            '  <span class="drawer-desc-code">' + escapeHtml(d.code || d.id || '') + '</span>',
-            '  ' + levelBadge,
-            '</div>',
-            '<div class="drawer-desc-title">' + escapeHtml(d.title || 'Untitled Descriptor') + '</div>',
-            d.description ? '<div class="drawer-desc-text">' + escapeHtml(d.description) + '</div>' : '',
-            tagDisplay,
-            d.comments ? '<div class="drawer-desc-comment">' + escapeHtml(d.comments) + '</div>' : '',
-            '<div class="drawer-desc-actions">',
-            '  <span style="font-size:0.72rem;font-weight:800;color:#666;">' + escapeHtml(d.subCategory || d.category || d.subjectId || '') + '</span>',
-            '  <button class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="lcTagDescriptorToActivePhase(\'' + escapeHtml(d.id) + '\')">+ Tag</button>',
-            '</div>'
-          ].join('');
+          var htmlParts = [];
+
+          // Header: Code & Level
+          var codeHtml = cfg.showCode ? ('<span class="drawer-desc-code">' + highlightMatchText(d.code || d.id || '', rawQuery) + '</span>') : '';
+          var levelHtml = (cfg.showLevel && d.level) ? ('<span class="drawer-desc-level">' + highlightMatchText(d.level, rawQuery) + '</span>') : '';
+          
+          if (codeHtml || levelHtml) {
+            htmlParts.push('<div class="drawer-desc-header">' + codeHtml + levelHtml + '</div>');
+          }
+
+          // Title
+          if (cfg.showTitle) {
+            htmlParts.push('<div class="drawer-desc-title">' + highlightMatchText(d.title || 'Untitled Descriptor', rawQuery) + '</div>');
+          }
+
+          // Description
+          if (cfg.showDescription && d.description && cfg.preset !== 'minimal') {
+            htmlParts.push('<div class="drawer-desc-text">' + highlightMatchText(d.description, rawQuery) + '</div>');
+          }
+
+          // Tags
+          if (cfg.showTags && cfg.preset !== 'minimal') {
+            var tagsArr = Array.isArray(d.tags) ? d.tags : (d.tags ? [d.tags] : []);
+            if (tagsArr.length > 0) {
+              htmlParts.push('<div class="drawer-tag-container" style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + highlightMatchText(tagsArr.join(', '), rawQuery) + '</div>');
+            }
+          }
+
+          // Comments / Notes
+          if (cfg.showComments && (d.comments || d.sampleTasks) && cfg.preset !== 'minimal') {
+            var cText = d.comments || d.sampleTasks;
+            htmlParts.push('<div class="drawer-desc-comment">' + highlightMatchText(cText, rawQuery) + '</div>');
+          }
+
+          // Footer: Category & Actions
+          var catLabel = cfg.showCategory ? (d.subCategory || d.category || getSubjectLabel(d.subjectId || d.subject) || '') : '';
+          var catHtml = catLabel ? ('<span style="font-size:0.72rem;font-weight:800;color:#666;">' + highlightMatchText(catLabel, rawQuery) + '</span>') : '<span></span>';
+          var btnHtml = cfg.showActions ? ('<button class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="lcTagDescriptorToActivePhase(\'' + escapeHtml(d.id) + '\')">+ Tag</button>') : '';
+
+          if (cfg.showCategory || cfg.showActions) {
+            htmlParts.push('<div class="drawer-desc-actions">' + catHtml + btnHtml + '</div>');
+          }
+
+          // Compact Expand Toggle
+          if (cfg.preset === 'compact') {
+            htmlParts.push('<button class="card-expand-toggle" onclick="event.stopPropagation(); this.parentElement.classList.toggle(\'expanded\'); this.textContent = this.parentElement.classList.contains(\'expanded\') ? \'Details ▲\' : \'Details ▾\';">Details ▾</button>');
+          }
+
+          card.innerHTML = htmlParts.join('');
           list.appendChild(card);
         });
       }
+
+      window.lcOpenCompetenceCustomizeModal = function () {
+        var cfg = competenceDisplayConfig;
+
+        var radios = document.getElementsByName('compPresetMode');
+        radios.forEach(function (r) {
+          r.checked = (r.value === (cfg.preset || 'detailed'));
+        });
+
+        document.getElementById('cfgShowCode').checked = !!cfg.showCode;
+        document.getElementById('cfgShowTitle').checked = !!cfg.showTitle;
+        document.getElementById('cfgShowDescription').checked = !!cfg.showDescription;
+        document.getElementById('cfgShowLevel').checked = !!cfg.showLevel;
+        document.getElementById('cfgShowCategory').checked = !!cfg.showCategory;
+        document.getElementById('cfgShowTags').checked = !!cfg.showTags;
+        document.getElementById('cfgShowComments').checked = !!cfg.showComments;
+        document.getElementById('cfgShowActions').checked = !!cfg.showActions;
+
+        var m = document.getElementById('competenceCustomizeModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.lcOnPresetChange = function (presetMode) {
+        if (presetMode === 'detailed' || presetMode === 'compact') {
+          document.getElementById('cfgShowCode').checked = true;
+          document.getElementById('cfgShowTitle').checked = true;
+          document.getElementById('cfgShowDescription').checked = true;
+          document.getElementById('cfgShowLevel').checked = true;
+          document.getElementById('cfgShowCategory').checked = true;
+          document.getElementById('cfgShowTags').checked = true;
+          document.getElementById('cfgShowComments').checked = true;
+          document.getElementById('cfgShowActions').checked = true;
+        } else if (presetMode === 'minimal') {
+          document.getElementById('cfgShowCode').checked = true;
+          document.getElementById('cfgShowTitle').checked = true;
+          document.getElementById('cfgShowDescription').checked = false;
+          document.getElementById('cfgShowLevel').checked = true;
+          document.getElementById('cfgShowCategory').checked = true;
+          document.getElementById('cfgShowTags').checked = false;
+          document.getElementById('cfgShowComments').checked = false;
+          document.getElementById('cfgShowActions').checked = true;
+        }
+      };
+
+      window.lcSaveCompetenceConfig = async function () {
+        var selectedPreset = 'detailed';
+        var radios = document.getElementsByName('compPresetMode');
+        for (var i = 0; i < radios.length; i++) {
+          if (radios[i].checked) {
+            selectedPreset = radios[i].value;
+            break;
+          }
+        }
+
+        competenceDisplayConfig = {
+          preset: selectedPreset,
+          showCode: document.getElementById('cfgShowCode').checked,
+          showTitle: document.getElementById('cfgShowTitle').checked,
+          showDescription: document.getElementById('cfgShowDescription').checked,
+          showLevel: document.getElementById('cfgShowLevel').checked,
+          showCategory: document.getElementById('cfgShowCategory').checked,
+          showTags: document.getElementById('cfgShowTags').checked,
+          showComments: document.getElementById('cfgShowComments').checked,
+          showActions: document.getElementById('cfgShowActions').checked
+        };
+
+        await saveCompetenceDisplayConfigToDisk();
+        lcCloseModal('competenceCustomizeModal');
+        renderDrawer();
+        if (typeof showToast === 'function') showToast('Competence view customization saved!');
+      };
+
+      window.lcResetCompetenceConfig = async function () {
+        competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+        await saveCompetenceDisplayConfigToDisk();
+        lcOpenCompetenceCustomizeModal();
+        renderDrawer();
+        if (typeof showToast === 'function') showToast('Competence settings reset to defaults.');
+      };
+
+      window.lcResetAllDrawerFilters = function () {
+        document.getElementById('drawerSearch').value = '';
+        document.getElementById('drawerFilterSubject').value = 'all';
+        document.getElementById('drawerFilterYear').value = 'all';
+        document.getElementById('drawerFilterCategory').value = 'all';
+        document.getElementById('drawerFilterSubCategory').value = 'all';
+        renderDrawer();
+      };
+
+      window.lcClearActiveFilter = function (filterKey) {
+        if (filterKey === 'search') document.getElementById('drawerSearch').value = '';
+        if (filterKey === 'subject') document.getElementById('drawerFilterSubject').value = 'all';
+        if (filterKey === 'year') document.getElementById('drawerFilterYear').value = 'all';
+        if (filterKey === 'category') document.getElementById('drawerFilterCategory').value = 'all';
+        if (filterKey === 'subcategory') document.getElementById('drawerFilterSubCategory').value = 'all';
+        renderDrawer();
+      };
+
 
       function populateCategoryDropdown(subId) {
         var catSelect = document.getElementById('drawerFilterCategory');
@@ -1500,7 +2082,7 @@
 
         try {
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
-            await Desktop.saveJson('user', 'lessons/' + filename, currentPlan);
+            await Desktop.saveJson('lessons', filename, currentPlan);
           } else {
             localStorage.setItem('cmt-lesson-' + currentPlan.id, JSON.stringify(currentPlan));
           }
@@ -1512,10 +2094,28 @@
         }
       };
 
-      window.lcNewPlan = function () {
-        if (isDirty && !confirm('You have unsaved changes. Create a new blank plan?')) return;
-        currentPlan = LessonCreatorService.createBlankLessonPlan();
+      window.lcNewPlan = async function () {
+        if (isDirty) {
+          var confirmed = (typeof showConfirm === 'function') ? await showConfirm('You have unsaved changes. Create a new blank plan?') : confirm('You have unsaved changes. Create a new blank plan?');
+          if (!confirmed) return;
+        }
+        currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+        isDirty = false;
         renderPlan();
+      };
+
+      window.lcResetPlan = async function () {
+        var confirmed = false;
+        if (typeof showConfirm === 'function') {
+          confirmed = await showConfirm('Are you sure you want to reset this lesson plan to blank? All unsaved changes will be lost.');
+        } else {
+          confirmed = confirm('Are you sure you want to reset this lesson plan to blank? All unsaved changes will be lost.');
+        }
+        if (!confirmed) return;
+        currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+        isDirty = false;
+        renderPlan();
+        if (typeof showToast === 'function') showToast('Lesson plan reset to blank');
       };
 
       window.lcDuplicatePlan = function () {
@@ -1527,7 +2127,8 @@
         if (typeof showToast === 'function') showToast('Plan duplicated! Click Save to write to disk.');
       };
 
-      window.lcOpenPlanPicker = function () {
+      window.lcOpenPlanPicker = async function () {
+        await loadSavedPlansIndex();
         renderSavedPlansList();
         document.getElementById('openPlanModal').style.display = 'flex';
       };
@@ -1643,18 +2244,17 @@
         var select = document.getElementById('boardExistingSelect');
         select.innerHTML = '<option value="">Select a mindmap file…</option>';
         try {
-          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
-            var files = await Desktop.listFiles('user', { subfolder: 'mindmaps' });
-            if (Array.isArray(files)) {
-              files.forEach(function (f) {
-                if (f && f.filename) {
-                  var opt = document.createElement('option');
-                  opt.value = f.filename;
-                  opt.textContent = f.filename;
-                  select.appendChild(opt);
-                }
-              });
-            }
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+            var listRes = await Desktop.listByPath('user', 'mindmaps', { extensions: ['.js', '.json'] });
+            var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+            files.forEach(function (f) {
+              if (f && f.filename) {
+                var opt = document.createElement('option');
+                opt.value = f.filename;
+                opt.textContent = f.filename;
+                select.appendChild(opt);
+              }
+            });
           }
         } catch (_) {}
         document.getElementById('boardExportModal').style.display = 'flex';
@@ -1710,18 +2310,184 @@
       };
 
       // ── Class Management Live Launcher ───────────────────────────────────
-      window.lcRunInClassManagement = function () {
-        lcSavePlan();
+      window.lcRunInClassManagement = async function () {
+        await lcSavePlan();
+        var targetClassId = currentPlan ? (currentPlan.classId || '') : '';
+        var targetPlanId = currentPlan ? (currentPlan.id || '') : '';
+
+        if (typeof BroadcastChannel !== 'undefined') {
+          try {
+            var ch = new BroadcastChannel('cms-lesson-runner');
+            ch.postMessage({ action: 'load-plan', planId: targetPlanId, classId: targetClassId });
+            setTimeout(function () { ch.close(); }, 1000);
+          } catch (_) {}
+        }
+
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
           Desktop.openTool('class-management.html', {
             query: {
-              loadLessonPlanId: currentPlan.id,
-              classId: currentPlan.classId
-            }
+              loadLessonPlanId: targetPlanId,
+              classId: targetClassId
+            },
+            noReload: true
           });
         } else {
-          window.location.href = 'class-management.html?loadLessonPlanId=' + encodeURIComponent(currentPlan.id);
+          var url = 'class-management.html?loadLessonPlanId=' + encodeURIComponent(targetPlanId) + '&classId=' + encodeURIComponent(targetClassId);
+          window.open(url, 'cmt-class-management');
         }
+      };
+
+      // ── Team & Cooperative Learning Config ──────────────────────────────
+      var tempTeamRoles = [];
+
+      window.lcOpenTeamModal = function () {
+        if (!currentPlan.teamConfig) {
+          currentPlan.teamConfig = {
+            enabled: false,
+            teamSize: 4,
+            roles: [
+              { name: 'Leader / Facilitator', desc: 'Keeps team on task and manages timeline' },
+              { name: 'Scribe / Recorder', desc: 'Writes down group responses and notes' },
+              { name: 'Spokesperson / Presenter', desc: 'Presents findings to the class' },
+              { name: 'Timekeeper / Materials', desc: 'Manages timer and resource pickup' }
+            ]
+          };
+        }
+        var cfg = currentPlan.teamConfig;
+        var chk = document.getElementById('teamEnableCheck');
+        if (chk) chk.checked = !!cfg.enabled;
+        var sizeInp = document.getElementById('teamSizeInput');
+        if (sizeInp) sizeInp.value = cfg.teamSize || 4;
+        tempTeamRoles = JSON.parse(JSON.stringify(cfg.roles || []));
+        lcOnTeamToggle();
+        renderTeamRolesList();
+        var m = document.getElementById('teamModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.lcOnTeamToggle = function () {
+        var chk = document.getElementById('teamEnableCheck');
+        var body = document.getElementById('teamSettingsBody');
+        if (!chk || !body) return;
+        var enabled = chk.checked;
+        body.style.opacity = enabled ? '1' : '0.4';
+        body.style.pointerEvents = enabled ? 'auto' : 'none';
+      };
+
+      function renderTeamRolesList() {
+        var container = document.getElementById('teamRolesList');
+        if (!container) return;
+        container.innerHTML = '';
+        tempTeamRoles.forEach(function (role, i) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+          row.innerHTML =
+            '<input type="text" class="meta-input" style="flex:1;font-weight:700;" value="' + escapeHtml(role.name || '') + '" placeholder="Role title" onchange="tempTeamRoles[' + i + '].name=this.value">' +
+            '<input type="text" class="meta-input" style="flex:2;font-size:0.8rem;" value="' + escapeHtml(role.desc || '') + '" placeholder="Responsibilities" onchange="tempTeamRoles[' + i + '].desc=this.value">' +
+            '<button class="icon-btn danger" onclick="lcRemoveTeamRole(' + i + ')">&times;</button>';
+          container.appendChild(row);
+        });
+      }
+
+      window.lcAddTeamRole = function () {
+        tempTeamRoles.push({ name: 'New Role', desc: '' });
+        renderTeamRolesList();
+      };
+
+      window.lcRemoveTeamRole = function (idx) {
+        tempTeamRoles.splice(idx, 1);
+        renderTeamRolesList();
+      };
+
+      window.lcSaveTeamConfig = function () {
+        var chk = document.getElementById('teamEnableCheck');
+        var sizeInp = document.getElementById('teamSizeInput');
+        currentPlan.teamConfig = {
+          enabled: chk ? chk.checked : false,
+          teamSize: sizeInp ? (parseInt(sizeInp.value, 10) || 4) : 4,
+          roles: tempTeamRoles.filter(function (r) { return r.name && r.name.trim(); })
+        };
+        isDirty = true;
+        renderTeamBadge();
+        lcCloseModal('teamModal');
+        if (typeof showToast === 'function') showToast('Team configuration saved');
+      };
+
+      // ── Unit Sequence Manager ───────────────────────────────────────────
+      window.lcOpenSequenceModal = function () {
+        var titleInp = document.getElementById('seqTitleInput');
+        if (titleInp) titleInp.value = (currentPlan.unitSequence && currentPlan.unitSequence.title) || '';
+        renderSequenceLessonsList();
+        var m = document.getElementById('sequenceModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      function renderSequenceLessonsList() {
+        var container = document.getElementById('sequenceLessonsList');
+        if (!container) return;
+        container.innerHTML = '';
+        var lessons = (currentPlan.unitSequence && currentPlan.unitSequence.lessons) || [];
+        if (lessons.length === 0) {
+          container.innerHTML = '<div style="color:#888;font-size:0.85rem;padding:8px 0;">No other lessons in sequence yet.</div>';
+          return;
+        }
+        lessons.forEach(function (les, idx) {
+          var item = document.createElement('div');
+          item.style.cssText = 'padding:6px 10px;background:#f5f5f5;border-radius:4px;font-size:0.85rem;display:flex;justify-content:space-between;align-items:center;';
+          item.innerHTML = '<span><strong>Lesson ' + (idx + 1) + ':</strong> ' + escapeHtml(les.title || 'Untitled') + '</span>';
+          container.appendChild(item);
+        });
+      }
+
+      window.lcSaveSequence = function () {
+        var titleInp = document.getElementById('seqTitleInput');
+        if (!currentPlan.unitSequence) currentPlan.unitSequence = { title: '', lessonIndex: 1, totalLessons: 1, lessons: [] };
+        currentPlan.unitSequence.title = titleInp ? titleInp.value.trim() : '';
+        isDirty = true;
+        lcCloseModal('sequenceModal');
+        if (typeof showToast === 'function') showToast('Unit sequence saved');
+      };
+
+      window.lcNavSequence = function (dir) {
+        if (!currentPlan.unitSequence || !currentPlan.unitSequence.lessons || currentPlan.unitSequence.lessons.length === 0) {
+          if (typeof showToast === 'function') showToast('No sequence lessons to navigate.', true);
+          return;
+        }
+        var nextIdx = (currentPlan.unitSequence.lessonIndex || 1) + dir;
+        if (nextIdx < 1 || nextIdx > currentPlan.unitSequence.lessons.length) return;
+        currentPlan.unitSequence.lessonIndex = nextIdx;
+        if (typeof showToast === 'function') showToast('Switched to sequence lesson ' + nextIdx);
+      };
+
+      // ── Planner Link & Coverage CSV ─────────────────────────────────────
+      window.lcOpenPlannerLinkModal = function () {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('planner.html', { query: { attachLessonId: currentPlan.id || '' } });
+        } else {
+          window.open('planner.html?attachLessonId=' + encodeURIComponent(currentPlan.id || ''), '_blank');
+        }
+      };
+
+      window.lcExportCoverageCsv = function () {
+        var rows = [['Competence Code', 'Category', 'Description', 'Tagged Phase']];
+        (currentPlan.sections || []).forEach(function (sec) {
+          (sec.descriptors || []).forEach(function (desc) {
+            rows.push([
+              '"' + (desc.code || '').replace(/"/g, '""') + '"',
+              '"' + (desc.category || '').replace(/"/g, '""') + '"',
+              '"' + (desc.title || desc.text || '').replace(/"/g, '""') + '"',
+              '"' + (sec.title || '').replace(/"/g, '""') + '"'
+            ]);
+          });
+        });
+        var csvContent = 'data:text/csv;charset=utf-8,' + rows.map(function (e) { return e.join(','); }).join('\n');
+        var encodedUri = encodeURI(csvContent);
+        var link = document.createElement('a');
+        link.setAttribute('href', encodedUri);
+        link.setAttribute('download', 'curriculum_coverage_' + (currentPlan.classId || 'class') + '.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       };
 
       // ── Sound & Audio Preview ────────────────────────────────────────────
@@ -1745,31 +2511,111 @@
         lcOnPlanDirty();
       };
 
-      // ── Templates ────────────────────────────────────────────────────────
-      window.lcOpenTemplatePicker = function () {
+      // ── Templates & Custom Templates ─────────────────────────────────────
+      window.lcOpenTemplatePicker = async function () {
+        await loadCustomTemplates();
         var container = document.getElementById('templateOptionsList');
         container.innerHTML = '';
-        LessonCreatorService.LESSON_TEMPLATES.forEach(function (tpl) {
+
+        var allTemplates = (LessonCreatorService.LESSON_TEMPLATES || []).concat(userCustomTemplates);
+
+        if (allTemplates.length === 0) {
+          container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">No lesson templates available.</div>';
+          return;
+        }
+
+        allTemplates.forEach(function (tpl) {
           var card = document.createElement('div');
           card.className = 'phase-card';
           card.style.cursor = 'pointer';
+
+          var badgeHtml = tpl.isCustom
+            ? '<span style="font-size:0.7rem;background:var(--neo-purple, #8b5cf6);color:#fff;padding:2px 6px;border-radius:4px;font-weight:800;margin-left:6px;">Custom</span>'
+            : '';
+
+          var deleteBtnHtml = tpl.isCustom
+            ? '<button class="icon-btn danger" style="padding:2px 6px;font-size:0.75rem;margin-left:auto;" onclick="lcDeleteCustomTemplate(\'' + escapeHtml(tpl.id) + '\', event)" title="Delete custom template">&times;</button>'
+            : '';
+
           card.innerHTML = [
-            '<strong>' + escapeHtml(tpl.name) + ' (' + tpl.targetDuration + 'm)</strong>',
-            '<div style="font-size:0.82rem;color:#555;">' + escapeHtml(tpl.description) + '</div>'
+            '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">',
+            '  <div><strong>' + escapeHtml(tpl.name) + ' (' + (tpl.targetDuration || 60) + 'm)</strong>' + badgeHtml + '</div>',
+            deleteBtnHtml,
+            '</div>',
+            '<div style="font-size:0.82rem;color:#555;margin-top:4px;">' + escapeHtml(tpl.description || '') + ' (' + (tpl.sections || []).length + ' phases)</div>'
           ].join('');
-          card.onclick = function () {
-            if (confirm('Load template "' + tpl.name + '"? This will replace current phases.')) {
-              currentPlan.sections = JSON.parse(JSON.stringify(tpl.sections));
-              currentPlan.targetDuration = tpl.targetDuration;
+
+          card.onclick = async function () {
+            var confirmed = (typeof showConfirm === 'function')
+              ? await showConfirm('Load template "' + tpl.name + '"? This will replace current timeline phases.')
+              : confirm('Load template "' + tpl.name + '"? This will replace current timeline phases.');
+            if (confirmed) {
+              currentPlan.sections = JSON.parse(JSON.stringify(tpl.sections || []));
+              currentPlan.targetDuration = tpl.targetDuration || 60;
               renderPhaseCards();
               updateDurationMeter();
               lcCloseModal('templateModal');
               lcOnPlanDirty();
+              if (typeof showToast === 'function') showToast('Template loaded: ' + tpl.name);
             }
           };
+
           container.appendChild(card);
         });
+
         document.getElementById('templateModal').style.display = 'flex';
+      };
+
+      window.lcSaveAsTemplate = async function () {
+        if (!currentPlan || !currentPlan.sections || currentPlan.sections.length === 0) {
+          if (typeof showToast === 'function') showToast('Cannot save an empty timeline as a template. Add at least one phase first.', true);
+          return;
+        }
+
+        var defaultName = (currentPlan.title && currentPlan.title.trim()) ? (currentPlan.title.trim() + ' Template') : 'My Custom Lesson Template';
+        var tplName = (typeof showPrompt === 'function')
+          ? await showPrompt('Enter a name for this custom template:', defaultName)
+          : prompt('Enter a name for this custom template:', defaultName);
+
+        if (!tplName || !tplName.trim()) return;
+        tplName = tplName.trim();
+
+        var defaultDesc = 'Custom template with ' + currentPlan.sections.length + ' phase(s) (' + (currentPlan.targetDuration || 60) + ' min)';
+        var tplDesc = (typeof showPrompt === 'function')
+          ? await showPrompt('Enter an optional short description:', defaultDesc)
+          : prompt('Enter an optional short description:', defaultDesc);
+
+        var newTemplate = {
+          id: 'tpl_custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          name: tplName,
+          description: (tplDesc || defaultDesc).trim(),
+          targetDuration: Number(currentPlan.targetDuration) || 60,
+          isCustom: true,
+          sections: JSON.parse(JSON.stringify(currentPlan.sections))
+        };
+
+        userCustomTemplates.push(newTemplate);
+        await saveCustomTemplatesToDisk();
+
+        if (typeof showToast === 'function') showToast('Template saved: "' + tplName + '"!');
+
+        var modal = document.getElementById('templateModal');
+        if (modal && modal.style.display !== 'none') {
+          lcOpenTemplatePicker();
+        }
+      };
+
+      window.lcDeleteCustomTemplate = async function (tplId, e) {
+        if (e) e.stopPropagation();
+        var confirmed = (typeof showConfirm === 'function')
+          ? await showConfirm('Delete this custom template?')
+          : confirm('Delete this custom template?');
+        if (!confirmed) return;
+
+        userCustomTemplates = userCustomTemplates.filter(function (t) { return t.id !== tplId; });
+        await saveCustomTemplatesToDisk();
+        if (typeof showToast === 'function') showToast('Custom template deleted.');
+        lcOpenTemplatePicker();
       };
 
       // ── Helper Utilities ─────────────────────────────────────────────────

@@ -155,6 +155,12 @@ const exposedApi = {
   setBackupFormat(format) {
     return invoke('app:set-backup-format', { format });
   },
+  setBackupSchedule(request) {
+    return invoke('app:set-backup-schedule', request);
+  },
+  checkScheduledBackup() {
+    return invoke('app:check-scheduled-backup');
+  },
   pickBackupLocation() {
     return invoke('app:pick-backup-location');
   },

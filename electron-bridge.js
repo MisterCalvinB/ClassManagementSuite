@@ -11,7 +11,17 @@
       return null;
     }
     const req = { target, filename, content, encoding: "utf8" };
-    if (subdir) req.subdir = subdir;
+    if (subdir) {
+      req.subdir = subdir;
+    } else if (typeof filename === 'string' && (filename.includes('/') || filename.includes('\\'))) {
+      const parts = filename.replace(/\\/g, '/').split('/');
+      const fn = parts.pop();
+      const sd = parts.join('/');
+      if (sd) {
+        req.filename = fn;
+        req.subdir = sd;
+      }
+    }
     return getDesktopApi().saveFile(req);
   }
 
@@ -727,6 +737,7 @@
     if (opts && opts.query && typeof opts.query === 'object') {
       req.query = opts.query;
     }
+    if (opts && opts.noReload) req.noReload = true;
     if (opts && opts.sideBySide) {
       req.sideBySide = true;
       req.mainFraction = opts.mainFraction || 0.20;

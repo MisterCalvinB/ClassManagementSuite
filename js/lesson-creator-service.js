@@ -253,12 +253,13 @@
     opts = opts || {};
     var now = new Date();
     var dateStr = now.toISOString().slice(0, 10);
+    var isBlank = opts.blank !== undefined ? !!opts.blank : (opts.empty !== undefined ? !!opts.empty : true);
     return {
       _version: 1,
       id: opts.id || LessonCreatorService.generateId('lp'),
       sequenceId: opts.sequenceId || '',
       sequenceIndex: opts.sequenceIndex || 1,
-      title: opts.title || 'Untitled Lesson Plan',
+      title: opts.title !== undefined ? opts.title : (isBlank ? '' : 'Untitled Lesson Plan'),
       subjectId: opts.subjectId || 'science',
       classId: opts.classId || '',
       yearLevel: opts.yearLevel || 'all',
@@ -274,7 +275,7 @@
         nextLessonId: opts.nextLessonId || '',
         relatedLessonIds: []
       },
-      learningObjectives: opts.learningObjectives || [''],
+      learningObjectives: opts.learningObjectives || [],
       descriptorIds: opts.descriptorIds || [],
       materials: opts.materials || [],
       senAccommodations: opts.senAccommodations || '',
@@ -294,7 +295,7 @@
           { role: 'Checker / Reporter', explanation: 'Verifies everyone understands and presents results.' }
         ]
       },
-      sections: opts.sections || [
+      sections: opts.sections || (isBlank ? [] : [
         {
           id: LessonCreatorService.generateId('sec'),
           title: 'Starter / Hook',
@@ -351,7 +352,7 @@
           assessmentStrategy: '',
           differentiation: ''
         }
-      ],
+      ]),
       homework: opts.homework || '',
       notes: opts.notes || ''
     };

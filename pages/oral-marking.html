@@ -1722,7 +1722,7 @@
     updateSaveBtn();
   }
 
-  function jumpToStudent(idx) {
+  async function jumpToStudent(idx) {
     if (idx < 0 || idx >= students.length) return;
     const s = students[idx];
 
@@ -1746,7 +1746,9 @@
 
     // Warn if interrupting an active exam
     if (phase === 'exam' && currentIdx >= 0) {
-      if (!confirm(t('omConfirmCancelSession').replace('Cancel this session?', 'Interrupt current exam and switch students?'))) return;
+      const confirmMsg = t('omConfirmCancelSession').replace('Cancel this session?', 'Interrupt current exam and switch students?');
+      const confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmMsg) : confirm(confirmMsg);
+      if (!confirmed) return;
       finishCurrentExam(true);
     }
     startStudentPrep(idx);
@@ -3054,9 +3056,10 @@
     if (!isError) showNotice._t = setTimeout(() => el.classList.add('hidden'), 4000);
   }
 
-  function goBack() {
+  async function goBack() {
     if (phase === 'exam' && currentIdx >= 0) {
-      if (!confirm(t('omConfirmCancelSession'))) return;
+      const confirmed = (typeof showConfirm === 'function') ? await showConfirm(t('omConfirmCancelSession')) : confirm(t('omConfirmCancelSession'));
+      if (!confirmed) return;
     }
     stopTimer();
     if (window.Desktop && typeof Desktop.openTool === 'function') {

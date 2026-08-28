@@ -1522,13 +1522,13 @@ async function exportPdf() {
         if (window.showExportSuccessPopup && result.path) {
           showExportSuccessPopup(result.path, result.name || defaultName);
         } else {
-          alert('PDF exported successfully.');
+          if (typeof showToast === 'function') showToast('PDF exported successfully.'); else alert('PDF exported successfully.');
         }
       } else if (result && !result.ok && !result.canceled) {
-        alert('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+        if (typeof showToast === 'function') showToast('Could not save PDF: ' + (result.error || 'unknown error'), true); else alert('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
       }
     } catch (err) {
-      alert('⚠️ Could not save PDF: ' + err.message);
+      if (typeof showToast === 'function') showToast('Could not save PDF: ' + err.message, true); else alert('⚠️ Could not save PDF: ' + err.message);
     }
   } else {
     browserPrint(html);
@@ -1606,7 +1606,7 @@ function exportCsv() {
 function exportXlsx() {
   if (!selectedPlan) return;
   if (typeof XLSX === 'undefined') {
-    alert('XLSX library not loaded');
+    if (typeof showToast === 'function') showToast('XLSX library not loaded', true); else alert('XLSX library not loaded');
     return;
   }
   const aoa = getPlanAoa(selectedPlan);
@@ -1619,7 +1619,7 @@ function exportXlsx() {
     const safeTitle = selectedPlan.name.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
     downloadExportFile(`class_plan_${safeTitle}.xlsx`, wbout, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   } catch (err) {
-    alert('⚠️ Could not save XLSX: ' + err.message);
+    if (typeof showToast === 'function') showToast('Could not save XLSX: ' + err.message, true); else alert('⚠️ Could not save XLSX: ' + err.message);
   }
 }
 
@@ -1660,12 +1660,12 @@ function exportDocx() {
       orientation: 'portrait'
     }).then(result => {
       if (result && result.ok) {
-        alert('DOCX exported successfully.');
+        if (typeof showToast === 'function') showToast('DOCX exported successfully.'); else alert('DOCX exported successfully.');
       } else if (result && !result.ok && !result.canceled) {
-        alert('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'));
+        if (typeof showToast === 'function') showToast('Could not save DOCX: ' + (result.error || 'unknown error'), true); else alert('⚠️ Could not save DOCX: ' + (result.error || 'unknown error'));
       }
     }).catch(err => {
-      alert('⚠️ Could not save DOCX: ' + err.message);
+      if (typeof showToast === 'function') showToast('Could not save DOCX: ' + err.message, true); else alert('⚠️ Could not save DOCX: ' + err.message);
     });
   } else {
     const htmlContent = buildPrintHtml(selectedPlan, false);

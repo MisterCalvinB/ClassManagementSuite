@@ -1046,7 +1046,7 @@
   // ── 7. Multi-Sheet XLSX Workbook Exporter (SheetJS) ──
   AdminReports.exportToXlsxWorkbook = function (students, cohortStats, selectedPeriods, options, config, filename) {
     if (typeof XLSX === 'undefined') {
-      alert('XLSX library not loaded.');
+      if (window.showToast) window.showToast('XLSX library not loaded.', true); else alert('XLSX library not loaded.');
       return;
     }
     options = options || {};

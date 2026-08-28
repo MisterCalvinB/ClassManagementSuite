@@ -1392,6 +1392,12 @@
                                         data-i18n-title="rsp_pres_plan_title"><img
                                             src="../assets/icons/class-plan.svg" class="btn-icon" alt="" />
                                         <span data-i18n="rsp_pres_btn_plan">Plan</span></button>
+                                    <button class="rsp-inline-btn" id="rsp-pres-lessonPlan-btn"
+                                        onclick="togglePresSetting('lessonPlan')"
+                                        title="Show lesson plan in presentation window"
+                                        data-i18n-title="rsp_pres_lesson_plan_title"><img
+                                            src="../assets/icons/copy.svg" class="btn-icon" alt="" />
+                                        <span data-i18n="rsp_pres_btn_lesson_plan">Lesson Plan</span></button>
                                     <button class="rsp-inline-btn" id="rsp-pres-modes-btn"
                                         onclick="togglePresSetting('modes')"
                                         title="Mirror modes overlay in presentation window"
@@ -1488,22 +1494,27 @@
             <!-- Lesson Runner HUD Container (Scoped for Lesson Creator integration) -->
             <div id="cms-lesson-runner-container" style="display:none; margin-bottom:10px; background:#fff; border:2.5px solid #111; border-radius:8px; box-shadow:3px 3px 0 #111; padding:10px 14px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1.5px solid #111; padding-bottom:6px; margin-bottom:6px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         <span style="background:#111; color:#fff; font-weight:800; font-size:0.75rem; padding:2px 6px; border-radius:4px;" id="clr-phase-num">PHASE 1 / 4</span>
                         <strong id="clr-phase-title" style="font-size:0.95rem;">Phase Title</strong>
                         <span id="clr-phase-badge" style="background:#fef3c7; border:1px solid #111; font-size:0.75rem; font-weight:800; padding:2px 6px; border-radius:4px;">WARM-UP</span>
+                        <span id="clr-phase-times" style="background:#e0f2fe; color:#0369a1; border:1px solid #111; font-size:0.75rem; font-weight:800; padding:2px 6px; border-radius:4px;" title="Calculated start and end times for this phase">⏱ --:-- – --:--</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem; background:#2563eb; color:#fff; border-color:#111; font-weight:700;" onclick="CmsLessonRunner.startActivityNow()" title="Set activity start time to current clock time">▶ Start Activity Now</button>
                         <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.prevPhase()">Prev</button>
                         <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.nextPhase()">Next</button>
                         <button class="action-btn btn-success" style="padding:4px 8px; font-size:0.78rem; background:#10b981; color:#fff; border-color:#111;" onclick="CmsLessonRunner.completePhase()">Complete</button>
                         <button class="action-btn" style="padding:4px 6px; font-size:0.78rem;" onclick="CmsLessonRunner.unloadPlan()" title="Unload lesson plan">Close</button>
                     </div>
                 </div>
-                <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82rem;">
+                <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82rem; margin-bottom:6px;">
                     <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Teacher:</span> <span id="clr-teacher-prompt">—</span></div>
                     <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Student:</span> <span id="clr-student-prompt">—</span></div>
                     <div id="clr-teams-wrap" style="display:none; font-size:0.8rem; background:#ede9fe; padding:2px 6px; border-radius:4px; border:1px solid #111;"><span style="font-weight:800;">Teams:</span> <span id="clr-teams-text"></span></div>
+                </div>
+                <!-- Phase Schedule Timeline Row -->
+                <div id="clr-timeline-bar" style="display:flex; gap:6px; margin-top:6px; padding-top:6px; border-top:1px dashed #ccc; overflow-x:auto; font-size:0.75rem;">
                 </div>
             </div>
 
@@ -2611,6 +2622,7 @@
                 js: '',
                 wave: 'triangle',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 659.25, rhythm: 'short' },
                     { frequency: 783.99, rhythm: 'short' },
@@ -2624,6 +2636,7 @@
                 js: '',
                 wave: 'sine',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 261.63, rhythm: 'long' },
                     { frequency: 329.63, rhythm: 'long' }
@@ -2636,6 +2649,7 @@
                 js: '',
                 wave: 'sawtooth',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 180, rhythm: 'staccato' },
                     { frequency: 180, rhythm: 'staccato' },
@@ -2649,6 +2663,7 @@
                 js: '',
                 wave: 'triangle',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 196, rhythm: 'short' },
                     { frequency: 146.83, rhythm: 'medium' }
@@ -2661,6 +2676,7 @@
                 js: '',
                 wave: 'sine',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 523.25, rhythm: 'short' },
                     { frequency: 659.25, rhythm: 'short' },
@@ -2674,6 +2690,7 @@
                 js: '',
                 wave: 'sawtooth',
                 volume: 100,
+                iterations: 1,
                 builder: [
                     { frequency: 196, rhythm: 'medium' },
                     { frequency: 164.81, rhythm: 'medium' }
@@ -2868,6 +2885,11 @@
                 document.body.classList.toggle('pres-show-roles', !!data.presSettings.roles);
                 document.body.classList.toggle('pres-show-sen', !!data.presSettings.sen);
                 presSettings = { ...presSettings, ...data.presSettings };
+
+                var presRunner = document.getElementById('cms-lesson-runner-container');
+                if (presRunner) {
+                    presRunner.style.display = (data.presSettings.lessonPlan !== false && window.CmsLessonRunner && CmsLessonRunner.activePlan) ? 'block' : 'none';
+                }
             }
             if (data.studentGroups) {
                 try { Object.assign(studentGroups, JSON.parse(JSON.stringify(data.studentGroups))); } catch (_) { }
@@ -3293,6 +3315,8 @@
                 : (fallback.wave || 'sine');
             const rawVolume = source.volume !== undefined ? source.volume : fallback.volume;
             const volume = Math.round(Math.min(100, Math.max(0, Number(rawVolume) || 100)));
+            const rawIterations = source.iterations !== undefined ? source.iterations : (fallback?.iterations ?? 1);
+            const iterations = Math.max(1, Math.min(100, Math.round(Number(rawIterations) || 1)));
             return {
                 mode,
                 preset: String(source.preset || fallback.preset || '').trim() || fallback.preset,
@@ -3300,6 +3324,7 @@
                 js: String(source.js || '').replace(/\r\n/g, '\n').trim(),
                 wave,
                 volume,
+                iterations,
                 builder: normalizeSoundBuilderRows(source.builder, fallback.builder || [])
             };
         }
@@ -5007,7 +5032,7 @@
                         <button class="sound-pause-btn" onclick="pauseTestSound('${slotKey}')" style="display:none; padding:7px 12px; border:2px solid #555; border-radius:5px; background:#fff; color:#555; font-weight:700; cursor:pointer;">⏸ Pause</button>
                     </div>
                 </div>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:10px;">
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:10px;">
                     <label style="display:flex; flex-direction:column; gap:4px; font-size:0.8rem; color:#555; font-weight:700;">
                         Mode
                         <select class="sound-mode" onchange="updateSoundEditorVisibility('${slotKey}')" style="padding:8px; border:1px solid #ccc; border-radius:5px;">
@@ -5015,6 +5040,11 @@
                             <option value="file" ${cfg.mode === 'file' ? 'selected' : ''}>Sound file</option>
                             <option value="js" ${cfg.mode === 'js' ? 'selected' : ''}>Custom JS tune</option>
                         </select>
+                    </label>
+                    <label style="display:flex; flex-direction:column; gap:4px; font-size:0.8rem; color:#555; font-weight:700;">
+                        ${(typeof t === 'function' && t('es_iterations')) || 'Iterations (repeats)'}
+                        <input type="number" class="sound-iterations" min="1" max="100" step="1" value="${cfg.iterations || 1}"
+                            style="padding:8px; border:1px solid #ccc; border-radius:5px;">
                     </label>
                 </div>
                 <div class="sound-mode-panel sound-mode-panel-builtin" style="display:none;">
@@ -5193,10 +5223,12 @@
             const file = card.querySelector('.sound-file-manual')?.value || card.querySelector('.sound-file')?.value || '';
             const wave = card.querySelector('.sound-wave')?.value || DEFAULT_SOUND_SETTINGS[slotKey].wave || 'sine';
             const volume = Math.round(Math.min(100, Math.max(0, Number(card.querySelector('.sound-volume-slider')?.value) || 100)));
+            const rawIterations = card.querySelector('.sound-iterations')?.value;
+            const iterations = Math.max(1, Math.min(100, Math.round(Number(rawIterations) || 1)));
             const builder = collectSoundBuilderRows(slotKey);
             const js = (card.querySelector('.sound-js')?.value || '').trim() || buildSoundJsFromBuilder(slotKey, builder, wave);
 
-            return normalizeSoundSlot({ mode, preset, file, js, wave, volume, builder }, DEFAULT_SOUND_SETTINGS[slotKey]);
+            return normalizeSoundSlot({ mode, preset, file, js, wave, volume, iterations, builder }, DEFAULT_SOUND_SETTINGS[slotKey]);
         }
 
         function insertSoundJsExample(slotKey) {
@@ -5242,6 +5274,10 @@
         function stopTestSound(slotKey) {
             const state = _getTestState(slotKey);
             if (state.timeout) { clearTimeout(state.timeout); state.timeout = null; }
+            if (state.clipHandle && typeof state.clipHandle.stop === 'function') {
+                state.clipHandle.stop();
+                state.clipHandle = null;
+            }
             if (state.audio) {
                 try { state.audio.pause(); state.audio.currentTime = 0; } catch (e) { }
                 state.audio = null;
@@ -5277,46 +5313,42 @@
 
             const draft = collectSoundDraftFromCard(slotKey);
             const volumeScale = Math.min(1, Math.max(0, (typeof draft.volume === 'number' ? draft.volume : 100) / 100));
-
-            if (draft.mode === 'file' && draft.file) {
-                const normalized = normalizeSoundFilePath(draft.file);
-                getSoundFileUrl(normalized).then(url => {
-                    const audio = new Audio(url);
-                    audio.volume = volumeScale;
-                    state.audio = audio;
-                    state.playing = true;
-                    state.paused = false;
-                    _updateTestButtons(slotKey);
-                    audio.play().catch(e => {
-                        console.warn('Cannot play test sound:', e);
-                        stopTestSound(slotKey);
-                        showToast('That sound could not be played. Check the file name.', true);
-                    });
-                    audio.addEventListener('ended', () => stopTestSound(slotKey));
-                }).catch(e => {
-                    console.warn('Cannot resolve sound URL:', e);
-                    showToast('That sound could not be played. Check the file name.', true);
-                });
-                return;
-            }
+            const repeatCount = Math.max(1, Number(draft.iterations) || 1);
 
             const previous = soundSettings[slotKey];
             soundSettings[slotKey] = draft;
-            const played = playConfiguredSound(slotKey, {
-                repeatCount: slotKey === 'timerEnd' ? 3 : 1,
-                spacingMs: slotKey === 'timerEnd' ? 380 : 220
-            });
-            soundSettings[slotKey] = previous;
-            if (played === false) {
-                showToast('That sound could not be played. Check the file name or JS code.', true);
+
+            state.playing = true;
+            state.paused = false;
+            _updateTestButtons(slotKey);
+
+            const onComplete = () => {
+                stopTestSound(slotKey);
+            };
+
+            if (draft.mode === 'file' && draft.file) {
+                const clipHandle = playSoundFileClip(draft.file, repeatCount, 150, volumeScale, onComplete);
+                if (clipHandle && clipHandle.stop) {
+                    state.clipHandle = clipHandle;
+                } else if (!clipHandle) {
+                    stopTestSound(slotKey);
+                    showToast('That sound could not be played. Check the file name.', true);
+                }
+                soundSettings[slotKey] = previous;
                 return;
             }
 
-            const durationMs = slotKey === 'timerEnd' ? 1900 : slotKey === 'drumroll' ? 2600 : 700;
-            state.playing = true;
-            state.audio = null;
-            state.timeout = setTimeout(() => stopTestSound(slotKey), durationMs);
-            _updateTestButtons(slotKey);
+            const played = playConfiguredSound(slotKey, {
+                repeatCount: repeatCount,
+                spacingMs: 150,
+                onComplete: onComplete
+            });
+            soundSettings[slotKey] = previous;
+
+            if (played === false) {
+                stopTestSound(slotKey);
+                showToast('That sound could not be played. Check the file name or JS code.', true);
+            }
         }
 
         async function openEditSoundsModal() {
@@ -9805,7 +9837,7 @@
         let rolesVisible = true;
         let autoFlagVisible = true;
         let animationsEnabled = true;
-        let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false, sen: false };
+        let presSettings = { plan: false, anim: true, autoflag: false, badges: true, roles: true, modes: false, sen: false, lessonPlan: true };
 
         function updateDateTime() {
             const now = new Date();
@@ -10082,33 +10114,114 @@
             return `../user/custom-data/sounds/${normalized.replace(/^sounds\//, '')}`;
         }
 
-        function playSoundFileClip(relativePath, repeatCount = 1, spacingMs = 350, volumeScale = 1.0) {
+        function playSoundFileClip(relativePath, repeatCount = 1, spacingMs = 150, volumeScale = 1.0, onComplete = null) {
             const normalized = normalizeSoundFilePath(relativePath);
-            if (!normalized) return false;
+            if (!normalized) {
+                if (typeof onComplete === 'function') onComplete();
+                return false;
+            }
             const vol = Math.min(1, Math.max(0, Number(volumeScale) || 1));
+            const repeats = Math.max(1, Number(repeatCount) || 1);
+            const gap = Math.max(0, Number(spacingMs) || 0);
+
+            let cancelled = false;
+            let activeAudio = null;
+            let activeTimer = null;
+
+            const stop = () => {
+                cancelled = true;
+                if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
+                if (activeAudio) {
+                    try { activeAudio.pause(); activeAudio.currentTime = 0; } catch (e) {}
+                    activeAudio = null;
+                }
+            };
 
             getSoundFileUrl(normalized).then(url => {
-                for (let i = 0; i < repeatCount; i++) {
-                    setTimeout(() => {
-                        const audio = new Audio(url);
-                        audio.volume = vol;
-                        audio.play().catch(error => console.warn('Unable to play sound file:', error));
-                    }, i * spacingMs);
-                }
-            }).catch(error => console.warn('Unable to prepare sound file:', error));
+                if (cancelled) return;
+                let iteration = 0;
 
-            return true;
+                function step() {
+                    if (cancelled || iteration >= repeats) {
+                        activeAudio = null;
+                        if (typeof onComplete === 'function') onComplete();
+                        return;
+                    }
+                    iteration++;
+                    const audio = new Audio(url);
+                    audio.volume = vol;
+                    activeAudio = audio;
+
+                    let done = false;
+                    const finish = () => {
+                        if (done) return;
+                        done = true;
+                        audio.removeEventListener('ended', finish);
+                        audio.removeEventListener('error', finish);
+                        activeAudio = null;
+                        if (cancelled) return;
+
+                        if (gap > 0 && iteration < repeats) {
+                            activeTimer = setTimeout(step, gap);
+                        } else {
+                            step();
+                        }
+                    };
+
+                    audio.addEventListener('ended', finish);
+                    audio.addEventListener('error', finish);
+                    audio.play().catch(err => {
+                        console.warn('Unable to play sound file clip:', err);
+                        finish();
+                    });
+                }
+
+                step();
+            }).catch(err => {
+                console.warn('Unable to prepare sound file URL:', err);
+                if (typeof onComplete === 'function') onComplete();
+            });
+
+            return { stop };
         }
 
-        function playCustomSoundCode(jsCode, slotKey, repeatIndex = 0, repeatCount = 1, volumeScale = 1.0) {
+        function getCustomJsDuration(jsCode, volumeScale = 1.0) {
+            let maxTime = 0.4;
+            const mockPlayTone = (freq, opts = {}) => {
+                const start = Number.isFinite(opts.startTime) ? Number(opts.startTime) : 0;
+                const dur = Math.max(0.04, Number(opts.duration) || 0.18);
+                if (start + dur > maxTime) maxTime = start + dur;
+            };
+            const mockPlayToneSequence = (freqs, opts = {}) => {
+                const notes = Array.isArray(freqs) ? freqs : [];
+                const gap = Number(opts.gap) || 0.04;
+                const noteDuration = Number(opts.noteDuration) || 0.16;
+                const start = Number.isFinite(opts.startTime) ? Number(opts.startTime) : 0;
+                const total = start + notes.length * (noteDuration + gap);
+                if (total > maxTime) maxTime = total;
+            };
+            const mockGavelHit = () => {
+                if (0.3 > maxTime) maxTime = 0.3;
+            };
+
+            try {
+                const runner = new Function('audioContext', 'now', 'playTone', 'playToneSequence', 'gavelHit', 'slotKey', 'repeatIndex', 'repeatCount', 'volumeScale', jsCode);
+                runner({ currentTime: 0, state: 'running' }, 0, mockPlayTone, mockPlayToneSequence, mockGavelHit, 'test', 0, 1, volumeScale);
+            } catch (e) { }
+
+            return Math.max(0.2, maxTime);
+        }
+
+        function playCustomSoundCode(jsCode, slotKey, repeatIndex = 0, repeatCount = 1, volumeScale = 1.0, customNow = null) {
             const code = String(jsCode || '').trim();
             if (!code) return false;
             const vol = Math.min(1, Math.max(0, Number(volumeScale) || 1));
 
             try {
                 if (audioContext.state === 'suspended') audioContext.resume();
+                const baseNow = customNow !== null && Number.isFinite(customNow) ? customNow : audioContext.currentTime;
                 const runner = new Function('audioContext', 'now', 'playTone', 'playToneSequence', 'gavelHit', 'slotKey', 'repeatIndex', 'repeatCount', 'volumeScale', code);
-                runner(audioContext, audioContext.currentTime, playTone, playToneSequence, gavelHit, slotKey, repeatIndex, repeatCount, vol);
+                runner(audioContext, baseNow, playTone, playToneSequence, gavelHit, slotKey, repeatIndex, repeatCount, vol);
                 return true;
             } catch (error) {
                 console.warn('Custom sound JS failed:', error);
@@ -10116,24 +10229,80 @@
             }
         }
 
-        function playBuiltinSound(slotKey, preset, options = {}) {
-            const repeatCount = Math.max(1, Number(options.repeatCount) || 1);
-            const spacingMs = Math.max(120, Number(options.spacingMs) || 350);
+        function playCustomSoundCodeRepeated(jsCode, slotKey, repeatCount = 1, spacingMs = 150, volumeScale = 1.0, onComplete = null) {
+            const repeats = Math.max(1, Number(repeatCount) || 1);
+            const gapSec = Math.max(0, Number(spacingMs) || 0) / 1000;
+            const singleDurationSec = getCustomJsDuration(jsCode, volumeScale);
+            const stepSec = singleDurationSec + gapSec;
+
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const startTime = audioContext.currentTime;
+
+            let ok = false;
+            for (let i = 0; i < repeats; i++) {
+                const iterNow = startTime + i * stepSec;
+                const res = playCustomSoundCode(jsCode, slotKey, i, repeats, volumeScale, iterNow);
+                if (res) ok = true;
+            }
+
+            if (typeof onComplete === 'function') {
+                const totalMs = (repeats * stepSec) * 1000;
+                setTimeout(onComplete, Math.max(10, totalMs));
+            }
+
+            return ok;
+        }
+
+        function getBuiltinPresetDurationSec(slotKey, preset) {
+            if (slotKey === 'timerEnd') {
+                if (preset === 'gavel') return 0.38;
+                if (preset === 'chime') return 0.64;
+                if (preset === 'bell') return 0.46;
+                return 0.48;
+            }
+            if (slotKey === 'drumroll') return 2.1;
+            if (slotKey === 'gavelAlarm') {
+                if (preset === 'bell') return 0.46;
+                if (preset === 'beep') return 0.48;
+                return 0.3;
+            }
+            if (slotKey === 'scorePositive') {
+                if (preset === 'bell') return 0.46;
+                if (preset === 'pop') return 0.15;
+                return 0.4;
+            }
+            if (slotKey === 'scoreNegative') {
+                if (preset === 'thunk') return 0.38;
+                if (preset === 'tap') return 0.2;
+                return 0.38;
+            }
+            return 0.4;
+        }
+
+        function playBuiltinSoundSingleIteration(slotKey, preset, customNow = null) {
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const now = customNow !== null && Number.isFinite(customNow) ? customNow : audioContext.currentTime;
 
             if (slotKey === 'timerEnd') {
                 if (preset === 'gavel') {
-                    playTimerGavelSequenceBuiltin();
+                    gavelHit(0.2, _soundVolumeScale);
                     return true;
                 }
                 if (preset === 'chime') {
-                    for (let i = 0; i < repeatCount; i++) setTimeout(() => playChimeBuiltin(), i * spacingMs);
+                    playToneSequence([523.25, 659.25, 783.99, 1046.5], {
+                        type: 'triangle', noteDuration: 0.12, gap: 0.04, volume: 0.08 * _soundVolumeScale, filterFrequency: 5200, startTime: now
+                    });
                     return true;
                 }
                 if (preset === 'bell') {
-                    for (let i = 0; i < repeatCount; i++) setTimeout(() => playBellBuiltin(), i * spacingMs);
+                    playToneSequence([659.25, 987.77], {
+                        type: 'triangle', noteDuration: 0.2, gap: 0.03, volume: 0.08 * _soundVolumeScale, filterFrequency: 5200, startTime: now
+                    });
                     return true;
                 }
-                playTimerBeepsBuiltin(repeatCount, spacingMs);
+                playToneSequence([220, 330], {
+                    type: 'sine', noteDuration: 0.24, gap: 0, volume: 0.11 * _soundVolumeScale, startTime: now
+                });
                 return true;
             }
 
@@ -10143,54 +10312,83 @@
             }
 
             if (slotKey === 'gavelAlarm') {
-                if (preset === 'bell') return playBellBuiltin(), true;
-                if (preset === 'beep') return playTimerBeepBuiltin(0.24), true;
-                return gavelHit(0.12), true;
+                if (preset === 'bell') {
+                    playToneSequence([659.25, 987.77], {
+                        type: 'triangle', noteDuration: 0.2, gap: 0.03, volume: 0.08 * _soundVolumeScale, filterFrequency: 5200, startTime: now
+                    });
+                    return true;
+                }
+                if (preset === 'beep') {
+                    playToneSequence([220, 330], {
+                        type: 'sine', noteDuration: 0.24, gap: 0, volume: 0.11 * _soundVolumeScale, startTime: now
+                    });
+                    return true;
+                }
+                gavelHit(0.12);
+                return true;
             }
 
             if (slotKey === 'scorePositive') {
-                if (preset === 'bell') return playBellBuiltin(), true;
-                if (preset === 'pop') return playPopBuiltin(), true;
-                return playScoreJingleBuiltin(), true;
+                if (preset === 'bell') {
+                    playToneSequence([659.25, 987.77], {
+                        type: 'triangle', noteDuration: 0.2, gap: 0.03, volume: 0.08 * _soundVolumeScale, filterFrequency: 5200, startTime: now
+                    });
+                    return true;
+                }
+                if (preset === 'pop') {
+                    playPopBuiltin();
+                    return true;
+                }
+                playScoreJingleBuiltin();
+                return true;
             }
 
             if (slotKey === 'scoreNegative') {
-                if (preset === 'thunk') return playThunkBuiltin(), true;
-                if (preset === 'tap') return gavelHit(0.12), true;
-                return playScoreBuzzerBuiltin(), true;
+                if (preset === 'thunk') {
+                    playThunkBuiltin();
+                    return true;
+                }
+                if (preset === 'tap') {
+                    gavelHit(0.12);
+                    return true;
+                }
+                playScoreBuzzerBuiltin();
+                return true;
             }
 
             return false;
         }
 
-        function interruptAmbientNoiseForAlarm() {
-            if (typeof whiteNoisePlaying === 'undefined' || typeof whiteNoiseMuted === 'undefined') return false;
-            if (!whiteNoisePlaying && whiteNoiseMuted) return false;
+        function playBuiltinSound(slotKey, preset, options = {}) {
+            const repeatCount = Math.max(1, Number(options.repeatCount) || 1);
+            const spacingMs = Math.max(0, Number(options.spacingMs) || 150);
+            const gapSec = spacingMs / 1000;
+            const singleDurSec = getBuiltinPresetDurationSec(slotKey, preset);
+            const stepSec = singleDurSec + gapSec;
 
-            whiteNoisePlaying = false;
-            whiteNoiseMuted = true;
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const baseNow = audioContext.currentTime;
 
-            try {
-                if (_noiseType === 'file') {
-                    _stopNoiseFileAudio();
-                } else if (_noiseGains && _noiseGains[_noiseType] && audioContext) {
-                    const now = audioContext.currentTime;
-                    _noiseGains[_noiseType].gain.cancelScheduledValues(now);
-                    _noiseGains[_noiseType].gain.setTargetAtTime(0, now, 0.03);
-                }
-            } catch (error) {
-                console.warn('Unable to interrupt ambient noise for alarm:', error);
+            let ok = false;
+            for (let i = 0; i < repeatCount; i++) {
+                const iterNow = baseNow + i * stepSec;
+                const res = playBuiltinSoundSingleIteration(slotKey, preset, iterNow);
+                if (res) ok = true;
             }
 
-            if (typeof _syncWhiteNoiseUI === 'function') _syncWhiteNoiseUI();
-            return true;
+            if (typeof options.onComplete === 'function') {
+                const totalMs = (repeatCount * stepSec) * 1000;
+                setTimeout(options.onComplete, Math.max(10, totalMs));
+            }
+
+            return ok;
         }
 
         function playConfiguredSound(slotKey, options = {}) {
             soundSettings = normalizeSoundSettings(soundSettings);
             const cfg = soundSettings[slotKey] || DEFAULT_SOUND_SETTINGS[slotKey];
-            const repeatCount = Math.max(1, Number(options.repeatCount) || 1);
-            const spacingMs = Math.max(120, Number(options.spacingMs) || 350);
+            const repeatCount = Math.max(1, Number(options.repeatCount !== undefined ? options.repeatCount : cfg.iterations) || 1);
+            const spacingMs = Math.max(0, Number(options.spacingMs !== undefined ? options.spacingMs : 150));
             const volumeScale = Math.min(1, Math.max(0, (typeof cfg.volume === 'number' ? cfg.volume : 100) / 100));
 
             if (slotKey === 'timerEnd' || slotKey === 'gavelAlarm') {
@@ -10198,32 +10396,25 @@
             }
 
             if (cfg.mode === 'file' && cfg.file) {
-                return playSoundFileClip(cfg.file, repeatCount, spacingMs, volumeScale);
+                return playSoundFileClip(cfg.file, repeatCount, spacingMs, volumeScale, options.onComplete);
             }
 
             if (cfg.mode === 'js' && cfg.js) {
-                let ok = false;
-                for (let i = 0; i < repeatCount; i++) {
-                    setTimeout(() => {
-                        playCustomSoundCode(cfg.js, slotKey, i, repeatCount, volumeScale);
-                    }, i * spacingMs);
-                    ok = true;
-                }
-                return ok;
+                return playCustomSoundCodeRepeated(cfg.js, slotKey, repeatCount, spacingMs, volumeScale, options.onComplete);
             }
 
             _soundVolumeScale = volumeScale;
-            return playBuiltinSound(slotKey, cfg.preset, { repeatCount, spacingMs });
+            return playBuiltinSound(slotKey, cfg.preset, { repeatCount, spacingMs, onComplete: options.onComplete });
         }
 
         function playScoreJingle() {
             if (scoreMuted) return;
-            playConfiguredSound('scorePositive', { repeatCount: 1, spacingMs: 220 });
+            playConfiguredSound('scorePositive', { spacingMs: 150 });
         }
 
         function playScoreBuzzer() {
             if (scoreMuted) return;
-            playConfiguredSound('scoreNegative', { repeatCount: 1, spacingMs: 220 });
+            playConfiguredSound('scoreNegative', { spacingMs: 150 });
         }
 
         function syncRosterInlineToggleButtonStates() {
@@ -10263,7 +10454,7 @@
                 animationsBtn.title = animationsEnabled ? 'Animations on' : 'Animations off';
             }
 
-            ['plan', 'anim', 'autoflag', 'badges', 'roles', 'modes', 'sen'].forEach(key => {
+            ['plan', 'anim', 'autoflag', 'badges', 'roles', 'modes', 'sen', 'lessonPlan'].forEach(key => {
                 const btn = document.getElementById('rsp-pres-' + key + '-btn');
                 if (btn) btn.classList.toggle('is-off', !presSettings[key]);
             });
@@ -12700,10 +12891,11 @@ syncState();
             persistSettingsToUserFile().catch(err => console.warn('duplicateMode save config:', err));
         }
 
-        function deleteMode(modeId) {
+        async function deleteMode(modeId) {
             const index = classModes.findIndex(m => m.id === modeId);
             if (index === -1) return;
-            if (confirm(`Are you sure you want to delete "${classModes[index].name}"?`)) {
+            const confirmed = (typeof showConfirm === 'function') ? await showConfirm(`Are you sure you want to delete "${classModes[index].name}"?`) : confirm(`Are you sure you want to delete "${classModes[index].name}"?`);
+            if (confirmed) {
                 classModes.splice(index, 1);
                 renderModeManagerList();
                 renderTimerModeShortcuts();
@@ -12711,8 +12903,9 @@ syncState();
             }
         }
 
-        function resetModesToDefault() {
-            if (confirm('Reset class modes to standard defaults (Quiet, Talk, Group)?')) {
+        async function resetModesToDefault() {
+            const confirmed = (typeof showConfirm === 'function') ? await showConfirm('Reset class modes to standard defaults (Quiet, Talk, Group)?') : confirm('Reset class modes to standard defaults (Quiet, Talk, Group)?');
+            if (confirmed) {
                 classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
                 renderModeManagerList();
                 renderTimerModeShortcuts();
@@ -13451,6 +13644,7 @@ syncState();
             { id: 'mirror_autoflag', nameKey: 'rsp_pres_autoflag_title', defaultName: 'Mirror autoflag in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('autoflag') },
             { id: 'mirror_anim', nameKey: 'rsp_pres_anim_title', defaultName: 'Mirror animations in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('anim') },
             { id: 'mirror_plan', nameKey: 'rsp_pres_plan_title', defaultName: 'Mirror plan view in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('plan') },
+            { id: 'mirror_lesson_plan', nameKey: 'rsp_pres_lesson_plan_title', defaultName: 'Mirror lesson plan in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('lessonPlan') },
             { id: 'mirror_modes', nameKey: 'rsp_pres_modes_title', defaultName: 'Mirror modes in presentation', category: 'presentation', defaultKeys: null, fn: () => togglePresSetting('modes') },
 
             // --- Grouping & Roles ---
@@ -18109,6 +18303,11 @@ ${body}
 
         // ── Lesson Runner Integration (Lesson Creator) ───────────────────────────
         (function () {
+            function escapeHtml(str) {
+                if (typeof escapeSettingsHtml === 'function') return escapeSettingsHtml(str);
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
             window.CmsLessonRunner = {
                 activePlan: null,
                 activePhaseIndex: 0,
@@ -18125,20 +18324,19 @@ ${body}
                 checkClassPlanOnSelect: async function (classId) {
                     if (!classId || this.activePlan) return;
                     try {
-                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
-                            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
-                            if (Array.isArray(files)) {
-                                var todayStr = new Date().toISOString().slice(0, 10);
-                                for (var i = 0; i < files.length; i++) {
-                                    var f = files[i];
-                                    if (f && f.filename && f.filename.endsWith('.json')) {
-                                        var res = await Desktop.readText('user', 'lessons/' + f.filename);
-                                        if (res && res.ok && res.content) {
-                                            var p = JSON.parse(res.content);
-                                            if (p && (p.classId === classId || p.classId === selectedGroupName)) {
-                                                this.promptDetectedPlan(p);
-                                                return;
-                                            }
+                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+                            var listRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
+                            var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+                            for (var i = 0; i < files.length; i++) {
+                                var f = files[i];
+                                var relPath = f.relativePath || ('lessons/' + f.filename);
+                                if (f && f.filename && f.filename.endsWith('.json')) {
+                                    var res = await Desktop.readByPath('user', relPath);
+                                    if (res && res.ok && res.content) {
+                                        var p = JSON.parse(res.content);
+                                        if (p && (p.classId === classId || p.classId === selectedGroupName)) {
+                                            this.promptDetectedPlan(p);
+                                            return;
                                         }
                                     }
                                 }
@@ -18171,33 +18369,148 @@ ${body}
                 },
 
                 loadPlanById: async function (planId) {
+                    if (!planId) return;
                     try {
-                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
-                            var files = await Desktop.listFiles('user', { subfolder: 'lessons' });
-                            if (Array.isArray(files)) {
-                                for (var i = 0; i < files.length; i++) {
-                                    var res = await Desktop.readText('user', 'lessons/' + files[i].filename);
-                                    if (res && res.ok && res.content) {
+                        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+                            var allFilesToScan = [];
+                            
+                            // 1. Scan user/lessons/
+                            var listRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
+                            var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+                            files.forEach(function (f) {
+                                if (f && f.filename) {
+                                    allFilesToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename) });
+                                }
+                            });
+
+                            // 2. Scan user/ root for legacy/flat lp_ files
+                            if (typeof Desktop.listFiles === 'function') {
+                                var rootRes = await Desktop.listFiles('user', { extensions: ['.json'] });
+                                var rootFiles = (rootRes && rootRes.ok && Array.isArray(rootRes.files)) ? rootRes.files : [];
+                                rootFiles.forEach(function (f) {
+                                    if (f && f.filename && f.filename.startsWith('lp_')) {
+                                        allFilesToScan.push({ target: 'user', relPath: f.filename });
+                                    }
+                                });
+                            }
+
+                            for (var i = 0; i < allFilesToScan.length; i++) {
+                                var item = allFilesToScan[i];
+                                var res = await Desktop.readByPath(item.target, item.relPath);
+                                if (res && res.ok && res.content) {
+                                    try {
                                         var p = JSON.parse(res.content);
-                                        if (p && p.id === planId) {
+                                        if (p && (p.id === planId || String(p.id) === String(planId))) {
                                             this.loadPlan(p);
                                             return;
                                         }
-                                    }
+                                    } catch (_) {}
+                                }
+                            }
+                        } else {
+                            var stored = localStorage.getItem('cmt-lesson-' + planId);
+                            if (stored) {
+                                var p = JSON.parse(stored);
+                                if (p) {
+                                    this.loadPlan(p);
+                                    return;
                                 }
                             }
                         }
-                    } catch (_) {}
+                    } catch (e) {
+                        console.warn('CmsLessonRunner loadPlanById failed:', e);
+                    }
+                },
+
+                lessonStartTime: null,
+
+                setLessonStartTime: function (timeVal) {
+                    if (timeVal instanceof Date && !isNaN(timeVal.getTime())) {
+                        this.lessonStartTime = new Date(timeVal);
+                    } else if (typeof timeVal === 'string' && timeVal.indexOf(':') !== -1) {
+                        var parts = timeVal.trim().split(':');
+                        var now = new Date();
+                        now.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+                        this.lessonStartTime = now;
+                    } else {
+                        this.lessonStartTime = new Date();
+                    }
+                },
+
+                startActivityNow: function () {
+                    this.lessonStartTime = new Date();
+                    this.renderCurrentPhase();
+                    
+                    if (this.activePlan && Array.isArray(this.activePlan.sections) && this.activePlan.sections[this.activePhaseIndex]) {
+                        var durMins = Number(this.activePlan.sections[this.activePhaseIndex].duration) || 5;
+                        var minsInput = document.getElementById('overlay-timer-minutes');
+                        var hrsInput = document.getElementById('overlay-timer-hours');
+                        if (minsInput && hrsInput) {
+                            hrsInput.value = 0;
+                            minsInput.value = durMins;
+                            if (typeof syncOverlaySettingsToPopup === 'function') syncOverlaySettingsToPopup();
+                        }
+                    }
+
+                    if (typeof showToast === 'function') {
+                        var timeSpan = this.getPhaseTimeSpan(this.activePhaseIndex);
+                        showToast('Activity started at ' + timeSpan.startStr + '!');
+                    }
+                },
+
+                formatTimeStr: function (dateObj) {
+                    if (!dateObj || isNaN(dateObj.getTime())) return '--:--';
+                    var hh = String(dateObj.getHours()).padStart(2, '0');
+                    var mm = String(dateObj.getMinutes()).padStart(2, '0');
+                    return hh + ':' + mm;
+                },
+
+                getPhaseTimeSpan: function (phaseIdx) {
+                    if (!this.activePlan || !Array.isArray(this.activePlan.sections)) {
+                        return { startStr: '--:--', endStr: '--:--' };
+                    }
+                    var baseTime = this.lessonStartTime || new Date();
+                    var offsetMins = 0;
+                    for (var i = 0; i < phaseIdx; i++) {
+                        offsetMins += Number(this.activePlan.sections[i].duration) || 0;
+                    }
+                    var phaseDur = Number(this.activePlan.sections[phaseIdx].duration) || 0;
+                    var startTime = new Date(baseTime.getTime() + offsetMins * 60000);
+                    var endTime = new Date(startTime.getTime() + phaseDur * 60000);
+                    return {
+                        startStr: this.formatTimeStr(startTime),
+                        endStr: this.formatTimeStr(endTime),
+                        startTime: startTime,
+                        endTime: endTime
+                    };
                 },
 
                 loadPlan: function (plan) {
                     if (!plan || !Array.isArray(plan.sections)) return;
                     this.activePlan = plan;
                     this.activePhaseIndex = 0;
+
+                    // Initialize startTime from planner slot time, plan scheduled startTime, or current clock time
+                    if (typeof selectedPlannerSlot !== 'undefined' && selectedPlannerSlot && selectedPlannerSlot.time) {
+                        this.setLessonStartTime(selectedPlannerSlot.time);
+                    } else if (plan.startTime) {
+                        this.setLessonStartTime(plan.startTime);
+                    } else {
+                        this.setLessonStartTime(new Date());
+                    }
+
                     var container = document.getElementById('cms-lesson-runner-container');
                     if (container) container.style.display = 'block';
+
+                    // Auto-select class group if specified in plan and available
+                    if (plan.classId && typeof selectGroup === 'function' && selectedGroupName !== plan.classId) {
+                        if (typeof studentGroups !== 'undefined' && studentGroups[plan.classId]) {
+                            selectGroup(plan.classId);
+                        }
+                    }
+
                     this.renderCurrentPhase();
-                    if (typeof showToast === 'function') showToast('Lesson Plan Loaded: ' + plan.title);
+                    if (typeof showToast === 'function') showToast('Lesson Plan Loaded: ' + (plan.title || 'Untitled'));
                 },
 
                 unloadPlan: function () {
@@ -18222,6 +18535,13 @@ ${body}
                     var badgeEl = document.getElementById('clr-phase-badge');
                     if (badgeEl) badgeEl.textContent = (phase.activityTypeId || 'ACTIVITY').replace(/_/g, ' ').toUpperCase();
 
+                    // Render start and end clock times badge
+                    var currentSpan = this.getPhaseTimeSpan(this.activePhaseIndex);
+                    var timesEl = document.getElementById('clr-phase-times');
+                    if (timesEl) {
+                        timesEl.textContent = '⏱ ' + currentSpan.startStr + ' – ' + currentSpan.endStr;
+                    }
+
                     var tpEl = document.getElementById('clr-teacher-prompt');
                     if (tpEl) tpEl.textContent = phase.teacherAction || phase.objective || '—';
 
@@ -18237,6 +18557,31 @@ ${body}
                         } else {
                             teamsWrap.style.display = 'none';
                         }
+                    }
+
+                    // Render timeline schedule bar
+                    var timelineEl = document.getElementById('clr-timeline-bar');
+                    if (timelineEl) {
+                        timelineEl.innerHTML = '';
+                        var self = this;
+                        phases.forEach(function (p, idx) {
+                            var pSpan = self.getPhaseTimeSpan(idx);
+                            var chip = document.createElement('div');
+                            chip.style.cssText = 'padding:2px 8px; border-radius:4px; border:1px solid #111; cursor:pointer; white-space:nowrap; flex-shrink:0; font-weight:700; transition:all 0.15s;';
+                            if (idx === self.activePhaseIndex) {
+                                chip.style.background = '#111';
+                                chip.style.color = '#fff';
+                            } else {
+                                chip.style.background = '#f3f4f6';
+                                chip.style.color = '#374151';
+                            }
+                            chip.innerHTML = (idx + 1) + '. ' + pSpan.startStr + '-' + pSpan.endStr + ' <span style="font-weight:400; opacity:0.85;">' + escapeHtml(p.title || 'Phase') + '</span>';
+                            chip.onclick = function () {
+                                self.activePhaseIndex = idx;
+                                self.renderCurrentPhase();
+                            };
+                            timelineEl.appendChild(chip);
+                        });
                     }
 
                     // Auto-preset timer duration
@@ -18258,6 +18603,8 @@ ${body}
                                 totalPhases: phases.length,
                                 title: phase.title || '',
                                 duration: durMins,
+                                startTimeStr: currentSpan.startStr,
+                                endTimeStr: currentSpan.endStr,
                                 studentPrompt: phase.studentAction || '',
                                 activityType: phase.activityTypeId || ''
                             });
@@ -18309,6 +18656,23 @@ ${body}
                     this.completePhase();
                 }
             };
+
+            // Listen for cross-window live plan execution broadcasts (no page reload)
+            if (typeof BroadcastChannel !== 'undefined') {
+                try {
+                    var _runnerCh = new BroadcastChannel('cms-lesson-runner');
+                    _runnerCh.onmessage = function (e) {
+                        if (e.data && e.data.action === 'load-plan' && e.data.planId) {
+                            if (e.data.classId && typeof selectGroup === 'function' && selectedGroupName !== e.data.classId) {
+                                if (typeof studentGroups !== 'undefined' && studentGroups[e.data.classId]) {
+                                    selectGroup(e.data.classId);
+                                }
+                            }
+                            CmsLessonRunner.loadPlanById(e.data.planId);
+                        }
+                    };
+                } catch (_) {}
+            }
 
             // Initialize runner
             window.addEventListener('DOMContentLoaded', function () {

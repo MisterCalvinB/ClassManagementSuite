@@ -1052,12 +1052,9 @@
         if (window.showToast) window.showToast(t('agStudentErasedEverywhere', 'Student permanently erased from all groups and rosters.'));
       };
 
-      if (window.showConfirm) {
-        window.showConfirm(confirmMsg, doDelete);
-      } else {
-        if (confirm(confirmMsg)) {
-          await doDelete();
-        }
+      var confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmMsg) : confirm(confirmMsg);
+      if (confirmed) {
+        await doDelete();
       }
     }
   };
@@ -1146,12 +1143,9 @@
         if (window.showToast) window.showToast(t('agAllStudentsErasedEverywhere', 'All students permanently erased from all groups and rosters.'));
       };
 
-      if (window.showConfirm) {
-        window.showConfirm(confirmMsg, doDeleteAll);
-      } else {
-        if (confirm(confirmMsg)) {
-          await doDeleteAll();
-        }
+      var confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmMsg) : confirm(confirmMsg);
+      if (confirmed) {
+        await doDeleteAll();
       }
     }
   };
@@ -1748,7 +1742,7 @@
   // ── Existing Helper Exporters for Legacy Tables ──
   function exportToXlsx(students, cat, filename) {
     if (typeof XLSX === 'undefined') {
-      alert('XLSX library not loaded');
+      if (window.showToast) window.showToast('XLSX library not loaded', true); else alert('XLSX library not loaded');
       return;
     }
     var isFr = isFrench();
@@ -1917,7 +1911,8 @@
     if (window.showToast) window.showToast(t('agParsingFile', 'Parsing file...'));
     var res = await ImportUtils.parseFile(file);
     if (!res || !res.ok) {
-      alert('Failed to parse file: ' + ((res && res.error) || 'Unknown error'));
+      var msg = 'Failed to parse file: ' + ((res && res.error) || 'Unknown error');
+      if (window.showToast) window.showToast(msg, true); else alert(msg);
       return;
     }
 
@@ -1927,7 +1922,8 @@
     recomputeAdminImportMapping(res.headerRowIdx || 0);
 
     if (!state.pendingImport || !state.pendingImport.rows || !state.pendingImport.rows.length) {
-      alert('No data rows found in file.');
+      var msg = 'No data rows found in file.';
+      if (window.showToast) window.showToast(msg, true); else alert(msg);
       return;
     }
 

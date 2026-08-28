@@ -640,12 +640,61 @@
     } catch (e) {}
   }
 
+  async function checkScheduledBackupPrompt() {
+    try {
+      if (!window.electronApi || typeof window.electronApi.checkScheduledBackup !== 'function') return;
+      if (sessionStorage.getItem('cmt_scheduled_backup_prompted') === 'true') return;
+
+      const res = await window.electronApi.checkScheduledBackup();
+      if (res && res.ok && res.due) {
+        sessionStorage.setItem('cmt_scheduled_backup_prompted', 'true');
+
+        let daysText = res.daysElapsed || res.intervalDays || 7;
+        let msg = '';
+        if (typeof window.t === 'function') {
+          msg = window.t('scheduledBackupPromptMsg');
+        }
+        if (!msg || msg === 'scheduledBackupPromptMsg') {
+          msg = `A scheduled backup has not been created in over ${daysText} day(s). Would you like to create a backup ZIP archive now?`;
+        } else {
+          msg = msg.replace('{days}', daysText);
+        }
+
+        const confirmed = await window.showConfirm(msg);
+        if (confirmed) {
+          if (typeof showToast === 'function') {
+            showToast(typeof window.t === 'function' ? window.t('gcBackingUp') : 'Backing up...', 3000);
+          }
+          const backupRes = await window.electronApi.runBackup({ format: 'zip' });
+          if (backupRes && backupRes.ok) {
+            const successMsg = typeof window.t === 'function' ? window.t('scheduledBackupSuccessToast') : 'Scheduled ZIP backup successfully created!';
+            if (typeof showToast === 'function') {
+              showToast(successMsg, 4000);
+            }
+          } else {
+            const errText = (backupRes && backupRes.error) || (typeof window.t === 'function' ? window.t('gcBackupFailed') : 'Backup failed');
+            if (typeof showToast === 'function') {
+              showToast(errText, true);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to check scheduled backup:', e);
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(checkPreviousSessionCrash, 2000));
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(checkPreviousSessionCrash, 2000);
+      setTimeout(checkScheduledBackupPrompt, 1200);
+    });
   } else {
     setTimeout(checkPreviousSessionCrash, 2000);
+    setTimeout(checkScheduledBackupPrompt, 1200);
   }
 
   window.checkPreviousSessionCrash = checkPreviousSessionCrash;
+  window.checkScheduledBackupPrompt = checkScheduledBackupPrompt;
   window.showExportSuccessPopup = _showExportSuccessPopup;
 })();

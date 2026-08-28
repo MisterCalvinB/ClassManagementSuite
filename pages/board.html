@@ -628,6 +628,21 @@
       filter: brightness(0) invert(1);
     }
 
+    @keyframes history-hourglass-spin {
+      0% { transform: rotate(0deg); }
+      40% { transform: rotate(180deg); }
+      50% { transform: rotate(180deg); }
+      90% { transform: rotate(360deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .history-hourglass-spinner {
+      display: inline-block;
+      margin-right: 6px;
+      animation: history-hourglass-spin 1.4s infinite ease-in-out;
+      font-size: 1.1em;
+      vertical-align: -2px;
+    }
+
     /* Board right-click context menu SVG contrast rules */
     #con-board-ctx-menu img,
     #con-board-ctx-menu .con-ctx-item img,
@@ -2096,9 +2111,11 @@
     </div>
 
     <!-- HISTORY SECTION MERGED -->
-    <div id="history-section" style="margin-top: 32px; border-top: 2px solid #eee; padding-top: 24px;">
-      <h2 data-i18n="historySectionTitle" style="display:flex;align-items:center;"><img
-          src="../assets/icons/history.svg" class="main-hdr-icon" alt="" /> Save History</h2>
+    <div id="history-section" style="margin-top: 32px; border-top: 2px solid #eee; padding-top: 24px;" onmouseenter="historyOnSectionHover()">
+      <h2 data-i18n="historySectionTitle" style="display:flex;align-items:center;">
+        <span id="history-spinner-slot"></span>
+        <img src="../assets/icons/history.svg" class="main-hdr-icon" alt="" /> Save History
+      </h2>
 
       <div id="history-toolbar">
         <div id="history-status" data-i18n="historyStatusLoading">Loading saved files...</div>
@@ -4346,11 +4363,6 @@
         }
       } else {
         populateAllThemeMenus();
-        if (!historyHasLoaded && typeof historyRefreshList === 'function') {
-          historyRefreshList();
-        } else if (typeof historyRenderList === 'function') {
-          historyRenderList();
-        }
       }
     }
     window.navTo = navTo;
@@ -23320,9 +23332,6 @@
       bpUpdateBtn();
       initBoardSessionAutosave();
       await boardConsumePendingOpenRequestFromQuery();
-      if (typeof historyRefreshList === 'function' && !historyHasLoaded) {
-        setTimeout(() => { historyRefreshList(); }, 50);
-      }
       // Set timestamp title on fresh load if no title was restored
       const _initTitleInput = document.getElementById('con-title-input');
       if (_initTitleInput && !_initTitleInput.value.trim()) {
@@ -29143,6 +29152,8 @@
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
       const force = !!options.force;
       if (section !== 'constellation') return;
+      // Do not autosave if no constellation session file is currently opened
+      if (!_conCurrentFileName && !_conCurrentFolderName) return;
       if (!force && !_boardIsDirty && boardAutosaveFingerprint[section]) return;
 
       let data = null;
@@ -29244,6 +29255,7 @@
     }
 
     function boardAutosaveAllNow(options = {}) {
+      if (!_conCurrentFileName && !_conCurrentFolderName) return;
       boardAutosaveSection('constellation', options);
     }
 
@@ -29258,6 +29270,7 @@
         boardResetAutosaveInterval();
         _boardMutationTimer = setTimeout(() => {
           _boardMutationTimer = null;
+          if (!_conCurrentFileName && !_conCurrentFolderName) return;
           if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
           boardAutosaveSection(section, { force: false });
         }, 45000);
@@ -31164,7 +31177,7 @@
     function conTrySilentInitialSave() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return null;
       if (!(window.Desktop && Desktop.isElectron())) return null;
-      if (_conCurrentFileName || _conCurrentFolderName) return null;
+      if (!_conCurrentFileName && !_conCurrentFolderName) return null;
       if (_conSilentInitialSavePromise) return _conSilentInitialSavePromise;
 
       const data = conBuildSessionData();
@@ -32546,6 +32559,7 @@
 
     var historyEntries = [];
     var historyLoading = false;
+    var historyEnriching = false;
     var historyHasLoaded = false;
     var historySelectedKeys = new Set();
     var historyFilterDateFrom = '';
@@ -32554,6 +32568,32 @@
     var historyFilterText = '';
     var historyContentCache = new Map();
     var historyContentSearchTimer = null;
+
+    var boardHistoryMetaCacheKey = 'board_history_meta_cache_v1';
+    var boardHistoryMetaCache = {};
+    try {
+      boardHistoryMetaCache = JSON.parse(localStorage.getItem(boardHistoryMetaCacheKey) || '{}') || {};
+    } catch (_) { boardHistoryMetaCache = {}; }
+
+    function historySaveMetaCache() {
+      try {
+        localStorage.setItem(boardHistoryMetaCacheKey, JSON.stringify(boardHistoryMetaCache));
+      } catch (_) { }
+    }
+
+    function historyUpdateSpinnerUi() {
+      const slot = document.getElementById('history-spinner-slot');
+      const isBusy = historyLoading || historyEnriching;
+      if (slot) {
+        slot.innerHTML = isBusy ? '<span class="history-hourglass-spinner" title="Loading history files...">⏳</span>' : '';
+      }
+    }
+
+    function historyOnSectionHover() {
+      if (!historyHasLoaded && !historyLoading && typeof historyRefreshList === 'function') {
+        historyRefreshList();
+      }
+    }
 
     function historyEntryRelativePath(entry) {
       const raw = String((entry && (entry.relativePath || entry.filename)) || '');
@@ -33072,8 +33112,9 @@
       if (createdAt && modifiedAt && createdAt === modifiedAt && fsCreatedAt && fsCreatedAt !== modifiedAt) {
         createdAt = fsCreatedAt;
       }
-      let classGroup = (file && file.classGroup) || historyInferClassGroup(baseName);
-      const plannerEntryId = (file && file.plannerEntryId) || '';
+      const cached = boardHistoryMetaCache[relativePath];
+      let classGroup = (file && file.classGroup) || (cached && cached.classGroup) || historyInferClassGroup(baseName);
+      let plannerEntryId = (file && file.plannerEntryId) || (cached && cached.plannerEntryId) || '';
       if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
         const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
         for (const cid of Object.keys(byClass)) {
@@ -33089,7 +33130,7 @@
         : ((file && file.source === 'autosave') || /autosave/i.test(baseName))
           ? 'autosave'
           : 'manual-save';
-      return {
+      const entry = {
         target,
         section: historySectionFromTarget(target),
         source,
@@ -33104,6 +33145,8 @@
         modifiedAt,
         size: Number(file && file.size) || 0
       };
+      if (classGroup) entry._enrichAttempted = true;
+      return entry;
     }
 
     function historyFindEntryIndex(target, relOrFilename) {
@@ -33175,6 +33218,16 @@
         historyEntries.unshift(entryData);
       }
 
+      if (rel && (classGroup || plannerEntryId)) {
+        boardHistoryMetaCache[rel] = {
+          classGroup: classGroup || '',
+          plannerEntryId: plannerEntryId || '',
+          createdAt: entryData.createdAt || 0,
+          modifiedAt: now
+        };
+        historySaveMetaCache();
+      }
+
       historyRenderList();
     }
 
@@ -33186,6 +33239,11 @@
         if (key) {
           historySelectedKeys.delete(key);
           historyContentCache.delete(key);
+        }
+        const rel = historyEntryRelativePath(entry);
+        if (rel && boardHistoryMetaCache[rel]) {
+          delete boardHistoryMetaCache[rel];
+          historySaveMetaCache();
         }
         historyEntries.splice(idx, 1);
         historyRenderList();
@@ -33272,7 +33330,13 @@
     function historySetStatus(text) {
       const status = document.getElementById('history-status');
       if (!status) return;
-      status.textContent = String(text || '');
+      const textStr = String(text || '');
+      if (historyLoading || historyEnriching) {
+        status.innerHTML = '<span class="history-hourglass-spinner">⏳</span>' + boardEscapeHtml(textStr);
+      } else {
+        status.textContent = textStr;
+      }
+      historyUpdateSpinnerUi();
     }
 
     function historyFormatSize(size) {
@@ -33621,79 +33685,106 @@
       const toEnrich = historyEntries.filter(e => !e.classGroup && !e._enrichAttempted);
       if (!toEnrich.length) return;
       toEnrich.forEach(e => { e._enrichAttempted = true; });
-      const BATCH = 12;
+      historyEnriching = true;
+      historyUpdateSpinnerUi();
+      const BATCH = 6;
       let changed = false;
-      for (let i = 0; i < toEnrich.length; i += BATCH) {
-        const batch = toEnrich.slice(i, i + BATCH);
-        await Promise.all(batch.map(async entry => {
-          try {
-            const rel = historyEntryRelativePath(entry);
-            const isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
-            if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
-              const inspectRes = await Desktop.inspectBoardArchive(entry.target, rel);
-              if (inspectRes && inspectRes.ok) {
-                const cg = inspectRes.classGroup || (inspectRes.manifest && inspectRes.manifest.classGroup);
-                if (cg) {
-                  entry.classGroup = cg;
-                  entry.classLabel = getClassGroupLabel(cg);
-                  changed = true;
-                }
-                const inspCreatedAt = Number(inspectRes.createdAt || (inspectRes.manifest && (inspectRes.manifest.createdAt || inspectRes.manifest._createdAt))) || 0;
-                if (inspCreatedAt) {
-                  entry.createdAt = inspCreatedAt;
-                  entry.dateKey = historyExtractDateKey(entry.baseName, inspCreatedAt);
-                  changed = true;
-                }
-                const inspSavedAt = Number(inspectRes.savedAt || inspectRes.mtimeMs || (inspectRes.manifest && (inspectRes.manifest.updatedAt || inspectRes.manifest.savedAt))) || 0;
-                if (inspSavedAt) {
-                  entry.modifiedAt = inspSavedAt;
-                  changed = true;
-                }
-                if (cg) return;
-                if (inspectRes.plannerEntryId) {
-                  const pid = inspectRes.plannerEntryId;
-                  const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
-                  for (const cid of Object.keys(byClass)) {
-                    const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-                    if (arr.some(e => e.id === pid)) {
-                      entry.classGroup = cid;
-                      entry.classLabel = getClassGroupLabel(cid);
-                      changed = true;
-                      return;
+      try {
+        for (let i = 0; i < toEnrich.length; i += BATCH) {
+          const batch = toEnrich.slice(i, i + BATCH);
+          await Promise.all(batch.map(async entry => {
+            try {
+              const rel = historyEntryRelativePath(entry);
+              const isArchive = rel.endsWith('.cstz') || rel.endsWith('.zip');
+              if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
+                const inspectRes = await Desktop.inspectBoardArchive(entry.target, rel);
+                if (inspectRes && inspectRes.ok) {
+                  const cg = inspectRes.classGroup || (inspectRes.manifest && inspectRes.manifest.classGroup);
+                  if (cg) {
+                    entry.classGroup = cg;
+                    entry.classLabel = getClassGroupLabel(cg);
+                    changed = true;
+                  }
+                  const inspCreatedAt = Number(inspectRes.createdAt || (inspectRes.manifest && (inspectRes.manifest.createdAt || inspectRes.manifest._createdAt))) || 0;
+                  if (inspCreatedAt) {
+                    entry.createdAt = inspCreatedAt;
+                    entry.dateKey = historyExtractDateKey(entry.baseName, inspCreatedAt);
+                    changed = true;
+                  }
+                  const inspSavedAt = Number(inspectRes.savedAt || inspectRes.mtimeMs || (inspectRes.manifest && (inspectRes.manifest.updatedAt || inspectRes.manifest.savedAt))) || 0;
+                  if (inspSavedAt) {
+                    entry.modifiedAt = inspSavedAt;
+                    changed = true;
+                  }
+                  if (inspectRes.plannerEntryId) {
+                    const pid = inspectRes.plannerEntryId;
+                    entry.plannerEntryId = pid;
+                    const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+                    for (const cid of Object.keys(byClass)) {
+                      const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+                      if (arr.some(e => e.id === pid)) {
+                        entry.classGroup = cid;
+                        entry.classLabel = getClassGroupLabel(cid);
+                        changed = true;
+                        break;
+                      }
                     }
+                  }
+                  if (entry.classGroup || entry.plannerEntryId) {
+                    boardHistoryMetaCache[rel] = {
+                      classGroup: entry.classGroup || '',
+                      plannerEntryId: entry.plannerEntryId || '',
+                      createdAt: entry.createdAt || 0,
+                      modifiedAt: entry.modifiedAt || 0
+                    };
+                    historySaveMetaCache();
+                  }
+                  return;
+                }
+                return;
+              }
+
+              if (typeof Desktop.readByPath !== 'function') return;
+              const result = await Desktop.readByPath(entry.target, rel, { encoding: 'utf8' });
+              if (!(result && result.ok && result.content)) return;
+              const content = result.content;
+              const cgMatch = content.match(/"_classGroup"\s*:\s*"([^"]*)"/);
+              if (cgMatch && cgMatch[1]) {
+                entry.classGroup = cgMatch[1];
+                entry.classLabel = getClassGroupLabel(cgMatch[1]);
+                changed = true;
+              }
+              const pidMatch = content.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
+              if (pidMatch && pidMatch[1]) {
+                const pid = pidMatch[1];
+                entry.plannerEntryId = pid;
+                const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
+                for (const cid of Object.keys(byClass)) {
+                  const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+                  if (arr.some(e => e.id === pid)) {
+                    entry.classGroup = cid;
+                    entry.classLabel = getClassGroupLabel(cid);
+                    changed = true;
+                    break;
                   }
                 }
               }
-              return;
-            }
-
-            if (typeof Desktop.readByPath !== 'function') return;
-            const result = await Desktop.readByPath(entry.target, rel, { encoding: 'utf8' });
-            if (!(result && result.ok && result.content)) return;
-            const content = result.content;
-            const cgMatch = content.match(/"_classGroup"\s*:\s*"([^"]*)"/);
-            if (cgMatch && cgMatch[1]) {
-              entry.classGroup = cgMatch[1];
-              entry.classLabel = getClassGroupLabel(cgMatch[1]);
-              changed = true;
-              return;
-            }
-            const pidMatch = content.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
-            if (pidMatch && pidMatch[1]) {
-              const pid = pidMatch[1];
-              const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
-              for (const cid of Object.keys(byClass)) {
-                const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-                if (arr.some(e => e.id === pid)) {
-                  entry.classGroup = cid;
-                  entry.classLabel = getClassGroupLabel(cid);
-                  changed = true;
-                  return;
-                }
+              if (entry.classGroup || entry.plannerEntryId) {
+                boardHistoryMetaCache[rel] = {
+                  classGroup: entry.classGroup || '',
+                  plannerEntryId: entry.plannerEntryId || '',
+                  createdAt: entry.createdAt || 0,
+                  modifiedAt: entry.modifiedAt || 0
+                };
+                historySaveMetaCache();
               }
-            }
-          } catch { }
-        }));
+            } catch { }
+          }));
+          await new Promise(r => setTimeout(r, 16));
+        }
+      } finally {
+        historyEnriching = false;
+        historyUpdateSpinnerUi();
       }
       if (changed) {
         historyRenderFilters();
@@ -40750,8 +40841,14 @@
       window._conMediaEmojiPendingItem = item;
       var picker = document.getElementById('con-emoji-picker');
       if (!picker) {
-        var emoji = window.prompt('Enter emoji:');
-        if (emoji) window.conMediaAddEmojiSticker(item, emoji.trim());
+        if (typeof showPrompt === 'function') {
+          showPrompt('Enter emoji:').then(function (emoji) {
+            if (emoji) window.conMediaAddEmojiSticker(item, emoji.trim());
+          });
+        } else {
+          var emoji = window.prompt('Enter emoji:');
+          if (emoji) window.conMediaAddEmojiSticker(item, emoji.trim());
+        }
         return;
       }
       picker.querySelectorAll('button').forEach(function (btn) {

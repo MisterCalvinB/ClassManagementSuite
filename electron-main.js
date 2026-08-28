@@ -336,6 +336,7 @@ function getSaveTargets() {
   return {
     app: ROOT_DIR,
     user: path.join(writableRoot, 'user'),
+    lessons: path.join(writableRoot, 'user/lessons'),
     data: customDataRoot,
     grades: path.join(writableRoot, 'user/grades'),
     groupParticipation: path.join(writableRoot, 'user/group-participation'),
@@ -371,25 +372,25 @@ function getBundledDataRoot() {
 }
 
 const PAGE_PERMISSIONS = {
-  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks']),
-  [PAGE_FILES.classManagement]: new Set(['user', 'groupParticipation', 'data', 'grades']),
+  [PAGE_FILES.board]: new Set(['data', 'mindmaps', 'constellationTemplates', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'user', 'customBooks', 'lessons']),
+  [PAGE_FILES.classManagement]: new Set(['user', 'lessons', 'groupParticipation', 'data', 'grades']),
   [PAGE_FILES.groupEditor]: new Set(['user', 'groupParticipation', 'grades', 'gradeSheet']),
   [PAGE_FILES.gradeSheet]: new Set(['grades', 'user', 'toPrint']),
   [PAGE_FILES.learningDb]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customCompetences', 'customDescriptors']),
   [PAGE_FILES.learningDb2]: new Set(['data', 'user', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customCompetences', 'customDescriptors']),
   [PAGE_FILES.learningTools]: new Set(['data', 'user', 'groupParticipation', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'gameResults']),
   [PAGE_FILES.participationTracker]: new Set(['user', 'groupParticipation', 'toPrint']),
-  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint']),
+  [PAGE_FILES.launcher]: new Set(['user', 'mindmaps', 'docEditorDocs', 'toPrint', 'lessons']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
-  [PAGE_FILES.fileManager]: new Set(['user', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors']),
+  [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors']),
   [PAGE_FILES.howTo]: new Set(['user']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'toPrint']),
-  [PAGE_FILES.planner]: new Set(['user', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
-  [PAGE_FILES.lessonCreator]: new Set(['user', 'customCompetences', 'customDescriptors', 'mindmaps', 'toPrint']),
-  [PAGE_FILES.importTool]: new Set(['user', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors']),
+  [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'toPrint']),
+  [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'mindmaps', 'toPrint']),
+  [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors']),
   [PAGE_FILES.administrativeGroups]: new Set(['user', 'grades', 'data', 'customData', 'toPrint']),
   [PAGE_FILES.oralMarking]: new Set(['user', 'grades'])
 };
@@ -847,7 +848,19 @@ function resolveAllowedTargetPath(pageFile, target, relativePath) {
 async function writeAllowedFile(pageFile, target, file) {
   const targetDir = resolveAllowedTargetDir(pageFile, target);
 
-  const safeSubdir = file.subdir ? sanitizeRelativePath(file.subdir) : null;
+  let reqSubdir = file.subdir || null;
+  let reqFilename = String(file.filename || '').trim();
+
+  if (!reqSubdir && (reqFilename.includes('/') || reqFilename.includes('\\'))) {
+    const norm = reqFilename.replace(/\\/g, '/');
+    const lastSlash = norm.lastIndexOf('/');
+    if (lastSlash !== -1) {
+      reqSubdir = norm.slice(0, lastSlash);
+      reqFilename = norm.slice(lastSlash + 1);
+    }
+  }
+
+  const safeSubdir = reqSubdir ? sanitizeRelativePath(reqSubdir) : null;
   const finalDir = (safeSubdir && safeSubdir !== '.')
     ? (() => {
         const resolved = path.resolve(targetDir, safeSubdir);
@@ -859,7 +872,7 @@ async function writeAllowedFile(pageFile, target, file) {
       })()
     : targetDir;
 
-  const finalName = sanitizeFilename(file.filename);
+  const finalName = sanitizeFilename(reqFilename);
   const filePath = path.join(finalDir, finalName);
   const encoding = file.encoding === 'base64' ? 'base64' : 'utf8';
   const data = encoding === 'base64'
@@ -1384,6 +1397,15 @@ async function listAllowedPathFiles(pageFile, target, relativePath, request = {}
   };
 }
 
+async function createAllowedPathDirectory(pageFile, target, relativePath) {
+  const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
+  await fs.mkdir(fullPath, { recursive: true });
+  return {
+    relativePath: safeRelative,
+    path: fullPath
+  };
+}
+
 async function deleteAllowedPathEntry(pageFile, target, relativePath, options = {}) {
   const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
   const recursive = options.recursive !== false;
@@ -1793,10 +1815,13 @@ async function loadSavedBackupConfig() {
     const parsed = JSON.parse(raw);
     return {
       backupLocation: String(parsed?.backupLocation || '').trim() || null,
-      backupFormat: ['folder', 'zip', 'targz'].includes(parsed?.backupFormat) ? parsed.backupFormat : 'folder'
+      backupFormat: ['folder', 'zip', 'targz'].includes(parsed?.backupFormat) ? parsed.backupFormat : 'folder',
+      backupScheduleEnabled: Boolean(parsed?.backupScheduleEnabled),
+      backupIntervalDays: Number.isFinite(parsed?.backupIntervalDays) ? Math.max(1, Math.min(365, parseInt(parsed.backupIntervalDays, 10))) : 7,
+      lastBackupTime: parsed?.lastBackupTime || null
     };
   } catch {
-    return { backupLocation: null, backupFormat: 'folder' };
+    return { backupLocation: null, backupFormat: 'folder', backupScheduleEnabled: false, backupIntervalDays: 7, lastBackupTime: null };
   }
 }
 
@@ -1811,7 +1836,10 @@ async function saveBackupConfig(updates = {}) {
     const current = await loadSavedBackupConfig();
     const newConfig = {
       backupLocation: updates.backupLocation !== undefined ? updates.backupLocation : current.backupLocation,
-      backupFormat: updates.backupFormat !== undefined ? updates.backupFormat : current.backupFormat
+      backupFormat: updates.backupFormat !== undefined ? updates.backupFormat : current.backupFormat,
+      backupScheduleEnabled: updates.backupScheduleEnabled !== undefined ? updates.backupScheduleEnabled : current.backupScheduleEnabled,
+      backupIntervalDays: updates.backupIntervalDays !== undefined ? updates.backupIntervalDays : current.backupIntervalDays,
+      lastBackupTime: updates.lastBackupTime !== undefined ? updates.lastBackupTime : current.lastBackupTime
     };
     await fs.writeFile(
       getBackupLocationConfigPath(),
@@ -1821,7 +1849,7 @@ async function saveBackupConfig(updates = {}) {
     return newConfig;
   } catch (err) {
     console.error('Failed to save backup config:', err);
-    return { backupLocation: null, backupFormat: 'folder' };
+    return { backupLocation: null, backupFormat: 'folder', backupScheduleEnabled: false, backupIntervalDays: 7, lastBackupTime: null };
   }
 }
 
@@ -4386,7 +4414,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
     );
     if (existing) {
-      if (query) {
+      if (query && !request.noReload) {
         loadTool(pageFile, existing, { query }).catch((err) => {
           console.error(`Failed to navigate ${pageFile}:`, err);
         });
@@ -5456,6 +5484,11 @@ ipcMain.handle('app:create-directory-by-path', async (event, request = {}) => {
     request.target,
     request.relativePath
   );
+  _broadcastDataChanged(event, pageFile, {
+    action: 'create-directory-by-path',
+    target: request.target,
+    relativePath: request.relativePath
+  });
   return { ok: true, created };
 });
 
@@ -6128,13 +6161,63 @@ ipcMain.handle('app:pick-and-copy-files', async (event, request = {}) => {
 
 ipcMain.handle('app:get-backup-location', async () => {
   const cfg = await loadSavedBackupConfig();
-  return { ok: true, backupLocation: cfg.backupLocation, backupFormat: cfg.backupFormat };
+  return {
+    ok: true,
+    backupLocation: cfg.backupLocation,
+    backupFormat: cfg.backupFormat,
+    backupScheduleEnabled: cfg.backupScheduleEnabled,
+    backupIntervalDays: cfg.backupIntervalDays,
+    lastBackupTime: cfg.lastBackupTime
+  };
 });
 
 ipcMain.handle('app:set-backup-format', async (_event, { format } = {}) => {
   const valid = ['folder', 'zip', 'targz'].includes(format) ? format : 'folder';
   await saveBackupConfig({ backupFormat: valid });
   return { ok: true, backupFormat: valid };
+});
+
+ipcMain.handle('app:set-backup-schedule', async (_event, { enabled, intervalDays } = {}) => {
+  const validInterval = Number.isFinite(intervalDays) ? Math.max(1, Math.min(365, parseInt(intervalDays, 10))) : 7;
+  const cfg = await saveBackupConfig({
+    backupScheduleEnabled: Boolean(enabled),
+    backupIntervalDays: validInterval
+  });
+  return { ok: true, backupScheduleEnabled: cfg.backupScheduleEnabled, backupIntervalDays: cfg.backupIntervalDays };
+});
+
+ipcMain.handle('app:check-scheduled-backup', async () => {
+  const cfg = await loadSavedBackupConfig();
+  if (!cfg.backupScheduleEnabled || !cfg.backupLocation) {
+    return { ok: true, due: false, backupScheduleEnabled: cfg.backupScheduleEnabled, backupLocation: cfg.backupLocation };
+  }
+  const intervalMs = (cfg.backupIntervalDays || 7) * 24 * 60 * 60 * 1000;
+  let due = false;
+  let daysElapsed = 0;
+  if (!cfg.lastBackupTime) {
+    due = true;
+    daysElapsed = cfg.backupIntervalDays;
+  } else {
+    const lastMs = new Date(cfg.lastBackupTime).getTime();
+    if (isNaN(lastMs)) {
+      due = true;
+      daysElapsed = cfg.backupIntervalDays;
+    } else {
+      const diffMs = Date.now() - lastMs;
+      daysElapsed = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+      if (diffMs >= intervalMs) {
+        due = true;
+      }
+    }
+  }
+  return {
+    ok: true,
+    due,
+    daysElapsed,
+    intervalDays: cfg.backupIntervalDays,
+    lastBackupTime: cfg.lastBackupTime,
+    backupLocation: cfg.backupLocation
+  };
 });
 
 ipcMain.handle('app:pick-backup-location', async () => {
@@ -6184,14 +6267,15 @@ ipcMain.handle('app:run-backup', async (_event, request = {}) => {
   const pad = (n) => String(n).padStart(2, '0');
   const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
 
+  let response;
   if (format === 'zip') {
     const targetFile = path.join(backupLocation, `backup_${timestamp}.zip`);
     const result = await createZipBackup(userDir, targetFile);
-    return { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
+    response = { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
   } else if (format === 'targz') {
     const targetFile = path.join(backupLocation, `backup_${timestamp}.tar.gz`);
     const result = await createTarGzBackup(userDir, targetFile);
-    return { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
+    response = { ok: result.ok, copied: result.copied, errors: result.errors, backupLocation: targetFile };
   } else {
     const sources = [
       { dir: userDir, prefix: 'user' }
@@ -6207,8 +6291,14 @@ ipcMain.handle('app:run-backup', async (_event, request = {}) => {
       allErrors.push(...result.errors);
     }
 
-    return { ok: true, copied: totalCopied, errors: allErrors, backupLocation: destRoot };
+    response = { ok: true, copied: totalCopied, errors: allErrors, backupLocation: destRoot };
   }
+
+  if (response && response.ok) {
+    await saveBackupConfig({ lastBackupTime: now.toISOString() });
+  }
+
+  return response;
 });
 
 ipcMain.handle('app:get-sync-location', async () => {

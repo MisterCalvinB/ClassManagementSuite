@@ -292,6 +292,27 @@
               <button class="btn" id="runBackupBtn" type="button" disabled data-i18n="gcBackupNow">Backup Now</button>
             </div>
             <div class="status" style="margin-top:8px;" id="backupStatus"></div>
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:0.9rem;">
+                <input type="checkbox" id="backupScheduleToggle" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+                <span data-i18n="gcEnableScheduledBackup">Enable scheduled automatic backups</span>
+              </label>
+              <div id="backupScheduleDetails" style="margin-top:10px;margin-left:24px;display:none;">
+                <div class="field" style="margin-bottom:8px;">
+                  <label class="field-label" for="backupIntervalSelect" data-i18n="gcBackupInterval">Backup interval</label>
+                  <select id="backupIntervalSelect"
+                    style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.88rem;background:#fff;color:var(--text);cursor:pointer;max-width:220px;">
+                    <option value="1" data-i18n="gcBackupInterval1">Daily (Every 1 day)</option>
+                    <option value="3" data-i18n="gcBackupInterval3">Every 3 days</option>
+                    <option value="7" data-i18n="gcBackupInterval7">Weekly (Every 7 days)</option>
+                    <option value="14" data-i18n="gcBackupInterval14">Bi-weekly (Every 14 days)</option>
+                    <option value="30" data-i18n="gcBackupInterval30">Monthly (Every 30 days)</option>
+                  </select>
+                </div>
+                <p class="section-desc" style="font-size:0.8rem;color:var(--muted);margin-bottom:0;" data-i18n="gcScheduledBackupNote">When opening the app, if a scheduled backup is past due, you will be prompted to create a ZIP backup.</p>
+              </div>
+            </div>
+            <div id="lastBackupDisplay" style="font-size:0.83rem;color:var(--muted);margin-top:10px;"></div>
 
           </section>
           <section class="config-section" id="localSyncSection">
@@ -1392,6 +1413,48 @@
         var fmtSel = document.getElementById('backupFormatSelect');
         if (fmtSel) fmtSel.value = res.backupFormat;
       }
+
+      var schedToggle = document.getElementById('backupScheduleToggle');
+      var schedDetails = document.getElementById('backupScheduleDetails');
+      var intervalSel = document.getElementById('backupIntervalSelect');
+      var lastBakDisplay = document.getElementById('lastBackupDisplay');
+
+      if (res && res.ok) {
+        if (schedToggle) {
+          schedToggle.checked = Boolean(res.backupScheduleEnabled);
+          if (schedDetails) schedDetails.style.display = res.backupScheduleEnabled ? 'block' : 'none';
+        }
+        if (intervalSel && res.backupIntervalDays) {
+          intervalSel.value = String(res.backupIntervalDays);
+        }
+        if (lastBakDisplay) {
+          if (res.lastBackupTime) {
+            var formattedDate = new Date(res.lastBackupTime).toLocaleString();
+            lastBakDisplay.textContent = typeof tFmt === 'function' ? tFmt('gcLastBackup', { time: formattedDate }) : ('Last backup: ' + formattedDate);
+          } else {
+            lastBakDisplay.textContent = typeof t === 'function' ? t('gcLastBackupNever') : 'Last backup: Never';
+          }
+        }
+      }
+    }
+
+    var schedToggle = document.getElementById('backupScheduleToggle');
+    var schedDetails = document.getElementById('backupScheduleDetails');
+    var intervalSel = document.getElementById('backupIntervalSelect');
+
+    async function saveScheduleSettings() {
+      if (!window.electronApi || !window.electronApi.setBackupSchedule) return;
+      var enabled = schedToggle ? schedToggle.checked : false;
+      var interval = intervalSel ? parseInt(intervalSel.value, 10) : 7;
+      if (schedDetails) schedDetails.style.display = enabled ? 'block' : 'none';
+      await window.electronApi.setBackupSchedule({ enabled: enabled, intervalDays: interval });
+    }
+
+    if (schedToggle) {
+      schedToggle.addEventListener('change', saveScheduleSettings);
+    }
+    if (intervalSel) {
+      intervalSel.addEventListener('change', saveScheduleSettings);
     }
 
     var backupFmtSel = document.getElementById('backupFormatSelect');
@@ -1418,6 +1481,7 @@
           document.getElementById('backupPath').textContent = res.backupLocation;
           document.getElementById('runBackupBtn').disabled = false;
           if (res.backupFormat && backupFmtSel) backupFmtSel.value = res.backupFormat;
+          await refreshBackupPath();
         }
       } catch (err) { setBackupStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { this.disabled = false; }
@@ -1438,6 +1502,7 @@
           } else {
             setBackupStatus(tFmt('gcBackupComplete', { copied: res.copied, location: res.backupLocation }), 'ok');
           }
+          await refreshBackupPath();
         }
       } catch (err) { setBackupStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { this.disabled = false; }
