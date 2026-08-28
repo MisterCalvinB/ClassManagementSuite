@@ -10285,7 +10285,7 @@
 
             if (slotKey === 'timerEnd') {
                 if (preset === 'gavel') {
-                    gavelHit(0.2, _soundVolumeScale);
+                    gavelHit(0.2, _soundVolumeScale, now);
                     return true;
                 }
                 if (preset === 'chime') {
@@ -10324,7 +10324,7 @@
                     });
                     return true;
                 }
-                gavelHit(0.12);
+                gavelHit(0.12, _soundVolumeScale, now);
                 return true;
             }
 
@@ -10349,7 +10349,7 @@
                     return true;
                 }
                 if (preset === 'tap') {
-                    gavelHit(0.12);
+                    gavelHit(0.12, _soundVolumeScale, now);
                     return true;
                 }
                 playScoreBuzzerBuiltin();
@@ -10382,6 +10382,16 @@
             }
 
             return ok;
+        }
+
+        function interruptAmbientNoiseForAlarm() {
+            if (typeof stopWhiteNoise === 'function') {
+                stopWhiteNoise();
+            }
+        }
+
+        function playTimerBeep(count = 1, frequency = 600) {
+            return playBeeps(count, frequency);
         }
 
         function playConfiguredSound(slotKey, options = {}) {
@@ -12007,9 +12017,9 @@ syncState();
         }
 
         // Function specifically for the gavel effect with wooden impact and room echo
-        function gavelHit(duration = 0.2, volumeScale = null) {
+        function gavelHit(duration = 0.2, volumeScale = null, customNow = null) {
             if (audioContext.state === 'suspended') audioContext.resume();
-            const now = audioContext.currentTime;
+            const now = customNow !== null && Number.isFinite(customNow) ? customNow : audioContext.currentTime;
             const scale = volumeScale !== null ? Math.min(1, Math.max(0, Number(volumeScale))) : _soundVolumeScale;
 
             const strike = (time, volume, isEcho = false) => {
