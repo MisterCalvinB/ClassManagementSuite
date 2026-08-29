@@ -175,6 +175,7 @@
           <button class="sidebar-child" data-accordion="acc-pl-terms" onclick="navToAccordion('planner','acc-pl-terms')"><span class="sidebar-child-dot"></span>Setting Up Terms</button>
           <button class="sidebar-child" data-accordion="acc-pl-classes" onclick="navToAccordion('planner','acc-pl-classes')"><span class="sidebar-child-dot"></span>Managing Classes</button>
           <button class="sidebar-child" data-accordion="acc-pl-entries" onclick="navToAccordion('planner','acc-pl-entries')"><span class="sidebar-child-dot"></span>Adding Entries</button>
+          <button class="sidebar-child" data-accordion="acc-pl-links" onclick="navToAccordion('planner','acc-pl-links')"><span class="sidebar-child-dot"></span>Lesson Plans &amp; CM Linking</button>
           <button class="sidebar-child" data-accordion="acc-pl-todos" onclick="navToAccordion('planner','acc-pl-todos')"><span class="sidebar-child-dot"></span>To-do list</button>
           <button class="sidebar-child" data-accordion="acc-pl-export" onclick="navToAccordion('planner','acc-pl-export')"><span class="sidebar-child-dot"></span>Exporting</button>
           <button class="sidebar-child" data-accordion="acc-pl-shortcuts" onclick="navToAccordion('planner','acc-pl-shortcuts')"><span class="sidebar-child-dot"></span>Keyboard Shortcuts</button>
@@ -656,6 +657,18 @@
         <div class="accordion-body"><div class="accordion-inner">
           <div class="mini-grid">
             <div class="mini-card">
+              <h4><img src="../assets/icons/planner.svg" class="ht-icon-img" alt="" /> Planner ↔ Class Management: Event &amp; Session Linking</h4>
+              <p>Every Planner lesson entry has a unique, permanent UUID (<code>entry.id</code>). When you open Class Management or select a class on a scheduled date, the app automatically finds and binds that exact entry UUID (<code>plannerEntryId</code>). Saved participation logs, scores, and Time Machine backups preserve this link so live classroom activity is directly tied to your curriculum events.</p>
+            </div>
+            <div class="mini-card">
+              <h4><img src="../assets/icons/file-text.svg" class="ht-icon-img" alt="" /> Planner ↔ Lesson Creator: Integrated Lesson Plans</h4>
+              <p>Lesson plans created in Lesson Creator link directly to Planner slots and calendar entries. Slots with attached plans show a high-contrast text badge (<strong>Lesson Plan</strong> / <strong>Plan de cours</strong>). Right-click any slot to Create, Open, Link, Unlink, or Delete lesson plans directly on disk. Drag-and-drop duplicating a slot copies its attached lesson plan with a fresh UUID automatically.</p>
+            </div>
+            <div class="mini-card">
+              <h4><img src="../assets/icons/class-management.svg" class="ht-icon-img" alt="" /> Class Management ↔ Lesson Creator: Automatic HUD</h4>
+              <p>When you load a class in Class Management on a day with a scheduled lesson plan, the app automatically detects it. If a single plan is found, the Lesson Runner HUD opens with timed phases and curriculum descriptors. If multiple plans exist, a prompt lets you choose which plan to execute.</p>
+            </div>
+            <div class="mini-card">
               <h4><img src="../assets/icons/class-management.svg" class="ht-icon-img" alt="" /> Class Management → Board</h4>
               <p>Starting the timer in Class Management displays a live countdown on the Board automatically. Group activity updates also sync in real time when both windows are open.</p>
             </div>
@@ -1064,12 +1077,14 @@
       <div class="accordion" id="acc-cm-groups">
         <button class="accordion-header" onclick="toggleAccordion('acc-cm-groups')">
           <span class="accordion-arrow">▶</span>
-          <span class="accordion-title">Loading a Class Group</span>
+          <span class="accordion-title">Loading a Class Group &amp; Timetable Auto-Matching</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
           <ol class="steps">
-            <li>Click the group selector at the top to choose a class from your configured groups.</li>
-            <li>The student list loads automatically with current session scores.</li>
+            <li><strong>Manual Selection:</strong> Click the group selector at the top to choose a class from your configured groups. The student roster and current scores load immediately.</li>
+            <li><strong>Automatic Timetable Matching:</strong> On launch, Class Management checks your weekly timetable in the Planner. If a class is currently in session based on the current day and time, it automatically selects that class.</li>
+            <li><strong>Planner Event UUID Linking:</strong> When a class is loaded on a scheduled date, Class Management scans your Planner entries and automatically binds the entry's persistent UUID (<code>plannerEntryId</code>). All saved participation sessions and Time Machine records store this event ID.</li>
+            <li><strong>Lesson Plan HUD Auto-Detection:</strong> If a lesson plan was linked in the Planner or Lesson Creator for today's class, the Lesson Runner HUD is offered automatically, loading all phases, timers, and learning objectives into your session.</li>
             <li>Half-groups are excluded from pickers by default — use the selector to switch between full and half groups.</li>
           </ol>
         </div></div>
@@ -1540,6 +1555,31 @@
             <li>When setting <strong>No Class</strong> for multiple selected classes, Planner updates entries that already exist at that same date/time and also applies to matching weekly lesson slots. If a matching slot has no entry yet, Planner creates a no-class entry for that slot.</li>
             <li>For <strong>Test</strong> entries linked to Grade Sheet: if a Grade Sheet class with the same name exists and has a free test slot, the test is automatically added there. A green badge confirms the link.</li>
             <li>Use <strong>Duplicate</strong> to copy an entry to another date — useful for repeating lesson structures.</li>
+          </ol>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-pl-links">
+        <button class="accordion-header" onclick="toggleAccordion('acc-pl-links')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Lesson Plans &amp; Class Management Linking</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Planner slots and entries integrate directly with <strong>Lesson Creator</strong> and <strong>Class Management</strong>:</p>
+          <ol class="steps">
+            <li><strong>Right-Click Slot Actions:</strong> Right-click any scheduled slot in the week view to access quick actions:
+              <ul>
+                <li><strong>Create Lesson Plan:</strong> Generates a new lesson plan in Lesson Creator pre-filled with the class name, date, and duration, and automatically links it to this slot.</li>
+                <li><strong>Open Lesson Plan:</strong> Launches Lesson Creator with the attached plan ready for editing.</li>
+                <li><strong>Link Lesson Plan:</strong> Opens a file picker allowing you to associate an existing saved <code>.json</code> lesson plan with this slot.</li>
+                <li><strong>Unlink Lesson Plan:</strong> Removes the association without deleting your lesson plan file from disk.</li>
+                <li><strong>Delete Lesson Plan:</strong> Permanently deletes the attached lesson plan file from disk and clears the link badge.</li>
+                <li><strong>Open in Class Management:</strong> Directly launches Class Management pre-loaded with the class, date, and the entry's unique UUID.</li>
+              </ul>
+            </li>
+            <li><strong>Pure Text Badges:</strong> Slots with attached lesson plans display a clear, high-contrast text badge (<strong>Lesson Plan</strong> / <strong>Plan de cours</strong>). Clicking the badge opens the plan in Lesson Creator immediately.</li>
+            <li><strong>Drag-and-Drop Duplication:</strong> Dragging an entry to another day while holding <kbd>Alt</kbd> (or selecting duplicate) automatically duplicates the entry and clones the attached lesson plan with a fresh unique ID.</li>
+            <li><strong>Entry Modal Action:</strong> The entry modal footer includes an <strong>Open in Class Management</strong> button for fast 1-click launching into your live teaching session.</li>
           </ol>
         </div></div>
       </div>

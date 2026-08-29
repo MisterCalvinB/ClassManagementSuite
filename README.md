@@ -17,6 +17,9 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Shared Class Data & Student Display Names (`class-groups.js` & `students.js`)](#shared-class-data--student-display-names-class-groupsjs--studentsjs)
   - [Term Date Sync (Group Editor ↔ Planner)](#term-date-sync-group-editor--planner)
   - [Planner → Grade Sheet (Automatic Test Linking)](#planner--grade-sheet-automatic-test-linking)
+  - [Planner ↔ Class Management (Event UUID & Session Linking)](#planner--class-management-event-uuid--session-linking)
+  - [Planner ↔ Lesson Creator (Slot Integration & Lesson Plans)](#planner--lesson-creator-slot-integration--lesson-plans)
+  - [Class Management ↔ Lesson Creator (Automatic Lesson Runner HUD)](#class-management--lesson-creator-automatic-lesson-runner-hud)
   - [Board ↔ Planner (Lesson Tagging)](#board--planner-lesson-tagging)
   - [Class Management ↔ Board (Live Sync & Floating Timer)](#class-management--board-live-sync--floating-timer)
   - [File Manager → Board (Reopen Saved Sessions & `.cstz` Archives)](#file-manager--board-reopen-saved-sessions--cstz-archives)
@@ -28,6 +31,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Group Editor (`group-editor.html`)](#group-editorhtml)
   - [Import Tool (`import-tool.html`)](#import-toolhtml)
   - [Planner (`planner.html`)](#plannerhtml)
+  - [Lesson Creator (`lesson-creator.html`)](#lesson-creatorhtml)
   - [Class Plan (`class-plan.html`)](#class-planhtml)
   - [Schedule Maker (`schedule-maker.html`)](#schedule-makerhtml)
   - [Oral Marking (`oral-marking.html`)](#oral-markinghtml)
@@ -85,7 +89,8 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`general-config.html`](#general-confightml) | Global settings across 4 tabs: General (App Identity, Language, PDF Export, Startup & Launch Window Arrangements/Split Screen), Storage & Sync (Data Location, Local Backup formats, Local Sync, Cloud/Server WebDAV/FTP/Google Drive, Backup Files Manager, App Reset), Remote Server (Hosted server & secret), and App Notes | Global application preferences |
 | [`group-editor.html`](#group-editorhtml) | Single source of truth for class rosters, active terms, student UUIDs, display name formatting (First/Last, Last/First, Nicknames), and Planner terms | Sinks to all roster-aware tools |
 | [`import-tool.html`](#import-toolhtml) | Bulk-import students, classes, word banks, and quizzes from CSV, XLSX, or JSON (with custom static values mapping), or copy media files directly | Populates `students.js`, database, sounds, docs |
-| [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Group Editor](#group-editorhtml) |
+| [`planner.html`](#plannerhtml) | Weekly lesson & test planner with ICS, PDF, CSV, DOCX, and HTML export options, weeks drawer, and linked Board mind maps | Connects to [Grade Sheet](#grade-sheethtml), [Board](#boardhtml), [Class Management](#class-managementhtml), [Lesson Creator](#lesson-creatorhtml) |
+| [`lesson-creator.html`](#lesson-creatorhtml) | Neobrutalist lesson planning studio with drag-and-drop phases, curriculum descriptor coverage matrix, live HUD runner in Class Management, and Board mindmap exports | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml), [Board](#boardhtml) |
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
@@ -160,6 +165,31 @@ Group Editor's **Active Context** defines the current school year, term (S1/S2),
 ### Planner → Grade Sheet: Automatic Test Linking
 
 Creating an entry of type **Test** in [Planner](#plannerhtml) automatically verifies if a corresponding class exists in [Grade Sheet](#grade-sheethtml). If an open test slot is available, the test is registered automatically in Grade Sheet and a green indicator badge confirms the link.
+
+---
+
+### Planner ↔ Class Management: Event UUID & Session Linking
+
+- **Stable UUIDs**: Every scheduled lesson entry in [Planner](#plannerhtml) is assigned a persistent unique identifier (`entry.id`).
+- **Automatic Matching**: When opening [Class Management](#class-managementhtml) on a scheduled teaching day, the app automatically identifies the in-progress timetable slot and binds its exact Planner entry UUID (`plannerEntryId`).
+- **Participation & History Integrity**: All live student scoring, participation logs (`user/groupParticipation/`), and Time Machine snapshots record the `plannerEntryId`, cementing the connection between live classroom interaction and scheduled curriculum events.
+- **One-Click Launch**: Right-click any slot in Planner (or click the button in the entry edit modal) to launch Class Management pre-configured with that class, date, and entry UUID.
+
+---
+
+### Planner ↔ Lesson Creator: Slot Integration & Lesson Plans
+
+- **Slot Actions**: Right-click any slot in [Planner](#plannerhtml) to Create a new plan in [Lesson Creator](#lesson-creatorhtml), Open an attached plan, Link an existing plan, Unlink, or permanently Delete the lesson plan file from disk.
+- **Pure Text Indicators**: Linked slots display a clean, high-contrast text badge (**Lesson Plan** / **Plan de cours**) directly on the calendar card. Clicking the badge opens the plan instantly.
+- **Drag-and-Drop Cloning**: Duplicating or dragging a scheduled slot to another day automatically clones the attached lesson plan file on disk with a brand new unique ID.
+
+---
+
+### Class Management ↔ Lesson Creator: Automatic Lesson Runner HUD
+
+When loading a class group in [Class Management](#class-managementhtml) on a date with a scheduled lesson plan, the system detects it automatically. If a single plan exists, it offers to start the **Lesson Runner HUD**, bringing timed activity phases, dynamic timers, and curriculum descriptors into the live session. If multiple plans exist, a clean dialog prompts the teacher to choose.
+
+---
 
 ---
 
@@ -519,6 +549,28 @@ Comprehensive student administrative tracker, medical & SEN accommodation manage
 - **Multi-Category Export & Print**: Export specialized reports (*Master Roster*, *Emergency & Medical*, *Exam Accommodations Proctors Sheet*, *Discipline & Sanctions*) to **HTML** (editable), **XLSX** (Excel), **PDF** (print layout), **DOCX** (Word), or **CSV**.
 - **Rules & Discipline Settings (⚙)**: Customize navigation tabs, add/remove spreadsheet columns, adjust point weights, configure sanction tiers, and generate trimester/semester/custom period date ranges.
 - **Archiving & Safety Erasure**: Archive students while preserving historical disciplinary logs, erase administrative data only, or execute synchronized deletion across all master rosters.
+
+---
+
+---
+
+### lesson-creator.html
+
+Neobrutalist instructional design studio for constructing structured, competency-aligned lesson plans with modular phases, curriculum descriptor coverage audits, and direct execution in Class Management.
+
+#### Features
+- **Interactive Phase Timeline**: Construct lessons block by block with drag-and-drop reordering, phase splitting (subdividing into independent timed segments), cloning, and deletion.
+- **Pedagogical Template Models**: 1-click generation of standard frameworks:
+  - **3-Part Lesson**: Starter / Diagnostic, Main Learning Activity, Plenary / Synthesis.
+  - **5E Instructional Model**: Engage, Explore, Explain, Elaborate, Evaluate.
+  - **PPP Language Framework**: Presentation, Practice, Production.
+- **Dynamic Time Budget**: Live calculation of total planned minutes against target class duration with visual color-coded status badges.
+- **Descriptor Bank & Curriculum Coverage**: Slide-out drawer (`Ctrl+B`) for browsing school curriculum standards across Subject, Year Level (Y7–Y13), Semester, Category, and Subcategory. Attach descriptors to specific phases with 1 click.
+- **Coverage Matrix Audit (`Ctrl+M`)**: Comprehensive matrix displaying which curriculum standards have been taught across saved lesson plans, complete with progress meters and CSV export.
+- **Live Lesson Runner HUD in Class Management (`Ctrl+R`)**: Run lessons interactively in [Class Management](#class-managementhtml) with automatic phase countdown timers, activity cues, and sound chimes on activity completion.
+- **Export to Board Mindmaps**: Non-destructively export or append lesson phase clusters as structured nodes directly into [Board](#boardhtml) constellation mindmaps.
+- **Deep Planner Integration**: Right-click slot actions in [Planner](#plannerhtml), high-contrast text badges, and automatic drag-and-drop plan duplication.
+- **Multi-Format Export**: Export clean PDF lesson plan documents, JSON templates, or print handouts.
 
 ---
 

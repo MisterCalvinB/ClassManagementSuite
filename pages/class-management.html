@@ -1518,14 +1518,17 @@
                 </div>
             </div>
 
-            <!-- Lesson Plan Load Confirmation Modal -->
+            <!-- Lesson Plan Choice Modal for Multiple Plans -->
             <div class="modal-overlay" id="clr-plan-detected-modal" style="display:none; z-index:99999;">
-                <div class="modal-content" style="max-width:500px; border:3px solid #111; box-shadow:5px 5px 0 #111; border-radius:8px; padding:20px;">
-                    <h3 style="margin-bottom:12px; font-weight:900; font-size:1.1rem;"><span>Lesson Plan Detected</span></h3>
-                    <p id="clr-plan-detected-desc" style="font-size:0.9rem; margin-bottom:16px; line-height:1.4;">A lesson plan is available for this class today. Would you like to load it into the Lesson Runner?</p>
+                <div class="modal-content" style="max-width:520px; width:90%; border:3px solid #111; box-shadow:5px 5px 0 #111; border-radius:8px; padding:20px; background:#fff;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="margin:0; font-weight:900; font-size:1.1rem;"><span data-i18n="cm_selectLessonPlanTitle">Select Lesson Plan</span></h3>
+                        <button class="icon-btn" onclick="CmsLessonRunner.dismissDetectedModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; font-weight:bold;">&times;</button>
+                    </div>
+                    <p id="clr-plan-detected-desc" style="font-size:0.88rem; margin-bottom:14px; line-height:1.4; color:#333;" data-i18n="cm_selectLessonPlanPrompt">Multiple lesson plans were found for this class today. Choose one to load:</p>
+                    <div id="clr-multiple-plans-list" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; margin-bottom:16px;"></div>
                     <div style="display:flex; justify-content:flex-end; gap:10px;">
-                        <button class="action-btn" onclick="CmsLessonRunner.dismissDetectedModal()">Dismiss</button>
-                        <button class="action-btn btn-primary" id="clr-confirm-load-btn" style="background:#fcd34d; border-color:#111; color:#111; font-weight:800;" onclick="CmsLessonRunner.acceptDetectedPlan()">Load Lesson Plan</button>
+                        <button class="action-btn" onclick="CmsLessonRunner.dismissDetectedModal()" data-i18n="btnCancel">Cancel</button>
                     </div>
                 </div>
             </div>
@@ -2579,6 +2582,7 @@
         let currentRequestedTeamCount = 0; // number of teams requested in the last createTeams call (mode='total')
         let teamPickStateByGroup = {};
         let rosterContextStudentId = null;
+        let currentPlannerEntryId = '';
 
         const DEFAULT_TEAM_COLORS = teamColors.map(entry => ({ ...entry }));
         const EXTRA_TEAM_COLOR_PRESETS = [
@@ -3238,6 +3242,7 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
         }
+        const escapeHtml = escapeSettingsHtml;
 
         function normalizeSoundFilePath(value) {
             let cleaned = String(value || '').trim().replace(/\\/g, '/').replace(/^\.?\//, '');
@@ -3999,7 +4004,13 @@
         }
 
         function _plannerTimeAdd(timeStr, mins) {
-            var p = timeStr.split(':'), total = parseInt(p[0]) * 60 + parseInt(p[1]) + mins;
+            if (!timeStr || typeof timeStr !== 'string') return '';
+            var p = timeStr.split(':');
+            if (p.length < 2) return '';
+            var h = parseInt(p[0], 10);
+            var m = parseInt(p[1], 10);
+            if (isNaN(h) || isNaN(m)) return '';
+            var total = h * 60 + m + (mins || 0);
             return String(Math.floor(total / 60) % 24).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
         }
 
@@ -4022,6 +4033,78 @@
             } catch (e) {
                 console.warn('loadPlannerClasses:', e);
             }
+        }
+
+        async function loadPlannerEntriesForClass(classId) {
+            if (!classId) return [];
+            try {
+                if (window.PLANNER_ENTRIES_BY_CLASS && Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[classId])) {
+                    return window.PLANNER_ENTRIES_BY_CLASS[classId];
+                }
+                if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+                    var r = await Desktop.readText('user', (classId || '__unassigned') + '.js', 'planner');
+                    if (r && r.ok && r.content) {
+                        try {
+                            new Function(r.content)();
+                            if (window.PLANNER_ENTRIES_BY_CLASS && Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[classId])) {
+                                return window.PLANNER_ENTRIES_BY_CLASS[classId];
+                            }
+                        } catch (_) {}
+                    }
+                }
+            } catch (e) {
+                console.warn('loadPlannerEntriesForClass:', e);
+            }
+            if (typeof window.PLANNER_CONFIG !== 'undefined' && Array.isArray(window.PLANNER_CONFIG.entries)) {
+                return window.PLANNER_CONFIG.entries.filter(function (e) {
+                    if (!e) return false;
+                    var cIds = e.classIds || (e.classId ? [e.classId] : []);
+                    return cIds.includes(classId);
+                });
+            }
+            return [];
+        }
+
+        async function resolvePlannerEntryUuid(classId, slotTime, targetDate) {
+            if (!classId) return '';
+            var todayStr = targetDate || new Date().toISOString().slice(0, 10);
+            var entries = await loadPlannerEntriesForClass(classId);
+            if (!entries || !entries.length) return '';
+
+            // 1. If slotTime is provided (e.g. "09:00"), match on date and exact or close start time
+            if (slotTime) {
+                var slotPrefix = slotTime.slice(0, 5);
+                var matchSlot = entries.find(function (e) {
+                    if (!e || e.date !== todayStr) return false;
+                    return (e.time || '').slice(0, 5) === slotPrefix;
+                });
+                if (matchSlot && matchSlot.id) return matchSlot.id;
+            }
+
+            // 2. Find all entries for this class on the target date
+            var todayMatches = entries.filter(function (e) {
+                return e && e.date === todayStr;
+            });
+
+            if (todayMatches.length === 1 && todayMatches[0].id) {
+                return todayMatches[0].id;
+            }
+
+            if (todayMatches.length > 1) {
+                var now = new Date();
+                var nowTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+                // Find entry that covers the current time
+                var currentMatch = todayMatches.find(function (e) {
+                    var st = e.time || '';
+                    var en = e.timeEnd || (st ? _plannerTimeAdd(st, 60) : '');
+                    return st && nowTime >= st && nowTime <= en;
+                });
+                if (currentMatch && currentMatch.id) return currentMatch.id;
+                // Otherwise pick the earliest entry today
+                return todayMatches[0].id || '';
+            }
+
+            return '';
         }
 
         async function autoSelectPlannerGroup() {
@@ -4064,6 +4147,10 @@
                     var halfGroup = (matchedSlot && matchedSlot.halfGroup) || null;
                     var btn = document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"][data-half="${halfGroup || ''}"]`)
                         || document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"]`);
+                    if (matchedSlot && matchedSlot.time) {
+                        var slotUuid = await resolvePlannerEntryUuid(matchedId, matchedSlot.time);
+                        if (slotUuid) currentPlannerEntryId = slotUuid;
+                    }
                     selectGroup(matchedId, halfGroup, btn);
                 }
             } catch (e) {
@@ -4121,7 +4208,37 @@
             if (_ndmRadio) _ndmRadio.checked = true;
             renderCustomActionButtons();
             renderCustomButtonsModalEditor();
-            await autoSelectPlannerGroup();
+
+            var params = new URLSearchParams(window.location.search);
+            var qClass = params.get('classId');
+            var qPlannerEntryId = params.get('plannerEntryId');
+            if (qPlannerEntryId) {
+                currentPlannerEntryId = qPlannerEntryId;
+            }
+            var navRaw = localStorage.getItem('cmt-cm-nav');
+            if (navRaw) {
+                try {
+                    var navObj = JSON.parse(navRaw);
+                    if (navObj && navObj.plannerEntryId && !currentPlannerEntryId) {
+                        currentPlannerEntryId = navObj.plannerEntryId;
+                    }
+                    if (navObj && navObj.classId && !qClass) {
+                        qClass = navObj.classId;
+                    }
+                } catch (_) {}
+                localStorage.removeItem('cmt-cm-nav');
+            }
+
+            if (qClass && studentGroups && studentGroups[qClass]) {
+                if (!currentPlannerEntryId) {
+                    var qDate = params.get('date') || '';
+                    var resolvedId = await resolvePlannerEntryUuid(qClass, '', qDate);
+                    if (resolvedId) currentPlannerEntryId = resolvedId;
+                }
+                selectGroup(qClass);
+            } else {
+                await autoSelectPlannerGroup();
+            }
         }
 
         initApp().catch(error => {
@@ -5766,9 +5883,19 @@
             }
         }
 
-        function selectGroup(groupName, halfGroup, activeBtn) {
+        async function selectGroup(groupName, halfGroup, activeBtn) {
             selectedGroupName = groupName;
             selectedHalfGroup = (halfGroup !== undefined) ? halfGroup : null;
+
+            // Associate today's planner entry UUID automatically if not explicitly set
+            if (!currentPlannerEntryId) {
+                var slotTime = (selectedPlannerSlot && selectedPlannerSlot.time) || '';
+                resolvePlannerEntryUuid(groupName, slotTime).then(function (matchedUuid) {
+                    if (matchedUuid && !currentPlannerEntryId) {
+                        currentPlannerEntryId = matchedUuid;
+                    }
+                }).catch(function () {});
+            }
             document.querySelectorAll(".btn-group").forEach(b => {
                 b.classList.remove("active");
                 const sup = b.querySelector('.btn-group-half-badge');
@@ -5799,6 +5926,10 @@
 
             if (typeof _updateClassBtnLabel === 'function') _updateClassBtnLabel();
             closeClassSelectionPopup();
+
+            if (typeof CmsLessonRunner !== 'undefined' && typeof CmsLessonRunner.checkClassPlanOnSelect === 'function') {
+                CmsLessonRunner.checkClassPlanOnSelect(groupName);
+            }
         }
 
         function cmsOpenLinkedPlan() {
@@ -14212,7 +14343,9 @@ syncState();
                 groups: activeGroupSnapshot,
                 lessonObjectives: currentObjectives,
                 sessionHistory: activeGroupHistory,
-                teamCustomNames: getSessionTeamCustomNames()
+                teamCustomNames: getSessionTeamCustomNames(),
+                plannerEntryId: currentPlannerEntryId || '',
+                lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : ''
             };
         }
 
@@ -14257,7 +14390,8 @@ syncState();
                     groups: studentGroups,
                     sessionHistory: typeof sessionHistory !== 'undefined' ? sessionHistory : [],
                     lessonObjectives: currentObjectives,
-                    teamCustomNames: getSessionTeamCustomNames()
+                    teamCustomNames: getSessionTeamCustomNames(),
+                    plannerEntryId: currentPlannerEntryId || ''
                 });
             } catch (e) {
                 return null;
@@ -14546,6 +14680,14 @@ syncState();
                 return;
             }
 
+            const sessions = getDb();
+            // Check if same group was already saved today (same calendar day)
+            const todayStr = now.toDateString();
+            const existingIdx = sessions.findIndex(s => {
+                const sDate = new Date(s.id);
+                return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
+            });
+
             const session = {
                 id: isoKey,
                 date: dateStr,
@@ -14554,16 +14696,10 @@ syncState();
                 groups: snapshot,
                 lessonObjectives: currentObjectives,
                 sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
-                teamCustomNames: getSessionTeamCustomNames()
+                teamCustomNames: getSessionTeamCustomNames(),
+                plannerEntryId: currentPlannerEntryId || (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
             };
-
-            const sessions = getDb();
-            // Check if same group was already saved today (same calendar day)
-            const todayStr = now.toDateString();
-            const existingIdx = sessions.findIndex(s => {
-                const sDate = new Date(s.id);
-                return sDate.toDateString() === todayStr && s.activeGroup === selectedGroupName;
-            });
 
             if (existingIdx !== -1) {
                 sessions[existingIdx] = session;
@@ -14628,6 +14764,11 @@ syncState();
                 // Stagger ISO key by 1ms per group so each has a unique ID
                 const isoKey = new Date(now.getTime() + i).toISOString();
 
+                const existingIdx = sessions.findIndex(s => {
+                    const sDate = new Date(s.id);
+                    return sDate.toDateString() === todayStr && s.activeGroup === gName;
+                });
+
                 const session = {
                     id: isoKey,
                     date: dateStr,
@@ -14636,13 +14777,10 @@ syncState();
                     groups: snapshot,
                     lessonObjectives: currentObjectives,
                     sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
-                    teamCustomNames: getSessionTeamCustomNames()
+                    teamCustomNames: getSessionTeamCustomNames(),
+                    plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                    lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
                 };
-
-                const existingIdx = sessions.findIndex(s => {
-                    const sDate = new Date(s.id);
-                    return sDate.toDateString() === todayStr && s.activeGroup === gName;
-                });
 
                 if (existingIdx !== -1) {
                     sessions[existingIdx] = session;
@@ -14720,7 +14858,9 @@ syncState();
                     groups: { [gName]: JSON.parse(JSON.stringify(groupStudents)) },
                     lessonObjectives: gName === selectedGroupName ? currentObjectives : existingObjectives,
                     sessionHistory: groupHistory,
-                    ...(sessionTeamNames ? { teamCustomNames: sessionTeamNames } : {})
+                    ...(sessionTeamNames ? { teamCustomNames: sessionTeamNames } : {}),
+                    plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                    lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
                 };
 
                 if (existingIdx !== -1) {
@@ -14853,6 +14993,7 @@ syncState();
                         ${studentCount} students &nbsp;|&nbsp;
                         ${scoredCount} scored &nbsp;|&nbsp;
                         Source: <strong>${sourceLabel}</strong>
+                        ${s.plannerEntryId ? ` &nbsp;|&nbsp; Event: <strong>${escapeHtml(s.plannerEntryId)}</strong>` : ''}
                     </div>
                 </div>
                 <div class="tm-session-actions">
@@ -14877,6 +15018,7 @@ syncState();
                     _backup: JSON.parse(JSON.stringify(studentGroups)),
                     _activeGroup: selectedGroupName,
                     _objectives: currentObjectives,
+                    _plannerEntryId: currentPlannerEntryId,
                     _viewingId: session.id
                 };
             } else {
@@ -14884,6 +15026,9 @@ syncState();
             }
 
             isViewingPastSession = true;
+            if (session.plannerEntryId) {
+                currentPlannerEntryId = session.plannerEntryId;
+            }
 
             // Load the snapshot
             studentGroups = {};
@@ -14955,6 +15100,7 @@ syncState();
             studentGroups = liveStudentGroups._backup;
             selectedGroupName = liveStudentGroups._activeGroup;
             currentObjectives = liveStudentGroups._objectives || '';
+            currentPlannerEntryId = liveStudentGroups._plannerEntryId || '';
             liveStudentGroups = null;
 
             // Re-render group buttons
@@ -18318,6 +18464,26 @@ ${body}
                 return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             }
 
+            function getCmsClassDisplayName(cid) {
+                if (!cid) return '';
+                var meta = (loadedConfigCache && loadedConfigCache.classGroupsMeta) || (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : {}) || {};
+                if (meta[cid] && meta[cid].name) return meta[cid].name;
+                for (var k in meta) {
+                    if (k === cid && meta[k].name) return meta[k].name;
+                }
+                return cid;
+            }
+
+            function isPlanMatchingClass(pClassId, targetClassId) {
+                if (!pClassId || !targetClassId) return false;
+                if (pClassId === targetClassId) return true;
+                if (selectedGroupName && pClassId === selectedGroupName) return true;
+                var nameA = getCmsClassDisplayName(pClassId);
+                var nameB = getCmsClassDisplayName(targetClassId);
+                if (nameA && nameB && nameA.toLowerCase() === nameB.toLowerCase()) return true;
+                return false;
+            }
+
             window.CmsLessonRunner = {
                 activePlan: null,
                 activePhaseIndex: 0,
@@ -18328,39 +18494,93 @@ ${body}
                     var planId = params.get('loadLessonPlanId');
                     if (planId) {
                         await this.loadPlanById(planId);
+                    } else if (typeof selectedGroupName !== 'undefined' && selectedGroupName) {
+                        await this.checkClassPlanOnSelect(selectedGroupName);
                     }
                 },
 
                 checkClassPlanOnSelect: async function (classId) {
                     if (!classId || this.activePlan) return;
                     try {
+                        var todayStr = new Date().toISOString().slice(0, 10);
+                        var matchingPlans = [];
+
                         if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+                            var allFilesToScan = [];
                             var listRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
                             var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
-                            for (var i = 0; i < files.length; i++) {
-                                var f = files[i];
-                                var relPath = f.relativePath || ('lessons/' + f.filename);
+                            files.forEach(function (f) {
                                 if (f && f.filename && f.filename.endsWith('.json')) {
-                                    var res = await Desktop.readByPath('user', relPath);
-                                    if (res && res.ok && res.content) {
+                                    allFilesToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename) });
+                                }
+                            });
+
+                            for (var i = 0; i < allFilesToScan.length; i++) {
+                                var item = allFilesToScan[i];
+                                var res = await Desktop.readByPath(item.target, item.relPath);
+                                if (res && res.ok && res.content) {
+                                    try {
                                         var p = JSON.parse(res.content);
-                                        if (p && (p.classId === classId || p.classId === selectedGroupName)) {
-                                            this.promptDetectedPlan(p);
-                                            return;
+                                        if (p && isPlanMatchingClass(p.classId, classId)) {
+                                            var planDate = p.date ? String(p.date).slice(0, 10) : '';
+                                            if (planDate === todayStr) {
+                                                matchingPlans.push(p);
+                                            }
                                         }
-                                    }
+                                    } catch (_) {}
+                                }
+                            }
+                        } else {
+                            for (var key in localStorage) {
+                                if (key.startsWith('cmt-lesson-')) {
+                                    try {
+                                        var p = JSON.parse(localStorage.getItem(key));
+                                        if (p && isPlanMatchingClass(p.classId, classId)) {
+                                            var planDate = p.date ? String(p.date).slice(0, 10) : '';
+                                            if (planDate === todayStr) {
+                                                matchingPlans.push(p);
+                                            }
+                                        }
+                                    } catch (_) {}
                                 }
                             }
                         }
-                    } catch (_) {}
+
+                        if (matchingPlans.length === 1) {
+                            this.loadPlan(matchingPlans[0]);
+                        } else if (matchingPlans.length > 1) {
+                            this.showMultiplePlansChoice(matchingPlans);
+                        }
+                    } catch (e) {
+                        console.warn('CmsLessonRunner checkClassPlanOnSelect:', e);
+                    }
                 },
 
-                promptDetectedPlan: function (plan) {
-                    this.pendingDetectedPlan = plan;
-                    var desc = document.getElementById('clr-plan-detected-desc');
-                    if (desc) {
-                        desc.textContent = 'A lesson plan "' + (plan.title || 'Untitled') + '" (' + (plan.sections || []).length + ' phases, ' + (plan.totalDuration || 60) + 'm) is scheduled for this class. Would you like to load it into the Lesson Runner?';
-                    }
+                showMultiplePlansChoice: function (plans) {
+                    var listContainer = document.getElementById('clr-multiple-plans-list');
+                    if (!listContainer) return;
+                    listContainer.innerHTML = '';
+                    var self = this;
+                    plans.forEach(function (plan) {
+                        var card = document.createElement('div');
+                        card.className = 'choice-plan-card';
+                        card.style.cssText = 'border:2px solid #111; border-radius:6px; padding:10px 12px; cursor:pointer; background:#f8fafc; display:flex; justify-content:space-between; align-items:center;';
+                        var clsName = getCmsClassDisplayName(plan.classId);
+                        card.innerHTML = '<div>' +
+                            '<div style="font-weight:800; font-size:0.92rem; color:#111;">' + escapeHtml(plan.title || 'Untitled') + '</div>' +
+                            '<div style="font-size:0.78rem; color:#555; margin-top:2px;">' + (clsName ? '<strong>' + escapeHtml(clsName) + '</strong> &bull; ' : '') + (plan.sections || []).length + ' phases &bull; ' + (plan.totalDuration || plan.targetDuration || 60) + ' min' + (plan.unitTopic ? ' &bull; ' + escapeHtml(plan.unitTopic) : '') + '</div>' +
+                            '</div>' +
+                            '<span style="background:#111; color:#fff; font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:4px;">Load</span>';
+                        
+                        card.onmouseenter = function () { card.style.background = '#e0f2fe'; };
+                        card.onmouseleave = function () { card.style.background = '#f8fafc'; };
+                        card.onclick = function () {
+                            self.loadPlan(plan);
+                            self.dismissDetectedModal();
+                        };
+                        listContainer.appendChild(card);
+                    });
+
                     var modal = document.getElementById('clr-plan-detected-modal');
                     if (modal) modal.style.display = 'flex';
                 },

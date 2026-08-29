@@ -30,6 +30,8 @@
           <button class="nav-pop-item" onclick="lcOpenPlanPicker()"><span data-i18n="lcOpenPlan">Open Plan…</span> <span class="nav-pop-hint">Ctrl+O</span></button>
           <button class="nav-pop-item" onclick="lcSavePlan()"><span data-i18n="lcSavePlan">Save Plan</span> <span class="nav-pop-hint">Ctrl+S</span></button>
           <button class="nav-pop-item" onclick="lcDuplicatePlan()"><span data-i18n="lcDuplicatePlan">Duplicate Plan</span> <span class="nav-pop-hint">Ctrl+D</span></button>
+          <button class="nav-pop-item" onclick="lcUnlinkPlan()"><span data-i18n="lcUnlinkPlan">Unlink from Planner</span></button>
+          <button class="nav-pop-item" style="color:#ef4444;" onclick="lcDeletePlan()"><span data-i18n="lcDeletePlan">Delete Lesson Plan…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcOpenSequenceModal()"><span data-i18n="lcManageSequences">Unit Sequences…</span></button>
           <button class="nav-pop-item" onclick="lcOpenTemplatePicker()"><span data-i18n="lcApplyTemplate">Lesson Templates…</span></button>
@@ -808,16 +810,37 @@
         // Check URL parameters for linked planner slot or plan ID
         var params = new URLSearchParams(window.location.search);
         var planId = params.get('planId');
+        var plannerEntryIdParam = params.get('plannerEntryId');
         var classIdParam = params.get('classId');
         var dateParam = params.get('date');
-        var topicParam = params.get('topic');
+        var topicParam = params.get('topic') || params.get('title');
 
         if (planId) {
           await loadPlanById(planId);
-        } else if (classIdParam) {
-          currentPlan.classId = classIdParam;
-          if (dateParam) currentPlan.date = dateParam;
-          if (topicParam) currentPlan.title = topicParam;
+        } else if (plannerEntryIdParam) {
+          var matchPe = allSavedPlans.find(function (p) {
+            return p.plannerEntryId === plannerEntryIdParam || p.id === plannerEntryIdParam;
+          });
+          if (matchPe) {
+            currentPlan = matchPe;
+          } else {
+            currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
+            currentPlan.plannerEntryId = plannerEntryIdParam;
+            if (classIdParam) currentPlan.classId = classIdParam;
+            if (dateParam) currentPlan.date = dateParam;
+            if (topicParam) currentPlan.title = topicParam;
+          }
+        } else if (classIdParam || dateParam) {
+          var matchSlot = allSavedPlans.find(function (p) {
+            return classIdParam && dateParam && p.classId === classIdParam && p.date === dateParam;
+          });
+          if (matchSlot) {
+            currentPlan = matchSlot;
+          } else {
+            if (classIdParam) currentPlan.classId = classIdParam;
+            if (dateParam) currentPlan.date = dateParam;
+            if (topicParam) currentPlan.title = topicParam;
+          }
         }
 
         renderPlan();
@@ -844,10 +867,22 @@
         return yId;
       }
 
+      var allClassGroupsMeta = {};
+      var allPlannerClasses = {};
+
       function getClassLabel(cId) {
         if (!cId) return '';
-        if (allClassGroups && allClassGroups[cId] && allClassGroups[cId].name) {
+        if (allClassGroupsMeta && allClassGroupsMeta[cId] && allClassGroupsMeta[cId].name) {
+          return allClassGroupsMeta[cId].name;
+        }
+        if (allPlannerClasses && allPlannerClasses[cId] && allPlannerClasses[cId].name) {
+          return allPlannerClasses[cId].name;
+        }
+        if (allClassGroups && allClassGroups[cId] && typeof allClassGroups[cId] === 'object' && allClassGroups[cId].name) {
           return allClassGroups[cId].name;
+        }
+        for (var k in allClassGroupsMeta) {
+          if (k === cId && allClassGroupsMeta[k].name) return allClassGroupsMeta[k].name;
         }
         return cId;
       }
@@ -873,11 +908,22 @@
               document.head.appendChild(s);
               if (s.parentNode) s.parentNode.removeChild(s);
             }
+            var pRes = await Desktop.readText('user', 'planner-config.js');
+            if (pRes && pRes.ok && pRes.content) {
+              var s2 = document.createElement('script');
+              s2.text = pRes.content;
+              document.head.appendChild(s2);
+              if (s2.parentNode) s2.parentNode.removeChild(s2);
+            }
           }
         } catch (_) {}
 
-        var groups = (typeof CLASS_GROUPS !== 'undefined') ? CLASS_GROUPS : {};
-        allClassGroups = groups;
+        var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || {});
+        allClassGroups = cgd.classGroups || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS : (window.CLASS_GROUPS || {}));
+        allClassGroupsMeta = cgd.classGroupsMeta || (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : (window.CLASS_GROUPS_META || {}));
+        if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes) {
+          allPlannerClasses = window.PLANNER_CONFIG.classes;
+        }
         updateFilterDropdownOptions();
       }
 
@@ -1051,6 +1097,16 @@
           var availableClasses = new Set();
 
           // Always add teacher's class rosters first
+          if (allClassGroupsMeta && typeof allClassGroupsMeta === 'object') {
+            Object.keys(allClassGroupsMeta).forEach(function (cId) {
+              if (cId && !(allClassGroupsMeta[cId] && allClassGroupsMeta[cId].archived)) availableClasses.add(cId);
+            });
+          }
+          if (allPlannerClasses && typeof allPlannerClasses === 'object') {
+            Object.keys(allPlannerClasses).forEach(function (cId) {
+              if (cId) availableClasses.add(cId);
+            });
+          }
           if (allClassGroups && typeof allClassGroups === 'object') {
             Object.keys(allClassGroups).forEach(function (cId) {
               if (cId) availableClasses.add(cId);
@@ -1065,7 +1121,11 @@
           // Ensure current plan's classId is included if set
           if (currentPlanClass) availableClasses.add(currentPlanClass);
 
-          availableClasses.forEach(function (cId) {
+          var sortedClasses = Array.from(availableClasses).sort(function (a, b) {
+            return getClassLabel(a).localeCompare(getClassLabel(b));
+          });
+
+          sortedClasses.forEach(function (cId) {
             var opt = document.createElement('option');
             opt.value = cId;
             opt.textContent = getClassLabel(cId);
@@ -2077,8 +2137,21 @@
       // ── Save & Open Plan Routines ────────────────────────────────────────
       window.lcSavePlan = async function () {
         currentPlan.title = document.getElementById('planTitle').value || 'Untitled Lesson Plan';
+        var classSel = document.getElementById('planClass');
+        if (classSel) currentPlan.classId = classSel.value || '';
+        var dateInp = document.getElementById('planDate');
+        if (dateInp) currentPlan.date = dateInp.value || '';
+        var subSel = document.getElementById('planSubject');
+        if (subSel) currentPlan.subjectId = subSel.value || 'science';
+        var yrSel = document.getElementById('planYearLevel');
+        if (yrSel) currentPlan.yearLevel = yrSel.value || 'all';
+        var semSel = document.getElementById('planSemester');
+        if (semSel) currentPlan.semester = semSel.value || 'all';
+        var durInp = document.getElementById('planTargetDuration');
+        if (durInp) currentPlan.targetDuration = Number(durInp.value) || 60;
+
         var slug = currentPlan.title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
-        var filename = 'lp_' + (currentPlan.classId || 'general') + '_' + (currentPlan.date || 'date') + '_' + slug + '.json';
+        var filename = 'lp_' + (currentPlan.classId || 'general') + '_' + (currentPlan.date || 'date') + '_' + slug + '_' + currentPlan.id + '.json';
 
         try {
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
@@ -2127,6 +2200,77 @@
         if (typeof showToast === 'function') showToast('Plan duplicated! Click Save to write to disk.');
       };
 
+      window.lcUnlinkPlan = async function () {
+        if (!currentPlan) return;
+        var hadPlannerLink = !!currentPlan.plannerEntryId;
+        currentPlan.plannerEntryId = '';
+        isDirty = true;
+        await lcSavePlan();
+        if (hadPlannerLink && window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+          Desktop.notifyDataChanged({ target: 'lessons' });
+        }
+        var msg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcPlanUnlinked') : '') || 'Lesson plan unlinked from planner slot';
+        if (typeof showToast === 'function') showToast(msg);
+      };
+
+      window.lcDeletePlan = async function (planId, filename, planTitle) {
+        var targetId = planId || (currentPlan ? currentPlan.id : '');
+        if (!targetId) return;
+
+        var title = planTitle || (targetId === currentPlan.id ? currentPlan.title : '') || 'Untitled';
+        var confirmMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcConfirmDeletePlan') : '') || 'Are you sure you want to permanently delete this lesson plan?';
+        confirmMsg += '\n\n"' + title + '"';
+
+        var confirmed = false;
+        if (typeof showConfirm === 'function') {
+          confirmed = await showConfirm(confirmMsg);
+        } else {
+          confirmed = confirm(confirmMsg);
+        }
+        if (!confirmed) return;
+
+        var fnToDelete = filename;
+        if (!fnToDelete) {
+          var found = allSavedPlans.find(function (p) { return p.id === targetId; });
+          if (found && found._filename) fnToDelete = found._filename;
+          else if (found && found._relPath) fnToDelete = found._relPath.split('/').pop();
+        }
+
+        try {
+          if (window.Desktop && Desktop.isElectron()) {
+            if (fnToDelete) {
+              var relPath = fnToDelete.startsWith('lessons/') ? fnToDelete : ('lessons/' + fnToDelete);
+              if (typeof Desktop.deleteByPath === 'function') {
+                await Desktop.deleteByPath('user', relPath);
+              } else if (typeof Desktop.deleteFiles === 'function') {
+                await Desktop.deleteFiles('lessons', [fnToDelete]);
+              }
+            } else if (typeof Desktop.deleteFiles === 'function') {
+              await Desktop.deleteFiles('lessons', ['lp_' + targetId + '.json']);
+            }
+            if (typeof Desktop.notifyDataChanged === 'function') {
+              Desktop.notifyDataChanged({ target: 'lessons' });
+            }
+          } else {
+            localStorage.removeItem('cmt-lesson-' + targetId);
+          }
+
+          await loadSavedPlansIndex();
+
+          if (currentPlan && currentPlan.id === targetId) {
+            currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+            isDirty = false;
+            renderPlan();
+          }
+
+          renderSavedPlansList();
+          var delMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcPlanDeleted') : '') || 'Lesson plan deleted';
+          if (typeof showToast === 'function') showToast(delMsg);
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Failed to delete lesson plan: ' + e.message, true);
+        }
+      };
+
       window.lcOpenPlanPicker = async function () {
         await loadSavedPlansIndex();
         renderSavedPlansList();
@@ -2155,10 +2299,23 @@
           item.innerHTML = [
             '<div style="display:flex;justify-content:space-between;align-items:center;">',
             '  <strong>' + escapeHtml(p.title || 'Untitled') + '</strong>',
-            '  <span style="font-size:0.78rem;background:#111;color:#fff;padding:2px 6px;border-radius:4px;">' + escapeHtml(p.classId || 'All') + ' | ' + (p.date || '') + '</span>',
+            '  <span style="font-size:0.78rem;background:#111;color:#fff;padding:2px 6px;border-radius:4px;">' + escapeHtml(getClassLabel(p.classId) || 'All') + ' | ' + (p.date || '') + '</span>',
             '</div>',
-            '<div style="font-size:0.8rem;color:#666;">' + (p.sections || []).length + ' phases | ' + (p.totalDuration || 0) + ' min</div>'
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">',
+            '  <div style="font-size:0.8rem;color:#666;">' + (p.sections || []).length + ' phases | ' + (p.totalDuration || 0) + ' min</div>',
+            '  <button type="button" class="neo-btn danger sm" style="padding:2px 8px;font-size:0.75rem;" title="Delete this plan">Delete</button>',
+            '</div>'
           ].join('');
+
+          var delBtn = item.querySelector('.neo-btn.danger');
+          if (delBtn) {
+            delBtn.onclick = function (e) {
+              e.stopPropagation();
+              var fn = p._filename || (p._relPath ? p._relPath.split('/').pop() : '');
+              lcDeletePlan(p.id, fn, p.title);
+            };
+          }
+
           item.onclick = function () {
             currentPlan = p;
             renderPlan();
@@ -2769,7 +2926,7 @@
       window.lcExportStandaloneHtml = function () {
         var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + escapeHtml(currentPlan.title) + '</title><style>' +
           'body{font-family:sans-serif;padding:24px;color:#111;} table{width:100%;border-collapse:collapse;margin-top:16px;} th,td{border:1px solid #111;padding:8px 12px;text-align:left;} th{background:#fcd34d;}' +
-          '</style></head><body><h1>' + escapeHtml(currentPlan.title) + '</h1><p>Class: ' + escapeHtml(currentPlan.classId || 'All') + ' | Date: ' + (currentPlan.date || '') + ' | Duration: ' + (currentPlan.totalDuration || 0) + ' min</p>' +
+          '</style></head><body><h1>' + escapeHtml(currentPlan.title) + '</h1><p>Class: ' + escapeHtml(getClassLabel(currentPlan.classId) || 'All') + ' | Date: ' + (currentPlan.date || '') + ' | Duration: ' + (currentPlan.totalDuration || 0) + ' min</p>' +
           '<table><thead><tr><th>Phase</th><th>Duration</th><th>Activity & Mode</th><th>Teacher / Student Instructions</th></tr></thead><tbody>';
         
         (currentPlan.sections || []).forEach(function (sec, idx) {

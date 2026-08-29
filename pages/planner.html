@@ -286,6 +286,8 @@
             <option value="shift_dates" data-i18n="pl_batchActionShift">📅 Shift dates (move forward/backward)</option>
             <option value="change_class" data-i18n="pl_batchActionChangeClass">🏫 Change class group</option>
             <option value="change_type" data-i18n="pl_batchActionChangeType">🎨 Change entry type</option>
+            <option value="apply_lesson_plan" data-i18n="pl_batchApplyLessonPlan">Apply Lesson Plan to selected</option>
+            <option value="unlink_lesson_plan" data-i18n="pl_unlinkLessonPlanFromSelected">Unlink Lesson Plan from selected</option>
             <option value="duplicate" data-i18n="pl_batchActionDuplicate">👥 Duplicate entries</option>
           </select>
         </div>
@@ -322,6 +324,14 @@
               <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
               <option value="no-class" data-i18n="pl_typeNoclass">No Class</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Apply Lesson Plan Options -->
+        <div id="batch-opt-lesson-plan" style="display: none; margin-top: 10px;">
+          <div class="field-group">
+            <label data-i18n="pl_batchApplyLessonPlanPrompt">Select saved lesson plan to apply</label>
+            <select id="batch-select-lesson-plan" class="field-select"></select>
           </div>
         </div>
 
@@ -588,7 +598,11 @@
       </div>
       <div class="modal-footer">
         <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
-          onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+           onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+        <button class="tb-btn" id="cm-entry-btn" style="display:none" onclick="plannerOpenClassManagementModalAction()"
+          data-i18n="pl_openClassManagement">Open in Class Management</button>
+        <button class="tb-btn" id="lp-entry-btn" style="display:none" onclick="plannerLessonPlanEntryModalAction()"
+          data-i18n="pl_createLessonPlan">Create Lesson Plan</button>
         <button class="tb-btn" id="board-entry-btn" style="display:none" onclick="plannerBoardEntryAction()"
           data-i18n="pl_boardCreate">Create board file</button>
         <button class="tb-btn" id="dup-entry-btn" style="display:none" onclick="duplicateCurrentEntry()"
@@ -600,8 +614,46 @@
   </div>
 
   <div id="planner-board-menu" class="planner-board-menu" onclick="event.stopPropagation()">
+    <button type="button" id="planner-cm-menu-btn" onclick="plannerOpenClassManagementAction()"
+      data-i18n="pl_openClassManagement">Open in Class Management</button>
+    <button type="button" id="planner-lp-menu-btn" onclick="plannerLessonPlanEntryAction()"
+      data-i18n="pl_createLessonPlan">Create Lesson Plan</button>
+    <button type="button" id="planner-lp-link-btn" onclick="plannerLessonPlanLinkPickerAction()"
+      data-i18n="pl_linkLessonPlan">Link Existing Lesson Plan…</button>
+    <button type="button" id="planner-lp-unlink-btn" onclick="plannerLessonPlanUnlinkAction()" style="display:none;"
+      data-i18n="pl_unlinkLessonPlan">Unlink Lesson Plan</button>
+    <button type="button" id="planner-lp-delete-btn" onclick="plannerLessonPlanDeleteAction()" style="display:none;color:#ef4444;"
+      data-i18n="pl_deleteLessonPlan">Delete Lesson Plan</button>
     <button type="button" id="planner-board-menu-btn" onclick="plannerBoardEntryAction()"
       data-i18n="pl_boardCreate">Create board file</button>
+  </div>
+
+  <!-- ════ LESSON PLAN LINK MODAL ════ -->
+  <div class="modal-overlay" id="lpLinkModal" onclick="if(event.target===this)closeModal('lpLinkModal')">
+    <div class="modal-box" style="max-width:440px;width:440px" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="lp-link-modal-title" data-i18n="pl_linkLessonPlan">Link Existing Lesson Plan…</h2>
+        <button class="modal-close" onclick="closeModal('lpLinkModal')">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div id="lp-link-slot-info" style="font-size:0.84rem;color:#444;background:#f8fafc;padding:8px 12px;border-radius:6px;border:1px solid #e2e8f0;"></div>
+        <div class="field-group">
+          <label data-i18n="pl_batchApplyLessonPlanPrompt">Select saved lesson plan to link</label>
+          <select id="lp-link-plan-select" class="field-select"></select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="tb-btn" onclick="lpLinkCreateNewAction()" data-i18n="pl_createLessonPlan">+ Create New Plan</button>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="tb-btn" id="lp-unlink-btn" style="display:none" onclick="lpLinkUnlinkAction()" data-i18n="pl_unlinkLessonPlan">Unlink</button>
+            <button type="button" class="danger-btn" id="lp-delete-btn" style="display:none" onclick="lpLinkDeleteAction()" data-i18n="pl_deleteLessonPlan">Delete Plan</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="tb-btn" onclick="closeModal('lpLinkModal')" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" onclick="lpLinkConfirmAction()" data-i18n="btnOk">OK</button>
+      </div>
+    </div>
   </div>
 
   <!-- ════ CONFIRM MODAL ════ -->
@@ -1138,6 +1190,27 @@
           clsSel.appendChild(opt);
         });
       }
+      var lpSel = document.getElementById('batch-select-lesson-plan');
+      if (lpSel) {
+        lpSel.innerHTML = '';
+        if (!plannerLessonPlansList.length) {
+          var optEmpty = document.createElement('option');
+          optEmpty.value = '';
+          optEmpty.textContent = t('pl_noSavedLessonPlans') || '-- No saved lesson plans found --';
+          lpSel.appendChild(optEmpty);
+        } else {
+          var optNone = document.createElement('option');
+          optNone.value = '';
+          optNone.textContent = '-- ' + (t('pl_linkLessonPlan') || 'Select saved plan') + ' --';
+          lpSel.appendChild(optNone);
+          plannerLessonPlansList.forEach(function (p) {
+            var opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = (p.title || 'Untitled') + ' (' + (plannerClassDisplayName(p.classId) || 'All') + ' | ' + (p.date || '') + ' | ' + (p.totalDuration || 0) + 'm)';
+            lpSel.appendChild(opt);
+          });
+        }
+      }
       openModal('batchActionModal');
     }
 
@@ -1147,6 +1220,8 @@
       document.getElementById('batch-opt-shift').style.display = (val === 'shift_dates' ? 'block' : 'none');
       document.getElementById('batch-opt-class').style.display = (val === 'change_class' ? 'block' : 'none');
       document.getElementById('batch-opt-type').style.display = (val === 'change_type' ? 'block' : 'none');
+      var lpOpt = document.getElementById('batch-opt-lesson-plan');
+      if (lpOpt) lpOpt.style.display = (val === 'apply_lesson_plan' ? 'block' : 'none');
     }
 
     async function commitBatchAction() {
@@ -1254,24 +1329,86 @@
         closeModal('batchActionModal');
         render();
       }
+      else if (val === 'apply_lesson_plan') {
+        var planSelect = document.getElementById('batch-select-lesson-plan');
+        var chosenPlanId = planSelect ? planSelect.value : '';
+        if (!chosenPlanId) {
+          closeModal('batchActionModal');
+          return;
+        }
+        for (var e of entries) {
+          if (selectedEntryIds.has(e.id)) {
+            e.lessonPlanId = chosenPlanId;
+          }
+        }
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        await loadSavedLessonPlans();
+        render();
+        showToast(t('saved'));
+      }
+      else if (val === 'unlink_lesson_plan') {
+        for (var e of entries) {
+          if (selectedEntryIds.has(e.id)) {
+            e.lessonPlanId = null;
+          }
+        }
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        await loadSavedLessonPlans();
+        render();
+        showToast(t('pl_lessonPlanUnlinked') || 'Lesson plan unlinked');
+      }
       else if (val === 'duplicate') {
         var newEntries = [];
-        entries.forEach(function (e) {
+        for (var e of entries) {
           if (selectedEntryIds.has(e.id)) {
+            var newId = uid();
             var copy = Object.assign({}, e, {
-              id: uid(),
+              id: newId,
               gsLink: null,
+              lessonPlanId: null,
               recurrenceId: undefined,
               recurrenceIndex: undefined,
               recurrenceRule: undefined
             });
+            var lpLink = plannerLessonPlanForSlot({ classId: e.classId, date: e.date, time: e.time }, e);
+            if (lpLink && lpLink.plan) {
+              try {
+                var clonedPlan = JSON.parse(JSON.stringify(lpLink.plan));
+                var newPlanId = 'lp-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0') + '-' + Date.now().toString(16);
+                clonedPlan.id = newPlanId;
+                clonedPlan.plannerEntryId = newId;
+                clonedPlan.classId = copy.classId || clonedPlan.classId || '';
+                clonedPlan.date = copy.date || clonedPlan.date || '';
+                var slug = (clonedPlan.title || 'lesson').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+                var saveFilename = 'lp_' + (clonedPlan.classId || 'general') + '_' + (clonedPlan.date || 'date') + '_' + slug + '_' + newPlanId + '.json';
+                clonedPlan._filename = saveFilename;
+                clonedPlan._relPath = 'lessons/' + saveFilename;
+                if (window.Desktop && Desktop.isElectron()) {
+                  if (typeof Desktop.saveJson === 'function') {
+                    await Desktop.saveJson('lessons', saveFilename, clonedPlan);
+                  } else if (typeof Desktop.saveText === 'function') {
+                    await Desktop.saveText('user', 'lessons/' + saveFilename, JSON.stringify(clonedPlan, null, 2));
+                  }
+                } else {
+                  localStorage.setItem('cmt-lesson-' + newPlanId, JSON.stringify(clonedPlan));
+                }
+                copy.lessonPlanId = newPlanId;
+                plannerLessonPlansByEntryId[String(newPlanId)] = clonedPlan;
+                plannerLessonPlansByEntryId[String(newId)] = clonedPlan;
+              } catch (_) {}
+            }
             newEntries.push(copy);
           }
-        });
+        }
         entries = entries.concat(newEntries);
         await persistEntries();
         exitMultiSelectMode();
         closeModal('batchActionModal');
+        await loadSavedLessonPlans();
         render();
       }
     }
@@ -1491,6 +1628,7 @@
       navigateToPending();
       navigateToPendingTodo();
       if (typeof loadBoardSessions === 'function') loadBoardSessions();
+      if (typeof loadSavedLessonPlans === 'function') loadSavedLessonPlans();
     });
 
     var _navHighlightNav = null;
@@ -1630,6 +1768,7 @@
       updateSemToolbar();
       loadPartDates();    // non-blocking
       loadBoardSessions(); // non-blocking
+      loadSavedLessonPlans(); // non-blocking
 
       // Sync auto-end-reminder checkbox from cfg
       var aeEl = document.getElementById('vo-auto-end5');
@@ -1918,6 +2057,130 @@
       if (!linkId) return { linkId: '', sessions: null };
       var sessions = boardSessionsByEntryId[linkId];
       return { linkId: linkId, sessions: Array.isArray(sessions) ? sessions : null };
+    }
+
+    // ── Lesson Plan Linking & Indexing ──────────────────────────────────────────
+    var plannerLessonPlansByEntryId = {};
+    var plannerLessonPlansBySlotKey = {};
+    var plannerLessonPlansList = [];
+    var _plannerLessonPlanMetaCache = {};
+
+    async function loadSavedLessonPlans() {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      var hadChanges = false;
+      try {
+        var filesRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
+        var files = (filesRes && filesRes.ok && Array.isArray(filesRes.files)) ? filesRes.files : [];
+
+        var newByEntryId = {};
+        var newBySlotKey = {};
+        var newList = [];
+
+        var activePaths = new Set();
+        var BATCH = 8;
+        for (var i = 0; i < files.length; i += BATCH) {
+          var batch = files.slice(i, i + BATCH);
+          await Promise.all(batch.map(async function (f) {
+            var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
+            if (!relPath || !relPath.endsWith('.json')) return;
+            activePaths.add(relPath);
+            var cacheKey = relPath + ':' + (f.mtimeMs || f.size || 0);
+            var planData = null;
+
+            if (_plannerLessonPlanMetaCache && _plannerLessonPlanMetaCache[cacheKey]) {
+              planData = _plannerLessonPlanMetaCache[cacheKey];
+            } else {
+              try {
+                var readTarget = relPath.startsWith('lessons/') ? relPath : ('lessons/' + relPath);
+                var r = await Desktop.readByPath('user', readTarget);
+                if (r && r.ok && r.content) {
+                  planData = JSON.parse(r.content);
+                  if (planData) {
+                    planData._relPath = relPath;
+                    planData._filename = f.filename || relPath.split('/').pop();
+                    _plannerLessonPlanMetaCache[cacheKey] = planData;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            if (planData && planData.id) {
+              newList.push(planData);
+              if (planData.plannerEntryId) {
+                newByEntryId[String(planData.plannerEntryId)] = planData;
+              }
+              newByEntryId[String(planData.id)] = planData;
+              if (planData.classId && planData.date) {
+                var slotKey = String(planData.classId) + ':' + String(planData.date);
+                if (!newBySlotKey[slotKey]) newBySlotKey[slotKey] = [];
+                newBySlotKey[slotKey].push(planData);
+              }
+            }
+          }));
+        }
+
+        // Evict deleted files from cache
+        for (var k in _plannerLessonPlanMetaCache) {
+          var pth = k.split(':')[0];
+          if (!activePaths.has(pth)) delete _plannerLessonPlanMetaCache[k];
+        }
+
+        plannerLessonPlansByEntryId = newByEntryId;
+        plannerLessonPlansBySlotKey = newBySlotKey;
+        plannerLessonPlansList = newList.sort(function (a, b) {
+          return String(b.date || '').localeCompare(String(a.date || '')) || String(a.title || '').localeCompare(String(b.title || ''));
+        });
+        hadChanges = true;
+      } catch (_) {}
+
+      if (hadChanges) render();
+    }
+
+    function plannerLessonPlanForSlot(slot, entry) {
+      if (entry) {
+        if (entry.lessonPlanId === null || entry.lessonPlanId === false || entry.lessonPlanId === '') {
+          return { linkId: '', plan: null };
+        }
+        if (entry.lessonPlanId && plannerLessonPlansByEntryId[String(entry.lessonPlanId)]) {
+          return { linkId: String(entry.lessonPlanId), plan: plannerLessonPlansByEntryId[String(entry.lessonPlanId)] };
+        }
+        if (entry.id && plannerLessonPlansByEntryId[String(entry.id)]) {
+          return { linkId: String(entry.id), plan: plannerLessonPlansByEntryId[String(entry.id)] };
+        }
+        return { linkId: '', plan: null };
+      }
+      if (slot && slot.classId && slot.date) {
+        var list = plannerLessonPlansBySlotKey[String(slot.classId) + ':' + String(slot.date)];
+        if (list && list.length) {
+          var matchingPlan = list.find(function (p) {
+            if (!p.plannerEntryId) return true;
+            var boundEntry = entries.find(function (e) { return e.id === p.plannerEntryId; });
+            return !boundEntry;
+          });
+          if (matchingPlan) {
+            return { linkId: matchingPlan.id, plan: matchingPlan };
+          }
+        }
+      }
+      return { linkId: '', plan: null };
+    }
+
+    function openLinkedLessonPlan(planId, classId, date, plannerEntryId, topic) {
+      if (!window.Desktop || !Desktop.isElectron()) return;
+      if (planId) {
+        Desktop.openTool('lesson-creator.html', {
+          query: { planId: String(planId) }
+        });
+      } else {
+        Desktop.openTool('lesson-creator.html', {
+          query: {
+            classId: String(classId || ''),
+            date: String(date || ''),
+            plannerEntryId: String(plannerEntryId || ''),
+            title: String(topic || '')
+          }
+        });
+      }
     }
 
     // ── Active-class helpers ───────────────────────────────────────────────────
@@ -2336,6 +2599,12 @@
       }
       if (showDot) r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
       if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      var _lpLink = plannerLessonPlanForSlot(s, entry);
+      if (_lpLink && _lpLink.plan) {
+        var _lp = _lpLink.plan;
+        var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled');
+        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+      }
       var _boardLink = plannerBoardSessionsForSlot(s, entry);
       var _bSess = _boardLink.sessions;
       if (_bSess && _bSess.length) {
@@ -3427,6 +3696,7 @@
     function plannerUpdateBoardEntryControls(entry) {
       var btn = document.getElementById('board-entry-btn');
       var menuBtn = document.getElementById('planner-board-menu-btn');
+      var lpBtn = document.getElementById('lp-entry-btn');
       var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
       var linkId = entry && entry.id ? String(entry.id) : (draft ? plannerBoardLinkId({ classId: draft.classId, date: draft.date, time: draft.time }, null) : '');
       var canCreate = !!linkId;
@@ -3437,6 +3707,22 @@
         btn.textContent = label;
       }
       if (menuBtn) menuBtn.textContent = label;
+
+      // Update Lesson Plan entry modal button
+      if (lpBtn) {
+        var source = entry || draft;
+        var lpLink = source ? plannerLessonPlanForSlot(source, entry) : null;
+        var hasLp = !!(lpLink && lpLink.plan);
+        lpBtn.style.display = (source && (source.classId || source.date)) ? '' : 'none';
+        lpBtn.textContent = hasLp ? (t('pl_openLessonPlan') || 'Open Lesson Plan') : (t('pl_createLessonPlan') || 'Create Lesson Plan');
+      }
+
+      // Update Class Management entry modal button
+      var cmBtn = document.getElementById('cm-entry-btn');
+      if (cmBtn) {
+        var sourceForCm = entry || draft;
+        cmBtn.style.display = (sourceForCm && sourceForCm.classId) ? '' : 'none';
+      }
     }
 
     function plannerHideBoardEntryMenu() {
@@ -3461,14 +3747,436 @@
       var linkId = entry ? String(entry.id) : plannerBoardLinkId(_plannerBoardMenuSlot, null);
       var linked = !!(linkId && boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length);
       if (menuBtn) menuBtn.textContent = linked ? t('pl_boardOpen') : t('pl_boardCreate');
+
+      // Update Class Management menu button
+      var cmMenuBtn = document.getElementById('planner-cm-menu-btn');
+      if (cmMenuBtn) {
+        var hasClass = !!(_plannerBoardMenuSlot && _plannerBoardMenuSlot.classId) || !!(entry && entry.classId);
+        cmMenuBtn.style.display = hasClass ? 'block' : 'none';
+      }
+
+      // Update Lesson Plan menu button
+      var lpMenuBtn = document.getElementById('planner-lp-menu-btn');
+      var lpUnlinkBtn = document.getElementById('planner-lp-unlink-btn');
+      var lpDeleteBtn = document.getElementById('planner-lp-delete-btn');
+      var lpLink = plannerLessonPlanForSlot(_plannerBoardMenuSlot || (entry ? { classId: entry.classId, date: entry.date, time: entry.time } : null), entry);
+      var hasLp = !!(lpLink && lpLink.plan);
+      if (lpMenuBtn) {
+        lpMenuBtn.textContent = hasLp ? (t('pl_openLessonPlan') || 'Open Lesson Plan') : (t('pl_createLessonPlan') || 'Create Lesson Plan');
+      }
+      if (lpUnlinkBtn) {
+        lpUnlinkBtn.style.display = hasLp ? 'block' : 'none';
+      }
+      if (lpDeleteBtn) {
+        lpDeleteBtn.style.display = hasLp ? 'block' : 'none';
+      }
+
       var menu = document.getElementById('planner-board-menu');
       if (!menu) return false;
       var x = Math.max(8, Math.min(event.clientX || 0, window.innerWidth - 220));
-      var y = Math.max(8, Math.min(event.clientY || 0, window.innerHeight - 80));
+      var y = Math.max(8, Math.min(event.clientY || 0, window.innerHeight - 120));
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
       menu.classList.add('active');
       return false;
+    }
+
+    function plannerOpenClassManagementAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      var cId = source.classId || '';
+      if (!cId) return;
+      var dateVal = source.date || '';
+      var entId = (entry && entry.id) || (source && source.id) || '';
+
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.openTool('class-management.html', {
+          query: {
+            classId: String(cId),
+            date: String(dateVal),
+            plannerEntryId: String(entId)
+          }
+        });
+      } else {
+        try {
+          localStorage.setItem('cmt-cm-nav', JSON.stringify({ classId: cId, date: dateVal, plannerEntryId: entId }));
+        } catch (_) {}
+        window.open('class-management.html', '_blank');
+      }
+    }
+
+    function plannerOpenClassManagementModalAction() {
+      var id = String(editingId || '').trim();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = plannerBoardDraftEntryFromModal();
+      var source = entry || draft;
+      if (!source) return;
+
+      var cId = source.classId || '';
+      if (!cId) return;
+      var dateVal = source.date || '';
+      var entId = (entry && entry.id) || (source && source.id) || '';
+
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.openTool('class-management.html', {
+          query: {
+            classId: String(cId),
+            date: String(dateVal),
+            plannerEntryId: String(entId)
+          }
+        });
+      } else {
+        try {
+          localStorage.setItem('cmt-cm-nav', JSON.stringify({ classId: cId, date: dateVal, plannerEntryId: entId }));
+        } catch (_) {}
+        window.open('class-management.html', '_blank');
+      }
+    }
+
+    function plannerLessonPlanEntryAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      var lpLink = plannerLessonPlanForSlot(_plannerBoardMenuSlot || source, entry);
+      if (lpLink && lpLink.plan && lpLink.plan.id) {
+        openLinkedLessonPlan(lpLink.plan.id);
+      } else {
+        openLinkedLessonPlan('', source.classId, source.date, entry ? entry.id : '', source.topic || '');
+      }
+    }
+
+    async function plannerLessonPlanUnlinkAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      var lpLink = plannerLessonPlanForSlot(_plannerBoardMenuSlot || source, entry);
+      var planToUnlink = lpLink ? lpLink.plan : null;
+
+      if (entry) {
+        entry.lessonPlanId = null;
+        await persistEntries();
+        delete plannerLessonPlansByEntryId[String(entry.id)];
+      }
+
+      // Clear plannerEntryId / slot date on disk if bound
+      if (window.Desktop && Desktop.isElectron() && planToUnlink) {
+        try {
+          var planToUpdate = JSON.parse(JSON.stringify(planToUnlink));
+          var wasModified = false;
+          if (entry && planToUpdate.plannerEntryId === entry.id) {
+            planToUpdate.plannerEntryId = '';
+            wasModified = true;
+          }
+          if (source && source.date && planToUpdate.date === source.date) {
+            planToUpdate.date = '';
+            wasModified = true;
+          }
+          if (wasModified) {
+            var filename = planToUnlink._filename || (planToUnlink._relPath ? planToUnlink._relPath.split('/').pop() : ('lp_' + planToUnlink.id + '.json'));
+            if (typeof Desktop.saveJson === 'function') {
+              await Desktop.saveJson('lessons', filename, planToUpdate);
+            } else if (typeof Desktop.saveText === 'function') {
+              await Desktop.saveText('user', 'lessons/' + filename, JSON.stringify(planToUpdate, null, 2));
+            }
+          }
+        } catch (_) {}
+      }
+
+      _plannerLessonPlanMetaCache = {};
+      await loadSavedLessonPlans();
+      render();
+      showToast(t('pl_lessonPlanUnlinked') || 'Lesson plan unlinked');
+    }
+
+    async function plannerLessonPlanDeleteAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      var lpLink = plannerLessonPlanForSlot(_plannerBoardMenuSlot || source, entry);
+      if (!lpLink || !lpLink.plan) return;
+
+      var planTitle = lpLink.plan.title || 'Untitled';
+      var planId = lpLink.plan.id;
+      var confirmMsg = (t('pl_confirmDeleteLessonPlan') || 'Are you sure you want to delete this lesson plan?') + '\n\n"' + planTitle + '"';
+
+      var ok = await showConfirm(confirmMsg);
+      if (!ok) return;
+
+      if (entry) {
+        entry.lessonPlanId = null;
+        await persistEntries();
+      }
+
+      var otherLinked = entries.filter(function (e) { return e.lessonPlanId === planId; });
+      if (otherLinked.length) {
+        otherLinked.forEach(function (e) { e.lessonPlanId = null; });
+        await persistEntries();
+      }
+
+      // Delete the plan file from user/lessons/
+      var fn = lpLink.plan._filename || (lpLink.plan._relPath ? lpLink.plan._relPath.split('/').pop() : ('lp_' + planId + '.json'));
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          if (typeof Desktop.deleteFile === 'function') {
+            await Desktop.deleteFile('lessons', fn);
+          }
+          if (typeof Desktop.deleteByPath === 'function') {
+            await Desktop.deleteByPath('lessons', fn);
+            await Desktop.deleteByPath('user', 'lessons/' + fn);
+          }
+          if (typeof Desktop.notifyDataChanged === 'function') {
+            Desktop.notifyDataChanged({ target: 'lessons', filename: fn });
+          }
+        } catch (delErr) {
+          console.warn('Failed to delete lesson plan file:', delErr);
+        }
+      } else {
+        localStorage.removeItem('cmt-lesson-' + planId);
+      }
+
+      delete plannerLessonPlansByEntryId[String(planId)];
+      if (entry && entry.id) delete plannerLessonPlansByEntryId[String(entry.id)];
+      _plannerLessonPlanMetaCache = {};
+
+      await loadSavedLessonPlans();
+      render();
+      showToast(t('pl_lessonPlanDeleted') || 'Lesson plan deleted');
+    }
+
+    function plannerLessonPlanEntryModalAction() {
+      var id = String(editingId || '').trim();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = plannerBoardDraftEntryFromModal();
+      var source = entry || draft;
+      if (!source) return;
+
+      var lpLink = plannerLessonPlanForSlot(source, entry);
+      if (lpLink && lpLink.plan && lpLink.plan.id) {
+        openLinkedLessonPlan(lpLink.plan.id);
+      } else {
+        openLinkedLessonPlan('', source.classId, source.date, entry ? entry.id : '', source.topic || '');
+      }
+    }
+
+    function plannerLessonPlanLinkPickerAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      openLessonPlanLinkModal(source, entry);
+    }
+
+    var _pendingLpLinkSource = null;
+    var _pendingLpLinkEntry = null;
+
+    function openLessonPlanLinkModal(source, entry) {
+      _pendingLpLinkSource = source;
+      _pendingLpLinkEntry = entry;
+      var infoEl = document.getElementById('lp-link-slot-info');
+      var clsName = source.classId ? plannerClassDisplayName(source.classId) : t('pl_noClass');
+      var dateStr = source.date || '';
+      var topicStr = source.topic || (entry && entry.topic) || '';
+      if (infoEl) {
+        infoEl.innerHTML = '<strong>' + esc(clsName) + '</strong> &bull; ' + esc(dateStr) + (topicStr ? ' &bull; <em>' + esc(topicStr) + '</em>' : '');
+      }
+      var sel = document.getElementById('lp-link-plan-select');
+      if (sel) {
+        sel.innerHTML = '';
+        if (!plannerLessonPlansList.length) {
+          var optEmpty = document.createElement('option');
+          optEmpty.value = '';
+          optEmpty.textContent = t('pl_noSavedLessonPlans') || '-- No saved lesson plans found --';
+          sel.appendChild(optEmpty);
+        } else {
+          var optNone = document.createElement('option');
+          optNone.value = '';
+          optNone.textContent = '-- ' + (t('pl_linkLessonPlan') || 'Select saved plan') + ' --';
+          sel.appendChild(optNone);
+          plannerLessonPlansList.forEach(function (p) {
+            var opt = document.createElement('option');
+            opt.value = p.id;
+            var desc = (p.title || 'Untitled') + ' (' + (plannerClassDisplayName(p.classId) || 'All') + ' | ' + (p.date || '') + ' | ' + (p.totalDuration || 0) + 'm)';
+            opt.textContent = desc;
+            sel.appendChild(opt);
+          });
+        }
+        var existingLink = plannerLessonPlanForSlot(source, entry);
+        if (existingLink && existingLink.plan) {
+          sel.value = existingLink.plan.id;
+        }
+      }
+      var unlinkBtn = document.getElementById('lp-unlink-btn');
+      var deleteBtn = document.getElementById('lp-delete-btn');
+      var existingLink = plannerLessonPlanForSlot(source, entry);
+      var hasExisting = !!(existingLink && existingLink.plan);
+      if (unlinkBtn) unlinkBtn.style.display = hasExisting ? 'inline-block' : 'none';
+      if (deleteBtn) deleteBtn.style.display = hasExisting ? 'inline-block' : 'none';
+
+      openModal('lpLinkModal');
+    }
+
+    async function lpLinkConfirmAction() {
+      var sel = document.getElementById('lp-link-plan-select');
+      var chosenPlanId = sel ? sel.value : '';
+      if (!chosenPlanId) {
+        closeModal('lpLinkModal');
+        return;
+      }
+      if (_pendingLpLinkEntry) {
+        _pendingLpLinkEntry.lessonPlanId = chosenPlanId;
+        await persistEntries();
+      } else if (_pendingLpLinkSource && _pendingLpLinkSource.date) {
+        var newE = {
+          id: uid(),
+          classId: _pendingLpLinkSource.classId || '',
+          date: _pendingLpLinkSource.date,
+          time: _pendingLpLinkSource.time || '',
+          timeEnd: _pendingLpLinkSource.timeEnd || '',
+          type: 'lesson',
+          topic: _pendingLpLinkSource.topic || '',
+          lessonPlanId: chosenPlanId
+        };
+        entries.push(newE);
+        await persistEntries();
+      }
+      closeModal('lpLinkModal');
+      await loadSavedLessonPlans();
+      render();
+      showToast(t('saved'));
+    }
+
+    async function lpLinkUnlinkAction() {
+      var source = _pendingLpLinkSource;
+      var entry = _pendingLpLinkEntry;
+      var lpLink = plannerLessonPlanForSlot(source, entry);
+      var planToUnlink = lpLink ? lpLink.plan : null;
+
+      if (entry) {
+        entry.lessonPlanId = null;
+        await persistEntries();
+        delete plannerLessonPlansByEntryId[String(entry.id)];
+      }
+
+      // Clear plannerEntryId / slot date on disk if bound
+      if (window.Desktop && Desktop.isElectron() && planToUnlink) {
+        try {
+          var planToUpdate = JSON.parse(JSON.stringify(planToUnlink));
+          var wasModified = false;
+          if (entry && planToUpdate.plannerEntryId === entry.id) {
+            planToUpdate.plannerEntryId = '';
+            wasModified = true;
+          }
+          if (source && source.date && planToUpdate.date === source.date) {
+            planToUpdate.date = '';
+            wasModified = true;
+          }
+          if (wasModified) {
+            var filename = planToUnlink._filename || (planToUnlink._relPath ? planToUnlink._relPath.split('/').pop() : ('lp_' + planToUnlink.id + '.json'));
+            if (typeof Desktop.saveJson === 'function') {
+              await Desktop.saveJson('lessons', filename, planToUpdate);
+            } else if (typeof Desktop.saveText === 'function') {
+              await Desktop.saveText('user', 'lessons/' + filename, JSON.stringify(planToUpdate, null, 2));
+            }
+          }
+        } catch (_) {}
+      }
+
+      closeModal('lpLinkModal');
+      _plannerLessonPlanMetaCache = {};
+      await loadSavedLessonPlans();
+      render();
+      showToast(t('pl_lessonPlanUnlinked') || 'Lesson plan unlinked');
+    }
+
+    async function lpLinkDeleteAction() {
+      var source = _pendingLpLinkSource;
+      var entry = _pendingLpLinkEntry;
+      var lpLink = plannerLessonPlanForSlot(source, entry);
+      if (!lpLink || !lpLink.plan) {
+        closeModal('lpLinkModal');
+        return;
+      }
+      var planTitle = lpLink.plan.title || 'Untitled';
+      var planId = lpLink.plan.id;
+      var confirmMsg = (t('pl_confirmDeleteLessonPlan') || 'Are you sure you want to delete this lesson plan?') + '\n\n"' + planTitle + '"';
+
+      var ok = await showConfirm(confirmMsg);
+      if (!ok) return;
+
+      closeModal('lpLinkModal');
+
+      if (entry) {
+        entry.lessonPlanId = null;
+        await persistEntries();
+      }
+
+      var otherLinked = entries.filter(function (e) { return e.lessonPlanId === planId; });
+      if (otherLinked.length) {
+        otherLinked.forEach(function (e) { e.lessonPlanId = null; });
+        await persistEntries();
+      }
+
+      var fn = lpLink.plan._filename || (lpLink.plan._relPath ? lpLink.plan._relPath.split('/').pop() : ('lp_' + planId + '.json'));
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          if (typeof Desktop.deleteFile === 'function') {
+            await Desktop.deleteFile('lessons', fn);
+          }
+          if (typeof Desktop.deleteByPath === 'function') {
+            await Desktop.deleteByPath('lessons', fn);
+            await Desktop.deleteByPath('user', 'lessons/' + fn);
+          }
+          if (typeof Desktop.notifyDataChanged === 'function') {
+            Desktop.notifyDataChanged({ target: 'lessons', filename: fn });
+          }
+        } catch (delErr) {
+          console.warn('Failed to delete lesson plan file:', delErr);
+        }
+      } else {
+        localStorage.removeItem('cmt-lesson-' + planId);
+      }
+
+      delete plannerLessonPlansByEntryId[String(planId)];
+      if (entry && entry.id) delete plannerLessonPlansByEntryId[String(entry.id)];
+      _plannerLessonPlanMetaCache = {};
+
+      await loadSavedLessonPlans();
+      render();
+      showToast(t('pl_lessonPlanDeleted') || 'Lesson plan deleted');
+    }
+
+    function lpLinkCreateNewAction() {
+      var src = _pendingLpLinkSource;
+      var ent = _pendingLpLinkEntry;
+      closeModal('lpLinkModal');
+      if (src) {
+        openLinkedLessonPlan('', src.classId, src.date, ent ? ent.id : '', src.topic || '');
+      }
     }
 
     async function plannerBoardEntryAction(entryId) {
@@ -5815,12 +6523,55 @@
           notes:        srcEntry.notes       || '',
           customFields: srcEntry.customFields
             ? Object.assign({}, srcEntry.customFields) : undefined,
-          gsLink:       null
+          gsLink:       null,
+          lessonPlanId: null
         };
         entries.push(newEntry);
         updatedEntry = newEntry;
       } else {
         return;
+      }
+
+      // Check if source entry had a linked lesson plan; duplicate it for the new entry!
+      var srcSlot = { classId: srcEntry.classId, date: srcEntry.date, time: srcEntry.time };
+      var srcLpLink = plannerLessonPlanForSlot(srcSlot, srcEntry);
+      if (srcLpLink && srcLpLink.plan) {
+        try {
+          var clonedPlan = JSON.parse(JSON.stringify(srcLpLink.plan));
+          var newPlanId = 'lp-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0') + '-' + Date.now().toString(16);
+          clonedPlan.id = newPlanId;
+          clonedPlan.plannerEntryId = updatedEntry.id;
+          clonedPlan.classId = updatedEntry.classId || clonedPlan.classId || '';
+          clonedPlan.date = updatedEntry.date || clonedPlan.date || '';
+          var slug = (clonedPlan.title || 'lesson').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+          var saveFilename = 'lp_' + (clonedPlan.classId || 'general') + '_' + (clonedPlan.date || 'date') + '_' + slug + '_' + newPlanId + '.json';
+          clonedPlan._filename = saveFilename;
+          clonedPlan._relPath = 'lessons/' + saveFilename;
+
+          if (window.Desktop && Desktop.isElectron()) {
+            if (typeof Desktop.saveJson === 'function') {
+              await Desktop.saveJson('lessons', saveFilename, clonedPlan);
+            } else if (typeof Desktop.saveText === 'function') {
+              await Desktop.saveText('user', 'lessons/' + saveFilename, JSON.stringify(clonedPlan, null, 2));
+            }
+          } else {
+            localStorage.setItem('cmt-lesson-' + newPlanId, JSON.stringify(clonedPlan));
+          }
+
+          updatedEntry.lessonPlanId = newPlanId;
+
+          // Register in local lookup structures immediately
+          plannerLessonPlansByEntryId[String(newPlanId)] = clonedPlan;
+          plannerLessonPlansByEntryId[String(updatedEntry.id)] = clonedPlan;
+          var newSlotKey = String(clonedPlan.classId) + ':' + String(clonedPlan.date);
+          if (!plannerLessonPlansBySlotKey[newSlotKey]) plannerLessonPlansBySlotKey[newSlotKey] = [];
+          plannerLessonPlansBySlotKey[newSlotKey].push(clonedPlan);
+          plannerLessonPlansList.push(clonedPlan);
+
+          await loadSavedLessonPlans();
+        } catch (copyErr) {
+          console.warn('Failed to duplicate linked lesson plan:', copyErr);
+        }
       }
 
       await persistEntries();
@@ -6227,6 +6978,12 @@
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
       if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
+      if (_lpMatrixLink && _lpMatrixLink.plan) {
+        var _lpM = _lpMatrixLink.plan;
+        var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled');
+        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+      }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
       r += '</div>';
@@ -6239,12 +6996,18 @@
       var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
       var _boardLink = plannerBoardSessionsForSlot(s, entry);
       var _atBSess = _boardLink.sessions;
+      var _lpCellLink = plannerLessonPlanForSlot(s, entry);
 
       if (!entry) {
         var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId) + '\',\'' +
           esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
           (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
           '<span class="at-add">+</span>';
+        if (_lpCellLink && _lpCellLink.plan) {
+          var _lpCEmpty = _lpCellLink.plan;
+          var _lpCEmptyTitle = t('pl_lessonPlanLinked') + ': ' + (_lpCEmpty.title || 'Untitled');
+          _empty += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpCEmpty.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'\',\'\')" title="' + esc(_lpCEmptyTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        }
         if (_atBSess && _atBSess.length)
           _empty += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
         return _empty + '</div>';
@@ -6263,6 +7026,11 @@
       if (badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (_lpCellLink && _lpCellLink.plan) {
+        var _lpC = _lpCellLink.plan;
+        var _lpCTitle = t('pl_lessonPlanLinked') + ': ' + (_lpC.title || 'Untitled');
+        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpC.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+      }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
       r += '</div>';
@@ -7455,6 +8223,15 @@
         }
         if (data && data.filename === 'board-sessions-backup.json') {
           if (typeof loadBoardSessions === 'function') loadBoardSessions();
+          return;
+        }
+        if (data && (data.target === 'lessons' || data.subdir === 'lessons' || (data.filename && data.filename.startsWith('lp_')))) {
+          _plannerLessonPlanMetaCache = {};
+          if (typeof loadSavedLessonPlans === 'function') {
+            loadSavedLessonPlans().then(function () {
+              if (typeof render === 'function') render();
+            });
+          }
           return;
         }
         if (data && data.filename === 'pinned-items.json') {
