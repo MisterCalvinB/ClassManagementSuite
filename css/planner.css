@@ -177,7 +177,8 @@ body {
 }
 
 .tb-group.filter-group #sem-chips,
-.tb-group.filter-group #class-filter-chips {
+.tb-group.filter-group #class-filter-chips,
+.tb-group.filter-group #type-filter-chips {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1063,6 +1064,7 @@ body {
 .date-group {
   margin-bottom: 8px;
   transition: opacity 0.15s ease;
+  contain: layout style;
 }
 
 .date-group.day-past {
@@ -1100,20 +1102,7 @@ body {
   background: #bbb;
 }
 
-/* ── Conflict banner ── */
-.conflict-banner {
-  background: #fef3c7;
-  border: 2px solid #f5a623;
-  border-radius: 5px;
-  padding: 5px 10px;
-  margin-bottom: 4px;
-  font-size: .76rem;
-  font-weight: 700;
-  color: #92400e;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+
 
 /* ── Holiday row ── */
 .holiday-row {
@@ -1517,8 +1506,10 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  row-gap: 8px;
   flex-shrink: 0;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .ml-auto {
@@ -2127,10 +2118,53 @@ body {
 }
 
 .entry-detail-row {
-  font-size: .72rem;
-  color: #444;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 5px 10px;
+  min-width: 0;
+}
+
+.entry-detail-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: .68rem;
   font-weight: 600;
-  padding: 0 8px 5px 10px;
+  color: #334155;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
+  user-drag: element;
+  pointer-events: auto;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+  max-width: 100%;
+}
+
+.entry-detail-pill:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.entry-detail-pill:active,
+.entry-detail-pill.pill-dragging {
+  cursor: grabbing;
+  opacity: 0.55;
+  transform: scale(0.96);
+}
+
+.entry-detail-pill .pill-label {
+  font-weight: 700;
+  color: #475569;
+}
+
+.entry-detail-pill .pill-val {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2367,22 +2401,36 @@ body {
   cursor: grab;
 }
 
-/* Prevent child text/badge spans from initiating their own drag gestures,
-   ensuring dragstart always fires on the parent entry-row / at-cell */
+/* Prevent plain text / static indicator spans from initiating unwanted drag gestures */
 .entry-row[data-entry-id] .entry-time,
 .entry-row[data-entry-id] .entry-topic,
-.entry-row[data-entry-id] .entry-type-badge,
 .entry-row[data-entry-id] .entry-class-pill,
 .entry-row[data-entry-id] .recur-badge,
 .entry-row[data-entry-id] .gs-badge,
 .entry-row[data-entry-id] .part-dot,
 .at-cell[data-entry-id] .at-class-title,
-.at-cell[data-entry-id] .at-topic,
-.at-cell[data-entry-id] .at-cell-detail,
-.at-cell[data-entry-id] .entry-type-badge {
+.at-cell[data-entry-id] .at-topic {
   -webkit-user-drag: none;
   user-drag: none;
   pointer-events: none;
+}
+
+/* Draggable type badges and lesson plan badges */
+.entry-type-badge[draggable="true"],
+.lesson-plan-badge[draggable="true"] {
+  cursor: grab;
+  pointer-events: auto;
+  -webkit-user-drag: element;
+  user-drag: element;
+  user-select: none;
+}
+
+.entry-type-badge[draggable="true"]:active,
+.entry-type-badge.badge-dragging,
+.lesson-plan-badge[draggable="true"]:active,
+.lesson-plan-badge.badge-dragging {
+  cursor: grabbing;
+  opacity: 0.55;
 }
 
 /* Visual feedback while dragging a source entry */

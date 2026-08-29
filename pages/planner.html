@@ -146,14 +146,7 @@
       <div class="search-wrap">
         <input type="search" id="entry-search-input" class="tb-input" data-i18n-placeholder="pl_searchPlaceholder" placeholder="Search entries…" oninput="onSearchInput(this.value)">
       </div>
-      <select id="type-filter-select" class="tb-select" onchange="onTypeFilterChange(this.value)">
-        <option value="" data-i18n="pl_allTypes">All types</option>
-        <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
-        <option value="test" data-i18n="pl_typeTest">Test</option>
-        <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
-        <option value="holiday" data-i18n="pl_typeHoliday">Holiday</option>
-        <option value="no-class" data-i18n="pl_typeNoclass">No Class</option>
-      </select>
+      <div id="type-filter-chips" class="cls-chip-bar"></div>
     </div>
   </div>
 
@@ -1074,7 +1067,7 @@
     var filterClasses = new Set();
     var filterUnassigned = false;
     var searchQuery = '';
-    var filterType = '';
+    var filterTypes = new Set();
     var showPast = false;
     var showOutsideTerm = false;
     var tableView = false;
@@ -1092,6 +1085,7 @@
 
     // ── Drag-to-copy state ──────────────────────────────────────────────────────
     var _dragSourceEntryId = null;
+    var _dragPayload = null;
     var _dragTargetEl = null;
 
     function isEntryEmpty(e) {
@@ -1421,9 +1415,13 @@
           viewOpts = Object.assign(viewOpts, stored);
           if (stored.showPast !== undefined) showPast = !!stored.showPast;
           if (stored.showOutsideTerm !== undefined) showOutsideTerm = !!stored.showOutsideTerm;
-          if (stored.filterUnassigned !== undefined) filterUnassigned = !!stored.filterUnassigned;
-          if (stored.searchQuery !== undefined) searchQuery = stored.searchQuery || '';
-          if (stored.filterType !== undefined) filterType = stored.filterType || '';
+          if (stored.filterTypes !== undefined && Array.isArray(stored.filterTypes)) {
+            filterTypes = new Set(stored.filterTypes);
+          } else if (stored.filterType !== undefined && stored.filterType) {
+            filterTypes = new Set([stored.filterType]);
+          } else {
+            filterTypes = new Set();
+          }
         }
       } catch (e) { }
       document.getElementById('vo-badges').checked = viewOpts.badges;
@@ -1432,8 +1430,7 @@
       document.getElementById('vo-custom').checked = viewOpts.custom;
       var si = document.getElementById('entry-search-input');
       if (si) si.value = searchQuery;
-      var tf = document.getElementById('type-filter-select');
-      if (tf) tf.value = filterType;
+      rebuildTypeFilterChips();
       var pb = document.getElementById('pastBtn');
       if (pb) { pb.classList.toggle('active', showPast); pb.textContent = showPast ? t('pl_hidePast') : t('pl_showPast'); }
       var ob = document.getElementById('outsideBtn');
@@ -1447,7 +1444,8 @@
         stored.showOutsideTerm = showOutsideTerm;
         stored.filterUnassigned = filterUnassigned;
         stored.searchQuery = searchQuery;
-        stored.filterType = filterType;
+        stored.filterTypes = Array.from(filterTypes);
+        stored.filterType = filterTypes.size === 1 ? Array.from(filterTypes)[0] : '';
         localStorage.setItem('cmt-planner-viewopts', JSON.stringify(stored));
       } catch (e) { }
     }
@@ -1534,45 +1532,79 @@
 
         agendaEl.addEventListener('dragstart', function (e) {
           if (multiSelectMode) return;
-          var src = null;
-          var el = e.target;
-          while (el && el !== agendaEl) {
-            if (el.getAttribute && el.getAttribute('data-entry-id') &&
-                (el.classList.contains('entry-row') || el.classList.contains('at-cell'))) {
-              src = el;
-              break;
-            }
-            el = el.parentElement;
+          var targetEl = e.target;
+          var pill = targetEl.closest ? targetEl.closest('.entry-detail-pill') : null;
+          var typeBadge = targetEl.closest ? targetEl.closest('.entry-type-badge[draggable="true"]') : null;
+          var lpBadge = targetEl.closest ? targetEl.closest('.lesson-plan-badge[draggable="true"]') : null;
+          var srcRow = targetEl.closest ? targetEl.closest('.entry-row[data-entry-id], .at-cell[data-entry-id]') : null;
+
+          if (pill) {
+            var srcId = pill.getAttribute('data-entry-id') || (srcRow ? srcRow.getAttribute('data-entry-id') : null);
+            if (!srcId) { e.preventDefault(); return; }
+            _dragSourceEntryId = srcId;
+            _dragPayload = {
+              type: 'field',
+              srcEntryId: srcId,
+              fieldType: pill.getAttribute('data-field-type') || 'notes',
+              fieldKey: pill.getAttribute('data-field-key') || '',
+              fieldVal: pill.getAttribute('data-field-val') || ''
+            };
+            pill.classList.add('pill-dragging');
+          } else if (typeBadge) {
+            var srcId = typeBadge.getAttribute('data-entry-id') || (srcRow ? srcRow.getAttribute('data-entry-id') : null);
+            if (!srcId) { e.preventDefault(); return; }
+            _dragSourceEntryId = srcId;
+            _dragPayload = {
+              type: 'entry-type',
+              srcEntryId: srcId,
+              entryType: typeBadge.getAttribute('data-entry-type') || 'lesson'
+            };
+            typeBadge.classList.add('badge-dragging');
+          } else if (lpBadge) {
+            var srcId = lpBadge.getAttribute('data-entry-id') || (srcRow ? srcRow.getAttribute('data-entry-id') : null);
+            _dragSourceEntryId = srcId || '__lp__';
+            _dragPayload = {
+              type: 'lesson-plan',
+              srcEntryId: srcId,
+              planId: lpBadge.getAttribute('data-plan-id')
+            };
+            lpBadge.classList.add('badge-dragging');
+          } else if (srcRow) {
+            _dragSourceEntryId = srcRow.getAttribute('data-entry-id');
+            _dragPayload = {
+              type: 'entry',
+              srcEntryId: _dragSourceEntryId
+            };
+            srcRow.classList.add('drag-source');
+          } else {
+            e.preventDefault();
+            return;
           }
-          if (!src) { e.preventDefault(); return; }
-          _dragSourceEntryId = src.getAttribute('data-entry-id');
+
           e.dataTransfer.effectAllowed = 'copy';
           try {
-            var ghost = document.createElement('div');
-            ghost.style.cssText = 'position:fixed;top:-9999px;opacity:0.01';
-            ghost.textContent = '\u00a0';
-            document.body.appendChild(ghost);
-            e.dataTransfer.setDragImage(ghost, 0, 0);
-            setTimeout(function () { document.body.removeChild(ghost); }, 100);
+            e.dataTransfer.setData('text/plain', JSON.stringify(_dragPayload));
           } catch (_) {}
-          src.classList.add('drag-source');
           _clearDragPopover();
         });
 
         agendaEl.addEventListener('dragend', function (e) {
           _dragSourceEntryId = null;
+          _dragPayload = null;
           agendaEl.querySelectorAll('.drag-source').forEach(function (el) { el.classList.remove('drag-source'); });
           agendaEl.querySelectorAll('.drag-over-target').forEach(function (el) { el.classList.remove('drag-over-target'); });
+          agendaEl.querySelectorAll('.pill-dragging').forEach(function (el) { el.classList.remove('pill-dragging'); });
+          agendaEl.querySelectorAll('.badge-dragging').forEach(function (el) { el.classList.remove('badge-dragging'); });
           _dragTargetEl = null;
         });
 
         agendaEl.addEventListener('dragover', function (e) {
-          if (!_dragSourceEntryId || multiSelectMode) return;
+          if (!_dragPayload || multiSelectMode) return;
           var tgt = e.target && e.target.closest
             ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
             : null;
           if (!tgt) return;
-          if (tgt.getAttribute('data-entry-id') === _dragSourceEntryId) return;
+          if (tgt.getAttribute('data-entry-id') && tgt.getAttribute('data-entry-id') === _dragPayload.srcEntryId) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
           if (_dragTargetEl && _dragTargetEl !== tgt) {
@@ -1593,20 +1625,20 @@
         });
 
         agendaEl.addEventListener('drop', function (e) {
-          if (!_dragSourceEntryId || multiSelectMode) return;
+          if (!_dragPayload || multiSelectMode) return;
           var tgt = e.target && e.target.closest
             ? e.target.closest('.entry-row, .at-cell[data-entry-id], .at-cell-empty[data-date]')
             : null;
           if (!tgt) return;
-          var srcId = _dragSourceEntryId;
-          if (tgt.getAttribute('data-entry-id') === srcId) return;
+          var payload = _dragPayload;
+          if (tgt.getAttribute('data-entry-id') && tgt.getAttribute('data-entry-id') === payload.srcEntryId) return;
           e.preventDefault();
           tgt.classList.remove('drag-over-target');
           _dragTargetEl = null;
 
           var targetEntryId = tgt.getAttribute('data-entry-id') || '';
           if (targetEntryId) {
-            _showDragCopyPopover(srcId, { entryId: targetEntryId }, tgt, e);
+            _showDragCopyPopover(payload, { entryId: targetEntryId, classId: tgt.getAttribute('data-classid') || '', date: tgt.getAttribute('data-date') || '' }, tgt, e);
           } else {
             var slotInfo = {
               classId: tgt.getAttribute('data-classid') || '',
@@ -1614,7 +1646,7 @@
               time:    tgt.getAttribute('data-time')    || '',
               timeEnd: tgt.getAttribute('data-timeend') || ''
             };
-            _showDragCopyPopover(srcId, slotInfo, tgt, e);
+            _showDragCopyPopover(payload, slotInfo, tgt, e);
           }
         });
       })();
@@ -2136,6 +2168,17 @@
       if (hadChanges) render();
     }
 
+    var _entriesById = Object.create(null);
+    function _rebuildEntriesIndex() {
+      _entriesById = Object.create(null);
+      if (Array.isArray(entries)) {
+        for (var i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          if (e && e.id) _entriesById[e.id] = e;
+        }
+      }
+    }
+
     function plannerLessonPlanForSlot(slot, entry) {
       if (entry) {
         if (entry.lessonPlanId === null || entry.lessonPlanId === false || entry.lessonPlanId === '') {
@@ -2154,8 +2197,7 @@
         if (list && list.length) {
           var matchingPlan = list.find(function (p) {
             if (!p.plannerEntryId) return true;
-            var boundEntry = entries.find(function (e) { return e.id === p.plannerEntryId; });
-            return !boundEntry;
+            return !_entriesById[p.plannerEntryId];
           });
           if (matchingPlan) {
             return { linkId: matchingPlan.id, plan: matchingPlan };
@@ -2299,7 +2341,7 @@
       renderClassSetupChips(ids, activeClsSetup);
       rebuildFilterChips(ids);
       renderExportClassChips();
-      populateFilterTypeSelect();
+      rebuildTypeFilterChips();
     }
 
     function rebuildFilterChips(ids) {
@@ -2482,12 +2524,6 @@
         return;
       }
 
-      // Test-conflict detection
-      var testCounts = {};
-      entries.forEach(function (e) {
-        if (e.type === 'test') testCounts[e.date] = (testCounts[e.date] || 0) + 1;
-      });
-
       // Group by date
       var dates = [], byDate = {};
       slots.forEach(function (s) {
@@ -2498,8 +2534,28 @@
       var totalWeeks = getTotalWeeks(activeSem);
       var html = '';
       var prevWeek = null;
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var _dateLabelCache = Object.create(null);
+      var _weekNumCache = Object.create(null);
+
+      function _getDateLabel(dtStr) {
+        if (_dateLabelCache[dtStr]) return _dateLabelCache[dtStr];
+        var d = new Date(dtStr + 'T12:00:00');
+        var lbl = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        _dateLabelCache[dtStr] = lbl;
+        return lbl;
+      }
+
+      function _getWeekNum(dtStr) {
+        if (!activeSem.semesterStart) return null;
+        if (_weekNumCache[dtStr] !== undefined) return _weekNumCache[dtStr];
+        var wn = getWeekNumber(dtStr, activeSem.semesterStart);
+        _weekNumCache[dtStr] = wn;
+        return wn;
+      }
+
       dates.forEach(function (date) {
-        var weekNum = activeSem.semesterStart ? getWeekNumber(date, activeSem.semesterStart) : null;
+        var weekNum = _getWeekNum(date);
         if (weekNum !== prevWeek) {
           if (prevWeek !== null) html += '</div>'; // close week-group
           prevWeek = weekNum;
@@ -2513,14 +2569,10 @@
               '</div>';
           }
         }
-        var todayStr = new Date().toISOString().slice(0, 10);
         var isPastDay = date < todayStr;
-        var d = new Date(date + 'T12:00:00');
-        var label = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        var label = _getDateLabel(date);
         html += '<div class="date-group' + (isPastDay ? ' day-past' : '') + '">';
         html += '<div class="date-header' + (isPastDay ? ' day-past' : '') + '"><span class="dh-date">' + esc(label) + '</span><span class="dh-line"></span></div>';
-        if (!filterClasses.size && testCounts[date] >= 2)
-          html += '<div class="conflict-banner">⚠ ' + esc(tFmt('pl_conflictWarning', { n: testCounts[date] })) + '</div>';
         byDate[date].forEach(function (s) { html += renderSlot(s); });
         html += '</div>';
       });
@@ -2586,8 +2638,12 @@
       if (isSubscribed) {
         r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:12px; height:12px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
       }
-      if (viewOpts.badges)
-        r += '<span class="entry-type-badge ' + badgeCls + '">' + esc(badgeText) + '</span>';
+      if (viewOpts.badges && badgeText) {
+        var typeDragAttr = (entry && !isSubscribed)
+          ? ' draggable="true" data-drag-type="entry-type" data-entry-type="' + esc(type) + '" data-entry-id="' + esc(entry.id) + '" title="Drag to duplicate / set type"'
+          : '';
+        r += '<span class="entry-type-badge ' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
+      }
       if (viewOpts.topic && topicDisp)
         r += '<span class="' + topicCls + '">' + esc(topicDisp) + '</span>';
       if (entry && entry.dateTo && entry.dateTo !== entry.date) {
@@ -2602,8 +2658,9 @@
       var _lpLink = plannerLessonPlanForSlot(s, entry);
       if (_lpLink && _lpLink.plan) {
         var _lp = _lpLink.plan;
-        var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled');
-        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+        var _lpDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lp.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+        r += '<span class="lesson-plan-badge"' + _lpDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
       var _boardLink = plannerBoardSessionsForSlot(s, entry);
       var _bSess = _boardLink.sessions;
@@ -2631,17 +2688,24 @@
       r += '</div></div>';
       // Detail row
       if (entry && (viewOpts.details || viewOpts.custom)) {
-        var parts = [];
-        if (viewOpts.details) {
-          if (entry.notes) parts.push(t('pl_entryNotes') + ': ' + entry.notes.slice(0, 80));
+        var pillsHtml = '';
+        if (viewOpts.details && entry.notes) {
+          var noteVal = entry.notes.slice(0, 80);
+          pillsHtml += '<span class="entry-detail-pill" draggable="true" data-drag-type="field" data-field-type="notes" data-field-val="' + esc(entry.notes) + '" data-entry-id="' + esc(entry.id) + '" title="Drag to duplicate notes">' +
+            '<span class="pill-label">' + esc(t('pl_entryNotes')) + ':</span> <span class="pill-val">' + esc(noteVal) + '</span></span>';
         }
         if (viewOpts.custom && entry.customFields) {
           Object.keys(entry.customFields).forEach(function (k) {
-            if (entry.customFields[k]) parts.push(k + ': ' + String(entry.customFields[k]).slice(0, 80));
+            var val = entry.customFields[k];
+            if (val) {
+              var valStr = String(val);
+              pillsHtml += '<span class="entry-detail-pill" draggable="true" data-drag-type="field" data-field-type="custom" data-field-key="' + esc(k) + '" data-field-val="' + esc(valStr) + '" data-entry-id="' + esc(entry.id) + '" title="Drag to duplicate ' + esc(k) + '">' +
+                '<span class="pill-label">' + esc(k) + ':</span> <span class="pill-val">' + esc(valStr.slice(0, 80)) + '</span></span>';
+            }
           });
         }
-        if (parts.length)
-          r += '<div class="entry-detail-row">' + parts.map(function (p) { return esc(p); }).join(' · ') + '</div>';
+        if (pillsHtml)
+          r += '<div class="entry-detail-row" onclick="event.stopPropagation()">' + pillsHtml + '</div>';
       }
       r += '</div></div>';
       return r;
@@ -2774,6 +2838,32 @@
         }
       });
 
+      _rebuildEntriesIndex();
+
+      var classIds = Object.keys(cfg.classes);
+      var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
+      if (hasAnyClassFilter) classIds = classIds.filter(function (id) { return filterClasses.has(id); });
+      // Hide archived classes from agenda
+      classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
+      // Hide classes not active in the current term
+      var semKey = getSemToggleKeyFor(activeSem);
+      if (semKey) {
+        classIds = classIds.filter(function (id) {
+          var sems = (cfg.classes[id] || {}).semesters;
+          return !sems || sems[semKey] !== false;
+        });
+      }
+
+      // Pre-index schedules per class and day-of-week: [cid][dow] -> array of slots
+      var classSchedByDow = {};
+      classIds.forEach(function (cid) {
+        classSchedByDow[cid] = {};
+        var sched = (cfg.classes[cid] || {}).schedule || [];
+        for (var d_idx = 0; d_idx < 7; d_idx++) {
+          classSchedByDow[cid][d_idx] = sched.filter(function (s) { return parseInt(s.day) === d_idx; });
+        }
+      });
+
       var d = new Date(start);
       while (d <= end) {
         var ds = d.toISOString().slice(0, 10);
@@ -2783,26 +2873,9 @@
 
         if (holDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
 
-        var classIds = Object.keys(cfg.classes);
-        var hasAnyClassFilter = filterClasses.size > 0 || filterUnassigned;
-        if (hasAnyClassFilter) classIds = classIds.filter(function (id) { return filterClasses.has(id); });
-        // Hide archived classes from agenda
-        classIds = classIds.filter(function (id) { return !(classGroupsMeta[id] || {}).archived; });
-        // Hide classes not active in the current term
-        var semKey = getSemToggleKeyFor(activeSem);
-        if (semKey) {
-          classIds = classIds.filter(function (id) {
-            var sems = (cfg.classes[id] || {}).semesters;
-            return !sems || sems[semKey] !== false;
-          });
-        }
-
         classIds.forEach(function (cid) {
-          var sched = (cfg.classes[cid] || {}).schedule || [];
-          var todaySlots = sched.filter(function (s) {
-            return parseInt(s.day) === dow;
-          });
-          if (todaySlots.length > 0) {
+          var todaySlots = classSchedByDow[cid] ? classSchedByDow[cid][dow] : null;
+          if (todaySlots && todaySlots.length > 0) {
             var k = ds + '|' + cid;
             consumed[k] = true;
             var dayEntries = emap[k] || [];
@@ -3074,53 +3147,94 @@
       cfg.customFields = names;
       cfg.customTypes = types;
       persistCfg();
-      populateFilterTypeSelect();
+      rebuildTypeFilterChips();
       closeModal('fieldsModal');
     }
 
     // ── Search & Filter helpers ─────────────────────────────────────────────
+    var _searchDebounceTimer = null;
     function onSearchInput(val) {
       searchQuery = val || '';
       saveViewFlags();
-      render();
+      if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+      _searchDebounceTimer = setTimeout(function () {
+        render();
+      }, 120);
     }
 
-    function onTypeFilterChange(val) {
-      filterType = val || '';
-      saveViewFlags();
-      render();
-    }
+    function rebuildTypeFilterChips() {
+      var bar = document.getElementById('type-filter-chips');
+      if (!bar) return;
+      bar.innerHTML = '';
 
-    function populateFilterTypeSelect() {
-      var sel = document.getElementById('type-filter-select');
-      if (!sel) return;
-      var current = filterType;
-      for (var i = sel.options.length - 1; i >= 0; i--) {
-        if (sel.options[i].dataset.custom) sel.remove(i);
-      }
-      (cfg.customTypes || []).forEach(function (name) {
-        var o = new Option(name, name);
-        o.dataset.custom = '1';
-        sel.add(o);
+      var allChip = document.createElement('span');
+      allChip.className = 'cls-chip all-chip' + (filterTypes.size === 0 ? ' active' : '');
+      allChip.setAttribute('data-i18n', 'pl_allTypes');
+      allChip.textContent = t('pl_allTypes') || 'All types';
+      allChip.onclick = clearTypeFilter;
+      bar.appendChild(allChip);
+
+      var builtIns = [
+        { id: 'lesson', label: t('pl_typeLesson') || 'Lesson', color: '#3b82f6' },
+        { id: 'test', label: t('pl_typeTest') || 'Test', color: '#ef4444' },
+        { id: 'assignment', label: t('pl_typeAssignment') || 'Assignment Due', color: '#f59e0b' },
+        { id: 'holiday', label: t('pl_typeHoliday') || 'Holiday', color: '#10b981' },
+        { id: 'no-class', label: t('pl_typeNoclass') || 'No Class', color: '#6b7280' }
+      ];
+
+      builtIns.forEach(function (bt) {
+        var chip = document.createElement('span');
+        chip.className = 'cls-chip' + (filterTypes.has(bt.id) ? ' active' : '');
+        chip.style.setProperty('--chip-color', bt.color);
+        chip.textContent = bt.label;
+        chip.onclick = function () { toggleTypeFilter(bt.id); };
+        bar.appendChild(chip);
       });
-      sel.value = current || '';
+
+      (cfg.customTypes || []).forEach(function (name) {
+        var chip = document.createElement('span');
+        chip.className = 'cls-chip' + (filterTypes.has(name) ? ' active' : '');
+        chip.style.setProperty('--chip-color', '#8b5cf6');
+        chip.textContent = name;
+        chip.onclick = function () { toggleTypeFilter(name); };
+        bar.appendChild(chip);
+      });
+    }
+
+    function toggleTypeFilter(typeId) {
+      if (filterTypes.has(typeId)) {
+        filterTypes.delete(typeId);
+      } else {
+        filterTypes.add(typeId);
+      }
+      saveViewFlags();
+      rebuildTypeFilterChips();
+      render();
+    }
+
+    function clearTypeFilter() {
+      filterTypes.clear();
+      saveViewFlags();
+      rebuildTypeFilterChips();
+      render();
     }
 
     function filterSlots(slots) {
       var q = searchQuery ? searchQuery.trim().toLowerCase() : '';
-      var tf = filterType ? filterType.trim() : '';
-      if (!q && !tf) return slots;
+      var hasTypeFilter = filterTypes && filterTypes.size > 0;
+      if (!q && !hasTypeFilter) return slots;
 
       return slots.filter(function (s) {
-        // 1. Type Filter
-        if (tf) {
+        // 1. Type Filter (Multiselect)
+        if (hasTypeFilter) {
           if (s.isGlobalHoliday) {
-            if (tf !== 'holiday') return false;
+            if (!filterTypes.has('holiday')) return false;
           } else if (s.entry) {
-            if ((s.entry.type || 'lesson') !== tf) return false;
+            var entryType = s.entry.type || 'lesson';
+            if (!filterTypes.has(entryType)) return false;
           } else {
-            // Empty schedule slot
-            if (tf !== 'lesson') return false;
+            // Empty schedule slot defaults to lesson
+            if (!filterTypes.has('lesson')) return false;
           }
         }
 
@@ -6442,18 +6556,52 @@
       if (el) el.style.display = 'none';
     }
 
-    function _showDragCopyPopover(srcId, targetInfo, anchorEl, dropEvent) {
-      var srcEntry = entries.find(function (e) { return e.id === srcId; });
-      if (!srcEntry) return;
-      var srcLabel = srcEntry.topic ? srcEntry.topic.slice(0, 40) : t('pl_emptySlot');
+    function _showDragCopyPopover(payloadOrSrcId, targetInfo, anchorEl, dropEvent) {
+      var payload = (typeof payloadOrSrcId === 'object' && payloadOrSrcId !== null)
+        ? payloadOrSrcId
+        : { type: 'entry', srcEntryId: payloadOrSrcId };
 
-      var msg;
+      var srcId = payload.srcEntryId;
+      var srcEntry = entries.find(function (e) { return e.id === srcId; });
+      var srcLabel = (srcEntry && srcEntry.topic) ? srcEntry.topic.slice(0, 40) : (srcEntry ? plannerClassDisplayName(srcEntry.classId) || t('pl_emptySlot') : t('pl_emptySlot'));
+
+      var tgtLabel = t('pl_emptySlot');
       if (targetInfo.entryId) {
         var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
-        var tgtLabel = tgtEntry && tgtEntry.topic ? tgtEntry.topic.slice(0, 40) : t('pl_emptySlot');
-        msg = tFmt('pl_dragCopyMsg', { src: srcLabel, tgt: tgtLabel });
+        tgtLabel = (tgtEntry && tgtEntry.topic) ? tgtEntry.topic.slice(0, 40) : (tgtEntry ? plannerClassDisplayName(tgtEntry.classId) || t('pl_emptySlot') : t('pl_emptySlot'));
+      }
+
+      var msg = '';
+      if (payload.type === 'field') {
+        var fieldName = payload.fieldType === 'notes' ? t('pl_entryNotes') : (payload.fieldKey || t('pl_customField'));
+        if (targetInfo.entryId) {
+          msg = tFmt('pl_dragCopyFieldMsg', { field: fieldName, src: srcLabel, tgt: tgtLabel });
+        } else {
+          msg = tFmt('pl_dragCopyFieldSlot', { field: fieldName, src: srcLabel });
+        }
+      } else if (payload.type === 'entry-type') {
+        var tLabel = typeLabel(payload.entryType);
+        if (targetInfo.entryId) {
+          msg = tFmt('pl_dragCopyTypeMsg', { type: tLabel, tgt: tgtLabel });
+        } else {
+          msg = tFmt('pl_dragCopyTypeSlot', { type: tLabel });
+        }
+      } else if (payload.type === 'lesson-plan') {
+        var lpObj = (typeof plannerLessonPlansByEntryId !== 'undefined' && plannerLessonPlansByEntryId[String(payload.planId)]) ||
+                    (typeof plannerLessonPlansList !== 'undefined' && plannerLessonPlansList.find(function (p) { return p.id === payload.planId; })) ||
+                    (srcEntry ? (plannerLessonPlanForSlot({ classId: srcEntry.classId, date: srcEntry.date, time: srcEntry.time }, srcEntry) || {}).plan : null);
+        var lpTitle = (lpObj && lpObj.title) ? lpObj.title.slice(0, 40) : t('pl_lessonPlanBadge');
+        if (targetInfo.entryId) {
+          msg = tFmt('pl_dragCopyLpMsg', { plan: lpTitle, tgt: tgtLabel });
+        } else {
+          msg = tFmt('pl_dragCopyLpSlot', { plan: lpTitle });
+        }
       } else {
-        msg = tFmt('pl_dragCopyMsgSlot', { src: srcLabel });
+        if (targetInfo.entryId) {
+          msg = tFmt('pl_dragCopyMsg', { src: srcLabel, tgt: tgtLabel });
+        } else {
+          msg = tFmt('pl_dragCopyMsgSlot', { src: srcLabel });
+        }
       }
 
       var popover = document.getElementById('drag-copy-popover');
@@ -6470,20 +6618,191 @@
       popover.style.top  = Math.max(8, py) + 'px';
 
       // Capture for confirm/cancel
-      popover._pendingSrcId = srcId;
+      popover._pendingPayload = payload;
       popover._pendingTargetInfo = targetInfo;
     }
 
-    async function _applyDragCopy(srcId, targetInfo) {
-      var srcEntry = entries.find(function (e) { return e.id === srcId; });
-      if (!srcEntry) return;
+    async function _applyDragCopy(payloadOrSrcId, targetInfo) {
+      var payload = (typeof payloadOrSrcId === 'object' && payloadOrSrcId !== null)
+        ? payloadOrSrcId
+        : { type: 'entry', srcEntryId: payloadOrSrcId };
 
+      var srcEntry = entries.find(function (e) { return e.id === payload.srcEntryId; });
       var updatedEntry = null;
+      var activeCls = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
+
+      if (payload.type === 'field') {
+        if (targetInfo && targetInfo.entryId) {
+          var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
+          if (!tgtEntry) return;
+          if (payload.fieldType === 'notes') {
+            tgtEntry.notes = payload.fieldVal || '';
+          } else if (payload.fieldType === 'custom') {
+            tgtEntry.customFields = tgtEntry.customFields ? Object.assign({}, tgtEntry.customFields) : {};
+            tgtEntry.customFields[payload.fieldKey] = payload.fieldVal || '';
+          }
+          updatedEntry = tgtEntry;
+        } else if (targetInfo && targetInfo.date) {
+          var newEntry = {
+            id: uid(),
+            classId: targetInfo.classId || (srcEntry ? srcEntry.classId : '') || activeCls,
+            date: targetInfo.date,
+            time: targetInfo.time || '',
+            timeEnd: targetInfo.timeEnd || '',
+            type: 'lesson',
+            topic: '',
+            objective: '',
+            notes: payload.fieldType === 'notes' ? (payload.fieldVal || '') : '',
+            customFields: payload.fieldType === 'custom' ? { [payload.fieldKey]: payload.fieldVal || '' } : undefined,
+            gsLink: null,
+            lessonPlanId: null
+          };
+          entries.push(newEntry);
+          updatedEntry = newEntry;
+        }
+        await persistEntries();
+        render();
+        showToast(t('pl_dragCopyFieldDone') || 'Field copied');
+        return;
+      }
+
+      if (payload.type === 'entry-type') {
+        if (targetInfo && targetInfo.entryId) {
+          var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
+          if (!tgtEntry) return;
+          if (tgtEntry.type === 'test' && payload.entryType !== 'test' && tgtEntry.gsLink) {
+            var ok = await showConfirm(t('pl_confirmOverwriteTestEntry') || 'This slot contains a test linked to Grade Sheet. Changing its type will unlink the Grade Sheet test. Continue?');
+            if (!ok) return;
+            await removeTestFromGradeSheet(tgtEntry);
+            tgtEntry.gsLink = null;
+          }
+          tgtEntry.type = payload.entryType;
+          updatedEntry = tgtEntry;
+        } else if (targetInfo && targetInfo.date) {
+          var newEntry = {
+            id: uid(),
+            classId: targetInfo.classId || (srcEntry ? srcEntry.classId : '') || activeCls,
+            date: targetInfo.date,
+            time: targetInfo.time || '',
+            timeEnd: targetInfo.timeEnd || '',
+            type: payload.entryType,
+            topic: '',
+            objective: '',
+            notes: '',
+            gsLink: null,
+            lessonPlanId: null
+          };
+          entries.push(newEntry);
+          updatedEntry = newEntry;
+        }
+        if (updatedEntry && updatedEntry.type === 'test') {
+          if (!updatedEntry.classId) {
+            updatedEntry.classId = (srcEntry ? srcEntry.classId : '') || ((filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '');
+          }
+          if (updatedEntry.classId) {
+            await syncTestToGradeSheet(updatedEntry, false);
+          }
+        }
+        await persistEntries();
+        render();
+        showToast(t('pl_dragCopyTypeDone') || 'Entry type updated');
+        return;
+      }
+
+      if (payload.type === 'lesson-plan') {
+        var sourcePlan = null;
+        if (payload.planId) {
+          sourcePlan = (typeof plannerLessonPlansByEntryId !== 'undefined' && plannerLessonPlansByEntryId[String(payload.planId)]) ||
+                       (typeof plannerLessonPlansList !== 'undefined' && plannerLessonPlansList.find(function (p) { return p.id === payload.planId; }));
+        }
+        if (!sourcePlan && srcEntry) {
+          var lpSlotLink = plannerLessonPlanForSlot({ classId: srcEntry.classId, date: srcEntry.date, time: srcEntry.time }, srcEntry);
+          if (lpSlotLink && lpSlotLink.plan) sourcePlan = lpSlotLink.plan;
+        }
+        if (!sourcePlan) {
+          showToast('Lesson plan not found', true);
+          return;
+        }
+
+        if (targetInfo && targetInfo.entryId) {
+          var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
+          if (!tgtEntry) return;
+          updatedEntry = tgtEntry;
+        } else if (targetInfo && targetInfo.date) {
+          var newEntry = {
+            id: uid(),
+            classId: targetInfo.classId || (srcEntry ? srcEntry.classId : '') || activeCls,
+            date: targetInfo.date,
+            time: targetInfo.time || '',
+            timeEnd: targetInfo.timeEnd || '',
+            type: 'lesson',
+            topic: sourcePlan.title || '',
+            objective: sourcePlan.objective || '',
+            notes: '',
+            gsLink: null,
+            lessonPlanId: null
+          };
+          entries.push(newEntry);
+          updatedEntry = newEntry;
+        }
+
+        if (updatedEntry) {
+          try {
+            var clonedPlan = JSON.parse(JSON.stringify(sourcePlan));
+            var newPlanId = 'lp-' + Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0') + '-' + Date.now().toString(16);
+            clonedPlan.id = newPlanId;
+            clonedPlan.plannerEntryId = updatedEntry.id;
+            clonedPlan.classId = updatedEntry.classId || clonedPlan.classId || '';
+            clonedPlan.date = updatedEntry.date || clonedPlan.date || '';
+            var slug = (clonedPlan.title || 'lesson').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+            var saveFilename = 'lp_' + (clonedPlan.classId || 'general') + '_' + (clonedPlan.date || 'date') + '_' + slug + '_' + newPlanId + '.json';
+            clonedPlan._filename = saveFilename;
+            clonedPlan._relPath = 'lessons/' + saveFilename;
+
+            if (window.Desktop && Desktop.isElectron()) {
+              if (typeof Desktop.saveJson === 'function') {
+                await Desktop.saveJson('lessons', saveFilename, clonedPlan);
+              } else if (typeof Desktop.saveText === 'function') {
+                await Desktop.saveText('user', 'lessons/' + saveFilename, JSON.stringify(clonedPlan, null, 2));
+              }
+            } else {
+              localStorage.setItem('cmt-lesson-' + newPlanId, JSON.stringify(clonedPlan));
+            }
+
+            updatedEntry.lessonPlanId = newPlanId;
+            if (typeof plannerLessonPlansByEntryId !== 'undefined') {
+              plannerLessonPlansByEntryId[String(newPlanId)] = clonedPlan;
+              plannerLessonPlansByEntryId[String(updatedEntry.id)] = clonedPlan;
+            }
+            if (typeof plannerLessonPlansBySlotKey !== 'undefined') {
+              var newSlotKey = String(clonedPlan.classId) + ':' + String(clonedPlan.date);
+              if (!plannerLessonPlansBySlotKey[newSlotKey]) plannerLessonPlansBySlotKey[newSlotKey] = [];
+              plannerLessonPlansBySlotKey[newSlotKey].push(clonedPlan);
+            }
+            if (typeof plannerLessonPlansList !== 'undefined') {
+              plannerLessonPlansList.push(clonedPlan);
+            }
+
+            if (typeof loadSavedLessonPlans === 'function') {
+              await loadSavedLessonPlans();
+            }
+          } catch (copyErr) {
+            console.warn('Failed to duplicate lesson plan:', copyErr);
+          }
+        }
+        await persistEntries();
+        render();
+        showToast(t('pl_dragCopyLpDone') || 'Lesson plan duplicated');
+        return;
+      }
+
+      // ── Whole Entry Duplicate (type === 'entry') ─────────────
+      if (!srcEntry) return;
 
       if (targetInfo && targetInfo.entryId) {
         // ── Overwrite existing entry ──────────────────────────
         var tgtEntry = entries.find(function (e) { return e.id === targetInfo.entryId; });
-        if (!tgtEntry || tgtEntry.id === srcId) return;
+        if (!tgtEntry || tgtEntry.id === payload.srcEntryId) return;
 
         var confirmMsg = (tgtEntry.type === 'test' || tgtEntry.gsLink)
           ? (t('pl_confirmOverwriteTestEntry') || 'This slot contains a test linked to Grade Sheet. Overwriting it will affect the Grade Sheet test. Continue?')
@@ -6497,7 +6816,6 @@
           tgtEntry.gsLink = null;
         }
 
-        var activeCls = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
         tgtEntry.classId      = targetInfo.classId || tgtEntry.classId || srcEntry.classId || activeCls;
         tgtEntry.type         = srcEntry.type;
         tgtEntry.topic        = srcEntry.topic || '';
@@ -6510,7 +6828,6 @@
         updatedEntry = tgtEntry;
       } else if (targetInfo && targetInfo.date) {
         // ── Create new entry in empty slot ───────────────────
-        var activeCls = (filterClasses && filterClasses.size === 1) ? Array.from(filterClasses)[0] : '';
         var newEntry = {
           id:           uid(),
           classId:      targetInfo.classId || srcEntry.classId || activeCls,
@@ -6561,14 +6878,22 @@
           updatedEntry.lessonPlanId = newPlanId;
 
           // Register in local lookup structures immediately
-          plannerLessonPlansByEntryId[String(newPlanId)] = clonedPlan;
-          plannerLessonPlansByEntryId[String(updatedEntry.id)] = clonedPlan;
-          var newSlotKey = String(clonedPlan.classId) + ':' + String(clonedPlan.date);
-          if (!plannerLessonPlansBySlotKey[newSlotKey]) plannerLessonPlansBySlotKey[newSlotKey] = [];
-          plannerLessonPlansBySlotKey[newSlotKey].push(clonedPlan);
-          plannerLessonPlansList.push(clonedPlan);
+          if (typeof plannerLessonPlansByEntryId !== 'undefined') {
+            plannerLessonPlansByEntryId[String(newPlanId)] = clonedPlan;
+            plannerLessonPlansByEntryId[String(updatedEntry.id)] = clonedPlan;
+          }
+          if (typeof plannerLessonPlansBySlotKey !== 'undefined') {
+            var newSlotKey = String(clonedPlan.classId) + ':' + String(clonedPlan.date);
+            if (!plannerLessonPlansBySlotKey[newSlotKey]) plannerLessonPlansBySlotKey[newSlotKey] = [];
+            plannerLessonPlansBySlotKey[newSlotKey].push(clonedPlan);
+          }
+          if (typeof plannerLessonPlansList !== 'undefined') {
+            plannerLessonPlansList.push(clonedPlan);
+          }
 
-          await loadSavedLessonPlans();
+          if (typeof loadSavedLessonPlans === 'function') {
+            await loadSavedLessonPlans();
+          }
         } catch (copyErr) {
           console.warn('Failed to duplicate linked lesson plan:', copyErr);
         }
@@ -6592,10 +6917,10 @@
     async function dragCopyConfirm() {
       var popover = document.getElementById('drag-copy-popover');
       if (!popover) return;
-      var srcId = popover._pendingSrcId;
+      var payload = popover._pendingPayload || popover._pendingSrcId;
       var targetInfo = popover._pendingTargetInfo;
       _clearDragPopover();
-      await _applyDragCopy(srcId, targetInfo);
+      await _applyDragCopy(payload, targetInfo);
     }
 
     function dragCopyCancel() {
@@ -6974,15 +7299,21 @@
       if (isSubscribed) {
         r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:12px; height:12px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
       }
-      if (viewOpts.badges && badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
+      if (viewOpts.badges && badgeText) {
+        var typeDragAttr = (entry && !isSubscribed)
+          ? ' draggable="true" data-drag-type="entry-type" data-entry-type="' + esc(type) + '" data-entry-id="' + esc(entry.id) + '" title="Drag to duplicate / set type"'
+          : '';
+        r += '<span class="' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
+      }
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
       if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
       if (_lpMatrixLink && _lpMatrixLink.plan) {
         var _lpM = _lpMatrixLink.plan;
-        var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled');
-        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+        var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+        r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
@@ -7023,13 +7354,19 @@
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
       if (timeLabel) r += '<span class="at-time">' + esc(timeLabel) + '</span>';
-      if (badgeText) r += '<span class="' + badgeCls + '">' + esc(badgeText) + '</span>';
+      if (badgeText) {
+        var typeDragAttr = (entry && !isSubscribed)
+          ? ' draggable="true" data-drag-type="entry-type" data-entry-type="' + esc(type) + '" data-entry-id="' + esc(entry.id) + '" title="Drag to duplicate / set type"'
+          : '';
+        r += '<span class="' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
+      }
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       if (_lpCellLink && _lpCellLink.plan) {
         var _lpC = _lpCellLink.plan;
-        var _lpCTitle = t('pl_lessonPlanLinked') + ': ' + (_lpC.title || 'Untitled');
-        r += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpC.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        var _lpCTitle = t('pl_lessonPlanLinked') + ': ' + (_lpC.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+        var _lpCDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpC.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+        r += '<span class="lesson-plan-badge"' + _lpCDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpC.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
       if (_atBSess && _atBSess.length)
         r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';

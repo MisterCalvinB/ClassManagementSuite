@@ -1469,7 +1469,35 @@
             }
 
             populateGroups();
-            selectFirstGroup();
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetGroup = urlParams.get('group') || urlParams.get('class');
+            const targetStudent = urlParams.get('student') || urlParams.get('studentName') || urlParams.get('studentId');
+
+            const allGroups = extractGroupsFromData();
+            let selectedG = null;
+            if (targetGroup && allGroups.length > 0) {
+                selectedG = allGroups.find(g => g === targetGroup) ||
+                            allGroups.find(g => groupDisplayName(g).trim().toLowerCase() === targetGroup.trim().toLowerCase());
+            }
+
+            if (selectedG) {
+                selectGroup(selectedG);
+                if (targetStudent) {
+                    let sName = targetStudent;
+                    const roster = _ptRoster();
+                    if (targetStudent.startsWith('st-') && roster[targetStudent]) {
+                        const s = roster[targetStudent];
+                        sName = ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase();
+                    }
+                    const groupStudents = extractStudentsForGroup(selectedG);
+                    const match = groupStudents.find(s => s.toUpperCase() === sName.toUpperCase()) ||
+                                  groupStudents.find(s => s.toUpperCase().includes(sName.toUpperCase())) ||
+                                  sName;
+                    selectStudentFromSearch(match, selectedG);
+                }
+            } else {
+                selectFirstGroup();
+            }
             _initActiveContext();
             showMessage(t('ptMsgReady'), 'success');
         }

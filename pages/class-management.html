@@ -53,6 +53,11 @@
         })();
     </script>
     <script>
+        if ((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron)) {
+            document.documentElement.classList.add('is-electron');
+        }
+    </script>
+    <script>
         // Prevent global outside-click dismiss handlers from firing after a text-selection
         // drag that starts inside an editable field and ends outside it.
         (function () {
@@ -123,6 +128,14 @@
     </script>
     <link rel="stylesheet" href="../css/stylesheet.css">
     <style>
+        html.is-electron #db-hub-btn,
+        html.is-electron #db-hub-popup,
+        html.is-electron #time-machine-modal,
+        html.is-electron #history-modal,
+        html.is-electron .tm-viewing-banner {
+            display: none !important;
+        }
+
         .btn-icon {
             width: 16px;
             height: 16px;
@@ -835,10 +848,18 @@
             title="View participation stats" data-i18n="ctx_stats" data-i18n-title="ctx_stats_title"><img
                 src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
             Stats</button>
+        <button type="button" data-action="open-tracker" onclick="openInParticipationTracker(rosterContextStudentId)"
+            title="Open student in Participation Tracker" data-i18n="ctx_open_in_tracker" data-i18n-title="ctx_open_in_tracker_title"><img
+                src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" />
+            Open in Participation Tracker</button>
         <button type="button" data-action="grades" onclick="openStudentGradesPopup(rosterContextStudentId)"
             title="View grades from Grade Sheet" data-i18n="ctx_grades"
             data-i18n-title="ctx_grades_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
                 alt="" /> Grades</button>
+        <button type="button" data-action="open-grade-sheet" onclick="openInGradeSheet(rosterContextStudentId)"
+            title="Open student in Grade Sheet" data-i18n="ctx_open_in_grade_sheet"
+            data-i18n-title="ctx_open_in_grade_sheet_title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon"
+                alt="" /> Open in Grade Sheet</button>
         <div style="border-top: 1px solid #e0e0e0; margin: 6px 0;"></div>
         <button type="button" data-action="copy-roster" onclick="copyRosterPlainText()"
             title="Copy roster names (with teams and roles) to clipboard, without badges or scores"
@@ -7717,7 +7738,69 @@
                 renderRoster();
             }
 
+            if (action === 'open-tracker') {
+                openInParticipationTracker(rosterContextStudentId);
+                return;
+            }
+
+            if (action === 'open-grade-sheet') {
+                openInGradeSheet(rosterContextStudentId);
+                return;
+            }
+
             closeRosterContextMenu();
+        }
+
+        function openInParticipationTracker(studentId) {
+            closeRosterContextMenu();
+            if (!selectedGroupName) return;
+            if (studentId == null) studentId = rosterContextStudentId;
+            const students = studentGroups[selectedGroupName] || [];
+            const student = students.find(s => s.id === studentId) || students[studentId];
+            const groupName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+            const studentQuery = student ? (student.uuid || student.name) : '';
+
+            if (window.Desktop && typeof Desktop.openTool === 'function') {
+                Desktop.openTool('participation-tracker.html', {
+                    query: {
+                        group: selectedGroupName,
+                        class: groupName,
+                        student: studentQuery
+                    }
+                });
+            } else {
+                const params = new URLSearchParams();
+                params.set('group', selectedGroupName);
+                params.set('class', groupName);
+                if (studentQuery) params.set('student', studentQuery);
+                window.open('participation-tracker.html?' + params.toString(), '_blank');
+            }
+        }
+
+        function openInGradeSheet(studentId) {
+            closeRosterContextMenu();
+            if (!selectedGroupName) return;
+            if (studentId == null) studentId = rosterContextStudentId;
+            const students = studentGroups[selectedGroupName] || [];
+            const student = students.find(s => s.id === studentId) || students[studentId];
+            const groupName = (rawMeta[selectedGroupName] && rawMeta[selectedGroupName].name) ? rawMeta[selectedGroupName].name : selectedGroupName;
+            const studentQuery = student ? (student.uuid || student.name) : '';
+
+            if (window.Desktop && typeof Desktop.openTool === 'function') {
+                Desktop.openTool('grade-sheet.html', {
+                    query: {
+                        group: selectedGroupName,
+                        class: groupName,
+                        student: studentQuery
+                    }
+                });
+            } else {
+                const params = new URLSearchParams();
+                params.set('group', selectedGroupName);
+                params.set('class', groupName);
+                if (studentQuery) params.set('student', studentQuery);
+                window.open('grade-sheet.html?' + params.toString(), '_blank');
+            }
         }
 
         // ---- Student Stats Popup ----
@@ -7949,6 +8032,121 @@
         // ---- End Student Grades Popup ----
 
 
+        function _getGroupStudentsFromSession(session, groupKey) {
+            if (!session || !session.groups) return null;
+            if (Array.isArray(session.groups[groupKey])) return session.groups[groupKey];
+            const meta = (typeof rawMeta !== 'undefined' && rawMeta) ? rawMeta[groupKey] : null;
+            if (meta) {
+                if (meta.name && Array.isArray(session.groups[meta.name])) return session.groups[meta.name];
+                if (meta.id && Array.isArray(session.groups[meta.id])) return session.groups[meta.id];
+            }
+            const keys = Object.keys(session.groups);
+            const targetName = meta?.name || groupKey;
+            const matchedKey = keys.find(k => k.trim().toLowerCase() === targetName.trim().toLowerCase() || k.trim().toLowerCase() === groupKey.trim().toLowerCase());
+            if (matchedKey && Array.isArray(session.groups[matchedKey])) return session.groups[matchedKey];
+            return null;
+        }
+
+        function _findStudentInSessionList(studentsList, student) {
+            if (!Array.isArray(studentsList) || !student) return null;
+            const sId = student.id != null ? String(student.id).trim().toUpperCase() : null;
+            const sUuid = student.uuid ? String(student.uuid).trim().toUpperCase() : null;
+            const sName = (student.name || '').trim().toUpperCase();
+            const sFirst = (student.firstName || '').trim().toUpperCase();
+            const sLast = (student.lastName || '').trim().toUpperCase();
+            const sFull = (sFirst && sLast) ? `${sFirst} ${sLast}` : sName;
+            const sFullRev = (sFirst && sLast) ? `${sLast} ${sFirst}` : sName;
+
+            return studentsList.find(s => {
+                const curId = s.id != null ? String(s.id).trim().toUpperCase() : null;
+                const curUuid = s.uuid ? String(s.uuid).trim().toUpperCase() : null;
+                if (sUuid && (curUuid === sUuid || curId === sUuid)) return true;
+                if (sId && (curId === sId || curUuid === sId)) return true;
+                const curName = (s.name || '').trim().toUpperCase();
+                if (curName && (curName === sName || curName === sFull || curName === sFullRev)) return true;
+                const curFirst = (s.firstName || '').trim().toUpperCase();
+                const curLast = (s.lastName || '').trim().toUpperCase();
+                if (curFirst && curLast && sFirst && sLast && curFirst === sFirst && curLast === sLast) return true;
+                return false;
+            }) || null;
+        }
+
+        function resolveBadgeDefinition(badge) {
+            if (!badge) return null;
+            let icon = '';
+            let label = '';
+            if (typeof badge === 'object') {
+                icon = String(badge.icon || '').trim();
+                label = String(badge.label || '').trim();
+            } else if (typeof badge === 'string') {
+                label = badge.trim();
+            }
+            const definitions = (typeof badgeDefinitions !== 'undefined' && Array.isArray(badgeDefinitions)) ? badgeDefinitions : [];
+            if (icon && label) {
+                const exact = definitions.find(def => (def.icon || '').trim() === icon && (def.label || '').trim() === label);
+                if (exact) return exact;
+            }
+            if (icon) {
+                const iconMatch = definitions.find(def => (def.icon || '').trim() === icon);
+                if (iconMatch) return iconMatch;
+            }
+            if (label) {
+                const labelMatch = definitions.find(def => (def.label || '').trim() === label);
+                if (labelMatch) return labelMatch;
+                const comboMatch = definitions.find(def => `${(def.icon || '').trim()} ${(def.label || '').trim()}` === label);
+                if (comboMatch) return comboMatch;
+            }
+            return null;
+        }
+
+        function resolveBadgeData(badge) {
+            const configured = resolveBadgeDefinition(badge);
+            const rawCoeff = configured?.coefficient !== undefined ? configured.coefficient : (typeof badge === 'object' ? badge?.coefficient : 1);
+            const coefficient = Number.isFinite(Number(rawCoeff)) ? Number(rawCoeff) : 1;
+            const tone = configured?.tone || (typeof badge === 'object' ? badge?.tone : 'positive') || 'positive';
+            let icon = String(configured?.icon || (typeof badge === 'object' ? badge?.icon : '') || '').trim();
+            let label = String(configured?.label || (typeof badge === 'object' ? badge?.label : (typeof badge === 'string' ? badge : 'Badge')) || '').trim();
+            return { icon, label, tone, coefficient };
+        }
+
+        function countBadgeSentimentForStudent(badges) {
+            return (badges || []).reduce((acc, badge) => {
+                const data = resolveBadgeData(badge);
+                if (data.tone === 'positive') acc.positive += data.coefficient;
+                else if (data.tone === 'negative') acc.negative += data.coefficient;
+                return acc;
+            }, { positive: 0, negative: 0 });
+        }
+
+        function getStudentBadgeCounts(badges) {
+            const counts = {};
+            (badges || []).forEach(b => {
+                const data = resolveBadgeData(b);
+                const icon = data.icon;
+                const label = data.label;
+                if (icon) counts[icon] = (counts[icon] || 0) + 1;
+                if (label) {
+                    const normalized = label.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    counts[normalized] = (counts[normalized] || 0) + 1;
+                }
+            });
+            return counts;
+        }
+
+        function getStudentSessionNetForStudent(studentMatch) {
+            const defs = (typeof badgeDefinitions !== 'undefined' && Array.isArray(badgeDefinitions)) ? badgeDefinitions : [];
+            const plusDef = defs.find(d => d.isBuiltin && d.icon === '+');
+            const minusDef = defs.find(d => d.isBuiltin && d.icon === '-');
+            const fallbackCoeff = (typeof participationSettings !== 'undefined' && participationSettings.plusMinusCoefficient) ? participationSettings.plusMinusCoefficient : 1;
+            const plusCoeff = plusDef ? plusDef.coefficient : fallbackCoeff;
+            const minusCoeff = minusDef ? minusDef.coefficient : fallbackCoeff;
+            const sentiment = countBadgeSentimentForStudent(studentMatch.badges || []);
+            const raw = ((studentMatch.pluses || 0) + (studentMatch.teamPluses || 0)) * plusCoeff
+                - ((studentMatch.minuses || 0) + (studentMatch.teamMinuses || 0)) * minusCoeff
+                + sentiment.positive - sentiment.negative;
+            return parseFloat(raw.toFixed(2));
+        }
+
         async function openStudentStatsPopup(studentId) {
             closeRosterContextMenu();
             if (!selectedGroupName || studentId == null) return;
@@ -7972,8 +8170,10 @@
 
             const badgeMap = {};
             (student.badges || []).forEach(b => {
-                if (!badgeMap[b.icon]) badgeMap[b.icon] = { icon: b.icon, label: b.label || b.icon, tone: b.tone || 'positive', count: 0 };
-                badgeMap[b.icon].count++;
+                const resolved = resolveBadgeData(b);
+                const key = resolved.icon || resolved.label;
+                if (!badgeMap[key]) badgeMap[key] = { icon: resolved.icon || resolved.label, label: resolved.label, tone: resolved.tone, count: 0 };
+                badgeMap[key].count++;
             });
             const badgeList = Object.values(badgeMap);
 
@@ -7982,17 +8182,13 @@
             const plusCoeff = plusDef ? plusDef.coefficient : participationSettings.plusMinusCoefficient;
             const minusCoeff = minusDef ? minusDef.coefficient : participationSettings.plusMinusCoefficient;
 
-            let badgeNetToday = 0;
-            badgeList.forEach(b => {
-                const def = badgeDefinitions.find(d => d.icon === b.icon);
-                const coeff = def ? (def.coefficient || 1) : 1;
-                const tone = def ? def.tone : b.tone;
-                if (tone === 'negative') badgeNetToday -= coeff * b.count;
-                else badgeNetToday += coeff * b.count;
-            });
-            const netToday = pluses * plusCoeff - minuses * minusCoeff + teamPluses * plusCoeff - teamMinuses * minusCoeff + badgeNetToday;
+            const currentBadgeSentiment = countBadgeSentimentForStudent(student.badges || []);
+            const netToday = (pluses + teamPluses) * plusCoeff - (minuses + teamMinuses) * minusCoeff + currentBadgeSentiment.positive - currentBadgeSentiment.negative;
 
-            function fmtNet(n) { return n > 0 ? '+' + n : String(n); }
+            function fmtNet(n) {
+                const num = Number(n) || 0;
+                return num > 0 ? '+' + (Number.isInteger(num) ? num : num.toFixed(2)) : (Number.isInteger(num) ? String(num) : num.toFixed(2));
+            }
             function valClass(n) { return n > 0 ? 'pos' : (n < 0 ? 'neg' : 'neutral'); }
 
             const el = participationSettings.autoFlagElements || {};
@@ -8005,10 +8201,10 @@
             html += '<div class="stats-section-label">This session</div>';
 
             const todayRows = [];
-            if (el.plus !== false && pluses > 0) todayRows.push(['＋ Pluses', `<span class="stats-row-val pos">+${pluses}</span>`]);
-            if (el.minus !== false && minuses > 0) todayRows.push(['－ Minuses', `<span class="stats-row-val neg">−${minuses}</span>`]);
-            if (el.teamPlus !== false && teamPluses > 0) todayRows.push(['T＋ Team+', `<span class="stats-row-val pos">+${teamPluses}</span>`]);
-            if (el.teamMinus !== false && teamMinuses > 0) todayRows.push(['T－ Team−', `<span class="stats-row-val neg">−${teamMinuses}</span>`]);
+            if (pluses > 0) todayRows.push(['＋ Pluses', `<span class="stats-row-val pos">+${pluses}</span>`]);
+            if (minuses > 0) todayRows.push(['－ Minuses', `<span class="stats-row-val neg">−${minuses}</span>`]);
+            if (teamPluses > 0) todayRows.push(['T＋ Team+', `<span class="stats-row-val pos">+${teamPluses}</span>`]);
+            if (teamMinuses > 0) todayRows.push(['T－ Team−', `<span class="stats-row-val neg">−${teamMinuses}</span>`]);
             if (badgeList.length > 0) {
                 const badgeStr = badgeList.map(b => b.icon + (b.count > 1 ? '×' + b.count : '')).join(' ');
                 todayRows.push(['🏅 Badges', `<span class="stats-row-val">${badgeStr}</span>`]);
@@ -8060,36 +8256,48 @@
                 cutoffDate = new Date(tl.sinceDate);
             }
 
-            const badgesFilter = el.badges;
-            const useBadges = badgesFilter === true || (Array.isArray(badgesFilter) && badgesFilter.length > 0);
-
             let sessionCount = 0;
+            let attendedSessions = 0;
+            let hAbsent = 0;
+            let hPicks = 0;
             let hPluses = 0, hMinuses = 0, hTeamPluses = 0, hTeamMinuses = 0, hBadgePos = 0, hBadgeNeg = 0;
+            let hTeamRoleEvents = 0;
+            let hBadgesAccumulated = [];
+            const hSessionNets = [];
 
             sessions.forEach(session => {
-                if (session.activeGroup !== selectedGroupName) return;
+                const grpStudents = _getGroupStudentsFromSession(session, selectedGroupName);
+                if (!grpStudents) return;
+
                 if (cutoffDate) {
-                    const sd = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || 0);
+                    const sd = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || session.id || 0);
                     if (!isNaN(sd.getTime()) && sd < cutoffDate) return;
                 }
-                const grpStudents = (session.groups && session.groups[selectedGroupName]) || [];
-                const match = grpStudents.find(s => s.name === student.name);
+
+                const match = _findStudentInSessionList(grpStudents, student);
                 if (!match) return;
+
                 sessionCount++;
-                if (el.plus !== false) hPluses += match.pluses || 0;
-                if (el.minus !== false) hMinuses += match.minuses || 0;
-                if (el.teamPlus !== false) hTeamPluses += match.teamPluses || 0;
-                if (el.teamMinus !== false) hTeamMinuses += match.teamMinuses || 0;
-                if (useBadges) {
-                    (match.badges || []).forEach(b => {
-                        if (Array.isArray(badgesFilter) && !badgesFilter.includes(b.icon)) return;
-                        const def = badgeDefinitions.find(d => d.icon === b.icon);
-                        const coeff = def ? (def.coefficient || 1) : 1;
-                        const tone = def ? def.tone : (b.tone || 'positive');
-                        if (tone === 'negative') hBadgeNeg += coeff;
-                        else hBadgePos += coeff;
-                    });
+                if (match.isAbsent) {
+                    hAbsent++;
+                } else {
+                    attendedSessions++;
+                    hSessionNets.push(getStudentSessionNetForStudent(match));
                 }
+                if (match.isPicked) hPicks++;
+
+                hPluses += match.pluses || 0;
+                hMinuses += match.minuses || 0;
+                hTeamPluses += match.teamPluses || 0;
+                hTeamMinuses += match.teamMinuses || 0;
+                const sBadges = match.badges || [];
+                hBadgesAccumulated = hBadgesAccumulated.concat(sBadges);
+                const bSent = countBadgeSentimentForStudent(sBadges);
+                hBadgePos += bSent.positive;
+                hBadgeNeg += bSent.negative;
+
+                const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(session, selectedGroupName, student.name) : [];
+                hTeamRoleEvents += events.length;
             });
 
             if (sessionCount === 0) {
@@ -8097,85 +8305,68 @@
                 return;
             }
 
-            const hNet = computeNetForStudentInSessions(student.name, selectedGroupName, sessions);
+            const totalNet = (hPluses + hTeamPluses) * plusCoeff - (hMinuses + hTeamMinuses) * minusCoeff + hBadgePos - hBadgeNeg;
+            const netRatio = attendedSessions > 0 ? parseFloat((totalNet / attendedSessions).toFixed(2)) : 0;
+            const posRatio = attendedSessions > 0 ? parseFloat(((hPluses + hTeamPluses + hBadgePos) / attendedSessions).toFixed(2)) : 0;
+            const negRatio = attendedSessions > 0 ? parseFloat(((hMinuses + hTeamMinuses + hBadgeNeg) / attendedSessions).toFixed(2)) : 0;
+            const trend = (hSessionNets.length > 0) ? (computeTrend(hSessionNets) === 'up' ? '↑ Improving' : computeTrend(hSessionNets) === 'down' ? '↓ Declining' : '→ Stable') : '→ Stable';
 
             let histHtml = '';
-            histHtml += `<div class="stats-row"><span>Sessions</span><span class="stats-row-val neutral">${sessionCount}</span></div>`;
-            if (el.plus !== false && hPluses > 0) histHtml += `<div class="stats-row"><span>＋ Pluses</span><span class="stats-row-val pos">+${hPluses}</span></div>`;
-            if (el.minus !== false && hMinuses > 0) histHtml += `<div class="stats-row"><span>－ Minuses</span><span class="stats-row-val neg">−${hMinuses}</span></div>`;
-            if (el.teamPlus !== false && hTeamPluses > 0) histHtml += `<div class="stats-row"><span>T＋ Team+</span><span class="stats-row-val pos">+${hTeamPluses}</span></div>`;
-            if (el.teamMinus !== false && hTeamMinuses > 0) histHtml += `<div class="stats-row"><span>T－ Team−</span><span class="stats-row-val neg">−${hTeamMinuses}</span></div>`;
-            if (useBadges && (hBadgePos > 0 || hBadgeNeg > 0)) {
+            histHtml += `<div class="stats-row"><span>Sessions</span><span class="stats-row-val neutral">${sessionCount}${hAbsent > 0 ? ` (${attendedSessions} attended)` : ''}</span></div>`;
+            if (hPicks > 0) histHtml += `<div class="stats-row"><span>Times Picked</span><span class="stats-row-val neutral">${hPicks}</span></div>`;
+            if (hPluses > 0) histHtml += `<div class="stats-row"><span>＋ Pluses</span><span class="stats-row-val pos">+${hPluses}</span></div>`;
+            if (hMinuses > 0) histHtml += `<div class="stats-row"><span>－ Minuses</span><span class="stats-row-val neg">−${hMinuses}</span></div>`;
+            if (hTeamPluses > 0) histHtml += `<div class="stats-row"><span>T＋ Team+</span><span class="stats-row-val pos">+${hTeamPluses}</span></div>`;
+            if (hTeamMinuses > 0) histHtml += `<div class="stats-row"><span>T－ Team−</span><span class="stats-row-val neg">−${hTeamMinuses}</span></div>`;
+            if (hBadgePos > 0 || hBadgeNeg > 0) {
                 histHtml += `<div class="stats-row"><span>🏅 Badges net</span><span class="stats-row-val ${hBadgePos >= hBadgeNeg ? 'pos' : 'neg'}">${fmtNet(hBadgePos - hBadgeNeg)}</span></div>`;
             }
-            const netPs = hNet !== null ? hNet : 0;
-            histHtml += `<div class="stats-row" style="padding-top:3px; border-top:1px solid #f0f0f0; margin-top:3px;"><span><b>Net/session</b></span><span class="stats-row-val ${valClass(netPs)}">${fmtNet(netPs)}</span></div>`;
+            histHtml += `<div class="stats-row"><span><b>Total Net</b></span><span class="stats-row-val ${valClass(totalNet)}">${fmtNet(totalNet)}</span></div>`;
+            histHtml += `<div class="stats-row" style="padding-top:3px; border-top:1px solid #f0f0f0; margin-top:3px;"><span><b>Net/session</b></span><span class="stats-row-val ${valClass(netRatio)}">${fmtNet(netRatio)}</span></div>`;
+            histHtml += `<div class="stats-row"><span>Trend</span><span class="stats-row-val ${hSessionNets.length > 0 && computeTrend(hSessionNets) === 'up' ? 'pos' : (hSessionNets.length > 0 && computeTrend(hSessionNets) === 'down' ? 'neg' : 'neutral')}">${trend}</span></div>`;
 
             histEl.innerHTML = histHtml;
 
             // Async: provisional participation grade from pt-rules
             try {
                 const rulesMap = await getOrLoadParticipationRules();
-                const config = (rulesMap && rulesMap[selectedGroupName]) ? rulesMap[selectedGroupName] : null;
+                let config = (rulesMap && rulesMap[selectedGroupName]) ? rulesMap[selectedGroupName] : null;
+                if (!config && rawMeta && rawMeta[selectedGroupName]) {
+                    const m = rawMeta[selectedGroupName];
+                    if (m.name && rulesMap && rulesMap[m.name]) config = rulesMap[m.name];
+                    else if (m.id && rulesMap && rulesMap[m.id]) config = rulesMap[m.id];
+                }
+                if (!config && rulesMap && rulesMap['_default']) {
+                    config = rulesMap['_default'];
+                }
+
                 if (config && config.rules && config.rules.length > 0) {
-                    let pPicks = 0, pAbsent = 0, pPluses = 0, pMinuses = 0, pTeamPluses = 0, pTeamMinuses = 0, pTotal = 0, pTeamRoleEvents = 0;
-                    let pBadgesAccumulated = [];
-                    const pSessionNets = [];
-
-                    sessions.forEach(s => {
-                        if (s.activeGroup !== selectedGroupName) return;
-                        const grpStudents = (s.groups && s.groups[selectedGroupName]) || [];
-                        const match = grpStudents.find(st => st.name === student.name);
-                        if (!match) return;
-                        pTotal++;
-                        if (match.isPicked) pPicks++;
-                        if (match.isAbsent) pAbsent++;
-                        pPluses += match.pluses || 0;
-                        pMinuses += match.minuses || 0;
-                        pTeamPluses += match.teamPluses || 0;
-                        pTeamMinuses += match.teamMinuses || 0;
-                        const sBadges = match.badges || [];
-                        pBadgesAccumulated = pBadgesAccumulated.concat(sBadges);
-
-                        const events = (typeof getSessionTeamRoleEvents === 'function') ? getSessionTeamRoleEvents(s, selectedGroupName, student.name) : [];
-                        pTeamRoleEvents += events.length;
-
-                        pSessionNets.push(getStudentSessionNetForStudent(match));
-                    });
-
-                    const badgeSentiment = countBadgeSentimentForStudent(pBadgesAccumulated);
-
                     const mockOverviewData = {
-                        picks: pPicks,
-                        attendedSessions: Math.max(0, pTotal - pAbsent),
-                        pluses: pPluses,
-                        minuses: pMinuses,
-                        teamPluses: pTeamPluses,
-                        teamMinuses: pTeamMinuses,
-                        badgePositive: badgeSentiment.positive,
-                        badgeNegative: badgeSentiment.negative,
-                        badges: pBadgesAccumulated,
-                        sessions: pTotal,
-                        absent: pAbsent,
-                        teamRoleEvents: pTeamRoleEvents,
-                        sessionNets: pSessionNets
+                        picks: hPicks,
+                        attendedSessions: attendedSessions,
+                        pluses: hPluses,
+                        minuses: hMinuses,
+                        teamPluses: hTeamPluses,
+                        teamMinuses: hTeamMinuses,
+                        badgePositive: hBadgePos,
+                        badgeNegative: hBadgeNeg,
+                        badges: hBadgesAccumulated,
+                        sessions: sessionCount,
+                        absent: hAbsent,
+                        teamRoleEvents: hTeamRoleEvents,
+                        sessionNets: hSessionNets
                     };
 
                     const provGrade = calculateStudentProvisionalGrade(mockOverviewData, config, selectedGroupName);
 
                     if (provGrade !== null) {
                         const maxText = config.scaleToMax ? ` / ${config.maxGrade}` : '';
-
-                        const net = (pPluses + pTeamPluses + badgeSentiment.positive) - (pMinuses + pTeamMinuses + badgeSentiment.negative);
-                        const attendanceRate = pTotal > 0 ? ((pTotal - pAbsent) / pTotal) * 100 : 0;
-                        const attendedSessions = pTotal - pAbsent;
-                        const posRatio = attendedSessions ? (pPluses + pTeamPluses + badgeSentiment.positive) / attendedSessions : 0;
-                        const negRatio = attendedSessions ? (pMinuses + pTeamMinuses + badgeSentiment.negative) / attendedSessions : 0;
-                        const netRatio = attendedSessions ? net / attendedSessions : 0;
-                        const totalGood = pPluses + pTeamPluses + badgeSentiment.positive;
-                        const totalBad = pMinuses + pTeamMinuses + badgeSentiment.negative;
+                        const sessionDenom = Math.max(1, sessionCount || 1);
+                        const attendanceRate = sessionCount > 0 ? (attendedSessions / sessionCount) * 100 : 0;
+                        const totalGood = hPluses + hTeamPluses + hBadgePos;
+                        const totalBad = hMinuses + hTeamMinuses + hBadgeNeg;
                         const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
-                        const trend = (pSessionNets.length > 0) ? (computeTrend(pSessionNets) === 'up' ? 1 : computeTrend(pSessionNets) === 'down' ? -1 : 0) : 0;
+                        const numTrend = (hSessionNets.length > 0) ? (computeTrend(hSessionNets) === 'up' ? 1 : computeTrend(hSessionNets) === 'down' ? -1 : 0) : 0;
 
                         const trHelper = (key, fallback) => {
                             if (typeof window.t === 'function') {
@@ -8196,13 +8387,16 @@
                                 let maxPts = Number(rule.maxPts) ?? 0;
                                 possiblePoints = maxPts;
                                 const context = {
-                                    netPoints: net, net: net, picks: pPicks, attendanceRate: attendanceRate, attendance: attendanceRate,
-                                    positivePoints: pPluses + pTeamPluses, positive: pPluses + pTeamPluses, pluses: pPluses,
-                                    minuses: pMinuses, teamPluses: pTeamPluses, teamMinuses: pTeamMinuses,
-                                    badgePositive: badgeSentiment.positive, badgeNegative: badgeSentiment.negative, sessions: pTotal,
-                                    absent: pAbsent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
-                                    trend: trend, teamRoleEvents: pTeamRoleEvents,
-                                    ...getStudentBadgeCounts(pBadgesAccumulated)
+                                    netPoints: totalNet, net: totalNet, picks: hPicks, attendanceRate: attendanceRate, attendance: attendanceRate,
+                                    positivePoints: hPluses + hTeamPluses, positive: hPluses + hTeamPluses, pluses: hPluses,
+                                    minuses: hMinuses, teamPluses: hTeamPluses, teamMinuses: hTeamMinuses,
+                                    badgePositive: hBadgePos, badgeNegative: hBadgeNeg,
+                                    badgePositiveSession: parseFloat((hBadgePos / sessionDenom).toFixed(2)),
+                                    badgeNegativeSession: parseFloat((hBadgeNeg / sessionDenom).toFixed(2)),
+                                    sessions: sessionCount,
+                                    absent: hAbsent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
+                                    trend: numTrend, teamRoleEvents: hTeamRoleEvents,
+                                    ...getStudentBadgeCounts(hBadgesAccumulated)
                                 };
                                 try {
                                     const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
@@ -8226,41 +8420,43 @@
                                     achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (0 / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
                                 }
                             } else {
-                                if (rule.metric === 'netPoints') { studentValue = net; label = `${trHelper('ptStatsNetPoints', 'Net Points')}: ${net}`; }
-                                else if (rule.metric === 'picks') { studentValue = pPicks; label = `${trHelper('ptStatsTimesPicked', 'Times Picked')}: ${pPicks}`; }
+                                if (rule.metric === 'netPoints') { studentValue = totalNet; label = `${trHelper('ptStatsNetPoints', 'Net Points')}: ${totalNet}`; }
+                                else if (rule.metric === 'picks') { studentValue = hPicks; label = `${trHelper('ptStatsTimesPicked', 'Times Picked')}: ${hPicks}`; }
                                 else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${trHelper('ptStatsSessionsRecorded', 'Attendance Rate')}: ${attendanceRate.toFixed(0)}%`; }
-                                else if (rule.metric === 'positivePoints') { studentValue = pPluses + pTeamPluses; label = `${trHelper('ptStatPluses', 'Positive Points')}: ${pPluses + pTeamPluses}`; }
-                                else if (rule.metric === 'badgePositive') { studentValue = badgeSentiment.positive; label = `${trHelper('ptStatsPosBadges', 'Positive Badges')}: ${badgeSentiment.positive}`; }
-                                else if (rule.metric === 'badgeNegative') { studentValue = badgeSentiment.negative; label = `${trHelper('ptColBadgeMinus', 'Negative Badges')}: ${badgeSentiment.negative}`; }
-                                else if (rule.metric === 'pluses') { studentValue = pPluses; label = `${trHelper('ptColPluses', 'Pluses')}: ${pPluses}`; }
-                                else if (rule.metric === 'minuses') { studentValue = pMinuses; label = `${trHelper('ptColMinuses', 'Minuses')}: ${pMinuses}`; }
-                                else if (rule.metric === 'teamPluses') { studentValue = pTeamPluses; label = `${trHelper('ptColT', 'Team Pluses')}: ${pTeamPluses}`; }
-                                else if (rule.metric === 'teamMinuses') { studentValue = pTeamMinuses; label = `${trHelper('ptColTm', 'Team Minuses')}: ${pTeamMinuses}`; }
-                                else if (rule.metric === 'absent') { studentValue = pAbsent; label = `${trHelper('ptColAbsent', 'Absences')}: ${pAbsent}`; }
-                                else if (rule.metric === 'sessions') { studentValue = pTotal; label = `${trHelper('ptColSess', 'Total Sessions')}: ${pTotal}`; }
+                                else if (rule.metric === 'positivePoints') { studentValue = hPluses + hTeamPluses; label = `${trHelper('ptStatPluses', 'Positive Points')}: ${hPluses + hTeamPluses}`; }
+                                else if (rule.metric === 'badgePositive') { studentValue = hBadgePos; label = `${trHelper('ptStatsPosBadges', 'Positive Badges')}: ${hBadgePos}`; }
+                                else if (rule.metric === 'badgeNegative') { studentValue = hBadgeNeg; label = `${trHelper('ptColBadgeMinus', 'Negative Badges')}: ${hBadgeNeg}`; }
+                                else if (rule.metric === 'badgePositiveSession') { studentValue = parseFloat((hBadgePos / sessionDenom).toFixed(2)); label = `+Badges/session: ${studentValue}`; }
+                                else if (rule.metric === 'badgeNegativeSession') { studentValue = parseFloat((hBadgeNeg / sessionDenom).toFixed(2)); label = `-Badges/session: ${studentValue}`; }
+                                else if (rule.metric === 'pluses') { studentValue = hPluses; label = `${trHelper('ptColPluses', 'Pluses')}: ${hPluses}`; }
+                                else if (rule.metric === 'minuses') { studentValue = hMinuses; label = `${trHelper('ptColMinuses', 'Minuses')}: ${hMinuses}`; }
+                                else if (rule.metric === 'teamPluses') { studentValue = hTeamPluses; label = `${trHelper('ptColT', 'Team Pluses')}: ${hTeamPluses}`; }
+                                else if (rule.metric === 'teamMinuses') { studentValue = hTeamMinuses; label = `${trHelper('ptColTm', 'Team Minuses')}: ${hTeamMinuses}`; }
+                                else if (rule.metric === 'absent') { studentValue = hAbsent; label = `${trHelper('ptColAbsent', 'Absences')}: ${hAbsent}`; }
+                                else if (rule.metric === 'sessions') { studentValue = sessionCount; label = `${trHelper('ptColSess', 'Total Sessions')}: ${sessionCount}`; }
                                 else if (rule.metric === 'posRatio') { studentValue = posRatio; label = `${trHelper('ptColPosRatio', '+/session')}: ${posRatio.toFixed(2)}`; }
                                 else if (rule.metric === 'negRatio') { studentValue = negRatio; label = `${trHelper('ptColNegRatio', '-/session')}: ${negRatio.toFixed(2)}`; }
                                 else if (rule.metric === 'netRatio') { studentValue = netRatio; label = `${trHelper('ptColNetRatio', 'Net/session')}: ${netRatio.toFixed(2)}`; }
                                 else if (rule.metric === 'ratio') { studentValue = ratio; label = `${trHelper('ptColGoodBad', 'Good/Bad Ratio')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
-                                else if (rule.metric === 'trend') { studentValue = trend; label = `${trHelper('ptColTrend', 'Performance Trend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
-                                else if (rule.metric === 'teamRoleEvents') { studentValue = pTeamRoleEvents; label = `${trHelper('ptColTeamRole', 'Team/Role Activity')}: ${pTeamRoleEvents}`; }
+                                else if (rule.metric === 'trend') { studentValue = numTrend; label = `${trHelper('ptColTrend', 'Performance Trend')}: ${numTrend === 1 ? 'Up' : numTrend === -1 ? 'Down' : 'Flat'}`; }
+                                else if (rule.metric === 'teamRoleEvents') { studentValue = hTeamRoleEvents; label = `${trHelper('ptColTeamRole', 'Team/Role Activity')}: ${hTeamRoleEvents}`; }
                                 else if (rule.metric.startsWith('badge_icon_session:')) {
                                     const icon = rule.metric.replace('badge_icon_session:', '');
-                                    studentValue = parseFloat(((getStudentBadgeCounts(pBadgesAccumulated)[icon] || 0) / Math.max(1, pTotal)).toFixed(2));
+                                    studentValue = parseFloat(((getStudentBadgeCounts(hBadgesAccumulated)[icon] || 0) / sessionDenom).toFixed(2));
                                     label = `${icon}/session: ${studentValue}`;
                                 } else if (rule.metric.startsWith('badge_label_session:')) {
                                     const bLabel = rule.metric.replace('badge_label_session:', '');
                                     const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
-                                    studentValue = parseFloat(((getStudentBadgeCounts(pBadgesAccumulated)[key] || 0) / Math.max(1, pTotal)).toFixed(2));
+                                    studentValue = parseFloat(((getStudentBadgeCounts(hBadgesAccumulated)[key] || 0) / sessionDenom).toFixed(2));
                                     label = `${bLabel}/session: ${studentValue}`;
                                 } else if (rule.metric.startsWith('badge_icon:')) {
                                     const icon = rule.metric.replace('badge_icon:', '');
-                                    studentValue = getStudentBadgeCounts(pBadgesAccumulated)[icon] || 0;
+                                    studentValue = getStudentBadgeCounts(hBadgesAccumulated)[icon] || 0;
                                     label = `${icon} (Total): ${studentValue}`;
                                 } else if (rule.metric.startsWith('badge_label:')) {
                                     const bLabel = rule.metric.replace('badge_label:', '');
                                     const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
-                                    studentValue = getStudentBadgeCounts(pBadgesAccumulated)[key] || 0;
+                                    studentValue = getStudentBadgeCounts(hBadgesAccumulated)[key] || 0;
                                     label = `${bLabel} (Total): ${studentValue}`;
                                 }
 
@@ -8605,12 +8801,20 @@
             }
 
             const totalSessions = studentData.sessions || 0;
+            const sessionDenom = Math.max(1, totalSessions || 1);
             const picks = studentData.picks || 0;
             const net = (studentData.pluses + studentData.teamPluses + studentData.badgePositive) - (studentData.minuses + studentData.teamMinuses + studentData.badgeNegative);
             const attendanceRate = totalSessions > 0 ? (studentData.attendedSessions / totalSessions) * 100 : 0;
             const badgePositive = studentData.badgePositive || 0;
             const positivePoints = (studentData.pluses || 0) + (studentData.teamPluses || 0);
             const badgeCounts = getStudentBadgeCounts(studentData.badges);
+
+            const badgeSessionCounts = {};
+            Object.keys(badgeCounts).forEach(k => {
+                const val = parseFloat((badgeCounts[k] / sessionDenom).toFixed(2));
+                badgeSessionCounts[k + '_session'] = val;
+                badgeSessionCounts[k + '_per_session'] = val;
+            });
 
             const attendedSessions = studentData.attendedSessions || 0;
             const posRatio = attendedSessions ? (studentData.pluses + studentData.teamPluses + studentData.badgePositive) / attendedSessions : 0;
@@ -8639,9 +8843,12 @@
                         netPoints: net, net: net, picks: picks, attendanceRate: attendanceRate, attendance: attendanceRate,
                         positivePoints: positivePoints, positive: positivePoints, pluses: studentData.pluses,
                         minuses: studentData.minuses, teamPluses: studentData.teamPluses, teamMinuses: studentData.teamMinuses,
-                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative, sessions: studentData.sessions,
+                        badgePositive: badgePositive, badgeNegative: studentData.badgeNegative,
+                        badgePositiveSession: parseFloat((badgePositive / sessionDenom).toFixed(2)),
+                        badgeNegativeSession: parseFloat((studentData.badgeNegative / sessionDenom).toFixed(2)),
+                        sessions: studentData.sessions,
                         absent: studentData.absent, posRatio: posRatio, negRatio: negRatio, netRatio: netRatio, ratio: ratio,
-                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts
+                        trend: trend, teamRoleEvents: studentData.teamRoleEvents, ...badgeCounts, ...badgeSessionCounts
                     };
                     try {
                         const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
@@ -9034,6 +9241,8 @@
         }
 
         function copyData() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
             if (!selectedGroupName) {
                 showToast(t('alert_select_group'));
                 return;
@@ -9051,6 +9260,8 @@
         }
 
         function exportToCSV() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
             if (!selectedGroupName) {
                 showToast('Please select a group first!');
                 return;
@@ -9132,19 +9343,23 @@
 
             let totalNet = 0;
             let sessionCount = 0;
+            let attendedSessions = 0;
 
             sessions.forEach(session => {
-                // Apply timeline filter
-                if (session.activeGroup !== groupName) return;
+                const grpStudents = _getGroupStudentsFromSession(session, groupName);
+                if (!grpStudents) return;
+
                 if (cutoffDate) {
-                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || 0);
+                    const sessionDate = new Date(session.date || session.savedAt || session._savedAt || session.createdAt || session.id || 0);
                     if (!isNaN(sessionDate.getTime()) && sessionDate < cutoffDate) return;
                 }
 
-                const students = (session.groups && session.groups[groupName]) || [];
-                const match = students.find(s => s.name === studentName);
+                const match = _findStudentInSessionList(grpStudents, { name: studentName });
                 if (!match) return;
+
                 sessionCount++;
+                if (!match.isAbsent) attendedSessions++;
+
                 const pluses = usePlus ? (match.pluses || 0) : 0;
                 const minuses = useMinus ? (match.minuses || 0) : 0;
                 const teamPluses = useTeamPlus ? (match.teamPluses || 0) : 0;
@@ -9152,20 +9367,18 @@
                 let badgePos = 0, badgeNeg = 0;
                 if (useBadges) {
                     (match.badges || []).forEach(b => {
-                        // Skip if this specific badge icon is not in the allowed set
-                        if (Array.isArray(badgesFilter) && !badgesFilter.includes(b.icon)) return;
-                        const def = badgeDefinitions.find(d => d.icon === b.icon);
-                        const tone = def ? def.tone : b.tone || 'positive';
-                        const coeff = def ? (def.coefficient || 1) : 1;
-                        if (tone === 'negative') badgeNeg += coeff;
-                        else badgePos += coeff;
+                        const resolved = resolveBadgeData(b);
+                        if (Array.isArray(badgesFilter) && !badgesFilter.includes(resolved.icon) && !badgesFilter.includes(resolved.label)) return;
+                        if (resolved.tone === 'negative') badgeNeg += resolved.coefficient;
+                        else badgePos += resolved.coefficient;
                     });
                 }
                 totalNet += pluses * plusCoeff - minuses * minusCoeff + teamPluses * plusCoeff - teamMinuses * minusCoeff + badgePos - badgeNeg;
             });
 
             if (sessionCount === 0) return null;  // no data
-            return parseFloat((totalNet / sessionCount).toFixed(2));
+            const denom = attendedSessions > 0 ? attendedSessions : sessionCount;
+            return parseFloat((totalNet / denom).toFixed(2));
         }
 
         // ---- Multi-Color & Rule-Based Flag System ----
@@ -12574,12 +12787,17 @@ syncState();
         }
 
         function openHistoryModal() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
+            const modal = document.getElementById('history-modal');
+            if (!modal) return;
             renderHistoryList();
-            document.getElementById('history-modal').style.display = 'flex';
+            modal.style.display = 'flex';
         }
 
         function closeHistoryModal() {
-            document.getElementById('history-modal').style.display = 'none';
+            const modal = document.getElementById('history-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         function renderHistoryList() {
@@ -14523,6 +14741,8 @@ syncState();
         }
 
         function clearDbLocalStorage() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
             showConfirm('Clear all local DB sessions (cms-db) from this browser/app instance?\n\nThis does not delete your config.js file.', function () {
                 try {
                     localStorage.removeItem(DB_KEY);
@@ -14891,6 +15111,7 @@ syncState();
                 for (const file of files) {
                     const relativePath = String(file && file.relativePath ? file.relativePath : '').trim();
                     if (!relativePath) continue;
+                    if (relativePath.includes('pt-deleted') || relativePath.includes('pt-rules') || relativePath.includes('pt-notes') || relativePath.includes('pt-presets')) continue;
 
                     try {
                         const readResult = await Desktop.readByPath('groupParticipation', relativePath, { encoding: 'utf8' });
@@ -14930,7 +15151,21 @@ syncState();
                 const logSessions = await _loadLogDbSessions();
                 // logSessions go first so they win dedup and keep the 'log' tag.
                 // Sessions only in localStorage (not yet on disk) appear second and keep 'local'.
-                const merged = _mergeSessionsById(logSessions, localSessions);
+                let merged = _mergeSessionsById(logSessions, localSessions);
+
+                try {
+                    const tomb = await Desktop.readText('groupParticipation', 'pt-deleted.js');
+                    if (tomb?.ok && tomb.content) {
+                        const m = tomb.content.match(/window\.CMS_DELETED_SESSIONS\s*=\s*(\[[\s\S]*?\]);?/);
+                        if (m) {
+                            const deletedIds = new Set(JSON.parse(m[1]));
+                            if (deletedIds.size > 0) {
+                                merged = merged.filter(s => !s || !s.id || !deletedIds.has(s.id));
+                            }
+                        }
+                    }
+                } catch (e) {}
+
                 timeMachineSessionsCache = merged;
                 results = merged;
             }
@@ -14943,12 +15178,17 @@ syncState();
         }
 
         async function openTimeMachine() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
+            const modal = document.getElementById('time-machine-modal');
+            if (!modal) return;
             await renderTimeMachineSessions();
-            document.getElementById('time-machine-modal').style.display = 'flex';
+            modal.style.display = 'flex';
         }
 
         function closeTimeMachine() {
-            document.getElementById('time-machine-modal').style.display = 'none';
+            const modal = document.getElementById('time-machine-modal');
+            if (modal) modal.style.display = 'none';
         }
 
         async function renderTimeMachineSessions() {
@@ -15272,8 +15512,11 @@ syncState();
         }
 
         function toggleDbPopup() {
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            if (isElectron) return;
             const popup = document.getElementById('db-hub-popup');
             const btn = document.getElementById('db-hub-btn');
+            if (!popup || !btn) return;
             const isOpen = popup.classList.contains('open');
             if (isOpen) {
                 popup.classList.remove('open');
@@ -15288,8 +15531,10 @@ syncState();
         }
 
         function closeDbPopup() {
-            document.getElementById('db-hub-popup').classList.remove('open');
-            document.getElementById('db-hub-btn').classList.remove('active');
+            const popup = document.getElementById('db-hub-popup');
+            const btn = document.getElementById('db-hub-btn');
+            if (popup) popup.classList.remove('open');
+            if (btn) btn.classList.remove('active');
         }
 
         function toggleLinksPopup(event) {
@@ -15910,27 +16155,39 @@ syncState();
 
         // ── Tutorial ─────────────────────────────────────────────────────────────────
         function startCmsTutorial() {
-            Tutorial.start([
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
+            const steps = [
                 { selector: '#class-selection-anchor', title: t('tut1_title'), text: t('tut1_text') },
                 { selector: '.roster-panel', title: t('tut2_title'), text: t('tut2_text') },
                 { selector: '#custom-action-buttons', title: t('tut_action_btns_title'), text: t('tut_action_btns_text') },
                 { selector: '#pick-btn', title: t('tut_pick_title'), text: t('tut_pick_text') },
                 { selector: '#roster-settings-btn', title: t('tut_roster_settings_title'), text: t('tut_roster_settings_text') },
                 { selector: '#timer-open-btn', title: t('tut3_title'), text: t('tut3_text') },
-                { selector: '#settings-btn', title: t('tut_general_settings_title'), text: t('tut_general_settings_text') },
-                { selector: '#db-hub-btn', title: t('tut4_title'), text: t('tut4_text') }
-            ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
+                { selector: '#settings-btn', title: t('tut_general_settings_title'), text: t('tut_general_settings_text') }
+            ];
+            if (!isElectron) {
+                steps.push({ selector: '#db-hub-btn', title: t('tut4_title'), text: t('tut4_text') });
+            }
+            Tutorial.start(steps, { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
         }
 
         // Show the banner on startup (after a short delay so the UI is painted)
         document.addEventListener('DOMContentLoaded', () => {
             const banner = document.getElementById('startup-load-banner');
-            if (!banner) return;
-
-            const isElectron = !!(window.Desktop && Desktop.isElectron && Desktop.isElectron());
+            const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
             if (isElectron) {
-                banner.classList.remove('visible');
-                banner.style.display = 'none';
+                if (banner) {
+                    banner.classList.remove('visible');
+                    banner.style.display = 'none';
+                }
+                const dbBtn = document.getElementById('db-hub-btn');
+                if (dbBtn) dbBtn.style.display = 'none';
+                const dbPopup = document.getElementById('db-hub-popup');
+                if (dbPopup) dbPopup.style.display = 'none';
+                const tmModal = document.getElementById('time-machine-modal');
+                if (tmModal) tmModal.style.display = 'none';
+                const histModal = document.getElementById('history-modal');
+                if (histModal) histModal.style.display = 'none';
                 const saveAllBtn = document.getElementById('save-all-db-btn');
                 if (saveAllBtn) saveAllBtn.style.display = 'none';
                 const saveFileBtn = document.getElementById('save-file-btn');
@@ -15942,9 +16199,11 @@ syncState();
                 return;
             }
 
-            setTimeout(() => {
-                banner.classList.add('visible');
-            }, 400);
+            if (banner) {
+                setTimeout(() => {
+                    banner.classList.add('visible');
+                }, 400);
+            }
         });
 
         // ── Presentation Mode init ───────────────────────────────────────────────────
@@ -16285,7 +16544,14 @@ syncState();
             const origRender = window.renderUtilityButtons;
             if (origRender) {
                 window.renderUtilityButtons = function () {
+                    const isElectron = !!((window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron()) || (window.electronApi && window.electronApi.isElectron));
                     const utilSection = document.getElementById('utility-section');
+                    if (!utilSection) return;
+                    if (isElectron) {
+                        utilSection.style.display = 'none';
+                        utilSection.innerHTML = '';
+                        return;
+                    }
                     utilSection.style.display = 'contents';
                     utilSection.innerHTML = `
         <button class="btn-copy" onclick="copyData()">${t('btn_copy_data')}</button>

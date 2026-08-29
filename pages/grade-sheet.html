@@ -13224,6 +13224,43 @@ ${blocks}
       renderClasses();
       showScreen("classes");
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetClassParam = urlParams.get('class') || urlParams.get('classId') || urlParams.get('group');
+      const targetStudentParam = urlParams.get('student') || urlParams.get('studentId') || urlParams.get('studentName');
+
+      if (targetClassParam && Array.isArray(appState.classes) && appState.classes.length > 0) {
+        let targetClass = appState.classes.find(c => c.id === targetClassParam || c.groupId === targetClassParam);
+        if (!targetClass) {
+          const normTarget = targetClassParam.trim().toLowerCase();
+          targetClass = appState.classes.find(c => (c.name || '').trim().toLowerCase() === normTarget);
+        }
+        if (targetClass) {
+          appState.activeClassId = targetClass.id;
+          renderSummary();
+          showScreen("summary");
+          if (targetStudentParam && Array.isArray(targetClass.students)) {
+            const normStudent = targetStudentParam.trim().toUpperCase();
+            const sMatch = targetClass.students.find(s =>
+              String(s.id).toUpperCase() === normStudent ||
+              ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
+              ((s.lastName || '') + ' ' + (s.firstName || '')).trim().toUpperCase() === normStudent ||
+              (s.firstName && s.firstName.trim().toUpperCase() === normStudent) ||
+              (s.customName && s.customName.trim().toUpperCase() === normStudent)
+            );
+            if (sMatch) {
+              requestAnimationFrame(() => {
+                const tr = document.querySelector(`#summary-table tbody tr[data-summary-student-id="${sMatch.id}"]`);
+                if (tr) {
+                  tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  tr.classList.add('selected-student-row');
+                  setTimeout(() => tr.classList.remove('selected-student-row'), 4000);
+                }
+              });
+            }
+          }
+        }
+      }
+
       checkForPendingImport();
       window.addEventListener('focus', checkForPendingImport);
     }
