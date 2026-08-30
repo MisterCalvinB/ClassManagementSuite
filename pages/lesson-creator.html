@@ -77,6 +77,8 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuExport">Export</button>
         <div class="nav-group-popup">
+          <button class="nav-pop-item" onclick="lcOpenCopyTextModal()"><span data-i18n="lcCopyAsText">Copy as Text…</span></button>
+          <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcExportPdf()"><span data-i18n="lcPrintPdf">Print / PDF Document</span> <span class="nav-pop-hint">Ctrl+P</span></button>
           <button class="nav-pop-item" onclick="lcExportStandaloneHtml()"><span data-i18n="lcExportHtml">Standalone HTML File</span></button>
           <button class="nav-pop-item" onclick="lcExportJson()"><span data-i18n="lcExportJson">Export Plan JSON</span></button>
@@ -443,6 +445,173 @@
       <div class="modal-footer">
         <button class="neo-btn" onclick="lcCloseModal('splitModal')"><span data-i18n="btnCancel">Cancel</span></button>
         <button class="neo-btn primary" onclick="lcApplySplitPhase()"><span data-i18n="lcApplySplit">Split Phase</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy As Text Modal -->
+  <div id="copyTextModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:760px; max-height:92vh; display:flex; flex-direction:column;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/file-text.svg" style="width:20px;height:20px;filter:invert(0);" alt="">
+          <span data-i18n="lcCopyTextModalTitle">Copy Lesson Plan as Text</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('copyTextModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:0.85rem;margin:0;color:var(--neo-gray-dark);" data-i18n="lcCopyTextDesc">
+          Select the plan sections and details to include in the copied text:
+        </p>
+
+        <!-- Presets Row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;background:var(--neo-gray-light);padding:8px 12px;border:1.5px solid var(--neo-dark);border-radius:var(--neo-radius-sm);">
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:800;">
+            <span data-i18n="lcCopyPresets">Presets:</span>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyCopyTextPreset('full')"><span data-i18n="lcPresetFull">Full Detail</span></button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyCopyTextPreset('summary')"><span data-i18n="lcPresetSummary">Summary / Outline</span></button>
+            <button type="button" class="neo-btn" style="padding:3px 8px;font-size:0.75rem;" onclick="lcApplyCopyTextPreset('phasesOnly')"><span data-i18n="lcPresetPhasesOnly">Phases Only</span></button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label style="font-size:0.8rem;font-weight:800;" data-i18n="lcCopyFormat">Format:</label>
+            <select id="copyTextFormatSelect" class="meta-select" style="padding:3px 8px;font-size:0.78rem;" onchange="lcUpdateCopyTextPreview()">
+              <option value="markdown" selected>Markdown</option>
+              <option value="plain">Plain Text</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section 1: Metadata Fields -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);">
+            <span>1. Lesson Information & Metadata</span>
+          </div>
+          <div class="customize-field-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; padding:8px;">
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaHeader">Title, Subject & Class</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaHeader" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaDate">Date, Year Level & Semester</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaDate" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaDuration">Total Duration & Target</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaDuration" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaSequence">Unit Sequence Info</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaSequence" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaTags">Tags & Keywords</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaTags" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyMetaTeams">Team Config & Roles</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_metaTeams" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Phase Fields -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);">
+            <span>2. Timeline Phase Details</span>
+          </div>
+          <div class="customize-field-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; padding:8px;">
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseTitle">Phase Numbers & Titles</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseTitle" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseDuration">Phase Durations & Times</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseDuration" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseActivity">Activity Types & Modes</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseActivity" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseObjective">Learning Objectives</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseObjective" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseTeacher">Teacher Actions & Prompts</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseTeacher" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseStudent">Student Tasks & Actions</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseStudent" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseResources">Resources & Materials</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseResources" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+            <div class="customize-toggle-item">
+              <span data-i18n="lcCopyPhaseDescriptors">Tagged Competences</span>
+              <label class="neo-switch">
+                <input type="checkbox" id="copyTgl_phaseDescriptors" checked onchange="lcOnCopyToggleChange()">
+                <span class="neo-switch-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview Area -->
+        <div>
+          <div style="font-weight:900;font-size:0.84rem;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;color:var(--neo-dark);">
+            <span>Live Text Preview</span>
+          </div>
+          <textarea id="copyTextPreviewArea" readonly style="width:100%;height:140px;padding:8px 10px;font-family:monospace;font-size:0.8rem;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);background:#fbfbfb;resize:vertical;line-height:1.4;box-sizing:border-box;"></textarea>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <button class="neo-btn" onclick="lcCloseModal('copyTextModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <div style="display:flex;gap:8px;">
+          <button class="neo-btn" onclick="lcDownloadPlanTxt()"><span data-i18n="lcBtnDownloadTxt">Download .txt</span></button>
+          <button class="neo-btn primary" onclick="lcExecuteCopyToClipboard()"><span data-i18n="lcBtnCopyToClipboard">Copy to Clipboard</span></button>
+        </div>
       </div>
     </div>
   </div>
@@ -3039,6 +3208,356 @@
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + '.json';
+        a.click();
+      };
+
+      // ── Copy as Text System ────────────────────────────────────────────────
+      var DEFAULT_COPY_TEXT_CONFIG = {
+        format: 'markdown',
+        metaHeader: true,
+        metaDate: true,
+        metaDuration: true,
+        metaSequence: true,
+        metaTags: true,
+        metaTeams: true,
+        phaseTitle: true,
+        phaseDuration: true,
+        phaseActivity: true,
+        phaseObjective: true,
+        phaseTeacher: true,
+        phaseStudent: true,
+        phaseResources: true,
+        phaseDescriptors: true
+      };
+
+      function getActivityLabel(aId) {
+        if (!aId) return '';
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES)) {
+          var found = LessonCreatorService.DEFAULT_ACTIVITY_TYPES.find(function (a) { return a.id === aId; });
+          if (found && found.name) return found.name;
+        }
+        return aId.charAt(0).toUpperCase() + aId.slice(1).replace(/_/g, ' ');
+      }
+
+      function getInteractionLabel(iId) {
+        if (!iId) return '';
+        if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_INTERACTION_TYPES)) {
+          var found = LessonCreatorService.DEFAULT_INTERACTION_TYPES.find(function (i) { return i.id === iId; });
+          if (found && found.name) return found.name;
+        }
+        return iId.charAt(0).toUpperCase() + iId.slice(1).replace(/_/g, ' ');
+      }
+
+      function lcGetCopyTextToggles() {
+        return {
+          format: document.getElementById('copyTextFormatSelect') ? document.getElementById('copyTextFormatSelect').value : 'markdown',
+          metaHeader: !!(document.getElementById('copyTgl_metaHeader') && document.getElementById('copyTgl_metaHeader').checked),
+          metaDate: !!(document.getElementById('copyTgl_metaDate') && document.getElementById('copyTgl_metaDate').checked),
+          metaDuration: !!(document.getElementById('copyTgl_metaDuration') && document.getElementById('copyTgl_metaDuration').checked),
+          metaSequence: !!(document.getElementById('copyTgl_metaSequence') && document.getElementById('copyTgl_metaSequence').checked),
+          metaTags: !!(document.getElementById('copyTgl_metaTags') && document.getElementById('copyTgl_metaTags').checked),
+          metaTeams: !!(document.getElementById('copyTgl_metaTeams') && document.getElementById('copyTgl_metaTeams').checked),
+          phaseTitle: !!(document.getElementById('copyTgl_phaseTitle') && document.getElementById('copyTgl_phaseTitle').checked),
+          phaseDuration: !!(document.getElementById('copyTgl_phaseDuration') && document.getElementById('copyTgl_phaseDuration').checked),
+          phaseActivity: !!(document.getElementById('copyTgl_phaseActivity') && document.getElementById('copyTgl_phaseActivity').checked),
+          phaseObjective: !!(document.getElementById('copyTgl_phaseObjective') && document.getElementById('copyTgl_phaseObjective').checked),
+          phaseTeacher: !!(document.getElementById('copyTgl_phaseTeacher') && document.getElementById('copyTgl_phaseTeacher').checked),
+          phaseStudent: !!(document.getElementById('copyTgl_phaseStudent') && document.getElementById('copyTgl_phaseStudent').checked),
+          phaseResources: !!(document.getElementById('copyTgl_phaseResources') && document.getElementById('copyTgl_phaseResources').checked),
+          phaseDescriptors: !!(document.getElementById('copyTgl_phaseDescriptors') && document.getElementById('copyTgl_phaseDescriptors').checked)
+        };
+      }
+
+      function lcGeneratePlanText(cfg) {
+        cfg = cfg || lcGetCopyTextToggles();
+        var isMd = (cfg.format === 'markdown');
+        var lines = [];
+
+        function formatField(label, val) {
+          if (!val) return '';
+          return isMd ? ('- **' + label + '**: ' + val) : ('* ' + label + ': ' + val);
+        }
+
+        // 1. Metadata Block
+        var hasMeta = false;
+        var metaLines = [];
+
+        if (cfg.metaHeader) {
+          hasMeta = true;
+          var planTitle = currentPlan.title || 'Untitled Lesson Plan';
+          if (isMd) {
+            metaLines.push('# ' + planTitle);
+          } else {
+            metaLines.push(planTitle.toUpperCase());
+            metaLines.push('='.repeat(Math.max(40, planTitle.length)));
+          }
+          var subName = getSubjectLabel(currentPlan.subjectId);
+          var clsName = getClassLabel(currentPlan.classId);
+          if (subName) metaLines.push(formatField('Subject', subName));
+          if (clsName) metaLines.push(formatField('Class', clsName));
+        }
+
+        if (cfg.metaDate) {
+          hasMeta = true;
+          if (currentPlan.date) metaLines.push(formatField('Date', currentPlan.date));
+          if (currentPlan.yearLevel && currentPlan.yearLevel !== 'all') metaLines.push(formatField('Year Level', getYearLevelLabel(currentPlan.yearLevel)));
+          if (currentPlan.semester && currentPlan.semester !== 'all') metaLines.push(formatField('Semester', currentPlan.semester.toUpperCase()));
+        }
+
+        if (cfg.metaDuration) {
+          hasMeta = true;
+          var totalDur = (currentPlan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+          var targetDur = currentPlan.targetDuration || 60;
+          metaLines.push(formatField('Duration', totalDur + ' min (Target: ' + targetDur + ' min)'));
+        }
+
+        if (cfg.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+          hasMeta = true;
+          var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+          metaLines.push(formatField('Unit Sequence', seqStr));
+        }
+
+        if (cfg.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+          hasMeta = true;
+          metaLines.push(formatField('Tags', currentPlan.tags.join(', ')));
+        }
+
+        if (cfg.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+          hasMeta = true;
+          var rolesList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+          var teamsStr = 'Teams of ' + currentPlan.teamConfig.teamSize + (rolesList ? (' (Roles: ' + rolesList + ')') : '');
+          metaLines.push(formatField('Teams', teamsStr));
+        }
+
+        if (metaLines.length > 0) {
+          lines = lines.concat(metaLines);
+        }
+
+        // 2. Phase Sections Block
+        var phases = currentPlan.sections || [];
+        if (phases.length > 0) {
+          if (hasMeta) {
+            lines.push(isMd ? '\n---\n' : '\n----------------------------------------\n');
+          }
+
+          phases.forEach(function (sec, idx) {
+            var pDur = Number(sec.duration) || 0;
+            var pLines = [];
+
+            // Phase Header / Title
+            if (cfg.phaseTitle) {
+              var phaseNum = idx + 1;
+              var pTitle = sec.title || ('Phase ' + phaseNum);
+              var timeBadge = '';
+              if (cfg.phaseDuration) {
+                timeBadge = ' (' + pDur + ' min)';
+              }
+              if (isMd) {
+                pLines.push('### ' + phaseNum + '. ' + pTitle + timeBadge);
+              } else {
+                pLines.push('PHASE ' + phaseNum + ': ' + pTitle + timeBadge);
+              }
+            } else if (cfg.phaseDuration) {
+              pLines.push(isMd ? ('- **Duration**: ' + pDur + ' min') : ('* Duration: ' + pDur + ' min'));
+            }
+
+            // Activity & Mode
+            if (cfg.phaseActivity) {
+              var actName = getActivityLabel(sec.activityTypeId);
+              var modeName = getInteractionLabel(sec.interactionTypeId);
+              var actModeStr = actName + (modeName ? (' (' + modeName + ')') : '');
+              if (actModeStr.trim()) pLines.push(formatField('Activity & Mode', actModeStr));
+            }
+
+            // Objective
+            if (cfg.phaseObjective && sec.objective) {
+              pLines.push(formatField('Objective', sec.objective));
+            }
+
+            // Teacher
+            if (cfg.phaseTeacher && sec.teacherAction) {
+              pLines.push(formatField('Teacher Actions', sec.teacherAction));
+            }
+
+            // Student
+            if (cfg.phaseStudent && sec.studentAction) {
+              pLines.push(formatField('Student Tasks', sec.studentAction));
+            }
+
+            // Resources
+            if (cfg.phaseResources && sec.resources) {
+              pLines.push(formatField('Resources', sec.resources));
+            }
+
+            // Descriptors / Competences
+            if (cfg.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+              var descNames = sec.descriptorIds.map(function (id) {
+                var targetIdStr = String(id || '').toLowerCase().trim();
+                var d = (allDescriptors || []).find(function (item) {
+                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+                });
+                return d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
+              }).join('; ');
+              pLines.push(formatField('Competences', descNames));
+            }
+
+            if (pLines.length > 0) {
+              lines.push(pLines.join('\n'));
+              lines.push(''); // Blank separator between phases
+            }
+          });
+        }
+
+        return lines.join('\n').trim();
+      }
+
+      window.lcOpenCopyTextModal = function () {
+        var saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem('cmt_lc_copy_text_config') || 'null');
+        } catch (_) {}
+        var cfg = Object.assign({}, DEFAULT_COPY_TEXT_CONFIG, saved || {});
+
+        var fmtSel = document.getElementById('copyTextFormatSelect');
+        if (fmtSel) fmtSel.value = cfg.format || 'markdown';
+
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors'];
+        keys.forEach(function (k) {
+          var el = document.getElementById('copyTgl_' + k);
+          if (el) el.checked = (cfg[k] !== false);
+        });
+
+        lcUpdateCopyTextPreview();
+        var m = document.getElementById('copyTextModal');
+        if (m) m.style.display = 'flex';
+      };
+
+      window.lcOnCopyToggleChange = function () {
+        var cfg = lcGetCopyTextToggles();
+        try {
+          localStorage.setItem('cmt_lc_copy_text_config', JSON.stringify(cfg));
+        } catch (_) {}
+        lcUpdateCopyTextPreview();
+      };
+
+      window.lcApplyCopyTextPreset = function (preset) {
+        var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                     'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors'];
+
+        if (preset === 'full') {
+          keys.forEach(function (k) {
+            var el = document.getElementById('copyTgl_' + k);
+            if (el) el.checked = true;
+          });
+        } else if (preset === 'summary') {
+          var summaryTrue = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+          keys.forEach(function (k) {
+            var el = document.getElementById('copyTgl_' + k);
+            if (el) el.checked = summaryTrue.includes(k);
+          });
+        } else if (preset === 'phasesOnly') {
+          keys.forEach(function (k) {
+            var el = document.getElementById('copyTgl_' + k);
+            if (el) el.checked = k.startsWith('phase');
+          });
+        }
+
+        lcOnCopyToggleChange();
+      };
+
+      window.lcUpdateCopyTextPreview = function () {
+        var text = lcGeneratePlanText();
+        var area = document.getElementById('copyTextPreviewArea');
+        if (area) area.value = text;
+      };
+
+      window.lcExecuteCopyToClipboard = async function () {
+        var text = lcGeneratePlanText();
+        if (!text) {
+          if (typeof showToast === 'function') showToast('Plan is empty to copy.', true);
+          return;
+        }
+
+        var copied = false;
+
+        // 1. Try modern navigator.clipboard with try/catch fallback
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try {
+            await navigator.clipboard.writeText(text);
+            copied = true;
+          } catch (_) {
+            copied = false;
+          }
+        }
+
+        // 2. Fallback to execCommand on preview textarea
+        if (!copied) {
+          try {
+            var area = document.getElementById('copyTextPreviewArea');
+            if (area) {
+              area.value = text;
+              area.focus();
+              area.select();
+              area.setSelectionRange(0, text.length);
+              copied = document.execCommand('copy');
+            }
+          } catch (_) {
+            copied = false;
+          }
+        }
+
+        // 3. Fallback to offscreen textarea element
+        if (!copied) {
+          try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            ta.setSelectionRange(0, text.length);
+            copied = document.execCommand('copy');
+            if (ta.parentNode) ta.parentNode.removeChild(ta);
+          } catch (_) {
+            copied = false;
+          }
+        }
+
+        if (copied) {
+          lcCloseModal('copyTextModal');
+          if (typeof showToast === 'function') {
+            var msg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('lcCopiedToast') : 'Lesson plan copied to clipboard!';
+            showToast(msg);
+          }
+        } else {
+          var previewEl = document.getElementById('copyTextPreviewArea');
+          if (previewEl) {
+            previewEl.focus();
+            previewEl.select();
+          }
+          if (typeof showToast === 'function') {
+            showToast('Unable to copy automatically. Text is selected in preview box to copy manually (Ctrl+C).', true);
+          }
+        }
+      };
+
+      window.lcDownloadPlanTxt = function () {
+        var text = lcGeneratePlanText();
+        if (!text) {
+          if (typeof showToast === 'function') showToast('Plan is empty.', true);
+          return;
+        }
+        var fmt = document.getElementById('copyTextFormatSelect') ? document.getElementById('copyTextFormatSelect').value : 'markdown';
+        var ext = (fmt === 'markdown') ? '.md' : '.txt';
+        var mime = (fmt === 'markdown') ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
+        var blob = new Blob([text], { type: mime });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (currentPlan.title || 'lesson_plan').toLowerCase().replace(/[^a-z0-9]/g, '_') + ext;
         a.click();
       };
 
