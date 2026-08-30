@@ -1795,6 +1795,40 @@ button.action-btn:hover {
   overflow: auto;
 }
 
+.con-board-expand-btn {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 700;
+  padding: 6px 18px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111;
+  border: 1.5px solid #111111;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  pointer-events: all;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.con-board-expand-btn:hover {
+  background: #f0f0f0;
+  transform: translateX(-50%) scale(1.04);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.con-board-expand-btn:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
 #constellation-board.connect-mode {
   cursor: crosshair;
 }
@@ -2159,6 +2193,25 @@ button.action-btn:hover {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
   overflow: hidden;
   user-select: none;
+}
+
+.con-media-item.con-media-hidden {
+  border-style: dashed !important;
+  opacity: 0.5 !important;
+  box-shadow: none !important;
+}
+
+.con-media-item.con-media-hidden .con-media-content {
+  visibility: visible !important;
+}
+
+.con-media-item.con-media-selected {
+  outline: 2.5px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.con-mirror-mode .con-media-item.con-media-hidden {
+  display: none !important;
 }
 
 .con-media-header {
@@ -4123,12 +4176,48 @@ html.con-presentation-active:not(.con-mirror-mode) .con-word-note.wn-note-hidden
   transition: none !important;
 }
 
+html.con-presentation-active:not(.con-mirror-mode) .con-media-item.con-media-hidden {
+  opacity: 0.5 !important;
+  border-style: dashed !important;
+}
+
+html.con-presentation-active:not(.con-mirror-mode) .con-media-item.con-media-hidden .con-media-content {
+  visibility: visible !important;
+}
+
 /* Hide links connecting masked / hidden items in Presentation (Mirror) Mode */
 .con-mirror-mode .con-line-group.con-edge-masked,
 .con-mirror-mode .con-line-group.con-edge-both-masked,
 .con-mirror-mode .con-edge.con-edge-masked,
 .con-mirror-mode .con-edge.con-edge-both-masked {
   display: none !important;
+}
+
+/* Mirror presentation mode: hidden / masked elements (notes, nodes) have no visible borders or outlines */
+.con-mirror-mode .con-node.con-masked {
+  border: none !important;
+  border-color: transparent !important;
+  border-style: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.con-mirror-mode .con-node.con-masked * {
+  visibility: hidden !important;
+}
+
+.con-mirror-mode .con-word-note.wn-note-hidden {
+  border: none !important;
+  border-color: transparent !important;
+  border-style: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.con-mirror-mode .con-word-note.wn-note-hidden * {
+  visibility: hidden !important;
 }
 
 /* Ghost masked edges in main teacher presentation view */
@@ -21590,6 +21679,23 @@ textarea.det-edit-input {
   background: rgba(0, 0, 0, 0.12);
   color: #1a56db;
   border-color: #1a56db;
+}
+
+.con-media-mini-btn .btn-icon,
+.con-media-mini-btn img {
+  width: 14px;
+  height: 14px;
+  display: block;
+  pointer-events: none;
+}
+
+.con-media-ctrl-btn .btn-icon,
+.con-media-ctrl-btn img {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  vertical-align: -1px;
+  pointer-events: none;
 }
 
 .story-choice-btn.chosen {

@@ -102,7 +102,7 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with drag-and-drop test reordering, grading scale models, and multi-format export (PDF/DOCX/CSV/HTML) | Linked from [Planner](#plannerhtml), [Oral Marking](#oral-markinghtml), [Participation Tracker](#participation-trackerhtml) |
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard with weekly trend line charts, student score distributions, multi-group comparisons, dynamic window positioning, full i18n, and provisional grading rules | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
 | [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
-| [`document-editor.html`](#document-editorhtml) | Markdown + KaTeX editor with split live preview, inline CSS rules, and PDF/DOCX export | Edits `.md` / `.html` files suite-wide |
+| [`document-editor.html`](#document-editorhtml) | Multi-format document editor supporting Typst (`.typ`), Markdown (`.md`), and HTML (`.html`) with WebAssembly live preview, Monaco syntax highlighting, native vector PDF export, Mailposting batch student reports, and built-in Syntax Guide | Edits `.typ` / `.md` / `.html` files suite-wide |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
 
 ---
@@ -576,14 +576,21 @@ Neobrutalist instructional design studio for constructing structured, competency
 
 ### document-editor.html
 
-Dual-pane Markdown + KaTeX LaTeX editor with inline CSS styling and live presentation mode.
+Multi-format desktop document editor and typesetting suite supporting **Typst (`.typ`)**, **Markdown (`.md`)**, and **HTML (`.html`)** with live multi-page vector preview, Monaco syntax highlighting, and native vector PDF compilation.
 
 #### Features
-- **Markdown & KaTeX**: Full GFM markdown support with `$inline$` and `$$display$$` maths rendering.
-- **CSS Panel & Templates**: Built-in CSS editor and rule repository. Page layout controls (margins, paper size, footers) save directly into document headers.
-- **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` into active documents.
-- **Presentation View**: Projects formatted documents onto a second screen without editor controls.
-- **Export**: Export clean PDF and DOCX files.
+- **Triple Format Switcher (`MD` / `HTML` / `TYP`)**: One-click format toggle in the navigation bar dynamically switches Monaco language grammars, toolbar actions, and compiler pipelines.
+- **Typst Typesetting Engine (`.typ`)**:
+  - Offline WebAssembly compilation powered by `@myriaddreamin/typst.ts` with bundled OpenType Math and Serif fonts (`NewCMMath`, `NewCM10`, `LibertinusSerif`, `DejaVuSansMono`).
+  - Native mathematical formula layout (`$ ... $`), multi-column grids (`#grid(...)`), assessment rubrics (`#table(...)`), term definitions (`/ Term:`), and page setup directives (`#set page(...)`, `#set text(...)`).
+  - Native vector PDF compilation directly from the Typst compiler for crisp, high-resolution printable handouts and exam papers.
+- **Markdown & KaTeX (`.md`)**: Full GFM markdown support with LaTeX maths rendering (`$inline$` and `$$display$$`), checklists, and table formatting.
+- **HTML & Custom CSS (`.html`)**: Semantic HTML markup with inline stylesheets, custom layout rules, and print-ready page breaks.
+- **Interactive Syntax & Format Guide**: Built-in modal (`Syntax` button in nav bar) featuring real-time search, topic category filters (`Setup & Page`, `Math & Formulas`, `Tables & Grids`, `Exams & Quizzes`, `Layout & Callouts`), instant `Copy` buttons, and one-click `+ Insert` snippet insertion into Monaco at cursor.
+- **Mailposting Batch Generation**: Connects class rosters (`class-groups.js`) to dynamic document templates with student placeholders (`{{student.fullName}}`, `{{student.id}}`, `{{class.name}}`, `{{datetime.today}}`). Exports single merged or separate individual PDFs for each student.
+- **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` (`.epub`, `.html`, `.txt`) into active documents.
+- **Presentation Mode**: Broadcasts clean, live-rendered vector SVGs or HTML previews to secondary display monitors or classroom beamers.
+- **Export Options**: Export to native vector PDF, DOCX, or HTML.
 
 ---
 

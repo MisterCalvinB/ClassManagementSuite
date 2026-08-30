@@ -2536,6 +2536,7 @@
         <div id="con-draw-overlay"></div>
         <div id="con-board-title"></div>
         <span id="con-frozen-indicator" title="Presentation view is currently frozen">Frozen</span>
+        <button id="con-board-expand-btn" class="action-btn btn-grey con-board-expand-btn" onclick="conExpandBoardHeight(400)" title="Expand board height (+400px)"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Expand Board (+400px)</button>
       </div>
       <div id="con-instructions" data-i18n="conInstructions">System: right-click the board to add words (,, = several ·
         _
@@ -3570,11 +3571,54 @@
       }
     }
 
+    // Strip parenthetical content (e.g. "(adj)", "(n)") for loose matching
+    function stripParens(s) {
+      return String(s || '').replace(/\s*\([^)]*\)/g, '').trim();
+    }
+    window.stripParens = stripParens;
+
+    function conFindDbEntry(wordOrText) {
+      if (!wordOrText || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+      const raw = stripParens(String(wordOrText).trim()).toLowerCase();
+      if (!raw) return null;
+      // 1. Direct word match
+      const direct = vocabBank.find(v => v && v.word && stripParens(String(v.word).trim()).toLowerCase() === raw);
+      if (direct) return direct;
+      // 2. otherForms match (array or string)
+      return vocabBank.find(v => {
+        if (!v) return false;
+        if (Array.isArray(v.otherForms)) {
+          return v.otherForms.some(f => {
+            if (!f) return false;
+            const s = typeof f === 'string' ? f : (f.word || f.form || '');
+            return stripParens(String(s).trim()).toLowerCase() === raw;
+          });
+        }
+        if (typeof v.otherForms === 'string' && v.otherForms.trim()) {
+          return v.otherForms.split(/[,;/]+/).some(s => stripParens(s.trim()).toLowerCase() === raw);
+        }
+        return false;
+      }) || null;
+    }
+    window.conFindDbEntry = conFindDbEntry;
+
+    function conGetNodeDbEntry(node) {
+      if (!node) return null;
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+      if (node.dbWord) {
+        const byKey = vocabBank.find(w => w && w.word === node.dbWord);
+        if (byKey) return byKey;
+      }
+      const text = node.baseWord || (node.el ? (node.el.dataset.baseWord || node.el.textContent.trim()) : '');
+      return conFindDbEntry(text);
+    }
+    window.conGetNodeDbEntry = conGetNodeDbEntry;
+
     function showWordDetail(wordKey, onClose) {
-      const item = vocabBank.find(i => i.word === wordKey);
+      const item = conFindDbEntry(wordKey) || (typeof vocabBank !== 'undefined' ? vocabBank.find(i => i.word === wordKey) : null);
       if (!item) return;
       _wordDetailOnClose = onClose || null;
-      _detCurrentWordKey = wordKey;
+      _detCurrentWordKey = item.word;
 
       // Ensure edit mode is off when opening
       document.getElementById('word-detail-overlay').classList.remove('det-editing');
@@ -9054,11 +9098,11 @@
             }
           }
 
-          function makeCtrlBtn(label, title, onClick) {
+          function makeCtrlBtn(iconName, title, onClick, extraText) {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'con-media-ctrl-btn';
-            btn.textContent = label;
+            btn.innerHTML = '<img src="../assets/icons/' + iconName + '.svg" class="btn-icon" alt="" />' + (extraText ? ' ' + extraText : '');
             btn.title = title;
             btn.addEventListener('mousedown', ev => {
               ev.preventDefault();
@@ -9072,32 +9116,35 @@
             return btn;
           }
 
-          controls.appendChild(makeCtrlBtn('▶', 'Play', () => {
+          controls.appendChild(makeCtrlBtn('play', 'Play', () => {
             try { mediaEl.play(); } catch { }
           }));
-          controls.appendChild(makeCtrlBtn('⏸', 'Pause', () => {
+          controls.appendChild(makeCtrlBtn('pause', 'Pause', () => {
             try { mediaEl.pause(); } catch { }
           }));
-          controls.appendChild(makeCtrlBtn('⏹', 'Stop', () => {
+          controls.appendChild(makeCtrlBtn('stop', 'Stop', () => {
             try {
               mediaEl.pause();
               mediaEl.currentTime = 0;
             } catch { }
           }));
-          controls.appendChild(makeCtrlBtn('⏪ 10s', 'Back 10 seconds', () => {
+          controls.appendChild(makeCtrlBtn('rewind', 'Back 10 seconds', () => {
             try {
               const current = Number(mediaEl.currentTime) || 0;
               mediaEl.currentTime = Math.max(0, current - 10);
             } catch { }
-          }));
-          controls.appendChild(makeCtrlBtn('10s ⏩', 'Forward 10 seconds', () => {
+          }, '10s'));
+          const fwdBtn = makeCtrlBtn('rewind', 'Forward 10 seconds', () => {
             try {
               const current = Number(mediaEl.currentTime) || 0;
               const duration = Number(mediaEl.duration);
               const maxTime = Number.isFinite(duration) && duration > 0 ? duration : (current + 10);
               mediaEl.currentTime = Math.min(maxTime, current + 10);
             } catch { }
-          }));
+          }, '10s');
+          const fwdIcon = fwdBtn.querySelector('img');
+          if (fwdIcon) fwdIcon.style.transform = 'scaleX(-1)';
+          controls.appendChild(fwdBtn);
 
           timelineInput.addEventListener('mousedown', ev => {
             ev.stopPropagation();
@@ -9141,26 +9188,31 @@
       if (item.kind === 'pics' || item.kind === 'pdf') {
         const miniActions = document.createElement('div');
         miniActions.className = 'con-media-mini-actions';
-        const _mkMini = (emoji, titleText, action, handler) => {
+        const _mkMini = (iconSvg, titleText, action, handler) => {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'con-media-mini-btn';
           btn.dataset.action = action;
-          btn.textContent = emoji;
+          btn.innerHTML = '<img src="../assets/icons/' + iconSvg + '.svg" class="btn-icon" alt="" />';
           btn.title = titleText;
           btn.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
           btn.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); handler(); });
           return btn;
         };
-        const lockMiniBtn = _mkMini(item.locked ? '🔒' : '🔓', 'Lock/Unlock', 'lock', () => {
+        const lockMiniBtn = _mkMini(item.locked ? 'unlock' : 'lock', 'Lock/Unlock', 'lock', () => {
           item.locked = !item.locked;
           if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
         });
-        const blinkMiniBtn = _mkMini('🔴', 'Blink on/off', 'blink', () => {
+        const hideMiniBtn = _mkMini(item.hidden ? 'eye' : 'mask', item.hidden ? 'Reveal (Ctrl+H)' : 'Hide (Ctrl+H)', 'hide', () => {
+          item.hidden = !item.hidden;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        });
+        const blinkMiniBtn = _mkMini('blink', 'Blink on/off', 'blink', () => {
           item.blink = !item.blink;
           if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
         });
-        const fullMiniBtn = _mkMini('⛶', 'Fullscreen', 'fullscreen', () => {
+        const fullMiniBtn = _mkMini('fullscreen', 'Fullscreen', 'fullscreen', () => {
           window._conCtxItem = item;
           if (item.kind === 'pics' && typeof window.conImgSpToggleFullscreen === 'function') {
             window.conImgSpToggleFullscreen();
@@ -9168,10 +9220,11 @@
             window.conPdfSpToggleFullscreen();
           }
         });
-        const emojiMiniBtn = _mkMini('😀', 'Add emoji sticker', 'emoji', () => {
+        const emojiMiniBtn = _mkMini('sparkles', 'Add emoji sticker', 'emoji', () => {
           if (typeof window._pickerOpenForMedia === 'function') window._pickerOpenForMedia(item);
         });
         miniActions.appendChild(lockMiniBtn);
+        miniActions.appendChild(hideMiniBtn);
         miniActions.appendChild(blinkMiniBtn);
         miniActions.appendChild(fullMiniBtn);
         miniActions.appendChild(emojiMiniBtn);
@@ -9182,10 +9235,11 @@
           pdfSep.className = 'con-pdf-only-btn';
           pdfSep.style.cssText = 'color:#bbb;padding:0 2px;font-size:11px;line-height:24px;pointer-events:none;';
           pdfSep.textContent = '|';
-          const _pdfMiniMkBtn = (text, title, fn) => {
+          const _pdfMiniMkBtn = (iconSvg, title, fn) => {
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'con-media-mini-btn con-pdf-only-btn';
-            b.textContent = text; b.title = title;
+            b.innerHTML = '<img src="../assets/icons/' + iconSvg + '.svg" class="btn-icon" alt="" />';
+            b.title = title;
             b.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
             b.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); fn(); });
             return b;
@@ -9206,7 +9260,7 @@
               lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
             }
           };
-          miniActions.appendChild(_pdfMiniMkBtn('−', 'Zoom out', () => {
+          miniActions.appendChild(_pdfMiniMkBtn('zoom-out', 'Zoom out', () => {
             item.pdfLockSize = false; _updateLockBtnState();
             if (window._conCtxItem && window._conCtxItem.id === item.id) {
               const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
@@ -9214,7 +9268,7 @@
             }
             item.pdfZoom = Math.max(0.1, (item.pdfZoom || 1) / 1.25); _pdfMiniRr().then(_pdfMiniSnc);
           }));
-          miniActions.appendChild(_pdfMiniMkBtn('+', 'Zoom in', () => {
+          miniActions.appendChild(_pdfMiniMkBtn('zoom-in', 'Zoom in', () => {
             item.pdfLockSize = false; _updateLockBtnState();
             if (window._conCtxItem && window._conCtxItem.id === item.id) {
               const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
@@ -9222,7 +9276,7 @@
             }
             item.pdfZoom = Math.min(8, (item.pdfZoom || 1) * 1.25); _pdfMiniRr().then(_pdfMiniSnc);
           }));
-          miniActions.appendChild(_pdfMiniMkBtn('↔', 'Fit width', () => {
+          miniActions.appendChild(_pdfMiniMkBtn('maximize', 'Fit width', () => {
             item.pdfLockSize = false; _updateLockBtnState();
             if (window._conCtxItem && window._conCtxItem.id === item.id) {
               const menuBtn = document.getElementById('con-pdf-sp-lockfit-btn');
@@ -9230,11 +9284,11 @@
             }
             item.pdfZoom = 1; item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
           }));
-          miniActions.appendChild(_pdfMiniMkBtn('↺', 'Rotate', () => {
+          miniActions.appendChild(_pdfMiniMkBtn('refresh', 'Rotate', () => {
             item.pdfRotation = ((item.pdfRotation || 0) - 90 + 360) % 360;
             item.pdfScrollX = 0; item.pdfScrollY = 0; _pdfMiniRr().then(_pdfMiniSnc);
           }));
-          const lockSizeMiniBtn = _pdfMiniMkBtn('⧇', 'Lock size to container (no scroll)', () => {
+          const lockSizeMiniBtn = _pdfMiniMkBtn('snap', 'Lock size to container (no scroll)', () => {
             item.pdfLockSize = !item.pdfLockSize;
             lockSizeMiniBtn.classList.toggle('active', !!item.pdfLockSize);
             if (window._conCtxItem && window._conCtxItem.id === item.id) {
@@ -9252,6 +9306,14 @@
         wrap.addEventListener('mouseenter', () => miniActions.classList.add('con-media-mini-visible'));
         wrap.addEventListener('mouseleave', () => miniActions.classList.remove('con-media-mini-visible'));
       }
+
+      wrap.addEventListener('dblclick', ev => {
+        if (item.hidden && !ev.target.closest('.con-media-remove-btn, .con-media-resizer, .con-media-mini-btn')) {
+          item.hidden = false;
+          if (typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(item, wrap);
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        }
+      });
 
       if (item._fullscreen) {
         wrap.classList.add('con-media-fullscreen');
@@ -9272,6 +9334,11 @@
       let dragging = false;
       wrap.addEventListener('mousedown', ev => {
         if (ev.button !== 0) return;
+        window._conActiveMediaItem = item;
+        document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => {
+          if (el !== wrap) el.classList.remove('con-media-selected');
+        });
+        wrap.classList.add('con-media-selected');
         if (item.locked) return;
         if (ev.target.closest('.con-media-resizer')) return;
         if (ev.target.closest('.con-media-remove-btn')) return;
@@ -9332,11 +9399,15 @@
       });
 
       document.addEventListener('mouseup', () => {
+        const wasDragging = dragging;
         const wasResizing = resizing;
         dragging = false;
         resizing = false;
         if (wasResizing && item.kind === 'pdf' && pdfCanvas) {
           conRenderPdfForItem(item, pdfCanvas, pdfScrollDiv, content);
+        }
+        if ((wasDragging || wasResizing) && window._conMirrorBroadcast) {
+          window._conMirrorBroadcast();
         }
       });
     }
@@ -9421,6 +9492,7 @@
           y: (raw.y != null && Number.isFinite(Number(raw.y))) ? Number(raw.y) : 60,
           w: Math.max(70, Number(raw.w) || (defaultPdfRect ? defaultPdfRect.w : 220)),
           h: Math.max(40, Number(raw.h) || (defaultPdfRect ? defaultPdfRect.h : 180)),
+          hidden: !!raw.hidden,
           locked: !!raw.locked,
           blink: !!raw.blink,
           borderWidth: Number(raw.borderWidth) || 0,
@@ -13527,21 +13599,21 @@
           const id = 'cn' + conNextId++;
           const x = 60 + Math.random() * (bw - 160);
           const y = 60 + Math.random() * (bh - 120);
-          const dbMatch = (typeof vocabBank !== 'undefined')
-            ? vocabBank.find(i => i.word.toLowerCase() === text.toLowerCase())
-            : null;
+          const dbMatch = conFindDbEntry(text);
           const el = document.createElement('div');
           el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
           el.id = id;
-          el.textContent = dbMatch ? dbMatch.word : text;
+          el.textContent = text;
           el.style.left = x + 'px';
           el.style.top = y + 'px';
           conApplyDefaultWordFontSize(el);
           if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
           brd.appendChild(el);
           const baseWord = text;
-          conNodes.push({ id, el, x, y, baseX: x, baseY: y, dbWord: dbMatch ? dbMatch.word : null, baseWord, fontFamily: window._bcNodeFontFamily || null });
+          const node = { id, el, x, y, baseX: x, baseY: y, dbWord: dbMatch ? dbMatch.word : null, baseWord, fontFamily: window._bcNodeFontFamily || null };
+          conNodes.push(node);
           conAttachNodeEvents(id, el);
+          conAddNodeStarBtn(node);
           newIds.push(id);
           lastId = id;
         });
@@ -15373,6 +15445,8 @@
         if (typeof window.conNoteClearSelection === 'function') window.conNoteClearSelection();
         if (typeof window.conDrawingClearSelection === 'function') window.conDrawingClearSelection();
         if (typeof window.conShapeClearSelection === 'function') window.conShapeClearSelection();
+        window._conActiveMediaItem = null;
+        document.querySelectorAll('.con-media-item.con-media-selected').forEach(el => el.classList.remove('con-media-selected'));
       };
       window.conUndo = function () { conUndo(); };
       window.conRedo = function () { conRedo(); };
@@ -15442,11 +15516,24 @@
         const selectedNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
           ? [...conNoteSelected].map(nid => (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === nid) : null)).filter(Boolean)
           : (typeof _wnActiveNote !== 'undefined' && _wnActiveNote ? [_wnActiveNote] : []);
+        const selectedMedia = [];
+        if (typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem) {
+          selectedMedia.push(window._conActiveMediaItem);
+        } else if (typeof window._conCtxItem !== 'undefined' && window._conCtxItem && (window._conCtxItem.kind === 'pics' || window._conCtxItem.kind === 'pdf')) {
+          selectedMedia.push(window._conCtxItem);
+        } else {
+          const selMediaEl = document.querySelector('.con-media-item.con-media-selected');
+          if (selMediaEl && selMediaEl.dataset.id && typeof conMediaItems !== 'undefined') {
+            const m = conMediaItems.find(it => String(it.id) === selMediaEl.dataset.id);
+            if (m) selectedMedia.push(m);
+          }
+        }
 
         const hasNodeSelection = selectedNodes.length > 0;
         const hasNoteSelection = selectedNotes.length > 0;
+        const hasMediaSelection = selectedMedia.length > 0;
 
-        if (hasNodeSelection || hasNoteSelection) {
+        if (hasNodeSelection || hasNoteSelection || hasMediaSelection) {
           conPushUndo();
           if (hasNodeSelection) {
             const anyVisibleNode = selectedNodes.some(node => !node.masked);
@@ -15474,6 +15561,20 @@
               if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id === note.id) {
                 const hideBtn = document.getElementById('wn-sp-hide-btn');
                 if (hideBtn) hideBtn.innerHTML = note.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+              }
+            });
+          }
+          if (hasMediaSelection) {
+            const anyVisibleMedia = selectedMedia.some(m => !m.hidden);
+            selectedMedia.forEach(m => {
+              m.hidden = anyVisibleMedia;
+              const wrap = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(m) : document.querySelector('.con-media-item[data-id="' + m.id + '"]');
+              if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
+              if (typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id === m.id) {
+                const imgHideBtn = document.getElementById('con-img-sp-hide-btn');
+                if (imgHideBtn) imgHideBtn.innerHTML = m.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+                const pdfHideBtn = document.getElementById('con-pdf-sp-hide-btn');
+                if (pdfHideBtn) pdfHideBtn.innerHTML = m.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
               }
             });
           }
@@ -15596,6 +15697,21 @@
       };
 
       window.conRestorePageToBoard = function (snap, opts) { window._conRestorePageToBoard(snap, opts); };
+
+      window.conExpandBoardHeight = function (deltaPx = 400) {
+        const board = document.getElementById('constellation-board');
+        if (!board) return;
+        const currentH = board.offsetHeight || board.clientHeight || 1200;
+        const newH = Math.round(currentH + Number(deltaPx || 400));
+        board.style.height = newH + 'px';
+        if (typeof conPageSnapshots !== 'undefined' && typeof conCurrentPageIndex === 'number' && conPageSnapshots[conCurrentPageIndex]) {
+          conPageSnapshots[conCurrentPageIndex].boardHeight = newH;
+        }
+        try {
+          board.scrollBy({ top: Math.min(300, deltaPx), behavior: 'smooth' });
+        } catch (_) { }
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+      };
 
       // ---- Mirror: BroadcastChannel broadcast (main window only) ----
       let _conBoardRevision = 1;
@@ -16296,11 +16412,14 @@
         if (!id) return;
         const node = conNodes.find(n => n.id === id);
         if (!node) return;
-        const wordKey = node.dbWord
-          || ((typeof vocabBank !== 'undefined' && vocabBank.find(i => i.word.toLowerCase() === (node.baseWord || node.el.textContent.trim()).toLowerCase())) || {}).word;
+        const dbEntry = conGetNodeDbEntry(node);
+        const wordKey = dbEntry ? dbEntry.word : null;
         if (!wordKey) { mdbToast(`⚠️ "${node.baseWord || node.el.textContent.trim()}" was not found in the word bank.`); return; }
         _detWordList = conNodes
-          .map(n => n.dbWord || (vocabBank.find(i => i.word.toLowerCase() === (n.baseWord || n.el.textContent.trim()).toLowerCase()) || {}).word)
+          .map(n => {
+            const e = conGetNodeDbEntry(n);
+            return e ? e.word : null;
+          })
           .filter(Boolean);
         showWordDetail(wordKey);
       }
@@ -16312,7 +16431,7 @@
         if (!node) return;
         const word = (node.baseWord || node.el.textContent.trim()).trim();
         if (!word) return;
-        const existing = vocabBank.find(i => i.word.toLowerCase() === word.toLowerCase());
+        const existing = conGetNodeDbEntry(node) || conFindDbEntry(word);
         cwdbOpen(word, existing || null);
       };
 
@@ -16725,6 +16844,16 @@
         // Refresh theme menus if available
         if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
 
+        conNodes.forEach(n => {
+          const match = conGetNodeDbEntry(n);
+          if (match) {
+            n.dbWord = match.word;
+            n.el.classList.add('con-node-matched');
+            conAddNodeStarBtn(n);
+            conUpdateNodeStarVisual(n);
+          }
+        });
+
         if (target === 'main' && typeof awDownloadDB === 'function') {
           await awDownloadDB();
           cwdbFeedback(`✓ "${wordDisplay}" saved — writing wordDb.js…`, 'ok');
@@ -16772,6 +16901,16 @@
         // Remove from vocabBank
         const vi = vocabBank.findIndex(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
         if (vi !== -1) vocabBank.splice(vi, 1);
+
+        conNodes.forEach(n => {
+          const match = conGetNodeDbEntry(n);
+          if (!match) {
+            n.dbWord = null;
+            n.el.classList.remove('con-node-matched');
+            const star = n.el.querySelector('.con-node-star-btn');
+            if (star) star.remove();
+          }
+        });
 
         // Remove from custom localStorage list if present
         try {
@@ -17840,9 +17979,7 @@
           conSelect(id);
         }
         const node = conNodes.find(n => n.id === id);
-        const dbWord = node && node.dbWord
-          ? vocabBank.find(w => w.word === node.dbWord)
-          : (node ? vocabBank.find(w => stripParens(w.word).toLowerCase() === stripParens(node.baseWord || node.el.textContent.trim()).toLowerCase()) : null);
+        const dbWord = conGetNodeDbEntry(node);
 
         const menu = document.getElementById('con-ctx-menu');
         const label = document.getElementById('con-ctx-word-label');
@@ -17906,7 +18043,7 @@
         if (rmGroupBtn) rmGroupBtn.style.display = rmGroupVisible ? '' : 'none';
         if (rmGroupSep) rmGroupSep.style.display = rmGroupVisible ? '' : 'none';
 
-        // Base-word row: show when node is a synonym/antonym/related word.
+        // Base-word row: show when node is a synonym/antonym/related word/other form.
         // Priority 1 — metadata stamped at creation time (conCtxAddRelated).
         // Priority 2 — live reverse-lookup across vocabBank (covers manually-typed words).
         const baseWordRow = document.getElementById('con-ctx-baseword-row');
@@ -17915,23 +18052,33 @@
         const addBaseBtn = document.getElementById('con-ctx-addbaseword-btn');
 
         function conFindOriginEntry(text) {
-          const lower = text.toLowerCase();
-          if (typeof vocabBank === 'undefined') return null;
+          const lower = stripParens(String(text || '').trim()).toLowerCase();
+          if (!lower || typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
           // Skip if word is itself a direct DB entry (it IS the base word)
-          if (vocabBank.find(e => e.word && e.word.toLowerCase() === lower)) return null;
+          if (vocabBank.find(e => e && e.word && stripParens(e.word.trim()).toLowerCase() === lower)) return null;
           for (const entry of vocabBank) {
-            if ((entry.synonyms || []).some(s => s.toLowerCase() === lower))
+            if (!entry) continue;
+            if ((entry.synonyms || []).some(s => stripParens(String(s).trim()).toLowerCase() === lower))
               return { word: entry.word, relation: 'synonyms' };
-            if ((entry.antonyms || []).some(a => a.toLowerCase() === lower))
+            if ((entry.antonyms || []).some(a => stripParens(String(a).trim()).toLowerCase() === lower))
               return { word: entry.word, relation: 'antonyms' };
-            if ((entry.related || []).some(r => r.toLowerCase() === lower))
+            if ((entry.related || []).some(r => stripParens(String(r).trim()).toLowerCase() === lower))
               return { word: entry.word, relation: 'related' };
+            if (Array.isArray(entry.otherForms) && entry.otherForms.some(o => {
+              const s = typeof o === 'string' ? o : (o.word || o.form || '');
+              return stripParens(String(s).trim()).toLowerCase() === lower;
+            })) {
+              return { word: entry.word, relation: 'otherForms' };
+            }
+            if (typeof entry.otherForms === 'string' && entry.otherForms.split(/[,;/]+/).some(s => stripParens(s.trim()).toLowerCase() === lower)) {
+              return { word: entry.word, relation: 'otherForms' };
+            }
           }
           return null;
         }
 
-        const tagLabels = { synonyms: 'Synonym', antonyms: 'Antonym', related: 'Related' };
-        const tagClasses = { synonyms: 'syn', antonyms: 'ant', related: 'rel' };
+        const tagLabels = { synonyms: 'Synonym', antonyms: 'Antonym', related: 'Related', otherForms: 'Other Form' };
+        const tagClasses = { synonyms: 'syn', antonyms: 'ant', related: 'rel', otherForms: 'form' };
 
         // Resolve origin: stamped metadata takes precedence, then live lookup
         let originWord = node && node.sourceWord ? node.sourceWord : null;
@@ -18261,8 +18408,7 @@
             if (phraseWords.length >= 2) {
               // Re-use this node as the first phrase word (preserves all edges/styling)
               const firstWord = phraseWords[0];
-              const firstDb = (typeof vocabBank !== 'undefined')
-                ? vocabBank.find(i => i.word.toLowerCase() === firstWord.toLowerCase()) : null;
+              const firstDb = conFindDbEntry(firstWord);
               node.baseWord = firstWord;
               node.dbWord = firstDb ? firstDb.word : null;
               node.phraseOrder = 0;
@@ -18283,14 +18429,13 @@
               return;
             }
           }
-          const dbMatch = (typeof vocabBank !== 'undefined')
-            ? vocabBank.find(i => i.word.toLowerCase() === newText.toLowerCase())
-            : null;
+          const dbMatch = conFindDbEntry(newText);
           node.baseWord = newText;
           node.dbWord = dbMatch ? dbMatch.word : null;
           if (newPage !== undefined) node.pageNum = newPage || null;
           el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
           conRenderNodeLabel(node);
+          conAddNodeStarBtn(node);
 
           // Support editing with ",," to create additional nodes from one edit action.
           if (entries.length > 1) {
@@ -28587,6 +28732,7 @@
           y: m.y,
           w: m.w,
           h: m.h,
+          hidden: m.hidden ? true : undefined,
           locked: m.locked ? true : undefined,
           blink: m.blink ? true : undefined,
           borderWidth: Number(m.borderWidth) || 0,
@@ -40198,10 +40344,25 @@
       }
       wrap.classList.toggle('con-media-blink', !!item.blink);
       wrap.classList.toggle('con-media-locked', !!item.locked);
+      wrap.classList.toggle('con-media-hidden', !!item.hidden);
+      if (item.hidden) {
+        wrap.title = 'Hidden media (double-click or press Ctrl+H to reveal)';
+      } else {
+        wrap.title = '';
+      }
       var miniBlink = wrap.querySelector('.con-media-mini-btn[data-action="blink"]');
       if (miniBlink) miniBlink.classList.toggle('active', !!item.blink);
       var miniLock = wrap.querySelector('.con-media-mini-btn[data-action="lock"]');
-      if (miniLock) { miniLock.textContent = item.locked ? '🔒' : '🔓'; miniLock.classList.toggle('active', !!item.locked); }
+      if (miniLock) {
+        miniLock.innerHTML = '<img src="../assets/icons/' + (item.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        miniLock.classList.toggle('active', !!item.locked);
+      }
+      var miniHide = wrap.querySelector('.con-media-mini-btn[data-action="hide"]');
+      if (miniHide) {
+        miniHide.innerHTML = '<img src="../assets/icons/' + (item.hidden ? 'eye' : 'mask') + '.svg" class="btn-icon" alt="" />';
+        miniHide.title = item.hidden ? 'Reveal (Ctrl+H)' : 'Hide (Ctrl+H)';
+        miniHide.classList.toggle('active', !!item.hidden);
+      }
     }
 
     function _conMediaDeleteItem(item) {
@@ -40363,6 +40524,8 @@
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-img-sp-lock-btn');
       if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      var hideBtn = document.getElementById('con-img-sp-hide-btn');
+      if (hideBtn) hideBtn.innerHTML = item.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
       var fullBtn = document.getElementById('con-img-sp-fullscreen-btn');
       if (fullBtn) fullBtn.classList.toggle('active', !!item._fullscreen);
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
@@ -40501,6 +40664,14 @@
       var btn = document.getElementById('con-img-sp-lock-btn');
       if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
     };
+    window.conImgSpToggleHide = function () {
+      if (!_conCtxItem) return;
+      _conCtxItem.hidden = !_conCtxItem.hidden;
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      var btn = document.getElementById('con-img-sp-hide-btn');
+      if (btn) btn.innerHTML = _conCtxItem.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+    };
     window.conImgSpAddEmoji = function () {
       if (!_conCtxItem) return;
       window._pickerOpenForMedia(_conCtxItem);
@@ -40564,6 +40735,8 @@
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-pdf-sp-lock-btn');
       if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      var hideBtn = document.getElementById('con-pdf-sp-hide-btn');
+      if (hideBtn) hideBtn.innerHTML = item.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
       var lockFitBtn = document.getElementById('con-pdf-sp-lockfit-btn');
       if (lockFitBtn) lockFitBtn.classList.toggle('active', !!item.pdfLockSize);
       var fullBtn = document.getElementById('con-pdf-sp-fullscreen-btn');
@@ -40727,6 +40900,14 @@
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-pdf-sp-lock-btn');
       if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+    };
+    window.conPdfSpToggleHide = function () {
+      if (!_conCtxItem) return;
+      _conCtxItem.hidden = !_conCtxItem.hidden;
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      var btn = document.getElementById('con-pdf-sp-hide-btn');
+      if (btn) btn.innerHTML = _conCtxItem.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
     };
     window.conPdfSpToggleLockFit = function () {
       if (!_conCtxItem) return;
@@ -41255,13 +41436,13 @@
       </div>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
         <button class="wn-sp-action-btn" id="con-img-sp-blink-btn" onclick="conImgSpToggleBlink()"
-          data-i18n="conSpBlink">🔴 Blink</button>
+          data-i18n="conSpBlink"><img src="../assets/icons/blink.svg" class="btn-icon" alt="" /> Blink</button>
         <button class="wn-sp-action-btn" id="con-img-sp-fullscreen-btn" onclick="conImgSpToggleFullscreen()"
-          data-i18n="conSpFullscreen">⛶
-          Full</button>
+          data-i18n="conSpFullscreen"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /> Full</button>
         <button class="wn-sp-action-btn" id="con-img-sp-lock-btn" onclick="conImgSpToggleLock()"
           data-i18n="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
-        <button class="wn-sp-action-btn" onclick="conImgSpAddEmoji()" data-i18n="conSpEmoji">😀 Emoji</button>
+        <button class="wn-sp-action-btn" id="con-img-sp-hide-btn" onclick="conImgSpToggleHide()"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide</button>
+        <button class="wn-sp-action-btn" onclick="conImgSpAddEmoji()" data-i18n="conSpEmoji"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Emoji</button>
         <button class="wn-sp-action-btn" onclick="conImgSpDuplicate()" data-i18n="conSpDup"><img
             src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Dup</button>
         <button class="wn-sp-action-btn" onclick="conImgSpCrop()" data-i18n="conSpCrop"><img
@@ -41330,15 +41511,15 @@
       </div>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
         <button class="wn-sp-action-btn" id="con-pdf-sp-blink-btn" onclick="conPdfSpToggleBlink()"
-          data-i18n="conSpBlink">🔴 Blink</button>
+          data-i18n="conSpBlink"><img src="../assets/icons/blink.svg" class="btn-icon" alt="" /> Blink</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-fullscreen-btn" onclick="conPdfSpToggleFullscreen()"
-          data-i18n="conSpFullscreen">⛶
-          Full</button>
+          data-i18n="conSpFullscreen"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /> Full</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-lock-btn" onclick="conPdfSpToggleLock()"
           data-i18n="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock</button>
+        <button class="wn-sp-action-btn" id="con-pdf-sp-hide-btn" onclick="conPdfSpToggleHide()"><img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-lockfit-btn" onclick="conPdfSpToggleLockFit()"
-          data-i18n="conSpFit">⧇ Fit</button>
-        <button class="wn-sp-action-btn" onclick="conPdfSpAddEmoji()" data-i18n="conSpEmoji">😀 Emoji</button>
+          data-i18n="conSpFit"><img src="../assets/icons/snap.svg" class="btn-icon" alt="" /> Fit</button>
+        <button class="wn-sp-action-btn" onclick="conPdfSpAddEmoji()" data-i18n="conSpEmoji"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Emoji</button>
         <button class="wn-sp-action-btn" onclick="conPdfSpDuplicate()" data-i18n="conSpDup"><img
             src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Dup</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-openfile-btn" onclick="conPdfSpOpenFile()" style="display:none;"

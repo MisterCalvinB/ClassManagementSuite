@@ -2205,7 +2205,7 @@
             <li><strong>Drag and drop move</strong> — drag any selected row and drop on a folder row or breadcrumb segment to move all selected items there.</li>
             <li><strong>Move to... / Copy to...</strong> — right-click a file or folder and choose these actions to open a destination-folder picker modal.</li>
             <li><strong>Open</strong> — opens the file in the default desktop application (e.g., a PDF in your PDF viewer, an image in Photos).</li>
-            <li><strong>Edit in Doc Editor</strong> — HTML and Markdown (<code>.html</code>, <code>.md</code>) files can be edited directly inside the Document Editor tool via context menus or action buttons.</li>
+            <li><strong>Edit in Doc Editor</strong> — Typst, HTML, and Markdown (<code>.typ</code>, <code>.html</code>, <code>.md</code>) files can be edited directly inside the Document Editor tool via context menus or action buttons.</li>
             <li><strong>Pin / Unpin sidebar</strong> — right-click a folder to Pin/Unpin it from the launcher sidebar. Pinned folders appear as quick-access shortcuts in the launcher's collapsible panel.</li>
             <li><strong>Duplicate</strong> — copies the file in the same folder with a <em>– Copy</em> suffix. If that name already exists, it appends <em>– Copy (2)</em>, <em>– Copy (3)</em>, and so on. The new row appears immediately below the original.</li>
             <li><strong>Rename</strong> — edits the name inline with the same validation as the Recent tab (forbidden characters, length, conflict checks).</li>
@@ -2573,8 +2573,42 @@
         <button class="open-tool-btn" onclick="openTool('document-editor.html')">Open →</button>
       </div>
       <p class="tool-overview">
-        A dual-pane Markdown editor with live KaTeX maths rendering, single-file inline CSS + layout styling, document and template management, PDF/DOCX export, and book text import. Write on the left; see the formatted output on the right.
+        A multi-format desktop editor and typesetting suite supporting <strong>Typst (<code>.typ</code>)</strong>, <strong>Markdown (<code>.md</code>)</strong>, and <strong>HTML (<code>.html</code>)</strong>. Features live multi-page vector preview, WebAssembly math compilation, single-file inline styling, Mailposting batch student reports, built-in Syntax Guide, and native vector PDF / DOCX export. Write on the left; see the formatted output on the right.
       </p>
+
+      <div class="accordion" id="acc-de-typst">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-typst')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Typst Typesetting (<code>.typ</code>)</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p><strong>Typst</strong> is a modern, ultra-fast typesetting engine with native mathematical layout, flexible page geometry, and high-fidelity vector PDF export — ideal for test papers, science worksheets, and academic handouts.</p>
+          <ul>
+            <li><strong>Offline WASM Compilation</strong> — compiled locally via WebAssembly with bundled OpenType Math and Serif fonts (<em>NewCMMath</em>, <em>NewCM10</em>, <em>LibertinusSerif</em>, <em>DejaVuSansMono</em>).</li>
+            <li><strong>Native Mathematical Typesetting</strong> — write inline and block formulas with <code>$ … $</code> syntax (e.g. <code>$ x = (-b +- sqrt(b^2 - 4ac)) / (2a) $</code>, matrices <code>$ mat(1, 2; 3, 4) $</code>, integrals, and limits).</li>
+            <li><strong>Page Setup &amp; Typography Directives</strong> — configure paper size, margins, and headers/footers with <code>#set page(paper: "a4", margin: 2cm)</code> and <code>#set text(font: "Segoe UI", size: 11pt)</code>.</li>
+            <li><strong>Tables &amp; Multi-Column Grids</strong> — construct assessment rubrics with <code>#table(columns: (3fr, 1fr, 1fr), …)</code> and side-by-side columns with <code>#grid(columns: (1fr, 1fr), gutter: 16pt, …)</code>.</li>
+            <li><strong>Direct Vector PDF Compilation</strong> — clicking <em>Export PDF</em> in Typst mode compiles directly to a crisp, scalable vector PDF without browser rasterization.</li>
+          </ul>
+          <div class="tip">Click the document type badge in the top navigation bar (<strong>MD</strong> / <strong>HTML</strong> / <strong>TYP</strong>) to switch between formats anytime.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-de-syntax-guide">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-syntax-guide')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Syntax &amp; Format Guide</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p>Click the <strong>Syntax</strong> button in the top navigation bar to open the comprehensive <strong>Format &amp; Syntax Reference Guide</strong> modal.</p>
+          <ul>
+            <li><strong>Context-Aware Format Tabs</strong> — immediately selects the tab matching your active document format (<strong>Typst</strong>, <strong>Markdown</strong>, <strong>HTML</strong>, or <strong>Mailposting Tokens</strong>).</li>
+            <li><strong>Live Search Bar</strong> — search across titles, descriptions, and code snippets in real time.</li>
+            <li><strong>Topic Category Chips</strong> — quickly filter snippets by category (<em>Setup &amp; Page</em>, <em>Text &amp; Typography</em>, <em>Math &amp; Formulas</em>, <em>Tables &amp; Grids</em>, <em>Exams &amp; Quizzes</em>, <em>Layout &amp; Callouts</em>, <em>Media &amp; Figures</em>).</li>
+            <li><strong>Copy &amp; Insert Actions</strong> — click <strong>Copy</strong> to copy any snippet to your clipboard, or click <strong>+ Insert</strong> to paste the snippet directly at your editor cursor position.</li>
+          </ul>
+        </div></div>
+      </div>
 
       <div class="accordion" id="acc-de-editor">
         <button class="accordion-header" onclick="toggleAccordion('acc-de-editor')">
@@ -2582,24 +2616,42 @@
           <span class="accordion-title">Editor &amp; Preview</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p>The window is split into a <strong>Markdown editor</strong> (left) and a <strong>live preview</strong> (right). Drag the vertical divider to resize either pane.</p>
-          <p style="margin-top:.7em">Write standard <strong>GitHub Flavored Markdown</strong> with two maths extensions:</p>
+          <p>The window is split into a <strong>Monaco code editor</strong> (left) and a <strong>live preview</strong> (right). Drag the vertical divider to resize either pane.</p>
+          <p style="margin-top:.7em">Supports three document formats:</p>
           <ul>
-            <li><code>$…$</code> — inline maths (KaTeX)</li>
-            <li><code>$$…$$</code> — display (block) maths (KaTeX)</li>
+            <li><strong>Typst (<code>.typ</code>)</strong> — modern typesetting with native maths, multi-column grids, and vector page rendering.</li>
+            <li><strong>Markdown (<code>.md</code>)</strong> — standard GitHub Flavored Markdown with KaTeX maths (<code>$…$</code> inline and <code>$$…$$</code> block).</li>
+            <li><strong>HTML (<code>.html</code>)</strong> — semantic HTML elements with embedded CSS styling.</li>
           </ul>
-          <p style="margin-top:.7em">The nav bar is organised into hover menus:</p>
+          <p style="margin-top:.7em">The navigation bar provides quick access to tools:</p>
           <ul>
             <li><strong>File ▾</strong> — New, Open, Save, Save As, Save to folder, Save All, History</li>
-            <li><strong>Save / Save All behavior</strong> — when a document was opened from a specific location, saving writes back to that same location and avoids creating duplicate markdown copies in another folder.</li>
             <li><strong>Insert ▾</strong> — Table, Image, Books (book text import)</li>
             <li><strong>Format ▾</strong> — Templates, Page Layout</li>
-            <li><strong>Export ▾</strong> - PDF, DOCX</li>
-            <li><strong>Preview</strong> - Opens the full-page layout preview</li>
-            <li><strong>Presentation Mode</strong> - Projects the live document preview</li>
-            <li><strong>⚙ Settings</strong> — snippets, keyboard shortcuts, triggers, <strong>Custom CSS Rules</strong> repository, editor preferences, and default layout properties (orientation, size, margins, typography, page numbers, footer, image width)</li>
+            <li><strong>Export ▾</strong> — PDF, DOCX, Batch Export (Mailposting)</li>
+            <li><strong>Mailposting ▾</strong> — Connect Class, Insert Field, Toggle Student Preview, Batch Export</li>
+            <li><strong>Preview</strong> — Opens the full-page layout preview</li>
+            <li><strong>Presentation Mode</strong> — Projects live vector SVGs or HTML preview onto a secondary screen or beamer</li>
+            <li><strong>Syntax</strong> — Opens the interactive Syntax &amp; Format Reference Guide modal</li>
+            <li><strong>Settings</strong> — Snippets, keyboard shortcuts, typing triggers, Custom CSS rules, and editor preferences</li>
           </ul>
           <div class="tip"><strong>Shortcuts:</strong> Ctrl+S saves · Ctrl+N new document · Ctrl+O open document · Esc closes any open modal.</div>
+        </div></div>
+      </div>
+
+      <div class="accordion" id="acc-de-mailposting">
+        <button class="accordion-header" onclick="toggleAccordion('acc-de-mailposting')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title">Mailposting &amp; Batch Student Reports</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p><strong>Mailposting</strong> connects class rosters from <button class="xlink" onclick="navToAccordion('group-editor','acc-ge-overview')">Group Editor</button> directly to document templates.</p>
+          <ul>
+            <li><strong>Dynamic Field Placeholders</strong> — insert student tags like <code>{{student.fullName}}</code>, <code>{{student.firstName}}</code>, <code>{{student.id}}</code>, <code>{{class.name}}</code>, and <code>{{datetime.today}}</code>.</li>
+            <li><strong>Live Student Preview</strong> — select any student from the top bar dropdown to preview their personalized document in real time.</li>
+            <li><strong>Batch PDF Export</strong> — export customized report cards or exam sheets for all students in a class either as a <strong>single combined PDF</strong> (with automatic page breaks) or as <strong>individual separate PDFs</strong> per student.</li>
+            <li>Works seamlessly across <strong>Typst</strong>, <strong>Markdown</strong>, and <strong>HTML</strong> templates.</li>
+          </ul>
         </div></div>
       </div>
 
@@ -2609,17 +2661,16 @@
           <span class="accordion-title">CSS Panel</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p>The top panel lets you control the visual appearance of the preview. It has three parts:</p>
+          <p>The top panel lets you control the visual appearance of Markdown and HTML previews. It has three parts:</p>
           <ul>
             <li><strong>Inline stylesheet</strong> — every document carries one inline <code>&lt;style&gt;</code> tag. The selector row remains visible, but separate stylesheet files are no longer used for new saves.</li>
             <li><strong>Quick Rule builder</strong> — type a selector, choose a CSS property from the dropdown, type a value, and press <strong>+ Add</strong>. The rule is appended to the CSS editor and applied to the preview immediately.</li>
             <li><strong>CSS Editor ▾</strong> — click to expand a full Monaco CSS editor showing the document's inline stylesheet. Changes are applied live and save back into the document file.</li>
           </ul>
-          <p style="margin-top:.7em"><strong>⚙ Settings → Custom CSS Rules</strong> gives you a reusable rule repository. Create named CSS blocks once, then click <strong>Add to document CSS</strong> beside any rule to append it to the current document stylesheet on demand.</p>
+          <p style="margin-top:.7em"><strong>Settings → Custom CSS Rules</strong> gives you a reusable rule repository. Create named CSS blocks once, then click <strong>Add to document CSS</strong> beside any rule to append it to the current document stylesheet on demand.</p>
           <div class="tip">If the same CSS block is already present in the current document stylesheet, the editor asks for confirmation before inserting a duplicate.</div>
-          <p style="margin-top:.7em"><strong>Page Layout</strong> also writes into this same stylesheet. Paper size, margins, typography, footer, page numbers, and image width now travel inside the document's inline <code>&lt;style&gt;</code> tag.</p>
+          <p style="margin-top:.7em"><strong>Page Layout</strong> also writes into this same stylesheet. Paper size, margins, typography, footer, page numbers, and image width travel inside the document's inline <code>&lt;style&gt;</code> tag.</p>
           <div class="tip">Use <code>.doc-preview</code> as a root selector to scope your rules to the preview area, e.g. <code>.doc-preview h1 { color: #2c3e50; }</code>.</div>
-          <div class="tip">Generic selectors like <code>div</code>, <code>p</code>, or <code>table</code> are auto-scoped to the document preview so they do not affect the surrounding app interface.</div>
         </div></div>
       </div>
 
@@ -2629,16 +2680,16 @@
           <span class="accordion-title">Documents &amp; Templates</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p><strong>Documents</strong> are single <code>.md</code> or <code>.html</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
+          <p><strong>Documents</strong> are single <code>.typ</code>, <code>.md</code>, or <code>.html</code> files saved under <code>custom-data/document-editor/docs/</code>.</p>
           <ul>
             <li><strong>New</strong> — clear the editor for a new document (prompts if unsaved changes exist).</li>
             <li><strong>Open</strong> — opens a folder browser for Documents. Navigate folders/subfolders, create folders, then click <em>Open</em> or <em>Del</em>.</li>
-            <li><strong>Open from disk…</strong> — OS file picker that opens any <code>.html</code>, <code>.md</code>, or <code>.txt</code> file from anywhere on your computer. The content is loaded into the editor; press <strong>Save</strong> to store a managed copy in <code>docs/</code>.</li>
-            <li><strong>Save</strong> — saves under the current filename; if the document is new, the same browser opens so you can choose a folder and filename.</li>
+            <li><strong>Open from disk…</strong> — OS file picker that opens any <code>.typ</code>, <code>.html</code>, <code>.md</code>, or <code>.txt</code> file from anywhere on your computer. The content is loaded into the editor; press <strong>Save</strong> to store a managed copy in <code>docs/</code>.</li>
+            <li><strong>Save</strong> — saves under the current filename; if the document is new, the browser opens so you can choose a folder and filename.</li>
             <li><strong>Save As</strong> — opens the browser so you can pick a folder/subfolder, create folders, and save under a new filename.</li>
-            <li><strong>Save to folder…</strong> — opens the system Save As picker and writes the current document directly to any folder as <code>.md</code> or <code>.html</code>.</li>
+            <li><strong>Save to folder…</strong> — opens the system Save As picker and writes the current document directly to any folder as <code>.typ</code>, <code>.md</code>, or <code>.html</code>.</li>
           </ul>
-          <p style="margin-top:.7em"><strong>Templates</strong> are <code>.md</code> files under <code>custom-data/document-editor/templates/</code>. Like normal documents, they now store styling inline in the same file.</p>
+          <p style="margin-top:.7em"><strong>Templates</strong> are reusable starter files (e.g. <code>exam-paper.typ</code>, <code>lesson-worksheet.typ</code>) located under <code>custom-data/document-editor/templates/</code>.</p>
         </div></div>
       </div>
 
@@ -2666,8 +2717,12 @@
           <span class="accordion-title">PDF Export</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p>Click <strong>Export PDF</strong> in the nav bar. The current preview — including KaTeX maths, custom CSS, and default document styles — is rendered, then a popup asks whether to save the PDF in the same folder as the current managed document or a file opened from disk, or via the system save dialog.</p>
-          <div class="tip">The PDF captures exactly what is visible in the preview pane, so apply your stylesheet before exporting.</div>
+          <p>Click <strong>Export PDF</strong> in the nav bar. The application automatically chooses the optimal export pipeline:</p>
+          <ul>
+            <li><strong>Typst mode</strong> — compiles directly via Typst WebAssembly into crisp, scalable vector PDF bytes.</li>
+            <li><strong>Markdown &amp; HTML modes</strong> — renders the preview with KaTeX maths and custom CSS, then prints via Electron's high-resolution PDF engine.</li>
+          </ul>
+          <p style="margin-top:.5em">A prompt lets you choose whether to save the PDF in the same folder as the document, in the central Print folder, or via the system file picker.</p>
         </div></div>
       </div>
 
@@ -2677,12 +2732,12 @@
           <span class="accordion-title">Presentation Mode</span>
         </button>
         <div class="accordion-body"><div class="accordion-inner">
-          <p>Click <strong>Presentation Mode</strong> to open a separate window that projects the live document preview — useful for displaying the formatted document on a second monitor or projector.</p>
+          <p>Click <strong>Presentation Mode</strong> to open a separate window that projects the live document preview — useful for displaying formatted Typst vector SVGs or Markdown notes on a second monitor or projector.</p>
           <ul>
             <li>The presentation window opens on a <strong>second display</strong> when one is detected; otherwise it appears beside the main editor.</li>
-            <li>The document updates <strong>live</strong>: every keystroke, page layout change, or CSS edit is reflected in the presentation window instantly.</li>
-            <li>While presenting, a red <strong>● Presenting</strong> indicator appears in the nav bar. Click <strong>Stop</strong> to close the presentation window.</li>
-            <li>The presentation window shows only the rendered document on a dark background — no editor chrome is visible.</li>
+            <li>The document updates <strong>live</strong>: every keystroke, page layout change, or formatting edit is reflected in the presentation window instantly.</li>
+            <li>While presenting, a green <strong>● Presenting</strong> indicator appears in the nav bar. Click <strong>Stop</strong> to close the presentation window.</li>
+            <li>The presentation window shows only the clean rendered document on a dark background — no editor chrome is visible.</li>
           </ul>
           <div class="tip">Open the presentation window, then switch the main editor window to full-screen editing or drag it to your primary monitor. Your audience sees only the clean document on the second screen.</div>
         </div></div>
@@ -2706,7 +2761,7 @@
               <tr><td style="padding:4px 8px;"><kbd>Enter</kbd></td><td style="padding:4px 8px;">Next search result</td></tr>
               <tr><td style="padding:4px 8px;"><kbd>Shift</kbd> <kbd>Enter</kbd></td><td style="padding:4px 8px;">Previous search result</td></tr>
               <tr style="background:#f5f5f5;"><td colspan="2" style="padding:4px 8px;font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">General</td></tr>
-              <tr><td style="padding:4px 8px;"><kbd>Escape</kbd></td><td style="padding:4px 8px;">Close modal / full preview</td></tr>
+              <tr><td style="padding:4px 8px;"><kbd>Escape</kbd></td><td style="padding:4px 8px;">Close modal / full preview / syntax guide</td></tr>
             </tbody>
           </table>
         </div></div>
