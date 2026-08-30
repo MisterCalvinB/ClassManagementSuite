@@ -1014,6 +1014,28 @@
                 </label>
             </div>
         </div>
+        <div style="display:flex; align-items:center; gap:10px; padding:4px 14px 8px; flex-wrap:wrap; border-bottom:1px solid #eee; margin-bottom:4px;">
+            <span
+                style="font-size:0.8rem; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;"
+                data-i18n="settings_lr_layout">Lesson Plan</span>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <label
+                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                    <input type="radio" name="lessonRunnerLayoutMode" value="compact" onchange="setLessonRunnerLayout(this.value)"
+                        checked> <span data-i18n="settings_lr_compact">Compact</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                    <input type="radio" name="lessonRunnerLayoutMode" value="collapsible" onchange="setLessonRunnerLayout(this.value)">
+                    <span data-i18n="settings_lr_collapsible">Collapsible</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:4px; font-size:0.82rem; cursor:pointer; font-weight:600;">
+                    <input type="radio" name="lessonRunnerLayoutMode" value="single" onchange="setLessonRunnerLayout(this.value)">
+                    <span data-i18n="settings_lr_single">Single Row</span>
+                </label>
+            </div>
+        </div>
         <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('import-tool.html');">
             <span class="db-popup-btn-icon"><img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" /></span>
             <span class="db-popup-btn-text">
@@ -1320,6 +1342,21 @@
                                 </div>
                             </div>
 
+                            <div class="rsp-tab-section">
+                                <div class="rsp-row-label" data-i18n="settings_lr_layout">Lesson Plan View</div>
+                                <div class="rsp-grid-toggles" style="grid-template-columns: repeat(3, 1fr);">
+                                    <button class="rsp-inline-btn" id="rsp-lr-compact-btn" onclick="setLessonRunnerLayout('compact')"
+                                        title="Compact 2-line layout" data-i18n-title="settings_lr_compact">
+                                        <span data-i18n="settings_lr_compact">Compact</span></button>
+                                    <button class="rsp-inline-btn" id="rsp-lr-collapsible-btn" onclick="setLessonRunnerLayout('collapsible')"
+                                        title="Collapsible Mini-HUD" data-i18n-title="settings_lr_collapsible">
+                                        <span data-i18n="settings_lr_collapsible">Collapsible</span></button>
+                                    <button class="rsp-inline-btn" id="rsp-lr-single-btn" onclick="setLessonRunnerLayout('single')"
+                                        title="Single-row command strip" data-i18n-title="settings_lr_single">
+                                        <span data-i18n="settings_lr_single">Single Row</span></button>
+                                </div>
+                            </div>
+
                             <div class="rsp-tab-section"
                                 style="border-top: 2px dashed #111; padding-top: 12px; margin-top: 12px;">
                                 <div class="rsp-row-label" data-i18n="rsp_presentation_mode">Presentation Mode</div>
@@ -1513,29 +1550,30 @@
                 <div id="timer-resize-handle" title="Drag to resize timer" data-i18n-title="timer_resize_title"></div>
             </div>
             <!-- Lesson Runner HUD Container (Scoped for Lesson Creator integration) -->
-            <div id="cms-lesson-runner-container" style="display:none; margin-bottom:10px; background:#fff; border:2.5px solid #111; border-radius:8px; box-shadow:3px 3px 0 #111; padding:10px 14px;">
-                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1.5px solid #111; padding-bottom:6px; margin-bottom:6px;">
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        <span style="background:#111; color:#fff; font-weight:800; font-size:0.75rem; padding:2px 6px; border-radius:4px;" id="clr-phase-num">PHASE 1 / 4</span>
-                        <strong id="clr-phase-title" style="font-size:0.95rem;">Phase Title</strong>
-                        <span id="clr-phase-badge" style="background:#fef3c7; border:1px solid #111; font-size:0.75rem; font-weight:800; padding:2px 6px; border-radius:4px;">WARM-UP</span>
-                        <span id="clr-phase-times" style="background:#e0f2fe; color:#0369a1; border:1px solid #111; font-size:0.75rem; font-weight:800; padding:2px 6px; border-radius:4px;" title="Calculated start and end times for this phase">⏱ --:-- – --:--</span>
+            <div id="cms-lesson-runner-container" class="cms-lesson-runner cms-lr-mode-compact" style="display:none;">
+                <div class="clr-top-row">
+                    <div class="clr-phase-info">
+                        <span class="clr-badge clr-phase-num" id="clr-phase-num">PHASE 1 / 4</span>
+                        <strong class="clr-phase-title" id="clr-phase-title">Phase Title</strong>
+                        <span class="clr-badge clr-phase-badge" id="clr-phase-badge">WARM-UP</span>
+                        <span class="clr-badge clr-phase-times" id="clr-phase-times" title="Calculated start and end times for this phase">⏱ --:-- – --:--</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem; background:#2563eb; color:#fff; border-color:#111; font-weight:700;" onclick="CmsLessonRunner.startActivityNow()" title="Set activity start time to current clock time">▶ Start Activity Now</button>
-                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.prevPhase()">Prev</button>
-                        <button class="action-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="CmsLessonRunner.nextPhase()">Next</button>
-                        <button class="action-btn btn-success" style="padding:4px 8px; font-size:0.78rem; background:#10b981; color:#fff; border-color:#111;" onclick="CmsLessonRunner.completePhase()">Complete</button>
-                        <button class="action-btn" style="padding:4px 6px; font-size:0.78rem;" onclick="CmsLessonRunner.unloadPlan()" title="Unload lesson plan">Close</button>
+                    <div class="clr-controls">
+                        <button class="action-btn clr-btn-start" onclick="CmsLessonRunner.startActivityNow()" title="Set activity start time to current clock time" data-i18n-title="clr_start_now_title"><span data-i18n="clr_btn_start_now">▶ Start</span></button>
+                        <button class="action-btn clr-btn-prev" onclick="CmsLessonRunner.prevPhase()" title="Previous phase" data-i18n-title="clr_prev_title">◀</button>
+                        <button class="action-btn clr-btn-next" onclick="CmsLessonRunner.nextPhase()" title="Next phase" data-i18n-title="clr_next_title">▶</button>
+                        <button class="action-btn clr-btn-complete" onclick="CmsLessonRunner.completePhase()" title="Complete phase" data-i18n-title="clr_complete_title">✓</button>
+                        <button class="action-btn clr-btn-collapse" id="clr-collapse-btn" onclick="CmsLessonRunner.toggleCollapse()" title="Toggle details" data-i18n-title="clr_toggle_details">▼</button>
+                        <button class="action-btn clr-btn-close" onclick="CmsLessonRunner.unloadPlan()" title="Unload lesson plan" data-i18n-title="clr_close_plan">✕</button>
                     </div>
                 </div>
-                <div style="display:flex; flex-wrap:wrap; gap:12px; font-size:0.82rem; margin-bottom:6px;">
-                    <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Teacher:</span> <span id="clr-teacher-prompt">—</span></div>
-                    <div style="flex:1; min-width:200px;"><span style="font-weight:800;">Student:</span> <span id="clr-student-prompt">—</span></div>
-                    <div id="clr-teams-wrap" style="display:none; font-size:0.8rem; background:#ede9fe; padding:2px 6px; border-radius:4px; border:1px solid #111;"><span style="font-weight:800;">Teams:</span> <span id="clr-teams-text"></span></div>
+                <div class="clr-body-row" id="clr-body-row">
+                    <div class="clr-prompt-item"><span class="clr-prompt-lbl">T:</span> <span id="clr-teacher-prompt">—</span></div>
+                    <div class="clr-prompt-item"><span class="clr-prompt-lbl">S:</span> <span id="clr-student-prompt">—</span></div>
+                    <div id="clr-teams-wrap" class="clr-teams-badge" style="display:none;"><span class="clr-prompt-lbl">Teams:</span> <span id="clr-teams-text"></span></div>
                 </div>
                 <!-- Phase Schedule Timeline Row -->
-                <div id="clr-timeline-bar" style="display:flex; gap:6px; margin-top:6px; padding-top:6px; border-top:1px dashed #ccc; overflow-x:auto; font-size:0.75rem;">
+                <div id="clr-timeline-bar" class="clr-timeline-bar">
                 </div>
             </div>
 
@@ -2739,6 +2777,8 @@
         let actionButtonSettings = JSON.parse(JSON.stringify(DEFAULT_ACTION_BUTTON_SETTINGS));
         let planAbbrevLen = 3;                // Number of first-name letters shown in plan view cells
         let nameDisplayMode = 'full';         // 'full' | 'first' | 'last'
+        let lessonRunnerLayout = 'compact';   // 'compact' | 'collapsible' | 'single'
+        let lessonRunnerCollapsed = false;
         let loadedConfigCache = null;
         let soundFileRefreshTimer = null;
         let classPlans = {};  // { groupName: [ {id, name, rows, cols, roomNumber, schedule, seats, isTemporary, isActive, createdAt} ] }
@@ -2811,6 +2851,8 @@
                     presNameSizeRem: presNameSizeRem,
                     planAbbrevLen: planAbbrevLen,
                     nameDisplayMode: nameDisplayMode,
+                    lessonRunnerLayout: lessonRunnerLayout,
+                    lessonRunnerCollapsed: lessonRunnerCollapsed,
                     lessonRunner: runnerPayload,
                     scroll: {
                         scrollY: Math.round(scrollY),
@@ -3051,6 +3093,10 @@
                 document.body.classList.toggle('pres-show-sen', !!data.presSettings.sen);
                 presSettings = { ...presSettings, ...data.presSettings };
             }
+            if (data.lessonRunnerLayout && ['compact', 'collapsible', 'single'].includes(data.lessonRunnerLayout)) {
+                lessonRunnerLayout = data.lessonRunnerLayout;
+                if (typeof data.lessonRunnerCollapsed === 'boolean') lessonRunnerCollapsed = data.lessonRunnerCollapsed;
+            }
             if (data.lessonRunner !== undefined) {
                 if (data.lessonRunner && data.lessonRunner.activePlan && window.CmsLessonRunner) {
                     CmsLessonRunner.activePlan = data.lessonRunner.activePlan;
@@ -3066,6 +3112,9 @@
             var presRunner = document.getElementById('cms-lesson-runner-container');
             if (presRunner) {
                 var showPlan = presSettings.lessonPlan !== false && !!(window.CmsLessonRunner && CmsLessonRunner.activePlan);
+                presRunner.classList.remove('cms-lr-mode-compact', 'cms-lr-mode-collapsible', 'cms-lr-mode-single');
+                presRunner.classList.add('cms-lr-mode-' + lessonRunnerLayout);
+                presRunner.classList.toggle('is-collapsed', !!lessonRunnerCollapsed);
                 presRunner.style.display = showPlan ? 'block' : 'none';
             }
             if (data.studentGroups) {
@@ -3852,6 +3901,30 @@
                 } else if (typeof config?.launcherSettings?.defaultNameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(config.launcherSettings.defaultNameDisplayMode)) {
                     nameDisplayMode = config.launcherSettings.defaultNameDisplayMode;
                 }
+                if (typeof ui.lessonRunnerLayout === 'string' && ['compact', 'collapsible', 'single'].includes(ui.lessonRunnerLayout)) {
+                    if (typeof setLessonRunnerLayout === 'function') setLessonRunnerLayout(ui.lessonRunnerLayout, false);
+                } else {
+                    try {
+                        const lsLayout = localStorage.getItem('cms-lesson-runner-layout');
+                        if (lsLayout && ['compact', 'collapsible', 'single'].includes(lsLayout)) {
+                            if (typeof setLessonRunnerLayout === 'function') setLessonRunnerLayout(lsLayout, false);
+                        } else if (typeof setLessonRunnerLayout === 'function') {
+                            setLessonRunnerLayout('compact', false);
+                        }
+                    } catch (_) {
+                        if (typeof setLessonRunnerLayout === 'function') setLessonRunnerLayout('compact', false);
+                    }
+                }
+                try {
+                    const lsCollapsed = localStorage.getItem('cms-lr-collapsed');
+                    if (lsCollapsed === '1') {
+                        lessonRunnerCollapsed = true;
+                        const container = document.getElementById('cms-lesson-runner-container');
+                        if (container) container.classList.add('is-collapsed');
+                        const cBtn = document.getElementById('clr-collapse-btn');
+                        if (cBtn) cBtn.textContent = '▼';
+                    }
+                } catch (_) {}
             }
             if (Array.isArray(config?.classModes) && config.classModes.length > 0) {
                 classModes = config.classModes.map(m => {
@@ -4046,6 +4119,7 @@
                     presSettings: { ...presSettings },
                     planAbbrevLen: planAbbrevLen,
                     nameDisplayMode: nameDisplayMode,
+                    lessonRunnerLayout: lessonRunnerLayout,
                     actionButtons: normalizeActionButtonSettings(actionButtonSettings)
                 },
                 launcherSettings: loadedConfig.launcherSettings || {},
@@ -15790,6 +15864,40 @@ syncState();
             persistSettingsToUserFile().catch(err => console.warn('saveNameDisplayMode: could not save config:', err));
         }
 
+        function setLessonRunnerLayout(value, persist = true) {
+            if (!['compact', 'collapsible', 'single'].includes(value)) value = 'compact';
+            lessonRunnerLayout = value;
+
+            const container = document.getElementById('cms-lesson-runner-container');
+            if (container) {
+                container.classList.remove('cms-lr-mode-compact', 'cms-lr-mode-collapsible', 'cms-lr-mode-single');
+                container.classList.add('cms-lr-mode-' + value);
+                if (container.style.display !== 'none') {
+                    container.style.display = 'block';
+                }
+            }
+
+            // Sync settings-popup radio inputs
+            const radios = document.querySelectorAll('input[name="lessonRunnerLayoutMode"]');
+            radios.forEach(r => {
+                r.checked = (r.value === value);
+            });
+
+            // Sync roster-settings-popup buttons
+            const btnCompact = document.getElementById('rsp-lr-compact-btn');
+            const btnCollapsible = document.getElementById('rsp-lr-collapsible-btn');
+            const btnSingle = document.getElementById('rsp-lr-single-btn');
+            if (btnCompact) btnCompact.classList.toggle('active', value === 'compact');
+            if (btnCollapsible) btnCollapsible.classList.toggle('active', value === 'collapsible');
+            if (btnSingle) btnSingle.classList.toggle('active', value === 'single');
+
+            if (persist) {
+                try { localStorage.setItem('cms-lesson-runner-layout', value); } catch (_) { }
+                if (!PRESENTATION_MODE) _broadcastPresentationState();
+                persistSettingsToUserFile().catch(err => console.warn('setLessonRunnerLayout: could not save config:', err));
+            }
+        }
+
         function _applyAppTitle() {
             let label = '';
             try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch { }
@@ -19185,6 +19293,22 @@ ${body}
                     };
                 },
 
+                toggleCollapse: function () {
+                    lessonRunnerCollapsed = !lessonRunnerCollapsed;
+                    var container = document.getElementById('cms-lesson-runner-container');
+                    if (container) {
+                        container.classList.toggle('is-collapsed', lessonRunnerCollapsed);
+                    }
+                    var btn = document.getElementById('clr-collapse-btn');
+                    if (btn) {
+                        btn.textContent = lessonRunnerCollapsed ? '▼' : '▲';
+                    }
+                    try { localStorage.setItem('cms-lr-collapsed', lessonRunnerCollapsed ? '1' : '0'); } catch (_) {}
+                    if (!PRESENTATION_MODE && typeof _broadcastPresentationState === 'function') {
+                        _broadcastPresentationState();
+                    }
+                },
+
                 loadPlan: function (plan) {
                     if (!plan || !Array.isArray(plan.sections)) return;
                     this.activePlan = plan;
@@ -19200,7 +19324,15 @@ ${body}
                     }
 
                     var container = document.getElementById('cms-lesson-runner-container');
-                    if (container) container.style.display = 'block';
+                    if (container) {
+                        container.classList.remove('cms-lr-mode-compact', 'cms-lr-mode-collapsible', 'cms-lr-mode-single');
+                        container.classList.add('cms-lr-mode-' + (lessonRunnerLayout || 'compact'));
+                        container.classList.toggle('is-collapsed', !!lessonRunnerCollapsed);
+                        container.style.display = 'block';
+                    }
+
+                    var cBtn = document.getElementById('clr-collapse-btn');
+                    if (cBtn) cBtn.textContent = lessonRunnerCollapsed ? '▼' : '▲';
 
                     // Auto-select class group if specified in plan and available
                     if (plan.classId && typeof selectGroup === 'function' && selectedGroupName !== plan.classId) {
@@ -19236,10 +19368,16 @@ ${body}
                     if (numEl) numEl.textContent = 'PHASE ' + (this.activePhaseIndex + 1) + ' / ' + phases.length;
 
                     var titleEl = document.getElementById('clr-phase-title');
-                    if (titleEl) titleEl.textContent = (phase.title || 'Phase') + ' (' + (phase.duration || 0) + 'm)';
+                    if (titleEl) {
+                        titleEl.textContent = (phase.title || 'Phase') + ' (' + (phase.duration || 0) + 'm)';
+                        titleEl.title = 'Teacher: ' + (phase.teacherAction || phase.objective || '—') + '\nStudent: ' + (phase.studentAction || '—');
+                    }
 
                     var badgeEl = document.getElementById('clr-phase-badge');
-                    if (badgeEl) badgeEl.textContent = (phase.activityTypeId || 'ACTIVITY').replace(/_/g, ' ').toUpperCase();
+                    if (badgeEl) {
+                        badgeEl.textContent = (phase.activityTypeId || 'ACTIVITY').replace(/_/g, ' ').toUpperCase();
+                        badgeEl.title = 'Teacher: ' + (phase.teacherAction || phase.objective || '—') + '\nStudent: ' + (phase.studentAction || '—');
+                    }
 
                     // Render start and end clock times badge
                     var currentSpan = this.getPhaseTimeSpan(this.activePhaseIndex);
@@ -19273,14 +19411,8 @@ ${body}
                         phases.forEach(function (p, idx) {
                             var pSpan = self.getPhaseTimeSpan(idx);
                             var chip = document.createElement('div');
-                            chip.style.cssText = 'padding:2px 8px; border-radius:4px; border:1px solid #111; cursor:' + (PRESENTATION_MODE ? 'default' : 'pointer') + '; white-space:nowrap; flex-shrink:0; font-weight:700; transition:opacity 0.15s ease, background 0.15s ease, color 0.15s ease;';
-                            if (idx === self.activePhaseIndex) {
-                                chip.style.background = '#111';
-                                chip.style.color = '#fff';
-                            } else {
-                                chip.style.background = '#f3f4f6';
-                                chip.style.color = '#374151';
-                            }
+                            chip.className = 'clr-timeline-chip' + (idx === self.activePhaseIndex ? ' active' : '');
+                            chip.title = (p.title || 'Phase') + ' (' + (p.duration || 0) + 'm)\n' + pSpan.startStr + ' – ' + pSpan.endStr + '\nT: ' + (p.teacherAction || p.objective || '—') + '\nS: ' + (p.studentAction || '—');
                             chip.innerHTML = (idx + 1) + '. ' + pSpan.startStr + '-' + pSpan.endStr + ' <span style="font-weight:400; opacity:0.85;">' + escapeHtml(p.title || 'Phase') + '</span>';
                             if (!PRESENTATION_MODE) {
                                 chip.onclick = function () {
