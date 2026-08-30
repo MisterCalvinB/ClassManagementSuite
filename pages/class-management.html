@@ -2764,6 +2764,36 @@
             if (!_presChannel || PRESENTATION_MODE || _presFrozen) return;
             try {
                 const _dn = document.getElementById('display-name');
+                const runnerActive = !!(window.CmsLessonRunner && CmsLessonRunner.activePlan);
+                const runnerPayload = runnerActive ? {
+                    activePlan: JSON.parse(JSON.stringify(CmsLessonRunner.activePlan)),
+                    activePhaseIndex: CmsLessonRunner.activePhaseIndex || 0,
+                    lessonStartTime: CmsLessonRunner.lessonStartTime ? CmsLessonRunner.lessonStartTime.getTime() : null
+                } : null;
+
+                const docEl = document.documentElement;
+                const scrollY = window.scrollY || docEl.scrollTop || 0;
+                const maxScrollY = Math.max(1, (docEl.scrollHeight || document.body.scrollHeight) - window.innerHeight);
+                const scrollRatio = maxScrollY > 0 ? (scrollY / maxScrollY) : 0;
+
+                const rosterList = document.getElementById('roster-list');
+                let rosterScrollRatio = null;
+                let rosterScrollTop = null;
+                if (rosterList && rosterList.scrollHeight > rosterList.clientHeight) {
+                    const maxRosterScroll = rosterList.scrollHeight - rosterList.clientHeight;
+                    rosterScrollTop = rosterList.scrollTop;
+                    rosterScrollRatio = maxRosterScroll > 0 ? (rosterList.scrollTop / maxRosterScroll) : 0;
+                }
+
+                const timelineBar = document.getElementById('clr-timeline-bar');
+                let timelineScrollRatio = null;
+                let timelineScrollLeft = null;
+                if (timelineBar && timelineBar.scrollWidth > timelineBar.clientWidth) {
+                    const maxTimelineScroll = timelineBar.scrollWidth - timelineBar.clientWidth;
+                    timelineScrollLeft = timelineBar.scrollLeft;
+                    timelineScrollRatio = maxTimelineScroll > 0 ? (timelineBar.scrollLeft / maxTimelineScroll) : 0;
+                }
+
                 _presChannel.postMessage({
                     type: 'state',
                     groupName: selectedGroupName,
@@ -2781,6 +2811,15 @@
                     presNameSizeRem: presNameSizeRem,
                     planAbbrevLen: planAbbrevLen,
                     nameDisplayMode: nameDisplayMode,
+                    lessonRunner: runnerPayload,
+                    scroll: {
+                        scrollY: Math.round(scrollY),
+                        scrollRatio: scrollRatio,
+                        rosterScrollTop: rosterScrollTop != null ? Math.round(rosterScrollTop) : null,
+                        rosterScrollRatio: rosterScrollRatio,
+                        timelineScrollLeft: timelineScrollLeft != null ? Math.round(timelineScrollLeft) : null,
+                        timelineScrollRatio: timelineScrollRatio
+                    },
                     timerActive: !!(timerEndTime || (timerPaused && timerPausedRemaining > 0) || stopwatchInterval || stopwatchPaused),
                     timerDisplayText: (() => { const d = document.getElementById('timer-active-display'); return d ? d.textContent : '--:--'; })(),
                     timerDisplayClass: (() => { const d = document.getElementById('timer-active-display'); return d ? d.className : ''; })(),
@@ -2793,6 +2832,49 @@
                     isWarning: (() => { const d = document.getElementById('timer-active-display'); return !!((timerEndTime && (timerEndTime - Date.now()) < 60000) || (d && (d.classList.contains('warning') || d.classList.contains('timer-warning')))); })()
                 });
             } catch (_) { }
+        }
+
+        let _scrollRafId = null;
+        function _broadcastScrollState() {
+            if (!_presChannel || PRESENTATION_MODE || _presFrozen) return;
+            if (_scrollRafId) return;
+            _scrollRafId = requestAnimationFrame(() => {
+                _scrollRafId = null;
+                try {
+                    const docEl = document.documentElement;
+                    const scrollY = window.scrollY || docEl.scrollTop || 0;
+                    const maxScrollY = Math.max(1, (docEl.scrollHeight || document.body.scrollHeight) - window.innerHeight);
+                    const scrollRatio = maxScrollY > 0 ? (scrollY / maxScrollY) : 0;
+
+                    const rosterList = document.getElementById('roster-list');
+                    let rosterScrollRatio = null;
+                    let rosterScrollTop = null;
+                    if (rosterList && rosterList.scrollHeight > rosterList.clientHeight) {
+                        const maxRosterScroll = rosterList.scrollHeight - rosterList.clientHeight;
+                        rosterScrollTop = rosterList.scrollTop;
+                        rosterScrollRatio = maxRosterScroll > 0 ? (rosterList.scrollTop / maxRosterScroll) : 0;
+                    }
+
+                    const timelineBar = document.getElementById('clr-timeline-bar');
+                    let timelineScrollRatio = null;
+                    let timelineScrollLeft = null;
+                    if (timelineBar && timelineBar.scrollWidth > timelineBar.clientWidth) {
+                        const maxTimelineScroll = timelineBar.scrollWidth - timelineBar.clientWidth;
+                        timelineScrollLeft = timelineBar.scrollLeft;
+                        timelineScrollRatio = maxTimelineScroll > 0 ? (timelineBar.scrollLeft / maxTimelineScroll) : 0;
+                    }
+
+                    _presChannel.postMessage({
+                        type: 'scroll',
+                        scrollY: Math.round(scrollY),
+                        scrollRatio: scrollRatio,
+                        rosterScrollTop: rosterScrollTop != null ? Math.round(rosterScrollTop) : null,
+                        rosterScrollRatio: rosterScrollRatio,
+                        timelineScrollLeft: timelineScrollLeft != null ? Math.round(timelineScrollLeft) : null,
+                        timelineScrollRatio: timelineScrollRatio
+                    });
+                } catch (_) { }
+            });
         }
 
         function _broadcastAnimation(kind, payload = {}) {
@@ -2867,6 +2949,64 @@
                 else if (data.kind === 'team-reveal') animateTeamReveal();
                 return;
             }
+            if (data.type === 'scroll') {
+                if (_presFrozen) return;
+                const docEl = document.documentElement;
+                const maxScrollY = Math.max(0, (docEl.scrollHeight || document.body.scrollHeight) - window.innerHeight);
+                if (data.scrollRatio !== undefined && maxScrollY > 0) {
+                    window.scrollTo({ top: data.scrollRatio * maxScrollY, behavior: 'instant' });
+                } else if (data.scrollY !== undefined) {
+                    window.scrollTo({ top: data.scrollY, behavior: 'instant' });
+                }
+
+                if (data.rosterScrollRatio != null) {
+                    const rosterList = document.getElementById('roster-list');
+                    if (rosterList) {
+                        const maxRoster = Math.max(0, rosterList.scrollHeight - rosterList.clientHeight);
+                        rosterList.scrollTop = data.rosterScrollRatio * maxRoster;
+                    }
+                } else if (data.rosterScrollTop != null) {
+                    const rosterList = document.getElementById('roster-list');
+                    if (rosterList) rosterList.scrollTop = data.rosterScrollTop;
+                }
+
+                if (data.timelineScrollRatio != null) {
+                    const timelineBar = document.getElementById('clr-timeline-bar');
+                    if (timelineBar) {
+                        const maxTimeline = Math.max(0, timelineBar.scrollWidth - timelineBar.clientWidth);
+                        timelineBar.scrollLeft = data.timelineScrollRatio * maxTimeline;
+                    }
+                } else if (data.timelineScrollLeft != null) {
+                    const timelineBar = document.getElementById('clr-timeline-bar');
+                    if (timelineBar) timelineBar.scrollLeft = data.timelineScrollLeft;
+                }
+                return;
+            }
+            if (data.type === 'lesson-phase') {
+                if (window.CmsLessonRunner && CmsLessonRunner.activePlan) {
+                    CmsLessonRunner.activePhaseIndex = data.phaseIndex || 0;
+                    CmsLessonRunner.renderCurrentPhase();
+                }
+                var presRunner = document.getElementById('cms-lesson-runner-container');
+                if (presRunner) {
+                    var showPlan = presSettings.lessonPlan !== false && !!(window.CmsLessonRunner && CmsLessonRunner.activePlan);
+                    presRunner.style.display = showPlan ? 'block' : 'none';
+                }
+                if (data.timelineScrollRatio != null || data.timelineScrollLeft != null) {
+                    requestAnimationFrame(() => {
+                        const timelineBar = document.getElementById('clr-timeline-bar');
+                        if (timelineBar) {
+                            if (data.timelineScrollRatio != null) {
+                                const maxTimeline = Math.max(0, timelineBar.scrollWidth - timelineBar.clientWidth);
+                                timelineBar.scrollLeft = data.timelineScrollRatio * maxTimeline;
+                            } else if (data.timelineScrollLeft != null) {
+                                timelineBar.scrollLeft = data.timelineScrollLeft;
+                            }
+                        }
+                    });
+                }
+                return;
+            }
             if (data.type === 'timer-tick') {
                 const area = document.getElementById('timer-active-area');
                 const display = document.getElementById('timer-active-display');
@@ -2910,11 +3050,23 @@
                 document.body.classList.toggle('pres-show-roles', !!data.presSettings.roles);
                 document.body.classList.toggle('pres-show-sen', !!data.presSettings.sen);
                 presSettings = { ...presSettings, ...data.presSettings };
-
-                var presRunner = document.getElementById('cms-lesson-runner-container');
-                if (presRunner) {
-                    presRunner.style.display = (data.presSettings.lessonPlan !== false && window.CmsLessonRunner && CmsLessonRunner.activePlan) ? 'block' : 'none';
+            }
+            if (data.lessonRunner !== undefined) {
+                if (data.lessonRunner && data.lessonRunner.activePlan && window.CmsLessonRunner) {
+                    CmsLessonRunner.activePlan = data.lessonRunner.activePlan;
+                    CmsLessonRunner.activePhaseIndex = data.lessonRunner.activePhaseIndex || 0;
+                    if (data.lessonRunner.lessonStartTime) {
+                        CmsLessonRunner.lessonStartTime = new Date(data.lessonRunner.lessonStartTime);
+                    }
+                    CmsLessonRunner.renderCurrentPhase();
+                } else if (window.CmsLessonRunner && !data.lessonRunner) {
+                    CmsLessonRunner.activePlan = null;
                 }
+            }
+            var presRunner = document.getElementById('cms-lesson-runner-container');
+            if (presRunner) {
+                var showPlan = presSettings.lessonPlan !== false && !!(window.CmsLessonRunner && CmsLessonRunner.activePlan);
+                presRunner.style.display = showPlan ? 'block' : 'none';
             }
             if (data.studentGroups) {
                 try { Object.assign(studentGroups, JSON.parse(JSON.stringify(data.studentGroups))); } catch (_) { }
@@ -2977,6 +3129,39 @@
                 if (overlayBar && data.overlayProgressWidth) overlayBar.style.width = data.overlayProgressWidth;
                 const overlayEl = document.getElementById('timer-overlay');
                 if (overlayEl && data.overlayBg) overlayEl.style.background = data.overlayBg;
+            }
+            if (data.scroll) {
+                requestAnimationFrame(() => {
+                    const docEl = document.documentElement;
+                    const maxScrollY = Math.max(0, (docEl.scrollHeight || document.body.scrollHeight) - window.innerHeight);
+                    if (data.scroll.scrollRatio !== undefined && maxScrollY > 0) {
+                        window.scrollTo({ top: data.scroll.scrollRatio * maxScrollY, behavior: 'instant' });
+                    } else if (data.scroll.scrollY !== undefined) {
+                        window.scrollTo({ top: data.scroll.scrollY, behavior: 'instant' });
+                    }
+
+                    if (data.scroll.rosterScrollRatio != null) {
+                        const rosterList = document.getElementById('roster-list');
+                        if (rosterList) {
+                            const maxRoster = Math.max(0, rosterList.scrollHeight - rosterList.clientHeight);
+                            rosterList.scrollTop = data.scroll.rosterScrollRatio * maxRoster;
+                        }
+                    } else if (data.scroll.rosterScrollTop != null) {
+                        const rosterList = document.getElementById('roster-list');
+                        if (rosterList) rosterList.scrollTop = data.scroll.rosterScrollTop;
+                    }
+
+                    if (data.scroll.timelineScrollRatio != null) {
+                        const timelineBar = document.getElementById('clr-timeline-bar');
+                        if (timelineBar) {
+                            const maxTimeline = Math.max(0, timelineBar.scrollWidth - timelineBar.clientWidth);
+                            timelineBar.scrollLeft = data.scroll.timelineScrollRatio * maxTimeline;
+                        }
+                    } else if (data.scroll.timelineScrollLeft != null) {
+                        const timelineBar = document.getElementById('clr-timeline-bar');
+                        if (timelineBar) timelineBar.scrollLeft = data.scroll.timelineScrollLeft;
+                    }
+                });
             }
             renderRoster();
         }
@@ -16231,6 +16416,25 @@ syncState();
                 });
             } else {
                 ensurePresentationPopupMenu();
+                window.addEventListener('scroll', _broadcastScrollState, { passive: true });
+                document.addEventListener('scroll', (e) => {
+                    if (e.target && (e.target.id === 'roster-list' || e.target.id === 'clr-timeline-bar')) {
+                        _broadcastScrollState();
+                    }
+                }, { passive: true, capture: true });
+
+                // Allow smooth mouse wheel horizontal scrolling on the timeline bar
+                document.addEventListener('wheel', (e) => {
+                    const timelineBar = e.target && e.target.closest ? e.target.closest('#clr-timeline-bar') : null;
+                    if (timelineBar && timelineBar.scrollWidth > timelineBar.clientWidth) {
+                        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                            timelineBar.scrollLeft += e.deltaY;
+                            e.preventDefault();
+                            if (!PRESENTATION_MODE) _broadcastScrollState();
+                        }
+                    }
+                }, { passive: false });
+
                 // Main window: respond to state requests from the presentation window
                 if (_presChannel) {
                     _presChannel.addEventListener('message', (e) => {
@@ -19006,6 +19210,9 @@ ${body}
                     }
 
                     this.renderCurrentPhase();
+                    if (!PRESENTATION_MODE && typeof _broadcastPresentationState === 'function') {
+                        _broadcastPresentationState();
+                    }
                     if (typeof showToast === 'function') showToast('Lesson Plan Loaded: ' + (plan.title || 'Untitled'));
                 },
 
@@ -19014,6 +19221,9 @@ ${body}
                     this.activePhaseIndex = 0;
                     var container = document.getElementById('cms-lesson-runner-container');
                     if (container) container.style.display = 'none';
+                    if (!PRESENTATION_MODE && typeof _broadcastPresentationState === 'function') {
+                        _broadcastPresentationState();
+                    }
                 },
 
                 renderCurrentPhase: function () {
@@ -19063,7 +19273,7 @@ ${body}
                         phases.forEach(function (p, idx) {
                             var pSpan = self.getPhaseTimeSpan(idx);
                             var chip = document.createElement('div');
-                            chip.style.cssText = 'padding:2px 8px; border-radius:4px; border:1px solid #111; cursor:pointer; white-space:nowrap; flex-shrink:0; font-weight:700; transition:all 0.15s;';
+                            chip.style.cssText = 'padding:2px 8px; border-radius:4px; border:1px solid #111; cursor:' + (PRESENTATION_MODE ? 'default' : 'pointer') + '; white-space:nowrap; flex-shrink:0; font-weight:700; transition:opacity 0.15s ease, background 0.15s ease, color 0.15s ease;';
                             if (idx === self.activePhaseIndex) {
                                 chip.style.background = '#111';
                                 chip.style.color = '#fff';
@@ -19072,12 +19282,21 @@ ${body}
                                 chip.style.color = '#374151';
                             }
                             chip.innerHTML = (idx + 1) + '. ' + pSpan.startStr + '-' + pSpan.endStr + ' <span style="font-weight:400; opacity:0.85;">' + escapeHtml(p.title || 'Phase') + '</span>';
-                            chip.onclick = function () {
-                                self.activePhaseIndex = idx;
-                                self.renderCurrentPhase();
-                            };
+                            if (!PRESENTATION_MODE) {
+                                chip.onclick = function () {
+                                    self.activePhaseIndex = idx;
+                                    self.renderCurrentPhase();
+                                };
+                            }
                             timelineEl.appendChild(chip);
                         });
+
+                        if (!PRESENTATION_MODE) {
+                            var activeChip = timelineEl.children[self.activePhaseIndex];
+                            if (activeChip) {
+                                activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                            }
+                        }
                     }
 
                     // Auto-preset timer duration
@@ -19093,6 +19312,14 @@ ${body}
                     // Broadcast to presentation window
                     if (_presChannel && !PRESENTATION_MODE) {
                         try {
+                            const timelineEl = document.getElementById('clr-timeline-bar');
+                            let timelineScrollLeft = null;
+                            let timelineScrollRatio = null;
+                            if (timelineEl && timelineEl.scrollWidth > timelineEl.clientWidth) {
+                                const maxTimelineScroll = timelineEl.scrollWidth - timelineEl.clientWidth;
+                                timelineScrollLeft = timelineEl.scrollLeft;
+                                timelineScrollRatio = maxTimelineScroll > 0 ? (timelineEl.scrollLeft / maxTimelineScroll) : 0;
+                            }
                             _presChannel.postMessage({
                                 type: 'lesson-phase',
                                 phaseIndex: this.activePhaseIndex,
@@ -19102,7 +19329,9 @@ ${body}
                                 startTimeStr: currentSpan.startStr,
                                 endTimeStr: currentSpan.endStr,
                                 studentPrompt: phase.studentAction || '',
-                                activityType: phase.activityTypeId || ''
+                                activityType: phase.activityTypeId || '',
+                                timelineScrollLeft: timelineScrollLeft != null ? Math.round(timelineScrollLeft) : null,
+                                timelineScrollRatio: timelineScrollRatio
                             });
                         } catch (_) {}
                     }

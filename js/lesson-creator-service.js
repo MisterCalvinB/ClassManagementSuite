@@ -9,24 +9,24 @@
 
   // ── 1. Default Activity Types ──────────────────────────────────────────────
   LessonCreatorService.DEFAULT_ACTIVITY_TYPES = [
-    { id: 'warm_up', name: 'Warm-up / Bell Ringer', icon: 'zap.svg', color: '#f59e0b', bg: '#fef3c7' },
-    { id: 'direct_instruction', name: 'Direct Instruction / Mini-Lesson', icon: 'presentation.svg', color: '#2563eb', bg: '#dbeafe' },
-    { id: 'guided_practice', name: 'Guided Practice', icon: 'user-check.svg', color: '#059669', bg: '#d1fae5' },
-    { id: 'independent_work', name: 'Independent Practice', icon: 'file-text.svg', color: '#4f46e5', bg: '#e0e7ff' },
-    { id: 'group_activity', name: 'Group Task / Cooperative Task', icon: 'people-group.svg', color: '#7c3aed', bg: '#ede9fe' },
-    { id: 'discussion', name: 'Class Discussion / Socratic', icon: 'speech-bubbles.svg', color: '#db2777', bg: '#fce7f3' },
-    { id: 'assessment', name: 'Formative Check / Quiz', icon: 'quiz.svg', color: '#dc2626', bg: '#fee2e2' },
-    { id: 'plenary', name: 'Plenary / Exit Ticket', icon: 'check.svg', color: '#0d9488', bg: '#ccfbf1' }
+    { id: 'warm_up', name: 'Warm-up / Bell Ringer', shortName: 'Warm-up', icon: 'zap.svg', color: '#b45309', bg: '#fef3c7' },
+    { id: 'direct_instruction', name: 'Direct Instruction / Mini-Lesson', shortName: 'Direct Instruction', icon: 'presentation.svg', color: '#1d4ed8', bg: '#dbeafe' },
+    { id: 'guided_practice', name: 'Guided Practice', shortName: 'Guided Practice', icon: 'user-check.svg', color: '#047857', bg: '#d1fae5' },
+    { id: 'independent_work', name: 'Independent Practice', shortName: 'Independent', icon: 'file-text.svg', color: '#4338ca', bg: '#e0e7ff' },
+    { id: 'group_activity', name: 'Group Task / Cooperative Task', shortName: 'Group Task', icon: 'people-group.svg', color: '#6d28d9', bg: '#ede9fe' },
+    { id: 'discussion', name: 'Class Discussion / Socratic', shortName: 'Discussion', icon: 'speech-bubbles.svg', color: '#be185d', bg: '#fce7f3' },
+    { id: 'assessment', name: 'Formative Check / Quiz', shortName: 'Quiz / Check', icon: 'quiz.svg', color: '#b91c1c', bg: '#fee2e2' },
+    { id: 'plenary', name: 'Plenary / Exit Ticket', shortName: 'Plenary', icon: 'check.svg', color: '#0f766e', bg: '#ccfbf1' }
   ];
 
   // ── 2. Default Student Interaction Types ────────────────────────────────────
   LessonCreatorService.DEFAULT_INTERACTION_TYPES = [
-    { id: 'whole_class', name: 'Whole Class', icon: 'people-group.svg' },
-    { id: 'teacher_led', name: 'Teacher-Led', icon: 'presentation.svg' },
-    { id: 'individual', name: 'Individual (Solo)', icon: 'user-check.svg' },
-    { id: 'pairs', name: 'Pair Work (Turn & Talk)', icon: 'group.svg' },
-    { id: 'small_groups', name: 'Small Groups (3-4)', icon: 'groups.svg' },
-    { id: 'stations', name: 'Stations / Carousel', icon: 'refresh.svg' }
+    { id: 'whole_class', name: 'Whole Class', shortName: 'Whole Class', icon: 'people-group.svg' },
+    { id: 'teacher_led', name: 'Teacher-Led', shortName: 'Teacher-Led', icon: 'presentation.svg' },
+    { id: 'individual', name: 'Individual (Solo)', shortName: 'Solo', icon: 'user-check.svg' },
+    { id: 'pairs', name: 'Pair Work (Turn & Talk)', shortName: 'Pairs', icon: 'group.svg' },
+    { id: 'small_groups', name: 'Small Groups (3-4)', shortName: 'Small Groups', icon: 'groups.svg' },
+    { id: 'stations', name: 'Stations / Carousel', shortName: 'Stations', icon: 'refresh.svg' }
   ];
 
   // ── 3. Default Year Levels & Semesters ──────────────────────────────────────

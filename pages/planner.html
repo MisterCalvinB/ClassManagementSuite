@@ -2162,6 +2162,24 @@
         plannerLessonPlansList = newList.sort(function (a, b) {
           return String(b.date || '').localeCompare(String(a.date || '')) || String(a.title || '').localeCompare(String(b.title || ''));
         });
+
+        // Automatically sync lessonPlanId on matching planner entries if not already set
+        var entriesModified = false;
+        if (Array.isArray(entries)) {
+          entries.forEach(function (e) {
+            if (!e || e.lessonPlanId === '__unlinked__') return;
+            if (!e.lessonPlanId) {
+              var lp = plannerLessonPlanForSlot(null, e);
+              if (lp && lp.plan && lp.plan.id) {
+                e.lessonPlanId = lp.plan.id;
+                entriesModified = true;
+              }
+            }
+          });
+        }
+        if (entriesModified && typeof persistEntries === 'function') {
+          persistEntries().catch(function () {});
+        }
         hadChanges = true;
       } catch (_) {}
 
@@ -2181,7 +2199,7 @@
 
     function plannerLessonPlanForSlot(slot, entry) {
       if (entry) {
-        if (entry.lessonPlanId === null || entry.lessonPlanId === false || entry.lessonPlanId === '') {
+        if (entry.lessonPlanId === '__unlinked__') {
           return { linkId: '', plan: null };
         }
         if (entry.lessonPlanId && plannerLessonPlansByEntryId[String(entry.lessonPlanId)]) {
@@ -2189,6 +2207,18 @@
         }
         if (entry.id && plannerLessonPlansByEntryId[String(entry.id)]) {
           return { linkId: String(entry.id), plan: plannerLessonPlansByEntryId[String(entry.id)] };
+        }
+        if (entry.classId && entry.date) {
+          var list = plannerLessonPlansBySlotKey[String(entry.classId) + ':' + String(entry.date)];
+          if (list && list.length) {
+            var matchingPlan = list.find(function (p) {
+              if (!p.plannerEntryId) return true;
+              return p.plannerEntryId === entry.id || !_entriesById[p.plannerEntryId];
+            });
+            if (matchingPlan) {
+              return { linkId: matchingPlan.id, plan: matchingPlan };
+            }
+          }
         }
         return { linkId: '', plan: null };
       }
@@ -3966,6 +3996,20 @@
       if (lpLink && lpLink.plan && lpLink.plan.id) {
         openLinkedLessonPlan(lpLink.plan.id);
       } else {
+        if (!entry && source.date && source.classId) {
+          entry = {
+            id: uid(),
+            classId: source.classId,
+            date: source.date,
+            time: source.time || '',
+            timeEnd: source.timeEnd || '',
+            type: 'lesson',
+            topic: source.topic || '',
+            lessonPlanId: ''
+          };
+          entries.push(entry);
+          persistEntries();
+        }
         openLinkedLessonPlan('', source.classId, source.date, entry ? entry.id : '', source.topic || '');
       }
     }
@@ -3983,7 +4027,7 @@
       var planToUnlink = lpLink ? lpLink.plan : null;
 
       if (entry) {
-        entry.lessonPlanId = null;
+        entry.lessonPlanId = '__unlinked__';
         await persistEntries();
         delete plannerLessonPlansByEntryId[String(entry.id)];
       }
@@ -4089,6 +4133,21 @@
       if (lpLink && lpLink.plan && lpLink.plan.id) {
         openLinkedLessonPlan(lpLink.plan.id);
       } else {
+        if (!entry && draft && draft.date && draft.classId) {
+          entry = {
+            id: uid(),
+            classId: draft.classId,
+            date: draft.date,
+            time: draft.time || '',
+            timeEnd: draft.timeEnd || '',
+            type: draft.type || 'lesson',
+            topic: draft.topic || '',
+            lessonPlanId: ''
+          };
+          entries.push(entry);
+          editingId = entry.id;
+          persistEntries();
+        }
         openLinkedLessonPlan('', source.classId, source.date, entry ? entry.id : '', source.topic || '');
       }
     }
@@ -4191,7 +4250,7 @@
       var planToUnlink = lpLink ? lpLink.plan : null;
 
       if (entry) {
-        entry.lessonPlanId = null;
+        entry.lessonPlanId = '__unlinked__';
         await persistEntries();
         delete plannerLessonPlansByEntryId[String(entry.id)];
       }
@@ -4289,6 +4348,20 @@
       var ent = _pendingLpLinkEntry;
       closeModal('lpLinkModal');
       if (src) {
+        if (!ent && src.date && src.classId) {
+          ent = {
+            id: uid(),
+            classId: src.classId,
+            date: src.date,
+            time: src.time || '',
+            timeEnd: src.timeEnd || '',
+            type: 'lesson',
+            topic: src.topic || '',
+            lessonPlanId: ''
+          };
+          entries.push(ent);
+          persistEntries();
+        }
         openLinkedLessonPlan('', src.classId, src.date, ent ? ent.id : '', src.topic || '');
       }
     }
@@ -8583,6 +8656,14 @@
         }
         if (data && (data.filename === 'planner-config.js' || data.filename === 'class-groups.js' || data.subdir === 'planner')) {
           showDataChangedBanner(data);
+        }
+      });
+
+      window.addEventListener('focus', function () {
+        if (typeof loadSavedLessonPlans === 'function') {
+          loadSavedLessonPlans().then(function () {
+            if (typeof render === 'function') render();
+          });
         }
       });
     })();

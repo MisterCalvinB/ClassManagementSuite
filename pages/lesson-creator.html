@@ -837,6 +837,7 @@
           if (matchSlot) {
             currentPlan = matchSlot;
           } else {
+            currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
             if (classIdParam) currentPlan.classId = classIdParam;
             if (dateParam) currentPlan.date = dateParam;
             if (topicParam) currentPlan.title = topicParam;
@@ -1286,7 +1287,7 @@
             var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
             files.forEach(function (f) {
               if (f && f.filename) {
-                itemsToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename) });
+                itemsToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename), filename: f.filename });
               }
             });
 
@@ -1296,7 +1297,7 @@
               var rootFiles = (rootRes && rootRes.ok && Array.isArray(rootRes.files)) ? rootRes.files : [];
               rootFiles.forEach(function (rf) {
                 if (rf && rf.filename && rf.filename.startsWith('lp_')) {
-                  itemsToScan.push({ target: 'user', relPath: rf.filename });
+                  itemsToScan.push({ target: 'user', relPath: rf.filename, filename: rf.filename });
                 }
               });
             }
@@ -1308,6 +1309,9 @@
                 try {
                   var p = JSON.parse(contentRes.content);
                   if (p && p.id && !allSavedPlans.some(function (x) { return x.id === p.id; })) {
+                    p._filename = item.filename || item.relPath.split('/').pop();
+                    p._relPath = item.relPath;
+                    p._target = item.target;
                     allSavedPlans.push(p);
                   }
                 } catch (_) {}
@@ -1319,6 +1323,9 @@
                 try {
                   var p = JSON.parse(localStorage.getItem(k));
                   if (p && p.id && !allSavedPlans.some(function (x) { return x.id === p.id; })) {
+                    p._filename = 'lp_' + p.id + '.json';
+                    p._relPath = 'lessons/' + p._filename;
+                    p._target = 'lessons';
                     allSavedPlans.push(p);
                   }
                 } catch (_) {}
@@ -1500,8 +1507,6 @@
             '<span class="phase-number-badge">' + (idx + 1) + '</span>',
             '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value)">',
             '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + (sec.duration || 0) + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
-            '<select class="phase-activity-select" onchange="lcOnPhaseActivityChange(' + idx + ', this.value)">' + buildActivityOptions(sec.activityTypeId) + '</select>',
-            '<select class="phase-mode-select" onchange="lcOnPhaseModeChange(' + idx + ', this.value)">' + buildModeOptions(sec.interactionTypeId) + '</select>',
             '<div class="phase-actions-group">',
             '  <button class="icon-btn" onclick="lcOpenSplitModal(' + idx + ')" title="Split Phase">Split</button>',
             '  <button class="icon-btn" onclick="lcDuplicatePhase(' + idx + ')" title="Duplicate Phase">Duplicate</button>',
@@ -1509,6 +1514,21 @@
             '</div>'
           ].join('');
           card.appendChild(header);
+
+          // Pills Row: Activity & Mode Chips (allows no selection / toggle)
+          var pillsRow = document.createElement('div');
+          pillsRow.className = 'phase-pills-row';
+          pillsRow.innerHTML = [
+            '<div class="phase-pills-group">',
+            '  <span class="phase-pills-label">Activity:</span>',
+            '  <div class="phase-pills-list">' + buildActivityPills(sec.activityTypeId, idx) + '</div>',
+            '</div>',
+            '<div class="phase-pills-group">',
+            '  <span class="phase-pills-label">Mode:</span>',
+            '  <div class="phase-pills-list">' + buildModePills(sec.interactionTypeId, idx) + '</div>',
+            '</div>'
+          ].join('');
+          card.appendChild(pillsRow);
 
           // Body Row
           var body = document.createElement('div');
@@ -1526,15 +1546,35 @@
         });
       }
 
-      function buildActivityOptions(selectedId) {
-        return LessonCreatorService.DEFAULT_ACTIVITY_TYPES.map(function (a) {
-          return '<option value="' + a.id + '"' + (a.id === selectedId ? ' selected' : '') + '>' + a.name + '</option>';
+      function buildActivityPills(selectedId, phaseIndex) {
+        return (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).map(function (a) {
+          var isSelected = (a.id === selectedId);
+          var selectedClass = isSelected ? ' active' : '';
+          var inlineStyle = isSelected
+            ? ('background:' + (a.bg || '#fef3c7') + ';color:' + (a.color || '#111') + ';border-color:var(--neo-dark);font-weight:800;')
+            : '';
+          var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="">' : '';
+          var displayName = a.shortName || a.name || a.id;
+          return '<button type="button" class="phase-pill activity-pill' + selectedClass + '" ' +
+            'style="' + inlineStyle + '" ' +
+            'title="' + escapeHtml(a.name) + '" ' +
+            'onclick="lcTogglePhaseActivity(' + phaseIndex + ', \'' + escapeHtml(a.id) + '\')">' +
+            iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+            '</button>';
         }).join('');
       }
 
-      function buildModeOptions(selectedId) {
-        return LessonCreatorService.DEFAULT_INTERACTION_TYPES.map(function (m) {
-          return '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + m.name + '</option>';
+      function buildModePills(selectedId, phaseIndex) {
+        return (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).map(function (m) {
+          var isSelected = (m.id === selectedId);
+          var selectedClass = isSelected ? ' active' : '';
+          var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="">' : '';
+          var displayName = m.shortName || m.name || m.id;
+          return '<button type="button" class="phase-pill mode-pill' + selectedClass + '" ' +
+            'title="' + escapeHtml(m.name) + '" ' +
+            'onclick="lcTogglePhaseMode(' + phaseIndex + ', \'' + escapeHtml(m.id) + '\')">' +
+            iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+            '</button>';
         }).join('');
       }
 
@@ -1990,8 +2030,8 @@
           id: LessonCreatorService.generateId('sec'),
           title: 'New Phase',
           duration: 10,
-          activityTypeId: 'guided_practice',
-          interactionTypeId: 'pairs',
+          activityTypeId: '',
+          interactionTypeId: '',
           objective: '',
           teacherAction: '',
           studentAction: '',
@@ -2020,16 +2060,36 @@
         }
       };
 
+      window.lcTogglePhaseActivity = function (idx, activityId) {
+        if (currentPlan.sections && currentPlan.sections[idx]) {
+          var current = currentPlan.sections[idx].activityTypeId;
+          currentPlan.sections[idx].activityTypeId = (current === activityId) ? '' : activityId;
+          renderPhaseCards();
+          lcOnPlanDirty();
+        }
+      };
+
+      window.lcTogglePhaseMode = function (idx, modeId) {
+        if (currentPlan.sections && currentPlan.sections[idx]) {
+          var current = currentPlan.sections[idx].interactionTypeId;
+          currentPlan.sections[idx].interactionTypeId = (current === modeId) ? '' : modeId;
+          renderPhaseCards();
+          lcOnPlanDirty();
+        }
+      };
+
       window.lcOnPhaseActivityChange = function (idx, val) {
         if (currentPlan.sections[idx]) {
-          currentPlan.sections[idx].activityTypeId = val;
+          currentPlan.sections[idx].activityTypeId = val || '';
+          renderPhaseCards();
           lcOnPlanDirty();
         }
       };
 
       window.lcOnPhaseModeChange = function (idx, val) {
         if (currentPlan.sections[idx]) {
-          currentPlan.sections[idx].interactionTypeId = val;
+          currentPlan.sections[idx].interactionTypeId = val || '';
+          renderPhaseCards();
           lcOnPlanDirty();
         }
       };
@@ -2155,9 +2215,27 @@
 
         try {
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+            if (currentPlan._filename && currentPlan._filename !== filename) {
+              try {
+                if (typeof Desktop.deleteFile === 'function') {
+                  await Desktop.deleteFile('lessons', currentPlan._filename);
+                }
+                if (typeof Desktop.deleteByPath === 'function') {
+                  await Desktop.deleteByPath('lessons', currentPlan._filename);
+                  await Desktop.deleteByPath('user', 'lessons/' + currentPlan._filename);
+                }
+              } catch (_) {}
+            }
             await Desktop.saveJson('lessons', filename, currentPlan);
           } else {
             localStorage.setItem('cmt-lesson-' + currentPlan.id, JSON.stringify(currentPlan));
+          }
+          currentPlan._filename = filename;
+          currentPlan._relPath = 'lessons/' + filename;
+          currentPlan._target = 'lessons';
+
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+            Desktop.notifyDataChanged({ target: 'lessons', filename: filename });
           }
           isDirty = false;
           await loadSavedPlansIndex();
@@ -2195,6 +2273,8 @@
         var cloned = JSON.parse(JSON.stringify(currentPlan));
         cloned.id = LessonCreatorService.generateId('lp');
         cloned.title = cloned.title + ' (Copy)';
+        delete cloned._filename;
+        delete cloned._relPath;
         currentPlan = cloned;
         renderPlan();
         if (typeof showToast === 'function') showToast('Plan duplicated! Click Save to write to disk.');
@@ -2217,7 +2297,8 @@
         var targetId = planId || (currentPlan ? currentPlan.id : '');
         if (!targetId) return;
 
-        var title = planTitle || (targetId === currentPlan.id ? currentPlan.title : '') || 'Untitled';
+        var foundPlan = allSavedPlans.find(function (p) { return p.id === targetId; });
+        var title = planTitle || (foundPlan ? foundPlan.title : '') || (currentPlan && targetId === currentPlan.id ? currentPlan.title : '') || 'Untitled';
         var confirmMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcConfirmDeletePlan') : '') || 'Are you sure you want to permanently delete this lesson plan?';
         confirmMsg += '\n\n"' + title + '"';
 
@@ -2229,31 +2310,39 @@
         }
         if (!confirmed) return;
 
-        var fnToDelete = filename;
-        if (!fnToDelete) {
-          var found = allSavedPlans.find(function (p) { return p.id === targetId; });
-          if (found && found._filename) fnToDelete = found._filename;
-          else if (found && found._relPath) fnToDelete = found._relPath.split('/').pop();
-        }
+        var fnToDelete = filename || (foundPlan ? foundPlan._filename : '') || (foundPlan && foundPlan._relPath ? foundPlan._relPath.split('/').pop() : '');
+        var relPath = (foundPlan && foundPlan._relPath) ? foundPlan._relPath : (fnToDelete ? ('lessons/' + fnToDelete) : '');
 
         try {
           if (window.Desktop && Desktop.isElectron()) {
+            if (relPath && typeof Desktop.deleteByPath === 'function') {
+              await Desktop.deleteByPath('user', relPath).catch(function () {});
+            }
             if (fnToDelete) {
-              var relPath = fnToDelete.startsWith('lessons/') ? fnToDelete : ('lessons/' + fnToDelete);
-              if (typeof Desktop.deleteByPath === 'function') {
-                await Desktop.deleteByPath('user', relPath);
-              } else if (typeof Desktop.deleteFiles === 'function') {
-                await Desktop.deleteFiles('lessons', [fnToDelete]);
+              if (typeof Desktop.deleteFile === 'function') {
+                await Desktop.deleteFile('lessons', fnToDelete).catch(function () {});
               }
-            } else if (typeof Desktop.deleteFiles === 'function') {
-              await Desktop.deleteFiles('lessons', ['lp_' + targetId + '.json']);
+              if (typeof Desktop.deleteByPath === 'function') {
+                await Desktop.deleteByPath('lessons', fnToDelete).catch(function () {});
+                await Desktop.deleteByPath('user', 'lessons/' + fnToDelete).catch(function () {});
+              }
+            }
+            if (typeof Desktop.deleteFile === 'function') {
+              await Desktop.deleteFile('lessons', 'lp_' + targetId + '.json').catch(function () {});
+            }
+            if (typeof Desktop.deleteByPath === 'function') {
+              await Desktop.deleteByPath('lessons', 'lp_' + targetId + '.json').catch(function () {});
+              await Desktop.deleteByPath('user', 'lessons/lp_' + targetId + '.json').catch(function () {});
+              await Desktop.deleteByPath('user', 'lp_' + targetId + '.json').catch(function () {});
             }
             if (typeof Desktop.notifyDataChanged === 'function') {
-              Desktop.notifyDataChanged({ target: 'lessons' });
+              Desktop.notifyDataChanged({ target: 'lessons', filename: fnToDelete || ('lp_' + targetId + '.json') });
             }
-          } else {
-            localStorage.removeItem('cmt-lesson-' + targetId);
           }
+
+          localStorage.removeItem('cmt-lesson-' + targetId);
+
+          allSavedPlans = allSavedPlans.filter(function (p) { return p.id !== targetId; });
 
           await loadSavedPlansIndex();
 
@@ -2275,6 +2364,10 @@
         await loadSavedPlansIndex();
         renderSavedPlansList();
         document.getElementById('openPlanModal').style.display = 'flex';
+      };
+
+      window.lcFilterSavedPlans = function () {
+        renderSavedPlansList();
       };
 
       function renderSavedPlansList() {
