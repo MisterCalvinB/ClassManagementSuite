@@ -2402,8 +2402,8 @@
         <div class="con-tb-group" id="con-title-group">
           <!--<span class="con-tb-group-label" style="visibility:hidden;">_</span>-->
           <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
-            onchange="conSetTitle(this.value); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();"
-            onkeyup="conSetTitle(this.value); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();">
+            oninput="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();"
+            onchange="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();">
           <button id="con-rename-file-btn" class="action-btn btn-grey" onclick="conRenameCurrentFileFromInput()"
             style="display:none; margin-left: 2px;" title="Rename the board file on disk to match this title">Rename
             file</button>
@@ -7602,6 +7602,7 @@
       _conBoardBgColor = normalized;
       conApplyBoardBgColor();
       if (!opts || !opts.silent) {
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof mdbToast === 'function') {
           mdbToast(normalized ? '🎨 Board background updated.' : '🧼 Board background reset.');
         }
@@ -7750,6 +7751,7 @@
         board.style.backgroundRepeat = '';
         board.style.backgroundPosition = '';
       }
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       if (typeof mdbToast === 'function') mdbToast('🗑 Page background cleared.');
     };
 
@@ -14330,6 +14332,7 @@
         const strip = document.getElementById('con-page-mini-strip');
         if (strip) strip.dataset.pageCount = '';
         conUpdatePageBar();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof mdbToast === 'function') {
           mdbToast('📋 Duplicated page ' + (idx + 1));
         }
@@ -14364,6 +14367,7 @@
         const strip = document.getElementById('con-page-mini-strip');
         if (strip) strip.dataset.pageCount = '';
         conUpdatePageBar();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof mdbToast === 'function') {
           mdbToast('🗑️ Deleted page ' + (idx + 1));
         }
@@ -14396,6 +14400,7 @@
         const strip = document.getElementById('con-page-mini-strip');
         if (strip) strip.dataset.pageCount = '';
         conUpdatePageBar();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof mdbToast === 'function') {
           mdbToast('↔️ Moved page ' + (fromIdx + 1) + ' to position ' + (toIdx + 1));
         }
@@ -14612,6 +14617,7 @@
         conCurrentPageIndex = conPageSnapshots.length - 1;
         _conRestorePageToBoard(conBuildEmptyPageSnapshot());
         conUpdatePageBar();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       };
 
       window.conGoToPage = function (idx) {
@@ -14862,6 +14868,7 @@
         conCurrentPageIndex = insertIdx;
         _conRestorePageToBoard(clones[0]);
         conUpdatePageBar();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof conTriggerLivePageSnapshot === 'function') {
           conTriggerLivePageSnapshot();
         }
@@ -20869,7 +20876,32 @@
       }
 
       let _lastConCopiedText = null;
+      let _lastConCopiedOsText = null;
       let _lastConCopyTime = 0;
+
+      async function _conWriteOsClipboardText(text) {
+        const str = String(text || '');
+        if (window.Desktop && typeof window.Desktop.clipboardWriteText === 'function') {
+          try { await window.Desktop.clipboardWriteText(str); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
+          try { await window.electronApi.clipboardWriteText(str); } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try { await navigator.clipboard.writeText(str); } catch (e) {}
+        }
+      }
+
+      async function _conReadOsClipboardText() {
+        if (window.Desktop && typeof window.Desktop.clipboardReadText === 'function') {
+          try { return await window.Desktop.clipboardReadText(); } catch (e) {}
+        } else if (window.electronApi && typeof window.electronApi.clipboardReadText === 'function') {
+          try { return await window.electronApi.clipboardReadText(); } catch (e) {}
+        }
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          try { return await navigator.clipboard.readText(); } catch (e) {}
+        }
+        return null;
+      }
 
       function conClipboardSelectionSummary() {
         const nodeIds = new Set();
@@ -21403,8 +21435,10 @@
         _conClipboardWrite(payload);
         _lastConCopiedText = payload.plainText || '';
         _lastConCopyTime = Date.now();
-        if (payload.plainText && navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(payload.plainText).catch(() => {});
+        const textToWrite = payload.plainText || '';
+        _lastConCopiedOsText = textToWrite;
+        if (textToWrite) {
+          _conWriteOsClipboardText(textToWrite);
         }
         const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length;
         if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
@@ -21424,8 +21458,10 @@
         _conClipboardWrite(payload);
         _lastConCopiedText = payload.plainText || '';
         _lastConCopyTime = Date.now();
-        if (payload.plainText && navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(payload.plainText).catch(() => {});
+        const textToWrite = payload.plainText || '';
+        _lastConCopiedOsText = textToWrite;
+        if (textToWrite) {
+          _conWriteOsClipboardText(textToWrite);
         }
         conPushUndo();
         conClipboardDeletePayload(payload);
@@ -21543,73 +21579,57 @@
            (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
            (_pasteTarget.shapes && _pasteTarget.shapes.length));
 
-        if (osPlainText != null) {
-          const plain = String(osPlainText || '').trim();
+        const plain = String(osPlainText || '').trim();
 
-          // Check if internal payload was copied and OS clipboard text matches it or is empty
-          const isInternalCopyMatch = hasValidInternalPayload && (
-            !plain ||
-            plain === (_pasteTarget.plainText || '').trim() ||
-            plain === (_lastConCopiedText || '').trim()
-          );
+        // 4. Disambiguate Internal Board payload vs External Clipboard
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
+        );
 
-          if (isInternalCopyMatch) {
-            if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
-            conPushUndo();
-            const ok = conClipboardPastePayload(_pasteTarget);
-            if (ok && typeof mdbToast === 'function') {
-              const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
-              mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
-            }
-            return ok;
+        if (isInternalCopyMatch) {
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
           }
+          return ok;
+        }
 
-          // Check for Table (HTML / TSV) from OS clipboard
-          const mockClip = {
-            getData: (t) => t === 'text/html' ? osHtml : (t === 'text/plain' ? (osPlainText || '') : '')
-          };
-          if (typeof wnPasteAsConTable === 'function' && ((osHtml && osHtml.includes('<table')) || (plain && plain.includes('\t') && plain.includes('\n')))) {
-            if (wnPasteAsConTable(mockClip, x, y)) {
-              if (typeof mdbToast === 'function') mdbToast('📊 Pasted table onto the board.');
+        // 5. Check for Table (HTML / TSV) from OS clipboard
+        const mockClip = {
+          getData: (t) => t === 'text/html' ? osHtml : (t === 'text/plain' ? (osPlainText || '') : '')
+        };
+        if (typeof wnPasteAsConTable === 'function' && ((osHtml && osHtml.includes('<table')) || (plain && plain.includes('\t') && plain.includes('\n')))) {
+          if (wnPasteAsConTable(mockClip, x, y)) {
+            if (typeof mdbToast === 'function') mdbToast('📊 Pasted table onto the board.');
+            return true;
+          }
+        }
+
+        // 6. External plain text: paste as a new text note
+        if (plain) {
+          conPushUndo();
+          if (window.conCreateTextNote) {
+            const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
+            if (note) {
+              conClipboardClearVisualSelection();
+              if (typeof conNoteSelected !== 'undefined') {
+                conNoteSelected.add(note.id);
+                const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
+                if (el) el.classList.add('wn-selected');
+              }
+              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
               return true;
             }
           }
-
-          // External plain text: paste as a new text note
-          if (plain) {
-            conPushUndo();
-            if (window.conCreateTextNote) {
-              const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
-              if (note) {
-                conClipboardClearVisualSelection();
-                if (typeof conNoteSelected !== 'undefined') {
-                  conNoteSelected.add(note.id);
-                  const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
-                  if (el) el.classList.add('wn-selected');
-                }
-                if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
-                return true;
-              }
-            }
-          }
-
-          // If no plain text in OS clipboard but internal payload exists
-          if (hasValidInternalPayload) {
-            if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
-            conPushUndo();
-            const ok = conClipboardPastePayload(_pasteTarget);
-            if (ok && typeof mdbToast === 'function') {
-              const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
-              mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
-            }
-            return ok;
-          }
-
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ Clipboard is empty. Copy something first.');
-          return false;
         }
 
-        // If OS clipboard text was not accessible, fallback to internal clipboard
+        // 7. If no plain text in OS clipboard but internal payload exists
         if (hasValidInternalPayload) {
           if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
           conPushUndo();
@@ -22016,17 +22036,24 @@
            (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
            (_pasteTarget.shapes && _pasteTarget.shapes.length));
 
-        // If internal payload was copied and the OS clipboard either matches its plain text
-        // or the user hasn't copied a different external plain text string, paste the internal payload
+        // If internal payload was copied and the OS clipboard matches the copied text,
+        // or hasn't changed since copy, or is empty, paste the internal payload
         const isInternalCopyMatch = hasValidInternalPayload && (
           !plain ||
           plain === (_pasteTarget.plainText || '').trim() ||
-          plain === (_lastConCopiedText || '').trim()
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
         );
 
         if (isInternalCopyMatch) {
           e.preventDefault();
-          window.conClipboardPaste({ allowWhileTyping: false });
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
           return;
         }
 
@@ -22052,7 +22079,13 @@
         // 5. If no plain text in OS clipboard but internal payload exists, paste internal payload
         if (hasValidInternalPayload) {
           e.preventDefault();
-          window.conClipboardPaste({ allowWhileTyping: false });
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
         }
       });
 
@@ -23484,6 +23517,13 @@
         _initTitleInput.value = _initTs;
         if (window.conSetTitle) window.conSetTitle(_initTs);
       }
+      setTimeout(() => {
+        if (typeof boardSetAutosaveFingerprint === 'function' && typeof conBuildSessionData === 'function') {
+          boardSetAutosaveFingerprint('constellation', conBuildSessionData());
+        }
+        _boardIsDirty = false;
+        _boardInitComplete = true;
+      }, 250);
       setTimeout(() => {
         populateAllThemeMenus();
         if (typeof populateGrammarMenu === 'function') populateGrammarMenu();
@@ -28413,18 +28453,7 @@
     }
 
     async function boardExportSessionsBeforeQuit() {
-      if (!(window.Desktop && Desktop.isElectron())) {
-        return { ok: false, reason: 'not-electron' };
-      }
-
-      // Await-save any currently loaded files so they are written before Electron quits.
-      // Manual saves are always written to disk immediately, so there is nothing else to export.
-      const _loadedSavePromises = ['constellation', 'textanalysis', 'notes']
-        .map(s => { try { return boardAutosaveSection(s, { force: true }); } catch (e) { return null; } })
-        .filter(p => p instanceof Promise);
-      await Promise.all(_loadedSavePromises);
-
-      return { ok: true, exported: _loadedSavePromises.length };
+      return { ok: true };
     }
 
     window.boardExportSessionsBeforeQuit = boardExportSessionsBeforeQuit;
@@ -28570,13 +28599,50 @@
       if (sessionLoadMode === section) renderSessionLoadPopup();
     }
 
+    function boardComputeFingerprint(section, data) {
+      if (section !== 'constellation') return '';
+      try {
+        const sessionData = (data && !data._isPageRestore) ? data : (typeof conBuildSessionData === 'function' ? conBuildSessionData() : null);
+        if (!sessionData) return '';
+        const clean = JSON.parse(JSON.stringify(sessionData));
+        delete clean._savedAt;
+        delete clean.savedAt;
+        delete clean._createdAt;
+        delete clean.dateCreated;
+        delete clean._version;
+        delete clean._revision;
+        delete clean.currentPage;
+        delete clean._mediaMap;
+        delete clean._thumbnails;
+
+        function cleanPageData(page) {
+          if (!page || typeof page !== 'object') return;
+          delete page._revision;
+          if (Array.isArray(page.notes)) {
+            page.notes.forEach(n => {
+              if (n) {
+                delete n.liveBaseWidth;
+                delete n.liveBaseHeight;
+              }
+            });
+          }
+        }
+        cleanPageData(clean);
+        if (Array.isArray(clean.pages)) {
+          clean.pages.forEach(cleanPageData);
+        }
+
+        const classGroup = typeof activeClassGroup === 'string' ? activeClassGroup : '';
+        const plannerId = typeof activePlannerEntryId === 'string' ? activePlannerEntryId : '';
+        return JSON.stringify(clean) + '|' + classGroup + '|' + plannerId;
+      } catch (e) {
+        return String(Date.now());
+      }
+    }
+
     function boardSetAutosaveFingerprint(section, data) {
       if (typeof _boardIsDirty !== 'undefined') _boardIsDirty = false;
-      try {
-        boardAutosaveFingerprint[section] = JSON.stringify(data) + '|' + (activeClassGroup || '');
-      } catch (e) {
-        boardAutosaveFingerprint[section] = String(Date.now()) + '|' + (activeClassGroup || '');
-      }
+      boardAutosaveFingerprint[section] = boardComputeFingerprint(section, data);
       if (typeof boardResetAutosaveInterval === 'function') {
         boardResetAutosaveInterval();
       }
@@ -29257,8 +29323,25 @@
 
     let _boardIsDirty = false;
     let _conIsRestoringSession = false;
+    let _boardInitComplete = false;
+    let _boardMutationTimer = null;
+
+    function _boardScheduleSave(section) {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      clearTimeout(_boardMutationTimer);
+      boardResetAutosaveInterval();
+      _boardMutationTimer = setTimeout(() => {
+        _boardMutationTimer = null;
+        if (!_conCurrentFileName && !_conCurrentFolderName) return;
+        if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
+        boardAutosaveSection(section, { force: false });
+      }, 45000);
+    }
+
     window.conMarkBoardDirty = function () {
+      if (_conIsRestoringSession || !_boardInitComplete) return;
       _boardIsDirty = true;
+      _boardScheduleSave('constellation');
     };
 
     let _conAutosaveHideTimer = null;
@@ -29300,7 +29383,7 @@
       if (section !== 'constellation') return;
       // Do not autosave if no constellation session file is currently opened
       if (!_conCurrentFileName && !_conCurrentFolderName) return;
-      if (!force && !_boardIsDirty && boardAutosaveFingerprint[section]) return;
+      if (!force && !_boardIsDirty) return;
 
       let data = null;
       let hasContent = false;
@@ -29313,10 +29396,8 @@
         return;
       }
 
-      let fp;
-      try { fp = JSON.stringify(data) + '|' + classGroup; }
-      catch (e) { fp = String(Date.now()) + '|' + classGroup; }
-      if (!force && boardAutosaveFingerprint[section] === fp) {
+      const fp = boardComputeFingerprint(section, data);
+      if (!force && boardAutosaveFingerprint[section] && boardAutosaveFingerprint[section] === fp) {
         _boardIsDirty = false;
         return;
       }
@@ -29408,39 +29489,6 @@
     function initBoardSessionAutosave() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
       boardResetAutosaveInterval();
-
-      // Debounced save: fires 45s after the last structural change on the board
-      let _boardMutationTimer = null;
-      function _boardScheduleSave(section) {
-        clearTimeout(_boardMutationTimer);
-        boardResetAutosaveInterval();
-        _boardMutationTimer = setTimeout(() => {
-          _boardMutationTimer = null;
-          if (!_conCurrentFileName && !_conCurrentFolderName) return;
-          if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
-          boardAutosaveSection(section, { force: false });
-        }, 45000);
-      }
-
-      // Watch constellation board for added/removed nodes and notes
-      const _conBoard = document.getElementById('constellation-board');
-      if (_conBoard) {
-        new MutationObserver((mutations) => {
-          if (_conIsRestoringSession) return;
-          const structural = mutations.some(m => m.addedNodes.length || m.removedNodes.length);
-          if (!structural) return;
-          _boardIsDirty = true;
-          _boardScheduleSave('constellation');
-        }).observe(_conBoard, { childList: true, subtree: true });
-      }
-
-      function _boardSaveOnWindowClose() {
-        if (_boardIsDirty && typeof boardAutosaveSection === 'function') {
-          boardAutosaveSection('constellation', { force: false });
-        }
-      }
-      window.addEventListener('beforeunload', _boardSaveOnWindowClose);
-      window.addEventListener('pagehide', _boardSaveOnWindowClose);
     }
 
     // Shared helper: returns one {trans,ipa,def} object per DB entry for a word.

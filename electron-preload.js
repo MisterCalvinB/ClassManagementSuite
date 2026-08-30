@@ -403,6 +403,15 @@ const exposedApi = {
     }
     return invoke('app:clipboard-read-image');
   },
+  clipboardWriteText(text) {
+    if (clipboard && typeof clipboard.writeText === 'function') {
+      try {
+        clipboard.writeText(String(text || ''));
+        return true;
+      } catch (e) {}
+    }
+    return invoke('app:clipboard-write-text', text);
+  },
 };
 
 if (contextBridge && typeof contextBridge.exposeInMainWorld === 'function') {

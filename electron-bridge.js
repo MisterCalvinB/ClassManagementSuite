@@ -878,6 +878,24 @@
     return null;
   }
 
+  async function clipboardWriteText(text) {
+    const api = getDesktopApi();
+    if (api && typeof api.clipboardWriteText === 'function') {
+      try {
+        return await api.clipboardWriteText(text);
+      } catch (e) {
+        console.error('electron-bridge: clipboardWriteText error:', e);
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(String(text || ''));
+        return true;
+      } catch (e) {}
+    }
+    return false;
+  }
+
   window.Desktop = Object.freeze({
     applyRestoreChoices,
     arrangeSideBySide,
@@ -885,6 +903,7 @@
     clipboardReadText,
     clipboardReadHtml,
     clipboardReadImage,
+    clipboardWriteText,
     duplicateByPath,
     exportFiles,
     goToLauncher,

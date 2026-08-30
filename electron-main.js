@@ -647,7 +647,6 @@ function createToolWindow(pageFile, options = {}) {
   const win = new BrowserWindow(browserOpts);
 
   setupWindowExternalLinkHandling(win);
-  let closingAfterExport = false;
   win.on('close', (event) => {
     const currentPage = getLoadedPageFile(win);
 
@@ -664,26 +663,6 @@ function createToolWindow(pageFile, options = {}) {
     if (currentPage === PAGE_FILES.oralMarking && oralPresenterWindow && !oralPresenterWindow.isDestroyed()) {
       oralPresenterWindow.close();
     }
-
-    if (closingAfterExport) {
-      return;
-    }
-    if (currentPage !== PAGE_FILES.board) {
-      return;
-    }
-
-    event.preventDefault();
-    closingAfterExport = true;
-    win.webContents.executeJavaScript(
-      'window.boardExportSessionsBeforeQuit ? window.boardExportSessionsBeforeQuit() : null',
-      true
-    ).catch((error) => {
-      console.error('Failed to export board sessions before quit:', error);
-    }).finally(() => {
-      if (!win.isDestroyed()) {
-        win.close();
-      }
-    });
   });
   loadTool(pageFile, win, options).catch((error) => {
     console.error(`Failed to load ${pageFile} in new window:`, error);
@@ -745,30 +724,8 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
   mainWindow.once('show', () => clearTimeout(showFallbackTimer));
 
   setupWindowExternalLinkHandling(mainWindow);
-  mainWindow.on('close', (event) => {
-    if (mainWindowClosingAfterExport) {
-      return;
-    }
-    if (getLoadedPageFile(mainWindow) !== PAGE_FILES.board) {
-      return;
-    }
-
-    event.preventDefault();
-    mainWindowClosingAfterExport = true;
-    mainWindow.webContents.executeJavaScript(
-      'window.boardExportSessionsBeforeQuit ? window.boardExportSessionsBeforeQuit() : null',
-      true
-    ).catch((error) => {
-      console.error('Failed to export board sessions before quit:', error);
-    }).finally(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.close();
-      }
-    });
-  });
   mainWindow.on('closed', () => {
     mainWindow = null;
-    mainWindowClosingAfterExport = false;
   });
 
   loadTool(initialPageFile, mainWindow).catch((error) => {
@@ -7734,6 +7691,16 @@ ipcMain.handle('app:clipboard-read-image', () => {
   } catch (e) {
     return '';
   }
+});
+
+ipcMain.handle('app:clipboard-write-text', (_event, text) => {
+  try {
+    if (clipboard && typeof clipboard.writeText === 'function') {
+      clipboard.writeText(String(text || ''));
+      return true;
+    }
+  } catch (e) {}
+  return false;
 });
 
 ipcMain.handle('app:export-docx', async (event, request = {}) => {
