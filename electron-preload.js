@@ -44,6 +44,9 @@ const exposedApi = {
   getLatestCrashDump() {
     return invoke('app:get-latest-crash-dump');
   },
+  getScreenSources(request) {
+    return invoke('app:get-screen-sources', request);
+  },
   saveFile(request) {
     return invoke('app:save-file', request);
   },

@@ -905,6 +905,18 @@
     return false;
   }
 
+  async function getScreenSources(types) {
+    const api = getDesktopApi();
+    if (api && typeof api.getScreenSources === 'function') {
+      try {
+        return await api.getScreenSources({ types: types || ['screen', 'window'] });
+      } catch (e) {
+        return { ok: false, error: e?.message || String(e) };
+      }
+    }
+    return { ok: false, error: 'Screen capture API unavailable' };
+  }
+
   window.Desktop = Object.freeze({
     applyRestoreChoices,
     arrangeSideBySide,
@@ -915,6 +927,7 @@
     clipboardWriteText,
     duplicateByPath,
     exportFiles,
+    getScreenSources,
     goToLauncher,
     closeWindow,
     isElectron,

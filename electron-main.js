@@ -1,5 +1,5 @@
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
-const { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
+const { app, BrowserWindow, clipboard, crashReporter, desktopCapturer, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
 
 try {
   app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096 --expose-gc');
@@ -8036,6 +8036,28 @@ ipcMain.handle('app:get-latest-crash-dump', async () => {
   }
 });
 
+ipcMain.handle('app:get-screen-sources', async (_event, request = {}) => {
+  try {
+    const types = request.types || ['screen', 'window'];
+    const sources = await desktopCapturer.getSources({
+      types,
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: true
+    });
+    return {
+      ok: true,
+      sources: sources.map(s => ({
+        id: s.id,
+        name: s.name,
+        thumbnail: s.thumbnail ? s.thumbnail.toDataURL() : '',
+        appIcon: s.appIcon ? s.appIcon.toDataURL() : ''
+      }))
+    };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
 app.whenReady().then(async () => {
   startMemoryHeartbeat();
   let initialPageFile = getInitialPageFile();
@@ -8047,12 +8069,29 @@ app.whenReady().then(async () => {
   }
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (permission === 'media') {
+    if (permission === 'media' || permission === 'display-capture' || permission === 'microphone' || permission === 'audio-capture') {
       callback(true);
     } else {
       callback(false);
     }
   });
+
+  if (typeof session.defaultSession.setDisplayMediaRequestHandler === 'function') {
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      desktopCapturer.getSources({ types: ['screen', 'window'] }).then((sources) => {
+        const currentWin = BrowserWindow.fromWebContents(request.frame?.webContents || request.webContents);
+        let selectedSource = sources[0];
+        if (currentWin) {
+          const winTitle = currentWin.getTitle();
+          const matchingWin = sources.find(s => s.name === winTitle || (s.id && s.id.includes(String(currentWin.id))));
+          if (matchingWin) selectedSource = matchingWin;
+        }
+        callback({ video: selectedSource, audio: 'loopback' });
+      }).catch(() => {
+        callback({});
+      });
+    });
+  }
 
   if (firstRunDetected) {
     initialPageFile = PAGE_FILES.generalConfig;
