@@ -3357,7 +3357,7 @@ function buildZip(entries) {
     const nameBuf = Buffer.from(entry.name, 'utf8');
     const isStore = entry.store === true || entry.compressionMethod === 0;
     const method = isStore ? 0 : 8;
-    const compressed = isStore ? entry.data : zlib.deflateRawSync(entry.data, { level: 6 });
+    const compressed = isStore ? entry.data : zlib.deflateRawSync(entry.data, { level: 1 });
     const crc = crc32(entry.data);
     const { dosTime, dosDate } = msToDosDateTime(entry.mtimeMs);
 
@@ -3757,7 +3757,7 @@ ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
     } else {
       data = Buffer.from(String(entry.data || ''), 'utf8');
     }
-    const store = entry.store === true || entry.compressionMethod === 0;
+    const store = entry.store !== false && entry.compressionMethod !== 8;
     zipEntries.push({
       name,
       data,

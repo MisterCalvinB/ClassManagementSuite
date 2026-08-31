@@ -52,7 +52,7 @@
 
     const compiler = global.TypstLib.createTypstCompiler();
     await compiler.init({
-      getModule: () => compilerWasm,
+      getModule: () => ({ module_or_path: compilerWasm }),
       getWrapper: () => global.TypstLib.compilerModule,
       beforeBuild: [
         global.TypstLib.loadFonts(validFonts, { assets: false })
@@ -61,7 +61,7 @@
 
     const renderer = global.TypstLib.createTypstRenderer();
     await renderer.init({
-      getModule: () => rendererWasm,
+      getModule: () => ({ module_or_path: rendererWasm }),
       getWrapper: () => global.TypstLib.rendererModule
     });
 

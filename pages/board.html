@@ -2401,9 +2401,12 @@
         </div>
         <div class="con-tb-group" id="con-title-group">
           <!--<span class="con-tb-group-label" style="visibility:hidden;">_</span>-->
-          <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
-            oninput="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();"
-            onchange="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();">
+          <div class="con-title-wrap">
+            <input type="text" id="con-title-input" class="con-title-inline" placeholder="Board title" maxlength="60"
+              oninput="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();"
+              onchange="conSetTitle(this.value); if(typeof window.conMarkBoardDirty==='function')window.conMarkBoardDirty(); if(typeof conUpdateRenameButtonVisibility==='function')conUpdateRenameButtonVisibility();">
+            <span id="con-dirty-indicator" class="con-dirty-indicator" title="Unsaved changes" style="display:none;"></span>
+          </div>
           <button id="con-rename-file-btn" class="action-btn btn-grey" onclick="conRenameCurrentFileFromInput()"
             style="display:none; margin-left: 2px;" title="Rename the board file on disk to match this title">Rename
             file</button>
@@ -4350,9 +4353,9 @@
         if (_boardSaveSections[activeSection] && activeSection !== sectionId && typeof boardAutosaveSection === 'function') {
           if (_boardIsDirty) {
             boardAutosaveSection(_boardSaveSections[activeSection], { force: false });
-            // Save a real PNG snapshot of the current constellation page when navigating away
-            if (activeSection === 'constellation-section' && typeof conSaveCurrentPageSnapshotPng === 'function') {
-              conSaveCurrentPageSnapshotPng(conCurrentPageIndex);
+            // Save a real PNG snapshot of the current constellation page when navigating away (deferred to idle)
+            if (activeSection === 'constellation-section' && typeof conQueueCurrentPageSnapshotPng === 'function') {
+              conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
             }
           }
         }
@@ -9991,12 +9994,14 @@
         _conRedoStack.push(conBuildPageSnapshot());
         const snap = _conUndoStack.pop();
         _conRestorePageToBoard(snap);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
       function conRedo() {
         if (_conRedoStack.length === 0) return;
         _conUndoStack.push(conBuildPageSnapshot());
         const snap = _conRedoStack.pop();
         _conRestorePageToBoard(snap);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       }
       let _pendingConnectSrcId = null; // for "add connected word" feature
       let _pendingConnectType = 'none'; // arrow type for pending connect: 'none','forward','backward','both'
@@ -11253,6 +11258,7 @@
             });
             const _syncCell = () => {
               cell.text = te.textContent || '';
+              if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
               if (typeof window._conMirrorSend === 'function') {
                 window._conMirrorSend({
                   type: 'table-cell-text',
@@ -14198,6 +14204,7 @@
           if (window.conSetTitle) window.conSetTitle(_tsTitle);
           conPageSnapshots = [conBuildEmptyPageSnapshot()];
           conCurrentPageIndex = 0;
+          if (typeof boardSetDirty === 'function') boardSetDirty(false);
         }
         conNextId = 1;
         conUpdatePageBar();
@@ -15696,6 +15703,9 @@
         if (el) { el.textContent = title; el.style.display = title ? 'block' : 'none'; }
         if (typeof conUpdateRenameButtonVisibility === 'function') {
           conUpdateRenameButtonVisibility();
+        }
+        if (typeof boardUpdateDocumentTitle === 'function') {
+          boardUpdateDocumentTitle();
         }
       };
 
@@ -24241,7 +24251,10 @@
         wnApplyStoredSize(note, ta, noteData, scale);
       });
       document.addEventListener('mouseup', () => {
-        resizing = false;
+        if (resizing) {
+          resizing = false;
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        }
       });
     }
 
@@ -24269,6 +24282,7 @@
       if (_wnCtxNoteData && _wnCtxNoteData.id === nd.id) wnCtxClose();
       const noteEl = wnGetNoteElementById(nd.id);
       if (noteEl) noteEl.remove();
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       if (typeof window._conMirrorBroadcast === 'function') window._conMirrorBroadcast();
     }
 
@@ -26708,6 +26722,7 @@
       ta.addEventListener('input', e => {
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
         conNoteAutosize(ta, noteData);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({
@@ -26725,6 +26740,7 @@
         if (rendered !== ta.innerHTML) ta.innerHTML = rendered;
         wnSyncNoteDataFromEditor(noteData, ta);
         conNoteAutosize(ta, noteData);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({
@@ -26778,6 +26794,10 @@
         e.stopPropagation();
       });
       ta.addEventListener('click', e => {
+        if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
+          wnSyncNoteDataFromEditor(noteData, ta);
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        }
         if (!e.ctrlKey) return;
         const anchor = e.target.closest('a[href]');
         if (!anchor) return;
@@ -26792,7 +26812,7 @@
         e.preventDefault();
         const clipData = e.clipboardData || window.clipboardData;
 
-        // Table data (HTML <table> or TSV) \u2192 create a con-table-el on the board
+        // Table data (HTML <table> or TSV) → create a con-table-el on the board
         if (wnPasteAsConTable(clipData, window._boardCtxNoteX, window._boardCtxNoteY)) return;
 
         let text = clipData.getData('text/plain');
@@ -26809,6 +26829,7 @@
         setTimeout(() => {
           wnNormalizeChecklistLists(ta, noteData);
           conNoteAutosize(ta, noteData);
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
           conScheduleNoteMirrorUpdate(noteData, ta);
         }, 0);
       });
@@ -26843,6 +26864,7 @@
         noteData.blink = !noteData.blink;
         note.classList.toggle('wn-blink', !!noteData.blink);
         blinkQuickBtn.classList.toggle('active', !!noteData.blink);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const blinkBtn = document.getElementById('wn-sp-blink-btn');
           if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
@@ -26865,6 +26887,7 @@
         wnApplyHiddenState(noteData, note);
         hideQuickBtn.classList.toggle('active', !!noteData.hidden);
         hideQuickBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const hideBtn = document.getElementById('wn-sp-hide-btn');
           if (hideBtn) hideBtn.innerHTML = noteData.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
@@ -26885,6 +26908,7 @@
         _wnActiveNote = noteData;
         wnStyleFitText();
         _wnActiveNote = prev;
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       });
       miniActions.appendChild(fitQuickBtn);
 
@@ -26902,6 +26926,7 @@
         lockQuickBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />';
         lockQuickBtn.classList.toggle('active', !!noteData.locked);
         lockQuickBtn.title = noteData.locked ? 'Unlock note' : 'Lock note';
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const lockBtn = document.getElementById('wn-sp-lock-btn');
           if (lockBtn) { lockBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
@@ -27259,6 +27284,7 @@
       document.addEventListener('mouseup', () => {
         if (!dragging) return;
         dragging = false;
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         // Lift drag suppression and do a full mirror sync
         window._conMirrorDragging = false;
         if (window._conMirrorBroadcast) window._conMirrorBroadcast();
@@ -28641,7 +28667,11 @@
     }
 
     function boardSetAutosaveFingerprint(section, data) {
-      if (typeof _boardIsDirty !== 'undefined') _boardIsDirty = false;
+      if (typeof boardSetDirty === 'function') {
+        boardSetDirty(false);
+      } else if (typeof _boardIsDirty !== 'undefined') {
+        _boardIsDirty = false;
+      }
       boardAutosaveFingerprint[section] = boardComputeFingerprint(section, data);
       if (typeof boardResetAutosaveInterval === 'function') {
         boardResetAutosaveInterval();
@@ -29325,6 +29355,52 @@
     let _conIsRestoringSession = false;
     let _boardInitComplete = false;
     let _boardMutationTimer = null;
+    let _conDirtyResetTimer = null;
+
+    function boardUpdateDocumentTitle() {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      const baseTitle = (typeof conTitle === 'string' && conTitle.trim()) ? `${conTitle.trim()} — Board` : 'Board';
+      document.title = (_boardIsDirty ? '● ' : '') + baseTitle;
+    }
+
+    function boardSetDirty(dirty, options = {}) {
+      _boardIsDirty = !!dirty;
+      boardUpdateDocumentTitle();
+
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+
+      const indicator = document.getElementById('con-dirty-indicator');
+      if (!indicator) return;
+
+      if (_conDirtyResetTimer) {
+        clearTimeout(_conDirtyResetTimer);
+        _conDirtyResetTimer = null;
+      }
+
+      if (_boardIsDirty) {
+        indicator.classList.remove('is-saved');
+        indicator.classList.add('is-dirty');
+        indicator.setAttribute('title', typeof t === 'function' ? t('conDirtyUnsaved') : 'Unsaved changes');
+        indicator.style.display = 'inline-block';
+      } else {
+        if (options && options.justSaved) {
+          indicator.classList.remove('is-dirty');
+          indicator.classList.add('is-saved');
+          indicator.setAttribute('title', typeof t === 'function' ? t('conDirtySaved') : 'All changes saved');
+          indicator.style.display = 'inline-block';
+          _conDirtyResetTimer = setTimeout(() => {
+            if (!_boardIsDirty && indicator) {
+              indicator.classList.remove('is-saved');
+              indicator.style.display = 'none';
+            }
+            _conDirtyResetTimer = null;
+          }, 1800);
+        } else {
+          indicator.classList.remove('is-dirty', 'is-saved');
+          indicator.style.display = 'none';
+        }
+      }
+    }
 
     function _boardScheduleSave(section) {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
@@ -29340,7 +29416,7 @@
 
     window.conMarkBoardDirty = function () {
       if (_conIsRestoringSession || !_boardInitComplete) return;
-      _boardIsDirty = true;
+      boardSetDirty(true);
       _boardScheduleSave('constellation');
     };
 
@@ -29365,16 +29441,20 @@
 
     function boardHideAutosaveToast(success = true) {
       const toast = document.getElementById('con-autosave-toast');
-      if (!toast) return;
-      if (success) {
-        const savedText = (typeof t === 'function' ? t('conAutosaved') : 'Saved');
-        toast.innerHTML = `<span class="con-autosave-check">✓</span><span class="con-autosave-text" data-i18n="conAutosaved">${savedText}</span>`;
+      if (toast) {
+        if (success) {
+          const savedText = (typeof t === 'function' ? t('conAutosaved') : 'Saved');
+          toast.innerHTML = `<span class="con-autosave-check">✓</span><span class="con-autosave-text" data-i18n="conAutosaved">${savedText}</span>`;
+        }
+        if (_conAutosaveHideTimer) clearTimeout(_conAutosaveHideTimer);
+        _conAutosaveHideTimer = setTimeout(() => {
+          toast.classList.remove('visible');
+          _conAutosaveHideTimer = null;
+        }, 1000);
       }
-      if (_conAutosaveHideTimer) clearTimeout(_conAutosaveHideTimer);
-      _conAutosaveHideTimer = setTimeout(() => {
-        toast.classList.remove('visible');
-        _conAutosaveHideTimer = null;
-      }, 1000);
+      if (success) {
+        boardSetDirty(false, { justSaved: true });
+      }
     }
 
     function boardAutosaveSection(section, options = {}) {
@@ -29392,18 +29472,18 @@
       data = conBuildSessionData();
       hasContent = conSessionHasContent(data);
       if (!hasContent) {
-        _boardIsDirty = false;
+        boardSetDirty(false);
         return;
       }
 
       const fp = boardComputeFingerprint(section, data);
       if (!force && boardAutosaveFingerprint[section] && boardAutosaveFingerprint[section] === fp) {
-        _boardIsDirty = false;
+        boardSetDirty(false);
         return;
       }
 
       boardAutosaveFingerprint[section] = fp;
-      _boardIsDirty = false;
+      boardSetDirty(false);
       boardResetAutosaveInterval();
 
       boardShowAutosaveToast();
@@ -30061,15 +30141,15 @@
       const entries = [
         {
           name: 'manifest.json',
-          data: JSON.stringify(manifest, null, 2),
+          data: isAutosave ? JSON.stringify(manifest) : JSON.stringify(manifest, null, 2),
           encoding: 'utf8',
-          store: false
+          store: true
         },
         {
           name: 'board.json',
-          data: JSON.stringify(dataToSave, null, 2),
+          data: isAutosave ? JSON.stringify(dataToSave) : JSON.stringify(dataToSave, null, 2),
           encoding: 'utf8',
-          store: false
+          store: true
         }
       ];
 
@@ -31291,8 +31371,8 @@
       if (_conPageSnapshotSaveTimer) return;
 
       const schedule = window.requestIdleCallback
-        ? function (cb) { return window.requestIdleCallback(cb, { timeout: 1000 }); }
-        : function (cb) { return setTimeout(cb, 0); };
+        ? function (cb) { return window.requestIdleCallback(cb, { timeout: 2000 }); }
+        : function (cb) { return setTimeout(cb, 150); };
 
       _conPageSnapshotSaveTimer = schedule(async function () {
         _conPageSnapshotSaveTimer = null;
@@ -31309,7 +31389,7 @@
     }
 
     let _conLiveSnapshotDebounceTimer = null;
-    function conTriggerLivePageSnapshot(delayMs = 800) {
+    function conTriggerLivePageSnapshot(delayMs = 1200) {
       if (typeof conCurrentPageIndex !== 'number') return;
       if (_conLiveSnapshotDebounceTimer) clearTimeout(_conLiveSnapshotDebounceTimer);
       _conLiveSnapshotDebounceTimer = setTimeout(() => {
@@ -31423,6 +31503,7 @@
             .then(saved => {
               boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
               boardSetAutosaveFingerprint('constellation', saved.data);
+              boardSetDirty(false, { justSaved: true });
               mdbToast('✅ Saved: ' + saved.filename);
               conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             })
@@ -31439,6 +31520,7 @@
             const saved = await conSaveSessionFolderBundle(requestedName, persistedData);
             boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
             boardSetAutosaveFingerprint('constellation', saved.data);
+            boardSetDirty(false, { justSaved: true });
             mdbToast('✅ Saved: ' + saved.filename);
             conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
             return saved.filename;
@@ -31449,12 +31531,20 @@
 
       if (_conCurrentFileName && window.Desktop && Desktop.isElectron()) {
         Desktop.saveBlob('mindmaps', _conCurrentFileName, blob)
-          .then(() => mdbToast('✅ Saved: ' + _conCurrentFileName))
+          .then(() => {
+            boardSetDirty(false, { justSaved: true });
+            mdbToast('✅ Saved: ' + _conCurrentFileName);
+          })
           .catch(() => sfnOpen(filename, blob, 'mindmaps', savedName => { if (savedName) _conCurrentFileName = savedName; }));
         return;
       }
 
-      sfnOpen(filename, blob, 'mindmaps', savedName => { if (savedName) _conCurrentFileName = savedName; });
+      sfnOpen(filename, blob, 'mindmaps', savedName => {
+        if (savedName) {
+          _conCurrentFileName = savedName;
+          boardSetDirty(false, { justSaved: true });
+        }
+      });
     }
 
     async function conSuggestDuplicateFilename(baseName) {

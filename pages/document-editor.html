@@ -517,6 +517,108 @@
     </div>
   </div>
 
+  <!-- ── Add to Syntax Snippet Modal ────────────────────── -->
+  <div id="add-syntax-snippet-modal" class="modal-overlay" hidden>
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-header">
+        <span class="modal-title">Add to Syntax Snippets</span>
+        <button class="modal-close-btn" id="add-syntax-snippet-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.84rem;color:#64748b;margin-bottom:12px;">
+          Save the selected text as a reusable syntax snippet in the Document Formats &amp; Syntax Reference guide.
+        </p>
+
+        <div class="stg-form-row" style="display:flex;gap:12px;margin-bottom:8px;">
+          <div class="stg-field" style="flex:1;">
+            <label class="stg-label">Target File Format <span style="color:#0284c7;">*</span></label>
+            <select class="stg-select" id="add-snip-target-type">
+              <option value="typ">Typst (.typ)</option>
+              <option value="md">Markdown (.md)</option>
+              <option value="html">HTML (.html)</option>
+            </select>
+          </div>
+          <div class="stg-field" style="flex:1;">
+            <label class="stg-label">Category</label>
+            <select class="stg-select" id="add-snip-category"></select>
+          </div>
+        </div>
+
+        <div class="stg-field" style="margin-top:8px;">
+          <label class="stg-label">Snippet Title / Name <span style="color:#0284c7;">*</span></label>
+          <input class="stg-input" id="add-snip-title" placeholder="e.g. Exam Theorem Box, Two-Column Formula" autocomplete="off">
+        </div>
+
+        <div class="stg-field" style="margin-top:8px;">
+          <label class="stg-label">Description <span style="color:#888;font-weight:normal;">(optional)</span></label>
+          <input class="stg-input" id="add-snip-desc" placeholder="e.g. Formats a boxed theorem with proof steps" autocomplete="off">
+        </div>
+
+        <div class="stg-field" style="margin-top:8px;">
+          <label class="stg-label">Snippet Code</label>
+          <textarea class="stg-textarea" id="add-snip-code" rows="5" spellcheck="false" style="font-family:Consolas,monospace;font-size:12.5px;"></textarea>
+        </div>
+
+        <div class="stg-field" style="margin-top:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
+          <label class="stg-radio-label" style="display:flex;align-items:center;gap:8px;font-weight:600;color:#1e293b;cursor:pointer;">
+            <input type="checkbox" id="add-snip-enable-autocomplete" checked>
+            <span>Also add to editor auto-completion popup</span>
+          </label>
+          <div id="add-snip-prefix-row" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+            <label class="stg-label" style="margin:0;font-size:.78rem;white-space:nowrap;">Prefix Trigger:</label>
+            <input class="stg-input" id="add-snip-prefix" placeholder="e.g. thmbox" style="width:140px;font-family:monospace;" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top:16px;">
+          <button class="modal-btn" id="btn-add-snip-confirm">Save Snippet</button>
+          <button class="modal-btn modal-btn-cancel" id="btn-add-snip-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Add to Custom CSS Modal ──────────────────────────── -->
+  <div id="add-custom-css-modal" class="modal-overlay" hidden>
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-header">
+        <span class="modal-title">Add to Custom CSS</span>
+        <button class="modal-close-btn" id="add-custom-css-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.84rem;color:#64748b;margin-bottom:12px;">
+          Add the selected CSS snippet to your document stylesheet or save it into your reusable Custom CSS library.
+        </p>
+
+        <div class="stg-field">
+          <label class="stg-label">Rule / Style Name <span style="color:#0284c7;">*</span></label>
+          <input class="stg-input" id="add-css-name" placeholder="e.g. Highlighted Callout, Gradient Header" autocomplete="off">
+        </div>
+
+        <div class="stg-field" style="margin-top:8px;">
+          <label class="stg-label">CSS Code</label>
+          <textarea class="stg-textarea" id="add-css-code" rows="5" spellcheck="false" style="font-family:Consolas,monospace;font-size:12.5px;"></textarea>
+        </div>
+
+        <div class="stg-field" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
+          <label class="stg-radio-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="add-css-opt-doc" checked>
+            <span><strong>Apply to current document</strong> — Append directly into document's inline stylesheet</span>
+          </label>
+          <label class="stg-radio-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="add-css-opt-library" checked>
+            <span><strong>Save to Custom CSS Rules Library</strong> — Keep available in Settings to reuse on other documents</span>
+          </label>
+        </div>
+
+        <div class="modal-actions" style="margin-top:16px;">
+          <button class="modal-btn" id="btn-add-css-confirm">Add CSS</button>
+          <button class="modal-btn modal-btn-cancel" id="btn-add-css-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Mailposting Batch Export Modal ────────────────────── -->
   <div id="mp-export-modal" class="modal-overlay" hidden>
     <div class="modal-box modal-box-mp">
@@ -1780,6 +1882,60 @@
 
       mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
       mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyN, newDoc);
+
+      mdEditor.addAction({
+        id: 'cmt-add-to-syntax-snippets',
+        label: 'Add Selection to Syntax Snippets…',
+        keybindings: [],
+        precondition: 'editorHasSelection',
+        contextMenuGroupId: '1_snippets',
+        contextMenuOrder: 1.1,
+        run: function (ed) {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (!text || !text.trim()) {
+            showToast('Please select some text first', true);
+            return;
+          }
+          openAddSyntaxSnippetModal(text.trim(), currentDocType);
+        }
+      });
+
+      mdEditor.addAction({
+        id: 'cmt-add-to-custom-css',
+        label: 'Add Selection to Custom CSS…',
+        keybindings: [],
+        precondition: 'editorHasSelection',
+        contextMenuGroupId: '1_snippets',
+        contextMenuOrder: 1.2,
+        run: function (ed) {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (!text || !text.trim()) {
+            showToast('Please select some text first', true);
+            return;
+          }
+          openAddCustomCssModal(text.trim());
+        }
+      });
+
+      cssEditor.addAction({
+        id: 'cmt-css-add-to-custom-css-rules',
+        label: 'Save Selection to Custom CSS Rules Library…',
+        keybindings: [],
+        precondition: 'editorHasSelection',
+        contextMenuGroupId: '1_snippets',
+        contextMenuOrder: 1.1,
+        run: function (ed) {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          if (!text || !text.trim()) {
+            showToast('Please select some text first', true);
+            return;
+          }
+          openAddCustomCssModal(text.trim());
+        }
+      });
 
       mdEditor.onDidChangeModelContent(function () {
         docModified = true;
@@ -4374,6 +4530,7 @@
       shortcuts: [],
       typingTriggers: [],
       customCssRules: [],
+      customSyntaxSnippets: [],
       editorPrefs: {
         fontSize: 14,
         wordWrap: 'on',
@@ -4409,6 +4566,7 @@
           if (Array.isArray(d.shortcuts)) editorSettings.shortcuts = d.shortcuts;
           if (Array.isArray(d.typingTriggers)) editorSettings.typingTriggers = d.typingTriggers;
           if (Array.isArray(d.customCssRules)) editorSettings.customCssRules = d.customCssRules;
+          if (Array.isArray(d.customSyntaxSnippets)) editorSettings.customSyntaxSnippets = d.customSyntaxSnippets;
           if (d.editorPrefs && typeof d.editorPrefs === 'object') {
             Object.assign(editorSettings.editorPrefs, d.editorPrefs);
           }
@@ -4425,6 +4583,7 @@
         editorSettings.editorPrefs.inlineStylesheet = true;
         editorSettings.editorPrefs.defaultLayout = deClonePageLayout(editorLayoutDefaults);
         if (!Array.isArray(editorSettings.customCssRules)) editorSettings.customCssRules = [];
+        if (!Array.isArray(editorSettings.customSyntaxSnippets)) editorSettings.customSyntaxSnippets = [];
         await Desktop.saveJson('docEditorSettings', 'settings.js', editorSettings);
       } catch (e) { showToast('Settings save failed', true); }
     }
@@ -5593,7 +5752,7 @@
             title: 'Document & Page Geometry',
             badgeClass: 'badge-setup',
             desc: 'Configure page paper size, margins, header, and dynamic footer page numbering.',
-            code: '#set page(\n  paper: "a4",\n  margin: (top: 2.5cm, bottom: 2.5cm, x: 2cm),\n  header: align(right)[*Class Test — Semester 1*],\n  footer: locate(loc => align(center)[Page #loc.page()])\n)'
+            code: '#set page(\n  paper: "a4",\n  margin: (top: 2.5cm, bottom: 2.5cm, x: 2cm),\n  header: align(right)[*Class Test — Semester 1*],\n  footer: context align(center)[Page #counter(page).display()]\n)'
           },
           {
             cat: 'setup',
@@ -5972,11 +6131,15 @@
       }
 
       const doc = SYNTAX_DOCS[_syntaxActiveTab] || SYNTAX_DOCS.typ;
+      const customSnippets = (editorSettings.customSyntaxSnippets || []).filter(s => s.targetType === _syntaxActiveTab);
 
       // Render category chips
       const catChipsEl = document.getElementById('syntax-cat-chips');
       if (catChipsEl) {
-        const categories = doc.categories || [{ id: 'all', label: 'All' }];
+        let categories = [...(doc.categories || [{ id: 'all', label: 'All' }])];
+        if (customSnippets.length > 0 && !categories.some(c => c.id === 'custom')) {
+          categories.push({ id: 'custom', label: 'Custom' });
+        }
         catChipsEl.innerHTML = categories.map(c =>
           `<button class="syntax-cat-chip${_syntaxActiveCat === c.id ? ' active' : ''}" data-cat="${c.id}">${c.label}</button>`
         ).join('');
@@ -6009,7 +6172,10 @@
       const doc = SYNTAX_DOCS[_syntaxActiveTab] || SYNTAX_DOCS.typ;
       let html = `<div class="syntax-intro-banner">${doc.intro}</div>`;
 
-      let filteredSections = doc.sections || [];
+      const customSnippets = (editorSettings.customSyntaxSnippets || []).filter(s => s.targetType === _syntaxActiveTab);
+      let combinedSections = [...customSnippets, ...(doc.sections || [])];
+
+      let filteredSections = combinedSections;
 
       if (_syntaxActiveCat && _syntaxActiveCat !== 'all') {
         filteredSections = filteredSections.filter(s => s.cat === _syntaxActiveCat);
@@ -6030,19 +6196,22 @@
         filteredSections.forEach(sec => {
           const escCode = escHtml(sec.code);
           const jsonCode = JSON.stringify(sec.code).replace(/"/g, '&quot;');
-          const badgeCls = sec.badgeClass || '';
+          const isCustom = !!sec.custom;
+          const badgeCls = isCustom ? 'badge-custom' : (sec.badgeClass || '');
+          const badgeLabel = isCustom ? 'Custom' : doc.badge;
           html += `
-            <div class="syntax-card">
+            <div class="syntax-card${isCustom ? ' syntax-card-custom' : ''}">
               <div class="syntax-card-header">
                 <span class="syntax-card-title">${escHtml(sec.title)}</span>
-                <span class="syntax-badge ${badgeCls}">${doc.badge}</span>
+                <span class="syntax-badge ${badgeCls}">${badgeLabel}</span>
               </div>
-              <div class="syntax-card-desc">${escHtml(sec.desc)}</div>
+              <div class="syntax-card-desc">${escHtml(sec.desc || '')}</div>
               <div class="syntax-code-wrap">
                 <pre class="syntax-code-pre">${escCode}</pre>
                 <div class="syntax-actions">
                   <button class="syntax-action-btn" onclick="copySyntaxSnippet(this, ${jsonCode})">Copy</button>
                   <button class="syntax-action-btn syntax-insert-btn" onclick="insertSyntaxSnippet(${jsonCode})">+ Insert</button>
+                  ${isCustom ? `<button class="syntax-action-btn syntax-del-btn" onclick="deleteCustomSyntaxSnippet('${sec.id}')" title="Delete custom snippet">Delete</button>` : ''}
                 </div>
               </div>
             </div>
@@ -6052,6 +6221,212 @@
       }
 
       body.innerHTML = html;
+    }
+
+    // ── Add to Syntax Snippet & Custom CSS Modal Controllers ────────────────
+    function openAddSyntaxSnippetModal(initialText, fileType) {
+      const typeSelect = document.getElementById('add-snip-target-type');
+      const titleInput = document.getElementById('add-snip-title');
+      const descInput = document.getElementById('add-snip-desc');
+      const codeInput = document.getElementById('add-snip-code');
+      const prefixInput = document.getElementById('add-snip-prefix');
+      const autoCompCheck = document.getElementById('add-snip-enable-autocomplete');
+
+      const targetType = (fileType === 'typ' || fileType === 'html') ? fileType : 'md';
+      if (typeSelect) typeSelect.value = targetType;
+      
+      populateSyntaxCategoryOptions(targetType);
+
+      if (codeInput) codeInput.value = initialText || '';
+      
+      // Suggest title from first line
+      const firstLine = (initialText || '').split('\n').map(l => l.trim()).filter(Boolean)[0] || '';
+      let suggestedTitle = firstLine.replace(/^[#\/*\-+=<>\s]+/, '').slice(0, 32).trim();
+      if (!suggestedTitle) suggestedTitle = 'Custom Snippet';
+      if (titleInput) titleInput.value = suggestedTitle;
+      if (descInput) descInput.value = '';
+
+      // Suggest prefix
+      let suggestedPrefix = suggestedTitle.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+      if (!suggestedPrefix) suggestedPrefix = 'snip';
+      if (prefixInput) prefixInput.value = suggestedPrefix;
+      if (autoCompCheck) autoCompCheck.checked = true;
+
+      showModal('add-syntax-snippet-modal');
+      setTimeout(() => {
+        if (titleInput) {
+          titleInput.focus();
+          titleInput.select();
+        }
+      }, 50);
+    }
+
+    function populateSyntaxCategoryOptions(targetType) {
+      const catSelect = document.getElementById('add-snip-category');
+      if (!catSelect) return;
+      const doc = SYNTAX_DOCS[targetType] || SYNTAX_DOCS.md;
+      const cats = (doc.categories || []).filter(c => c.id !== 'all');
+      
+      let html = '<option value="custom">Custom Snippets</option>';
+      cats.forEach(c => {
+        html += `<option value="${escHtml(c.id)}">${escHtml(c.label)}</option>`;
+      });
+      catSelect.innerHTML = html;
+      catSelect.value = 'custom';
+    }
+
+    function handleAddSyntaxSnippetConfirm() {
+      const typeSelect = document.getElementById('add-snip-target-type');
+      const catSelect = document.getElementById('add-snip-category');
+      const titleInput = document.getElementById('add-snip-title');
+      const descInput = document.getElementById('add-snip-desc');
+      const codeInput = document.getElementById('add-snip-code');
+      const prefixInput = document.getElementById('add-snip-prefix');
+      const autoCompCheck = document.getElementById('add-snip-enable-autocomplete');
+
+      const targetType = typeSelect ? typeSelect.value : 'md';
+      const cat = catSelect ? catSelect.value : 'custom';
+      const title = titleInput ? titleInput.value.trim() : '';
+      const desc = descInput ? descInput.value.trim() : '';
+      const code = codeInput ? codeInput.value : '';
+      const enableAuto = autoCompCheck ? autoCompCheck.checked : false;
+      const prefix = prefixInput ? prefixInput.value.trim() : '';
+
+      if (!title) {
+        showToast('Snippet title is required', true);
+        if (titleInput) titleInput.focus();
+        return;
+      }
+      if (!code || !code.trim()) {
+        showToast('Snippet code cannot be empty', true);
+        if (codeInput) codeInput.focus();
+        return;
+      }
+
+      if (!Array.isArray(editorSettings.customSyntaxSnippets)) {
+        editorSettings.customSyntaxSnippets = [];
+      }
+
+      const newSnippet = {
+        id: 'snip_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+        targetType,
+        cat,
+        title,
+        desc,
+        code,
+        badgeClass: 'badge-custom',
+        custom: true,
+        createdAt: new Date().toISOString()
+      };
+
+      editorSettings.customSyntaxSnippets.push(newSnippet);
+
+      if (enableAuto && prefix) {
+        if (!Array.isArray(editorSettings.snippets)) editorSettings.snippets = [];
+        editorSettings.snippets.push({
+          id: genId(),
+          prefix,
+          label: title,
+          body: code,
+          triggerMode: 'both'
+        });
+        applySnippetCompletions();
+      }
+
+      saveEditorSettings();
+      hideModal('add-syntax-snippet-modal');
+      const fmtName = targetType === 'typ' ? 'Typst' : (targetType === 'html' ? 'HTML' : 'Markdown');
+      showToast(`Added to ${fmtName} syntax snippets`);
+    }
+
+    function deleteCustomSyntaxSnippet(snippetId) {
+      if (!snippetId) return;
+      if (!Array.isArray(editorSettings.customSyntaxSnippets)) return;
+      const idx = editorSettings.customSyntaxSnippets.findIndex(s => s.id === snippetId);
+      if (idx === -1) return;
+      editorSettings.customSyntaxSnippets.splice(idx, 1);
+      saveEditorSettings();
+      renderSyntaxHelpModal();
+      showToast('Custom snippet deleted');
+    }
+
+    function openAddCustomCssModal(initialText) {
+      const nameInput = document.getElementById('add-css-name');
+      const codeInput = document.getElementById('add-css-code');
+      const optDoc = document.getElementById('add-css-opt-doc');
+      const optLib = document.getElementById('add-css-opt-library');
+
+      if (codeInput) codeInput.value = initialText || '';
+
+      // Suggest name based on CSS selectors
+      let suggestedName = '';
+      const selectorMatch = (initialText || '').match(/([.#a-zA-Z0-9_\-]+)\s*\{/);
+      if (selectorMatch) {
+        suggestedName = selectorMatch[1].replace(/^[.#]/, '').replace(/[-_]/g, ' ');
+        suggestedName = suggestedName.charAt(0).toUpperCase() + suggestedName.slice(1);
+      } else {
+        suggestedName = 'Custom Style';
+      }
+
+      if (nameInput) nameInput.value = suggestedName;
+      if (optDoc) optDoc.checked = true;
+      if (optLib) optLib.checked = true;
+
+      showModal('add-custom-css-modal');
+      setTimeout(() => {
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.select();
+        }
+      }, 50);
+    }
+
+    function handleAddCustomCssConfirm() {
+      const nameInput = document.getElementById('add-css-name');
+      const codeInput = document.getElementById('add-css-code');
+      const optDoc = document.getElementById('add-css-opt-doc');
+      const optLib = document.getElementById('add-css-opt-library');
+
+      const name = nameInput ? nameInput.value.trim() : '';
+      const rawCode = codeInput ? codeInput.value.trim() : '';
+      const applyToDoc = optDoc ? optDoc.checked : true;
+      const saveToLibrary = optLib ? optLib.checked : true;
+
+      if (!name) {
+        showToast('Style / Rule name is required', true);
+        if (nameInput) nameInput.focus();
+        return;
+      }
+      if (!rawCode) {
+        showToast('CSS code cannot be empty', true);
+        if (codeInput) codeInput.focus();
+        return;
+      }
+
+      const cssBlock = deNormalizeCssRuleBlock(rawCode);
+
+      if (saveToLibrary) {
+        if (!Array.isArray(editorSettings.customCssRules)) editorSettings.customCssRules = [];
+        editorSettings.customCssRules.push({
+          id: genId(),
+          name,
+          css: cssBlock
+        });
+        saveEditorSettings();
+      }
+
+      if (applyToDoc && cssEditor) {
+        const currentCss = cssEditor.getValue() || '';
+        const nextCss = currentCss.replace(/\s+$/, '');
+        cssEditor.setValue((nextCss ? nextCss + '\n\n' : '') + cssBlock + '\n');
+        cssModified = true;
+        updateDocIndicator();
+        const cssEl = document.getElementById('custom-css-style');
+        if (cssEl) cssEl.textContent = deBuildScopedPreviewCss(cssEditor.getValue(), '#preview-content');
+      }
+
+      hideModal('add-custom-css-modal');
+      showToast('Custom CSS saved');
     }
 
     function copySyntaxSnippet(btn, code) {
@@ -6710,6 +7085,22 @@
         if (e.target === this) hideModal('save-modal');
       });
 
+      // Add to syntax snippet & Add to custom CSS modals
+      document.getElementById('add-syntax-snippet-close').addEventListener('click', () => hideModal('add-syntax-snippet-modal'));
+      document.getElementById('btn-add-snip-cancel').addEventListener('click', () => hideModal('add-syntax-snippet-modal'));
+      document.getElementById('btn-add-snip-confirm').addEventListener('click', handleAddSyntaxSnippetConfirm);
+      document.getElementById('add-snip-target-type').addEventListener('change', function () {
+        populateSyntaxCategoryOptions(this.value);
+      });
+      document.getElementById('add-snip-enable-autocomplete').addEventListener('change', function () {
+        const row = document.getElementById('add-snip-prefix-row');
+        if (row) row.style.display = this.checked ? 'flex' : 'none';
+      });
+
+      document.getElementById('add-custom-css-close').addEventListener('click', () => hideModal('add-custom-css-modal'));
+      document.getElementById('btn-add-css-cancel').addEventListener('click', () => hideModal('add-custom-css-modal'));
+      document.getElementById('btn-add-css-confirm').addEventListener('click', handleAddCustomCssConfirm);
+
       // Global keyboard shortcuts
       document.addEventListener('keydown', function (e) {
         // Avoid running the same command twice when Monaco already handles it.
@@ -6725,6 +7116,8 @@
           closeSettingsModal();
           hideModal('history-modal');
           hideModal('syntax-help-modal');
+          hideModal('add-syntax-snippet-modal');
+          hideModal('add-custom-css-modal');
           hideFullPreview();
           deBookCloseModal();
         }
