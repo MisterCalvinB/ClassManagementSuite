@@ -592,6 +592,8 @@
       <div class="modal-footer">
         <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
            onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+        <button class="tb-btn" id="gs-entry-btn" style="display:none" onclick="plannerOpenGradeSheetModalAction()"
+          data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
         <button class="tb-btn" id="cm-entry-btn" style="display:none" onclick="plannerOpenClassManagementModalAction()"
           data-i18n="pl_openClassManagement">Open in Class Management</button>
         <button class="tb-btn" id="lp-entry-btn" style="display:none" onclick="plannerLessonPlanEntryModalAction()"
@@ -607,6 +609,8 @@
   </div>
 
   <div id="planner-board-menu" class="planner-board-menu" onclick="event.stopPropagation()">
+    <button type="button" id="planner-gs-menu-btn" onclick="plannerOpenGradeSheetAction()" style="display:none;"
+      data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
     <button type="button" id="planner-cm-menu-btn" onclick="plannerOpenClassManagementAction()"
       data-i18n="pl_openClassManagement">Open in Class Management</button>
     <button type="button" id="planner-lp-menu-btn" onclick="plannerLessonPlanEntryAction()"
@@ -2149,9 +2153,12 @@
             badge.className = 'gs-badge';
             badge.title = t('pl_gsLinked');
             badge.textContent = 'GS';
+            badge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
             var refEl = inner.querySelector('.lesson-plan-badge, .board-session-badge, .entry-actions');
             if (refEl) inner.insertBefore(badge, refEl);
             else inner.appendChild(badge);
+          } else {
+            existingBadge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
           }
         } else if (existingBadge) {
           existingBadge.remove();
@@ -2171,9 +2178,12 @@
             badge.className = 'gs-badge';
             badge.title = t('pl_gsLinked');
             badge.textContent = 'GS';
+            badge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
             var refEl = cell.querySelector('.lesson-plan-badge, .board-session-badge');
             if (refEl) cell.insertBefore(badge, refEl);
             else cell.appendChild(badge);
+          } else {
+            existingBadge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
           }
         } else if (existingBadge) {
           existingBadge.remove();
@@ -2525,6 +2535,61 @@
           }
         });
       }
+    }
+
+    function openLinkedGradeSheet(entryId) {
+      if (!entryId) return;
+      var entry = entries.find(function (e) { return e && e.id === entryId; });
+      if (!entry && window.PLANNER_ENTRIES_BY_CLASS) {
+        var allLists = Object.values(window.PLANNER_ENTRIES_BY_CLASS);
+        for (var i = 0; i < allLists.length; i++) {
+          if (Array.isArray(allLists[i])) {
+            var found = allLists[i].find(function (e) { return e && e.id === entryId; });
+            if (found) { entry = found; break; }
+          }
+        }
+      }
+      if (!entry) return;
+
+      var clsId = (entry.gsLink && entry.gsLink.classId) || entry.classId || '';
+      var clsSlug = (entry.gsLink && entry.gsLink.classSlug) || '';
+      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(clsId) : '') || '';
+
+      var navPayload = {
+        class: clsName || clsSlug || clsId,
+        classId: clsId,
+        groupId: clsId,
+        group: clsId,
+        classSlug: clsSlug,
+        className: clsName,
+        sem: (entry.gsLink && entry.gsLink.semester) || (typeof getGsSemesterForDate === 'function' ? getGsSemesterForDate(entry.date) : 'sem1') || 'sem1',
+        testIndex: (entry.gsLink && typeof entry.gsLink.testIndex === 'number') ? String(entry.gsLink.testIndex) : '',
+        date: entry.date || '',
+        testName: entry.topic || '',
+        plannerEntryId: entry.id
+      };
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          var ch = new BroadcastChannel('cmt-gradesheet-nav');
+          ch.postMessage(navPayload);
+          setTimeout(function () { try { ch.close(); } catch (_) {} }, 1000);
+        } catch (_) {}
+      }
+
+      if (!window.Desktop || !Desktop.isElectron()) {
+        var params = new URLSearchParams();
+        for (var k in navPayload) {
+          if (navPayload.hasOwnProperty(k) && navPayload[k] !== undefined && navPayload[k] !== null && navPayload[k] !== '') {
+            params.set(k, String(navPayload[k]));
+          }
+        }
+        var qs = params.toString();
+        window.open('grade-sheet.html' + (qs ? '?' + qs : ''), '_blank');
+        return;
+      }
+
+      Desktop.openTool('grade-sheet.html', { query: navPayload });
     }
 
     // ── Active-class helpers ───────────────────────────────────────────────────
@@ -2956,7 +3021,7 @@
         r += '<span class="recur-badge" title="' + esc(t('pl_recurBadgeTitle')) + '">↻</span>';
       }
       if (showDot) r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       var _lpLink = plannerLessonPlanForSlot(s, entry);
       if (_lpLink && _lpLink.plan) {
         var _lp = _lpLink.plan;
@@ -4139,6 +4204,14 @@
         var sourceForCm = entry || draft;
         cmBtn.style.display = (sourceForCm && sourceForCm.classId) ? '' : 'none';
       }
+
+      // Update Grade Sheet entry modal button
+      var gsBtn = document.getElementById('gs-entry-btn');
+      if (gsBtn) {
+        var sourceForGs = entry || draft;
+        var isGs = !!(sourceForGs && (sourceForGs.type === 'test' || sourceForGs.gsLink));
+        gsBtn.style.display = isGs ? '' : 'none';
+      }
     }
 
     function plannerHideBoardEntryMenu() {
@@ -4171,6 +4244,13 @@
         cmMenuBtn.style.display = hasClass ? 'block' : 'none';
       }
 
+      // Update Grade Sheet menu button
+      var gsMenuBtn = document.getElementById('planner-gs-menu-btn');
+      if (gsMenuBtn) {
+        var isTestOrLinked = !!((entry && (entry.type === 'test' || entry.gsLink)) || (slotDraft && slotDraft.type === 'test'));
+        gsMenuBtn.style.display = isTestOrLinked ? 'block' : 'none';
+      }
+
       // Update Lesson Plan menu button
       var lpMenuBtn = document.getElementById('planner-lp-menu-btn');
       var lpUnlinkBtn = document.getElementById('planner-lp-unlink-btn');
@@ -4195,6 +4275,79 @@
       menu.style.top = y + 'px';
       menu.classList.add('active');
       return false;
+    }
+
+    function plannerOpenGradeSheetAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      if (id) {
+        openLinkedGradeSheet(id);
+        return;
+      }
+      var slotDraft = plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot);
+      if (!slotDraft || !slotDraft.classId) return;
+      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(slotDraft.classId) : '') || '';
+      var query = {
+        class: clsName || slotDraft.classId,
+        classId: slotDraft.classId,
+        groupId: slotDraft.classId,
+        group: slotDraft.classId,
+        className: clsName,
+        sem: (typeof getGsSemesterForDate === 'function' ? getGsSemesterForDate(slotDraft.date) : 'sem1') || 'sem1',
+        date: slotDraft.date || '',
+        testName: slotDraft.topic || ''
+      };
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          var ch = new BroadcastChannel('cmt-gradesheet-nav');
+          ch.postMessage(query);
+          setTimeout(function () { try { ch.close(); } catch (_) {} }, 1000);
+        } catch (_) {}
+      }
+
+      if (!window.Desktop || !Desktop.isElectron()) {
+        var params = new URLSearchParams(query);
+        window.open('grade-sheet.html?' + params.toString(), '_blank');
+        return;
+      }
+      Desktop.openTool('grade-sheet.html', { query: query });
+    }
+
+    function plannerOpenGradeSheetModalAction() {
+      var id = String(editingId || '').trim();
+      if (id) {
+        openLinkedGradeSheet(id);
+        return;
+      }
+      var draft = plannerBoardDraftEntryFromModal();
+      if (!draft || !draft.classId) return;
+      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(draft.classId) : '') || '';
+      var query = {
+        class: clsName || draft.classId,
+        classId: draft.classId,
+        groupId: draft.classId,
+        group: draft.classId,
+        className: clsName,
+        sem: (typeof getGsSemesterForDate === 'function' ? getGsSemesterForDate(draft.date) : 'sem1') || 'sem1',
+        date: draft.date || '',
+        testName: draft.topic || ''
+      };
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          var ch = new BroadcastChannel('cmt-gradesheet-nav');
+          ch.postMessage(query);
+          setTimeout(function () { try { ch.close(); } catch (_) {} }, 1000);
+        } catch (_) {}
+      }
+
+      if (!window.Desktop || !Desktop.isElectron()) {
+        var params = new URLSearchParams(query);
+        window.open('grade-sheet.html?' + params.toString(), '_blank');
+        return;
+      }
+      Desktop.openTool('grade-sheet.html', { query: query });
     }
 
     function plannerOpenClassManagementAction(entryId) {
@@ -7652,7 +7805,7 @@
       }
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
       if (_lpMatrixLink && _lpMatrixLink.plan) {
         var _lpM = _lpMatrixLink.plan;
@@ -7706,7 +7859,7 @@
         r += '<span class="' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
       }
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       if (_lpCellLink && _lpCellLink.plan) {
         var _lpC = _lpCellLink.plan;
         var _lpCTitle = t('pl_lessonPlanLinked') + ': ' + (_lpC.title || 'Untitled') + ' (Click to open · Drag to duplicate)';

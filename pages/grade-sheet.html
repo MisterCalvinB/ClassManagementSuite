@@ -13224,22 +13224,147 @@ ${blocks}
       renderClasses();
       showScreen("classes");
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const targetClassParam = urlParams.get('class') || urlParams.get('classId') || urlParams.get('group');
-      const targetStudentParam = urlParams.get('student') || urlParams.get('studentId') || urlParams.get('studentName');
+      function navigateToTarget(params) {
+        if (!params || typeof params !== 'object' || !Array.isArray(appState.classes) || !appState.classes.length) return false;
 
-      if (targetClassParam && Array.isArray(appState.classes) && appState.classes.length > 0) {
-        let targetClass = appState.classes.find(c => c.id === targetClassParam || c.groupId === targetClassParam);
-        if (!targetClass) {
-          const normTarget = targetClassParam.trim().toLowerCase();
-          targetClass = appState.classes.find(c => (c.name || '').trim().toLowerCase() === normTarget);
+        const targetClassParam = params.class || params.classId || params.group || params.groupId || params.classSlug || params.className;
+        const targetStudentParam = params.student || params.studentId || params.studentName;
+        const targetSemParam = params.sem || params.semester;
+        const targetTestParam = (params.testIndex != null && params.testIndex !== '') ? params.testIndex : ((params.testIdx != null && params.testIdx !== '') ? params.testIdx : params.test);
+        const targetDateParam = params.date;
+        const targetTestNameParam = params.testName || params.topic;
+
+        let targetClass = null;
+
+        if (targetClassParam) {
+          const rawTarget = String(targetClassParam).trim();
+          const normTarget = rawTarget.toLowerCase();
+
+          // 1. Match by c.id or c.groupId exact match
+          targetClass = appState.classes.find(c => c.id === rawTarget || c.groupId === rawTarget);
+
+          // 2. Match by name
+          if (!targetClass) {
+            targetClass = appState.classes.find(c => (c.name || '').trim().toLowerCase() === normTarget);
+          }
+
+          // 3. Match by slugified name
+          if (!targetClass && typeof slugifyForPath === 'function') {
+            targetClass = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === normTarget);
+          }
+
+          // 4. Match by slugified target against slugified class name
+          if (!targetClass && typeof slugifyForPath === 'function') {
+            const slugTarget = slugifyForPath(rawTarget).toLowerCase();
+            targetClass = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === slugTarget);
+          }
         }
-        if (targetClass) {
+
+        // 5. Fallback: match by date or test name across all classes
+        if (!targetClass && (targetDateParam || targetTestNameParam)) {
+          for (const cls of appState.classes) {
+            if (!cls.testConfigs) continue;
+            for (const semKey of ['sem1', 'sem2']) {
+              const cfgs = cls.testConfigs[semKey] || [];
+              const match = cfgs.some(cfg => {
+                if (!cfg) return false;
+                if (targetDateParam && cfg.testDate === targetDateParam) return true;
+                if (targetTestNameParam && (cfg.testName || '').trim().toLowerCase() === String(targetTestNameParam).trim().toLowerCase()) return true;
+                return false;
+              });
+              if (match) {
+                targetClass = cls;
+                break;
+              }
+            }
+            if (targetClass) break;
+          }
+        }
+
+        if (!targetClass) return false;
+
+        ensureClassStructures(targetClass);
+
+        let targetSem = null;
+        if (targetSemParam) {
+          const sNorm = String(targetSemParam).trim().toLowerCase();
+          if (sNorm === 'sem1' || sNorm === '1' || sNorm === 's1') targetSem = 'sem1';
+          else if (sNorm === 'sem2' || sNorm === '2' || sNorm === 's2') targetSem = 'sem2';
+        }
+        if (!targetSem) {
+          targetSem = targetClass.semester === '2' ? 'sem2' : 'sem1';
+        }
+
+        let resolvedTestIndex = -1;
+        if (targetTestParam != null && targetTestParam !== '') {
+          const parsedIdx = parseInt(targetTestParam, 10);
+          if (!isNaN(parsedIdx) && parsedIdx >= 0 && parsedIdx < TEST_COUNT_PER_SEM) {
+            resolvedTestIndex = parsedIdx;
+          } else {
+            const m = String(targetTestParam).match(/(\d+)/);
+            if (m) {
+              const n = parseInt(m[1], 10);
+              if (!isNaN(n) && n >= 1 && n <= TEST_COUNT_PER_SEM) {
+                resolvedTestIndex = n - 1;
+              }
+            }
+          }
+        }
+
+        if (resolvedTestIndex < 0 && (targetDateParam || targetTestNameParam)) {
+          const semsToSearch = targetSemParam ? [targetSem] : ['sem1', 'sem2'];
+          for (const semKey of semsToSearch) {
+            const configs = targetClass.testConfigs[semKey] || [];
+            const matchIdx = configs.findIndex(cfg => {
+              if (!cfg) return false;
+              if (targetDateParam && cfg.testDate === targetDateParam) return true;
+              if (targetTestNameParam && (cfg.testName || '').trim().toLowerCase() === String(targetTestNameParam).trim().toLowerCase()) return true;
+              return false;
+            });
+            if (matchIdx >= 0) {
+              targetSem = semKey;
+              resolvedTestIndex = matchIdx;
+              break;
+            }
+          }
+        }
+
+        if (resolvedTestIndex >= 0 && resolvedTestIndex < TEST_COUNT_PER_SEM) {
+          if ((targetClass.testCounts[targetSem] || 0) <= resolvedTestIndex) {
+            targetClass.testCounts[targetSem] = resolvedTestIndex + 1;
+          }
+          appState.activeClassId = targetClass.id;
+          appState.activeTest = { semester: targetSem, testIndex: resolvedTestIndex };
+          renderTestSheet();
+          showScreen("test");
+
+          if (targetStudentParam && Array.isArray(targetClass.students)) {
+            const normStudent = String(targetStudentParam).trim().toUpperCase();
+            const sMatch = targetClass.students.find(s =>
+              String(s.id).toUpperCase() === normStudent ||
+              ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
+              ((s.lastName || '') + ' ' + (s.firstName || '')).trim().toUpperCase() === normStudent ||
+              (s.firstName && s.firstName.trim().toUpperCase() === normStudent) ||
+              (s.customName && s.customName.trim().toUpperCase() === normStudent)
+            );
+            if (sMatch) {
+              requestAnimationFrame(() => {
+                const testTr = document.querySelector(`#test-table tbody tr[data-student-id="${sMatch.id}"]`);
+                if (testTr) {
+                  testTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  testTr.classList.add('selected-student-row');
+                  setTimeout(() => testTr.classList.remove('selected-student-row'), 4000);
+                }
+              });
+            }
+          }
+          return true;
+        } else {
           appState.activeClassId = targetClass.id;
           renderSummary();
           showScreen("summary");
           if (targetStudentParam && Array.isArray(targetClass.students)) {
-            const normStudent = targetStudentParam.trim().toUpperCase();
+            const normStudent = String(targetStudentParam).trim().toUpperCase();
             const sMatch = targetClass.students.find(s =>
               String(s.id).toUpperCase() === normStudent ||
               ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
@@ -13258,7 +13383,28 @@ ${blocks}
               });
             }
           }
+          return true;
         }
+      }
+
+      window.gsNavigateToTarget = navigateToTarget;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialParams = {};
+      for (const [k, v] of urlParams.entries()) {
+        initialParams[k] = v;
+      }
+      navigateToTarget(initialParams);
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const navCh = new BroadcastChannel('cmt-gradesheet-nav');
+          navCh.onmessage = function (ev) {
+            if (ev && ev.data) {
+              navigateToTarget(ev.data);
+            }
+          };
+        } catch (_) {}
       }
 
       checkForPendingImport();
