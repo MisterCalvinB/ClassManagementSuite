@@ -1377,8 +1377,33 @@ async function deleteAllowedPathEntry(pageFile, target, relativePath, options = 
 async function renameAllowedPathEntry(pageFile, target, oldRelativePath, newRelativePath) {
   const oldResolved = resolveAllowedTargetPath(pageFile, target, oldRelativePath);
   const newResolved = resolveAllowedTargetPath(pageFile, target, newRelativePath);
+  if (isSamePath(oldResolved.fullPath, newResolved.fullPath)) {
+    return {
+      oldRelativePath: oldResolved.safeRelative,
+      newRelativePath: newResolved.safeRelative,
+      path: newResolved.fullPath
+    };
+  }
+  const srcStats = await fs.stat(oldResolved.fullPath);
   await fs.mkdir(path.dirname(newResolved.fullPath), { recursive: true });
-  await fs.rename(oldResolved.fullPath, newResolved.fullPath);
+
+  const destExists = await fs.access(newResolved.fullPath).then(() => true).catch(() => false);
+  if (destExists) {
+    await fs.rm(newResolved.fullPath, { recursive: true, force: true }).catch(() => {});
+  }
+
+  try {
+    await fs.rename(oldResolved.fullPath, newResolved.fullPath);
+  } catch (error) {
+    if (srcStats.isDirectory()) {
+      await fs.cp(oldResolved.fullPath, newResolved.fullPath, { recursive: true, force: true });
+      await fs.rm(oldResolved.fullPath, { recursive: true, force: true });
+    } else {
+      await fs.copyFile(oldResolved.fullPath, newResolved.fullPath);
+      await fs.unlink(oldResolved.fullPath);
+    }
+  }
+
   return {
     oldRelativePath: oldResolved.safeRelative,
     newRelativePath: newResolved.safeRelative,
@@ -5949,35 +5974,50 @@ ipcMain.handle('app:zip-and-delete-archived', async (event, request = {}) => {
       zipEntries.push(...dirEntries);
       entriesToDelete.push({ fullPath, isDir: true, relPath });
     } else if (stats.isFile()) {
-      try {
-        const data = await fs.readFile(fullPath);
-        zipEntries.push({
-          name: entryZipPath,
-          data,
-          mtimeMs: stats.mtimeMs,
-          ctimeMs: stats.ctimeMs,
-          birthtimeMs: stats.birthtimeMs
-        });
-        entriesToDelete.push({ fullPath, isDir: false, relPath });
-      } catch (err) {
-        console.warn('Failed to read file for zip:', fullPath, err);
-      }
+      const parsed = path.parse(fullPath);
+      const parentDirName = path.basename(parsed.dir);
+      const isNestedSessionFolderFile = target === 'mindmaps'
+        && (relPath.endsWith('.js') || relPath.endsWith('.json'))
+        && parentDirName.toLowerCase() === parsed.name.toLowerCase();
 
-      if (target === 'mindmaps' && (relPath.endsWith('.js') || relPath.endsWith('.json'))) {
-        const parsed = path.parse(fullPath);
-        const companionFullPath = path.join(parsed.dir, parsed.name);
-        if (!processedFullPaths.has(companionFullPath)) {
-          try {
-            const compStats = await fs.stat(companionFullPath);
-            if (compStats.isDirectory()) {
-              processedFullPaths.add(companionFullPath);
-              const compZipPath = entryZipPath.replace(/\.(js|json)$/i, '');
-              const dirEntries = await collectDirEntries(companionFullPath, compZipPath);
-              zipEntries.push(...dirEntries);
-              const compRelPath = relPath.replace(/\.(js|json)$/i, '');
-              entriesToDelete.push({ fullPath: companionFullPath, isDir: true, relPath: compRelPath });
-            }
-          } catch {}
+      if (isNestedSessionFolderFile && !processedFullPaths.has(parsed.dir)) {
+        processedFullPaths.add(parsed.dir);
+        processedFullPaths.add(fullPath);
+        const folderZipPath = entryZipPath.includes('/') ? entryZipPath.replace(/\/[^/]+$/, '') : parsed.name;
+        const dirEntries = await collectDirEntries(parsed.dir, folderZipPath);
+        zipEntries.push(...dirEntries);
+        const folderRelPath = relPath.includes('/') ? relPath.replace(/\/[^/]+$/, '') : parsed.name;
+        entriesToDelete.push({ fullPath: parsed.dir, isDir: true, relPath: folderRelPath });
+      } else if (!processedFullPaths.has(fullPath)) {
+        try {
+          const data = await fs.readFile(fullPath);
+          zipEntries.push({
+            name: entryZipPath,
+            data,
+            mtimeMs: stats.mtimeMs,
+            ctimeMs: stats.ctimeMs,
+            birthtimeMs: stats.birthtimeMs
+          });
+          entriesToDelete.push({ fullPath, isDir: false, relPath });
+        } catch (err) {
+          console.warn('Failed to read file for zip:', fullPath, err);
+        }
+
+        if (target === 'mindmaps' && (relPath.endsWith('.js') || relPath.endsWith('.json'))) {
+          const companionFullPath = path.join(parsed.dir, parsed.name);
+          if (!processedFullPaths.has(companionFullPath)) {
+            try {
+              const compStats = await fs.stat(companionFullPath);
+              if (compStats.isDirectory()) {
+                processedFullPaths.add(companionFullPath);
+                const compZipPath = entryZipPath.replace(/\.(js|json)$/i, '');
+                const dirEntries = await collectDirEntries(companionFullPath, compZipPath);
+                zipEntries.push(...dirEntries);
+                const compRelPath = relPath.replace(/\.(js|json)$/i, '');
+                entriesToDelete.push({ fullPath: companionFullPath, isDir: true, relPath: compRelPath });
+              }
+            } catch {}
+          }
         }
       }
     }

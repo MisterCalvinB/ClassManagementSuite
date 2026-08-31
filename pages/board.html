@@ -2389,7 +2389,6 @@
       </h2>
 
       <div id="history-toolbar">
-        <div id="history-status" data-i18n="historyStatusLoading">Loading saved files...</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()"
             data-i18n="historyExportSelected"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export
@@ -29612,7 +29611,11 @@
         let filesRes;
         const exts = section === 'constellation' ? ['.js', '.json', '.cstz', '.zip'] : ['.js', '.json'];
         if (section === 'constellation' && typeof Desktop.listByPath === 'function') {
-          filesRes = await Desktop.listByPath(target, '.', { extensions: exts, recursive: true });
+          filesRes = await Desktop.listByPath(target, '.', {
+            extensions: exts,
+            recursive: true,
+            excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+          });
         } else {
           filesRes = await Desktop.listFiles(target, { extensions: exts });
         }
@@ -32156,7 +32159,7 @@
           const listed = await Desktop.listByPath('mindmaps', '.', {
             extensions: ['.js', '.json', '.cstz', '.zip'],
             recursive: true,
-            excludeDirs: ['history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+            excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
           });
           const files = (listed && listed.ok && Array.isArray(listed.files)) ? listed.files : [];
           files.forEach(file => {
@@ -33543,7 +33546,7 @@
       const prefix = 'archived/';
 
       if (mode === 'archive') {
-        // Move full mindmap session folders to keep linked assets together.
+        if (rel.startsWith(prefix)) return null;
         if (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry)) {
           const parts = rel.split('/').filter(Boolean);
           if (parts.length === 2) {
@@ -33732,6 +33735,86 @@
         });
     }
 
+    async function historyExecuteArchiveMove(entry, mode) {
+      if (!entry || !entry.target) throw new Error('Invalid history entry.');
+      const rel = historyEntryRelativePath(entry);
+      if (!rel) throw new Error('Archive path could not be resolved.');
+
+      if (mode === 'archive') {
+        if (rel.startsWith('archived/')) return;
+        if (entry.target === 'mindmaps') {
+          const parts = rel.split('/').filter(Boolean);
+          const baseName = boardStripJsonExt(entry.filename || (parts.length ? parts[parts.length - 1] : ''));
+
+          if (parts.length === 2) {
+            const folderName = parts[0];
+            const res = await Desktop.renameByPath('mindmaps', folderName, 'archived/' + folderName);
+            if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not archive session folder.');
+
+            const rootFile = baseName + '.js';
+            try {
+              const stat = await Desktop.statByPath('mindmaps', rootFile);
+              if (stat && stat.ok && stat.exists && stat.isFile) {
+                await Desktop.renameByPath('mindmaps', rootFile, 'archived/' + rootFile);
+              }
+            } catch (_) { }
+          } else {
+            const res = await Desktop.renameByPath('mindmaps', rel, 'archived/' + rel);
+            if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not archive file.');
+
+            if (baseName) {
+              try {
+                const stat = await Desktop.statByPath('mindmaps', baseName);
+                if (stat && stat.ok && stat.exists && stat.isDirectory) {
+                  await Desktop.renameByPath('mindmaps', baseName, 'archived/' + baseName);
+                }
+              } catch (_) { }
+            }
+          }
+        } else {
+          const res = await Desktop.renameByPath(entry.target, rel, 'archived/' + rel);
+          if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not archive file.');
+        }
+      } else if (mode === 'unarchive') {
+        if (!rel.startsWith('archived/')) return;
+        const unarchivedRel = rel.slice('archived/'.length);
+
+        if (entry.target === 'mindmaps') {
+          const parts = rel.split('/').filter(Boolean);
+          const baseName = boardStripJsonExt(entry.filename || (parts.length ? parts[parts.length - 1] : ''));
+
+          if (parts.length === 3 && parts[0] === 'archived') {
+            const folderName = parts[1];
+            const res = await Desktop.renameByPath('mindmaps', 'archived/' + folderName, folderName);
+            if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not unarchive session folder.');
+
+            const rootFile = 'archived/' + baseName + '.js';
+            try {
+              const stat = await Desktop.statByPath('mindmaps', rootFile);
+              if (stat && stat.ok && stat.exists && stat.isFile) {
+                await Desktop.renameByPath('mindmaps', rootFile, baseName + '.js');
+              }
+            } catch (_) { }
+          } else {
+            const res = await Desktop.renameByPath('mindmaps', rel, unarchivedRel);
+            if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not unarchive file.');
+
+            if (baseName) {
+              try {
+                const stat = await Desktop.statByPath('mindmaps', 'archived/' + baseName);
+                if (stat && stat.ok && stat.exists && stat.isDirectory) {
+                  await Desktop.renameByPath('mindmaps', 'archived/' + baseName, baseName);
+                }
+              } catch (_) { }
+            }
+          }
+        } else {
+          const res = await Desktop.renameByPath(entry.target, rel, unarchivedRel);
+          if (!res || !res.ok) throw new Error((res && res.error) ? res.error : 'Could not unarchive file.');
+        }
+      }
+    }
+
     async function historyArchiveEntry(entry) {
       if (!entry || !entry.target) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
@@ -33739,10 +33822,7 @@
         return;
       }
       try {
-        const move = historyArchiveMovePaths(entry, 'archive');
-        if (!move) throw new Error('Archive path could not be resolved.');
-        const result = await Desktop.renameByPath(entry.target, move.from, move.to);
-        if (!result || !result.ok) throw new Error(result && result.error ? result.error : 'Archive failed.');
+        await historyExecuteArchiveMove(entry, 'archive');
         mdbToast('✔ Archived.');
         historyUpdateArchiveState(entry, 'archive');
       } catch (error) {
@@ -33757,10 +33837,7 @@
         return;
       }
       try {
-        const move = historyArchiveMovePaths(entry, 'unarchive');
-        if (!move) { mdbToast('⚠️ Entry is not in the archive.'); return; }
-        const result = await Desktop.renameByPath(entry.target, move.from, move.to);
-        if (!result || !result.ok) throw new Error(result && result.error ? result.error : 'Unarchive failed.');
+        await historyExecuteArchiveMove(entry, 'unarchive');
         mdbToast('✔ Unarchived.');
         historyUpdateArchiveState(entry, 'unarchive');
       } catch (error) {
@@ -33776,16 +33853,21 @@
       const toArchive = historyGetSortedEntries().filter(e => historySelectedKeys.has(historyEntryKey(e)));
       if (!toArchive.length) { mdbToast('No files selected.'); return; }
       let done = 0; let failed = 0;
+      const succeeded = [];
       for (const entry of toArchive) {
         try {
-          const move = historyArchiveMovePaths(entry, 'archive');
-          if (!move) { failed++; continue; }
-          const result = await Desktop.renameByPath(entry.target, move.from, move.to);
-          if (result && result.ok) done++; else failed++;
-        } catch { failed++; }
+          await historyExecuteArchiveMove(entry, 'archive');
+          done++;
+          succeeded.push(entry);
+        } catch (e) {
+          console.warn('Archive failed for entry:', entry, e);
+          failed++;
+        }
       }
       mdbToast(failed ? '⚠️ Archived ' + done + ', ' + failed + ' failed.' : '✔ Archived ' + done + ' file(s).');
-      historyUpdateArchiveState(toArchive, 'archive');
+      if (succeeded.length) {
+        historyUpdateArchiveState(succeeded, 'archive');
+      }
     }
 
     async function historyUnarchiveSelected() {
@@ -33796,16 +33878,21 @@
       const toUnarchive = historyGetSortedEntries().filter(e => historySelectedKeys.has(historyEntryKey(e)));
       if (!toUnarchive.length) { mdbToast('No files selected.'); return; }
       let done = 0; let failed = 0;
+      const succeeded = [];
       for (const entry of toUnarchive) {
         try {
-          const move = historyArchiveMovePaths(entry, 'unarchive');
-          if (!move) { failed++; continue; }
-          const result = await Desktop.renameByPath(entry.target, move.from, move.to);
-          if (result && result.ok) done++; else failed++;
-        } catch { failed++; }
+          await historyExecuteArchiveMove(entry, 'unarchive');
+          done++;
+          succeeded.push(entry);
+        } catch (e) {
+          console.warn('Unarchive failed for entry:', entry, e);
+          failed++;
+        }
       }
       mdbToast(failed ? '⚠️ Unarchived ' + done + ', ' + failed + ' failed.' : '✔ Unarchived ' + done + ' file(s).');
-      historyUpdateArchiveState(toUnarchive, 'unarchive');
+      if (succeeded.length) {
+        historyUpdateArchiveState(succeeded, 'unarchive');
+      }
     }
 
     async function historyZipSingleEntry(entry) {
@@ -33886,15 +33973,19 @@
           if (!historyHasLoaded && !historyLoading && typeof historyRefreshList === 'function') {
             historyRefreshList();
           }
-        }, 10000);
+        }, 1200);
       }
     }
 
-    function historySetViewTab(tab) {
+    async function historySetViewTab(tab) {
       const next = tab === 'archived' ? 'archived' : 'manual';
-      if (historyViewTab === next) return;
       historyViewTab = next;
-      historyRenderList();
+      historyRenderViewTabs();
+      if (next === 'archived' && !historyArchivedLoaded && !historyArchivedLoading) {
+        await historyLoadArchivedFiles();
+      } else {
+        historyRenderList();
+      }
     }
 
     function historyRenderViewTabs() {
@@ -34193,10 +34284,17 @@
           historySelectedKeys.delete(oldKey);
           historyContentCache.delete(oldKey);
         }
-        const move = historyArchiveMovePaths(entry, mode);
-        if (move) {
-          entry.relativePath = move.to.replace(/\\/g, '/');
-          entry.source = (mode === 'archive') ? 'archived' : 'manual-save';
+        const rel = historyEntryRelativePath(entry);
+        if (mode === 'archive') {
+          if (!rel.startsWith('archived/')) {
+            entry.relativePath = 'archived/' + rel;
+            entry.source = 'archived';
+          }
+        } else if (mode === 'unarchive') {
+          if (rel.startsWith('archived/')) {
+            entry.relativePath = rel.slice('archived/'.length);
+            entry.source = 'manual-save';
+          }
         }
       });
       historyRenderList();
@@ -34518,6 +34616,59 @@
       historyUpdateSelectionUI();
     }
 
+    let historyArchivedLoaded = false;
+    let historyArchivedLoading = false;
+
+    async function historyLoadArchivedFiles() {
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function')) {
+        historyArchivedLoaded = true;
+        historyRenderList();
+        return;
+      }
+      historyArchivedLoading = true;
+      historySetStatus('Scanning archived files…');
+      historyUpdateSpinnerUi();
+      try {
+        const res = await Desktop.listByPath('mindmaps', 'archived', {
+          extensions: ['.js', '.json', '.cstz', '.zip'],
+          recursive: true,
+          excludeDirs: ['history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+        });
+        const files = Array.isArray(res && res.files) ? res.files : [];
+        const filtered = files.filter(file => {
+          const rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+          const parts = rel.split('/').filter(Boolean);
+          const filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
+          if (!filename) return false;
+          if (parts.length === 3 && parts[0] === 'archived') {
+            return boardStripJsonExt(filename).toLowerCase() === parts[1].toLowerCase();
+          }
+          if (parts.length === 2 && parts[0] === 'archived') return true;
+          if (parts.length === 1) return true;
+          if (parts.length === 2) {
+            return boardStripJsonExt(filename).toLowerCase() === parts[0].toLowerCase();
+          }
+          return false;
+        });
+
+        historyEntries = historyEntries.filter(e => e && e.source !== 'archived');
+        const newArchivedEntries = filtered.map(file => {
+          const rawRel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+          const normRel = rawRel.startsWith('archived/') ? rawRel : ('archived/' + rawRel);
+          return historyBuildEntry('mindmaps', Object.assign({}, file, { relativePath: normRel, source: 'archived' }));
+        });
+
+        historyEntries = historyEntries.concat(newArchivedEntries);
+        historyArchivedLoaded = true;
+      } catch (e) {
+        console.warn('Could not scan archived files:', e);
+      } finally {
+        historyArchivedLoading = false;
+        historyRenderList();
+        setTimeout(() => { historyEnrichEntryClassGroups(); }, 60);
+      }
+    }
+
     async function historyRefreshList() {
       if (_historyAutoLoadTimer) {
         clearTimeout(_historyAutoLoadTimer);
@@ -34541,7 +34692,7 @@
           ? await Desktop.listByPath('mindmaps', '.', {
               extensions: ['.js', '.json', '.cstz', '.zip'],
               recursive: true,
-              excludeDirs: ['history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+              excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
             })
           : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json', '.cstz', '.zip'] });
 
@@ -34552,12 +34703,6 @@
           const parts = rel.split('/').filter(Boolean);
           const filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
           if (!filename) return false;
-          // archived/folder/folder.js  (depth 3)
-          if (parts.length === 3 && parts[0] === 'archived') {
-            return boardStripJsonExt(filename).toLowerCase() === parts[1].toLowerCase();
-          }
-          // archived/file.js / archived/file.cstz  (depth 2, archived flat)
-          if (parts.length === 2 && parts[0] === 'archived') return true;
           if (parts.length <= 1) return true;
           if (parts.length === 2) {
             const folder = parts[0];
@@ -34566,7 +34711,13 @@
           return false;
         });
 
-        historyEntries = filteredMindmapsFiles.map(file => historyBuildEntry('mindmaps', file));
+        const existingArchived = historyArchivedLoaded ? historyEntries.filter(e => e && e.source === 'archived') : [];
+        const activeEntries = filteredMindmapsFiles.map(file => historyBuildEntry('mindmaps', file));
+        historyEntries = activeEntries.concat(existingArchived);
+
+        if (historyViewTab === 'archived' && !historyArchivedLoaded && !historyArchivedLoading) {
+          setTimeout(() => { historyLoadArchivedFiles(); }, 0);
+        }
       } catch (error) {
         historyEntries = [];
         historySetStatus('Could not load history files.');
@@ -34906,7 +35057,10 @@
           const parts = rel.split('/').filter(Boolean);
           if (parts.length >= 2) {
             try {
-              await Desktop.deleteByPath(entry.target, parts[0], { recursive: true, force: true });
+              const folderToDelete = (parts[0] === 'archived' && parts.length >= 3)
+                ? (parts[0] + '/' + parts[1])
+                : parts[0];
+              await Desktop.deleteByPath(entry.target, folderToDelete, { recursive: true, force: true });
             } catch { }
           }
         }
