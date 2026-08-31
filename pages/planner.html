@@ -1659,8 +1659,6 @@
       if (!_plannerBooted) return;
       navigateToPending();
       navigateToPendingTodo();
-      if (typeof loadBoardSessions === 'function') loadBoardSessions();
-      if (typeof loadSavedLessonPlans === 'function') loadSavedLessonPlans();
     });
 
     var _navHighlightNav = null;
@@ -1843,7 +1841,7 @@
         
         if (changed) {
           plannerPins = await Pins.getPins();
-          render();
+          if (typeof plannerUpdatePinButtons === 'function') plannerUpdatePinButtons();
         }
       })();
     }
@@ -1922,7 +1920,7 @@
           }
         } catch (e) { }
       }));
-      if (hadDates) renderAgenda();
+      if (hadDates && typeof plannerUpdateParticipationDots === 'function') plannerUpdateParticipationDots();
     }
 
     var _plannerBoardMetaCache = (function () {
@@ -1937,13 +1935,261 @@
       } catch (e) { }
     }
 
+    // ── In-place DOM Badge Updates (Zero Full Rebuilds) ──────────────────────────
+    function _plannerCreateBoardBadge(linkId, sessions) {
+      if (!sessions || !sessions.length) return null;
+      var _bLatest = sessions.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+      var _bTitle = t('pl_boardLinked') + (sessions.length > 1 ? ' (' + sessions.length + ')' : '') + ': ' + _bLatest.name;
+      var span = document.createElement('span');
+      span.className = 'board-session-badge';
+      span.title = _bTitle;
+      span.textContent = t('pl_boardOpen');
+      span.onclick = function (e) { e.stopPropagation(); openLinkedBoard(linkId); };
+      return span;
+    }
+
+    function _plannerCreateLessonPlanBadge(linkId, plan, classId, date, entryId, topic) {
+      if (!plan) return null;
+      var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (plan.title || 'Untitled') + (entryId ? ' (Click to open · Drag to duplicate)' : '');
+      var span = document.createElement('span');
+      span.className = 'lesson-plan-badge';
+      span.title = _lpTitle;
+      span.textContent = t('pl_lessonPlanBadge');
+      if (entryId) {
+        span.setAttribute('draggable', 'true');
+        span.setAttribute('data-drag-type', 'lesson-plan');
+        span.setAttribute('data-plan-id', plan.id || '');
+        span.setAttribute('data-entry-id', entryId);
+      }
+      span.onclick = function (e) {
+        e.stopPropagation();
+        openLinkedLessonPlan(plan.id || '', classId || '', date || '', entryId || '', topic || '');
+      };
+      return span;
+    }
+
+    function plannerUpdateLinkedBoardBadges(changedLinkIds) {
+      if (!changedLinkIds || !changedLinkIds.size) return;
+      // 1. Update Agenda view entries
+      var agendaRows = document.querySelectorAll('.entry-row');
+      agendaRows.forEach(function (row) {
+        var entryId = row.getAttribute('data-entry-id') || '';
+        var classId = row.getAttribute('data-classid') || '';
+        var date = row.getAttribute('data-date') || '';
+        var time = row.getAttribute('data-time') || '';
+        var linkId = entryId ? entryId : plannerBoardLinkId({ classId: classId, date: date, time: time }, null);
+        if (!linkId || !changedLinkIds.has(linkId)) return;
+
+        var inner = row.querySelector('.entry-inner');
+        if (!inner) return;
+        var existingBadge = inner.querySelector('.board-session-badge');
+        var sessions = boardSessionsByEntryId[linkId];
+        if (sessions && sessions.length) {
+          var newBadge = _plannerCreateBoardBadge(linkId, sessions);
+          if (existingBadge) {
+            inner.replaceChild(newBadge, existingBadge);
+          } else {
+            var actions = inner.querySelector('.entry-actions');
+            if (actions) inner.insertBefore(newBadge, actions);
+            else inner.appendChild(newBadge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+
+      // 2. Update Timetable / Matrix view cells
+      var cells = document.querySelectorAll('.at-cell, .at-cell-empty');
+      cells.forEach(function (cell) {
+        var entryId = cell.getAttribute('data-entry-id') || '';
+        var classId = cell.getAttribute('data-classid') || '';
+        var date = cell.getAttribute('data-date') || '';
+        var time = cell.getAttribute('data-time') || '';
+        var linkId = entryId ? entryId : plannerBoardLinkId({ classId: classId, date: date, time: time }, null);
+        if (!linkId || !changedLinkIds.has(linkId)) return;
+
+        var existingBadge = cell.querySelector('.board-session-badge');
+        var sessions = boardSessionsByEntryId[linkId];
+        if (sessions && sessions.length) {
+          var newBadge = _plannerCreateBoardBadge(linkId, sessions);
+          if (existingBadge) {
+            cell.replaceChild(newBadge, existingBadge);
+          } else {
+            cell.appendChild(newBadge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+    }
+
+    function plannerUpdateLinkedLessonPlanBadges(changedPlanIds, changedSlotKeys) {
+      var planSet = changedPlanIds instanceof Set ? changedPlanIds : new Set(changedPlanIds || []);
+      var slotSet = changedSlotKeys instanceof Set ? changedSlotKeys : new Set(changedSlotKeys || []);
+      if (!planSet.size && !slotSet.size) return;
+
+      // 1. Agenda View
+      var agendaRows = document.querySelectorAll('.entry-row');
+      agendaRows.forEach(function (row) {
+        var entryId = row.getAttribute('data-entry-id') || '';
+        var classId = row.getAttribute('data-classid') || '';
+        var date = row.getAttribute('data-date') || '';
+        var time = row.getAttribute('data-time') || '';
+        var slotKey = classId + ':' + date;
+        var entry = entryId ? (Array.isArray(entries) ? entries.find(function (e) { return e && e.id === entryId; }) : null) : null;
+        var affectsThis = (entryId && planSet.has(entryId)) || slotSet.has(slotKey) || (entry && entry.lessonPlanId && planSet.has(entry.lessonPlanId));
+        if (!affectsThis && !planSet.has('__all__')) return;
+
+        var inner = row.querySelector('.entry-inner');
+        if (!inner) return;
+        var existingBadge = inner.querySelector('.lesson-plan-badge');
+        var lpLink = plannerLessonPlanForSlot({ classId: classId, date: date, time: time }, entry);
+        if (lpLink && lpLink.plan) {
+          var topic = entry && entry.topic ? entry.topic : '';
+          var newBadge = _plannerCreateLessonPlanBadge(lpLink.linkId, lpLink.plan, classId, date, entryId, topic);
+          if (existingBadge) {
+            inner.replaceChild(newBadge, existingBadge);
+          } else {
+            var boardBadge = inner.querySelector('.board-session-badge');
+            var actions = inner.querySelector('.entry-actions');
+            if (boardBadge) inner.insertBefore(newBadge, boardBadge);
+            else if (actions) inner.insertBefore(newBadge, actions);
+            else inner.appendChild(newBadge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+
+      // 2. Timetable View
+      var cells = document.querySelectorAll('.at-cell, .at-cell-empty');
+      cells.forEach(function (cell) {
+        var entryId = cell.getAttribute('data-entry-id') || '';
+        var classId = cell.getAttribute('data-classid') || '';
+        var date = cell.getAttribute('data-date') || '';
+        var time = cell.getAttribute('data-time') || '';
+        var slotKey = classId + ':' + date;
+        var entry = entryId ? (Array.isArray(entries) ? entries.find(function (e) { return e && e.id === entryId; }) : null) : null;
+        var affectsThis = (entryId && planSet.has(entryId)) || slotSet.has(slotKey) || (entry && entry.lessonPlanId && planSet.has(entry.lessonPlanId));
+        if (!affectsThis && !planSet.has('__all__')) return;
+
+        var existingBadge = cell.querySelector('.lesson-plan-badge');
+        var lpLink = plannerLessonPlanForSlot({ classId: classId, date: date, time: time }, entry);
+        if (lpLink && lpLink.plan) {
+          var topic = entry && entry.topic ? entry.topic : '';
+          var newBadge = _plannerCreateLessonPlanBadge(lpLink.linkId, lpLink.plan, classId, date, entryId, topic);
+          if (existingBadge) {
+            cell.replaceChild(newBadge, existingBadge);
+          } else {
+            var boardBadge = cell.querySelector('.board-session-badge');
+            if (boardBadge) cell.insertBefore(newBadge, boardBadge);
+            else cell.appendChild(newBadge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+    }
+
+    function plannerUpdateParticipationDots() {
+      var rows = document.querySelectorAll('.entry-row');
+      rows.forEach(function (row) {
+        var cid = row.getAttribute('data-classid') || '';
+        var dt = row.getAttribute('data-date') || '';
+        var inner = row.querySelector('.entry-inner');
+        if (!inner) return;
+        var existingDot = inner.querySelector('.part-dot');
+        var showDot = !!(cid && partDates[cid] && !partDates[cid].has(dt));
+        if (showDot) {
+          if (!existingDot) {
+            var dot = document.createElement('span');
+            dot.className = 'part-dot';
+            dot.title = t('pl_missingPart');
+            var refEl = inner.querySelector('.gs-badge, .lesson-plan-badge, .board-session-badge, .entry-actions');
+            if (refEl) inner.insertBefore(dot, refEl);
+            else inner.appendChild(dot);
+          }
+        } else if (existingDot) {
+          existingDot.remove();
+        }
+      });
+    }
+
+    function plannerUpdatePinButtons() {
+      var rows = document.querySelectorAll('.entry-row[data-entry-id]');
+      rows.forEach(function (row) {
+        var entryId = row.getAttribute('data-entry-id');
+        if (!entryId) return;
+        var btn = row.querySelector('.entry-btn[onclick*="toggleEntryPin"]');
+        if (!btn) return;
+        var isPinned = (plannerPins || []).some(function(p) {
+          return p && p.type === 'planner-entry' && p.entryId === entryId;
+        });
+        btn.classList.toggle('pinned', isPinned);
+        btn.title = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
+        btn.textContent = isPinned ? '📌' : '📍';
+      });
+      if (typeof renderTodos === 'function') renderTodos();
+    }
+
+    function plannerUpdateGradeSheetBadges(changedEntryIds) {
+      var idSet = changedEntryIds instanceof Set ? changedEntryIds : new Set(changedEntryIds || []);
+      var rows = document.querySelectorAll('.entry-row[data-entry-id]');
+      rows.forEach(function (row) {
+        var entryId = row.getAttribute('data-entry-id');
+        if (!entryId || (!idSet.has('__all__') && idSet.size && !idSet.has(entryId))) return;
+        var inner = row.querySelector('.entry-inner');
+        if (!inner) return;
+        var entry = entries.find(function (e) { return e && e.id === entryId; });
+        var existingBadge = inner.querySelector('.gs-badge');
+        var linked = isGradeSheetLinked(entry);
+        if (linked) {
+          if (!existingBadge) {
+            var badge = document.createElement('span');
+            badge.className = 'gs-badge';
+            badge.title = t('pl_gsLinked');
+            badge.textContent = 'GS';
+            var refEl = inner.querySelector('.lesson-plan-badge, .board-session-badge, .entry-actions');
+            if (refEl) inner.insertBefore(badge, refEl);
+            else inner.appendChild(badge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+
+      var cells = document.querySelectorAll('.at-cell[data-entry-id]');
+      cells.forEach(function (cell) {
+        var entryId = cell.getAttribute('data-entry-id');
+        if (!entryId || (!idSet.has('__all__') && idSet.size && !idSet.has(entryId))) return;
+        var entry = entries.find(function (e) { return e && e.id === entryId; });
+        var existingBadge = cell.querySelector('.gs-badge');
+        var linked = isGradeSheetLinked(entry);
+        if (linked) {
+          if (!existingBadge) {
+            var badge = document.createElement('span');
+            badge.className = 'gs-badge';
+            badge.title = t('pl_gsLinked');
+            badge.textContent = 'GS';
+            var refEl = cell.querySelector('.lesson-plan-badge, .board-session-badge');
+            if (refEl) cell.insertBefore(badge, refEl);
+            else cell.appendChild(badge);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+    }
+
     async function loadBoardSessions() {
       if (!window.Desktop || !Desktop.isElectron()) return;
+      var nextBoardSessionsByEntryId = {};
+
       function addLinkedBoardSession(linkId, session, dedupe) {
         if (!linkId || !session) return false;
-        if (!boardSessionsByEntryId[linkId]) boardSessionsByEntryId[linkId] = [];
+        if (!nextBoardSessionsByEntryId[linkId]) nextBoardSessionsByEntryId[linkId] = [];
         var key = String(dedupe || session.id || '') + '|' + String(session.openKind || 'local');
-        var arr = boardSessionsByEntryId[linkId];
+        var arr = nextBoardSessionsByEntryId[linkId];
         if (arr.some(function (x) { return (String(x._k || '') === key); })) return false;
         session._k = key;
         arr.push(session);
@@ -1970,10 +2216,8 @@
         return false;
       }
 
-      var hadChanges = false;
       try {
         var r = await Desktop.readJson('user', 'board-sessions-backup.json');
-        boardSessionsByEntryId = {};
         var store = (r && r.ok && r.data) ? r.data : null;
         if (store) {
           ['constellation', 'textanalysis', 'notes'].forEach(function (section) {
@@ -1985,15 +2229,13 @@
               if (section === 'constellation') return;
               var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
               if (!eid) return;
-              if (addLinkedBoardSession(eid, {
+              addLinkedBoardSession(eid, {
                 id: String(e.id),
                 name: String(e.name || ''),
                 section: section,
                 savedAt: Number(e.savedAt) || 0,
                 openKind: 'local'
-              }, section + ':' + String(e.id))) {
-                hadChanges = true;
-              }
+              }, section + ':' + String(e.id));
             });
           });
         }
@@ -2036,7 +2278,7 @@
 
               if (!peid) return;
               var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json|cstz|zip)$/i, '');
-              if (addLinkedBoardSession(peid, {
+              addLinkedBoardSession(peid, {
                 id: 'path:' + relPath,
                 name: label,
                 section: 'constellation',
@@ -2045,17 +2287,31 @@
                 target: 'mindmaps',
                 filename: String(f.filename || relPath.split('/').pop() || ''),
                 relativePath: relPath
-              }, 'file:' + relPath)) {
-                hadChanges = true;
-              }
+              }, 'file:' + relPath);
             }));
           }
           if (cacheUpdated) _savePlannerBoardMetaCache();
         }
       } catch (_) { }
 
+      // Compute fine-grained diff of changed link IDs
+      var allLinkIds = new Set([].concat(Object.keys(boardSessionsByEntryId || {}), Object.keys(nextBoardSessionsByEntryId)));
+      var changedLinkIds = new Set();
+      allLinkIds.forEach(function (linkId) {
+        var prevArr = boardSessionsByEntryId[linkId] || [];
+        var nextArr = nextBoardSessionsByEntryId[linkId] || [];
+        var prevKeys = prevArr.map(function (x) { return String(x._k || x.id || ''); }).sort().join('::');
+        var nextKeys = nextArr.map(function (x) { return String(x._k || x.id || ''); }).sort().join('::');
+        if (prevKeys !== nextKeys) {
+          changedLinkIds.add(linkId);
+        }
+      });
+
+      boardSessionsByEntryId = nextBoardSessionsByEntryId;
       if (typeof tdPruneMissingMindmapLinks === 'function') tdPruneMissingMindmapLinks();
-      if (hadChanges) renderAgenda();
+      if (changedLinkIds.size > 0) {
+        plannerUpdateLinkedBoardBadges(changedLinkIds);
+      }
     }
 
     function openLinkedBoard(entryId) {
@@ -2099,7 +2355,6 @@
 
     async function loadSavedLessonPlans() {
       if (!window.Desktop || !Desktop.isElectron()) return;
-      var hadChanges = false;
       try {
         var filesRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
         var files = (filesRes && filesRes.ok && Array.isArray(filesRes.files)) ? filesRes.files : [];
@@ -2157,6 +2412,22 @@
           if (!activePaths.has(pth)) delete _plannerLessonPlanMetaCache[k];
         }
 
+        var prevEntryKeys = Object.keys(plannerLessonPlansByEntryId || {});
+        var nextEntryKeys = Object.keys(newByEntryId);
+        var changedPlanIds = new Set();
+        var changedSlotKeys = new Set();
+
+        var allEids = new Set([].concat(prevEntryKeys, nextEntryKeys));
+        allEids.forEach(function (eid) {
+          var p1 = plannerLessonPlansByEntryId[eid];
+          var p2 = newByEntryId[eid];
+          if (!p1 || !p2 || p1.id !== p2.id || p1.title !== p2.title || p1.mtimeMs !== p2.mtimeMs || p1._relPath !== p2._relPath) {
+            changedPlanIds.add(eid);
+            if (p1 && p1.classId && p1.date) changedSlotKeys.add(p1.classId + ':' + p1.date);
+            if (p2 && p2.classId && p2.date) changedSlotKeys.add(p2.classId + ':' + p2.date);
+          }
+        });
+
         plannerLessonPlansByEntryId = newByEntryId;
         plannerLessonPlansBySlotKey = newBySlotKey;
         plannerLessonPlansList = newList.sort(function (a, b) {
@@ -2180,10 +2451,11 @@
         if (entriesModified && typeof persistEntries === 'function') {
           persistEntries().catch(function () {});
         }
-        hadChanges = true;
-      } catch (_) {}
 
-      if (hadChanges) render();
+        if (changedPlanIds.size > 0 || changedSlotKeys.size > 0) {
+          plannerUpdateLinkedLessonPlanBadges(changedPlanIds, changedSlotKeys);
+        }
+      } catch (_) {}
     }
 
     var _entriesById = Object.create(null);
@@ -3669,7 +3941,7 @@
         showToast('📌 Pinned to sidebar');
       }
       plannerPins = await Pins.getPins();
-      render();
+      plannerUpdatePinButtons();
     }
 
     async function toggleTodoPin(event, id) {
@@ -3700,7 +3972,7 @@
         showToast('📌 Pinned to sidebar');
       }
       plannerPins = await Pins.getPins();
-      render();
+      renderTodos();
     }
 
     function openEditEntry(id) {
@@ -5119,7 +5391,7 @@
               semester: gsSem, testIndex: testIndex
             };
             persistEntries();
-            render(); // refresh GS badge
+            plannerUpdateGradeSheetBadges([entry.id]);
           }
           showToast(t('pl_gsWriteOk'));
         }
@@ -5181,7 +5453,7 @@
         entries[matchIdx].gsLink = null;
       }
       persistEntries();
-      render();
+      plannerUpdateGradeSheetBadges([entry.id]);
     }
 
     async function validateGradeSheetLinks() {
@@ -5225,7 +5497,7 @@
 
       if (modified) {
         await persistEntries();
-        render();
+        plannerUpdateGradeSheetBadges(['__all__']);
       }
     }
 
@@ -8638,16 +8910,17 @@
         if (data && (data.target === 'lessons' || data.subdir === 'lessons' || (data.filename && data.filename.startsWith('lp_')))) {
           _plannerLessonPlanMetaCache = {};
           if (typeof loadSavedLessonPlans === 'function') {
-            loadSavedLessonPlans().then(function () {
-              if (typeof render === 'function') render();
-            });
+            loadSavedLessonPlans();
           }
           return;
         }
         if (data && data.filename === 'pinned-items.json') {
-          loadData().then(function() {
-            render();
-          });
+          if (window.Pins && typeof Pins.getPins === 'function') {
+            Pins.getPins().then(function(pins) {
+              plannerPins = pins || [];
+              if (typeof plannerUpdatePinButtons === 'function') plannerUpdatePinButtons();
+            });
+          }
           return;
         }
         if (data && (data.target === 'grades' || data.subdir === 'grades')) {
@@ -8659,13 +8932,7 @@
         }
       });
 
-      window.addEventListener('focus', function () {
-        if (typeof loadSavedLessonPlans === 'function') {
-          loadSavedLessonPlans().then(function () {
-            if (typeof render === 'function') render();
-          });
-        }
-      });
+      // (Focus listener consolidated at line 1658 with debounce & zero full-rebuild diffing)
     })();
 
     // ── Todo list ─────────────────────────────────────────────────────────────────
