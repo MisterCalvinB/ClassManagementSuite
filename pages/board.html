@@ -29569,6 +29569,113 @@
     function initBoardSessionAutosave() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
       boardResetAutosaveInterval();
+      initBoardCloseUnsavedGuard();
+    }
+
+    let _conIsClosing = false;
+    let _conClosePromptActive = false;
+
+    async function conPerformAutosaveOnClose() {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      try {
+        const data = conBuildSessionData();
+        if (!conSessionHasContent(data)) {
+          boardSetDirty(false);
+          return;
+        }
+
+        const classGroup = typeof activeClassGroup === 'string' ? activeClassGroup : '';
+        const persistedData = boardBuildPersistedSessionData('constellation', data);
+        const titleVal = (window.conGetTitle ? window.conGetTitle() : '').trim();
+        const filename = _conCurrentFileName || boardDefaultFileName('constellation', titleVal);
+
+        boardPersistLocalSession('constellation', persistedData, {
+          source: 'autosave',
+          classGroup,
+          name: filename
+        });
+        boardSetAutosaveFingerprint('constellation', persistedData);
+
+        if (window.Desktop && Desktop.isElectron()) {
+          const isArchive = filename.endsWith('.cstz') || filename.endsWith('.zip') || !filename.endsWith('.js');
+          if (isArchive && typeof Desktop.saveBoardArchive === 'function') {
+            await conSaveSessionFolderBundle(filename, persistedData, { isAutosave: true });
+          } else {
+            const exportName = 'CONSTELLATION_SESSION_EXPORT';
+            const autosaveContent = boardBuildSessionFileContent(persistedData, exportName);
+            const autosaveFile = {
+              filename: filename,
+              content: autosaveContent,
+              encoding: 'utf8'
+            };
+            if (_conCurrentFolderName) {
+              autosaveFile.subdir = _conCurrentFolderName;
+            }
+            await Desktop.saveFiles('mindmaps', [autosaveFile]);
+          }
+        }
+        boardSetDirty(false, { justSaved: true });
+      } catch (err) {
+        console.warn('Autosave on close failed:', err);
+      }
+    }
+
+    let _boardCloseGuardInitialized = false;
+    function initBoardCloseUnsavedGuard() {
+      if (_boardCloseGuardInitialized) return;
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      _boardCloseGuardInitialized = true;
+
+      window.addEventListener('beforeunload', function (e) {
+        if (!_boardIsDirty || _conIsClosing) return;
+
+        // Prevent immediate close to display autosave confirmation prompt
+        e.preventDefault();
+        e.returnValue = false;
+
+        if (_conClosePromptActive) return;
+        _conClosePromptActive = true;
+
+        (async function () {
+          try {
+            const title = (typeof t === 'function' ? t('conAutosaveCloseTitle') : '') || 'Unsaved Changes';
+            const msg = (typeof t === 'function' ? t('conAutosaveOnClosePrompt') : '') || 'The board has unsaved changes. Would you like to save before closing?';
+            const yesText = (typeof t === 'function' ? t('btnYes') : '') || 'Yes';
+            const noText = (typeof t === 'function' ? t('btnNo') : '') || 'No';
+            const countdownMsg = (typeof t === 'function' ? t('conAutosaveCountdown') : '') || 'Saving automatically in {seconds}s...';
+
+            let shouldSave = true;
+            if (typeof window.showTimedConfirm === 'function') {
+              shouldSave = await window.showTimedConfirm({
+                title: title,
+                msg: msg,
+                yesText: yesText,
+                noText: noText,
+                timeoutSeconds: 10,
+                countdownMsg: countdownMsg,
+                defaultChoice: true
+              });
+            }
+
+            if (shouldSave) {
+              await conPerformAutosaveOnClose();
+            }
+          } catch (err) {
+            console.warn('Error during close confirmation / autosave:', err);
+          } finally {
+            _boardIsDirty = false;
+            _conIsClosing = true;
+            _conClosePromptActive = false;
+            if (window.Desktop && typeof Desktop.closeWindow === 'function') {
+              Desktop.closeWindow();
+            } else if (window.electronApi && typeof window.electronApi.closeWindow === 'function') {
+              window.electronApi.closeWindow();
+            } else {
+              window.close();
+            }
+          }
+        })();
+      });
     }
 
     // Shared helper: returns one {trans,ipa,def} object per DB entry for a word.

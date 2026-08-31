@@ -717,6 +717,14 @@
     return getDesktopApi().goToLauncher();
   }
 
+  async function closeWindow() {
+    if (!isElectron()) {
+      try { window.close(); } catch (_) {}
+      return null;
+    }
+    return getDesktopApi().closeWindow();
+  }
+
   async function openTool(pageFile, opts) {
     if (!isElectron()) {
       let url = pageFile;
@@ -907,6 +915,7 @@
     duplicateByPath,
     exportFiles,
     goToLauncher,
+    closeWindow,
     isElectron,
     isTimerWindowOpen,
     createDirectoryByPath,

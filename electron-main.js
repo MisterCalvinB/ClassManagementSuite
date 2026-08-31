@@ -4313,6 +4313,14 @@ ipcMain.handle('app:apply-merge-choices', async (_event, { decisions = [] } = {}
   return { ok: true, applied, errors };
 });
 
+ipcMain.handle('app:close-window', async (event) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (senderWin && !senderWin.isDestroyed()) {
+    senderWin.close();
+  }
+  return { ok: true };
+});
+
 ipcMain.handle('app:open-tool', async (event, request = {}) => {
   const pageFile = typeof request === 'string' ? request : (request.pageFile || '');
   const knownPages = new Set(Object.values(PAGE_FILES));

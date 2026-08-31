@@ -191,12 +191,138 @@
   window.showPrompt = _dlgPrompt;
   window._dlgShowPrompt = _dlgPrompt;
 
+  // ── Timed Confirm modal (e.g. Autosave before close) ──────────────────────
+  var timedConfirmOverlay = null;
+  var timedConfirmResolve = null;
+  var timedConfirmTimer = null;
+  var timedConfirmRemaining = 0;
+
+  function ensureTimedConfirm() {
+    if (timedConfirmOverlay) return;
+    timedConfirmOverlay = document.createElement('div');
+    timedConfirmOverlay.className = 'cmt-overlay';
+    timedConfirmOverlay.innerHTML =
+      '<div class="cmt-dialog-box" style="text-align: center; max-width: 420px; padding: 24px 26px 20px;">' +
+        '<div style="font-size: 2rem; margin-bottom: 10px; line-height: 1;">💾</div>' +
+        '<h3 class="cmt-timed-title" style="margin: 0 0 10px; font-size: 1.1rem; font-weight: 800; color: inherit;"></h3>' +
+        '<p class="cmt-timed-msg" style="margin: 0 0 12px; font-size: .92rem; line-height: 1.45; color: inherit; white-space: pre-wrap;"></p>' +
+        '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: #888;"></div>' +
+        '<div class="cmt-dialog-btns" style="justify-content: center; gap: 14px;">' +
+          '<button class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
+          '<button class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(timedConfirmOverlay);
+
+    timedConfirmOverlay.querySelector('.cmt-timed-btn-yes').addEventListener('click', function () { resolveTimedConfirm(true); });
+    timedConfirmOverlay.querySelector('.cmt-timed-btn-no').addEventListener('click', function () { resolveTimedConfirm(false); });
+    timedConfirmOverlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter')  { e.preventDefault(); resolveTimedConfirm(true);  }
+      if (e.key === 'Escape') { e.preventDefault(); resolveTimedConfirm(false); }
+    });
+  }
+
+  function resolveTimedConfirm(val) {
+    if (timedConfirmTimer) {
+      clearInterval(timedConfirmTimer);
+      timedConfirmTimer = null;
+    }
+    if (!timedConfirmOverlay) return;
+    timedConfirmOverlay.classList.remove('open');
+    if (timedConfirmResolve) {
+      var r = timedConfirmResolve;
+      timedConfirmResolve = null;
+      r(val);
+    }
+  }
+
+  function _dlgTimedConfirm(opts) {
+    opts = opts || {};
+    ensureTimedConfirm();
+
+    var lbl = _getLabels();
+    var lang = 'en';
+    try {
+      var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+      if (cfg.language) lang = cfg.language;
+      var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
+      var override = localStorage.getItem('cmt-lang-' + page);
+      if (override) lang = override;
+    } catch (e) {}
+
+    var defCountdown = {
+      en: 'Saving automatically in {seconds}s...',
+      fr: 'Sauvegarde automatique dans {seconds}s...',
+      de: 'Automatisches Speichern in {seconds}s...',
+      it: 'Salvataggio automatico tra {seconds}s...'
+    };
+    var defTitle = {
+      en: 'Unsaved Changes',
+      fr: 'Modifications non enregistrées',
+      de: 'Ungespeicherte Änderungen',
+      it: 'Modifiche non salvate'
+    };
+    var defMsg = {
+      en: 'The board has unsaved changes. Would you like to save before closing?',
+      fr: 'Le tableau comporte des modifications non enregistrées. Voulez-vous enregistrer avant de fermer ?',
+      de: 'Das Board enthält ungespeicherte Änderungen. Möchten Sie vor dem Schließen speichern?',
+      it: 'La lavagna contiene modifiche non salvate. Vuoi salvare prima di chiudere?'
+    };
+
+    var title = opts.title || (typeof window.t === 'function' ? window.t('conAutosaveCloseTitle') : (defTitle[lang] || defTitle.en));
+    var msg = opts.msg || (typeof window.t === 'function' ? window.t('conAutosaveOnClosePrompt') : (defMsg[lang] || defMsg.en));
+    var yesLabel = opts.yesText || (typeof window.t === 'function' ? window.t('btnYes') : (lbl.yes || 'Yes'));
+    var noLabel = opts.noText || (typeof window.t === 'function' ? window.t('btnNo') : (lbl.no || 'No'));
+    var countdownTemplate = opts.countdownMsg || (typeof window.t === 'function' ? window.t('conAutosaveCountdown') : (defCountdown[lang] || defCountdown.en));
+    var seconds = typeof opts.timeoutSeconds === 'number' ? opts.timeoutSeconds : 10;
+    var defaultChoice = typeof opts.defaultChoice === 'boolean' ? opts.defaultChoice : true;
+
+    timedConfirmOverlay.querySelector('.cmt-timed-title').textContent = title;
+    timedConfirmOverlay.querySelector('.cmt-timed-msg').textContent = msg;
+    timedConfirmOverlay.querySelector('.cmt-timed-btn-yes').textContent = yesLabel;
+    timedConfirmOverlay.querySelector('.cmt-timed-btn-no').textContent = noLabel;
+
+    var countdownEl = timedConfirmOverlay.querySelector('.cmt-timed-countdown');
+    timedConfirmRemaining = seconds;
+
+    function updateCountdown() {
+      countdownEl.textContent = countdownTemplate.replace('{seconds}', timedConfirmRemaining);
+    }
+    updateCountdown();
+
+    if (timedConfirmTimer) {
+      clearInterval(timedConfirmTimer);
+      timedConfirmTimer = null;
+    }
+
+    timedConfirmTimer = setInterval(function () {
+      timedConfirmRemaining--;
+      if (timedConfirmRemaining <= 0) {
+        clearInterval(timedConfirmTimer);
+        timedConfirmTimer = null;
+        resolveTimedConfirm(defaultChoice);
+      } else {
+        updateCountdown();
+      }
+    }, 1000);
+
+    timedConfirmOverlay.classList.add('open');
+    setTimeout(function () {
+      var yesBtn = timedConfirmOverlay.querySelector('.cmt-timed-btn-yes');
+      if (yesBtn) yesBtn.focus();
+    }, 50);
+
+    return new Promise(function (resolve) { timedConfirmResolve = resolve; });
+  }
+  window.showTimedConfirm = _dlgTimedConfirm;
+  window._dlgShowTimedConfirm = _dlgTimedConfirm;
+
   // ── i18n ─────────────────────────────────────────────────────────────────
   var _LABELS = {
-    en: { ok: 'OK', cancel: 'Cancel' },
-    fr: { ok: 'OK', cancel: 'Annuler' },
-    de: { ok: 'OK', cancel: 'Abbrechen' },
-    it: { ok: 'OK', cancel: 'Annulla' }
+    en: { ok: 'OK', cancel: 'Cancel', yes: 'Yes', no: 'No' },
+    fr: { ok: 'OK', cancel: 'Annuler', yes: 'Oui', no: 'Non' },
+    de: { ok: 'OK', cancel: 'Abbrechen', yes: 'Ja', no: 'Nein' },
+    it: { ok: 'OK', cancel: 'Annulla', yes: 'Sì', no: 'No' }
   };
 
   function _getLabels() {

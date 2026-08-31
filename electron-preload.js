@@ -227,6 +227,9 @@ const exposedApi = {
   goToLauncher() {
     return invoke('app:go-to-launcher');
   },
+  closeWindow() {
+    return invoke('app:close-window');
+  },
   loadPage(request) {
     return invoke('app:load-page', request);
   },
