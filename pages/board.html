@@ -16162,7 +16162,8 @@
               type: 'selection-state',
               selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
               selectedGroupId: conGroupFocused || null,
-              selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : []
+              selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : [],
+              noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null
             });
           } catch (_) { }
         };
@@ -16417,6 +16418,7 @@
               selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
               selectedGroupId: conGroupFocused || null,
               selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : [],
+              noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null,
               cmsTimer: {
                 timerActive: !!boardCmsTimerUiState.timerActive,
                 timerDisplayText: (function () { var t = document.getElementById('board-cms-timer-text'); return t ? t.textContent : '--:--'; })(),
@@ -24748,6 +24750,79 @@
       return editor === anc || editor.contains(anc);
     }
 
+    function wnGetActiveNoteSelection() {
+      const sel = window.getSelection && window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+      const range = sel.getRangeAt(0);
+      const anc = range.commonAncestorContainer;
+      const el = (anc && anc.nodeType === 1) ? anc : (anc ? (anc.parentElement || anc.parentNode) : null);
+      const editor = el ? (el.classList && el.classList.contains('wn-note-editor') ? el : (el.closest && el.closest('.wn-note-editor'))) : null;
+      if (!editor) return null;
+      const noteEl = editor.closest('.con-word-note');
+      if (!noteEl || !noteEl.dataset.id) return null;
+
+      try {
+        const preRange = document.createRange();
+        preRange.selectNodeContents(editor);
+        preRange.setEnd(range.startContainer, range.startOffset);
+        const start = preRange.toString().length;
+        const text = range.toString();
+        const end = start + text.length;
+        if (text.length === 0) return null;
+        return {
+          noteId: String(noteEl.dataset.id),
+          start: start,
+          end: end,
+          text: text
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+    window.wnGetActiveNoteSelection = wnGetActiveNoteSelection;
+
+    let _wnLastSentNoteSelectionKey = null;
+    let _wnSelectionSendRaf = null;
+
+    function wnSyncAndBroadcastNoteSelection(immediate = false) {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (!window._conMirrorSend) return;
+
+      function doSync() {
+        _wnSelectionSendRaf = null;
+        const currentSel = wnGetActiveNoteSelection();
+        const key = currentSel ? `${currentSel.noteId}:${currentSel.start}:${currentSel.end}:${currentSel.text}` : 'none';
+        if (key === _wnLastSentNoteSelectionKey) return;
+        _wnLastSentNoteSelectionKey = key;
+        try {
+          window._conMirrorSend({
+            type: 'note-text-selection',
+            selection: currentSel
+          });
+        } catch (_) { }
+      }
+
+      if (immediate) {
+        if (_wnSelectionSendRaf) {
+          cancelAnimationFrame(_wnSelectionSendRaf);
+          _wnSelectionSendRaf = null;
+        }
+        doSync();
+      } else {
+        if (!_wnSelectionSendRaf) {
+          _wnSelectionSendRaf = requestAnimationFrame(doSync);
+        }
+      }
+    }
+    window.wnSyncAndBroadcastNoteSelection = wnSyncAndBroadcastNoteSelection;
+
+    document.addEventListener('selectionchange', function () {
+      if (new URLSearchParams(location.search).get('mirror') === '1') return;
+      if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+        wnSyncAndBroadcastNoteSelection(false);
+      }
+    });
+
     function wnRememberSelection(editor) {
       if (!editor || editor.tagName === 'TEXTAREA') return;
       const sel = window.getSelection && window.getSelection();
@@ -24756,6 +24831,9 @@
       const anc = range.commonAncestorContainer;
       if (!(editor === anc || editor.contains(anc))) return;
       _wnSavedSelectionRange = range.cloneRange();
+      if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+        wnSyncAndBroadcastNoteSelection(true);
+      }
     }
 
     function wnRestoreSelection(editor) {
@@ -24766,6 +24844,9 @@
       if (!sel) return false;
       sel.removeAllRanges();
       sel.addRange(_wnSavedSelectionRange);
+      if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+        wnSyncAndBroadcastNoteSelection(true);
+      }
       return true;
     }
 
@@ -24781,6 +24862,9 @@
       wnRememberSelection(editor);
       wnSyncNoteDataFromEditor(_wnActiveNote, editor);
       if (_wnActiveNote._applyStyle) _wnActiveNote._applyStyle();
+      if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+        wnSyncAndBroadcastNoteSelection(true);
+      }
       return true;
     }
 
@@ -27135,6 +27219,9 @@
             text: noteData.text
           });
         }
+        if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+          wnSyncAndBroadcastNoteSelection(false);
+        }
         conScheduleNoteMirrorUpdate(noteData, ta);
       });
       ta.addEventListener('blur', () => {
@@ -27153,11 +27240,20 @@
             text: noteData.text
           });
         }
+        if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+          wnSyncAndBroadcastNoteSelection(true);
+        }
         if (typeof window._conMirrorBroadcast === 'function') {
           window._conMirrorBroadcast();
         }
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
+      ta.addEventListener('dblclick', () => {
+        wnRememberSelection(ta);
+        if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
+          wnSyncAndBroadcastNoteSelection(true);
+        }
+      });
       ta.addEventListener('keyup', () => {
         wnRememberSelection(ta);
         conScheduleNoteMirrorUpdate(noteData, ta);
@@ -40479,6 +40575,116 @@
       // Track active node attention blinks so they survive board re-renders.
       var _activeNodeBlinks = {}; // nodeId -> { durationMs, startTime, borderColor, cleanupTimer }
       var _lastRenderedRevision = null;
+      var _mirrorCurrentNoteSelection = null;
+
+      function _mirrorGetRangeFromCharOffsets(root, start, end) {
+        if (!root || typeof start !== 'number' || typeof end !== 'number' || start >= end) return null;
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        var currentOffset = 0;
+        var startNode = null, startNodeOffset = 0;
+        var endNode = null, endNodeOffset = 0;
+        var lastNode = null;
+        var node;
+        while ((node = walker.nextNode())) {
+          lastNode = node;
+          var len = node.nodeValue.length;
+          if (!startNode) {
+            if (currentOffset + len > start || (currentOffset + len === start && start === end)) {
+              startNode = node;
+              startNodeOffset = start - currentOffset;
+            }
+          }
+          if (startNode && !endNode) {
+            if (currentOffset + len >= end) {
+              endNode = node;
+              endNodeOffset = end - currentOffset;
+              break;
+            }
+          }
+          currentOffset += len;
+        }
+        if (!startNode && lastNode) {
+          startNode = lastNode;
+          startNodeOffset = lastNode.nodeValue.length;
+        }
+        if (!endNode && lastNode) {
+          endNode = lastNode;
+          endNodeOffset = lastNode.nodeValue.length;
+        }
+        if (startNode && endNode) {
+          try {
+            var range = document.createRange();
+            range.setStart(startNode, Math.max(0, Math.min(startNodeOffset, startNode.nodeValue.length)));
+            range.setEnd(endNode, Math.max(0, Math.min(endNodeOffset, endNode.nodeValue.length)));
+            return range;
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      }
+
+      function _renderMirrorSelectionOverlay(editor, range) {
+        if (!editor || !range) return;
+        var noteEl = editor.closest('.con-word-note');
+        if (!noteEl) return;
+        var overlay = noteEl.querySelector('.wn-mirror-selection-overlay');
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.className = 'wn-mirror-selection-overlay';
+          noteEl.appendChild(overlay);
+        }
+        overlay.innerHTML = '';
+        var noteRect = noteEl.getBoundingClientRect();
+        var zoom = (window.conGetZoom ? window.conGetZoom() : 1) * (_mirrorScale || 1);
+        if (zoom <= 0) zoom = 1;
+        var rects = range.getClientRects();
+        for (var i = 0; i < rects.length; i++) {
+          var r = rects[i];
+          if (r.width <= 0 || r.height <= 0) continue;
+          var d = document.createElement('div');
+          d.className = 'wn-mirror-selection-rect';
+          d.style.left = ((r.left - noteRect.left) / zoom) + 'px';
+          d.style.top = ((r.top - noteRect.top) / zoom) + 'px';
+          d.style.width = (r.width / zoom) + 'px';
+          d.style.height = (r.height / zoom) + 'px';
+          overlay.appendChild(d);
+        }
+      }
+
+      function _mirrorApplyNoteTextSelection(sel) {
+        _mirrorCurrentNoteSelection = sel || null;
+
+        if (typeof CSS !== 'undefined' && CSS.highlights) {
+          CSS.highlights.delete('wn-mirror-selection');
+        }
+        document.querySelectorAll('#constellation-board .wn-mirror-selection-overlay').forEach(function (el) { el.remove(); });
+
+        if (!sel || !sel.noteId || typeof sel.start !== 'number' || typeof sel.end !== 'number' || sel.start >= sel.end) {
+          return;
+        }
+
+        var noteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + sel.noteId + '"]');
+        if (!noteEl) return;
+        var editor = noteEl.querySelector('.wn-note-editor');
+        if (!editor) return;
+
+        var range = _mirrorGetRangeFromCharOffsets(editor, sel.start, sel.end);
+        if (!range) return;
+
+        var hasHighlightApi = false;
+        if (typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight !== 'undefined') {
+          try {
+            var hl = new Highlight(range);
+            CSS.highlights.set('wn-mirror-selection', hl);
+            hasHighlightApi = true;
+          } catch (e) { }
+        }
+
+        if (!hasHighlightApi) {
+          _renderMirrorSelectionOverlay(editor, range);
+        }
+      }
 
       function _mirrorApplySelectionState(sel) {
         if (!sel) return;
@@ -40504,6 +40710,9 @@
             var activeNoteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + nid + '"]');
             if (activeNoteEl) activeNoteEl.classList.add('con-mirror-active');
           });
+        }
+        if (sel.noteTextSelection !== undefined) {
+          _mirrorApplyNoteTextSelection(sel.noteTextSelection);
         }
       }
 
@@ -40543,8 +40752,17 @@
                 noteObj.text = d.text || '';
                 if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteObj);
               }
+              if (_mirrorCurrentNoteSelection && String(_mirrorCurrentNoteSelection.noteId) === String(d.id)) {
+                _mirrorApplyNoteTextSelection(_mirrorCurrentNoteSelection);
+              }
             }
           }
+          return;
+        }
+
+        if (d.type === 'note-text-selection') {
+          if (_mirrorIsFrozen) return;
+          _mirrorApplyNoteTextSelection(d.selection);
           return;
         }
 
@@ -40617,12 +40835,14 @@
             Object.keys(_activeNodeBlinks).forEach(function (nid) {
               _mirrorApplyNodeBlink(nid, _activeNodeBlinks[nid]);
             });
+            _mirrorApplyNoteTextSelection(d.noteTextSelection !== undefined ? d.noteTextSelection : _mirrorCurrentNoteSelection);
           }
 
           _mirrorApplySelectionState({
             selectedNodeId: d.selectedNodeId,
             selectedGroupId: d.selectedGroupId,
-            selectedNoteIds: d.selectedNoteIds
+            selectedNoteIds: d.selectedNoteIds,
+            noteTextSelection: d.noteTextSelection
           });
 
           // Sync pointer dot visibility
