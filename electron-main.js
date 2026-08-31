@@ -4373,8 +4373,10 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
     && query
     && (String(query.wwPresentation || '') === '1' || String(query.ltPresentation || '') === '1');
 
-  // If an existing window for this page is already open (and no side-by-side, second screen, or presentation query)
-  if (!isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
+  const wantsNewWindow = !!(request.newWindow || request.forceNewWindow);
+
+  // If an existing window for this page is already open (and no side-by-side, second screen, presentation query, or explicit new-window request)
+  if (!wantsNewWindow && !isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
     const existing = BrowserWindow.getAllWindows().find(
       w => !w.isDestroyed() && getLoadedPageFile(w) === pageFile
     );

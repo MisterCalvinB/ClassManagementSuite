@@ -745,6 +745,7 @@
     if (opts && opts.query && typeof opts.query === 'object') {
       req.query = opts.query;
     }
+    if (opts && (opts.newWindow || opts.forceNewWindow)) req.newWindow = true;
     if (opts && opts.noReload) req.noReload = true;
     if (opts && opts.sideBySide) {
       req.sideBySide = true;

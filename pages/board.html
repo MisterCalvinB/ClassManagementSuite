@@ -4806,20 +4806,17 @@
       return items;
     }
 
+    function bpGetLocalDateStr() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     function bpGetNearEntries(all) {
-      const todayTs = new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00').getTime();
+      const todayStr = bpGetLocalDateStr();
+      const todayTs = new Date(todayStr + 'T12:00:00').getTime();
       const limit = 30 * 86400000;
       const near = all.filter(e => Math.abs(new Date(e.date + 'T12:00:00').getTime() - todayTs) <= limit);
-      near.sort((a, b) => {
-        const da = Math.abs(new Date(a.date + 'T12:00:00').getTime() - todayTs);
-        const db = Math.abs(new Date(b.date + 'T12:00:00').getTime() - todayTs);
-        if (da !== db) return da - db;
-        // Prefer future over past when equidistant
-        const fa = new Date(a.date + 'T12:00:00').getTime() >= todayTs;
-        const fb = new Date(b.date + 'T12:00:00').getTime() >= todayTs;
-        return (fa && !fb) ? -1 : (!fa && fb) ? 1 : 0;
-      });
-      return near.slice(0, 10);
+      return near;
     }
 
     function bpFmtDate(dateStr) {
@@ -5135,6 +5132,19 @@
 
       const all = bpGetAllEntries();
       const near = bpGetNearEntries(all);
+      const todayStr = bpGetLocalDateStr();
+
+      const upcoming = near.filter(e => e.date >= todayStr);
+      upcoming.sort((a, b) => {
+        if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+        return (a.time || '') > (b.time || '') ? 1 : -1;
+      });
+
+      const past = near.filter(e => e.date < todayStr);
+      past.sort((a, b) => {
+        if (a.date !== b.date) return b.date > a.date ? 1 : -1;
+        return (b.time || '') > (a.time || '') ? 1 : -1;
+      });
 
       const listEl = document.getElementById('con-bp-pop-list');
       const titleEl = document.getElementById('con-bp-pop-title');
@@ -5145,13 +5155,13 @@
       if (clearBtn) clearBtn.textContent = t('bpClear');
 
       listEl.innerHTML = '';
-      if (!near.length) {
+      if (!upcoming.length && !past.length) {
         const empty = document.createElement('div');
         empty.style.cssText = 'font-size:0.75rem;color:#888;padding:4px 0;';
         empty.textContent = t('bpNoNear');
         listEl.appendChild(empty);
       } else {
-        near.forEach(e => {
+        upcoming.slice(0, 10).forEach(e => {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'action-btn btn-grey';
@@ -5161,6 +5171,54 @@
           btn.addEventListener('click', () => { bpClose(); bpSelect(e); });
           listEl.appendChild(btn);
         });
+
+        if (past.length > 0) {
+          const pastWrap = document.createElement('div');
+          pastWrap.style.cssText = 'border-top:1px dashed #ccc;margin-top:5px;padding-top:4px;';
+
+          const pastToggle = document.createElement('button');
+          pastToggle.type = 'button';
+          pastToggle.className = 'action-btn btn-grey';
+          pastToggle.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;font-size:0.7rem;font-weight:700;color:#666;padding:4px 6px;margin-bottom:3px;';
+
+          const pastLabel = document.createElement('span');
+          pastLabel.style.cssText = 'display:flex;align-items:center;gap:5px;';
+          const pastChevron = document.createElement('span');
+          pastChevron.style.cssText = 'display:inline-block;width:10px;text-align:center;font-size:0.65rem;';
+          pastLabel.appendChild(pastChevron);
+          pastLabel.appendChild(document.createTextNode((t('bpPastSlots') || 'Past slots') + ' (' + past.length + ')'));
+          pastToggle.appendChild(pastLabel);
+
+          const pastList = document.createElement('div');
+          pastList.style.cssText = 'display:none;padding-top:2px;';
+
+          past.slice(0, 15).forEach(e => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'action-btn btn-grey';
+            btn.style.cssText = 'font-size:0.72rem;text-align:left;white-space:normal;line-height:1.35;padding:4px 8px;width:100%;margin-bottom:3px;'
+              + (e.id === activePlannerEntryId ? 'border-color:#111;font-weight:900;' : '');
+            btn.textContent = bpBuildLabel(e);
+            btn.addEventListener('click', () => { bpClose(); bpSelect(e); });
+            pastList.appendChild(btn);
+          });
+
+          const activeInPast = past.some(e => e.id === activePlannerEntryId);
+          const setPastOpen = (open) => {
+            pastList.style.display = open ? 'block' : 'none';
+            pastChevron.textContent = open ? '▾' : '▸';
+            pastToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+          };
+          setPastOpen(activeInPast);
+          pastToggle.addEventListener('click', () => {
+            const isOpen = pastList.style.display !== 'none';
+            setPastOpen(!isOpen);
+          });
+
+          pastWrap.appendChild(pastToggle);
+          pastWrap.appendChild(pastList);
+          listEl.appendChild(pastWrap);
+        }
       }
 
       // Show "browse all" when there are more entries outside ±30 days, or active entry not in near list
@@ -5193,23 +5251,28 @@
       if (e.classId) setActiveClassGroup(e.classId);
       bpUpdateBtn();
 
-      // Auto-fill title when it still looks like the auto-generated timestamp
+      // Format title using planner naming convention: yyyy-mm-dd - Class - HH-MM - Topic
+      const slotTitle = conPlannerSlotBaseName(e);
+
+      // Auto-fill title when empty, default timestamp, or previous auto title
       const titleInput = document.getElementById('con-title-input');
-      if (titleInput) {
-        const cur = (titleInput.value || '').trim();
-        const isAutoTitle = !cur || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(cur);
-        if (isAutoTitle) {
-          const cls = bpClassDisplayName(e.classId);
-          const dt = bpFmtDate(e.date);
-          const time = e.time ? ' ' + e.time : '';
-          const topic = e.topic ? ' – ' + e.topic : '';
-          const newTitle = ((cls ? cls + ' · ' : '') + dt + time + topic).slice(0, 60);
-          titleInput.value = newTitle;
-          if (window.conSetTitle) conSetTitle(newTitle);
-        }
+      const curTitle = titleInput ? (titleInput.value || '').trim() : '';
+      const isAutoTitle = !curTitle
+        || /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/.test(curTitle)
+        || curTitle.toLowerCase() === 'constellation'
+        || curTitle.includes('·');
+
+      if (titleInput && isAutoTitle) {
+        titleInput.value = slotTitle;
+        if (window.conSetTitle) conSetTitle(slotTitle);
       }
 
-      if (_conPendingDuplicateRelinkRename) {
+      const curFileName = _conCurrentFileName || '';
+      const isAutoFile = !curFileName
+        || /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?(\.(cstz|js|json|zip))?$/i.test(curFileName)
+        || /^(constellation)(\.(cstz|js|json|zip))?$/i.test(curFileName);
+
+      if (_conPendingDuplicateRelinkRename || (isAutoFile && curFileName)) {
         const ok = await conRenameCurrentBundleToPlannerSlot(e);
         if (ok) _conPendingDuplicateRelinkRename = false;
       }
@@ -5264,6 +5327,7 @@
     function bpShowAll() {
       bpClose();
       const all = bpGetAllEntries();
+      const todayStr = bpGetLocalDateStr();
       const overlay = document.getElementById('con-bp-all-overlay');
       const listEl = document.getElementById('con-bp-all-list');
       if (!overlay || !listEl) return;
@@ -5311,7 +5375,19 @@
           const group = document.createElement('div');
           group.style.cssText = 'padding:4px 0 2px 0;';
 
-          byClass[cid].forEach(e => {
+          const upcoming = byClass[cid].filter(e => e.date >= todayStr);
+          upcoming.sort((a, b) => {
+            if (a.date !== b.date) return a.date > b.date ? 1 : -1;
+            return (a.time || '') > (b.time || '') ? 1 : -1;
+          });
+
+          const past = byClass[cid].filter(e => e.date < todayStr);
+          past.sort((a, b) => {
+            if (a.date !== b.date) return b.date > a.date ? 1 : -1;
+            return (b.time || '') > (a.time || '') ? 1 : -1;
+          });
+
+          upcoming.forEach(e => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'action-btn btn-grey';
@@ -5325,7 +5401,59 @@
             group.appendChild(btn);
           });
 
-          const shouldOpen = false;
+          let activeInPast = false;
+          if (past.length > 0) {
+            const pastWrap = document.createElement('div');
+            pastWrap.style.cssText = 'border-top:1px dashed #ccc;margin-top:4px;padding-top:4px;';
+
+            const pastToggle = document.createElement('button');
+            pastToggle.type = 'button';
+            pastToggle.className = 'action-btn btn-grey';
+            pastToggle.style.cssText = 'display:flex;align-items:center;justify-content:space-between;width:100%;font-size:0.68rem;font-weight:700;color:#666;padding:3px 6px;margin-bottom:3px;';
+
+            const pastLabel = document.createElement('span');
+            pastLabel.style.cssText = 'display:flex;align-items:center;gap:5px;';
+            const pastChevron = document.createElement('span');
+            pastChevron.style.cssText = 'display:inline-block;width:10px;text-align:center;font-size:0.65rem;';
+            pastLabel.appendChild(pastChevron);
+            pastLabel.appendChild(document.createTextNode((t('bpPastSlots') || 'Past slots') + ' (' + past.length + ')'));
+            pastToggle.appendChild(pastLabel);
+
+            const pastList = document.createElement('div');
+            pastList.style.cssText = 'display:none;padding-top:2px;';
+
+            past.forEach(e => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'action-btn btn-grey';
+              btn.style.cssText = 'font-size:0.72rem;text-align:left;white-space:normal;line-height:1.35;padding:4px 8px;width:100%;margin-bottom:3px;'
+                + (e.id === activePlannerEntryId ? 'border-color:#111;font-weight:900;' : '');
+              const dt = bpFmtDate(e.date);
+              const time = e.time ? ' ' + e.time + (e.timeEnd ? '–' + e.timeEnd : '') : '';
+              const topic = e.topic ? ' · ' + e.topic : '';
+              btn.textContent = dt + time + topic;
+              btn.addEventListener('click', () => { bpSelect(e); bpAllClose(); });
+              pastList.appendChild(btn);
+            });
+
+            activeInPast = past.some(e => e.id === activePlannerEntryId);
+            const setPastOpen = (open) => {
+              pastList.style.display = open ? 'block' : 'none';
+              pastChevron.textContent = open ? '▾' : '▸';
+              pastToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            };
+            setPastOpen(activeInPast);
+            pastToggle.addEventListener('click', () => {
+              const isOpen = pastList.style.display !== 'none';
+              setPastOpen(!isOpen);
+            });
+
+            pastWrap.appendChild(pastToggle);
+            pastWrap.appendChild(pastList);
+            group.appendChild(pastWrap);
+          }
+
+          const shouldOpen = (cid === activeCid);
           const setOpen = (open) => {
             group.style.display = open ? '' : 'none';
             chevron.textContent = open ? '▾' : '▸';
@@ -28502,16 +28630,9 @@
       return out;
     }
 
-    let _boardStoreSaveTimer = null;
     function boardTryWriteStore(store) {
       try {
         localStorage.setItem(BOARD_SAVED_SESSIONS_KEY, JSON.stringify(store));
-        if (window.Desktop && Desktop.isElectron()) {
-          clearTimeout(_boardStoreSaveTimer);
-          _boardStoreSaveTimer = setTimeout(() => {
-            Desktop.saveJson('user', 'board-sessions-backup.json', store).catch(() => { });
-          }, 1000);
-        }
         return true;
       } catch (e) {
         return false;
@@ -32980,7 +33101,13 @@
       }
     }
 
+    let _historyAutoLoadTimer = null;
+
     function historyOnSectionHover() {
+      if (_historyAutoLoadTimer) {
+        clearTimeout(_historyAutoLoadTimer);
+        _historyAutoLoadTimer = null;
+      }
       if (!historyHasLoaded && !historyLoading && typeof historyRefreshList === 'function') {
         historyRefreshList();
       }
@@ -33381,6 +33508,15 @@
     function historyInit() {
       historyRenderViewTabs();
       historyRenderList();
+
+      if (!_historyAutoLoadTimer && !historyHasLoaded) {
+        _historyAutoLoadTimer = setTimeout(() => {
+          _historyAutoLoadTimer = null;
+          if (!historyHasLoaded && !historyLoading && typeof historyRefreshList === 'function') {
+            historyRefreshList();
+          }
+        }, 10000);
+      }
     }
 
     function historySetViewTab(tab) {
@@ -34012,6 +34148,11 @@
     }
 
     async function historyRefreshList() {
+      if (_historyAutoLoadTimer) {
+        clearTimeout(_historyAutoLoadTimer);
+        _historyAutoLoadTimer = null;
+      }
+
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function')) {
         historyEntries = [];
         historySelectedKeys.clear();
@@ -34466,7 +34607,8 @@
       }
 
       try {
-        const result = await Desktop.openTool('board.html', { query });
+        if (typeof closeSessionLoadPopup === 'function') closeSessionLoadPopup();
+        const result = await Desktop.openTool('board.html', { query, newWindow: true });
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Could not open a new board window.');
         }
