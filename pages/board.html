@@ -1496,18 +1496,104 @@
 
   <div id="con-pdf-page-picker-overlay" onclick="if(event.target===this)conPdfPagePickerClose()">
     <div id="con-pdf-page-picker-modal">
-      <h3>📄 Insert PDF pages
+      <h3>📄 <span data-i18n="conPdfPagePickerTitle">Insert PDF pages</span>
         <button onclick="conPdfPagePickerClose()">✕</button>
       </h3>
       <div class="pdf-page-picker-body">
         <p class="pdf-page-picker-hint" id="con-pdf-page-picker-hint"></p>
         <div class="pdf-page-picker-grid" id="con-pdf-page-picker-grid"></div>
+        <div class="pdf-page-picker-options" style="margin-top:14px; padding:10px 14px; background:rgba(0,0,0,0.03); border:1px solid #ddd; border-radius:8px; display:flex; flex-direction:column; gap:10px;">
+          <label style="display:inline-flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:600; cursor:pointer; color:#111; user-select:none;">
+            <input type="checkbox" id="con-pdf-insert-as-png-check" onchange="conPdfToggleImageOptions()" style="accent-color:#111; cursor:pointer; width:16px; height:16px;">
+            <span data-i18n="conPdfInsertAsPngOnly">Add pages as converted images (do not integrate raw PDF file)</span>
+          </label>
+          <div id="con-pdf-image-options-panel" style="display:none; padding-top:10px; border-top:1px dashed #ccc; flex-direction:column; gap:8px; font-size:0.8rem;">
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:14px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label for="con-pdf-img-format" style="font-weight:600; color:#444;" data-i18n="conPdfImgFormatLabel">Format:</label>
+                <select id="con-pdf-img-format" onchange="conPdfUpdateFormatControls()" style="padding:4px 8px; border:1px solid #bbb; border-radius:4px; font-size:0.8rem; background:#fff; cursor:pointer;">
+                  <option value="webp" selected>WebP (Compressed &amp; Sharp)</option>
+                  <option value="jpeg">JPEG (Compact)</option>
+                  <option value="png">PNG (Lossless)</option>
+                </select>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label for="con-pdf-img-scale" style="font-weight:600; color:#444;" data-i18n="conPdfImgScaleLabel">Resolution:</label>
+                <select id="con-pdf-img-scale" style="padding:4px 8px; border:1px solid #bbb; border-radius:4px; font-size:0.8rem; background:#fff; cursor:pointer;">
+                  <option value="1.0">1.0× (~1100px width)</option>
+                  <option value="1.5" selected>1.5× (~1600px width - Recommended)</option>
+                  <option value="2.0">2.0× (~2200px width - High Res)</option>
+                </select>
+              </div>
+            </div>
+            <div id="con-pdf-quality-slider-row" style="display:flex; align-items:center; gap:8px;">
+              <label for="con-pdf-img-quality" style="font-weight:600; color:#444;" data-i18n="conPdfImgQualityLabel">Quality:</label>
+              <input type="range" id="con-pdf-img-quality" min="40" max="100" value="82" step="2" oninput="document.getElementById('con-pdf-quality-val').textContent = this.value + '%'" style="flex:1; max-width:180px; accent-color:#2d7d46; cursor:pointer;">
+              <span id="con-pdf-quality-val" style="font-weight:700; color:#2d7d46; min-width:38px;">82%</span>
+              <span style="color:#777; font-size:0.75rem;" data-i18n="conPdfImgQualityHint">(Lower = smaller save file)</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="pdf-page-picker-footer">
         <button class="action-btn btn-grey" type="button" onclick="conPdfPagePickerSelectAll()">All</button>
         <button class="action-btn btn-grey" type="button" onclick="conPdfPagePickerSelectNone()">None</button>
         <button class="action-btn btn-grey" type="button" onclick="conPdfPagePickerClose()">Cancel</button>
-        <button class="action-btn" type="button" onclick="conPdfPagePickerConfirm()">Insert Selected</button>
+        <button class="action-btn" type="button" onclick="conPdfPagePickerConfirm()" data-i18n="conPdfInsertSelected">Insert Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="con-img-convert-overlay" onclick="if(event.target===this)conImgConvertClose()">
+    <div id="con-img-convert-modal" class="pdf-page-picker-modal" style="width: min(520px, 96vw);">
+      <h3>🖼 <span data-i18n="conImgConvertModalTitle">Convert / Optimize Image</span>
+        <button onclick="conImgConvertClose()">✕</button>
+      </h3>
+      <div class="pdf-page-picker-body">
+        <p class="pdf-page-picker-hint" id="con-img-convert-hint"></p>
+        <div id="con-img-convert-preview-wrap" style="display:flex; align-items:center; gap:14px; padding:10px 14px; background:rgba(0,0,0,0.03); border:1px solid #ddd; border-radius:8px; margin-bottom:12px;">
+          <div id="con-img-convert-thumb-container" style="width:68px; height:68px; border-radius:6px; overflow:hidden; background:#e8f0fe; display:flex; align-items:center; justify-content:center; flex-shrink:0; border:1px solid #ccc;">
+            <img id="con-img-convert-thumb" src="" alt="" style="max-width:100%; max-height:100%; object-fit:contain; display:none;" />
+            <span id="con-img-convert-icon" style="font-size:1.8rem;">🖼</span>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div id="con-img-convert-filename" style="font-weight:700; font-size:0.88rem; color:#111; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">image.png</div>
+            <div id="con-img-convert-meta" style="font-size:0.75rem; color:#666; margin-top:3px;">PNG • 2.4 MB • 2400 × 1600 px</div>
+          </div>
+        </div>
+        <div class="pdf-page-picker-options" style="padding:12px 14px; background:rgba(0,0,0,0.03); border:1px solid #ddd; border-radius:8px; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:14px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="con-img-conv-format" style="font-weight:600; color:#444;" data-i18n="conImgConvertFormatLabel">Format:</label>
+              <select id="con-img-conv-format" onchange="conImgUpdateFormatControls()" style="padding:4px 8px; border:1px solid #bbb; border-radius:4px; font-size:0.8rem; background:#fff; cursor:pointer;">
+                <option value="webp" selected>WebP (Compressed &amp; Sharp)</option>
+                <option value="jpeg">JPEG (Compact)</option>
+                <option value="png">PNG (Lossless)</option>
+              </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <label for="con-img-conv-resolution" style="font-weight:600; color:#444;" data-i18n="conImgConvertResolutionLabel">Max resolution:</label>
+              <select id="con-img-conv-resolution" style="padding:4px 8px; border:1px solid #bbb; border-radius:4px; font-size:0.8rem; background:#fff; cursor:pointer;">
+                <option value="1920" selected>1920px (Full HD - Recommended)</option>
+                <option value="1440">1440px (High)</option>
+                <option value="1080">1080px (Standard)</option>
+                <option value="800">800px (Compact)</option>
+                <option value="original">Original (No resize)</option>
+              </select>
+            </div>
+          </div>
+          <div id="con-img-conv-quality-slider-row" style="display:flex; align-items:center; gap:8px;">
+            <label for="con-img-conv-quality" style="font-weight:600; color:#444;" data-i18n="conImgConvertQualityLabel">Quality:</label>
+            <input type="range" id="con-img-conv-quality" min="40" max="100" value="82" step="2" oninput="document.getElementById('con-img-conv-quality-val').textContent = this.value + '%'" style="flex:1; max-width:180px; accent-color:#2d7d46; cursor:pointer;">
+            <span id="con-img-conv-quality-val" style="font-weight:700; color:#2d7d46; min-width:38px;">82%</span>
+            <span style="color:#777; font-size:0.75rem;" data-i18n="conImgConvertQualityHint">(Lower = smaller save file)</span>
+          </div>
+        </div>
+      </div>
+      <div class="pdf-page-picker-footer">
+        <button class="action-btn btn-grey" type="button" onclick="conImgConvertClose()" data-i18n="btnCancel">Cancel</button>
+        <button class="action-btn btn-grey" type="button" onclick="conImgConvertKeepOriginal()" data-i18n="conImgConvertBtnOriginal">Keep Original</button>
+        <button class="action-btn" type="button" onclick="conImgConvertConfirm()" data-i18n="conImgConvertBtnConvert">Convert &amp; Add</button>
       </div>
     </div>
   </div>
@@ -1679,8 +1765,8 @@
           title="Spread selected words">⤢</button>
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxCompactSelected()"
           title="Compact selected words">⤡</button>
-        <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxMergeSelected()"
-          title="Merge selected words into one (joined by spaces)">Merge</button>
+        <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-merge-btn" onclick="conCtxMergeSelected(event)"
+          title="Merge selected words into a phrase group or single node">Merge</button>
       </div>
       <div id="con-ctx-align-menu" class="con-ctx-submenu">
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxAlignSelected('vertical','left')"
@@ -1714,6 +1800,8 @@
           src="../assets/icons/mask.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxAddNote()" title="Add Note"><img src="../assets/icons/note.svg"
           class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-convert-note-btn" onclick="conCtxConvertToNote()" title="Convert word to note" data-i18n-title="conConvertToNoteTitle"><img
+          src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-page-btn" onclick="conCtxSetPage()" title="Set page number"><img
           src="../assets/icons/page-number.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-lock-btn" onclick="conCtxToggleLock()"
@@ -3054,6 +3142,7 @@
           <button class="wn-sp-action-btn" onclick="wnStyleDuplicateNote()"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onmousedown="event.preventDefault()" onclick="wnStyleSplitNote()"
             title="Split note at cursor into two notes"><img src="../assets/icons/split.svg" class="btn-icon" alt=""></button>
+          <button class="wn-sp-action-btn" onclick="wnStyleConvertToNode()" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"
             style="display:none;">▶ Open input</button>
@@ -3216,6 +3305,34 @@
         <button class="action-btn btn-grey" onclick="document.getElementById('con-template-load-input').click()">📂
           Load
           from file</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Merge Choice Mini Popup -->
+  <div id="con-merge-choice-overlay" onclick="if(event.target===this)conMergeChoiceCancel()">
+    <div id="con-merge-choice-popup">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;border-bottom:1px solid #eee;padding-bottom:3px;">
+        <span style="font-size:0.68rem;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;color:#444;display:flex;align-items:center;gap:4px;" data-i18n="conMergeModalTitle">
+          <img src="../assets/icons/merge.svg" style="width:13px;height:13px;" alt="" /> Merge Words
+        </span>
+        <button type="button" onclick="conMergeChoiceCancel()" style="background:none;border:none;cursor:pointer;color:#888;font-size:0.85rem;line-height:1;padding:0 2px;">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <button type="button" class="con-merge-mini-opt" onclick="conMergeChoiceExecute('phrase')">
+          <img src="../assets/icons/group.svg" style="width:16px;height:16px;flex-shrink:0;" alt="" />
+          <div style="display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0;">
+            <span style="font-weight:700;font-size:0.76rem;color:#111;" data-i18n="conMergeAsPhraseGroup">Phrase group</span>
+            <span style="font-size:0.64rem;color:#666;" data-i18n="conMergeAsPhraseGroupDesc">Keep words individually editable</span>
+          </div>
+        </button>
+        <button type="button" class="con-merge-mini-opt" onclick="conMergeChoiceExecute('single')">
+          <img src="../assets/icons/merge.svg" style="width:16px;height:16px;flex-shrink:0;" alt="" />
+          <div style="display:flex;flex-direction:column;gap:1px;text-align:left;min-width:0;">
+            <span style="font-weight:700;font-size:0.76rem;color:#111;" data-i18n="conMergeAsSingleNode">Single node</span>
+            <span style="font-size:0.64rem;color:#666;" data-i18n="conMergeAsSingleNodeDesc">Joined by spaces</span>
+          </div>
+        </button>
       </div>
     </div>
   </div>
@@ -8292,11 +8409,11 @@
             base64 = prev.base64;
           }
         }
+        const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream'));
+        const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
         let cachedUrl = '';
-        if (base64) {
+        if (cleanB64) {
           try {
-            const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream');
-            const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
             const binary = atob(cleanB64);
             const bytes = new Uint8Array(binary.length);
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -8307,11 +8424,11 @@
         conAttachments.push({
           id: incomingId || ('att_' + _conAttachmentCounter),
           name: String(raw && raw.name ? raw.name : 'file'),
-          mime: String(raw && raw.mime ? raw.mime : ''),
+          mime: mime,
           kind,
           size: Number(raw && raw.size) || 0,
           file: null,
-          base64: base64 || '',
+          base64: cleanB64 || '',
           _cachedObjectUrl: cachedUrl || '',
           relativePath: String(raw && raw.relativePath ? raw.relativePath : '')
         });
@@ -8393,27 +8510,24 @@
 
     function conGuessMimeByName(name, kind) {
       const lower = String(name || '').toLowerCase();
-      if (kind === 'pics') {
-        if (/\.png$/i.test(lower)) return 'image/png';
-        if (/\.jpe?g$/i.test(lower)) return 'image/jpeg';
-        if (/\.gif$/i.test(lower)) return 'image/gif';
-        if (/\.webp$/i.test(lower)) return 'image/webp';
-        if (/\.svg$/i.test(lower)) return 'image/svg+xml';
-      }
-      if (kind === 'sounds') {
-        if (/\.mp3$/i.test(lower)) return 'audio/mpeg';
-        if (/\.wav$/i.test(lower)) return 'audio/wav';
-        if (/\.ogg$/i.test(lower)) return 'audio/ogg';
-        if (/\.m4a$/i.test(lower)) return 'audio/mp4';
-        if (/\.(webm|weba|opus)$/i.test(lower)) return 'audio/webm';
-        if (/\.aac$/i.test(lower)) return 'audio/aac';
-        if (/\.flac$/i.test(lower)) return 'audio/flac';
-      }
-      if (kind === 'videos') {
-        if (/\.mp4$/i.test(lower)) return 'video/mp4';
-        if (/\.webm$/i.test(lower)) return 'video/webm';
-        if (/\.mov$/i.test(lower)) return 'video/quicktime';
-      }
+      if (/\.webp$/i.test(lower)) return 'image/webp';
+      if (/\.png$/i.test(lower)) return 'image/png';
+      if (/\.jpe?g$/i.test(lower)) return 'image/jpeg';
+      if (/\.gif$/i.test(lower)) return 'image/gif';
+      if (/\.svg$/i.test(lower)) return 'image/svg+xml';
+      if (/\.mp3$/i.test(lower)) return 'audio/mpeg';
+      if (/\.wav$/i.test(lower)) return 'audio/wav';
+      if (/\.ogg$/i.test(lower)) return 'audio/ogg';
+      if (/\.m4a$/i.test(lower)) return 'audio/mp4';
+      if (/\.(webm|weba|opus)$/i.test(lower)) return (kind === 'sounds' ? 'audio/webm' : 'video/webm');
+      if (/\.aac$/i.test(lower)) return 'audio/aac';
+      if (/\.flac$/i.test(lower)) return 'audio/flac';
+      if (/\.mp4$/i.test(lower)) return 'video/mp4';
+      if (/\.mov$/i.test(lower)) return 'video/quicktime';
+      if (/\.pdf$/i.test(lower)) return 'application/pdf';
+      if (kind === 'pics') return 'image/webp';
+      if (kind === 'sounds') return 'audio/wav';
+      if (kind === 'videos') return 'video/webm';
       if (kind === 'pdf') return 'application/pdf';
       return '';
     }
@@ -8622,13 +8736,28 @@
       }
 
       try {
-        const buf = await conGetAttachmentArrayBuffer(att);
-        if (!buf) return 1;
-        const bytes = new Uint8Array(buf);
-        const pageCount = conEstimatePdfPageCountFromBytes(bytes);
+        const pdfjsLib = await conEnsurePdfjsLib();
+        let pdfDoc = att._pdfDoc;
+        if (!pdfDoc) {
+          const buf = await conGetAttachmentArrayBuffer(att);
+          if (!buf) return 1;
+          pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+          att._pdfDoc = pdfDoc;
+        }
+        const pageCount = (pdfDoc && Number(pdfDoc.numPages) > 0) ? pdfDoc.numPages : 1;
         att._cachedPdfPageCount = pageCount;
         return pageCount;
-      } catch {
+      } catch (e) {
+        console.warn('[PDF] Could not get accurate page count with PDF.js:', e);
+        try {
+          const buf = await conGetAttachmentArrayBuffer(att);
+          if (buf) {
+            const bytes = new Uint8Array(buf);
+            const pageCount = conEstimatePdfPageCountFromBytes(bytes);
+            att._cachedPdfPageCount = pageCount;
+            return pageCount;
+          }
+        } catch (_) {}
         return 1;
       }
     }
@@ -10110,15 +10239,209 @@
       conMediaItems = nextItems;
     }
 
-    // ---------- PDF multi-page board-page picker ----------
+    function conFormatFileSize(bytes) {
+      const b = Number(bytes) || 0;
+      if (b <= 0) return '0 B';
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    let _conImgConvertCurrentAtt = null;
+    let _conImgConvertCurrentOptions = null;
+
+    window.conImgUpdateFormatControls = function () {
+      const fmt = (document.getElementById('con-img-conv-format') || {}).value;
+      const qRow = document.getElementById('con-img-conv-quality-slider-row');
+      if (qRow) {
+        qRow.style.display = (fmt === 'png') ? 'none' : 'flex';
+      }
+    };
+
+    async function conImgConvertOpen(att, options) {
+      _conImgConvertCurrentAtt = att;
+      _conImgConvertCurrentOptions = options || {};
+
+      const hintEl = document.getElementById('con-img-convert-hint');
+      const filenameEl = document.getElementById('con-img-convert-filename');
+      const metaEl = document.getElementById('con-img-convert-meta');
+      const thumbImg = document.getElementById('con-img-convert-thumb');
+      const iconSpan = document.getElementById('con-img-convert-icon');
+
+      window.conImgUpdateFormatControls();
+
+      const name = att.name || 'image.png';
+      if (filenameEl) filenameEl.textContent = name;
+      if (hintEl) hintEl.textContent = (typeof t === 'function' ? t('conImgConvertHintSingle') : null) || 'Choose format and compression to optimize image size before adding.';
+
+      const ext = (name.split('.').pop() || 'png').toUpperCase();
+      const sizeStr = conFormatFileSize(att.size);
+      if (metaEl) metaEl.textContent = `${ext} • ${sizeStr}`;
+
+      if (thumbImg) thumbImg.style.display = 'none';
+      if (iconSpan) iconSpan.style.display = 'block';
+
+      try {
+        const src = await conGetAttachmentDataUrl(att);
+        if (src) {
+          const img = new Image();
+          img.onload = () => {
+            if (metaEl) metaEl.textContent = `${ext} • ${sizeStr} • ${img.naturalWidth} × ${img.naturalHeight} px`;
+            if (thumbImg) {
+              thumbImg.src = src;
+              thumbImg.style.display = 'block';
+            }
+            if (iconSpan) iconSpan.style.display = 'none';
+          };
+          img.src = src;
+        }
+      } catch (_) {}
+
+      const overlay = document.getElementById('con-img-convert-overlay');
+      if (overlay) overlay.classList.add('active');
+    }
+
+    window.conImgConvertClose = function () {
+      const overlay = document.getElementById('con-img-convert-overlay');
+      if (overlay) overlay.classList.remove('active');
+      _conImgConvertCurrentAtt = null;
+      _conImgConvertCurrentOptions = null;
+    };
+
+    window.conImgConvertKeepOriginal = function () {
+      const att = _conImgConvertCurrentAtt;
+      const opts = _conImgConvertCurrentOptions || {};
+      window.conImgConvertClose();
+      if (att && typeof window.conInsertAttachmentById === 'function') {
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+      }
+    };
+
+    window.conImgConvertConfirm = async function () {
+      const att = _conImgConvertCurrentAtt;
+      const opts = _conImgConvertCurrentOptions || {};
+      if (!att) { window.conImgConvertClose(); return; }
+
+      const chosenFmt = (document.getElementById('con-img-conv-format') || {}).value || 'webp';
+      const chosenRes = (document.getElementById('con-img-conv-resolution') || {}).value || '1920';
+      const chosenQualityVal = parseInt((document.getElementById('con-img-conv-quality') || {}).value, 10);
+      const chosenQuality = Number.isFinite(chosenQualityVal) ? Math.max(0.2, Math.min(1.0, chosenQualityVal / 100)) : 0.82;
+
+      window.conImgConvertClose();
+
+      try {
+        if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conImgConverting') : null) || 'Converting image...');
+        const src = await conGetAttachmentDataUrl(att);
+        if (!src) {
+          mdbToast('⚠️ Could not load image data for conversion.');
+          window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+          return;
+        }
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = () => reject(new Error('Failed to load image into memory'));
+          i.src = src;
+        });
+
+        let targetW = img.naturalWidth;
+        let targetH = img.naturalHeight;
+        if (chosenRes !== 'original') {
+          const maxDim = parseInt(chosenRes, 10);
+          if (Number.isFinite(maxDim) && maxDim > 0 && Math.max(targetW, targetH) > maxDim) {
+            const scale = maxDim / Math.max(targetW, targetH);
+            targetW = Math.max(1, Math.round(targetW * scale));
+            targetH = Math.max(1, Math.round(targetH * scale));
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+
+        let mimeType = 'image/webp';
+        let ext = 'webp';
+        let q = chosenQuality;
+        if (chosenFmt === 'jpeg') {
+          mimeType = 'image/jpeg';
+          ext = 'jpg';
+        } else if (chosenFmt === 'png') {
+          mimeType = 'image/png';
+          ext = 'png';
+          q = 1.0;
+        }
+
+        let imgDataUrl = canvas.toDataURL(mimeType, q);
+        if (chosenFmt === 'webp' && !imgDataUrl.startsWith('data:image/webp')) {
+          imgDataUrl = canvas.toDataURL('image/png');
+          mimeType = 'image/png';
+          ext = 'png';
+        }
+        canvas.width = 0;
+        canvas.height = 0;
+
+        const base64Data = imgDataUrl.split(',')[1];
+        const binary = atob(base64Data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const imgBlob = new Blob([bytes], { type: mimeType });
+
+        if (att._cachedObjectUrl) {
+          try { URL.revokeObjectURL(att._cachedObjectUrl); } catch (_) {}
+        }
+
+        const baseName = (att.name || 'image').replace(/\.[^/.]+$/, '');
+        const newName = `${baseName}.${ext}`;
+
+        att.name = newName;
+        att.mime = mimeType;
+        att.size = imgBlob.size;
+        att.file = new File([imgBlob], newName, { type: mimeType });
+        att.base64 = base64Data;
+        att._cachedDataUrl = imgDataUrl;
+        att._cachedObjectUrl = null;
+        att._alreadyOptimized = true;
+
+        if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+        mdbToast('🖼 Converted: ' + newName + ' (' + conFormatFileSize(imgBlob.size) + ')');
+      } catch (err) {
+        console.error('[Image Conversion] Failed to convert image:', err);
+        mdbToast('⚠️ Conversion failed, adding original image.');
+        window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
+      }
+    };
 
     let _conPdfPagePickerAtt = null;
+
+    window.conPdfToggleImageOptions = function () {
+      const chk = document.getElementById('con-pdf-insert-as-png-check');
+      const panel = document.getElementById('con-pdf-image-options-panel');
+      if (panel) {
+        panel.style.display = (chk && chk.checked) ? 'flex' : 'none';
+      }
+    };
+
+    window.conPdfUpdateFormatControls = function () {
+      const fmt = (document.getElementById('con-pdf-img-format') || {}).value;
+      const qRow = document.getElementById('con-pdf-quality-slider-row');
+      if (qRow) {
+        qRow.style.display = (fmt === 'png') ? 'none' : 'flex';
+      }
+    };
 
     function conPdfPagePickerOpen(att, pageCount) {
       _conPdfPagePickerAtt = att;
       const hintEl = document.getElementById('con-pdf-page-picker-hint');
       const grid = document.getElementById('con-pdf-page-picker-grid');
-      if (hintEl) hintEl.textContent = '\u201c' + (att.name || 'document.pdf') + '\u201d \u2014 ' + pageCount + ' pages. Click to select/deselect. Each selected page becomes its own board page.';
+      const pngCheck = document.getElementById('con-pdf-insert-as-png-check');
+      if (pngCheck) pngCheck.checked = false;
+      window.conPdfToggleImageOptions();
+      window.conPdfUpdateFormatControls();
+      if (hintEl) hintEl.textContent = '\u201c' + (att.name || 'document.pdf') + '\u201d \u2014 ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Click to select/deselect. Each selected page becomes its own board page.';
       if (grid) {
         grid.innerHTML = '';
         for (let i = 1; i <= pageCount; i++) {
@@ -10155,11 +10478,140 @@
       const btns = document.querySelectorAll('#con-pdf-page-picker-grid .pdf-page-btn.selected');
       const selectedPages = Array.from(btns).map(b => Number(b.dataset.page)).filter(n => n > 0);
       selectedPages.sort((a, b) => a - b);
+      const asImage = !!(document.getElementById('con-pdf-insert-as-png-check') && document.getElementById('con-pdf-insert-as-png-check').checked);
+      const chosenFmt = (document.getElementById('con-pdf-img-format') || {}).value || 'webp';
+      const chosenScale = parseFloat((document.getElementById('con-pdf-img-scale') || {}).value) || 1.5;
+      const chosenQualityVal = parseInt((document.getElementById('con-pdf-img-quality') || {}).value, 10);
+      const chosenQuality = Number.isFinite(chosenQualityVal) ? Math.max(0.2, Math.min(1.0, chosenQualityVal / 100)) : 0.82;
+
       window.conPdfPagePickerClose();
       if (selectedPages.length === 0) { mdbToast('ℹ️ No pages selected.'); return; }
 
       // Save current page snapshot before we start adding new pages
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+      const insertAfterIdx = conCurrentPageIndex;
+
+      if (asImage) {
+        try {
+          if (typeof mdbToast === 'function') mdbToast(t('conPdfRenderingPng') || 'Converting PDF pages to images...');
+          const pdfjsLib = await conEnsurePdfjsLib();
+          let pdfDoc = att._pdfDoc;
+          if (!pdfDoc) {
+            const buf = await conGetAttachmentArrayBuffer(att);
+            if (!buf) { mdbToast('⚠️ Could not load PDF file data.'); return; }
+            pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
+            att._pdfDoc = pdfDoc;
+          }
+
+          let mimeType = 'image/webp';
+          let ext = 'webp';
+          let q = chosenQuality;
+          if (chosenFmt === 'jpeg') {
+            mimeType = 'image/jpeg';
+            ext = 'jpg';
+          } else if (chosenFmt === 'png') {
+            mimeType = 'image/png';
+            ext = 'png';
+            q = 1.0;
+          }
+
+          const newSnaps = [];
+          const baseName = (att.name || 'document').replace(/\.pdf$/i, '');
+
+          for (const pageNum of selectedPages) {
+            const page = await pdfDoc.getPage(pageNum);
+            const unscaledVp = page.getViewport({ scale: 1 });
+            const targetWidth = Math.max(900, Math.min(3200, Math.round(unscaledVp.width * chosenScale)));
+            const renderScale = targetWidth / unscaledVp.width;
+            const viewport = page.getViewport({ scale: renderScale });
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(viewport.width);
+            canvas.height = Math.round(viewport.height);
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+
+            let imgDataUrl = canvas.toDataURL(mimeType, q);
+            if (chosenFmt === 'webp' && !imgDataUrl.startsWith('data:image/webp')) {
+              imgDataUrl = canvas.toDataURL('image/png');
+              mimeType = 'image/png';
+              ext = 'png';
+            }
+            canvas.width = 0;
+            canvas.height = 0;
+
+            const base64Data = imgDataUrl.split(',')[1];
+            const binary = atob(base64Data);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const imgBlob = new Blob([bytes], { type: mimeType });
+
+            _conAttachmentCounter += 1;
+            const imgAttId = 'att_' + _conAttachmentCounter;
+            const imgName = `${baseName}_p${pageNum}.${ext}`;
+            const imgAtt = {
+              id: imgAttId,
+              name: imgName,
+              mime: mimeType,
+              kind: 'pics',
+              size: imgBlob.size,
+              file: new File([imgBlob], imgName, { type: mimeType }),
+              base64: base64Data,
+              _cachedDataUrl: imgDataUrl,
+              relativePath: ''
+            };
+            conAttachments.push(imgAtt);
+
+            const ratio = unscaledVp.height / unscaledVp.width;
+            const rect = conGetDefaultPdfMediaRect(ratio);
+
+            const snap = conBuildEmptyPageSnapshot();
+            snap.media = [{
+              id: 'cm' + (conMediaNextId++),
+              kind: 'pics',
+              attachmentId: imgAttId,
+              name: imgName,
+              mime: mimeType,
+              relativePath: '',
+              x: rect.x,
+              y: rect.y,
+              w: rect.w,
+              h: rect.h,
+              locked: true,
+              _ratioInitialized: true
+            }];
+            newSnaps.push(snap);
+          }
+
+          // Do not actually integrate the PDF into the document: remove from conAttachments if not used elsewhere
+          const isPdfUsedElsewhere = conPageSnapshots.some((pageSnap, idx) => {
+            if (idx === conCurrentPageIndex) return false;
+            return (pageSnap.media || []).some(m => m.attachmentId === att.id);
+          }) || (conMediaItems || []).some(m => m.attachmentId === att.id);
+
+          if (!isPdfUsedElsewhere) {
+            conAttachments = conAttachments.filter(a => a.id !== att.id);
+            if (att._cachedObjectUrl) {
+              try { URL.revokeObjectURL(att._cachedObjectUrl); } catch (_) {}
+            }
+            if (window._conPdfDocCache && att.id) {
+              window._conPdfDocCache.delete(att.id);
+            }
+          }
+
+          conPageSnapshots.splice(insertAfterIdx + 1, 0, ...newSnaps);
+          conCurrentPageIndex = insertAfterIdx + 1;
+          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
+          conUpdatePageBar();
+          conRenderAttachmentSummary();
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+          mdbToast('🖼 Inserted ' + selectedPages.length + ' page' + (selectedPages.length === 1 ? '' : 's') + ' as compressed images.');
+        } catch (err) {
+          console.error('[PDF to Image] Failed to render PDF pages:', err);
+          mdbToast('⚠️ Error converting PDF pages to images: ' + (err && err.message ? err.message : err));
+        }
+        return;
+      }
 
       const pdfLike = {
         attachmentId: att.id,
@@ -10171,7 +10623,6 @@
 
       const ratio = await conGetPdfPageAspectRatio(pdfLike, selectedPages[0] || 1);
       const rect = conGetDefaultPdfMediaRect(ratio);
-      const insertAfterIdx = conCurrentPageIndex;
 
       const newSnaps = selectedPages.map(pageNum => {
         const snap = conBuildEmptyPageSnapshot();
@@ -10216,28 +10667,12 @@
 
       if (att.kind === 'pdf') {
         const pageCount = await conGetPdfPageCount(att);
-        if (pageCount > 1) {
-          conPdfPagePickerOpen(att, pageCount);
-          return;
-        }
-        // Single-page PDF: insert directly on current board page
-        const pdfForPage = pageNum => ({
-          attachmentId: att.id,
-          name: att.name,
-          mime: att.mime || 'application/pdf',
-          relativePath: att.relativePath || '',
-          file: att.file || null,
-          pageNumber: Math.max(1, Number(pageNum) || 1)
-        });
+        conPdfPagePickerOpen(att, pageCount);
+        return;
+      }
 
-        const pdfLike = pdfForPage(1);
-        const ratio = await conGetPdfPageAspectRatio(pdfLike, 1);
-        const item = conBuildPdfMediaItem(pdfLike, { aspectRatio: ratio });
-        if (item) {
-          conMediaItems.push(item);
-          conBuildMediaWidget(item);
-        }
-        mdbToast('📄 Inserted page 1 from ' + att.name + '.');
+      if (att.kind === 'pics' && !(options && options.skipConvertModal) && !att._alreadyOptimized) {
+        conImgConvertOpen(att, options);
         return;
       }
 
@@ -14887,33 +15322,39 @@
         if (_conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
           return _conPageSnapshotPngs[idx];
         }
-        if (!(window.Desktop && Desktop.isElectron())) return '';
-        if (!_conCurrentFolderName) return '';
-        const padded = String(idx + 1).padStart(3, '0');
-        const relPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
-        try {
-          if (typeof Desktop.readByPath === 'function') {
-            const res = await Desktop.readByPath('mindmaps', relPath, { encoding: 'base64' });
+        if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
+          const padded = String(idx + 1).padStart(3, '0');
+          const webpPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.webp';
+          const pngPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
+          try {
+            let res = await Desktop.readByPath('mindmaps', webpPath, { encoding: 'base64' });
+            let mime = 'image/webp';
+            if (!(res && res.ok && res.content)) {
+              res = await Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' });
+              mime = 'image/png';
+            }
             if (res && res.ok && res.content) {
-              const url = 'data:image/png;base64,' + res.content;
+              const url = 'data:' + mime + ';base64,' + res.content;
               if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
               _conPageSnapshotPngs[idx] = url;
               return url;
             }
-            return '';
-          }
-
-          if (typeof Desktop.resolvePath === 'function') {
-            const resolved = await Desktop.resolvePath('mindmaps', relPath);
-            const fullPath = String((resolved && resolved.path) || '').trim();
-            if (!fullPath) return '';
-            return 'file:///' + fullPath.replace(/\\/g, '/');
-          }
-
-          return '';
-        } catch (_) {
-          return '';
+          } catch (_) {}
         }
+        const snap = (idx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
+          ? conBuildPageSnapshot()
+          : (conPageSnapshots && conPageSnapshots[idx]);
+        if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            const url = conBuildPageThumbnailDataUrl(snap, 480, 320);
+            if (url) {
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[idx] = url;
+              return url;
+            }
+          } catch (_) {}
+        }
+        return '';
       }
 
       async function conRenderMiniPageNav() {
@@ -15453,7 +15894,11 @@
           offCanvas.width = width;
           offCanvas.height = height;
           conRenderPageThumbnail(snap, offCanvas);
-          return offCanvas.toDataURL('image/png');
+          let url = offCanvas.toDataURL('image/webp', 0.82);
+          if (!url || !url.startsWith('data:image/webp')) {
+            url = offCanvas.toDataURL('image/png');
+          }
+          return url;
         } catch (_) {
           return '';
         }
@@ -15747,11 +16192,18 @@
           }
           if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
             const padded = String(idx + 1).padStart(3, '0');
+            const webpPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.webp';
             const pngPath = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.png';
-            Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' }).then(res => {
-              if (!(res && res.ok && res.content)) return;
+            Desktop.readByPath('mindmaps', webpPath, { encoding: 'base64' }).then(async res => {
+              let snapRes = res;
+              let mime = 'image/webp';
+              if (!(snapRes && snapRes.ok && snapRes.content)) {
+                snapRes = await Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' });
+                mime = 'image/png';
+              }
+              if (!(snapRes && snapRes.ok && snapRes.content)) return;
               if (!thumb.isConnected) return; // popup was closed before response
-              const dataUrl = 'data:image/png;base64,' + res.content;
+              const dataUrl = 'data:' + mime + ';base64,' + snapRes.content;
               if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
               _conPageSnapshotPngs[idx] = dataUrl;
               const img = document.createElement('img');
@@ -19499,50 +19951,151 @@
         conCtxClose();
       };
 
-      // Merge all multi-selected nodes into one node whose text is their words joined by spaces
-      window.conCtxMergeSelected = function () {
-        if (conMultiSelected.size < 2) return;
+      // Merge multi-selected nodes: opens the small choice popup close to the button
+      window.conCtxMergeSelected = function (event) {
+        if (!conMultiSelected || conMultiSelected.size < 2) return;
+        let anchorRect = null;
+        const btn = (event && (event.currentTarget || event.target)) || document.getElementById('con-ctx-merge-btn') || document.querySelector('button[onclick*="conCtxMergeSelected"]');
+        if (btn && typeof btn.getBoundingClientRect === 'function') {
+          anchorRect = btn.getBoundingClientRect();
+        } else if (conCtxNodeId) {
+          const node = conNodes.find(n => n.id === conCtxNodeId);
+          if (node && node.el) anchorRect = node.el.getBoundingClientRect();
+        }
+        conCtxClose();
+        conOpenMergeChoiceModal(anchorRect);
+      };
+
+      function conOpenMergeChoiceModal(anchorRect) {
+        if (!conMultiSelected || conMultiSelected.size < 2) return;
+        const overlay = document.getElementById('con-merge-choice-overlay');
+        const popup = document.getElementById('con-merge-choice-popup');
+        if (!overlay || !popup) return;
+
+        if (typeof applyI18nToContainer === 'function') {
+          applyI18nToContainer(popup);
+        }
+        overlay.classList.add('active');
+
+        // Position popup close to the pressed button
+        if (anchorRect) {
+          const pw = popup.offsetWidth || 236;
+          const ph = popup.offsetHeight || 105;
+          let left = anchorRect.left;
+          let top = anchorRect.bottom + 4;
+
+          if (left + pw > window.innerWidth - 8) {
+            left = window.innerWidth - pw - 8;
+          }
+          if (left < 8) left = 8;
+
+          if (top + ph > window.innerHeight - 8) {
+            top = Math.max(8, anchorRect.top - ph - 4);
+          }
+          popup.style.left = left + 'px';
+          popup.style.top = top + 'px';
+        } else {
+          popup.style.left = '50%';
+          popup.style.top = '50%';
+          popup.style.transform = 'translate(-50%, -50%)';
+        }
+      }
+
+      window.conMergeChoiceCancel = function () {
+        conMergeChoiceClose();
+      };
+
+      function conMergeChoiceClose() {
+        const overlay = document.getElementById('con-merge-choice-overlay');
+        if (overlay) overlay.classList.remove('active');
+      }
+
+      window.conMergeChoiceExecute = function (mode) {
+        if (!conMultiSelected || conMultiSelected.size < 2) {
+          conMergeChoiceClose();
+          return;
+        }
         conPushUndo();
         // Sort by x position for left-to-right word order
         const nodes = conNodes.filter(n => conMultiSelected.has(n.id))
           .sort((a, b) => a.x - b.x);
+        if (nodes.length < 2) {
+          conMergeChoiceClose();
+          return;
+        }
         const cx = nodes.reduce((s, n) => s + n.x, 0) / nodes.length;
         const cy = nodes.reduce((s, n) => s + n.y, 0) / nodes.length;
-        conCtxClose();
-        // Remove the original nodes
         const ids = nodes.map(n => n.id);
-        ids.forEach(id => conRemoveNode(id));
-        conMultiSelected.clear();
-        // Create a phrase group: each source word becomes its own styled node
-        const phraseWords = nodes.map(n => n.baseWord || n.el.textContent.trim()).filter(Boolean);
-        if (phraseWords.length < 2) {
-          // Single-word fallback
-          const first = nodes[0];
-          const newId = conAddWordAt(phraseWords[0] || '', cx, cy, first ? first.pageNum : null);
+        const phraseWords = nodes.map(n => n.baseWord || (n.el ? n.el.textContent.trim() : '')).filter(Boolean);
+        const first = nodes[0];
+
+        if (mode === 'phrase') {
+          // Remove the original nodes
+          ids.forEach(id => conRemoveNode(id));
+          conMultiSelected.clear();
+          if (phraseWords.length < 2) {
+            // Single-word fallback
+            const newId = conAddWordAt(phraseWords[0] || '', cx, cy, first ? first.pageNum : null);
+            const newNode = conNodes.find(n => n.id === newId);
+            if (newNode && first) {
+              if (first.fmt) newNode.fmt = Object.assign({}, first.fmt);
+              ['background', 'color', 'fontSize', 'fontFamily'].forEach(k => {
+                if (first.el && first.el.style[k]) newNode.el.style[k] = first.el.style[k];
+              });
+              conRenderNodeLabel(newNode);
+            }
+          } else {
+            const phraseIds = conCreatePhraseGroup(phraseWords, cx, cy);
+            // Apply per-word formatting from the source nodes
+            phraseIds.forEach((nid, i) => {
+              const src = nodes[i];
+              const newNode = conNodes.find(n => n.id === nid);
+              if (!newNode || !src) return;
+              if (src.fmt) newNode.fmt = Object.assign({}, src.fmt);
+              if (src.pageNum != null) newNode.pageNum = src.pageNum;
+              ['background', 'color', 'fontSize', 'fontFamily'].forEach(k => {
+                if (src.el && src.el.style[k]) newNode.el.style[k] = src.el.style[k];
+              });
+              conRenderNodeLabel(newNode);
+            });
+          }
+        } else {
+          // Single node mode: join words with spaces
+          const fullText = phraseWords.join(' ');
+          const pageNumNode = nodes.find(n => n.pageNum != null);
+          const targetPageNum = pageNumNode ? pageNumNode.pageNum : (first ? first.pageNum : null);
+
+          // Remove original nodes
+          ids.forEach(id => conRemoveNode(id));
+          conMultiSelected.clear();
+
+          const newId = conAddWordAt(fullText, cx, cy, targetPageNum);
           const newNode = conNodes.find(n => n.id === newId);
           if (newNode && first) {
             if (first.fmt) newNode.fmt = Object.assign({}, first.fmt);
-            ['background', 'color', 'fontSize'].forEach(k => {
+            ['background', 'color', 'fontFamily', 'borderColor'].forEach(k => {
               if (first.el && first.el.style[k]) newNode.el.style[k] = first.el.style[k];
             });
+            const srcBaseSize = conGetNodeBaseFontSize(first);
+            if (srcBaseSize) conSetNodeBaseFontSize(newNode, srcBaseSize);
+            newNode.borderWidth = first.borderWidth || null;
+            newNode.borderStyle = first.borderStyle || null;
+            newNode.highlight = first.highlight || null;
+            newNode.preset = first.preset || null;
+            newNode.shape = first.shape || null;
+            newNode.fontFamily = first.fontFamily || null;
+            newNode.textStrokeColor = first.textStrokeColor || null;
+            newNode.textStrokeWidth = first.textStrokeWidth || null;
+            if (first.shape) conApplyNodeShape(newNode, first.shape);
+            if (newNode.textStrokeWidth || newNode.textStrokeColor) {
+              conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
+            }
             conRenderNodeLabel(newNode);
           }
-        } else {
-          const phraseIds = conCreatePhraseGroup(phraseWords, cx, cy);
-          // Apply per-word formatting from the source nodes
-          phraseIds.forEach((nid, i) => {
-            const src = nodes[i];
-            const newNode = conNodes.find(n => n.id === nid);
-            if (!newNode || !src) return;
-            if (src.fmt) newNode.fmt = Object.assign({}, src.fmt);
-            if (src.pageNum != null) newNode.pageNum = src.pageNum;
-            ['background', 'color', 'fontSize'].forEach(k => {
-              if (src.el && src.el.style[k]) newNode.el.style[k] = src.el.style[k];
-            });
-            conRenderNodeLabel(newNode);
-          });
         }
         conRedrawEdges();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+        conMergeChoiceClose();
       };
 
       function conGetMultiSelectedNodes() {
@@ -20668,6 +21221,72 @@
           curX += (n.el.offsetWidth || 0) + gap;
         });
         conRedrawEdges();
+      };
+
+      // Convert a single node to a note
+      function conConvertSingleNodeToNote(node) {
+        if (!node) return null;
+        const text = node.baseWord || (node.el ? node.el.textContent.trim() : '') || 'Note';
+        const x = Number.isFinite(node.x) ? node.x : 60;
+        const y = Number.isFinite(node.y) ? node.y : 60;
+        const rawColor = (node.el && (node.el.style.color || node.el.style.borderColor)) || '#111111';
+        const rawBg = (node.el && (node.el.style.backgroundColor || node.el.style.background)) || '#ffffff';
+        const fontSize = Math.round(conGetNodeBaseFontSize(node) || 16);
+        const fmt = conGetNodeFmt(node) || {};
+        const nid = 'cnn' + (conNoteNextId++);
+        const noteData = {
+          id: nid,
+          nodeId: null,
+          text: text,
+          x: x,
+          y: y,
+          color: rawColor,
+          bg: rawBg,
+          fontSize: fontSize,
+          fontFamily: node.fontFamily || (node.el ? node.el.style.fontFamily : null) || null,
+          bold: !!fmt.bold,
+          italic: !!fmt.italic,
+          underline: !!fmt.underline,
+          strike: !!fmt.strike,
+          hidden: !!node.masked,
+          locked: !!node.locked,
+          manualSize: false,
+          width: null,
+          height: null,
+          borderWidth: node.borderWidth || null,
+          borderColor: node.borderColor || (node.el ? node.el.style.borderColor : null) || null,
+          borderStyle: node.borderStyle || null,
+          highlight: node.highlight || null,
+          pageNum: node.pageNum != null ? node.pageNum : null
+        };
+        conNotes.push(noteData);
+        conNoteBuild(noteData);
+        conRemoveNode(node.id);
+        return noteData;
+      }
+      window.conConvertSingleNodeToNote = conConvertSingleNodeToNote;
+
+      // Convert active/selected node(s) to note(s)
+      window.conCtxConvertToNote = function () {
+        const selectedNodeIds = (conMultiSelected && conMultiSelected.size > 0)
+          ? [...conMultiSelected]
+          : (conCtxNodeId ? [conCtxNodeId] : (conSelected ? [conSelected] : []));
+        if (!selectedNodeIds.length) return;
+        if (window.conPushUndo) window.conPushUndo();
+        conCtxClose();
+
+        const createdNotes = [];
+        selectedNodeIds.forEach(id => {
+          const node = conNodes.find(n => n.id === id);
+          if (node) {
+            const note = conConvertSingleNodeToNote(node);
+            if (note) createdNotes.push(note);
+          }
+        });
+        if (conMultiSelected) conMultiSelected.clear();
+        conRedrawEdges();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
       window.conCtxRemoveFromGroup = function () {
@@ -22014,6 +22633,8 @@
               kind: 'pics',
               size: Number(blob.size) || 0,
               file: blob,
+              base64: parts[1] || '',
+              _cachedDataUrl: osImageDataUrl,
               relativePath: ''
             });
             conRenderAttachmentSummary();
@@ -22131,7 +22752,7 @@
           if (_conLinkSrc) { _conCancelLinkMode(); return; }
           if (conMode === 'draw') { window.conSetMode('move'); return; }
           if (typeof _taDrawActive !== 'undefined' && _taDrawActive && typeof window.taToggleDrawMode === 'function') { window.taToggleDrawMode(); return; }
-          conCtxClose(); conBoardCtxClose(); window.conEdgeCtxClose(); window.conMaskCtxClose(); if (window.conRelPickerClose) window.conRelPickerClose(); if (window.conDefPickerClose) window.conDefPickerClose(); if (window.conTransPickerClose) window.conTransPickerClose();
+          conCtxClose(); conBoardCtxClose(); window.conEdgeCtxClose(); window.conMaskCtxClose(); if (window.conRelPickerClose) window.conRelPickerClose(); if (window.conDefPickerClose) window.conDefPickerClose(); if (window.conTransPickerClose) window.conTransPickerClose(); if (window.conMergeChoiceCancel) window.conMergeChoiceCancel(); if (window.conImgConvertClose) window.conImgConvertClose(); if (window.conPdfPagePickerClose) window.conPdfPagePickerClose();
         }
         if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
           const tag = document.activeElement && document.activeElement.tagName;
@@ -25643,6 +26264,95 @@
       conDuplicateNoteData(nd, 28, 22);
     }
 
+    // Convert a single note to a node
+    function conConvertSingleNoteToNode(noteData) {
+      if (!noteData) return null;
+      let rawText = '';
+      const noteEl = wnGetNoteElementById(noteData.id);
+      if (noteEl) {
+        const editor = noteEl.querySelector('.wn-note-editor, textarea');
+        if (editor) {
+          rawText = editor.innerText || editor.textContent || editor.value || '';
+        }
+      }
+      if (!rawText) rawText = noteData.text || '';
+      const plainText = String(rawText).replace(/<[^>]+>/g, '').trim() || 'Word';
+      const x = Number.isFinite(noteData.x) ? noteData.x : 100;
+      const y = Number.isFinite(noteData.y) ? noteData.y : 100;
+      const pageNum = noteData.pageNum != null ? noteData.pageNum : null;
+
+      const newId = conAddWordAt(plainText, x, y, pageNum);
+      const newNode = conNodes.find(n => n.id === newId);
+      if (newNode) {
+        if (noteData.bg && newNode.el) newNode.el.style.background = noteData.bg;
+        if (noteData.color && newNode.el) newNode.el.style.color = noteData.color;
+        if (noteData.fontFamily) {
+          newNode.fontFamily = noteData.fontFamily;
+          if (newNode.el) newNode.el.style.fontFamily = noteData.fontFamily;
+        }
+        if (noteData.fontSize) {
+          conSetNodeBaseFontSize(newNode, Math.max(8, Math.min(72, Number(noteData.fontSize) || 16)));
+        }
+        newNode.fmt = Object.assign({}, newNode.fmt || {}, {
+          bold: !!noteData.bold,
+          italic: !!noteData.italic,
+          underline: !!noteData.underline,
+          strike: !!noteData.strike
+        });
+        if (noteData.borderColor) {
+          newNode.borderColor = noteData.borderColor;
+          if (newNode.el) newNode.el.style.borderColor = noteData.borderColor;
+        }
+        if (noteData.borderWidth != null) {
+          newNode.borderWidth = noteData.borderWidth;
+          if (newNode.el) newNode.el.style.borderWidth = noteData.borderWidth + 'px';
+        }
+        if (noteData.borderStyle) {
+          newNode.borderStyle = noteData.borderStyle;
+          if (newNode.el) newNode.el.style.borderStyle = noteData.borderStyle;
+        }
+        if (noteData.highlight) {
+          newNode.highlight = noteData.highlight;
+        }
+        if (noteData.locked) {
+          newNode.locked = true;
+          conSyncNodeLockState(newNode);
+        }
+        if (noteData.hidden) {
+          newNode.masked = true;
+          if (newNode.el) newNode.el.classList.add('con-masked');
+        }
+        conRenderNodeLabel(newNode);
+      }
+      wnDeleteNoteData(noteData);
+      return newNode;
+    }
+    window.conConvertSingleNoteToNode = conConvertSingleNoteToNode;
+
+    // Convert active/selected note(s) to word node(s)
+    window.wnStyleConvertToNode = function () {
+      const targetNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+        ? [...conNoteSelected].map(id => conNotes.find(n => n.id === id)).filter(Boolean)
+        : (_wnActiveNote ? [_wnActiveNote] : (_wnCtxNoteData ? [_wnCtxNoteData] : []));
+      if (!targetNotes.length) return;
+      if (window.conPushUndo) window.conPushUndo();
+      wnStyleDismiss();
+      if (typeof wnCtxClose === 'function') wnCtxClose();
+
+      const createdNodes = [];
+      targetNotes.forEach(nd => {
+        const node = conConvertSingleNoteToNode(nd);
+        if (node) createdNodes.push(node);
+      });
+      if (typeof conNoteSelected !== 'undefined' && conNoteSelected) conNoteSelected.clear();
+      if (createdNodes.length === 1) {
+        conSelect(createdNodes[0].id);
+      }
+      conRedrawEdges();
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+    };
+
     // ── Save note to Planner ─────────────────────────────────────────────
     function wnpOpen() {
       const nd = _wnActiveNote;
@@ -28637,7 +29347,7 @@
       if (_conUserPointerDown) return true;
       if (typeof _recIsRecording !== 'undefined' && _recIsRecording) return true;
       if (Date.now() - _conLastKeyInteractionTime < 1500) return true;
-      const activeOverlay = document.querySelector('.con-sp-overlay.active, .modal.active, #save-filename-overlay.active, #con-close-overlay.active, #new-session-overlay.active');
+      const activeOverlay = document.querySelector('.con-sp-overlay.active, .modal.active, #save-filename-overlay.active, #con-close-overlay.active, #new-session-overlay.active, #con-merge-choice-overlay.active, #con-img-convert-overlay.active');
       if (activeOverlay) return true;
       return false;
     }
@@ -30737,6 +31447,10 @@
         }
 
         if (base64) {
+          if (base64.startsWith('data:')) {
+            const commaIdx = base64.indexOf(',');
+            if (commaIdx >= 0) base64 = base64.slice(commaIdx + 1);
+          }
           item.base64 = base64;
           files.push({
             filename: safeName,
@@ -30814,28 +31528,19 @@
         ? dataToSave.pages
         : [dataToSave];
 
-      // Ensure current live page snapshot is fresh and capture high-fidelity visual snapshot
+      // Ensure current live page snapshot is fresh and capture visual thumbnail
       if (typeof conBuildPageSnapshot === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
-        conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-      }
-      if (!isAutosave) {
-        try {
-          if (typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
-            let curThumb = (_conPageSnapshotPngs && _conPageSnapshotPngs[conCurrentPageIndex]) || '';
-            if (!curThumb) {
-              const snap = (typeof conBuildPageSnapshot === 'function')
-                ? conBuildPageSnapshot()
-                : (conPageSnapshots && conPageSnapshots[conCurrentPageIndex]);
-              if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
-                curThumb = conBuildPageThumbnailDataUrl(snap, 480, 320);
-              }
-            }
-            if (curThumb) {
+        const liveSnap = conBuildPageSnapshot();
+        conPageSnapshots[conCurrentPageIndex] = liveSnap;
+        if (typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            const freshThumb = conBuildPageThumbnailDataUrl(liveSnap, 480, 320);
+            if (freshThumb) {
               if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-              _conPageSnapshotPngs[conCurrentPageIndex] = curThumb;
+              _conPageSnapshotPngs[conCurrentPageIndex] = freshThumb;
             }
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
 
       const createdAtMs = Number(dataToSave._createdAt || dataToSave.createdAt)
@@ -30851,7 +31556,7 @@
         plannerEntryId: dataToSave._plannerEntryId || '',
         pageCount: pages.length,
         nodeCount: Array.isArray(dataToSave.nodes) ? dataToSave.nodes.length : 0,
-        thumbnail: 'page-snapshots/page-001.png',
+        thumbnail: 'page-snapshots/page-001.webp',
         createdAt: createdAtMs,
         dateCreated: dataToSave.dateCreated || new Date(createdAtMs).toISOString(),
         updatedAt: savedAtMs,
@@ -30875,40 +31580,44 @@
 
       // Add thumbnail entries for all pages into the archive
       for (let i = 0; i < pages.length; i += 1) {
-        let pngDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
-        if (!pngDataUrl && !isAutosave) {
+        let snapDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
+        if (!snapDataUrl && typeof conBuildPageThumbnailDataUrl === 'function') {
           try {
-            if (typeof conBuildPageThumbnailDataUrl === 'function') {
-              pngDataUrl = conBuildPageThumbnailDataUrl(pages[i], 480, 320);
-            } else if (typeof conRenderPageThumbnail === 'function') {
-              const offCanvas = document.createElement('canvas');
-              offCanvas.width = 480;
-              offCanvas.height = 320;
-              conRenderPageThumbnail(pages[i], offCanvas);
-              pngDataUrl = offCanvas.toDataURL('image/png');
-            }
-            if (pngDataUrl) {
+            snapDataUrl = conBuildPageThumbnailDataUrl(pages[i], 480, 320);
+            if (snapDataUrl) {
               if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-              _conPageSnapshotPngs[i] = pngDataUrl;
+              _conPageSnapshotPngs[i] = snapDataUrl;
             }
           } catch (_) {}
         }
-        if (pngDataUrl) {
-          const base64Png = pngDataUrl.replace(/^data:image\/[a-z]+;base64,/i, '');
+        if (snapDataUrl) {
+          let ext = 'webp';
+          let base64Data = '';
+          const commaIdx = snapDataUrl.indexOf(',');
+          if (commaIdx >= 0) {
+            const header = snapDataUrl.slice(0, commaIdx);
+            if (header.includes('image/png')) ext = 'png';
+            else if (header.includes('image/jpeg') || header.includes('image/jpg')) ext = 'jpg';
+            else ext = 'webp';
+            base64Data = snapDataUrl.slice(commaIdx + 1);
+          } else {
+            base64Data = snapDataUrl;
+          }
           const padded = String(i + 1).padStart(3, '0');
           entries.push({
-            name: 'page-snapshots/page-' + padded + '.png',
-            data: base64Png,
+            name: 'page-snapshots/page-' + padded + '.' + ext,
+            data: base64Data,
             encoding: 'base64',
             store: true
           });
           if (i === 0) {
             entries.push({
-              name: 'thumbnail.png',
-              data: base64Png,
+              name: 'thumbnail.' + ext,
+              data: base64Data,
               encoding: 'base64',
               store: true
             });
+            manifest.thumbnail = 'page-snapshots/page-001.' + ext;
           }
         }
       }
@@ -30986,11 +31695,15 @@
                   data: JSON.parse(new TextDecoder('utf-8').decode(entryDataBytes))
                 });
               } catch {}
-            } else if (filename.startsWith('page-snapshots/') || filename.startsWith('thumbnails/') || filename === 'thumbnail.png') {
+            } else if (filename.startsWith('page-snapshots/') || filename.startsWith('thumbnails/') || filename.startsWith('thumbnail.') || filename === 'thumbnail.png') {
               let binary = '';
-              for (let i = 0; i < entryDataBytes.length; i++) binary += String.fromCharCode(entryDataBytes[i]);
+              const chunkSize = 8192;
+              for (let i = 0; i < entryDataBytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, entryDataBytes.subarray(i, i + chunkSize));
+              }
               const base64 = btoa(binary);
-              const dataUrl = 'data:image/png;base64,' + base64;
+              const mimeType = (filename.endsWith('.png')) ? 'image/png' : (filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 'image/webp');
+              const dataUrl = 'data:' + mimeType + ';base64,' + base64;
               thumbnails[filename] = dataUrl;
               const mediaEntry = {
                 name: filename.split('/').pop(),
@@ -31012,9 +31725,11 @@
                 binary += String.fromCharCode.apply(null, entryDataBytes.subarray(i, i + chunkSize));
               }
               const base64 = btoa(binary);
+              const mime = conGuessMimeByName(mediaName, kind) || (kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream'));
               const mediaEntry = {
                 name: mediaName,
                 kind: kind,
+                mime: mime,
                 subPath: mediaSubPath,
                 base64: base64,
                 size: entryDataBytes.length
@@ -31093,13 +31808,67 @@
         attachments: attachmentBundle.metadata
       });
       conNormalizeMediaPathRefsInSession(dataToSave);
+      const pages = (Array.isArray(dataToSave.pages) && dataToSave.pages.length > 0)
+        ? dataToSave.pages
+        : [dataToSave];
+
+      // Ensure current live page snapshot is fresh and capture visual thumbnail
+      if (typeof conBuildPageSnapshot === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
+        const liveSnap = conBuildPageSnapshot();
+        conPageSnapshots[conCurrentPageIndex] = liveSnap;
+        if (typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            const freshThumb = conBuildPageThumbnailDataUrl(liveSnap, 480, 320);
+            if (freshThumb) {
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[conCurrentPageIndex] = freshThumb;
+            }
+          } catch (_) {}
+        }
+      }
+
+      const snapshotFiles = [];
+      for (let i = 0; i < pages.length; i += 1) {
+        let snapDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
+        if (!snapDataUrl && typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            snapDataUrl = conBuildPageThumbnailDataUrl(pages[i], 480, 320);
+            if (snapDataUrl) {
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[i] = snapDataUrl;
+            }
+          } catch (_) {}
+        }
+        if (snapDataUrl) {
+          let ext = 'webp';
+          let base64Data = '';
+          const commaIdx = snapDataUrl.indexOf(',');
+          if (commaIdx >= 0) {
+            const header = snapDataUrl.slice(0, commaIdx);
+            if (header.includes('image/png')) ext = 'png';
+            else if (header.includes('image/jpeg') || header.includes('image/jpg')) ext = 'jpg';
+            else ext = 'webp';
+            base64Data = snapDataUrl.slice(commaIdx + 1);
+          } else {
+            base64Data = snapDataUrl;
+          }
+          const padded = String(i + 1).padStart(3, '0');
+          snapshotFiles.push({
+            filename: 'page-' + padded + '.' + ext,
+            subdir: folderName + '/page-snapshots',
+            content: base64Data,
+            encoding: 'base64'
+          });
+        }
+      }
+
       const jsContent = boardBuildSessionFileContent(dataToSave, 'CONSTELLATION_SESSION_EXPORT');
       const files = [{
         filename: normalizedFilename,
         subdir: folderName,
         content: jsContent,
         encoding: 'utf8'
-      }].concat(attachmentBundle.files);
+      }].concat(attachmentBundle.files, snapshotFiles);
 
       return {
         filename: normalizedFilename,
@@ -32032,12 +32801,15 @@
     function _conBuildThumbnailDataUrl(srcCanvas, maxDim = 600) {
       if (!srcCanvas) return '';
       const thumbCanvas = _conDownsampleCanvas(srcCanvas, maxDim);
-      return thumbCanvas.toDataURL('image/png');
+      let url = thumbCanvas.toDataURL('image/webp', 0.82);
+      if (!url || !url.startsWith('data:image/webp')) {
+        url = thumbCanvas.toDataURL('image/png');
+      }
+      return url;
     }
 
-    // Save a PNG snapshot of the current board state for a given page index.
-    // Save a PNG snapshot of the board state for a given page index (used on save/open).
-    // Captures full visual fidelity canvas and updates in-memory snapshot cache and disk.
+    // Save a WebP/PNG snapshot of the current board state for a given page index.
+    // Captures visual fidelity canvas and updates in-memory snapshot cache and DOM preview.
     async function conSaveCurrentPageSnapshotPng(pageIndex, options = {}) {
       const idx = (typeof pageIndex === 'number') ? pageIndex : conCurrentPageIndex;
       if (typeof idx !== 'number' || idx < 0) return;
@@ -32046,9 +32818,13 @@
         try {
           const liveRes = await _conBuildBoardCanvas();
           if (liveRes && liveRes.canvas) {
-            dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
-              ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
-              : liveRes.canvas.toDataURL('image/png');
+            if (typeof _conBuildThumbnailDataUrl === 'function') {
+              dataUrl = _conBuildThumbnailDataUrl(liveRes.canvas, 600);
+            } else {
+              let url = liveRes.canvas.toDataURL('image/webp', 0.82);
+              if (!url || !url.startsWith('data:image/webp')) url = liveRes.canvas.toDataURL('image/png');
+              dataUrl = url;
+            }
           }
         } catch (_) {}
       }
@@ -32864,15 +33640,26 @@
           conSetAttachmentsFromSession((data && data.attachments) || [], mediaMap);
           _conPageSnapshotPngs = [];
           const thumbMap = (data && (data._thumbnails || data.thumbnails)) || null;
-          if (thumbMap && typeof thumbMap === 'object') {
-            const totalP = Array.isArray(data.pages) && data.pages.length > 0 ? data.pages.length : 1;
-            for (let i = 0; i < totalP; i++) {
-              const padded = String(i + 1).padStart(3, '0');
-              const key1 = 'page-snapshots/page-' + padded + '.png';
-              const key2 = 'page-' + padded + '.png';
-              const val = thumbMap[key1] || thumbMap[key2] || (i === 0 ? (thumbMap['thumbnail.png'] || thumbMap['thumbnails/page-001.png']) : null);
-              _conPageSnapshotPngs[i] = val || null;
+          const totalP = (Array.isArray(data.pages) && data.pages.length > 0) ? data.pages.length : 1;
+          for (let i = 0; i < totalP; i++) {
+            const padded = String(i + 1).padStart(3, '0');
+            let val = null;
+            if (thumbMap && typeof thumbMap === 'object') {
+              val = thumbMap['page-snapshots/page-' + padded + '.webp']
+                || thumbMap['page-snapshots/page-' + padded + '.png']
+                || thumbMap['page-' + padded + '.webp']
+                || thumbMap['page-' + padded + '.png']
+                || (i === 0 ? (thumbMap['thumbnail.webp'] || thumbMap['thumbnail.png'] || thumbMap['thumbnails/page-001.webp'] || thumbMap['thumbnails/page-001.png']) : null);
             }
+            if (!val && typeof conBuildPageThumbnailDataUrl === 'function') {
+              const pData = (Array.isArray(data.pages) && data.pages[i]) || (i === 0 ? data : null);
+              if (pData) {
+                try {
+                  val = conBuildPageThumbnailDataUrl(pData, 480, 320);
+                } catch (_) {}
+              }
+            }
+            _conPageSnapshotPngs[i] = val || null;
           }
         }
 
@@ -35925,16 +36712,22 @@
           const relParts = (entry.relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
           const folderName = relParts.length >= 2 ? relParts[0] : null;
 
-          // Try to load real PNG snapshots saved under page-snapshots/
+          // Try to load real WebP / PNG snapshots saved under page-snapshots/
           const pngDataUrls = new Array(pages.length).fill(null);
           if (folderName && window.Desktop && Desktop.isElectron() && typeof Desktop.readByPath === 'function') {
             await Promise.all(pages.map(async (_, idx) => {
               const padded = String(idx + 1).padStart(3, '0');
+              const webpPath = folderName + '/page-snapshots/page-' + padded + '.webp';
               const pngPath = folderName + '/page-snapshots/page-' + padded + '.png';
               try {
-                const res = await Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' });
+                let res = await Desktop.readByPath('mindmaps', webpPath, { encoding: 'base64' });
+                let mime = 'image/webp';
+                if (!(res && res.ok && res.content)) {
+                  res = await Desktop.readByPath('mindmaps', pngPath, { encoding: 'base64' });
+                  mime = 'image/png';
+                }
                 if (res && res.ok && res.content) {
-                  pngDataUrls[idx] = 'data:image/png;base64,' + res.content;
+                  pngDataUrls[idx] = 'data:' + mime + ';base64,' + res.content;
                 }
               } catch { }
             }));

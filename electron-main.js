@@ -832,9 +832,17 @@ async function writeAllowedFile(pageFile, target, file) {
   const finalName = sanitizeFilename(reqFilename);
   const filePath = path.join(finalDir, finalName);
   const encoding = file.encoding === 'base64' ? 'base64' : 'utf8';
-  const data = encoding === 'base64'
-    ? Buffer.from(String(file.content || ''), 'base64')
-    : String(file.content || '');
+  let data;
+  if (encoding === 'base64') {
+    let rawB64 = String(file.content || '');
+    const commaIdx = rawB64.indexOf(',');
+    if (rawB64.startsWith('data:') && commaIdx !== -1) {
+      rawB64 = rawB64.slice(commaIdx + 1);
+    }
+    data = Buffer.from(rawB64, 'base64');
+  } else {
+    data = String(file.content || '');
+  }
 
   await fs.mkdir(finalDir, { recursive: true });
 
@@ -3803,7 +3811,12 @@ ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
     } else if (entry.data && entry.data.buffer instanceof ArrayBuffer) {
       data = Buffer.from(entry.data.buffer, entry.data.byteOffset || 0, entry.data.byteLength || entry.data.length);
     } else if (entry.encoding === 'base64') {
-      data = Buffer.from(String(entry.data || ''), 'base64');
+      let rawB64 = String(entry.data || '');
+      const commaIdx = rawB64.indexOf(',');
+      if (rawB64.startsWith('data:') && commaIdx !== -1) {
+        rawB64 = rawB64.slice(commaIdx + 1);
+      }
+      data = Buffer.from(rawB64, 'base64');
     } else {
       data = Buffer.from(String(entry.data || ''), 'utf8');
     }
@@ -3880,9 +3893,10 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
             mtimeMs: entry.mtimeMs
           });
         } catch {}
-      } else if (normName.startsWith('page-snapshots/') || normName.startsWith('thumbnails/') || normName === 'thumbnail.png') {
+      } else if (normName.startsWith('page-snapshots/') || normName.startsWith('thumbnails/') || normName.startsWith('thumbnail.') || normName === 'thumbnail.png') {
         const base64 = entry.data.toString('base64');
-        const dataUrl = 'data:image/png;base64,' + base64;
+        const mimeType = (normName.endsWith('.png')) ? 'image/png' : (normName.endsWith('.jpg') || normName.endsWith('.jpeg') ? 'image/jpeg' : 'image/webp');
+        const dataUrl = 'data:' + mimeType + ';base64,' + base64;
         thumbnails[normName] = dataUrl;
         const fileName = normName.split('/').pop();
         const mediaEntry = {
@@ -3900,9 +3914,26 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
         const rawKind = parts[0].toLowerCase();
         const kind = rawKind === 'images' ? 'pics' : ((rawKind === 'sound' || rawKind === 'audio' || rawKind === 'sounds') ? 'sounds' : ((rawKind === 'video' || rawKind === 'videos') ? 'videos' : rawKind));
         const fileName = parts.slice(1).join('/');
+        const ext = path.extname(fileName).toLowerCase();
+        let mime = '';
+        if (ext === '.webp') mime = 'image/webp';
+        else if (ext === '.png') mime = 'image/png';
+        else if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
+        else if (ext === '.gif') mime = 'image/gif';
+        else if (ext === '.svg') mime = 'image/svg+xml';
+        else if (ext === '.pdf') mime = 'application/pdf';
+        else if (ext === '.mp3') mime = 'audio/mpeg';
+        else if (ext === '.wav') mime = 'audio/wav';
+        else if (ext === '.ogg') mime = 'audio/ogg';
+        else if (ext === '.m4a') mime = 'audio/mp4';
+        else if (ext === '.mp4') mime = 'video/mp4';
+        else if (ext === '.webm') mime = kind === 'sounds' ? 'audio/webm' : 'video/webm';
+        else mime = kind === 'pics' ? 'image/webp' : (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream');
+
         const mediaEntry = {
           name: fileName,
           kind: kind,
+          mime: mime,
           subPath: mediaSubPath,
           base64: entry.data.toString('base64'),
           size: entry.data.length,
@@ -3974,8 +4005,9 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
             pageCount: Array.isArray(parsed.pages) ? parsed.pages.length : 1
           };
         } catch {}
-      } else if (!thumbnail && (normName === 'page-snapshots/page-001.png' || normName === 'thumbnail.png' || normName.startsWith('page-snapshots/'))) {
-        thumbnail = 'data:image/png;base64,' + entry.data.toString('base64');
+      } else if (!thumbnail && (normName === 'page-snapshots/page-001.webp' || normName === 'page-snapshots/page-001.png' || normName === 'thumbnail.webp' || normName === 'thumbnail.png' || normName.startsWith('page-snapshots/'))) {
+        const mimeType = (normName.endsWith('.png')) ? 'image/png' : (normName.endsWith('.jpg') || normName.endsWith('.jpeg') ? 'image/jpeg' : 'image/webp');
+        thumbnail = 'data:' + mimeType + ';base64,' + entry.data.toString('base64');
       }
     }
 
@@ -3998,7 +4030,7 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       filename: path.basename(fullPath),
       relativePath,
       manifest: manifest || boardDataSummary,
-      thumbnail: thumbnail || (manifest && manifest.thumbnail) || null,
+      thumbnail: thumbnail || null,
       classGroup: (manifest && manifest.classGroup) || (boardDataSummary && boardDataSummary.classGroup) || '',
       plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
       createdAt: createdAt || undefined,

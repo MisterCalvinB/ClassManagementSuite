@@ -2588,6 +2588,9 @@
         </div>
     </div>
 
+    <!-- BADGE & SCORE FLASH OVERLAY -->
+    <div id="badge-flash-overlay"></div>
+
     <!-- TIME MACHINE MODAL -->
     <div class="modal-overlay" id="time-machine-modal" onclick="closeTimeMachine()">
         <div class="modal-content" onclick="event.stopPropagation()" style="max-width:720px;">
@@ -12966,52 +12969,45 @@ syncState();
             if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
 
+        let _flashOverlayTimer = null;
         function showFlashOverlay(content, extraStyles = '') {
             if (!animationsEnabled) return;
-            const flash = document.createElement('div');
+            const flash = document.getElementById('badge-flash-overlay');
+            if (!flash) return;
+            if (_flashOverlayTimer) {
+                clearTimeout(_flashOverlayTimer);
+                _flashOverlayTimer = null;
+            }
             flash.textContent = content;
-            flash.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) scale(0.5);
-        font-size: 5rem;
-        z-index: 99999;
-        pointer-events: none;
-        animation: badgeFlashAnim 0.7s ease-out forwards;
-        ${extraStyles}
-    `;
-            if (!document.getElementById('badge-flash-keyframes')) {
-                const style = document.createElement('style');
-                style.id = 'badge-flash-keyframes';
-                style.textContent = `
-            @keyframes badgeFlashAnim {
-                0%   { opacity:0; transform: translate(-50%,-50%) scale(0.5); }
-                40%  { opacity:1; transform: translate(-50%,-50%) scale(1.4); }
-                100% { opacity:0; transform: translate(-50%,-60%) scale(1); }
-            }
-        `;
-                document.head.appendChild(style);
-            }
-            document.body.appendChild(flash);
-            setTimeout(() => flash.remove(), 750);
+            flash.style.cssText = extraStyles;
+            // Force animation restart cleanly
+            flash.classList.remove('active');
+            void flash.offsetWidth;
+            flash.classList.add('active');
+
+            _flashOverlayTimer = setTimeout(() => {
+                flash.classList.remove('active');
+                flash.style.cssText = '';
+                flash.textContent = '';
+                _flashOverlayTimer = null;
+            }, 750);
         }
 
         function showBadgeFlash(icon) {
-            showFlashOverlay(icon, `background: rgba(255,255,255,0.94); padding: 0.18em 0.38em; `);
+            showFlashOverlay(icon, 'background: rgba(255,255,255,0.94); padding: 0.18em 0.38em;');
         }
 
         function showScoreFlash(label, color) {
             showFlashOverlay(label, `
-        font-size: 3.2rem;
-        font-weight: 900;
-        color: ${color};
-        background: rgba(255,255,255,0.94);
-        padding: 0.18em 0.38em;
-        border-radius: 14px;
-        box-shadow: 0 10px 28px rgba(0,0,0,0.18);
-        letter-spacing: 0.03em;
-    `);
+                font-size: 3.2rem;
+                font-weight: 900;
+                color: ${color};
+                background: rgba(255,255,255,0.94);
+                padding: 0.18em 0.38em;
+                border-radius: 14px;
+                box-shadow: 0 10px 28px rgba(0,0,0,0.18);
+                letter-spacing: 0.03em;
+            `);
         }
 
         // ============================================================
@@ -13991,8 +13987,27 @@ syncState();
             _syncWhiteNoiseUI();
         }
 
+        let _modeAnimationTimers = [];
+        function clearModeAnimationTimers() {
+            if (Array.isArray(_modeAnimationTimers)) {
+                _modeAnimationTimers.forEach(id => clearTimeout(id));
+            }
+            _modeAnimationTimers = [];
+        }
+
+        function queueModeTimer(fn, delay) {
+            const id = setTimeout(() => {
+                const idx = _modeAnimationTimers.indexOf(id);
+                if (idx !== -1) _modeAnimationTimers.splice(idx, 1);
+                fn();
+            }, delay);
+            _modeAnimationTimers.push(id);
+            return id;
+        }
+
         function activateMode(modeId) {
             closeModePicker();
+            clearModeAnimationTimers();
             activeWorkingModeId = modeId;
             isModeMinimised = false;
             const _pill = document.getElementById('mode-minimized-pill');
@@ -14054,6 +14069,7 @@ syncState();
             const overlay = document.getElementById('mode-animation-overlay');
             if (!overlay || !overlay.classList.contains('active')) return;
 
+            clearModeAnimationTimers();
             isModeMinimised = true;
             overlay.classList.remove('active');
 
@@ -14077,6 +14093,11 @@ syncState();
                     if (display && display.textContent && display.textContent !== '--:--') {
                         modeTimer.textContent = display.textContent;
                     }
+                }
+                const currentMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === activeWorkingModeId.toLowerCase());
+                if (currentMode) {
+                    if (currentMode.id === 'quiet' || currentMode.picture?.animation === 'shush') spawnShushParticles();
+                    if (currentMode.id === 'conversation' || currentMode.picture?.animation === 'bubbles') animateSpeechBubbles();
                 }
             }
         }
@@ -14161,6 +14182,7 @@ syncState();
         }
 
         function closeMode() {
+            clearModeAnimationTimers();
             isModeMinimised = false;
             activeWorkingModeId = null;
             stopWhiteNoise();
@@ -14212,10 +14234,20 @@ syncState();
         function spawnShushParticles() {
             const container = document.getElementById('shush-particles');
             if (!container) return;
+            container.innerHTML = '';
             const symbols = ['🤫', '🔇', '🔕', '💭', '✍️'];
             let count = 0;
+            const MAX_PARTICLES = 10;
             function spawn() {
-                if (!document.getElementById('shush-particles')) return;
+                const c = document.getElementById('shush-particles');
+                const overlay = document.getElementById('mode-animation-overlay');
+                if (!c || !overlay || !overlay.classList.contains('active')) return;
+                
+                // Limit maximum active particles in DOM
+                if (c.children.length >= MAX_PARTICLES) {
+                    if (c.firstChild) c.removeChild(c.firstChild);
+                }
+
                 const p = document.createElement('div');
                 p.className = 'shush-particle';
                 p.textContent = symbols[count % symbols.length];
@@ -14224,14 +14256,20 @@ syncState();
                 const duration = 6 + Math.random() * 6;
                 p.style.animationDuration = duration + 's';
                 p.style.animationDelay = '0s';
-                container.appendChild(p);
+                c.appendChild(p);
                 count++;
-                setTimeout(() => p.remove(), duration * 5000);
-                if (document.getElementById('mode-animation-overlay').classList.contains('active')) {
-                    setTimeout(spawn, 5000 + Math.random() * 2000);
+                
+                queueModeTimer(() => {
+                    if (p.parentNode) p.parentNode.removeChild(p);
+                }, (duration + 0.1) * 1000);
+
+                if (overlay.classList.contains('active')) {
+                    queueModeTimer(spawn, 5000 + Math.random() * 2000);
                 }
             }
-            for (let i = 0; i < 5; i++) setTimeout(spawn, i * 5000);
+            for (let i = 0; i < 4; i++) {
+                queueModeTimer(spawn, i * 3000);
+            }
         }
 
         function buildConversationMode() {
@@ -14263,16 +14301,18 @@ syncState();
             ];
             let set = 0;
             function cycle() {
-                if (!document.querySelector('.speech-bubble')) return;
+                const overlay = document.getElementById('mode-animation-overlay');
+                if (!overlay || !overlay.classList.contains('active')) return;
                 const bubbles = document.querySelectorAll('.speech-bubble');
+                if (!bubbles.length) return;
                 const current = phrases[set % phrases.length];
                 bubbles.forEach((b, i) => { if (current[i]) b.textContent = current[i]; });
                 set++;
-                if (document.getElementById('mode-animation-overlay').classList.contains('active')) {
-                    setTimeout(cycle, 5000);
+                if (overlay.classList.contains('active')) {
+                    queueModeTimer(cycle, 5000);
                 }
             }
-            setTimeout(cycle, 5000);
+            queueModeTimer(cycle, 5000);
         }
 
         function buildGroupMode() {
