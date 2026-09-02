@@ -9,6 +9,7 @@
   // ── Injected CSS ───────────────────────────────────────────────────────────
   var style = document.createElement('style');
   style.textContent = [
+    '#app-nav,#app-nav .nav-brand,#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn,.hm-wrap,.hm-menu,.hm-item,.hm-lang-row,.hm-lang-btn{user-select:none;-webkit-user-select:none}',
     '#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{background:#111;color:#fff;border:1px solid #555;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:all 0.12s ease;line-height:1.2;box-sizing:border-box}',
     '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#222;border-color:#888;color:#fff}',
     '.btn-primary img.btn-icon,.btn-success img.btn-icon,.btn-danger img.btn-icon,.btn-primary .btn-icon,.btn-success .btn-icon,.btn-danger .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon,#app-nav button img.btn-icon,#app-nav button .btn-icon{filter:brightness(0) invert(1) !important}',

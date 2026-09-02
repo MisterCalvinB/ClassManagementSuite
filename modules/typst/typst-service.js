@@ -38,7 +38,7 @@
     const compilerWasmUrl = `${basePath}/pkg/typst_ts_web_compiler_bg.wasm`;
     const rendererWasmUrl = `${basePath}/pkg/typst_ts_renderer_bg.wasm`;
 
-    // Fetch wasm binaries and fonts in parallel
+    // Fetch wasm binaries and bundled fonts in parallel
     const [compilerWasm, rendererWasm, ...fontBuffers] = await Promise.all([
       _fetchBinary(compilerWasmUrl),
       _fetchBinary(rendererWasmUrl),
@@ -48,7 +48,25 @@
       }))
     ]);
 
-    const validFonts = fontBuffers.filter(Boolean);
+    let systemFonts = [];
+    const desktopApi = (typeof window !== 'undefined' && window.electronApi) || global.electronApi;
+    if (desktopApi && typeof desktopApi.getSystemFonts === 'function') {
+      try {
+        const sysFontRes = await desktopApi.getSystemFonts();
+        if (Array.isArray(sysFontRes)) {
+          systemFonts = sysFontRes.map(b => {
+            if (!b) return null;
+            if (b instanceof Uint8Array) return b;
+            if (b.buffer) return new Uint8Array(b.buffer, b.byteOffset || 0, b.byteLength || b.length);
+            return new Uint8Array(b);
+          }).filter(Boolean);
+        }
+      } catch (e) {
+        console.warn('[TypstService] Could not load system fonts from desktopApi:', e);
+      }
+    }
+
+    const validFonts = [...fontBuffers.filter(Boolean), ...systemFonts];
 
     const compiler = global.TypstLib.createTypstCompiler();
     await compiler.init({

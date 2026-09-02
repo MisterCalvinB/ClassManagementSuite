@@ -4667,10 +4667,11 @@
 
         refreshCurrentGame();
         renderGameTeamUI();
-        if (sectionId === 'history-section') {
+        if (sectionId === 'history-section' || sectionId === 'main-menu') {
           if (!historyHasLoaded && typeof historyRefreshList === 'function') {
             historyRefreshList();
           } else if (typeof historyRenderList === 'function') {
+            _historyNeedsRender = false;
             historyRenderList();
           }
         }
@@ -7380,7 +7381,7 @@
 
     function mdbToast(msg) {
       const t = document.createElement('div');
-      t.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:9999;padding:11px 26px;border-radius:8px;font-size:0.95rem;font-weight:700;color:#fff;background:#111;box-shadow:0 4px 18px rgba(0,0,0,0.25);white-space:nowrap;';
+      t.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:9999;padding:11px 26px;border-radius:8px;font-size:0.95rem;font-weight:700;color:#fff;background:#111;box-shadow:0 4px 18px rgba(0,0,0,0.25);white-space:nowrap;pointer-events:none;';
       t.textContent = msg;
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 2500);
@@ -8189,7 +8190,7 @@
       const lowerName = String(name || '').toLowerCase();
       const lowerMime = String(mime || '').toLowerCase();
       if (lowerMime.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(lowerName)) return 'pics';
-      if (lowerMime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(lowerName)) return 'sounds';
+      if (lowerMime.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac|weba|opus)$/i.test(lowerName) || (/^rec-.*\.webm$/i.test(lowerName) && !lowerMime.startsWith('video/'))) return 'sounds';
       if (lowerMime.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(lowerName)) return 'videos';
       if (lowerMime === 'application/pdf' || /\.pdf$/i.test(lowerName)) return 'pdf';
       return null;
@@ -8294,7 +8295,7 @@
         let cachedUrl = '';
         if (base64) {
           try {
-            const mime = raw.mime || conGuessMimeByName(raw.name, kind) || 'application/octet-stream';
+            const mime = raw.mime || conGuessMimeByName(raw.name, kind) || (kind === 'sounds' ? 'audio/wav' : 'application/octet-stream');
             const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
             const binary = atob(cleanB64);
             const bytes = new Uint8Array(binary.length);
@@ -8374,9 +8375,17 @@
       const kind = String((att && att.kind) || '').trim();
       const name = String((att && att.name) || '').trim();
       if (kind && name) {
-        if (_conCurrentFolderName) pushPath(_conCurrentFolderName + '/' + kind + '/' + name);
+        if (_conCurrentFolderName) {
+          pushPath(_conCurrentFolderName + '/' + kind + '/' + name);
+          if (kind === 'sounds') pushPath(_conCurrentFolderName + '/audio/' + name);
+          if (kind === 'videos') pushPath(_conCurrentFolderName + '/video/' + name);
+        }
         const fileBase = _conCurrentFileName ? boardStripJsonExt(_conCurrentFileName) : '';
-        if (fileBase) pushPath(fileBase + '/' + kind + '/' + name);
+        if (fileBase) {
+          pushPath(fileBase + '/' + kind + '/' + name);
+          if (kind === 'sounds') pushPath(fileBase + '/audio/' + name);
+          if (kind === 'videos') pushPath(fileBase + '/video/' + name);
+        }
       }
 
       return out;
@@ -8396,6 +8405,9 @@
         if (/\.wav$/i.test(lower)) return 'audio/wav';
         if (/\.ogg$/i.test(lower)) return 'audio/ogg';
         if (/\.m4a$/i.test(lower)) return 'audio/mp4';
+        if (/\.(webm|weba|opus)$/i.test(lower)) return 'audio/webm';
+        if (/\.aac$/i.test(lower)) return 'audio/aac';
+        if (/\.flac$/i.test(lower)) return 'audio/flac';
       }
       if (kind === 'videos') {
         if (/\.mp4$/i.test(lower)) return 'video/mp4';
@@ -8425,7 +8437,7 @@
         return att._cachedDataUrl;
       }
 
-      const mimeForBlob = att.mime || (masterAtt && masterAtt.mime) || conGuessMimeByName(att.name || (masterAtt && masterAtt.name), att.kind || (masterAtt && masterAtt.kind)) || 'application/octet-stream';
+      const mimeForBlob = att.mime || (masterAtt && masterAtt.mime) || conGuessMimeByName(att.name || (masterAtt && masterAtt.name), att.kind || (masterAtt && masterAtt.kind)) || ((att.kind === 'sounds' || (masterAtt && masterAtt.kind === 'sounds')) ? 'audio/wav' : ((att.kind === 'videos' || (masterAtt && masterAtt.kind === 'videos')) ? 'video/webm' : 'application/octet-stream'));
 
       const fileObj = att.file || (masterAtt && masterAtt.file);
       if (fileObj) {
@@ -8455,14 +8467,22 @@
       if (base64) {
         try {
           const cleanB64 = base64.startsWith('data:') ? base64.split(',')[1] : base64;
-          const binary = atob(cleanB64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: mimeForBlob });
-          const objUrl = URL.createObjectURL(blob);
-          att._cachedObjectUrl = objUrl;
-          if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
-          return objUrl;
+          let blob = null;
+          try {
+            const fetchRes = await fetch('data:' + mimeForBlob + ';base64,' + cleanB64);
+            blob = await fetchRes.blob();
+          } catch (_) {
+            const binary = atob(cleanB64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            blob = new Blob([bytes], { type: mimeForBlob });
+          }
+          if (blob) {
+            const objUrl = URL.createObjectURL(blob);
+            att._cachedObjectUrl = objUrl;
+            if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+            return objUrl;
+          }
         } catch (e) {
           console.error('[Attachment] Failed to convert base64 to object URL:', e);
         }
@@ -8474,16 +8494,25 @@
           try {
             const res = await Desktop.readByPath('mindmaps', candidatePath, { encoding: 'base64' });
             if (res && res.ok && res.content) {
-              const binary = atob(String(res.content));
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              const blob = new Blob([bytes], { type: mimeForBlob });
-              const objUrl = URL.createObjectURL(blob);
-              att._cachedObjectUrl = objUrl;
-              if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
-              if (!att.relativePath) att.relativePath = candidatePath;
-              if (masterAtt && !masterAtt.relativePath) masterAtt.relativePath = candidatePath;
-              return objUrl;
+              const cleanB64 = String(res.content).startsWith('data:') ? String(res.content).split(',')[1] : String(res.content);
+              let blob = null;
+              try {
+                const fetchRes = await fetch('data:' + mimeForBlob + ';base64,' + cleanB64);
+                blob = await fetchRes.blob();
+              } catch (_) {
+                const binary = atob(cleanB64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                blob = new Blob([bytes], { type: mimeForBlob });
+              }
+              if (blob) {
+                const objUrl = URL.createObjectURL(blob);
+                att._cachedObjectUrl = objUrl;
+                if (masterAtt) masterAtt._cachedObjectUrl = objUrl;
+                if (!att.relativePath) att.relativePath = candidatePath;
+                if (masterAtt && !masterAtt.relativePath) masterAtt.relativePath = candidatePath;
+                return objUrl;
+              }
             }
           } catch { }
         }
@@ -9488,8 +9517,14 @@
           }
 
           function syncTimelineFromMedia() {
-            const duration = Number(mediaEl.duration);
+            let duration = Number(mediaEl.duration);
             const current = Number(mediaEl.currentTime) || 0;
+            if (!Number.isFinite(duration) || duration <= 0) {
+              if (mediaEl.seekable && mediaEl.seekable.length > 0) {
+                const end = mediaEl.seekable.end(mediaEl.seekable.length - 1);
+                if (Number.isFinite(end) && end > 0) duration = end;
+              }
+            }
             if (Number.isFinite(duration) && duration > 0) {
               timelineInput.disabled = false;
               timelineInput.max = String(duration);
@@ -9501,7 +9536,7 @@
               timelineInput.disabled = true;
               timelineInput.max = '0';
               timelineInput.value = '0';
-              timelineTime.textContent = conFmtMediaTime(current) + ' / 0:00';
+              timelineTime.textContent = conFmtMediaTime(current) + ' / ' + (Number.isFinite(duration) ? '0:00' : '…');
             }
           }
 
@@ -9524,7 +9559,12 @@
           }
 
           controls.appendChild(makeCtrlBtn('play', 'Play', () => {
-            try { mediaEl.play(); } catch { }
+            try {
+              const playPromise = mediaEl.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => { });
+              }
+            } catch { }
           }));
           controls.appendChild(makeCtrlBtn('pause', 'Pause', () => {
             try { mediaEl.pause(); } catch { }
@@ -9564,7 +9604,18 @@
             }
           });
 
-          mediaEl.addEventListener('loadedmetadata', syncTimelineFromMedia);
+          mediaEl.addEventListener('loadedmetadata', () => {
+            if (!Number.isFinite(mediaEl.duration) || mediaEl.duration === Infinity) {
+              const cur = mediaEl.currentTime;
+              mediaEl.currentTime = 1e101;
+              mediaEl.ontimeupdate = function () {
+                this.ontimeupdate = null;
+                mediaEl.currentTime = cur || 0;
+                syncTimelineFromMedia();
+              };
+            }
+            syncTimelineFromMedia();
+          });
           mediaEl.addEventListener('durationchange', syncTimelineFromMedia);
           mediaEl.addEventListener('timeupdate', syncTimelineFromMedia);
           mediaEl.addEventListener('seeked', syncTimelineFromMedia);
@@ -16082,7 +16133,6 @@
               sx: brd.scrollLeft + Math.max(0, -r.left),
               sy: brd.scrollTop + Math.max(0, -r.top)
             };
-            console.log('[BoardPresenter] Broadcasting board-zoom:', { zoom: zoom, viewport: vp });
             window._conMirrorSend({
               type: 'board-zoom',
               zoom: zoom,
@@ -16439,13 +16489,11 @@
         _mirrorCh.onmessage = function (e) {
           if (!e.data) return;
           if (e.data.type === 'request-state') {
-            console.log('[BoardPresenter] Received request-state from mirror window');
             _mirrorSentAttachmentKeys.clear();
             _mirrorBroadcast({ bumpRevision: true });
             return;
           }
           if (e.data.type === 'mirror-control') {
-            console.log('[BoardPresenter] Received mirror-control:', e.data.command);
             if (e.data.command === 'close') {
               window.conCloseMirrorWindow();
             } else if (e.data.command === 'freeze') {
@@ -16470,7 +16518,6 @@
             } else {
               _mirrorPeers.delete(mirrorId);
             }
-            console.log('[BoardPresenter] Mirror presence changed:', { mirrorId, online: e.data.online, activePeers: _mirrorPeers.size });
             _setPresentationActive(_mirrorPeers.size > 0);
           }
         };
@@ -28570,10 +28617,31 @@
     let _noteCurrentFileName = null; // set when a .js file is loaded; enables direct overwrite on Save
 
     const BOARD_SAVED_SESSIONS_KEY = 'board_saved_sessions_v1';
-    const BOARD_AUTOSAVE_INTERVAL_MS = 150000;
+    const BOARD_AUTOSAVE_DEBOUNCE_MS = 45000;
+    const BOARD_AUTOSAVE_MAX_WAIT_MS = 60000;
     const BOARD_MAX_SESSIONS_PER_CLASS = 12;
     const BOARD_MAX_SESSIONS_PER_SECTION = 50;
-    let boardAutosaveTimer = null;
+    let _conIsSaving = false;
+    let _conLastSaveTimestamp = 0;
+    let _conUserPointerDown = false;
+    let _conLastKeyInteractionTime = 0;
+    let _boardMutationFirstDirtyAt = 0;
+    let _conPendingManualSave = false;
+
+    window.addEventListener('pointerdown', () => { _conUserPointerDown = true; }, { passive: true, capture: true });
+    window.addEventListener('pointerup', () => { _conUserPointerDown = false; }, { passive: true, capture: true });
+    window.addEventListener('pointercancel', () => { _conUserPointerDown = false; }, { passive: true, capture: true });
+    window.addEventListener('keydown', () => { _conLastKeyInteractionTime = Date.now(); }, { passive: true, capture: true });
+
+    function boardIsUserInteracting() {
+      if (_conUserPointerDown) return true;
+      if (typeof _recIsRecording !== 'undefined' && _recIsRecording) return true;
+      if (Date.now() - _conLastKeyInteractionTime < 1500) return true;
+      const activeOverlay = document.querySelector('.con-sp-overlay.active, .modal.active, #save-filename-overlay.active, #con-close-overlay.active, #new-session-overlay.active');
+      if (activeOverlay) return true;
+      return false;
+    }
+
     let sessionLoadMode = null;
     let boardSessionCreationCounter = 0;
     const boardAutosaveFingerprint = {
@@ -29899,14 +29967,43 @@
 
     function _boardScheduleSave(section) {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
-      clearTimeout(_boardMutationTimer);
-      boardResetAutosaveInterval();
-      _boardMutationTimer = setTimeout(() => {
+      if (!_conCurrentFileName && !_conCurrentFolderName) return;
+
+      const now = Date.now();
+      if (!_boardMutationFirstDirtyAt) {
+        _boardMutationFirstDirtyAt = now;
+      }
+
+      if (_boardMutationTimer) {
+        clearTimeout(_boardMutationTimer);
         _boardMutationTimer = null;
-        if (!_conCurrentFileName && !_conCurrentFolderName) return;
+      }
+
+      const elapsed = now - _boardMutationFirstDirtyAt;
+      const delay = Math.max(1000, Math.min(BOARD_AUTOSAVE_DEBOUNCE_MS, BOARD_AUTOSAVE_MAX_WAIT_MS - elapsed));
+
+      _boardMutationTimer = setTimeout(function _boardMutationFire() {
+        _boardMutationTimer = null;
+        if (!_boardIsDirty || (!_conCurrentFileName && !_conCurrentFolderName)) {
+          _boardMutationFirstDirtyAt = 0;
+          return;
+        }
+
+        // If user is currently interacting (dragging, drawing, typing, recording), defer by 2.5s
+        if (boardIsUserInteracting()) {
+          _boardMutationTimer = setTimeout(_boardMutationFire, 2500);
+          return;
+        }
+
+        // If a save is already in flight, wait and retry
+        if (_conIsSaving) {
+          _boardMutationTimer = setTimeout(_boardMutationFire, 2000);
+          return;
+        }
+
         if (typeof conTrySilentInitialSave === 'function') conTrySilentInitialSave();
         boardAutosaveSection(section, { force: false });
-      }, 45000);
+      }, delay);
     }
 
     window.conMarkBoardDirty = function () {
@@ -29959,6 +30056,7 @@
       // Do not autosave if no constellation session file is currently opened
       if (!_conCurrentFileName && !_conCurrentFolderName) return;
       if (!force && !_boardIsDirty) return;
+      if (_conIsSaving) return; // Mutex: skip concurrent autosave
 
       let data = null;
       let hasContent = false;
@@ -29968,25 +30066,42 @@
       hasContent = conSessionHasContent(data);
       if (!hasContent) {
         boardSetDirty(false);
+        _boardMutationFirstDirtyAt = 0;
+        if (_boardMutationTimer) { clearTimeout(_boardMutationTimer); _boardMutationTimer = null; }
         return;
       }
 
       const fp = boardComputeFingerprint(section, data);
       if (!force && boardAutosaveFingerprint[section] && boardAutosaveFingerprint[section] === fp) {
         boardSetDirty(false);
+        _boardMutationFirstDirtyAt = 0;
+        if (_boardMutationTimer) { clearTimeout(_boardMutationTimer); _boardMutationTimer = null; }
         return;
       }
 
-      boardAutosaveFingerprint[section] = fp;
-      boardSetDirty(false);
-      boardResetAutosaveInterval();
+      // If user is actively interacting and this isn't a forced save, defer
+      if (!force && boardIsUserInteracting()) {
+        if (_boardMutationTimer) clearTimeout(_boardMutationTimer);
+        _boardMutationTimer = setTimeout(() => boardAutosaveSection(section, options), 2500);
+        return;
+      }
 
+      _conIsSaving = true;
       boardShowAutosaveToast();
       let _finished = false;
       const _finishSave = (err) => {
+        _conIsSaving = false;
+        _conLastSaveTimestamp = Date.now();
+        _boardMutationFirstDirtyAt = 0;
+        if (_boardMutationTimer) { clearTimeout(_boardMutationTimer); _boardMutationTimer = null; }
         if (_finished) return;
         _finished = true;
-        boardHideAutosaveToast(!err);
+        if (!err) {
+          boardAutosaveFingerprint[section] = fp;
+          boardHideAutosaveToast(true);
+        } else {
+          boardHideAutosaveToast(false);
+        }
       };
 
       // If working on a named file in Electron, overwrite it directly instead of an autosave copy
@@ -30048,12 +30163,11 @@
     }
 
     function boardResetAutosaveInterval() {
-      if (new URLSearchParams(location.search).get('mirror') === '1') return;
-      if (boardAutosaveTimer) {
-        clearInterval(boardAutosaveTimer);
-        boardAutosaveTimer = null;
+      if (_boardMutationTimer) {
+        clearTimeout(_boardMutationTimer);
+        _boardMutationTimer = null;
       }
-      boardAutosaveTimer = setInterval(boardAutosaveAllNow, BOARD_AUTOSAVE_INTERVAL_MS);
+      _boardMutationFirstDirtyAt = 0;
     }
 
     function boardAutosaveAllNow(options = {}) {
@@ -30063,7 +30177,6 @@
 
     function initBoardSessionAutosave() {
       if (new URLSearchParams(location.search).get('mirror') === '1') return;
-      boardResetAutosaveInterval();
       initBoardCloseUnsavedGuard();
     }
 
@@ -30707,14 +30820,19 @@
       }
       if (!isAutosave) {
         try {
-          if (typeof _conBuildBoardCanvas === 'function' && typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
-            const liveRes = await _conBuildBoardCanvas();
-            if (liveRes && liveRes.canvas) {
-              const dataUrl = (typeof _conBuildThumbnailDataUrl === 'function')
-                ? _conBuildThumbnailDataUrl(liveRes.canvas, 600)
-                : liveRes.canvas.toDataURL('image/png');
+          if (typeof conCurrentPageIndex === 'number' && conCurrentPageIndex >= 0) {
+            let curThumb = (_conPageSnapshotPngs && _conPageSnapshotPngs[conCurrentPageIndex]) || '';
+            if (!curThumb) {
+              const snap = (typeof conBuildPageSnapshot === 'function')
+                ? conBuildPageSnapshot()
+                : (conPageSnapshots && conPageSnapshots[conCurrentPageIndex]);
+              if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+                curThumb = conBuildPageThumbnailDataUrl(snap, 480, 320);
+              }
+            }
+            if (curThumb) {
               if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-              _conPageSnapshotPngs[conCurrentPageIndex] = dataUrl;
+              _conPageSnapshotPngs[conCurrentPageIndex] = curThumb;
             }
           }
         } catch (_) {}
@@ -30760,15 +30878,19 @@
         let pngDataUrl = (_conPageSnapshotPngs && _conPageSnapshotPngs[i]) || '';
         if (!pngDataUrl && !isAutosave) {
           try {
-            const offCanvas = document.createElement('canvas');
-            offCanvas.width = 480;
-            offCanvas.height = 320;
-            if (typeof conRenderPageThumbnail === 'function') {
+            if (typeof conBuildPageThumbnailDataUrl === 'function') {
+              pngDataUrl = conBuildPageThumbnailDataUrl(pages[i], 480, 320);
+            } else if (typeof conRenderPageThumbnail === 'function') {
+              const offCanvas = document.createElement('canvas');
+              offCanvas.width = 480;
+              offCanvas.height = 320;
               conRenderPageThumbnail(pages[i], offCanvas);
+              pngDataUrl = offCanvas.toDataURL('image/png');
             }
-            pngDataUrl = offCanvas.toDataURL('image/png');
-            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-            _conPageSnapshotPngs[i] = pngDataUrl;
+            if (pngDataUrl) {
+              if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
+              _conPageSnapshotPngs[i] = pngDataUrl;
+            }
           } catch (_) {}
         }
         if (pngDataUrl) {
@@ -30878,14 +31000,17 @@
                 size: entryDataBytes.length
               };
               media[filename] = mediaEntry;
-            } else if (filename.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(filename)) {
+            } else if (filename.startsWith('media/') || /^(pdf|pics|images|sounds|sound|audio|videos|video)\//i.test(filename)) {
               const mediaSubPath = filename.startsWith('media/') ? filename.slice('media/'.length) : filename;
               const parts = mediaSubPath.split('/');
               const rawKind = parts[0].toLowerCase();
-              const kind = rawKind === 'images' ? 'pics' : (rawKind === 'sound' ? 'sounds' : (rawKind === 'video' ? 'videos' : rawKind));
+              const kind = rawKind === 'images' ? 'pics' : ((rawKind === 'sound' || rawKind === 'audio' || rawKind === 'sounds') ? 'sounds' : ((rawKind === 'video' || rawKind === 'videos') ? 'videos' : rawKind));
               const mediaName = parts.slice(1).join('/');
               let binary = '';
-              for (let i = 0; i < entryDataBytes.length; i++) binary += String.fromCharCode(entryDataBytes[i]);
+              const chunkSize = 8192;
+              for (let i = 0; i < entryDataBytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, entryDataBytes.subarray(i, i + chunkSize));
+              }
               const base64 = btoa(binary);
               const mediaEntry = {
                 name: mediaName,
@@ -32092,26 +32217,67 @@
         return;
       }
 
+      const now = Date.now();
+      const fp = boardComputeFingerprint('constellation', data);
+      const isRecentSave = (now - _conLastSaveTimestamp < 1500);
+
+      // Cooldown / deduplication: if identical fingerprint and saved recently, acknowledge without duplicate disk I/O
+      if (!_boardIsDirty && boardAutosaveFingerprint['constellation'] === fp && isRecentSave) {
+        boardSetDirty(false, { justSaved: true });
+        return;
+      }
+
+      // If a save is already in flight, flag a pending manual save to run after current one finishes
+      if (_conIsSaving) {
+        _conPendingManualSave = true;
+        return;
+      }
+
+      _conIsSaving = true;
+      if (_boardMutationTimer) {
+        clearTimeout(_boardMutationTimer);
+        _boardMutationTimer = null;
+      }
+      _boardMutationFirstDirtyAt = 0;
+
       const persistedData = boardBuildPersistedSessionData('constellation', data);
       const blob = boardBuildSessionBlob(persistedData, 'CONSTELLATION_SESSION_EXPORT');
       const titleVal = window.conGetTitle ? window.conGetTitle() : '';
       const filename = boardDefaultFileName('constellation', titleVal);
-      boardPersistLocalSession('constellation', persistedData, { source: 'manual-save', name: filename });
-      boardSetAutosaveFingerprint('constellation', persistedData);
+
+      const _onSaveSuccess = (savedName, folderName, finalData) => {
+        _conIsSaving = false;
+        _conLastSaveTimestamp = Date.now();
+        _boardMutationFirstDirtyAt = 0;
+        if (_boardMutationTimer) {
+          clearTimeout(_boardMutationTimer);
+          _boardMutationTimer = null;
+        }
+        boardAutosaveFingerprint['constellation'] = fp;
+        boardPersistLocalSession('constellation', finalData || persistedData, { source: 'manual-save', name: savedName });
+        boardSetDirty(false, { justSaved: true });
+        mdbToast('✅ Saved: ' + savedName);
+        if (folderName || savedName) conSaveHistorySnapshot(folderName, savedName, finalData || persistedData);
+
+        if (_conPendingManualSave) {
+          _conPendingManualSave = false;
+          setTimeout(() => conSaveSession(), 100);
+        }
+      };
+
+      const _onSaveError = (err) => {
+        _conIsSaving = false;
+        _conPendingManualSave = false;
+        mdbToast('⚠️ Could not save Constellation: ' + (err && err.message ? err.message : String(err)));
+      };
 
       if (window.Desktop && Desktop.isElectron()) {
         if (_conCurrentFileName) {
           conSaveSessionFolderBundle(_conCurrentFileName, persistedData)
             .then(saved => {
-              boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
-              boardSetAutosaveFingerprint('constellation', saved.data);
-              boardSetDirty(false, { justSaved: true });
-              mdbToast('✅ Saved: ' + saved.filename);
-              conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
+              _onSaveSuccess(saved.filename, saved.folderName, saved.data);
             })
-            .catch(error => {
-              mdbToast('⚠️ Could not save Constellation: ' + (error && error.message ? error.message : String(error)));
-            });
+            .catch(_onSaveError);
           return;
         }
 
@@ -32119,13 +32285,14 @@
           if (savedName) _conCurrentFileName = savedName;
         }, {
           customSave: async function (requestedName) {
-            const saved = await conSaveSessionFolderBundle(requestedName, persistedData);
-            boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
-            boardSetAutosaveFingerprint('constellation', saved.data);
-            boardSetDirty(false, { justSaved: true });
-            mdbToast('✅ Saved: ' + saved.filename);
-            conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
-            return saved.filename;
+            try {
+              const saved = await conSaveSessionFolderBundle(requestedName, persistedData);
+              _onSaveSuccess(saved.filename, saved.folderName, saved.data);
+              return saved.filename;
+            } catch (err) {
+              _onSaveError(err);
+              throw err;
+            }
           }
         });
         return;
@@ -32134,17 +32301,26 @@
       if (_conCurrentFileName && window.Desktop && Desktop.isElectron()) {
         Desktop.saveBlob('mindmaps', _conCurrentFileName, blob)
           .then(() => {
-            boardSetDirty(false, { justSaved: true });
-            mdbToast('✅ Saved: ' + _conCurrentFileName);
+            _onSaveSuccess(_conCurrentFileName, null, persistedData);
           })
-          .catch(() => sfnOpen(filename, blob, 'mindmaps', savedName => { if (savedName) _conCurrentFileName = savedName; }));
+          .catch(() => {
+            _conIsSaving = false;
+            sfnOpen(filename, blob, 'mindmaps', savedName => {
+              if (savedName) {
+                _conCurrentFileName = savedName;
+                _onSaveSuccess(savedName, null, persistedData);
+              }
+            });
+          });
         return;
       }
 
       sfnOpen(filename, blob, 'mindmaps', savedName => {
         if (savedName) {
           _conCurrentFileName = savedName;
-          boardSetDirty(false, { justSaved: true });
+          _onSaveSuccess(savedName, null, persistedData);
+        } else {
+          _conIsSaving = false;
         }
       });
     }
@@ -33447,6 +33623,7 @@
     var historyLoading = false;
     var historyEnriching = false;
     var historyHasLoaded = false;
+    var _historyNeedsRender = false;
     var historySelectedKeys = new Set();
     var historyFilterDateFrom = '';
     var historyFilterDateTo = '';
@@ -34218,7 +34395,25 @@
         historySaveMetaCache();
       }
 
-      historyRenderList();
+      _historyNeedsRender = true;
+      const historySec = document.getElementById('history-section') || document.getElementById('main-menu');
+      if (historySec && !historySec.classList.contains('hidden')) {
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(() => {
+            if (_historyNeedsRender) {
+              _historyNeedsRender = false;
+              historyRenderList();
+            }
+          });
+        } else {
+          setTimeout(() => {
+            if (_historyNeedsRender) {
+              _historyNeedsRender = false;
+              historyRenderList();
+            }
+          }, 50);
+        }
+      }
     }
 
     function historyRemoveEntry(target, relOrFilename) {
@@ -39220,8 +39415,19 @@
         _recMediaRecorder.ondataavailable = function (e) {
           if (e.data && e.data.size > 0) _recChunks.push(e.data);
         };
-        _recMediaRecorder.onstop = function () {
-          _recBlob = new Blob(_recChunks, { type: _recMimeType });
+        _recMediaRecorder.onstop = async function () {
+          var rawBlob = new Blob(_recChunks, { type: _recMimeType });
+          try {
+            var arrayBuf = await rawBlob.arrayBuffer();
+            var audioCtx = new AudioContext();
+            var decoded = await audioCtx.decodeAudioData(arrayBuf);
+            var wavAb = audioBufferToWav(decoded);
+            await audioCtx.close();
+            _recBlob = new Blob([wavAb], { type: 'audio/wav' });
+          } catch (e) {
+            console.warn('Could not transcode recording to WAV, using raw recording:', e);
+            _recBlob = rawBlob;
+          }
           var preview = document.getElementById('con-record-preview');
           if (preview) { preview.src = URL.createObjectURL(_recBlob); preview.style.display = 'block'; }
           var saveBtn = document.getElementById('con-record-save-btn');
@@ -39262,24 +39468,26 @@
       if (!_recBlob) { mdbToast('⚠️ No recording to save.'); return; }
 
       var ts = Date.now();
-      var filename = 'rec-' + ts + '.webm';
+      var isWav = _recBlob.type === 'audio/wav';
+      var filename = isWav ? ('rec-' + ts + '.wav') : ('rec-' + ts + '.webm');
+      var mimeType = _recBlob.type || (isWav ? 'audio/wav' : 'audio/webm');
       var cachedUrl = URL.createObjectURL(_recBlob);
 
       if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.saveBlob === 'function') {
         try {
-          await Desktop.saveBlob('mindmaps', filename, _recBlob, _conCurrentFolderName + '/audio');
+          await Desktop.saveBlob('mindmaps', filename, _recBlob, _conCurrentFolderName + '/sounds');
         } catch (_) { }
       }
 
       var newAtt = {
         id: 'rec-' + ts,
         name: filename,
-        mime: _recBlob.type || 'audio/webm',
+        mime: mimeType,
         kind: 'sounds',
         size: _recBlob.size,
         file: _recBlob,
         _cachedObjectUrl: cachedUrl,
-        relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/audio/' + filename) : ''
+        relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/sounds/' + filename) : ''
       };
       conAttachments.push(newAtt);
       conRenderAttachmentSummary();
@@ -39371,8 +39579,8 @@
       if (el3) el3.textContent = (e - s).toFixed(2) + 's';
     }
 
-    window.conTrimPlayAll = function () { if (_trimWaveSurfer) _trimWaveSurfer.play(); };
-    window.conTrimPlaySelection = function () { if (_trimRegion) _trimRegion.play(); };
+    window.conTrimPlayAll = function () { if (_trimWaveSurfer) { try { const p = _trimWaveSurfer.play(); if (p && typeof p.catch === 'function') p.catch(function () { }); } catch (e) { } } };
+    window.conTrimPlaySelection = function () { if (_trimRegion) { try { const p = _trimRegion.play(); if (p && typeof p.catch === 'function') p.catch(function () { }); } catch (e) { } } };
     window.conTrimStop = function () { if (_trimWaveSurfer) _trimWaveSurfer.pause(); };
 
     window.conTrimClose = function () {
@@ -39420,7 +39628,7 @@
 
         if (_conCurrentFolderName && window.Desktop && Desktop.isElectron() && typeof Desktop.saveBlob === 'function') {
           try {
-            await Desktop.saveBlob('mindmaps', trimFile, wavBlob, _conCurrentFolderName + '/audio');
+            await Desktop.saveBlob('mindmaps', trimFile, wavBlob, _conCurrentFolderName + '/sounds');
           } catch (_) { }
         }
 
@@ -39432,7 +39640,7 @@
           size: wavAb.byteLength,
           file: wavBlob,
           _cachedObjectUrl: URL.createObjectURL(wavBlob),
-          relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/audio/' + trimFile) : ''
+          relativePath: _conCurrentFolderName ? (_conCurrentFolderName + '/sounds/' + trimFile) : ''
         };
         conAttachments.push(newAtt);
         conRenderAttachmentSummary();

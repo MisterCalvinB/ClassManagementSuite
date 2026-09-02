@@ -38,6 +38,9 @@ const exposedApi = {
   getCrashDumps() {
     return invoke('app:get-crash-dumps');
   },
+  getSystemFonts() {
+    return invoke('app:get-system-fonts');
+  },
   openCrashDumpsDir() {
     return invoke('app:open-crash-dumps-dir');
   },

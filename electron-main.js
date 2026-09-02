@@ -2182,7 +2182,7 @@ async function runAutoSync() {
   const syncLocation = await loadSavedSyncLocation();
   if (!syncLocation) return;
   try {
-    fsSync.accessSync(syncLocation, fsSync.constants.W_OK);
+    await fs.access(syncLocation, fsSync.constants.W_OK);
   } catch {
     return; // target inaccessible — skip silently
   }
@@ -2217,7 +2217,8 @@ function startAutoSyncWatcher() {
   const writableRoot = getWritableRootDir();
   const dir = path.join(writableRoot, 'user');
   try {
-    const w = fsSync.watch(dir, { recursive: true }, (_eventType, _filename) => {
+    const isWinOrMac = process.platform === 'win32' || process.platform === 'darwin';
+    const w = fsSync.watch(dir, isWinOrMac ? { recursive: true } : {}, (_eventType, _filename) => {
       if (_autoSyncRunning) return;
       if (_autoSyncTimer) clearTimeout(_autoSyncTimer);
       _autoSyncTimer = setTimeout(runAutoSync, 3000);
@@ -3372,17 +3373,25 @@ function dosDateTimeToMs(dosTime, dosDate) {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function buildZip(entries) {
+async function buildZip(entries) {
   // entries: Array<{ name: string, data: Buffer, mtimeMs?: number, store?: boolean, compressionMethod?: number }>
   const localParts = [];
   const centralParts = [];
   let offset = 0;
+  let loopCount = 0;
 
   for (const entry of entries) {
     const nameBuf = Buffer.from(entry.name, 'utf8');
     const isStore = entry.store === true || entry.compressionMethod === 0;
     const method = isStore ? 0 : 8;
-    const compressed = isStore ? entry.data : zlib.deflateRawSync(entry.data, { level: 1 });
+    const compressed = isStore
+      ? entry.data
+      : await new Promise((resolve, reject) => {
+          zlib.deflateRaw(entry.data, { level: 1 }, (err, res) => {
+            if (err) reject(err);
+            else resolve(res);
+          });
+        });
     const crc = crc32(entry.data);
     const { dosTime, dosDate } = msToDosDateTime(entry.mtimeMs);
 
@@ -3423,6 +3432,11 @@ function buildZip(entries) {
     centralParts.push(central);
 
     offset += local.length + compressed.length;
+
+    loopCount++;
+    if (loopCount % 10 === 0) {
+      await new Promise(r => setImmediate(r));
+    }
   }
 
   const centralDir = Buffer.concat(centralParts);
@@ -3513,15 +3527,16 @@ ipcMain.handle('app:backup-zip', async (event) => {
     mtimeMs: Date.now()
   });
 
-  const zipBuffer = buildZip(entries);
+  const zipBuffer = await buildZip(entries);
   await fs.writeFile(filePath, zipBuffer);
   return { ok: true, path: filePath, count: entries.length };
 });
 
 // Extract zip entries into an array of { name, data, mtimeMs }
-function parseZipEntries(zipBuffer) {
+async function parseZipEntries(zipBuffer) {
   const entries = [];
   let offset = 0;
+  let loopCount = 0;
 
   while (offset < zipBuffer.length - 22) {
     const signature = zipBuffer.readUInt32LE(offset);
@@ -3543,8 +3558,12 @@ function parseZipEntries(zipBuffer) {
       
       let data;
       if (compressionMethod === 8) {
-        // Deflate compressed
-        data = zlib.inflateRawSync(zipBuffer.slice(dataStart, dataEnd));
+        // Deflate compressed - async inflate in thread pool
+        data = await new Promise((resolve) => {
+          zlib.inflateRaw(zipBuffer.slice(dataStart, dataEnd), (err, res) => {
+            resolve(err ? null : res);
+          });
+        });
       } else if (compressionMethod === 0) {
         // Stored (no compression)
         data = zipBuffer.slice(dataStart, dataEnd);
@@ -3555,6 +3574,10 @@ function parseZipEntries(zipBuffer) {
       }
       
       offset = dataEnd;
+      loopCount++;
+      if (loopCount % 10 === 0) {
+        await new Promise(r => setImmediate(r));
+      }
     } else {
       offset += 1;
     }
@@ -3654,7 +3677,7 @@ ipcMain.handle('app:apply-restore-choices', async (event, request = {}) => {
 
   try {
     const zipBuffer = await fs.readFile(zipPath);
-    const parsedEntries = parseZipEntries(zipBuffer);
+    const parsedEntries = await parseZipEntries(zipBuffer);
     const backupMetaEntry = parsedEntries.find((entry) => normalizeZipEntryPath(entry.name) === BACKUP_META_ENTRY);
     let backupMetaTimestamps = null;
 
@@ -3777,6 +3800,8 @@ ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
     let data;
     if (Buffer.isBuffer(entry.data)) {
       data = entry.data;
+    } else if (entry.data && entry.data.buffer instanceof ArrayBuffer) {
+      data = Buffer.from(entry.data.buffer, entry.data.byteOffset || 0, entry.data.byteLength || entry.data.length);
     } else if (entry.encoding === 'base64') {
       data = Buffer.from(String(entry.data || ''), 'base64');
     } else {
@@ -3792,7 +3817,7 @@ ipcMain.handle('app:save-board-archive', async (event, request = {}) => {
     });
   }
 
-  const zipBuffer = buildZip(zipEntries);
+  const zipBuffer = await buildZip(zipEntries);
   const finalDir = request.subdir ? path.resolve(targetDir, sanitizeRelativePath(request.subdir)) : targetDir;
   await fs.mkdir(finalDir, { recursive: true });
   const finalPath = path.join(finalDir, filename);
@@ -3833,7 +3858,7 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
 
   try {
     const zipBuffer = await fs.readFile(fullPath);
-    const parsedEntries = parseZipEntries(zipBuffer);
+    const parsedEntries = await parseZipEntries(zipBuffer);
 
     let manifest = null;
     let boardData = null;
@@ -3869,11 +3894,11 @@ ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
           mtimeMs: entry.mtimeMs
         };
         media[normName] = mediaEntry;
-      } else if (normName.startsWith('media/') || /^(pdf|pics|images|sounds|sound|videos|video)\//i.test(normName)) {
+      } else if (normName.startsWith('media/') || /^(pdf|pics|images|sounds|sound|audio|videos|video)\//i.test(normName)) {
         const mediaSubPath = normName.startsWith('media/') ? normName.slice('media/'.length) : normName;
         const parts = mediaSubPath.split('/');
         const rawKind = parts[0].toLowerCase();
-        const kind = rawKind === 'images' ? 'pics' : (rawKind === 'sound' ? 'sounds' : (rawKind === 'video' ? 'videos' : rawKind));
+        const kind = rawKind === 'images' ? 'pics' : ((rawKind === 'sound' || rawKind === 'audio' || rawKind === 'sounds') ? 'sounds' : ((rawKind === 'video' || rawKind === 'videos') ? 'videos' : rawKind));
         const fileName = parts.slice(1).join('/');
         const mediaEntry = {
           name: fileName,
@@ -3926,7 +3951,7 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
 
   try {
     const zipBuffer = await fs.readFile(fullPath);
-    const parsedEntries = parseZipEntries(zipBuffer);
+    const parsedEntries = await parseZipEntries(zipBuffer);
 
     let manifest = null;
     let boardDataSummary = null;
@@ -4548,7 +4573,7 @@ ipcMain.handle('app:save-file', async (event, request) => {
   const pageFile = getRequestingPage(event);
   const savedFile = await writeAllowedFile(pageFile, request.target, request);
   if (request && (request.filename === 'planner-entries.js' || request.subdir === 'planner')) {
-    _loadPlannerEntries();
+    _loadPlannerEntries().catch(() => {});
   }
   if (request) {
     _broadcastDataChanged(event, pageFile, {
@@ -5531,6 +5556,70 @@ ipcMain.handle('app:stat-by-path', async (event, request = {}) => {
   return statAllowedPathEntry(pageFile, request.target, request.relativePath);
 });
 
+let _cachedSystemFonts = null;
+async function getSystemFontBuffers() {
+  if (_cachedSystemFonts) return _cachedSystemFonts;
+  const platform = process.platform;
+  const fontDirs = [];
+
+  if (platform === 'win32') {
+    const winDir = process.env.WINDIR || process.env.SystemRoot || 'C:\\Windows';
+    fontDirs.push(path.join(winDir, 'Fonts'));
+    if (process.env.LOCALAPPDATA) {
+      fontDirs.push(path.join(process.env.LOCALAPPDATA, 'Microsoft', 'Windows', 'Fonts'));
+    }
+  } else if (platform === 'darwin') {
+    fontDirs.push('/System/Library/Fonts', '/Library/Fonts');
+    const home = os.homedir();
+    if (home) fontDirs.push(path.join(home, 'Library', 'Fonts'));
+  } else {
+    fontDirs.push('/usr/share/fonts', '/usr/local/share/fonts');
+    const home = os.homedir();
+    if (home) {
+      fontDirs.push(path.join(home, '.local', 'share', 'fonts'), path.join(home, '.fonts'));
+    }
+  }
+
+  const buffers = [];
+  const visited = new Set();
+
+  function scanDir(dir, depth = 0) {
+    if (depth > 2 || !dir || visited.has(dir)) return;
+    visited.add(dir);
+    try {
+      if (!fsSync.existsSync(dir)) return;
+      const entries = fsSync.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          scanDir(fullPath, depth + 1);
+        } else if (entry.isFile() && /\.(ttf|otf|ttc)$/i.test(entry.name)) {
+          try {
+            const buf = fsSync.readFileSync(fullPath);
+            buffers.push(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  for (const d of fontDirs) {
+    scanDir(d, 0);
+  }
+
+  _cachedSystemFonts = buffers;
+  return buffers;
+}
+
+ipcMain.handle('app:get-system-fonts', async () => {
+  try {
+    return await getSystemFontBuffers();
+  } catch (err) {
+    console.warn('Could not load system fonts:', err);
+    return [];
+  }
+});
+
 ipcMain.handle('app:copy-by-path', async (event, request = {}) => {
   const pageFile = getRequestingPage(event);
   const result = await copyAllowedPathEntry(pageFile, request);
@@ -6241,7 +6330,7 @@ ipcMain.handle('app:pick-backup-location', async () => {
   const selected = path.resolve(String(filePaths[0]));
 
   try {
-    fsSync.accessSync(selected, fsSync.constants.W_OK);
+    await fs.access(selected, fsSync.constants.W_OK);
   } catch {
     return { ok: false, canceled: false, error: 'Selected folder is not writable.' };
   }
@@ -6258,7 +6347,7 @@ ipcMain.handle('app:run-backup', async (_event, request = {}) => {
   }
 
   try {
-    fsSync.accessSync(backupLocation, fsSync.constants.W_OK);
+    await fs.access(backupLocation, fsSync.constants.W_OK);
   } catch {
     return { ok: false, error: 'Backup folder is not accessible or not writable.' };
   }
@@ -6327,7 +6416,7 @@ ipcMain.handle('app:pick-sync-location', async () => {
   const selected = path.resolve(String(filePaths[0]));
 
   try {
-    fsSync.accessSync(selected, fsSync.constants.R_OK);
+    await fs.access(selected, fsSync.constants.R_OK);
   } catch {
     return { ok: false, canceled: false, error: 'Selected folder is not accessible.' };
   }
@@ -6350,14 +6439,14 @@ ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => 
   const syncMode = validModes.includes(mode) ? mode : 'to-target';
 
   try {
-    fsSync.accessSync(syncLocation, fsSync.constants.R_OK);
+    await fs.access(syncLocation, fsSync.constants.R_OK);
   } catch {
     return { ok: false, error: 'Sync folder is not accessible.' };
   }
 
   if (syncMode === 'to-target' || syncMode === 'both' || syncMode === 'mirror-to-target') {
     try {
-      fsSync.accessSync(syncLocation, fsSync.constants.W_OK);
+      await fs.access(syncLocation, fsSync.constants.W_OK);
     } catch {
       return { ok: false, error: 'Sync folder is not writable.' };
     }
@@ -7833,46 +7922,94 @@ if (!gotSingleInstanceLock) {
 let _plannerReminderEntries = [];
 let _todoReminderItems = [];
 let _autoLessonEnd5Min = true;
+let _plannerClassMeta = {};
+let _plannerConfigClasses = {};
 const _shownReminders = new Set();
 let _reminderInterval = null;
 
-function _loadPlannerEntries() {
+function _getPlannerClassTitle(classId) {
+  if (!classId) return '';
+  if (_plannerClassMeta && _plannerClassMeta[classId] && _plannerClassMeta[classId].name) {
+    return _plannerClassMeta[classId].name;
+  }
+  if (_plannerConfigClasses && _plannerConfigClasses[classId] && _plannerConfigClasses[classId].name) {
+    return _plannerConfigClasses[classId].name;
+  }
+  return classId;
+}
+
+async function _loadPlannerEntries() {
   try {
     const targets = getSaveTargets();
     const userDir = targets.user;
 
-    // Read auto-end-reminder setting from planner-config.js
+    // Read auto-end-reminder setting and classes from planner-config.js
+    let plannerConfigClasses = {};
     try {
       const cfgPath = path.join(userDir, 'planner-config.js');
-      if (fsSync.existsSync(cfgPath)) {
-        const cfgContent = fsSync.readFileSync(cfgPath, 'utf8');
-        const cfgMatch = cfgContent.match(/PLANNER_CONFIG\s*=\s*(\{[\s\S]*\})\s*;/);
-        if (cfgMatch) {
-          const cfgObj = JSON.parse(cfgMatch[1]);
+      const cfgContent = await fs.readFile(cfgPath, 'utf8').catch(() => null);
+      if (cfgContent) {
+        const fn = new Function('window', cfgContent + '\n' +
+          'if (typeof PLANNER_CONFIG !== "undefined" && PLANNER_CONFIG) return PLANNER_CONFIG;\n' +
+          'if (window && window.PLANNER_CONFIG) return window.PLANNER_CONFIG;\n' +
+          'return null;'
+        );
+        const cfgObj = fn({ PLANNER_CONFIG: null });
+        if (cfgObj) {
           _autoLessonEnd5Min = !(cfgObj.reminderSettings && cfgObj.reminderSettings.autoLessonEnd5Min === false);
+          if (cfgObj.classes && typeof cfgObj.classes === 'object') {
+            plannerConfigClasses = cfgObj.classes;
+          }
         }
       }
     } catch (_ce) {}
+    _plannerConfigClasses = plannerConfigClasses;
+
+    // Load class-groups.js for class display names/titles
+    let plannerClassMeta = {};
+    try {
+      const groupsPath = path.join(userDir, 'class-groups.js');
+      const groupsContent = await fs.readFile(groupsPath, 'utf8').catch(() => null);
+      if (groupsContent) {
+        const fn = new Function('window', groupsContent + '\n' +
+          'if (typeof CLASS_GROUPS_DATA !== "undefined" && CLASS_GROUPS_DATA) return CLASS_GROUPS_DATA;\n' +
+          'if (typeof CLASS_GROUPS_META !== "undefined" && CLASS_GROUPS_META) return { classGroupsMeta: CLASS_GROUPS_META };\n' +
+          'if (window && window.CLASS_GROUPS_DATA) return window.CLASS_GROUPS_DATA;\n' +
+          'if (window && window.CLASS_GROUPS_META) return { classGroupsMeta: window.CLASS_GROUPS_META };\n' +
+          'if (window && window.CLASS_GROUPS) return { classGroups: window.CLASS_GROUPS };\n' +
+          'if (typeof CLASS_GROUPS !== "undefined" && CLASS_GROUPS) return { classGroups: CLASS_GROUPS };\n' +
+          'return null;'
+        );
+        const cgd = fn({});
+        if (cgd && cgd.classGroupsMeta) {
+          plannerClassMeta = cgd.classGroupsMeta;
+        } else if (cgd && cgd.classGroups) {
+          plannerClassMeta = cgd.classGroups;
+        }
+      }
+    } catch (_ge) {}
+    _plannerClassMeta = plannerClassMeta;
 
     let all = [];
     const plannerDir = path.join(userDir, 'planner');
-    if (fsSync.existsSync(plannerDir)) {
-      const perClassFiles = fsSync.readdirSync(plannerDir).filter(f => f.endsWith('.js'));
+    try {
+      const perClassFiles = (await fs.readdir(plannerDir)).filter(f => f.endsWith('.js'));
       for (const file of perClassFiles) {
         try {
-          const content = fsSync.readFileSync(path.join(plannerDir, file), 'utf8');
+          const content = await fs.readFile(path.join(plannerDir, file), 'utf8');
           const match = content.match(/PLANNER_ENTRIES_BY_CLASS\[[^\]]+\]\s*=\s*(\[[\s\S]*\]);/);
           if (match) all = all.concat(JSON.parse(match[1]));
         } catch (_e) {}
       }
-    }
+    } catch (_) {}
+
     if (all.length === 0) {
       const filePath = path.join(userDir, 'planner-entries.js');
-      if (fsSync.existsSync(filePath)) {
-        const content = fsSync.readFileSync(filePath, 'utf8');
+      try {
+        const content = await fs.readFile(filePath, 'utf8');
         const match = content.match(/PLANNER_ENTRIES\s*=\s*(\[[\s\S]*\])\s*;/);
         if (match) all = JSON.parse(match[1]);
-      }
+      } catch (_) {}
     }
     // Include entries with explicit reminders, plus all lesson entries with timeEnd for auto-end check
     _plannerReminderEntries = all.filter(
@@ -7886,8 +8023,8 @@ function _loadPlannerEntries() {
     // Load todos for reminder engine
     try {
       const todosPath = path.join(userDir, 'todos.js');
-      if (fsSync.existsSync(todosPath)) {
-        const todosContent = fsSync.readFileSync(todosPath, 'utf8');
+      const todosContent = await fs.readFile(todosPath, 'utf8').catch(() => null);
+      if (todosContent) {
         const todosMatch = todosContent.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
         if (todosMatch) {
           const allTodos = JSON.parse(todosMatch[1]);
@@ -7916,7 +8053,7 @@ function _broadcastReminder(data) {
 function _checkPlannerReminders() {
   const nowMs = Date.now();
   for (const entry of _plannerReminderEntries) {
-    const classLabel = entry.classId || '';
+    const classLabel = _getPlannerClassTitle(entry.classId);
     const timeLabel  = entry.time ? entry.time + (entry.timeEnd ? '–' + entry.timeEnd : '') : '';
     const bodyParts  = [timeLabel, entry.type || '', entry.topic || ''].filter(Boolean);
     const body       = bodyParts.join(' · ');
@@ -7938,7 +8075,7 @@ function _checkPlannerReminders() {
                           : mb === 60 ? 'in 1 hour'
                           : mb < 1440 ? 'in ' + (mb / 60) + ' hours'
                           : 'tomorrow';
-            _broadcastReminder({ title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr, body });
+            _broadcastReminder({ title: (classLabel ? classLabel + ' — ' : '') + whenStr, body });
           }
         }
       }
@@ -7957,7 +8094,7 @@ function _checkPlannerReminders() {
           const aeFireMs = aeEndMs - 5 * 60000;
           if (nowMs >= aeFireMs && nowMs < aeFireMs + 120000 && aeEndMs > nowMs) {
             _shownReminders.add(key);
-            _broadcastReminder({ title: '⏰ ' + (entry.classId ? entry.classId + ' — ' : '') + '5 min left', body });
+            _broadcastReminder({ title: (classLabel ? classLabel + ' — ' : '') + '5 min left', body });
           }
         }
       }
@@ -7977,7 +8114,7 @@ function _checkPlannerReminders() {
             _shownReminders.add(key);
             const mb = entry.reminderEnd.minutesBefore;
             const whenStr = mb === 1 ? '1 min left' : mb < 60 ? mb + ' min left' : '1 hour left';
-            _broadcastReminder({ title: '⏰ ' + (classLabel ? classLabel + ' — ' : '') + whenStr, body });
+            _broadcastReminder({ title: (classLabel ? classLabel + ' — ' : '') + whenStr, body });
           }
         }
       }
@@ -7994,14 +8131,14 @@ function _checkPlannerReminders() {
         _shownReminders.add(key);
         const label = td.text || '';
         const sub = td.dueDate ? 'Due: ' + td.dueDate : '';
-        _broadcastReminder({ title: '☑ ' + label, body: sub });
+        _broadcastReminder({ title: label, body: sub });
       }
     }
   }
 }
 
 function _startReminderEngine() {
-  _loadPlannerEntries();
+  _loadPlannerEntries().catch(() => {});
   if (_reminderInterval) clearInterval(_reminderInterval);
   _reminderInterval = setInterval(_checkPlannerReminders, 60000);
   // Delay first check so windows have time to open

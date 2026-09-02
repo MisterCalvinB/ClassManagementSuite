@@ -806,23 +806,26 @@
     var style = document.createElement('style');
     style.textContent = [
       '#planner-reminder-toast{',
-        'position:fixed;bottom:20px;right:20px;z-index:99999;',
-        'background:#1a1a2e;color:#e8e8f0;border-radius:10px;',
-        'padding:12px 36px 12px 14px;max-width:300px;min-width:180px;',
-        'font-size:.83rem;line-height:1.45;',
-        'box-shadow:0 4px 22px rgba(0,0,0,.5);',
-        'opacity:0;transition:opacity .25s;pointer-events:none;',
-        'border-left:3px solid #6c8ef5;',
+        'position:fixed;bottom:24px;right:24px;z-index:99999;',
+        'background:#ffffff;color:#000000;border:2px solid #000000;',
+        'border-radius:4px;padding:12px 34px 12px 14px;max-width:320px;min-width:200px;',
+        'font-family:inherit;font-size:.84rem;line-height:1.4;',
+        'box-shadow:4px 4px 0 #000000;',
+        'opacity:0;transform:translateY(8px);',
+        'transition:opacity .15s ease, transform .15s ease;pointer-events:none;',
       '}',
-      '#planner-reminder-toast.prt-show{opacity:1;pointer-events:auto;}',
-      '#planner-reminder-toast .prt-title{font-weight:700;font-size:.82rem;margin-bottom:3px;}',
-      '#planner-reminder-toast .prt-body{font-size:.78rem;color:#b0b4c8;}',
+      '#planner-reminder-toast.prt-show{opacity:1;transform:translateY(0);pointer-events:auto;}',
+      '#planner-reminder-toast .prt-title{font-weight:800;font-size:.88rem;color:#000000;margin-bottom:4px;letter-spacing:-0.01em;}',
+      '#planner-reminder-toast .prt-body{font-size:.78rem;font-weight:600;color:#374151;line-height:1.4;}',
       '#planner-reminder-toast .prt-close{',
-        'position:absolute;top:6px;right:8px;',
-        'background:none;border:none;color:#888;font-size:.85rem;',
-        'cursor:pointer;padding:2px 4px;border-radius:3px;line-height:1;',
+        'position:absolute;top:8px;right:8px;',
+        'width:20px;height:20px;display:flex;align-items:center;justify-content:center;',
+        'background:#ffffff;border:1.5px solid #000000;color:#000000;font-size:.7rem;font-weight:800;',
+        'border-radius:2px;box-shadow:1.5px 1.5px 0 #000000;cursor:pointer;padding:0;line-height:1;',
+        'transition:background .1s ease, transform .1s ease, box-shadow .1s ease;',
       '}',
-      '#planner-reminder-toast .prt-close:hover{color:#e8e8f0;background:#333;}'
+      '#planner-reminder-toast .prt-close:hover{background:#fef08a;transform:translate(-1px,-1px);box-shadow:2.5px 2.5px 0 #000000;}',
+      '#planner-reminder-toast .prt-close:active{transform:translate(1px,1px);box-shadow:0 0 0 #000000;}'
     ].join('');
     document.head.appendChild(style);
 
@@ -849,8 +852,12 @@
     }
 
     api.onPlannerReminder(function (data) {
-      toast.querySelector('.prt-title').textContent = data.title || '';
-      toast.querySelector('.prt-body').textContent  = data.body  || '';
+      var rawTitle = data && data.title ? String(data.title) : '';
+      var rawBody  = data && data.body  ? String(data.body)  : '';
+      var cleanTitle = rawTitle.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1F2FF}\u{2300}-\u{23FF}]\s*/u, '').trim();
+      var cleanBody  = rawBody.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1F2FF}\u{2300}-\u{23FF}]\s*/u, '').trim();
+      toast.querySelector('.prt-title').textContent = cleanTitle;
+      toast.querySelector('.prt-body').textContent  = cleanBody;
       toast.classList.add('prt-show');
       clearTimeout(hideTimer);
       hideTimer = setTimeout(hideToast, 300000);

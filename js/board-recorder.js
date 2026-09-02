@@ -765,6 +765,16 @@
     var size = currentRecordingResult.sizeBytes || blob.size;
 
     if (typeof conAttachments !== 'undefined' && Array.isArray(conAttachments)) {
+      var currentFolder = (typeof window.conGetCurrentFolderName === 'function')
+        ? window.conGetCurrentFolderName()
+        : (typeof _conCurrentFolderName !== 'undefined' ? _conCurrentFolderName : '');
+
+      if (currentFolder && window.Desktop && Desktop.isElectron() && typeof Desktop.saveBlob === 'function') {
+        try {
+          await Desktop.saveBlob('mindmaps', baseName, blob, currentFolder + '/videos');
+        } catch (_) { }
+      }
+
       if (typeof _conAttachmentCounter === 'undefined') window._conAttachmentCounter = conAttachments.length;
       _conAttachmentCounter += 1;
       var newAtt = {
@@ -776,7 +786,7 @@
         file: blob,
         base64: '',
         _cachedObjectUrl: currentRecordingResult.url,
-        relativePath: ''
+        relativePath: currentFolder ? (currentFolder + '/videos/' + baseName) : ''
       };
       conAttachments.push(newAtt);
       if (typeof conRenderAttachmentSummary === 'function') {

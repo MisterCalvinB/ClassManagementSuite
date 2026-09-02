@@ -1184,7 +1184,7 @@
                             <div class="timer-popup-beep-row">
                                 <span class="timer-popup-label" data-i18n="timer_beeps">Beeps</span>
                                 <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1"
-                                    max="20" style="width:40px;">
+                                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width:40px;">
                             </div>
                         </div>
                         <hr class="timer-popup-divider">
@@ -1687,7 +1687,7 @@
                 style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 12px;">
                 <span class="timer-overlay-setting-label" data-i18n="timer_beeps">Beeps</span>
                 <input type="number" class="timer-overlay-setting-input" id="overlay-timer-beeps" value="3" min="1"
-                    max="20" onchange="syncOverlaySettingsToPopup()" style="width: 40px;">
+                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width: 40px;">
             </div>
             <button class="timer-overlay-mode-toggle-btn" id="overlay-stopwatch-btn"
                 onclick="toggleOverlayStopwatchMode()" style="margin-left: auto;" data-i18n="timer_stopwatch_btn"><img
@@ -2534,7 +2534,7 @@
             <div class="timer-overlay-setting" style="border-left: 1px solid #ccc; padding-left: 12px;">
                 <span class="timer-overlay-setting-label" data-i18n="timer_beeps">Beeps</span>
                 <input type="number" class="timer-overlay-setting-input" id="mode-overlay-timer-beeps" value="3" min="1"
-                    max="20" onchange="syncModeOverlayToPopup()" style="width: 40px;">
+                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width: 40px;">
             </div>
             <button class="timer-overlay-mode-toggle-btn" id="mode-overlay-stopwatch-btn"
                 onclick="toggleOverlayStopwatchMode()" data-i18n="timer_stopwatch_btn">⏱ Stopwatch</button>
@@ -2682,7 +2682,7 @@
                 js: '',
                 wave: 'triangle',
                 volume: 100,
-                iterations: 1,
+                iterations: 3,
                 builder: [
                     { frequency: 659.25, rhythm: 'short' },
                     { frequency: 783.99, rhythm: 'short' },
@@ -3872,6 +3872,7 @@
                 }
             }
             soundSettings = normalizeSoundSettings(config?.soundSettings);
+            syncTimerBeepsFromSoundSettings();
             actionButtonSettings = normalizeActionButtonSettings(config?.uiSettings?.actionButtons);
             availableSoundFiles = normalizeSoundFileList(Array.isArray(config?.soundFiles) && config.soundFiles.length ? config.soundFiles : availableSoundFiles);
             participationSettings = normalizeParticipationSettings(config?.participationSettings);
@@ -5770,6 +5771,8 @@
                 scoreNegative: collectSoundDraftFromCard('scoreNegative')
             });
 
+            syncTimerBeepsFromSoundSettings();
+
             const result = await persistSettingsToUserFile();
             if (!result?.ok) {
                 showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
@@ -5782,6 +5785,7 @@
 
         async function resetSoundSettings() {
             soundSettings = JSON.parse(JSON.stringify(DEFAULT_SOUND_SETTINGS));
+            syncTimerBeepsFromSoundSettings();
             renderEditSoundsModal();
             const result = await persistSettingsToUserFile();
             if (!result?.ok) {
@@ -11935,6 +11939,7 @@
         }
 
         function closeTimerFullscreen() {
+            syncOverlaySettingsToPopup();
             document.getElementById('timer-overlay').classList.remove('active');
             if (!PRESENTATION_MODE) _broadcastAnimation('timer-fullscreen-close');
         }
@@ -12064,22 +12069,66 @@ syncState();
             }
         }
 
+        let _saveTimerBeepsTimeout = null;
+        function _debounceSaveTimerBeeps() {
+            if (_saveTimerBeepsTimeout) clearTimeout(_saveTimerBeepsTimeout);
+            _saveTimerBeepsTimeout = setTimeout(() => {
+                _saveTimerBeepsTimeout = null;
+                if (typeof persistSettingsToUserFile === 'function') {
+                    persistSettingsToUserFile().catch(err => console.warn('persistSettingsToUserFile (timer beeps) failed:', err));
+                }
+            }, 800);
+        }
+
+        function syncTimerBeepsFromSoundSettings() {
+            const iters = (soundSettings && soundSettings.timerEnd && typeof soundSettings.timerEnd.iterations === 'number' && soundSettings.timerEnd.iterations >= 1)
+                ? soundSettings.timerEnd.iterations
+                : 3;
+            const pEl = document.getElementById('popup-timer-beeps');
+            const oEl = document.getElementById('overlay-timer-beeps');
+            const mEl = document.getElementById('mode-overlay-timer-beeps');
+            const tEl = document.getElementById('timer-beeps');
+            if (pEl) pEl.value = iters;
+            if (oEl) oEl.value = iters;
+            if (mEl) mEl.value = iters;
+            if (tEl) tEl.value = iters;
+        }
+
+        function onTimerBeepsInputChanged(newVal) {
+            const val = Math.max(1, Math.min(100, parseInt(newVal, 10) || 1));
+            const pEl = document.getElementById('popup-timer-beeps');
+            const oEl = document.getElementById('overlay-timer-beeps');
+            const mEl = document.getElementById('mode-overlay-timer-beeps');
+            const tEl = document.getElementById('timer-beeps');
+            if (pEl && parseInt(pEl.value, 10) !== val) pEl.value = val;
+            if (oEl && parseInt(oEl.value, 10) !== val) oEl.value = val;
+            if (mEl && parseInt(mEl.value, 10) !== val) mEl.value = val;
+            if (tEl && parseInt(tEl.value, 10) !== val) tEl.value = val;
+            if (soundSettings && soundSettings.timerEnd) {
+                soundSettings.timerEnd.iterations = val;
+            }
+            _debounceSaveTimerBeeps();
+        }
+
         function syncPopupSettingsToOverlay() {
-            const hours = document.getElementById('popup-timer-hours').value || 0;
-            const minutes = document.getElementById('popup-timer-minutes').value || 5;
-            const beeps = document.getElementById('popup-timer-beeps').value || 3;
-            document.getElementById('overlay-timer-hours').value = hours;
-            document.getElementById('overlay-timer-minutes').value = minutes;
-            document.getElementById('overlay-timer-beeps').value = beeps;
+            const hours = document.getElementById('popup-timer-hours')?.value || 0;
+            const minutes = document.getElementById('popup-timer-minutes')?.value || 5;
+            const beeps = document.getElementById('popup-timer-beeps')?.value || soundSettings?.timerEnd?.iterations || 3;
+            if (document.getElementById('overlay-timer-hours')) document.getElementById('overlay-timer-hours').value = hours;
+            if (document.getElementById('overlay-timer-minutes')) document.getElementById('overlay-timer-minutes').value = minutes;
+            if (document.getElementById('overlay-timer-beeps')) document.getElementById('overlay-timer-beeps').value = beeps;
+            if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
         }
 
         function syncOverlaySettingsToPopup() {
-            const hours = document.getElementById('overlay-timer-hours').value || 0;
-            const minutes = document.getElementById('overlay-timer-minutes').value || 5;
-            const beeps = document.getElementById('overlay-timer-beeps').value || 3;
-            document.getElementById('popup-timer-hours').value = hours;
-            document.getElementById('popup-timer-minutes').value = minutes;
-            document.getElementById('popup-timer-beeps').value = beeps;
+            const hours = document.getElementById('overlay-timer-hours')?.value || 0;
+            const minutes = document.getElementById('overlay-timer-minutes')?.value || 5;
+            const beeps = document.getElementById('overlay-timer-beeps')?.value || soundSettings?.timerEnd?.iterations || 3;
+            if (document.getElementById('popup-timer-hours')) document.getElementById('popup-timer-hours').value = hours;
+            if (document.getElementById('popup-timer-minutes')) document.getElementById('popup-timer-minutes').value = minutes;
+            if (document.getElementById('popup-timer-beeps')) document.getElementById('popup-timer-beeps').value = beeps;
+            if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
+            if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
         }
 
         function syncModeOverlayToPopup() {
@@ -12090,9 +12139,15 @@ syncState();
             const ph = document.getElementById('popup-timer-hours');
             const pm = document.getElementById('popup-timer-minutes');
             const pb = document.getElementById('popup-timer-beeps');
+            const tb = document.getElementById('timer-beeps');
             if (ph && mh) ph.value = mh.value || 0;
             if (pm && mm) pm.value = mm.value || 5;
-            if (pb && mb) pb.value = mb.value || 3;
+            if (mb) {
+                const beeps = mb.value || soundSettings?.timerEnd?.iterations || 3;
+                if (pb) pb.value = beeps;
+                if (tb) tb.value = beeps;
+                if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
+            }
         }
 
         function toggleOverlayStopwatchMode() {
@@ -12102,23 +12157,42 @@ syncState();
         // ---- Countdown Timer ----
 
         function startCountdown() {
-            // Check if timer is in fullscreen mode
-            const overlayActive = document.getElementById('timer-overlay').classList.contains('active');
-            const hoursInput = overlayActive ? document.getElementById('overlay-timer-hours') : document.getElementById('popup-timer-hours');
-            const minutesInput = overlayActive ? document.getElementById('overlay-timer-minutes') : document.getElementById('popup-timer-minutes');
-            const beepsInput = overlayActive ? document.getElementById('overlay-timer-beeps') : document.getElementById('popup-timer-beeps');
+            // Check if timer is in fullscreen mode or mode overlay
+            const overlayActive = document.getElementById('timer-overlay') && document.getElementById('timer-overlay').classList.contains('active');
+            const modeOverlayEl = document.getElementById('mode-animation-overlay');
+            const modeActive = modeOverlayEl && modeOverlayEl.classList && modeOverlayEl.classList.contains('active');
 
-            const hours = parseInt(hoursInput.value) || 0;
-            const minutes = parseInt(minutesInput.value) || 0;
+            let hoursInput, minutesInput, beepsInput;
+            if (modeActive && document.getElementById('mode-overlay-timer-hours')) {
+                hoursInput = document.getElementById('mode-overlay-timer-hours');
+                minutesInput = document.getElementById('mode-overlay-timer-minutes');
+                beepsInput = document.getElementById('mode-overlay-timer-beeps');
+            } else if (overlayActive && document.getElementById('overlay-timer-hours')) {
+                hoursInput = document.getElementById('overlay-timer-hours');
+                minutesInput = document.getElementById('overlay-timer-minutes');
+                beepsInput = document.getElementById('overlay-timer-beeps');
+            } else {
+                hoursInput = document.getElementById('popup-timer-hours');
+                minutesInput = document.getElementById('popup-timer-minutes');
+                beepsInput = document.getElementById('popup-timer-beeps');
+            }
+
+            const hours = parseInt(hoursInput ? hoursInput.value : 0, 10) || 0;
+            const minutes = parseInt(minutesInput ? minutesInput.value : 0, 10) || 0;
             const totalMs = (hours * 3600 + minutes * 60) * 1000;
 
             if (totalMs <= 0) { showToast('Please set a valid time'); return; }
 
+            const beepsVal = Math.max(1, parseInt(beepsInput ? beepsInput.value : 0, 10) || soundSettings?.timerEnd?.iterations || 1);
+
             // Sync legacy hidden inputs for fullscreen overlay
-            document.getElementById('timer-minutes').value = hours * 60 + minutes;
-            document.getElementById('timer-seconds').value = 0;
-            document.getElementById('timer-beeps').value = beepsInput.value;
-            document.getElementById('timer-freq').value = 1000;
+            if (document.getElementById('timer-minutes')) document.getElementById('timer-minutes').value = hours * 60 + minutes;
+            if (document.getElementById('timer-seconds')) document.getElementById('timer-seconds').value = 0;
+            if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beepsVal;
+            if (document.getElementById('timer-freq')) document.getElementById('timer-freq').value = 1000;
+            if (soundSettings && soundSettings.timerEnd) {
+                soundSettings.timerEnd.iterations = beepsVal;
+            }
 
             timerTotalMs = totalMs;
             timerEndTime = Date.now() + totalMs;
@@ -12476,8 +12550,10 @@ syncState();
                     updateOverlayTransportControls();
                 }, 500);
 
-                const beeps = parseInt(document.getElementById('timer-beeps').value);
-                const freq = parseInt(document.getElementById('timer-freq').value);
+                const beepsInput = document.getElementById('timer-beeps');
+                const beeps = Math.max(1, parseInt(beepsInput ? beepsInput.value : 0, 10) || soundSettings?.timerEnd?.iterations || 1);
+                const freqInput = document.getElementById('timer-freq');
+                const freq = parseInt(freqInput ? freqInput.value : 0, 10) || 1000;
                 playBeeps(beeps, freq);
                 if (window.CmsLessonRunner && CmsLessonRunner.activePlan) {
                     try { CmsLessonRunner.onTimerFinished(); } catch (_) {}
