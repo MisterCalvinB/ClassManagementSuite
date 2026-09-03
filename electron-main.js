@@ -18,6 +18,7 @@ try {
   app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
   // Linux hardening: prevent Chromium shared memory exhaustion in /dev/shm
   if (process.platform === 'linux') {

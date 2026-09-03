@@ -9618,6 +9618,65 @@
         if (item.kind !== 'pdf') mediaEl.className = 'con-media-asset';
         content.appendChild(mediaEl);
 
+        const isMirrorMode = document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1');
+        if (isMirrorMode) {
+          mediaEl.muted = true;
+          if (item.kind === 'videos') mediaEl.playsInline = true;
+          const applyMirrorMediaSync = function () {
+            var st = item._mediaSyncState;
+            if (!st) return;
+            if (typeof st.playbackRate === 'number' && st.playbackRate > 0) {
+              try { mediaEl.playbackRate = st.playbackRate; } catch (_) {}
+            }
+            if (typeof st.currentTime === 'number' && Number.isFinite(st.currentTime)) {
+              if (Math.abs((mediaEl.currentTime || 0) - st.currentTime) > 0.3) {
+                try { mediaEl.currentTime = st.currentTime; } catch (_) {}
+              }
+            }
+            if (!st.paused && (st.action === 'play' || st.action === 'timeupdate')) {
+              if (mediaEl.paused) {
+                try {
+                  var p = mediaEl.play();
+                  if (p && typeof p.catch === 'function') p.catch(function () {});
+                } catch (_) {}
+              }
+            } else if (st.paused) {
+              try { mediaEl.pause(); } catch (_) {}
+            }
+          };
+          mediaEl._applyMirrorMediaSync = applyMirrorMediaSync;
+          mediaEl.addEventListener('loadedmetadata', applyMirrorMediaSync);
+          mediaEl.addEventListener('canplay', applyMirrorMediaSync);
+        } else if (item.kind === 'sounds' || item.kind === 'videos') {
+          var _lastMediaSyncTime = 0;
+          var _sendMediaSync = function (action, extra) {
+            if (window._conMirrorSend) {
+              var payload = {
+                type: 'media-playback',
+                id: String(item.id),
+                action: action,
+                currentTime: mediaEl.currentTime || 0,
+                playbackRate: mediaEl.playbackRate || 1,
+                paused: !!mediaEl.paused
+              };
+              if (extra) Object.assign(payload, extra);
+              window._conMirrorSend(payload);
+            }
+          };
+          mediaEl.addEventListener('play', function () { _sendMediaSync('play'); });
+          mediaEl.addEventListener('pause', function () { _sendMediaSync('pause'); });
+          mediaEl.addEventListener('seeked', function () { _sendMediaSync('seek'); });
+          mediaEl.addEventListener('ratechange', function () { _sendMediaSync('ratechange'); });
+          mediaEl.addEventListener('timeupdate', function () {
+            if (mediaEl.paused) return;
+            var now = Date.now();
+            if (now - _lastMediaSyncTime >= 1000) {
+              _lastMediaSyncTime = now;
+              _sendMediaSync('timeupdate');
+            }
+          });
+        }
+
         if (item.kind === 'sounds' || item.kind === 'videos') {
           const controls = document.createElement('div');
           controls.className = 'con-media-extra-controls';
@@ -9759,6 +9818,9 @@
         conGetAttachmentDataUrl(item).then(src => {
           if (!src) { content.textContent = 'Could not load media source.'; return; }
           mediaEl.src = src;
+          if (isMirrorMode && typeof mediaEl._applyMirrorMediaSync === 'function') {
+            mediaEl._applyMirrorMediaSync();
+          }
         });
       } else if (item.kind !== 'pdf') {
         content.textContent = 'Unsupported media type.';
@@ -16924,9 +16986,21 @@
                 }
               }
             }
+            var mediaPlaybackStates = {};
+            document.querySelectorAll('.con-media-item video, .con-media-item audio').forEach(function (el) {
+              var parent = el.closest('.con-media-item');
+              if (!parent || !parent.dataset.id) return;
+              mediaPlaybackStates[parent.dataset.id] = {
+                action: el.paused ? 'pause' : 'play',
+                paused: !!el.paused,
+                currentTime: el.currentTime || 0,
+                playbackRate: el.playbackRate || 1
+              };
+            });
             _mirrorCh.postMessage({
               type: 'board-state',
               snapshot: snap,
+              mediaPlaybackStates: Object.keys(mediaPlaybackStates).length ? mediaPlaybackStates : undefined,
               boardBgRender: (_conBoardBg && _conBoardBg._cachedDataUrl && _conBoardBg._cachedW && _conBoardBg._cachedH)
                 ? {
                   attachmentId: String(_conBoardBg.attachmentId || ''),
@@ -42164,6 +42238,21 @@
             _mirrorIsFrozen = !!d.frozen;
             _setMirrorFrozenUi(_mirrorIsFrozen);
           }
+          if (d.mediaPlaybackStates) {
+            var liveMItems = window.conGetMediaItems ? window.conGetMediaItems() : [];
+            Object.keys(d.mediaPlaybackStates).forEach(function (mid) {
+              var st = d.mediaPlaybackStates[mid];
+              var it = liveMItems.find(function (m) { return String(m.id) === String(mid); });
+              if (it) it._mediaSyncState = st;
+              var w = document.querySelector('.con-media-item[data-id="' + mid + '"]');
+              if (w) {
+                var el = w.querySelector('video, audio');
+                if (el && typeof el._applyMirrorMediaSync === 'function') {
+                  el._applyMirrorMediaSync();
+                }
+              }
+            });
+          }
           if (d.cmsTimer && typeof boardApplyCmsTimerData === 'function') {
             boardApplyCmsTimerData(d.cmsTimer);
             if (d.cmsTimer.ui && typeof boardApplyCmsTimerUiFromRemote === 'function') {
@@ -42480,6 +42569,47 @@
           if (mObj) {
             if (typeof d.x === 'number') mObj.x = d.x;
             if (typeof d.y === 'number') mObj.y = d.y;
+          }
+          return;
+        }
+
+        if (d.type === 'media-playback') {
+          if (_mirrorIsFrozen) return;
+          var mLiveItems = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mSyncItem = mLiveItems.find(function (m) { return String(m.id) === String(d.id); });
+          if (mSyncItem) {
+            mSyncItem._mediaSyncState = {
+              action: d.action,
+              currentTime: d.currentTime,
+              playbackRate: d.playbackRate,
+              paused: d.paused
+            };
+          }
+          var mSyncWrap = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
+          if (!mSyncWrap) return;
+          var mSyncEl = mSyncWrap.querySelector('video, audio');
+          if (!mSyncEl) return;
+          if (typeof mSyncEl._applyMirrorMediaSync === 'function') {
+            mSyncEl._applyMirrorMediaSync();
+          } else {
+            if (typeof d.playbackRate === 'number' && d.playbackRate > 0) {
+              try { mSyncEl.playbackRate = d.playbackRate; } catch (_) {}
+            }
+            if (typeof d.currentTime === 'number' && Number.isFinite(d.currentTime)) {
+              if (d.action === 'seek' || Math.abs((mSyncEl.currentTime || 0) - d.currentTime) > 0.3) {
+                try { mSyncEl.currentTime = d.currentTime; } catch (_) {}
+              }
+            }
+            if (d.action === 'play' || (!d.paused && d.action === 'timeupdate')) {
+              if (mSyncEl.paused) {
+                try {
+                  var pSync = mSyncEl.play();
+                  if (pSync && typeof pSync.catch === 'function') pSync.catch(function () {});
+                } catch (_) {}
+              }
+            } else if (d.action === 'pause' || d.paused) {
+              try { mSyncEl.pause(); } catch (_) {}
+            }
           }
           return;
         }
