@@ -7559,6 +7559,8 @@
             listEl.style.gridAutoRows = '';
             listEl.innerHTML = "";
             closeRosterContextMenu();
+            document.body.querySelectorAll(':scope > .badge-popup').forEach(el => el.remove());
+            _openBadgePopupKey = null;
             listEl.classList.toggle('teams-active', !!currentTeamsActive);
 
             if (!selectedGroupName || !studentGroups[selectedGroupName]) {
@@ -12781,7 +12783,11 @@ syncState();
             if (!key) return;
             const [targetType, targetId] = key.split(':');
             const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
-            if (popup) popup.classList.remove('open');
+            if (popup) {
+                popup.classList.remove('open');
+                popup.style.top = '';
+                popup.style.left = '';
+            }
         }
 
         function _getTeamLabel(teamId) {
@@ -12851,29 +12857,31 @@ syncState();
             _openBadgePopupKey = isOpen ? popupKey : null;
 
             if (isOpen) {
-                // Position popup above the ★ button using fixed viewport coords
-                const btn = event.currentTarget;
-                const rect = btn.getBoundingClientRect();
+                // Attach popup to document.body so that containing blocks (contain:layout, transforms, overflow) on ancestor lists/cells never distort its fixed positioning
+                document.body.appendChild(popup);
+
+                // Position popup above the button using fixed viewport coords
+                const btn = (event && (event.currentTarget || event.target)) || popup.parentElement?.querySelector('.btn-badge-open');
+                const rect = btn ? btn.getBoundingClientRect() : { top: 0, bottom: 0, left: 0, right: 0 };
                 popup.style.top = '';
                 popup.style.bottom = '';
                 popup.style.left = '';
                 popup.style.right = '';
 
-                // Show briefly to measure width, then position
-                popup.style.visibility = 'hidden';
-                requestAnimationFrame(() => {
-                    const popW = popup.offsetWidth;
-                    const popH = popup.offsetHeight;
-                    // Prefer opening above the button
-                    let top = rect.top - popH - 6;
-                    if (top < 8) top = rect.bottom + 6; // flip below if no room above
-                    // Align right edge with button right, clamp to viewport
-                    let left = rect.right - popW;
-                    if (left < 8) left = 8;
-                    popup.style.top = top + 'px';
-                    popup.style.left = left + 'px';
-                    popup.style.visibility = '';
-                });
+                const popW = popup.offsetWidth;
+                const popH = popup.offsetHeight;
+                // Prefer opening above the button
+                let top = rect.top - popH - 6;
+                if (top < 8) top = rect.bottom + 6; // flip below if no room above
+                // Align right edge with button right, clamp to viewport
+                let left = rect.right - popW;
+                if (left < 8) left = 8;
+                if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+                popup.style.top = top + 'px';
+                popup.style.left = left + 'px';
+            } else {
+                popup.style.top = '';
+                popup.style.left = '';
             }
         }
 
@@ -12893,7 +12901,13 @@ syncState();
 
         document.addEventListener('keydown', function (e) {
             if (PRESENTATION_MODE) return;
-            if (e.key === 'Escape') { closeRosterContextMenu(); closeStudentStatsPopup(); closeStudentGradesPopup(); }
+            if (e.key === 'Escape') {
+                if (_openBadgePopupKey) {
+                    _closeBadgePopupByKey(_openBadgePopupKey);
+                    _openBadgePopupKey = null;
+                }
+                closeRosterContextMenu(); closeStudentStatsPopup(); closeStudentGradesPopup();
+            }
         });
 
         function awardBadge(targetId, icon, label, tone = 'positive', meaning = '', targetType = 'individual') {
@@ -12929,7 +12943,11 @@ syncState();
 
             // Close popup
             const popup = document.getElementById(_badgePopupElementId(targetId, targetType));
-            if (popup) popup.classList.remove('open');
+            if (popup) {
+                popup.classList.remove('open');
+                popup.style.top = '';
+                popup.style.left = '';
+            }
             _openBadgePopupKey = null;
 
             // Play score sound feedback (positive or negative based on badge tone)
@@ -16639,6 +16657,10 @@ syncState();
                 ensurePresentationPopupMenu();
                 window.addEventListener('scroll', _broadcastScrollState, { passive: true });
                 document.addEventListener('scroll', (e) => {
+                    if (_openBadgePopupKey) {
+                        _closeBadgePopupByKey(_openBadgePopupKey);
+                        _openBadgePopupKey = null;
+                    }
                     if (e.target && (e.target.id === 'roster-list' || e.target.id === 'clr-timeline-bar')) {
                         _broadcastScrollState();
                     }
@@ -18062,6 +18084,8 @@ ${body}
             const listEl = document.getElementById('roster-list');
             listEl.innerHTML = '';
             closeRosterContextMenu();
+            document.body.querySelectorAll(':scope > .badge-popup').forEach(el => el.remove());
+            _openBadgePopupKey = null;
             listEl.classList.add('roster-plan-view');
             listEl.classList.remove('teams-active', 'roster-plan-pods');
             listEl.style.removeProperty('grid-template-columns');

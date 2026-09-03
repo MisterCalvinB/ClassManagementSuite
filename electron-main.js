@@ -1,15 +1,5 @@
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 const { app, BrowserWindow, clipboard, crashReporter, desktopCapturer, dialog, ipcMain, Menu, screen, session, shell } = require('electron');
-
-try {
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096 --expose-gc');
-  app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
-  app.commandLine.appendSwitch('ignore-gpu-blocklist');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
-} catch (swErr) {
-  console.warn('Could not append Electron commandLine switches:', swErr?.message || swErr);
-}
-
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const path = require('path');
@@ -18,6 +8,31 @@ const os     = require('os');
 const http   = require('http');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
+
+try {
+  const totalMemMB = Math.round(os.totalmem() / (1024 * 1024));
+  // Use up to 45% of total system RAM for V8 heap (clamped between 1024MB and 4096MB)
+  // This prevents V8 from delaying GC until the Linux kernel OOM-killer terminates the process
+  const maxOldSpace = Math.max(1024, Math.min(4096, Math.round(totalMemMB * 0.45)));
+  app.commandLine.appendSwitch('js-flags', `--max-old-space-size=${maxOldSpace} --expose-gc`);
+  app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  app.commandLine.appendSwitch('enable-gpu-rasterization');
+
+  // Linux hardening: prevent Chromium shared memory exhaustion in /dev/shm
+  if (process.platform === 'linux') {
+    app.commandLine.appendSwitch('disable-dev-shm-usage');
+  }
+} catch (swErr) {
+  console.warn('Could not append Electron commandLine switches:', swErr?.message || swErr);
+}
+
+// On Linux, attempt to set OOM score to protect main process if allowed by system
+if (process.platform === 'linux') {
+  try {
+    fsSync.writeFileSync('/proc/self/oom_score_adj', '0', 'utf8');
+  } catch (_) {}
+}
 
 try {
   crashReporter.start({
@@ -161,7 +176,38 @@ function getDefaultWritableRootDir() {
   return app.getPath('userData');
 }
 
+function getPortableRootConfigPath() {
+  return path.join(app.getPath('userData'), 'portable-root.json');
+}
+
+function loadSavedPortableRootSync() {
+  if (process.env.PORTABLE_ROOT) {
+    return process.env.PORTABLE_ROOT;
+  }
+  try {
+    const configPath = getPortableRootConfigPath();
+    if (fsSync.existsSync(configPath)) {
+      const raw = fsSync.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const saved = String(parsed?.portableRoot || '').trim();
+      if (saved) {
+        try {
+          fsSync.accessSync(saved, fsSync.constants.W_OK);
+          process.env.PORTABLE_ROOT = saved;
+          return saved;
+        } catch {
+          // Saved path inaccessible
+        }
+      }
+    }
+  } catch {}
+  return null;
+}
+
 function getWritableRootDir() {
+  if (!process.env.PORTABLE_ROOT) {
+    loadSavedPortableRootSync();
+  }
   const portableOverride = String(process.env.PORTABLE_ROOT || '').trim();
   if (portableOverride) {
     return path.resolve(portableOverride);
@@ -518,6 +564,210 @@ async function loadTool(pageFile, window = mainWindow, options = {}) {
   await window.loadFile(getToolPath(pageFile), loadOptions);
 }
 
+// ── Session State Persistence & Crash Recovery ──────────────────────────────
+const _windowSessionContexts = new Map(); // win.id -> context object
+let _sessionSaveDebounceTimer = null;
+let _isQuittingCleanly = false;
+
+function getSessionStateFilePath() {
+  const writableRoot = getWritableRootDir();
+  return path.join(writableRoot, 'user', 'session-state.json');
+}
+
+function getActiveSessionSnapshot(cleanQuit = false) {
+  const windows = [];
+  try {
+    const allWins = BrowserWindow.getAllWindows();
+    const validPageFiles = new Set(Object.values(PAGE_FILES));
+
+    for (const win of allWins) {
+      if (!win || win.isDestroyed()) continue;
+
+      // Filter out internal presentation, mirror, or detached secondary display windows
+      if (win === mirrorWindow || win === cmsPresentationWindow || win === oralPresenterWindow ||
+          win === docPresentationWindow || win === timerDetachedWindow || win === learningToolsPresentationWindow) {
+        continue;
+      }
+
+      const pageFile = getLoadedPageFile(win);
+      if (!pageFile || pageFile === 'unknown' || !validPageFiles.has(pageFile)) {
+        continue;
+      }
+
+      let bounds = null;
+      try {
+        bounds = win.getBounds();
+      } catch (_) {}
+
+      const isMaximized = typeof win.isMaximized === 'function' ? win.isMaximized() : false;
+      const isFullScreen = typeof win.isFullScreen === 'function' ? win.isFullScreen() : false;
+      const isMainWindow = (win === mainWindow);
+      const context = _windowSessionContexts.get(win.id) || null;
+
+      windows.push({
+        pageFile,
+        bounds,
+        isMaximized,
+        isFullScreen,
+        isMainWindow,
+        context
+      });
+    }
+  } catch (err) {
+    console.warn('[SessionState] Failed to snapshot windows:', err);
+  }
+
+  return {
+    timestamp: Date.now(),
+    cleanQuit: !!cleanQuit,
+    windows
+  };
+}
+
+function saveSessionStateSync(cleanQuit = false) {
+  if (_sessionSaveDebounceTimer) {
+    clearTimeout(_sessionSaveDebounceTimer);
+    _sessionSaveDebounceTimer = null;
+  }
+  try {
+    const snapshot = getActiveSessionSnapshot(cleanQuit);
+
+    // If current snapshot has no windows (which happens during shutdown when windows
+    // have already closed/been destroyed, or when Task Manager terminates windows),
+    // preserve the last known non-empty windows list!
+    if (!snapshot.windows || snapshot.windows.length === 0) {
+      const existing = readSavedSessionState();
+      if (existing && Array.isArray(existing.windows) && existing.windows.length > 0) {
+        snapshot.windows = existing.windows;
+      }
+    }
+
+    const filePath = getSessionStateFilePath();
+    const userDir = path.dirname(filePath);
+    if (!fsSync.existsSync(userDir)) {
+      fsSync.mkdirSync(userDir, { recursive: true });
+    }
+    fsSync.writeFileSync(filePath, JSON.stringify(snapshot, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('[SessionState] Synchronous save failed:', err?.message || err);
+  }
+}
+
+function scheduleSaveSessionState(delayMs = 600) {
+  if (_isQuittingCleanly) return;
+  if (_sessionSaveDebounceTimer) {
+    clearTimeout(_sessionSaveDebounceTimer);
+  }
+  _sessionSaveDebounceTimer = setTimeout(() => {
+    _sessionSaveDebounceTimer = null;
+    try {
+      saveSessionStateSync(false);
+    } catch (_) {}
+  }, delayMs);
+}
+
+function readSavedSessionState() {
+  try {
+    const filePath = getSessionStateFilePath();
+    if (!fsSync.existsSync(filePath)) return null;
+    const raw = fsSync.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn('[SessionState] Could not read saved session state:', err?.message || err);
+    return null;
+  }
+}
+
+function registerWindowForSessionState(win, initialContext = null) {
+  if (!win || win.isDestroyed()) return;
+  if (initialContext) {
+    _windowSessionContexts.set(win.id, initialContext);
+  }
+  const onGeometryChange = () => scheduleSaveSessionState(800);
+  win.on('move', onGeometryChange);
+  win.on('resize', onGeometryChange);
+  win.once('closed', () => {
+    _windowSessionContexts.delete(win.id);
+    // If other windows are still open, update snapshot.
+    // If this was the last window closing, preserve the last state instead of writing []!
+    const remaining = BrowserWindow.getAllWindows().filter(w => !w.isDestroyed() && w !== win);
+    if (remaining.length > 0) {
+      scheduleSaveSessionState(300);
+    }
+  });
+  scheduleSaveSessionState(500);
+}
+
+function restoreSavedSession(savedSession) {
+  if (!savedSession || !Array.isArray(savedSession.windows) || savedSession.windows.length === 0) {
+    return false;
+  }
+
+  console.log(`[SessionState] Recovering ${savedSession.windows.length} window(s) after unexpected shutdown...`);
+
+  // Window 0 becomes mainWindow
+  const primary = savedSession.windows[0];
+  const primaryQuery = {};
+  if (primary.pageFile === PAGE_FILES.board && primary.context && primary.context.filename) {
+    primaryQuery.openSession = '1';
+    primaryQuery.openTarget = primary.context.target || 'mindmaps';
+    primaryQuery.openFilename = primary.context.filename;
+    primaryQuery.openRelPath = primary.context.relativePath || primary.context.filename;
+    primaryQuery.openSection = primary.context.section || 'constellation';
+  }
+
+  const primaryOptions = {
+    bounds: primary.bounds,
+    isMaximized: primary.isMaximized,
+    query: Object.keys(primaryQuery).length ? primaryQuery : undefined
+  };
+
+  createMainWindow(primary.pageFile, primaryOptions);
+  if (primary.context && mainWindow && !mainWindow.isDestroyed()) {
+    _windowSessionContexts.set(mainWindow.id, primary.context);
+  }
+
+  // Windows 1 to n become tool windows
+  for (let i = 1; i < savedSession.windows.length; i++) {
+    const w = savedSession.windows[i];
+    const toolQuery = {};
+    if (w.pageFile === PAGE_FILES.board && w.context && w.context.filename) {
+      toolQuery.openSession = '1';
+      toolQuery.openTarget = w.context.target || 'mindmaps';
+      toolQuery.openFilename = w.context.filename;
+      toolQuery.openRelPath = w.context.relativePath || w.context.filename;
+      toolQuery.openSection = w.context.section || 'constellation';
+    }
+
+    const toolOpts = {
+      ...(w.bounds || {}),
+      isMaximized: w.isMaximized,
+      query: Object.keys(toolQuery).length ? toolQuery : undefined
+    };
+
+    const toolWin = createToolWindow(w.pageFile, toolOpts);
+    if (w.context && toolWin && !toolWin.isDestroyed()) {
+      _windowSessionContexts.set(toolWin.id, w.context);
+    }
+  }
+
+  return true;
+}
+
+function handleTerminationSignal(signal) {
+  console.log(`[Signal] Received ${signal}. Flushing session state to disk...`);
+  try {
+    saveSessionStateSync(false); // Mark as killed/unclean exit so restart can recover
+  } catch (err) {
+    console.warn('Error flushing session state on signal:', err);
+  }
+  process.exit(128 + (signal === 'SIGTERM' ? 15 : (signal === 'SIGINT' ? 2 : 1)));
+}
+
+process.on('SIGTERM', () => handleTerminationSignal('SIGTERM'));
+process.on('SIGINT', () => handleTerminationSignal('SIGINT'));
+process.on('SIGHUP', () => handleTerminationSignal('SIGHUP'));
+
 function _arrangeSideBySide(mainWin, toolWin, mainFrac, cmOnRight = true) {
   try {
     const { workArea } = screen.getDisplayMatching(mainWin.getBounds());
@@ -646,7 +896,14 @@ function createToolWindow(pageFile, options = {}) {
 
   const win = new BrowserWindow(browserOpts);
 
+  if (options.isMaximized) {
+    win.once('ready-to-show', () => {
+      if (win && !win.isDestroyed()) win.maximize();
+    });
+  }
+
   setupWindowExternalLinkHandling(win);
+  registerWindowForSessionState(win);
   win.on('close', (event) => {
     const currentPage = getLoadedPageFile(win);
 
@@ -694,10 +951,10 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
-  mainWindow = new BrowserWindow({
-    width: 1600,
-    height: 1000,
+function createMainWindow(initialPageFile = PAGE_FILES.launcher, options = {}) {
+  const browserOpts = {
+    width: (options.bounds && typeof options.bounds.width === 'number') ? options.bounds.width : 1600,
+    height: (options.bounds && typeof options.bounds.height === 'number') ? options.bounds.height : 1000,
     show: false,
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
@@ -707,10 +964,17 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  };
+  if (options.bounds && typeof options.bounds.x === 'number') browserOpts.x = options.bounds.x;
+  if (options.bounds && typeof options.bounds.y === 'number') browserOpts.y = options.bounds.y;
+
+  mainWindow = new BrowserWindow(browserOpts);
 
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (options.isMaximized) {
+        mainWindow.maximize();
+      }
       mainWindow.show();
     }
   });
@@ -724,11 +988,12 @@ function createMainWindow(initialPageFile = PAGE_FILES.launcher) {
   mainWindow.once('show', () => clearTimeout(showFallbackTimer));
 
   setupWindowExternalLinkHandling(mainWindow);
+  registerWindowForSessionState(mainWindow);
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  loadTool(initialPageFile, mainWindow).catch((error) => {
+  loadTool(initialPageFile, mainWindow, options).catch((error) => {
     console.error('Failed to load initial page:', error);
   });
 }
@@ -8202,6 +8467,23 @@ ipcMain.handle('app:report-renderer-error', async (_event, data) => {
   }
 });
 
+ipcMain.handle('app:update-session-context', async (event, context = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) {
+    if (context && typeof context === 'object' && Object.keys(context).length > 0) {
+      _windowSessionContexts.set(win.id, context);
+    } else {
+      _windowSessionContexts.delete(win.id);
+    }
+    scheduleSaveSessionState(300);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app:get-session-state', async () => {
+  return { ok: true, session: readSavedSessionState() };
+});
+
 ipcMain.handle('app:get-crash-dumps', async () => {
   try {
     const dir = getCrashDumpsDir();
@@ -8302,12 +8584,35 @@ app.whenReady().then(async () => {
     });
   }
 
-  if (firstRunDetected) {
-    initialPageFile = PAGE_FILES.generalConfig;
+  buildMenu();
+
+  const explicitCliPage = getInitialPageFile();
+  const hasCliArg = (explicitCliPage !== PAGE_FILES.launcher);
+
+  let didRestore = false;
+  if (!firstRunDetected && !hasCliArg) {
+    const savedSession = readSavedSessionState();
+    if (savedSession && Array.isArray(savedSession.windows) && savedSession.windows.length > 0) {
+      const hasRealTools = savedSession.windows.some(w => w && w.pageFile && w.pageFile !== PAGE_FILES.launcher);
+      const isUnclean = !savedSession.cleanQuit;
+
+      // Restore if unexpected termination (task manager, Linux OOM, crash) OR if active tools were open
+      if (isUnclean || hasRealTools) {
+        try {
+          didRestore = restoreSavedSession(savedSession);
+        } catch (restoreErr) {
+          console.error('[SessionState] Failed to restore saved session:', restoreErr);
+        }
+      }
+    }
   }
 
-  buildMenu();
-  createMainWindow(initialPageFile);
+  if (!didRestore) {
+    if (firstRunDetected) {
+      initialPageFile = PAGE_FILES.generalConfig;
+    }
+    createMainWindow(initialPageFile);
+  }
 
   const _notifyDisplayChanged = () => {
     const count = screen.getAllDisplays().length;
@@ -8364,6 +8669,15 @@ app.on('window-all-closed', () => {
 
 let _remoteQuitSyncDone = false;
 app.on('before-quit', (event) => {
+  _isQuittingCleanly = true;
+  try {
+    const activeSnapshot = getActiveSessionSnapshot(false);
+    const hasTools = activeSnapshot.windows && activeSnapshot.windows.some(
+      w => w && w.pageFile && w.pageFile !== PAGE_FILES.launcher
+    );
+    // If active tools were open (Board, Grade Sheet, etc.), keep cleanQuit = false so state restores!
+    saveSessionStateSync(!hasTools);
+  } catch (_) {}
   stopQuizServer();
   if (_remoteQuitSyncDone) return;
   Promise.all([loadFtpConfig(), loadWebdavConfig()]).then(([ftpCfg, wdCfg]) => {

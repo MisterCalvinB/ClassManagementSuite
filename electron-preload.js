@@ -56,6 +56,12 @@ const exposedApi = {
   saveFiles(request) {
     return invoke('app:save-files', request);
   },
+  updateSessionContext(context) {
+    return invoke('app:update-session-context', context);
+  },
+  getSessionState() {
+    return invoke('app:get-session-state');
+  },
   saveBoardArchive(request) {
     return invoke('app:save-board-archive', request);
   },

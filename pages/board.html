@@ -29326,6 +29326,21 @@
     let _conCurrentFileName = null; // set when a .js file is loaded; enables direct overwrite on Save
     let _noteCurrentFileName = null; // set when a .js file is loaded; enables direct overwrite on Save
 
+    function boardReportActiveFileContext() {
+      if (!(window.Desktop && typeof Desktop.updateSessionContext === 'function')) return;
+      if (_conCurrentFileName) {
+        const rel = _conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName;
+        Desktop.updateSessionContext({
+          target: 'mindmaps',
+          filename: _conCurrentFileName,
+          relativePath: rel,
+          section: 'constellation'
+        }).catch(() => {});
+      } else {
+        Desktop.updateSessionContext(null).catch(() => {});
+      }
+    }
+
     const BOARD_SAVED_SESSIONS_KEY = 'board_saved_sessions_v1';
     const BOARD_AUTOSAVE_DEBOUNCE_MS = 45000;
     const BOARD_AUTOSAVE_MAX_WAIT_MS = 60000;
@@ -33034,6 +33049,7 @@
         boardSetDirty(false, { justSaved: true });
         mdbToast('✅ Saved: ' + savedName);
         if (folderName || savedName) conSaveHistorySnapshot(folderName, savedName, finalData || persistedData);
+        boardReportActiveFileContext();
 
         if (_conPendingManualSave) {
           _conPendingManualSave = false;
@@ -34493,6 +34509,7 @@
       _conCurrentFolderName = null;
       boardResetSessionFileMeta('constellation');
       boardAutosaveFingerprint.constellation = '';
+      boardReportActiveFileContext();
       if (window.conUpdatePageBar) window.conUpdatePageBar();
       mdbToast('ℹ️ Current board unlinked from deleted file. It will not be recreated on close.');
     }
@@ -36222,6 +36239,7 @@
           _conCurrentFolderName = isArchiveFile ? null : (historyEntryIsNestedPath(entry)
             ? (historyEntryRelativePath(entry).split('/')[0] || null)
             : (entry.filename ? boardStripJsonExt(entry.filename) : null));
+          boardReportActiveFileContext();
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
           setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
@@ -37829,6 +37847,7 @@
         _conCurrentFileName = null;
         _conCurrentFolderName = null;
         boardResetSessionFileMeta('constellation');
+        boardReportActiveFileContext();
       } else if (section === 'textanalysis') {
         taClear();
       } else if (section === 'notes') {

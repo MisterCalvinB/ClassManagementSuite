@@ -134,6 +134,16 @@
     });
   }
 
+  async function updateSessionContext(context) {
+    if (!isElectron()) return null;
+    return getDesktopApi().updateSessionContext(context);
+  }
+
+  async function getSessionState() {
+    if (!isElectron()) return null;
+    return getDesktopApi().getSessionState();
+  }
+
   async function saveBoardArchive(target, filename, entries, subdir) {
     if (!isElectron()) return null;
     return getDesktopApi().saveBoardArchive({
@@ -972,6 +982,8 @@
     saveBlob,
     saveFile,
     saveFiles,
+    updateSessionContext,
+    getSessionState,
     saveBoardArchive,
     readBoardArchive,
     inspectBoardArchive,
