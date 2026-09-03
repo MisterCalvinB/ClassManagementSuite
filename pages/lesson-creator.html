@@ -55,7 +55,8 @@
       <div class="nav-group">
         <button class="nav-btn" data-i18n="menuView">View</button>
         <div class="nav-group-popup">
-          <button class="nav-pop-item" onclick="lcToggleDrawer()"><span data-i18n="lcToggleDrawer">Toggle Competences</span> <span class="nav-pop-hint">Ctrl+B</span></button>
+          <button class="nav-pop-item" onclick="lcToggleDrawer('competences')"><span data-i18n="lcToggleDrawer">Toggle Competences</span> <span class="nav-pop-hint">Ctrl+B</span></button>
+          <button class="nav-pop-item" onclick="lcToggleDrawer('activities')"><span data-i18n="lcToggleActivities">Toggle Activities</span> <span class="nav-pop-hint">Ctrl+Shift+B</span></button>
           <button class="nav-pop-item" onclick="lcOpenCoverageModal()"><span data-i18n="lcCoverageMatrix">Curriculum Coverage…</span> <span class="nav-pop-hint">Ctrl+M</span></button>
         </div>
       </div>
@@ -69,6 +70,7 @@
           <button class="nav-pop-item" onclick="lcOpenPlannerLinkModal()"><span data-i18n="lcLinkPlanner">Link to Planner Slot…</span></button>
           <hr class="nav-pop-sep">
           <button class="nav-pop-item" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open Competences Database…</span></button>
+          <button class="nav-pop-item" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open Phases DB…</span></button>
           <button class="nav-pop-item" onclick="lcOpenDescriptorImporter()"><span data-i18n="lcImportCompetences">Import Competences (CSV/JSON)…</span></button>
         </div>
       </div>
@@ -138,7 +140,8 @@
         <div class="meta-actions">
           <button class="neo-btn success" onclick="lcRunInClassManagement()" title="Launch active session runner in Class Management"><span data-i18n="lcRunCMS">Run</span></button>
           <button class="neo-btn primary" onclick="lcSavePlan()"><span data-i18n="btnSave">Save</span></button>
-          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer()"><span data-i18n="lcCompetences">Competences</span></button>
+          <button class="neo-btn" id="drawerToggleBtn" onclick="lcToggleDrawer('competences')"><span data-i18n="lcCompetences">Competences</span></button>
+          <button class="neo-btn" id="drawerActivitiesToggleBtn" onclick="lcToggleDrawer('activities')"><span data-i18n="lcActivities">Activities</span></button>
         </div>
       </div>
 
@@ -187,51 +190,107 @@
         </div>
       </div>
 
-      <!-- Right Panel: Competence Bank Drawer -->
+      <!-- Right Panel: Competence & Activity Bank Drawer -->
       <div class="descriptor-drawer" id="descriptorDrawer">
         <div class="drawer-resizer-handle" id="drawerResizer" title="Drag to resize panel width"></div>
-        <div class="drawer-header">
-          <div class="drawer-title"><span data-i18n="lcCompetenceBank">Competence Bank</span></div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenCompetenceCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
-            <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+
+        <!-- Tab Navigation Switcher -->
+        <div class="drawer-tabs-nav">
+          <button type="button" class="drawer-tab-btn active" id="tabCompetenceBank" onclick="lcSwitchDrawerTab('competences')">
+            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+            <span data-i18n="lcCompetenceBank">Competence Bank</span>
+          </button>
+          <button type="button" class="drawer-tab-btn" id="tabActivityBank" onclick="lcSwitchDrawerTab('activities')">
+            <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+            <span data-i18n="lcActivityBank">Activity Bank</span>
+          </button>
+        </div>
+
+        <!-- Panel 1: Competence Bank -->
+        <div id="panelCompetences" class="drawer-tab-panel">
+          <div class="drawer-header">
+            <div class="drawer-title"><span data-i18n="lcCompetenceBank">Competence Bank</span></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="neo-btn purple" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenCompetenceCustomizeModal()"><span data-i18n="lcCustomiseView">Customise View</span></button>
+              <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+            </div>
+          </div>
+
+          <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search competences, code, words…" data-i18n-placeholder="lcSearchCompetences" oninput="lcFilterDrawer()">
+
+          <div class="drawer-filter-grid">
+            <select id="drawerFilterSubject" class="drawer-select" onchange="lcFilterDrawer()">
+              <option value="all" data-i18n="lcAllSubjects">All Subjects</option>
+            </select>
+            <select id="drawerFilterYear" class="drawer-select" onchange="lcFilterDrawer()">
+              <option value="all" data-i18n="lcAllYears">All Year Levels</option>
+            </select>
+            <select id="drawerFilterCategory" class="drawer-select" onchange="lcOnDrawerCategoryChange()">
+              <option value="all" data-i18n="lcAllCategories">All Categories</option>
+            </select>
+            <select id="drawerFilterSubCategory" class="drawer-select" onchange="lcFilterDrawer()">
+              <option value="all" data-i18n="lcAllSubCategories">All Subcategories</option>
+            </select>
+          </div>
+
+          <div class="drawer-top-info">
+            <span id="drawerMatchCount" class="drawer-match-badge">0 competences</span>
+            <div id="drawerActiveFilters" class="drawer-active-filters-bar"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+            <select id="drawerSort" class="drawer-select" style="flex:1;" onchange="lcFilterDrawer()">
+              <option value="code" data-i18n="lcSortCode">Sort: Code (A–Z)</option>
+              <option value="title" data-i18n="lcSortTitle">Sort: Title (A–Z)</option>
+              <option value="level" data-i18n="lcSortLevel">Sort: Level / Tier</option>
+            </select>
+            <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open DB</span></button>
+            <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorImporter()">+ <span data-i18n="lcImport">Import</span></button>
+          </div>
+
+          <div class="drawer-items-list" id="drawerDescriptorsList">
+            <!-- Populated by JavaScript -->
           </div>
         </div>
 
-        <input type="text" id="drawerSearch" class="drawer-search-input" placeholder="Search competences, code, words…" data-i18n-placeholder="lcSearchCompetences" oninput="lcFilterDrawer()">
+        <!-- Panel 2: Activity Bank -->
+        <div id="panelActivities" class="drawer-tab-panel" style="display:none;">
+          <div class="drawer-header">
+            <div class="drawer-title"><span data-i18n="lcActivityBank">Activity Bank</span></div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="neo-btn primary" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenPhaseDb()"><span data-i18n="lcOpenPhaseDb">Open DB</span></button>
+              <button class="icon-btn" onclick="lcToggleDrawer()" title="Close Drawer">&times;</button>
+            </div>
+          </div>
 
-        <div class="drawer-filter-grid">
-          <select id="drawerFilterSubject" class="drawer-select" onchange="lcFilterDrawer()">
-            <option value="all" data-i18n="lcAllSubjects">All Subjects</option>
-          </select>
-          <select id="drawerFilterYear" class="drawer-select" onchange="lcFilterDrawer()">
-            <option value="all" data-i18n="lcAllYears">All Year Levels</option>
-          </select>
-          <select id="drawerFilterCategory" class="drawer-select" onchange="lcOnDrawerCategoryChange()">
-            <option value="all" data-i18n="lcAllCategories">All Categories</option>
-          </select>
-          <select id="drawerFilterSubCategory" class="drawer-select" onchange="lcFilterDrawer()">
-            <option value="all" data-i18n="lcAllSubCategories">All Subcategories</option>
-          </select>
-        </div>
+          <input type="text" id="drawerActivitySearch" class="drawer-search-input" placeholder="Search activities, titles, prompts…" data-i18n-placeholder="lcSearchActivities" oninput="lcFilterActivityDrawer()">
 
-        <div class="drawer-top-info">
-          <span id="drawerMatchCount" class="drawer-match-badge">0 competences</span>
-          <div id="drawerActiveFilters" class="drawer-active-filters-bar"></div>
-        </div>
+          <div class="drawer-filter-grid">
+            <select id="drawerFilterActType" class="drawer-select" onchange="lcFilterActivityDrawer()">
+              <option value="all" data-i18n="lcFilterActivityType">All Activity Types</option>
+            </select>
+            <select id="drawerFilterActMode" class="drawer-select" onchange="lcFilterActivityDrawer()">
+              <option value="all" data-i18n="lcFilterMode">All Modes</option>
+            </select>
+            <select id="drawerFilterActCat" class="drawer-select" onchange="lcFilterActivityDrawer()">
+              <option value="all">All Categories</option>
+            </select>
+            <select id="drawerActivitySort" class="drawer-select" onchange="lcFilterActivityDrawer()">
+              <option value="title">Sort: Title (A–Z)</option>
+              <option value="durationAsc">Sort: Duration (Shortest)</option>
+              <option value="durationDesc">Sort: Duration (Longest)</option>
+              <option value="activity">Sort: Activity Type</option>
+            </select>
+          </div>
 
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <select id="drawerSort" class="drawer-select" style="flex:1;" onchange="lcFilterDrawer()">
-            <option value="code" data-i18n="lcSortCode">Sort: Code (A–Z)</option>
-            <option value="title" data-i18n="lcSortTitle">Sort: Title (A–Z)</option>
-            <option value="level" data-i18n="lcSortLevel">Sort: Level / Tier</option>
-          </select>
-          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorDb()"><span data-i18n="lcOpenCompetenceDb">Open DB</span></button>
-          <button class="neo-btn" style="padding:4px 8px;font-size:0.75rem;" onclick="lcOpenDescriptorImporter()">+ <span data-i18n="lcImport">Import</span></button>
-        </div>
+          <div class="drawer-top-info">
+            <span id="drawerActivityMatchCount" class="drawer-match-badge">0 activities</span>
+            <div id="drawerActivityActiveFilters" class="drawer-active-filters-bar"></div>
+          </div>
 
-        <div class="drawer-items-list" id="drawerDescriptorsList">
-          <!-- Populated by JavaScript -->
+          <div class="drawer-items-list" id="drawerActivitiesList">
+            <!-- Populated by JavaScript -->
+          </div>
         </div>
       </div>
 
@@ -756,6 +815,59 @@
     </div>
   </div>
 
+  <!-- Export Phase to Database Modal -->
+  <div id="exportPhaseModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:540px;">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+          <span data-i18n="lcExportPhaseModalTitle">Add Phase to Database</span>
+        </div>
+        <button class="icon-btn" onclick="lcCloseModal('exportPhaseModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <!-- Phase preview snippet -->
+        <div id="exportPhasePreview" style="background:#f8fafc;border:1.5px solid var(--neo-dark);border-radius:var(--neo-radius-sm);padding:10px 12px;box-shadow:2px 2px 0 var(--neo-dark);">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="form-field">
+          <label style="font-weight:800;font-size:0.85rem;display:block;margin-bottom:6px;" data-i18n="lcExportTargetFile">Select Target Database File (.js / .json):</label>
+          <div id="exportPhaseFileList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;border:1.5px solid var(--neo-dark);border-radius:var(--neo-radius-sm);padding:8px;background:#fff;box-shadow:2px 2px 0 var(--neo-dark);">
+            <!-- Populated by JS with list of .js / .json files -->
+          </div>
+        </div>
+
+        <!-- Option to create a new file -->
+        <div style="display:flex;flex-direction:column;gap:4px;padding:4px 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:800;cursor:pointer;">
+            <input type="radio" name="exportPhaseFileChoice" id="exportChoiceNew" value="__new__" onchange="lcOnExportFileChoiceChange()">
+            <span data-i18n="lcExportCreateNewFile">Or create a new database file:</span>
+          </label>
+          <input type="text" id="exportNewFileName" class="meta-input" placeholder="e.g. lesson-phases.js" style="margin-left:24px;padding:6px 10px;font-size:0.82rem;" onfocus="document.getElementById('exportChoiceNew').checked = true; lcOnExportFileChoiceChange();">
+        </div>
+
+        <!-- Optional Category / Tags override -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px;">
+          <div>
+            <label style="font-size:0.78rem;font-weight:800;display:block;margin-bottom:4px;">Category:</label>
+            <input type="text" id="exportPhaseCategory" class="meta-input" placeholder="e.g. Warm-up, Review" style="width:100%;padding:6px 8px;font-size:0.82rem;">
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:800;display:block;margin-bottom:4px;">Tags (comma-separated):</label>
+            <input type="text" id="exportPhaseTags" class="meta-input" placeholder="e.g. discussion, pairs" style="width:100%;padding:6px 8px;font-size:0.82rem;">
+          </div>
+        </div>
+
+        <div id="exportPhaseStatus" style="font-size:0.82rem;font-weight:700;color:#dc2626;min-height:16px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="neo-btn" onclick="lcCloseModal('exportPhaseModal')"><span data-i18n="btnCancel">Cancel</span></button>
+        <button class="neo-btn primary" id="btnConfirmExportPhase" onclick="lcConfirmExportPhase()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> <span data-i18n="lcConfirmExportPhase">Save to Database</span></button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 6. Client Logic Script ─────────────────────────────────────────── -->
   <script>
     (function () {
@@ -765,11 +877,25 @@
       var currentSequence = null;
       var allCompetences = [];
       var allDescriptors = allCompetences;
+      var allPhases = [];
+      var currentDrawerTab = 'competences';
+      var exportingPhaseIndex = -1;
       var allSavedPlans = [];
       var userCustomTemplates = [];
       var allClassGroups = {};
       var isDirty = false;
       var activeDraggingIndex = -1;
+
+      function lcOpenModal(modalId) {
+        var m = document.getElementById(modalId);
+        if (m) m.style.display = 'flex';
+      }
+      function lcCloseModal(modalId) {
+        var m = document.getElementById(modalId);
+        if (m) m.style.display = 'none';
+      }
+      window.lcOpenModal = lcOpenModal;
+      window.lcCloseModal = lcCloseModal;
 
       async function loadCustomTemplates() {
         userCustomTemplates = [];
@@ -973,6 +1099,7 @@
         initDrawerResizer();
         await loadClassRosters();
         await loadSavedDescriptors();
+        await loadSavedPhases();
         await loadSavedPlansIndex();
         await loadCustomTemplates();
 
@@ -1112,8 +1239,11 @@
             if (Array.isArray(obj.competences)) return obj.competences;
             if (Array.isArray(obj.descriptors)) return obj.descriptors;
             if (Array.isArray(obj.records)) return obj.records;
+            if (Array.isArray(obj.phases)) return obj.phases;
+            if (Array.isArray(obj.activities)) return obj.activities;
             if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
             if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+            if (Array.isArray(obj.customPhaseBank)) return obj.customPhaseBank;
           } catch (_) {}
         }
         var varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
@@ -1416,9 +1546,68 @@
         updateFilterDropdownOptions();
       }
 
+      async function loadSavedPhases() {
+        var map = new Map();
+        function addOrUpdatePhase(item) {
+          if (!item || typeof item !== 'object') return;
+          var id = String(item.id || item.title || '').trim();
+          if (!id) return;
+          item.id = id;
+          map.set(id, Object.assign({}, item));
+        }
+
+        // 1. LocalStorage fallback
+        try {
+          var localStored = localStorage.getItem('cmt-lesson-phases');
+          if (localStored) {
+            var parsedLocal = JSON.parse(localStored);
+            if (Array.isArray(parsedLocal)) parsedLocal.forEach(addOrUpdatePhase);
+          }
+        } catch (_) {}
+
+        // 2. User root file: lesson-phases.json
+        try {
+          if (window.Desktop && typeof Desktop.readText === 'function') {
+            var res = await Desktop.readText('user', 'lesson-phases.json');
+            if (res && res.ok && res.content) {
+              try {
+                var parsed = JSON.parse(res.content);
+                var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.phases) ? parsed.phases : []);
+                list2.forEach(addOrUpdatePhase);
+              } catch (_) {}
+            }
+          }
+        } catch (e) {}
+
+        // 3. Custom phase files in customPhases (user/custom-data/phases/)
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+            var filesResult = await Desktop.listFiles('customPhases', { extensions: ['.js', '.json'] });
+            var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
+            for (var i = 0; i < list.length; i++) {
+              var f = list[i];
+              var filename = typeof f === 'string' ? f : (f && f.filename);
+              if (!filename) continue;
+              var rawRes = await Desktop.readText('customPhases', filename);
+              if (rawRes && rawRes.ok && rawRes.content) {
+                var arr = parseDescriptorContent(rawRes.content);
+                if (Array.isArray(arr)) arr.forEach(addOrUpdatePhase);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('loadSavedPhases customPhases error:', e);
+        }
+
+        allPhases = Array.from(map.values());
+        updateActivityFilterOptions();
+      }
+
       window.addEventListener('focus', async function () {
         await loadSavedDescriptors();
         renderDrawer();
+        await loadSavedPhases();
+        renderActivityDrawer();
       });
 
       if (typeof BroadcastChannel !== 'undefined') {
@@ -1429,12 +1618,21 @@
             renderDrawer();
           };
         } catch (_) {}
+        try {
+          var _phaseCh = new BroadcastChannel('cmt-phases');
+          _phaseCh.onmessage = async function () {
+            await loadSavedPhases();
+            renderActivityDrawer();
+          };
+        } catch (_) {}
       }
 
       if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
         Desktop.onDataChanged(async function () {
           await loadSavedDescriptors();
           renderDrawer();
+          await loadSavedPhases();
+          renderActivityDrawer();
         });
       }
 
@@ -1442,6 +1640,9 @@
         if (e.key === 'cmt-lesson-competences' || e.key === 'cmt-lesson-descriptors') {
           await loadSavedDescriptors();
           renderDrawer();
+        } else if (e.key === 'cmt-lesson-phases') {
+          await loadSavedPhases();
+          renderActivityDrawer();
         }
       });
 
@@ -1638,7 +1839,7 @@
             e.preventDefault();
             card.classList.remove('drag-over');
 
-            // 1. Check application/json payload for descriptor
+            // 1. Check application/json payload for descriptor or phase template
             var jsonStr = e.dataTransfer.getData('application/json');
             if (jsonStr) {
               try {
@@ -1647,11 +1848,20 @@
                   lcTagDescriptorToActivePhase(payload.descriptorId, idx);
                   return;
                 }
+                if (payload && payload.type === 'phase-template' && payload.phase) {
+                  lcInsertPhaseFromBank(payload.phase, idx);
+                  return;
+                }
               } catch (_) {}
             }
 
-            // 2. Check text/plain for descriptor ID string vs phase index number
+            // 2. Check text/plain for phase template vs descriptor ID string vs phase index number
             var plainText = (e.dataTransfer.getData('text/plain') || '').trim();
+            if (plainText && plainText.startsWith('phase:')) {
+              var pId = plainText.slice(6);
+              lcInsertPhaseFromBank(pId, idx);
+              return;
+            }
             if (plainText && !/^\d+$/.test(plainText)) {
               lcTagDescriptorToActivePhase(plainText, idx);
               return;
@@ -1668,6 +1878,35 @@
             }
           });
 
+          // Container drop listener for appending phases
+          var phaseCardsContainer = document.getElementById('phaseCardsList');
+          if (phaseCardsContainer && !phaseCardsContainer._dropConfigured) {
+            phaseCardsContainer._dropConfigured = true;
+            phaseCardsContainer.addEventListener('dragover', function (e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            });
+            phaseCardsContainer.addEventListener('drop', function (e) {
+              if (e.target === phaseCardsContainer || phaseCardsContainer.children.length === 0) {
+                e.preventDefault();
+                var jsonStr2 = e.dataTransfer.getData('application/json');
+                if (jsonStr2) {
+                  try {
+                    var payload2 = JSON.parse(jsonStr2);
+                    if (payload2 && payload2.type === 'phase-template' && payload2.phase) {
+                      lcInsertPhaseFromBank(payload2.phase);
+                      return;
+                    }
+                  } catch (_) {}
+                }
+                var plainText2 = (e.dataTransfer.getData('text/plain') || '').trim();
+                if (plainText2 && plainText2.startsWith('phase:')) {
+                  lcInsertPhaseFromBank(plainText2.slice(6));
+                }
+              }
+            });
+          }
+
           // Header Row
           var header = document.createElement('div');
           header.className = 'phase-card-header';
@@ -1677,6 +1916,7 @@
             '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" oninput="lcOnPhaseTitleChange(' + idx + ', this.value)">',
             '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + (sec.duration || 0) + '" min="1" max="240" oninput="lcOnPhaseDurationChange(' + idx + ', this.value)"> <span>m</span></div>',
             '<div class="phase-actions-group">',
+            '  <button type="button" class="icon-btn" onclick="lcOpenExportPhaseModal(' + idx + ')" title="' + (i18n.t('lcExportPhaseBtnTitle') || 'Add phase to database') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcExportPhaseBtn') || 'Add to DB') + '</span></button>',
             '  <button class="icon-btn" onclick="lcOpenSplitModal(' + idx + ')" title="Split Phase">Split</button>',
             '  <button class="icon-btn" onclick="lcDuplicatePhase(' + idx + ')" title="Duplicate Phase">Duplicate</button>',
             '  <button class="icon-btn danger" onclick="lcDeletePhase(' + idx + ')" title="Delete Phase">Delete</button>',
@@ -2165,10 +2405,513 @@
         }
       };
 
-      window.lcToggleDrawer = function () {
+      window.lcSwitchDrawerTab = function (tab) {
+        currentDrawerTab = tab;
+        var compTabBtn = document.getElementById('tabCompetenceBank');
+        var actTabBtn = document.getElementById('tabActivityBank');
+        var compPanel = document.getElementById('panelCompetences');
+        var actPanel = document.getElementById('panelActivities');
+
+        if (tab === 'activities') {
+          if (compTabBtn) compTabBtn.classList.remove('active');
+          if (actTabBtn) actTabBtn.classList.add('active');
+          if (compPanel) compPanel.style.display = 'none';
+          if (actPanel) actPanel.style.display = 'flex';
+          renderActivityDrawer();
+        } else {
+          if (actTabBtn) actTabBtn.classList.remove('active');
+          if (compTabBtn) compTabBtn.classList.add('active');
+          if (actPanel) actPanel.style.display = 'none';
+          if (compPanel) compPanel.style.display = 'flex';
+          renderDrawer();
+        }
+      };
+
+      window.lcToggleDrawer = function (requestedTab) {
         var ws = document.getElementById('mainWorkspace');
+        var isOpen = ws.classList.contains('drawer-open');
+        if (requestedTab) {
+          lcSwitchDrawerTab(requestedTab);
+          if (!isOpen) {
+            ws.classList.add('drawer-open');
+          }
+          return;
+        }
         ws.classList.toggle('drawer-open');
       };
+
+      window.lcOpenPhaseDb = function () {
+        if (window.Desktop && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('manage-database.html?type=phases');
+        } else {
+          window.open('manage-database.html?type=phases', '_blank');
+        }
+      };
+
+      window.lcInsertPhaseFromBank = function (phaseOrId, atIndex) {
+        var template = null;
+        if (typeof phaseOrId === 'object' && phaseOrId !== null) {
+          template = phaseOrId;
+        } else {
+          template = allPhases.find(function (p) {
+            return String(p.id) === String(phaseOrId);
+          });
+        }
+        if (!template) return;
+
+        var newSec = {
+          id: LessonCreatorService.generateId('sec'),
+          title: template.title || 'New Phase',
+          duration: Number(template.duration) || 10,
+          activityTypeId: template.activityTypeId || '',
+          interactionTypeId: template.interactionTypeId || '',
+          objective: template.objective || '',
+          teacherAction: template.teacherAction || '',
+          studentAction: template.studentAction || '',
+          descriptorIds: Array.isArray(template.descriptorIds) ? template.descriptorIds.slice() : [],
+          resources: template.resources || ''
+        };
+
+        currentPlan.sections = currentPlan.sections || [];
+        if (typeof atIndex === 'number' && atIndex >= 0 && atIndex <= currentPlan.sections.length) {
+          currentPlan.sections.splice(atIndex, 0, newSec);
+        } else {
+          currentPlan.sections.push(newSec);
+        }
+
+        renderPhaseCards();
+        updateDurationMeter();
+        lcOnPlanDirty();
+        if (typeof showToast === 'function') {
+          showToast(i18n.t('lcPhaseAddedToast') || 'Phase added to lesson timeline!');
+        }
+      };
+
+      // ── Export Phase to Database Modal Logic ──────────────────────────────
+      window.lcOpenExportPhaseModal = async function (idx) {
+        if (!currentPlan.sections || !currentPlan.sections[idx]) return;
+        exportingPhaseIndex = idx;
+        var sec = currentPlan.sections[idx];
+
+        // 1. Render Preview
+        var previewEl = document.getElementById('exportPhasePreview');
+        if (previewEl) {
+          var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === sec.activityTypeId; });
+          var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === sec.interactionTypeId; });
+          var actPill = actDef
+            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' + escapeHtml(actDef.name || actDef.shortName) + '</span>')
+            : (sec.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(sec.activityTypeId) + '</span>') : '');
+          var modePill = modeDef
+            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' + escapeHtml(modeDef.name || modeDef.shortName) + '</span>')
+            : (sec.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(sec.interactionTypeId) + '</span>') : '');
+
+          previewEl.innerHTML = [
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">',
+            '  <strong style="font-size:0.95rem;color:var(--neo-dark);">' + escapeHtml(sec.title || 'Untitled Phase') + '</strong>',
+            '  <span class="drawer-act-duration">' + (Number(sec.duration) || 10) + 'm</span>',
+            '</div>',
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' + actPill + modePill + '</div>',
+            sec.objective ? ('<div style="font-size:0.78rem;color:#475569;margin-bottom:4px;"><strong>Target:</strong> ' + escapeHtml(sec.objective) + '</div>') : '',
+            sec.teacherAction ? ('<div style="font-size:0.75rem;color:#64748b;"><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction) + '</div>') : ''
+          ].join('');
+        }
+
+        // 2. Pre-fill Category & Tags
+        var catInput = document.getElementById('exportPhaseCategory');
+        if (catInput) catInput.value = sec.category || '';
+
+        var tagsInput = document.getElementById('exportPhaseTags');
+        if (tagsInput) {
+          var tArr = Array.isArray(sec.tags) ? sec.tags : (sec.tags ? [sec.tags] : []);
+          tagsInput.value = tArr.join(', ');
+        }
+
+        var statusEl = document.getElementById('exportPhaseStatus');
+        if (statusEl) statusEl.textContent = '';
+
+        // 3. Load available files in customPhases
+        var listContainer = document.getElementById('exportPhaseFileList');
+        if (listContainer) {
+          listContainer.innerHTML = '<span style="font-size:0.8rem;color:#666;">Loading available database files…</span>';
+          var phaseFiles = [];
+          try {
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+              var filesRes = await Desktop.listFiles('customPhases', { extensions: ['.js', '.json'] });
+              phaseFiles = Array.isArray(filesRes) ? filesRes : (filesRes && Array.isArray(filesRes.files) ? filesRes.files : []);
+            }
+          } catch (e) {
+            console.warn('Could not list customPhases files:', e);
+          }
+
+          var validNames = phaseFiles.map(function (f) {
+            return typeof f === 'string' ? f : (f && f.filename);
+          }).filter(Boolean);
+
+          if (validNames.length === 0) {
+            listContainer.innerHTML = '<span style="font-size:0.8rem;color:#64748b;">No database files found in custom-data/phases yet.</span>';
+            var newRadio = document.getElementById('exportChoiceNew');
+            if (newRadio) newRadio.checked = true;
+            var newNameInput = document.getElementById('exportNewFileName');
+            if (newNameInput && !newNameInput.value.trim()) newNameInput.value = 'phases.js';
+          } else {
+            listContainer.innerHTML = validNames.map(function (fname, i) {
+              return [
+                '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 8px;border-radius:4px;background:#f8fafc;border:1px solid #e2e8f0;">',
+                '  <input type="radio" name="exportPhaseFileChoice" value="' + escapeHtml(fname) + '" ' + (i === 0 ? 'checked' : '') + ' onchange="lcOnExportFileChoiceChange()">',
+                '  <img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="">',
+                '  <span style="font-weight:700;font-size:0.84rem;color:#1e293b;flex:1;">' + escapeHtml(fname) + '</span>',
+                '</label>'
+              ].join('');
+            }).join('');
+          }
+        }
+
+        lcOpenModal('exportPhaseModal');
+      };
+
+      window.lcOnExportFileChoiceChange = function () {
+        var statusEl = document.getElementById('exportPhaseStatus');
+        if (statusEl) statusEl.textContent = '';
+      };
+
+      window.lcConfirmExportPhase = async function () {
+        if (!currentPlan.sections || !currentPlan.sections[exportingPhaseIndex]) {
+          lcCloseModal('exportPhaseModal');
+          return;
+        }
+
+        var sec = currentPlan.sections[exportingPhaseIndex];
+        var statusEl = document.getElementById('exportPhaseStatus');
+
+        var choiceRadio = document.querySelector('input[name="exportPhaseFileChoice"]:checked');
+        if (!choiceRadio) {
+          if (statusEl) statusEl.textContent = i18n.t('lcExportNoFileSelected') || 'Please select or specify a valid file name.';
+          return;
+        }
+
+        var targetFileName = '';
+        if (choiceRadio.value === '__new__') {
+          targetFileName = (document.getElementById('exportNewFileName').value || '').trim();
+          if (!targetFileName) {
+            if (statusEl) statusEl.textContent = i18n.t('lcExportNoFileSelected') || 'Please enter a valid file name.';
+            return;
+          }
+          if (!targetFileName.endsWith('.js') && !targetFileName.endsWith('.json')) {
+            targetFileName += '.js';
+          }
+        } else {
+          targetFileName = choiceRadio.value;
+        }
+
+        var catVal = (document.getElementById('exportPhaseCategory').value || '').trim();
+        var tagsVal = (document.getElementById('exportPhaseTags').value || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+        var phaseRecord = {
+          id: sec.id || ('phase-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)),
+          title: sec.title || 'New Phase',
+          duration: Number(sec.duration) || 10,
+          activityTypeId: sec.activityTypeId || '',
+          interactionTypeId: sec.interactionTypeId || '',
+          category: catVal,
+          objective: sec.objective || '',
+          teacherAction: sec.teacherAction || '',
+          studentAction: sec.studentAction || '',
+          resources: sec.resources || '',
+          descriptorIds: Array.isArray(sec.descriptorIds) ? sec.descriptorIds.slice() : [],
+          tags: tagsVal
+        };
+
+        // Also update the section in the current plan with the assigned category/tags
+        sec.category = catVal;
+        sec.tags = tagsVal;
+        lcOnPlanDirty();
+
+        var existingRecords = [];
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+            var readRes = await Desktop.readText('customPhases', targetFileName);
+            if (readRes && readRes.ok && readRes.content) {
+              var parsed = parseDescriptorContent(readRes.content);
+              if (Array.isArray(parsed)) existingRecords = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('Reading existing file error:', e);
+        }
+
+        // Check if phase already exists (by ID or Title)
+        var matchIdx = existingRecords.findIndex(function (r) {
+          return (r && r.id && r.id === phaseRecord.id) ||
+                 (r && r.title && r.title.toLowerCase().trim() === phaseRecord.title.toLowerCase().trim());
+        });
+
+        if (matchIdx !== -1) {
+          existingRecords[matchIdx] = Object.assign({}, existingRecords[matchIdx], phaseRecord);
+        } else {
+          existingRecords.push(phaseRecord);
+        }
+
+        // Serialize file content
+        var fileContent = '';
+        if (targetFileName.endsWith('.json')) {
+          fileContent = JSON.stringify(existingRecords, null, 2);
+        } else {
+          fileContent = '// customPhaseBank\nconst customPhaseBank = ' + JSON.stringify(existingRecords, null, 2) + ';\n';
+        }
+
+        // Save to customPhases
+        try {
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            var saveRes = await Desktop.saveText('customPhases', targetFileName, fileContent);
+            if (!saveRes || !saveRes.ok) {
+              if (statusEl) statusEl.textContent = 'Save failed: ' + ((saveRes && saveRes.error) || 'Unknown error');
+              return;
+            }
+          }
+
+          // Also sync to localStorage and user/lesson-phases.json
+          localStorage.setItem('cmt-lesson-phases', JSON.stringify(existingRecords));
+          if (window.Desktop && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'lesson-phases.json', JSON.stringify(existingRecords, null, 2));
+          }
+        } catch (err) {
+          if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+          return;
+        }
+
+        // Broadcast update across windows
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            var ch = new BroadcastChannel('cmt-phases');
+            ch.postMessage({ type: 'phases-updated', timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+
+        // Reload local phase cache and render
+        await loadSavedPhases();
+        renderActivityDrawer();
+
+        lcCloseModal('exportPhaseModal');
+        if (typeof showToast === 'function') {
+          showToast((i18n.t('lcPhaseExportedToast') || 'Phase saved to database!') + ' (' + targetFileName + ')');
+        }
+      };
+
+      function updateActivityFilterOptions() {
+        var actTypeSelect = document.getElementById('drawerFilterActType');
+        var actModeSelect = document.getElementById('drawerFilterActMode');
+        var actCatSelect = document.getElementById('drawerFilterActCat');
+
+        if (actTypeSelect) {
+          var curActVal = actTypeSelect.value || 'all';
+          actTypeSelect.innerHTML = '<option value="all">' + (i18n.t('lcFilterActivityType') || 'All Activity Types') + '</option>';
+          (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).forEach(function (a) {
+            var opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.name || a.shortName || a.id;
+            actTypeSelect.appendChild(opt);
+          });
+          if (curActVal) actTypeSelect.value = curActVal;
+        }
+
+        if (actModeSelect) {
+          var curModeVal = actModeSelect.value || 'all';
+          actModeSelect.innerHTML = '<option value="all">' + (i18n.t('lcFilterMode') || 'All Modes') + '</option>';
+          (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).forEach(function (m) {
+            var opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name || m.shortName || m.id;
+            actModeSelect.appendChild(opt);
+          });
+          if (curModeVal) actModeSelect.value = curModeVal;
+        }
+
+        if (actCatSelect) {
+          var curCatVal = actCatSelect.value || 'all';
+          var cats = new Set();
+          allPhases.forEach(function (p) {
+            if (p.category && String(p.category).trim()) cats.add(String(p.category).trim());
+          });
+          actCatSelect.innerHTML = '<option value="all">All Categories</option>';
+          cats.forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            actCatSelect.appendChild(opt);
+          });
+          if (cats.has(curCatVal)) actCatSelect.value = curCatVal;
+        }
+      }
+
+      window.lcFilterActivityDrawer = function () {
+        renderActivityDrawer();
+      };
+
+      function renderActivityDrawer() {
+        var list = document.getElementById('drawerActivitiesList');
+        if (!list) return;
+
+        var searchInput = document.getElementById('drawerActivitySearch');
+        var rawQuery = searchInput ? (searchInput.value || '').toLowerCase().trim() : '';
+
+        var actTypeSelect = document.getElementById('drawerFilterActType');
+        var selActType = actTypeSelect ? actTypeSelect.value : 'all';
+
+        var actModeSelect = document.getElementById('drawerFilterActMode');
+        var selActMode = actModeSelect ? actModeSelect.value : 'all';
+
+        var actCatSelect = document.getElementById('drawerFilterActCat');
+        var selActCat = actCatSelect ? actCatSelect.value : 'all';
+
+        var sortSelect = document.getElementById('drawerActivitySort');
+        var selSort = sortSelect ? sortSelect.value : 'title';
+
+        var filtered = allPhases.filter(function (p) {
+          if (!p) return false;
+          if (selActType !== 'all' && p.activityTypeId !== selActType) return false;
+          if (selActMode !== 'all' && p.interactionTypeId !== selActMode) return false;
+          if (selActCat !== 'all' && String(p.category || '').trim() !== selActCat) return false;
+
+          if (rawQuery) {
+            var title = String(p.title || '').toLowerCase();
+            var obj = String(p.objective || '').toLowerCase();
+            var tAct = String(p.teacherAction || '').toLowerCase();
+            var sAct = String(p.studentAction || '').toLowerCase();
+            var res = String(p.resources || '').toLowerCase();
+            var cat = String(p.category || '').toLowerCase();
+            var tags = Array.isArray(p.tags) ? p.tags.join(' ').toLowerCase() : String(p.tags || '').toLowerCase();
+            if (title.indexOf(rawQuery) === -1 && obj.indexOf(rawQuery) === -1 &&
+                tAct.indexOf(rawQuery) === -1 && sAct.indexOf(rawQuery) === -1 &&
+                res.indexOf(rawQuery) === -1 && cat.indexOf(rawQuery) === -1 &&
+                tags.indexOf(rawQuery) === -1) {
+              return false;
+            }
+          }
+          return true;
+        });
+
+        // Sorting
+        filtered.sort(function (a, b) {
+          if (selSort === 'durationAsc') {
+            return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+          }
+          if (selSort === 'durationDesc') {
+            return (Number(b.duration) || 0) - (Number(a.duration) || 0);
+          }
+          if (selSort === 'activity') {
+            return String(a.activityTypeId || '').localeCompare(String(b.activityTypeId || ''));
+          }
+          return String(a.title || '').localeCompare(String(b.title || ''));
+        });
+
+        // Match count and active filters
+        var countBadge = document.getElementById('drawerActivityMatchCount');
+        if (countBadge) {
+          countBadge.textContent = filtered.length + ' / ' + allPhases.length + ' activities';
+        }
+
+        var activeFiltersBar = document.getElementById('drawerActivityActiveFilters');
+        if (activeFiltersBar) {
+          activeFiltersBar.innerHTML = '';
+          if (rawQuery) {
+            activeFiltersBar.appendChild(createFilterTag('Query: ' + rawQuery, function () {
+              if (searchInput) searchInput.value = '';
+              renderActivityDrawer();
+            }));
+          }
+          if (selActType !== 'all') {
+            activeFiltersBar.appendChild(createFilterTag('Type: ' + selActType, function () {
+              if (actTypeSelect) actTypeSelect.value = 'all';
+              renderActivityDrawer();
+            }));
+          }
+          if (selActMode !== 'all') {
+            activeFiltersBar.appendChild(createFilterTag('Mode: ' + selActMode, function () {
+              if (actModeSelect) actModeSelect.value = 'all';
+              renderActivityDrawer();
+            }));
+          }
+          if (selActCat !== 'all') {
+            activeFiltersBar.appendChild(createFilterTag('Cat: ' + selActCat, function () {
+              if (actCatSelect) actCatSelect.value = 'all';
+              renderActivityDrawer();
+            }));
+          }
+        }
+
+        list.innerHTML = '';
+        if (filtered.length === 0) {
+          list.innerHTML = '<div style="text-align:center;color:#888;padding:30px 10px;font-size:0.85rem;" data-i18n="lcNoActivitiesFound">' +
+            (allPhases.length === 0
+              ? 'Activity Bank is empty.<br><button type="button" class="neo-btn primary" style="margin-top:10px;font-size:0.75rem;" onclick="lcOpenPhaseDb()">+ Add Phases in Database</button>'
+              : (i18n.t('lcNoActivitiesFound') || 'No activities matching filters')) +
+            '</div>';
+          return;
+        }
+
+        filtered.forEach(function (p) {
+          var card = document.createElement('div');
+          card.className = 'drawer-activity-card';
+          card.draggable = true;
+          card.dataset.id = p.id;
+
+          card.addEventListener('dragstart', function (e) {
+            card.classList.add('dragging');
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              type: 'phase-template',
+              phase: p
+            }));
+            e.dataTransfer.setData('text/plain', 'phase:' + p.id);
+            e.dataTransfer.effectAllowed = 'copy';
+          });
+
+          card.addEventListener('dragend', function () {
+            card.classList.remove('dragging');
+          });
+
+          // Activity Type meta
+          var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === p.activityTypeId; });
+          var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === p.interactionTypeId; });
+
+          var actPillHtml = actDef
+            ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' +
+               (actDef.icon ? ('<img src="../assets/icons/' + escapeHtml(actDef.icon) + '" alt="">') : '') +
+               '<span>' + escapeHtml(actDef.shortName || actDef.name) + '</span></span>')
+            : (p.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(p.activityTypeId) + '</span>') : '');
+
+          var modePillHtml = modeDef
+            ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' +
+               (modeDef.icon ? ('<img src="../assets/icons/' + escapeHtml(modeDef.icon) + '" alt="">') : '') +
+               '<span>' + escapeHtml(modeDef.shortName || modeDef.name) + '</span></span>')
+            : (p.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(p.interactionTypeId) + '</span>') : '');
+
+          var catPillHtml = p.category
+            ? ('<span class="drawer-act-pill" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe;">' + escapeHtml(p.category) + '</span>')
+            : '';
+
+          var tagsArr = Array.isArray(p.tags) ? p.tags : (p.tags ? [p.tags] : []);
+          var tagsHtml = tagsArr.length > 0 ? ('<span class="drawer-act-tags" title="' + escapeHtml(tagsArr.join(', ')) + '">' + escapeHtml(tagsArr.join(', ')) + '</span>') : '<span></span>';
+
+          var descSnippet = p.objective || p.teacherAction || p.studentAction || p.resources || '';
+          var descHtml = descSnippet ? ('<div class="drawer-act-desc">' + escapeHtml(descSnippet) + '</div>') : '';
+
+          card.innerHTML = [
+            '<div class="drawer-act-header">',
+            '  <span class="drawer-act-title">' + escapeHtml(p.title || 'Untitled Phase') + '</span>',
+            '  <span class="drawer-act-duration">' + (Number(p.duration) || 10) + 'm</span>',
+            '</div>',
+            '<div class="drawer-act-badges">' + actPillHtml + modePillHtml + catPillHtml + '</div>',
+            descHtml,
+            '<div class="drawer-act-footer">',
+            '  ' + tagsHtml,
+            '  <button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" onclick="event.stopPropagation(); lcInsertPhaseFromBank(\'' + escapeHtml(p.id) + '\')">+ ' + (i18n.t('lcAddPhaseToLesson') || 'Add to Lesson') + '</button>',
+            '</div>'
+          ].join('');
+
+          list.appendChild(card);
+        });
+      }
 
       window.lcFilterDrawer = function () {
         renderDrawer();
@@ -3173,7 +3916,11 @@
             lcExportPdf();
           } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
             e.preventDefault();
-            lcToggleDrawer();
+            if (e.shiftKey) {
+              lcToggleDrawer('activities');
+            } else {
+              lcToggleDrawer('competences');
+            }
           } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
             e.preventDefault();
             lcRunInClassManagement();

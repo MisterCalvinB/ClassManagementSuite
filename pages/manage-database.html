@@ -357,6 +357,7 @@
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
       { key: 'competences', labelKey: 'mdbTypeCompetences', icon: 'file-text.svg', target: 'customCompetences', defaultView: 'table' },
+      { key: 'phases', labelKey: 'mdbTypePhases', icon: 'zap.svg', target: 'customPhases', defaultView: 'table' },
     ];
 
     const VAR_NAME_DEFAULTS = {
@@ -365,6 +366,7 @@
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
       quizzes: 'customQuizBank', competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
+      phases: 'customPhaseBank',
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -453,8 +455,11 @@
           if (Array.isArray(obj.competences)) return obj.competences;
           if (Array.isArray(obj.descriptors)) return obj.descriptors;
           if (Array.isArray(obj.records)) return obj.records;
+          if (Array.isArray(obj.phases)) return obj.phases;
+          if (Array.isArray(obj.activities)) return obj.activities;
           if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
           if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+          if (Array.isArray(obj.customPhaseBank)) return obj.customPhaseBank;
         } catch (_) {}
       }
       const varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
@@ -711,6 +716,8 @@
     function getDefaultSchema(typeKey) {
       const schema = [];
       const addStr = (key, extra = {}) => schema.push({ key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
+      const addNum = (key, extra = {}) => schema.push({ key, type: 'number', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
+      const addBool = (key, extra = {}) => schema.push({ key, type: 'boolean', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
       const addArr = (key, extra = {}) => schema.push({ key, type: 'array', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
       const addObj = (key, extra = {}) => schema.push({ key, type: 'object', isLong: false, longArray: false, uniqueVals: [], useSelect: false, ...extra });
 
@@ -803,6 +810,18 @@
         addArr('tags');
         addStr('comments', { isLong: true });
         addStr('sampleTasks', { isLong: true });
+      } else if (typeKey === 'phases') {
+        addStr('id');
+        addStr('title');
+        addNum('duration');
+        addStr('activityTypeId');
+        addStr('interactionTypeId');
+        addStr('category');
+        addStr('objective', { isLong: true });
+        addStr('teacherAction', { isLong: true });
+        addStr('studentAction', { isLong: true });
+        addStr('resources');
+        addArr('tags');
       }
       return schema;
     }
@@ -812,6 +831,19 @@
       if (typeKey === 'competences' || typeKey === 'descriptors') {
         for (const rec of records) {
           if (rec && typeof rec === 'object') {
+            if (typeof rec.tags === 'string') {
+              rec.tags = rec.tags.split(',').map(s => s.trim()).filter(Boolean);
+            } else if (!Array.isArray(rec.tags)) {
+              rec.tags = [];
+            }
+          }
+        }
+      } else if (typeKey === 'phases') {
+        for (const rec of records) {
+          if (rec && typeof rec === 'object') {
+            if (!rec.id) rec.id = 'phase-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+            if (rec.duration !== undefined && rec.duration !== null) rec.duration = Number(rec.duration) || 0;
+            else rec.duration = 10;
             if (typeof rec.tags === 'string') {
               rec.tags = rec.tags.split(',').map(s => s.trim()).filter(Boolean);
             } else if (!Array.isArray(rec.tags)) {
@@ -1191,6 +1223,7 @@
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
         <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
+        <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
         <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
       </td>
     </tr>`;
@@ -1238,6 +1271,25 @@
       const iconName = S.viewMode === 'chips' ? 'table.svg' : 'compact.svg';
       const label = S.viewMode === 'chips' ? t('mdbViewTable') : t('mdbViewChips');
       btn.innerHTML = `<img src="../assets/icons/${iconName}" class="btn-icon" alt="" /> ${label}`;
+    }
+
+    async function duplicateRecord(fi, ri) {
+      const file = S.files[fi];
+      if (!file || !file.records[ri]) return;
+      const original = file.records[ri];
+      const clone = JSON.parse(JSON.stringify(original));
+      if (clone.id) {
+        clone.id = 'phase-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+      }
+      if (clone.title) {
+        clone.title = clone.title + ' (Copy)';
+      } else if (clone.word) {
+        clone.word = clone.word + ' (copy)';
+      }
+      file.records.splice(ri + 1, 0, clone);
+      await saveActiveFile(file);
+      renderTable();
+      if (typeof showToast === 'function') showToast(t('mdbRecordDuplicated') || 'Record duplicated');
     }
 
     async function deduplicateRecords() {
@@ -1365,7 +1417,7 @@
       const hasHelp = helpText !== helpKey;
 
       let typeBadge = '';
-      if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
+      if (S.typeKey === 'competences' || S.typeKey === 'descriptors' || S.typeKey === 'phases') {
         if (field.type === 'array') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Array</span>`;
         else if (field.isLong) typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:3px;margin-left:6px;">Multiline</span>`;
         else if (field.type === 'number') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;padding:1px 5px;border-radius:3px;margin-left:6px;">Number</span>`;
@@ -1373,7 +1425,31 @@
       }
 
       let input = '';
-      if (field.type === 'boolean') {
+      if (S.typeKey === 'phases' && field.key === 'activityTypeId') {
+        const actOpts = [
+          { val: '', lbl: '— None / Custom —' },
+          { val: 'warm_up', lbl: 'Warm-up / Bell Ringer' },
+          { val: 'direct_instruction', lbl: 'Direct Instruction / Mini-Lesson' },
+          { val: 'guided_practice', lbl: 'Guided Practice' },
+          { val: 'independent_work', lbl: 'Independent Practice' },
+          { val: 'group_activity', lbl: 'Group Task / Cooperative Task' },
+          { val: 'discussion', lbl: 'Class Discussion / Socratic' },
+          { val: 'assessment', lbl: 'Formative Check / Quiz' },
+          { val: 'plenary', lbl: 'Plenary / Exit Ticket' }
+        ];
+        input = `<select id="${id}">${actOpts.map(o => `<option value="${o.val}"${val === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'phases' && field.key === 'interactionTypeId') {
+        const modeOpts = [
+          { val: '', lbl: '— None / Custom —' },
+          { val: 'whole_class', lbl: 'Whole Class' },
+          { val: 'teacher_led', lbl: 'Teacher-Led' },
+          { val: 'individual', lbl: 'Individual (Solo)' },
+          { val: 'pairs', lbl: 'Pair Work (Turn & Talk)' },
+          { val: 'small_groups', lbl: 'Small Groups (3-4)' },
+          { val: 'stations', lbl: 'Stations / Carousel' }
+        ];
+        input = `<select id="${id}">${modeOpts.map(o => `<option value="${o.val}"${val === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (field.type === 'boolean') {
         input = `<input type="checkbox" id="${id}"${val ? ' checked' : ''} style="width:auto">`;
       } else if (field.type === 'number') {
         input = `<input type="number" id="${id}" value="${esc(String(val ?? ''))}">`;
@@ -1470,6 +1546,14 @@
             <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Schema Info</span>
           </div>
           <div>Standards link directly to <strong>Lesson Creator</strong> phases and coverage analytics. Use <strong>code</strong> and <strong>title</strong> for compact tags, <strong>description</strong> for the full standard syllabus statement, and <strong>tags</strong> (comma-separated array) for cross-subject searching.</div>
+        </div>`;
+      } else if (S.typeKey === 'phases') {
+        infoBanner = `<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#166534;line-height:1.45;">
+          <div style="font-weight:700;color:#14532d;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Lesson Phases &amp; Activity Bank Guide</span>
+            <span style="font-size:0.7rem;background:#dcfce7;padding:2px 6px;border-radius:4px;color:#15803d;">Schema Info</span>
+          </div>
+          <div>Phases configured here appear directly in <strong>Lesson Creator's Activity Bank</strong>. Teachers can insert them into any lesson timeline with a single click or drag-and-drop.</div>
         </div>`;
       }
 
@@ -2065,6 +2149,20 @@
             ch.close();
           }
         } catch (_) {}
+      } else if (S.typeKey === 'phases') {
+        try {
+          localStorage.setItem('cmt-lesson-phases', JSON.stringify(file.records));
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+            await Desktop.saveText('user', 'lesson-phases.json', JSON.stringify(file.records, null, 2));
+          }
+        } catch (_) {}
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-phases');
+            ch.postMessage({ type: 'phases-updated', timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
       }
       return true;
     }
@@ -2286,6 +2384,33 @@ Rules:
 - Include all keys exactly as shown.
 - "correctAnswer" must match one of the 4 answer strings exactly.
 - Include "theme" and "keyword" whenever they are known; use an empty string if not.
+- No markdown or explanation text.`,
+
+      phases: `Generate JSON for pedagogical lesson phases and learning activities.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "phase-think-pair-share",
+    "title": "Think-Pair-Share Discussion",
+    "duration": 10,
+    "activityTypeId": "discussion",
+    "interactionTypeId": "pairs",
+    "category": "Collaborative",
+    "objective": "Articulate and refine thoughts with a partner before sharing with the class.",
+    "teacherAction": "Pose thought-provoking open question; time the 1-minute silent think, 3-minute pair exchange, then facilitate debrief.",
+    "studentAction": "Think independently and jot notes, then turn to partner to compare views and synthesize conclusions.",
+    "resources": "Whiteboard or prompt slide",
+    "tags": ["discussion", "peer-learning", "formative"]
+  }
+]
+
+Rules:
+- "title", "duration" (number in minutes), "activityTypeId", and "interactionTypeId" are recommended.
+- "activityTypeId" should be one of: warm_up, direct_instruction, guided_practice, independent_work, group_activity, discussion, assessment, plenary.
+- "interactionTypeId" should be one of: whole_class, teacher_led, individual, pairs, small_groups, stations.
+- "tags" must be an array of short strings.
 - No markdown or explanation text.`,
     };
 

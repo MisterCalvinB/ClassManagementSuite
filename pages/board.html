@@ -11422,10 +11422,18 @@
               _conShapeUpdateHandles(s);
             });
             conRedrawEdges();
-            // Send lightweight node-move message to mirror (no full snapshot needed)
-            if (window._conMirrorSend && memberSnap.length > 0) {
-              const positions = memberSnap.map(({ n }) => ({ id: n.id, x: n.x, y: n.y }));
-              window._conMirrorSend({ type: 'node-move', positions: positions });
+            // Send lightweight group-move message to mirror (no full snapshot needed)
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'group-move',
+                groupId: String(group.id),
+                gx: nx,
+                gy: ny,
+                nodePositions: memberSnap.map(({ n }) => ({ id: n.id, x: n.x, y: n.y })),
+                notePositions: noteMemberSnap.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })),
+                drawPositions: drawMemberSnap.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y, pad: dr.pad || 0 })),
+                shapePositions: shapeMemberSnap.map(({ s }) => ({ id: s.id, x: s.x, y: s.y, pad: s.pad || 0, lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2 }))
+              });
             }
           }
           function onUp() {
@@ -11606,6 +11614,7 @@
           if (window.conNoteClearSelection) window.conNoteClearSelection();
           if (window.conShapeClearSelection) window.conShapeClearSelection();
         }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
       }
 
       function conGroupDeleteWithContents(gid) {
@@ -11834,6 +11843,15 @@
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'node-masks',
+            masks: group.nodeIds.map(nid => {
+              const n = conNodes.find(x => x.id === nid);
+              return { id: String(nid), masked: n ? !!n.masked : anyVisible };
+            })
+          });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -16659,11 +16677,18 @@
         window.conMirrorSyncSelection = function () {
           if (!window._conMirrorSend) return;
           try {
+            const multiNodes = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+              ? Array.from(conMultiSelected)
+              : (window.conGetSelected ? (window.conGetSelected() ? [window.conGetSelected()] : []) : []);
             window._conMirrorSend({
               type: 'selection-state',
               selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
+              selectedNodeIds: multiNodes,
               selectedGroupId: conGroupFocused || null,
-              selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : [],
+              selectedNoteIds: (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? Array.from(conNoteSelected) : [],
+              selectedDrawingIds: (typeof conDrawingSelected !== 'undefined' && conDrawingSelected) ? Array.from(conDrawingSelected) : [],
+              selectedShapeIds: (typeof _conShapeSelected !== 'undefined' && _conShapeSelected) ? Array.from(_conShapeSelected) : [],
+              selectedEdgeId: (typeof _conSelectedEdgeId !== 'undefined') ? _conSelectedEdgeId : null,
               noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null
             });
           } catch (_) { }
@@ -16917,8 +16942,14 @@
               sx: vp.sx, sy: vp.sy,
               attachmentDataUrls: Object.keys(attachmentDataUrls).length ? attachmentDataUrls : undefined,
               selectedNodeId: window.conGetSelected ? (window.conGetSelected() || null) : null,
+              selectedNodeIds: (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
+                ? Array.from(conMultiSelected)
+                : (window.conGetSelected && window.conGetSelected() ? [window.conGetSelected()] : []),
               selectedGroupId: conGroupFocused || null,
-              selectedNoteIds: conNoteSelected ? Array.from(conNoteSelected) : [],
+              selectedNoteIds: (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? Array.from(conNoteSelected) : [],
+              selectedDrawingIds: (typeof conDrawingSelected !== 'undefined' && conDrawingSelected) ? Array.from(conDrawingSelected) : [],
+              selectedShapeIds: (typeof _conShapeSelected !== 'undefined' && _conShapeSelected) ? Array.from(_conShapeSelected) : [],
+              selectedEdgeId: (typeof _conSelectedEdgeId !== 'undefined') ? _conSelectedEdgeId : null,
               noteTextSelection: (typeof wnGetActiveNoteSelection === 'function') ? wnGetActiveNoteSelection() : null,
               cmsTimer: {
                 timerActive: !!boardCmsTimerUiState.timerActive,
@@ -17912,7 +17943,7 @@
 
       function conBlinkNodeAttention(el, durationMs) {
         if (!el) return;
-        const totalMs = Math.max(250, Number(durationMs) || 5000);
+        const totalMs = Math.max(250, Number(durationMs) || 3000);
         const node = conNodes.find(n => n.id === el.id);
         const baseBorderColor = (node && (node.border || (node.el && node.el.style && node.el.style.borderColor))) || '#111111';
 
@@ -17949,9 +17980,12 @@
             node.masked = false;
             el.classList.remove('con-masked');
             if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: false });
+            }
             if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
           }
-          conBlinkNodeAttention(el, 5000);
+          conBlinkNodeAttention(el, 3000);
         });
 
         // Resize handle (bottom-right corner) — scales font-size proportionally
@@ -18418,7 +18452,7 @@
         });
       }
 
-      function conAddEdge(aId, bId, type, color) {
+      function conAddEdge(aId, bId, type, color, existingId) {
         // Don't duplicate
         if (conEdges.find(e => (e.a === aId && e.b === bId) || (e.a === bId && e.b === aId))) return;
         conEnsureSvgDefs();
@@ -18429,7 +18463,7 @@
         line.setAttribute('class', 'con-line');
         const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         hit.setAttribute('class', 'con-line-hit');
-        const edgeId = 'ce' + conNextId++;
+        const edgeId = existingId || ('ce' + conNextId++);
         g.dataset.eid = edgeId;
         const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         labelEl.setAttribute('class', 'con-line-label');
@@ -18541,6 +18575,23 @@
         conEdges.push(edge);
         conApplyEdgeLabelStyle(edge);
         conUpdateEdge(edge);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'edge-add',
+            edge: {
+              id: edge.id,
+              a: edge.a,
+              b: edge.b,
+              type: edge.type,
+              label: edge.label,
+              labelSize: edge.labelSize,
+              labelColor: edge.labelColor,
+              labelWeight: edge.labelWeight,
+              thickness: edge.thickness,
+              dashStyle: edge.dashStyle
+            }
+          });
+        }
       }
 
       function conNormalizeEdgeLabelStyle(edge) {
@@ -18795,6 +18846,9 @@
         if (idx === -1) return;
         conEdges[idx].g.remove();
         conEdges.splice(idx, 1);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'edge-remove', id: String(eid) });
+        }
       }
 
       function conUpdateInstructions(mode) {
@@ -19493,10 +19547,29 @@
         if (!edge) return;
         const snap = conEdgeCtxReadForm();
         conEdgeCtxApplySnapshot(edge, snap);
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'edge-update',
+            edge: {
+              id: edge.id,
+              a: edge.a,
+              b: edge.b,
+              type: edge.type,
+              label: edge.label,
+              labelSize: edge.labelSize,
+              labelColor: edge.labelColor,
+              labelWeight: edge.labelWeight,
+              thickness: edge.thickness,
+              dashStyle: edge.dashStyle
+            }
+          });
+        }
       }
 
       window.conEdgeCtxOpen = function (e, edgeId) {
         _conEdgeCtxId = edgeId;
+        window._conSelectedEdgeId = edgeId;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         const menu = document.getElementById('con-edge-ctx-menu');
         if (!menu) return;
         const edge = conEdges.find(ed => ed.id === edgeId);
@@ -19588,6 +19661,8 @@
         }
         _conEdgeCtxId = null;
         _conEdgeCtxOriginal = null;
+        window._conSelectedEdgeId = null;
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         const menu = document.getElementById('con-edge-ctx-menu');
         if (menu) menu.classList.remove('visible');
       };
@@ -20963,6 +21038,9 @@
         node.masked = !node.masked;
         node.el.classList.toggle('con-masked', node.masked);
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: node.masked });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -21070,6 +21148,9 @@
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: conNodes.map(n => ({ id: String(n.id), masked: false })) });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -21081,6 +21162,9 @@
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: conNodes.map(n => ({ id: String(n.id), masked: true })) });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -21105,6 +21189,9 @@
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: selectedNodes.map(n => ({ id: String(n.id), masked: true })) });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -21121,6 +21208,9 @@
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'node-masks', masks: selectedNodes.map(n => ({ id: String(n.id), masked: false })) });
+        }
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -25229,6 +25319,7 @@
       conNoteSelected.clear();
       document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
         .forEach(n => n.classList.remove('wn-selected'));
+      if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
     };
 
     function wnGetNoteElementById(id) {
@@ -26241,6 +26332,10 @@
       if (noteEl) noteEl.classList.toggle('wn-blink', !!_wnActiveNote.blink);
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!_wnActiveNote.blink);
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({ type: 'note-blink', noteId: String(_wnActiveNote.id), blink: !!_wnActiveNote.blink });
+      }
+      if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
     }
     function wnStyleDeleteNote() {
       if (!_wnActiveNote) return; const nd = _wnActiveNote; wnStyleDismiss(); wnDeleteNoteData(nd);
@@ -28349,6 +28444,7 @@
           if (window.conDrawingClearSelection) window.conDrawingClearSelection();
           if (window.conShapeClearSelection) window.conShapeClearSelection();
         }
+        if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
         // Check if any selected notes are locked — if so, don't allow dragging
         let anyLocked = false;
         conNoteSelected.forEach(id => {
@@ -30012,6 +30108,7 @@
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape)))
         })),
         edges: edges.map(e => ({
+          id: e.id,
           a: e.a, b: e.b,
           type: e.type || 'none',
           label: e.label || '',
@@ -33951,7 +34048,7 @@
 
         (data.edges || []).forEach(e => {
           if (e.a && e.b) {
-            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null);
+            _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, e.id || null);
           }
         });
 
@@ -34145,7 +34242,8 @@
             e.labelColor,
             e.labelWeight,
             e.thickness,
-            e.dashStyle || null
+            e.dashStyle || null,
+            e.id || null
           );
         }
       });
@@ -34259,7 +34357,7 @@
   }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
-    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle) {
+    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle, existingId) {
       if (window.conEnsureSvgDefs) window.conEnsureSvgDefs();
       const svgEl = document.getElementById('constellation-svg');
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -34270,7 +34368,7 @@
       hit.setAttribute('class', 'con-line-hit');
       const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       labelEl.setAttribute('class', 'con-line-label');
-      const edgeId = 'ce' + (window.conGetNextId ? window.conGetNextId() : Date.now());
+      const edgeId = existingId || ('ce' + (window.conGetNextId ? window.conGetNextId() : Date.now()));
       g.dataset.eid = edgeId;
       g.appendChild(line);
       g.appendChild(labelEl);
@@ -41869,6 +41967,12 @@
           var activeEl = document.getElementById(sel.selectedNodeId);
           if (activeEl) activeEl.classList.add('con-mirror-active');
         }
+        if (sel.selectedNodeIds && sel.selectedNodeIds.length) {
+          sel.selectedNodeIds.forEach(function (nid) {
+            var el = document.getElementById(nid);
+            if (el) el.classList.add('con-mirror-active');
+          });
+        }
         // Show active/selected group (and phrase-group) highlight
         document.querySelectorAll('#constellation-board .con-group.con-mirror-active')
           .forEach(function (el) { el.classList.remove('con-mirror-active'); });
@@ -41884,6 +41988,31 @@
             var activeNoteEl = document.querySelector('#constellation-board .con-word-note[data-id="' + nid + '"]');
             if (activeNoteEl) activeNoteEl.classList.add('con-mirror-active');
           });
+        }
+        // Show active/selected drawing highlight
+        document.querySelectorAll('#constellation-board .con-drawing.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedDrawingIds && sel.selectedDrawingIds.length) {
+          sel.selectedDrawingIds.forEach(function (did) {
+            var activeDrawEl = document.querySelector('#constellation-board .con-drawing[data-did="' + did + '"]');
+            if (activeDrawEl) activeDrawEl.classList.add('con-mirror-active');
+          });
+        }
+        // Show active/selected shape highlight
+        document.querySelectorAll('#constellation-board .con-shape.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedShapeIds && sel.selectedShapeIds.length) {
+          sel.selectedShapeIds.forEach(function (sid) {
+            var activeShapeEl = document.querySelector('#constellation-board .con-shape[data-sid="' + sid + '"]');
+            if (activeShapeEl) activeShapeEl.classList.add('con-mirror-active');
+          });
+        }
+        // Show active/selected edge highlight
+        document.querySelectorAll('#constellation-svg .con-line-group.con-mirror-active')
+          .forEach(function (el) { el.classList.remove('con-mirror-active'); });
+        if (sel.selectedEdgeId) {
+          var activeEdgeEl = document.querySelector('#constellation-svg .con-line-group[data-eid="' + sel.selectedEdgeId + '"]');
+          if (activeEdgeEl) activeEdgeEl.classList.add('con-mirror-active');
         }
         if (sel.noteTextSelection !== undefined) {
           _mirrorApplyNoteTextSelection(sel.noteTextSelection);
@@ -42014,8 +42143,12 @@
 
           _mirrorApplySelectionState({
             selectedNodeId: d.selectedNodeId,
+            selectedNodeIds: d.selectedNodeIds,
             selectedGroupId: d.selectedGroupId,
             selectedNoteIds: d.selectedNoteIds,
+            selectedDrawingIds: d.selectedDrawingIds,
+            selectedShapeIds: d.selectedShapeIds,
+            selectedEdgeId: d.selectedEdgeId,
             noteTextSelection: d.noteTextSelection
           });
 
@@ -42320,6 +42453,172 @@
               nd.emojiStickers = nd.emojiStickers.filter(function (s) { return s.id !== d.id; });
             }
           });
+          return;
+        }
+
+        if (d.type === 'note-blink') {
+          if (_mirrorIsFrozen) return;
+          var nEl = document.querySelector('#constellation-board .con-word-note[data-id="' + d.noteId + '"]');
+          if (nEl) {
+            nEl.classList.toggle('wn-blink', !!d.blink);
+          }
+          var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+          var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.noteId); });
+          if (noteObj) noteObj.blink = !!d.blink;
+          return;
+        }
+
+        if (d.type === 'media-move') {
+          if (_mirrorIsFrozen) return;
+          var mEl = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
+          if (mEl) {
+            if (typeof d.x === 'number') mEl.style.left = d.x + 'px';
+            if (typeof d.y === 'number') mEl.style.top = d.y + 'px';
+          }
+          var _liveMedia = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mObj = _liveMedia.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObj) {
+            if (typeof d.x === 'number') mObj.x = d.x;
+            if (typeof d.y === 'number') mObj.y = d.y;
+          }
+          return;
+        }
+
+        if (d.type === 'table-move') {
+          if (_mirrorIsFrozen) return;
+          var tEl = document.querySelector('.con-table-el[data-tid="' + d.id + '"]');
+          if (tEl) {
+            if (typeof d.x === 'number') tEl.style.left = d.x + 'px';
+            if (typeof d.y === 'number') tEl.style.top = d.y + 'px';
+          }
+          var _liveTables = window.conGetTables ? window.conGetTables() : [];
+          var tObj = _liveTables.find(function (t) { return String(t.id) === String(d.id); });
+          if (tObj) {
+            if (typeof d.x === 'number') tObj.x = d.x;
+            if (typeof d.y === 'number') tObj.y = d.y;
+          }
+          return;
+        }
+
+        if (d.type === 'shape-move') {
+          if (_mirrorIsFrozen) return;
+          if (!d.positions || !d.positions.length) return;
+          d.positions.forEach(function (p) {
+            var sEl = document.querySelector('#constellation-board .con-shape[data-sid="' + p.id + '"]');
+            var _liveShapes = window.conGetShapes ? window.conGetShapes() : [];
+            var sObj = _liveShapes.find(function (s) { return String(s.id) === String(p.id); });
+            var pad = sObj ? (sObj.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(sObj) : 16)) : 16;
+            if (sEl) {
+              sEl.style.left = (p.x - pad) + 'px';
+              sEl.style.top = (p.y - pad) + 'px';
+            }
+            if (sObj) {
+              sObj.x = p.x;
+              sObj.y = p.y;
+            }
+          });
+          return;
+        }
+
+        if (d.type === 'drawing-move') {
+          if (_mirrorIsFrozen) return;
+          if (!d.positions || !d.positions.length) return;
+          d.positions.forEach(function (p) {
+            var dEl = document.querySelector('#constellation-board .con-drawing[data-did="' + p.id + '"]');
+            var _liveDrawings = window.conGetDrawings ? window.conGetDrawings() : [];
+            var dObj = _liveDrawings.find(function (dr) { return String(dr.id) === String(p.id); });
+            var pad = dObj ? Math.max(dObj.thickness + 4, 12) : 12;
+            if (dEl) {
+              dEl.style.left = (p.x - pad) + 'px';
+              dEl.style.top = (p.y - pad) + 'px';
+            }
+            if (dObj) {
+              dObj.x = p.x;
+              dObj.y = p.y;
+            }
+          });
+          return;
+        }
+
+        if (d.type === 'edge-move') {
+          if (_mirrorIsFrozen) return;
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
+
+        if (d.type === 'node-mask') {
+          if (_mirrorIsFrozen) return;
+          var nEl = document.getElementById(d.nodeId);
+          if (nEl && d.masked !== undefined) {
+            nEl.classList.toggle('con-masked', !!d.masked);
+          }
+          var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+          var nObj = _liveNodes.find(function (n) { return String(n.id) === String(d.nodeId); });
+          if (nObj && d.masked !== undefined) nObj.masked = !!d.masked;
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          return;
+        }
+
+        if (d.type === 'node-masks') {
+          if (_mirrorIsFrozen) return;
+          if (Array.isArray(d.masks)) {
+            var _liveNodes2 = window.conGetNodes ? window.conGetNodes() : [];
+            d.masks.forEach(function (m) {
+              var el = document.getElementById(m.id);
+              if (el && m.masked !== undefined) el.classList.toggle('con-masked', !!m.masked);
+              var obj = _liveNodes2.find(function (n) { return String(n.id) === String(m.id); });
+              if (obj && m.masked !== undefined) obj.masked = !!m.masked;
+            });
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          }
+          return;
+        }
+
+        if (d.type === 'node-lock') {
+          if (_mirrorIsFrozen) return;
+          var nEl = document.getElementById(d.nodeId);
+          if (nEl && d.locked !== undefined) {
+            nEl.classList.toggle('con-locked', !!d.locked);
+          }
+          var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+          var nObj = _liveNodes.find(function (n) { return String(n.id) === String(d.nodeId); });
+          if (nObj) nObj.locked = !!d.locked;
+          return;
+        }
+
+        if (d.type === 'note-lock') {
+          if (_mirrorIsFrozen) return;
+          var nEl = document.querySelector('#constellation-board .con-word-note[data-id="' + d.noteId + '"]');
+          if (nEl && d.locked !== undefined) {
+            nEl.classList.toggle('wn-locked', !!d.locked);
+          }
+          var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+          var nObj = _liveNotes.find(function (n) { return String(n.id) === String(d.noteId); });
+          if (nObj) nObj.locked = !!d.locked;
+          return;
+        }
+
+        if (d.type === 'group-lock') {
+          if (_mirrorIsFrozen) return;
+          var gEl = document.querySelector('#constellation-board [data-gid="' + d.groupId + '"]');
+          if (gEl && d.locked !== undefined) {
+            gEl.classList.toggle('con-group-locked', !!d.locked);
+          }
+          var _liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+          var gObj = _liveGroups.find(function (g) { return String(g.id) === String(d.groupId); });
+          if (gObj) gObj.locked = !!d.locked;
+          return;
+        }
+
+        if (d.type === 'board-bg') {
+          if (_mirrorIsFrozen) return;
+          var brd = document.getElementById('constellation-board');
+          if (brd) {
+            if (d.color) brd.style.backgroundColor = d.color;
+            if (d.style !== undefined && typeof window.conSetBoardBackgroundStyle === 'function') {
+              window.conSetBoardBackgroundStyle(d.style);
+            }
+          }
           return;
         }
       };

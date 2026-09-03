@@ -232,6 +232,12 @@
     <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none">🎓 <span id="mp-class-badge-label">Class</span></span>
     <span id="mp-active-preview-badge" class="mp-preview-active-badge" style="display:none">👤 <select id="mp-nav-student-select" class="mp-select-sm"></select></span>
 
+    <div class="de-view-switcher" id="de-view-switcher" role="group" aria-label="View Mode">
+      <button class="de-view-btn" id="btn-view-code" data-mode="code" data-i18n="deViewCode" title="Code Editor">Code</button>
+      <button class="de-view-btn active" id="btn-view-split" data-mode="split" data-i18n="deViewSplit" title="Split View">Split</button>
+      <button class="de-view-btn" id="btn-view-wysiwyg" data-mode="wysiwyg" data-i18n="deViewWysiwyg" data-i18n-title="deWysiwygOnlyHtmlTooltip" title="WYSIWYG Editor (HTML only)" disabled>WYSIWYG</button>
+    </div>
+
     <button class="nav-btn" id="btn-preview" data-i18n="dePreview">Preview</button>
     <button class="nav-btn" id="btn-pres-mode" data-i18n="dePresMode">Presentation Mode</button>
 
@@ -354,6 +360,39 @@
     <div id="css-editor-wrapper">
       <div id="css-editor-container"></div>
     </div>
+  </div>
+
+  <!-- ── WYSIWYG Toolbar (HTML mode) ────────────────────────── -->
+  <div id="de-wysiwyg-toolbar">
+    <button class="tb-btn" id="tb-undo" title="Undo (Ctrl+Z)"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /></button>
+    <button class="tb-btn" id="tb-redo" title="Redo (Ctrl+Y)"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
+    <div class="tb-sep"></div>
+    <select class="tb-select" id="tb-format-block" title="Text format">
+      <option value="p" data-i18n="deFormatParagraph">Paragraph</option>
+      <option value="h1" data-i18n="deFormatH1">Heading 1</option>
+      <option value="h2" data-i18n="deFormatH2">Heading 2</option>
+      <option value="h3" data-i18n="deFormatH3">Heading 3</option>
+      <option value="blockquote" data-i18n="deFormatBlockquote">Quote</option>
+    </select>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-bold" data-i18n-title="deFormatBold" title="Bold (Ctrl+B)"><b>B</b></button>
+    <button class="tb-btn" id="tb-italic" data-i18n-title="deFormatItalic" title="Italic (Ctrl+I)"><i>I</i></button>
+    <button class="tb-btn" id="tb-underline" data-i18n-title="deFormatUnderline" title="Underline (Ctrl+U)"><u>U</u></button>
+    <button class="tb-btn" id="tb-strike" data-i18n-title="deFormatStrike" title="Strikethrough"><s>S</s></button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-align-left" data-i18n-title="deFormatAlignLeft" title="Align Left">Left</button>
+    <button class="tb-btn" id="tb-align-center" data-i18n-title="deFormatAlignCenter" title="Center">Center</button>
+    <button class="tb-btn" id="tb-align-right" data-i18n-title="deFormatAlignRight" title="Right">Right</button>
+    <button class="tb-btn" id="tb-align-justify" data-i18n-title="deFormatAlignJustify" title="Justify">Justify</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-list-ul" data-i18n-title="deFormatBulletList" title="Bullet List">• List</button>
+    <button class="tb-btn" id="tb-list-ol" data-i18n-title="deFormatNumList" title="Numbered List">1. List</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-insert-table" data-i18n-title="deFormatTable" title="Insert Table"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Table</button>
+    <button class="tb-btn" id="tb-insert-img" data-i18n-title="deFormatInsertImage" title="Insert Image"><img src="../assets/icons/media.svg" class="btn-icon" alt="" /> Image</button>
+    <button class="tb-btn" id="tb-insert-pagebreak" data-i18n-title="deFormatPageBreak" title="Page Break">✂ Page Break</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-insert-field" data-i18n-title="deFormatMergeField" title="Insert Student Field"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> Field ▾</button>
   </div>
 
   <!-- ── Main split ────────────────────────────────────────── -->
@@ -710,7 +749,10 @@
     let pdfExportModalCallback = null;
     let fileModalMode = null;
     let fileBrowserState = null;
-    let currentDocType = 'md'; // 'md' or 'html'
+    let currentDocType = 'md'; // 'md', 'html', or 'typ'
+    let currentViewMode = 'split'; // 'code', 'split', or 'wysiwyg'
+    let wysiwygSyncTimer = null;
+    let wysiwygIsUpdatingFromEditor = false;
     let docModified = false;
     let cssModified = false;
     let currentDocMeta = {}; // in-memory copy of the sidecar .json for the open document
@@ -792,6 +834,9 @@
         btn.classList.toggle('html-mode', type === 'html');
         btn.classList.toggle('typ-mode', type === 'typ');
       }
+      if (typeof deUpdateViewSwitcherState === 'function') {
+        deUpdateViewSwitcherState();
+      }
       renderPreview();
     }
 
@@ -851,9 +896,11 @@
 
         const html = currentDocType === 'html' ? raw : marked.parse(raw);
         const container = document.getElementById('preview-content');
-        container.innerHTML = html;
-        _deExpandPageBreakComments(container);
-        await fixPreviewImages(container);
+        if (currentViewMode !== 'wysiwyg' || !container.isContentEditable || !container.contains(document.activeElement)) {
+          container.innerHTML = html;
+          _deExpandPageBreakComments(container);
+          await fixPreviewImages(container);
+        }
         
         // Update page break rulers in live preview pane
         requestAnimationFrame(() => {
@@ -1256,6 +1303,9 @@
     }
 
     function deBuildPersistedCurrentDocContent() {
+      if (currentViewMode === 'wysiwyg' && currentDocType === 'html' && typeof deSyncWysiwygToEditor === 'function') {
+        deSyncWysiwygToEditor();
+      }
       const extracted = deExtractStyleBlocks(mdEditor ? mdEditor.getValue() : '');
       const mergedCss = deMergeCssText(cssEditor ? cssEditor.getValue() : '', extracted.cssText);
       return deInjectInlineStyles(extracted.content, currentDocType, mergedCss);
@@ -1622,6 +1672,34 @@
 
     // ── Table insert ──────────────────────────────────────────
     function insertTable(cols, rows) {
+      if (currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+        let tableHtml = '<table><thead><tr>';
+        for (let c = 1; c <= cols; c++) tableHtml += '<th>Header ' + c + '</th>';
+        tableHtml += '</tr></thead><tbody>';
+        for (let r = 1; r <= rows; r++) {
+          tableHtml += '<tr>';
+          for (let c = 1; c <= cols; c++) tableHtml += '<td>Cell</td>';
+          tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody></table><p><br></p>';
+        if (typeof deExecCmd === 'function') {
+          deExecCmd('insertHTML', tableHtml);
+        }
+        return;
+      }
+      if (currentDocType === 'html') {
+        let tableHtml = '<table>\n  <thead>\n    <tr>\n';
+        for (let c = 1; c <= cols; c++) tableHtml += '      <th>Header ' + c + '</th>\n';
+        tableHtml += '    </tr>\n  </thead>\n  <tbody>\n';
+        for (let r = 1; r <= rows; r++) {
+          tableHtml += '    <tr>\n';
+          for (let c = 1; c <= cols; c++) tableHtml += '      <td>Cell</td>\n';
+          tableHtml += '    </tr>\n';
+        }
+        tableHtml += '  </tbody>\n</table>\n';
+        insertTextAtCursor('\n' + tableHtml + '\n');
+        return;
+      }
       const header = '| ' + Array.from({ length: cols }, (_, i) => 'Col ' + (i + 1)).join(' | ') + ' |';
       const sep = '| ' + Array.from({ length: cols }, () => '---').join(' | ') + ' |';
       const row = '| ' + Array.from({ length: cols }, () => '   ').join(' | ') + ' |';
@@ -1752,7 +1830,14 @@
             const filename = (r.file && r.file.filename) ? r.file.filename : name;
             const imgPath = currentDocSubdir ? currentDocSubdir + '/' + filename : filename;
             const altText = filename.replace(/\.[^.]+$/, '');
-            insertTextAtCursor('\n![' + altText + '](' + imgPath + ')\n');
+            const imgHtml = '<img src="' + escHtml(imgPath) + '" alt="' + escHtml(altText) + '" />';
+            if (currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+              if (typeof deExecCmd === 'function') deExecCmd('insertHTML', imgHtml);
+            } else if (currentDocType === 'html') {
+              insertTextAtCursor('\n' + imgHtml + '\n');
+            } else {
+              insertTextAtCursor('\n![' + altText + '](' + imgPath + ')\n');
+            }
             scheduleRender();
             showToast((t('deImageSaved') || 'Image saved: ') + name);
           } else {
@@ -1766,7 +1851,14 @@
         const reader = new FileReader();
         reader.onload = function (ev) {
           const altText = name.replace(/\.[^.]+$/, '') || 'image';
-          insertTextAtCursor('\n![' + altText + '](' + ev.target.result + ')\n');
+          const imgHtml = '<img src="' + ev.target.result + '" alt="' + escHtml(altText) + '" />';
+          if (currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+            if (typeof deExecCmd === 'function') deExecCmd('insertHTML', imgHtml);
+          } else if (currentDocType === 'html') {
+            insertTextAtCursor('\n' + imgHtml + '\n');
+          } else {
+            insertTextAtCursor('\n![' + altText + '](' + ev.target.result + ')\n');
+          }
           scheduleRender();
           showToast(t('deImageEmbedded') || 'Image embedded');
         };
@@ -1938,6 +2030,7 @@
       });
 
       mdEditor.onDidChangeModelContent(function () {
+        if (wysiwygIsUpdatingFromEditor) return;
         docModified = true;
         updateDocIndicator();
         scheduleRender();
@@ -2522,6 +2615,7 @@
         typeBtn.classList.toggle('typ-mode', currentDocType === 'typ');
       }
       if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+      deUpdateViewSwitcherState();
       currentDocMeta = {};
       deApplyManagedDocState(inlineState.cssText || '', null);
       syncPopupToState && syncPopupToState();
@@ -2588,6 +2682,7 @@
             typeBtn.classList.toggle('typ-mode', currentDocType === 'typ');
           }
           if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+          deUpdateViewSwitcherState();
           hideModal('file-modal');
           currentDocMeta = {};
           deApplyManagedDocState(mergedCss, legacy.pageLayout);
@@ -2630,6 +2725,7 @@
             typeBtn2.classList.toggle('typ-mode', currentDocType === 'typ');
           }
           if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+          deUpdateViewSwitcherState();
           currentDocMeta = {};
           deApplyManagedDocState(inlineState.cssText || '', null);
           syncPopupToState();
@@ -3042,6 +3138,7 @@
             typeBtn.classList.toggle('typ-mode', currentDocType === 'typ');
           }
           if (mdEditor) monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+          deUpdateViewSwitcherState();
 
           const inlineState = deExtractStyleBlocks(r.content || '');
           mdEditor.setValue(inlineState.content || '');
@@ -4411,8 +4508,268 @@
     }
 
     function applySplit() {
-      document.getElementById('editor-pane').style.width = (splitFraction * 100) + '%';
-      document.getElementById('preview-pane').style.width = ((1 - splitFraction) * 100) + '%';
+      const ep = document.getElementById('editor-pane');
+      const pp = document.getElementById('preview-pane');
+      const sd = document.getElementById('split-divider');
+      if (currentViewMode === 'code') {
+        if (ep) {
+          ep.style.display = 'flex';
+          ep.style.flexDirection = 'column';
+          ep.style.width = '100%';
+          ep.style.flex = '1 1 100%';
+        }
+        if (pp) pp.style.display = 'none';
+        if (sd) sd.style.display = 'none';
+      } else if (currentViewMode === 'wysiwyg') {
+        if (ep) ep.style.display = 'none';
+        if (pp) {
+          pp.style.display = 'flex';
+          pp.style.flexDirection = 'column';
+          pp.style.width = '100%';
+          pp.style.flex = '1 1 100%';
+        }
+        if (sd) sd.style.display = 'none';
+      } else {
+        if (ep) {
+          ep.style.display = 'flex';
+          ep.style.flexDirection = 'column';
+          ep.style.width = (splitFraction * 100) + '%';
+          ep.style.flex = 'none';
+        }
+        if (pp) {
+          pp.style.display = 'flex';
+          pp.style.flexDirection = 'column';
+          pp.style.width = ((1 - splitFraction) * 100) + '%';
+          pp.style.flex = 'none';
+        }
+        if (sd) sd.style.display = 'block';
+      }
+      if (mdEditor && currentViewMode !== 'wysiwyg') {
+        requestAnimationFrame(() => {
+          mdEditor.layout();
+        });
+      }
+    }
+
+    // ── WYSIWYG View Controller ──────────────────────────────
+    function deUpdateViewSwitcherState() {
+      const wysiwygBtn = document.getElementById('btn-view-wysiwyg');
+      if (!wysiwygBtn) return;
+      const isHtml = currentDocType === 'html';
+      wysiwygBtn.disabled = !isHtml;
+      if (!isHtml) {
+        wysiwygBtn.title = (window.t ? t('deWysiwygOnlyHtmlTooltip') : 'WYSIWYG editing is available for HTML documents');
+        if (currentViewMode === 'wysiwyg') {
+          deSetViewMode('split');
+        }
+      } else {
+        wysiwygBtn.title = (window.t ? t('deViewWysiwyg') : 'WYSIWYG');
+      }
+    }
+
+    function deSetViewMode(mode) {
+      if (mode === 'wysiwyg' && currentDocType !== 'html') {
+        showToast(window.t ? t('deWysiwygOnlyHtmlTooltip') : 'WYSIWYG editing is available for HTML documents', true);
+        return;
+      }
+      const prevMode = currentViewMode;
+      currentViewMode = mode;
+
+      document.querySelectorAll('.de-view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+      });
+
+      const tb = document.getElementById('de-wysiwyg-toolbar');
+      const pc = document.getElementById('preview-content');
+
+      if (prevMode === 'wysiwyg' && mode !== 'wysiwyg') {
+        deSyncWysiwygToEditor();
+      }
+
+      applySplit();
+
+      if (tb) tb.classList.toggle('visible', mode === 'wysiwyg');
+      if (pc) pc.contentEditable = (mode === 'wysiwyg') ? 'true' : 'false';
+
+      if (mode === 'code') {
+        if (mdEditor) {
+          requestAnimationFrame(() => {
+            mdEditor.layout();
+            setTimeout(() => mdEditor && mdEditor.layout(), 50);
+          });
+        }
+      } else if (mode === 'split') {
+        if (mdEditor) {
+          requestAnimationFrame(() => {
+            mdEditor.layout();
+            setTimeout(() => mdEditor && mdEditor.layout(), 50);
+          });
+        }
+        renderPreview();
+      } else if (mode === 'wysiwyg') {
+        if (pc) {
+          const raw = mdEditor ? mdEditor.getValue() : '';
+          pc.innerHTML = raw;
+          _deExpandPageBreakComments(pc);
+          fixPreviewImages(pc);
+          requestAnimationFrame(() => {
+            deUpdatePageBreakRulers(pc);
+          });
+        }
+      }
+    }
+
+    function deSyncWysiwygToEditor() {
+      if (!mdEditor || currentDocType !== 'html') return;
+      const pc = document.getElementById('preview-content');
+      if (!pc) return;
+
+      const clone = pc.cloneNode(true);
+      clone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+      clone.querySelectorAll('.de-page-break, .page-break').forEach(el => {
+        const comment = document.createComment(' pagebreak ');
+        el.replaceWith(comment);
+      });
+      clone.querySelectorAll('.mp-token-chip').forEach(el => {
+        const token = el.getAttribute('data-token') || el.textContent;
+        const textNode = document.createTextNode(token);
+        el.replaceWith(textNode);
+      });
+
+      const cleanHtml = clone.innerHTML;
+      if (cleanHtml !== mdEditor.getValue()) {
+        wysiwygIsUpdatingFromEditor = true;
+        const pos = mdEditor.getPosition();
+        mdEditor.setValue(cleanHtml);
+        if (pos) mdEditor.setPosition(pos);
+        wysiwygIsUpdatingFromEditor = false;
+        docModified = true;
+        updateDocIndicator();
+      }
+    }
+
+    function deExecCmd(cmd, value = null) {
+      const pc = document.getElementById('preview-content');
+      if (pc && currentViewMode === 'wysiwyg') {
+        pc.focus();
+      }
+      document.execCommand(cmd, false, value);
+      if (currentViewMode === 'wysiwyg') {
+        docModified = true;
+        updateDocIndicator();
+        if (wysiwygSyncTimer) clearTimeout(wysiwygSyncTimer);
+        wysiwygSyncTimer = setTimeout(deSyncWysiwygToEditor, 250);
+      }
+    }
+
+    function deFormatBlock(tag) {
+      if (!tag) return;
+      deExecCmd('formatBlock', '<' + tag + '>');
+    }
+
+    function deInsertPageBreakAtCursor() {
+      const pbHtml = '<div class="de-page-break" contenteditable="false"></div><p><br></p>';
+      deExecCmd('insertHTML', pbHtml);
+    }
+
+    function updateWysiwygToolbarState() {
+      if (currentViewMode !== 'wysiwyg' || currentDocType !== 'html') return;
+      try {
+        const isBold = document.queryCommandState('bold');
+        const isItalic = document.queryCommandState('italic');
+        const isUnderline = document.queryCommandState('underline');
+        const isStrike = document.queryCommandState('strikeThrough');
+
+        const btnB = document.getElementById('tb-bold');
+        const btnI = document.getElementById('tb-italic');
+        const btnU = document.getElementById('tb-underline');
+        const btnS = document.getElementById('tb-strike');
+
+        if (btnB) btnB.classList.toggle('active', !!isBold);
+        if (btnI) btnI.classList.toggle('active', !!isItalic);
+        if (btnU) btnU.classList.toggle('active', !!isUnderline);
+        if (btnS) btnS.classList.toggle('active', !!isStrike);
+
+        const sel = window.getSelection();
+        if (sel && sel.anchorNode) {
+          let node = sel.anchorNode;
+          if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+          const heading = node.closest('h1, h2, h3, blockquote, p');
+          const fmtSelect = document.getElementById('tb-format-block');
+          if (fmtSelect && heading) {
+            fmtSelect.value = heading.tagName.toLowerCase();
+          }
+        }
+      } catch (e) { }
+    }
+
+    function initWysiwygListeners() {
+      const pc = document.getElementById('preview-content');
+      if (!pc) return;
+
+      pc.addEventListener('input', function () {
+        if (currentViewMode !== 'wysiwyg' || currentDocType !== 'html') return;
+        docModified = true;
+        updateDocIndicator();
+        if (wysiwygSyncTimer) clearTimeout(wysiwygSyncTimer);
+        wysiwygSyncTimer = setTimeout(() => {
+          deSyncWysiwygToEditor();
+          deBroadcastState();
+        }, 300);
+      });
+
+      pc.addEventListener('keydown', function (e) {
+        if (currentViewMode !== 'wysiwyg' || currentDocType !== 'html') return;
+        if (e.ctrlKey || e.metaKey) {
+          if (e.key === 's' || e.key === 'S') {
+            e.preventDefault();
+            deSyncWysiwygToEditor();
+            saveDoc();
+          }
+        }
+      });
+
+      document.addEventListener('selectionchange', function () {
+        if (currentViewMode === 'wysiwyg') {
+          updateWysiwygToolbarState();
+        }
+      });
+
+      document.querySelectorAll('.de-view-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const mode = this.getAttribute('data-mode');
+          if (mode) deSetViewMode(mode);
+        });
+      });
+
+      const bindBtn = (id, fn) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', fn);
+      };
+
+      bindBtn('tb-undo', () => deExecCmd('undo'));
+      bindBtn('tb-redo', () => deExecCmd('redo'));
+      bindBtn('tb-bold', () => deExecCmd('bold'));
+      bindBtn('tb-italic', () => deExecCmd('italic'));
+      bindBtn('tb-underline', () => deExecCmd('underline'));
+      bindBtn('tb-strike', () => deExecCmd('strikeThrough'));
+      bindBtn('tb-align-left', () => deExecCmd('justifyLeft'));
+      bindBtn('tb-align-center', () => deExecCmd('justifyCenter'));
+      bindBtn('tb-align-right', () => deExecCmd('justifyRight'));
+      bindBtn('tb-align-justify', () => deExecCmd('justifyFull'));
+      bindBtn('tb-list-ul', () => deExecCmd('insertUnorderedList'));
+      bindBtn('tb-list-ol', () => deExecCmd('insertOrderedList'));
+      bindBtn('tb-insert-table', () => insertTable(3, 3));
+      bindBtn('tb-insert-img', () => document.getElementById('image-file-input').click());
+      bindBtn('tb-insert-pagebreak', () => deInsertPageBreakAtCursor());
+      bindBtn('tb-insert-field', () => mpOpenFieldPickerModal());
+
+      const fmtBlock = document.getElementById('tb-format-block');
+      if (fmtBlock) {
+        fmtBlock.addEventListener('change', function () {
+          deFormatBlock(this.value);
+        });
+      }
     }
 
     // ── CSS Panel toggle ──────────────────────────────────────
@@ -6578,6 +6935,11 @@
     }
 
     function mpInsertTagAtCursor(tag) {
+      if (currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+        const chip = '<span class="mp-token-chip" contenteditable="false" data-token="' + escHtml(tag) + '">' + escHtml(tag) + '</span>&nbsp;';
+        if (typeof deExecCmd === 'function') deExecCmd('insertHTML', chip);
+        return;
+      }
       if (!mdEditor) return;
       const sel = mdEditor.getSelection();
       mdEditor.executeEdits('user-insert', [{ range: sel, text: tag, forceMoveMarkers: true }]);
@@ -7143,6 +7505,8 @@
       initTablePicker();
       initImageDrop();
       initImagePaste();
+      initWysiwygListeners();
+      deUpdateViewSwitcherState();
       deBookPopulateDropdown();
 
       if (typeof mpInit === 'function') {
